@@ -3,7 +3,7 @@
 .figureStrip {
   composes: wardTokens from "./ward-tokens.module.css";
   display: grid;
-  gap: var(--ward-space-12);
+  gap: var(--ward-space-10);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 @media (min-width: 52rem) {
@@ -16,14 +16,26 @@
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
+/*
+ * ⚠️ TIGHTENED 2026-09-05 — the owner's note was that the top of a ward screen is too large, and
+ * five of these are the top of most of them. Padding 16 -> 12, internal gap 8 -> 6, and the tile
+ * moves from `--ward-subtle` onto `--surface` with the design system's own hairline and lift:
+ * SPEC §4.3 keeps `--surface-subtle` for table headers and zebra, and SPEC §4.7 separates an
+ * in-flow card with "border + shadow". A tinted tile on a white page was using the table-header
+ * role to do a card's job.
+ *
+ * The VALUE size is deliberately unchanged. It is the thing a reader came for, and shrinking the
+ * number to make the strip shorter would have traded the content for the chrome.
+ */
 .figure {
-  border: 1px solid var(--ward-border);
-  border-radius: var(--radius-sm);
-  background: var(--ward-subtle);
-  padding: var(--ward-space-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--e1);
+  padding: var(--ward-space-12) var(--ward-space-14);
   display: flex;
   flex-direction: column;
-  gap: var(--ward-space-8);
+  gap: var(--ward-space-6);
 }
 .figureLabel {
   margin: 0;
@@ -54,9 +66,18 @@
   color: var(--ward-muted);
   line-height: var(--ward-leading-copy);
 }
+/* A flagged tile carries the state in its EDGE and its figure, not in a fill. Same move as the
+   community notices: `--warning-bg` behind the words was a third carrier for a signal two
+   properties already hold, and it is the one that reads as cream. */
 .figure[data-flagged="true"] {
   border-color: var(--ward-warning);
-  background: var(--ward-warning-soft);
+  box-shadow:
+    var(--e1),
+    inset 0 2px 0 var(--ward-warning);
+}
+
+.figure[data-flagged="true"] .figureValue {
+  color: var(--ward-warning);
 }
 .figure[data-flagged="true"] .figureValue {
   color: var(--ward-warning);

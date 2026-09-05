@@ -10,6 +10,7 @@ import { referralState } from "@/components/ward-management/ward-referrals";
 import type { LucideIcon } from "lucide-react";
 import { CircleAlert, Truck } from "lucide-react";
 
+import { unitHasLockedBeds, unitHasOpenBeds } from "@/components/ward-management/ward-bed-designation";
 import {
   clockState,
   formatElapsed,
@@ -456,9 +457,19 @@ export function unitCapacity(unit: Unit, bedReleases: BedRelease[]) {
  * `ward-eligibility.ts` is a protected surface, so the gate's pass/fail semantics are deliberately
  * untouched. This is the separate, surfaced fact the shortlist and the diagram render alongside
  * the passing gate so a coordinator sees it before confirming.
+ *
+ * ⚠️ `!unitHasOpenBeds(unit)` — WHOLLY locked, not merely "has some locked beds" — deliberately,
+ * since the 2026-09-04 locked/open split added mixed wards. `MORE_RESTRICTIVE_NOTE` below says "a
+ * locked ward"; a mixed ward with open beds free is not one, and this function does not know which
+ * specific bed a mixed-ward placement would land on. Flagging every mixed ward here would call a
+ * ward "locked" that is mostly open — the exact ward-level/bed-level conflation the owner's
+ * locked/open ruling warns against — so a mixed ward raises no notice from this function; only a
+ * wholly locked one does, matching what `unit.security === "Secure"` meant before this split.
+ * (Plan author's — the implementer who ran Tasks 3 and 4 — reasoning, 2026-09-04. Not an owner
+ * ruling.)
  */
 export function isMoreRestrictiveThanRequired(movement: Movement, unit: Unit): boolean {
-  return movement.security === "Open" && unit.security === "Secure";
+  return movement.security === "Open" && !unitHasOpenBeds(unit);
 }
 
 /** The wording used wherever `isMoreRestrictiveThanRequired` is surfaced, so it reads identically
@@ -474,13 +485,51 @@ export type RestrictionNotice = { level: "voluntary_on_locked" | "more_restricti
  * neither touches an eligibility gate — `ward-eligibility.ts` is a protected surface.
  */
 export function restrictionNotice(movement: Movement, unit: Unit): RestrictionNotice | undefined {
-  if (unit.security !== "Secure") return undefined;
+  /*
+   * 🔴 **ONE GUARD WAS SERVING TWO DIFFERENT CLINICAL QUESTIONS, AND SPLITTING THEM RESTORES A
+   * WARNING THE 2026-09-04 LOCKED/OPEN CHANGE SILENTLY REMOVED.**
+   *
+   * Until now both notices sat behind a single `if (unitHasOpenBeds(unit)) return undefined` —
+   * wholly-locked wards only. The reasoning above is sound for `more_restrictive` and does not
+   * transfer to `voluntary_on_locked`, and its author said so: it disclaims owner authority and
+   * argues only the `more_restrictive` case in detail.
+   *
+   *   MORE_RESTRICTIVE   asks "is this ward tighter than this patient needs?" That is a question
+   *                      about the WARD's character. A mostly-open mixed ward is not "a locked
+   *                      ward", so calling it one would be the ward-level/bed-level conflation the
+   *                      owner's ruling warns against. **Unchanged: wholly locked only.**
+   *
+   *   VOLUNTARY_ON_LOCKED asks "might this voluntary patient end up unable to walk out?" That is a
+   *                      question about the BED, and a mixed ward has locked beds in it. **Fires
+   *                      for any ward with a locked bed.**
+   *
+   * ⚠️ **WHAT THE OLD SHARED GUARD DID, WHICH IS WHY THIS IS A REGRESSION RATHER THAN A
+   * PREFERENCE.** Before the split every "Secure" ward raised the voluntary warning. After it, only
+   * wholly-locked wards did — so `bty-adult-secure`, **the owner's own worked example of a mixed
+   * ward** (4 of 17 locked, "Ward 7 in Bentley is a locked/Open ward"), stopped warning that a
+   * voluntary patient might be placed behind its locked doors. A change made to stop the app giving
+   * a wrong clinical answer had quietly removed a clinical warning.
+   *
+   * **The notice is informational and gates nothing** — it never blocks a placement. So the failure
+   * directions are not symmetric: firing on a mixed ward costs a coordinator one sentence they can
+   * dismiss, and not firing costs them the only prompt to check a voluntary patient's legal status
+   * before admission. **Erring toward the sentence.**
+   *
+   * ⚠️ **NOTHING PINNED THE MIXED CASE IN EITHER DIRECTION.** `ward-restriction-notice.test.ts`
+   * only ever exercised a wholly-locked ward and a wholly-open one, so the old condition passed
+   * everywhere because nothing tested the case it changed — not because it was confirmed correct.
+   *
+   * **This is Ward Lead's ruling, not the owner's, and it is cheap to reverse.** It is recorded for
+   * him as a decision taken rather than a default that happened.
+   */
   if (movement.legalStatus === "Voluntary") {
+    if (!unitHasLockedBeds(unit)) return undefined;
     return {
       level: "voluntary_on_locked",
       text: "Voluntary patient on a locked ward — review legal status before admission",
     };
   }
+  if (unitHasOpenBeds(unit)) return undefined;
   if (movement.security === "Open") {
     return { level: "more_restrictive", text: "More restrictive than this movement requires" };
   }
@@ -908,7 +957,27 @@ export type HandoverSnapshot = {
    * by before. A snapshot is still taken at a moment; it is simply taken again on every render.
    */
   takenAt: Instant;
-  longestWaits: { movement: Movement; unit: Unit | undefined }[];
+  /**
+   * ⚠️ **NO RESOLVED UNIT, DELIBERATELY.** This carried `unit: Unit | undefined`, filled by
+   * `destinationUnit()` — `acceptedUnitId ?? referredUnitIds[0]` — and the handover page printed it
+   * under a column headed "Destination". On a movement with open referrals and no acceptance that
+   * named the FIRST WARD ASKED as though a ward had agreed to take the patient.
+   *
+   * The field is gone rather than corrected because a resolved `Unit` on this row is what invited
+   * the fabrication: whoever renders it has to decide what it means, and the honest answer needs
+   * the referrals too. The page now builds the cell from the movement itself, via
+   * `destinationCell()`, which keeps the three states apart.
+   */
+  longestWaits: { movement: Movement }[];
+  /**
+   * ⚠️ **STILL RESOLVED VIA `destinationUnit()`, AND THIS IS NOT THE PATTERN TO COPY.** It cannot
+   * fabricate here: every movement reaching this list has `pullExpiresAt` set, and both ways that
+   * happens guarantee an `acceptedUnitId` — `PULL_PATIENT` refuses unless
+   * `movement.acceptedUnitId === event.unitId` (`ward-flow-reducer.ts`), and all four seeded writers
+   * set `acceptedUnitId` with `referredUnitIds: []` (`ward-movements.ts`). Checked over both paths,
+   * because proving it over the reducer alone would be a claim about the reducer, not about the
+   * field. Left as it is so this repair stays the size of the defect it fixes.
+   */
   pulledBeds: { movement: Movement; unit: Unit | undefined; expired: boolean }[];
   inTransit: { movement: Movement; leg: TransportLeg | "Cancelled" | undefined }[];
   placementGoneWrong: { movement: Movement; kind: "escalated" | "declined_by_all" }[];
@@ -953,7 +1022,7 @@ export function handoverSnapshot(movements: Movement[], units: Unit[], now: Inst
 
   const longestWaits = [...open]
     .sort((a, b) => now - b.openedAt - (now - a.openedAt))
-    .map((movement) => ({ movement, unit: destinationUnit(movement, units) }));
+    .map((movement) => ({ movement }));
 
   const pulledBeds = open
     .filter((movement) => movement.pullExpiresAt !== undefined)
@@ -994,12 +1063,24 @@ export function handoverSnapshot(movements: Movement[], units: Unit[], now: Inst
  * still has zero eligible wards — and that overlap is correct, not a bug: the two lists answer
  * different questions and neither implies or excludes the other.
  *
- * THIS BOARD RECORDS AND SHOWS. IT SUGGESTS NOTHING (spec D4). No "least-bad options", no
- * ranking of wards the patient does not fit, no statement of what would need to change for a
- * ward to work. `nowhereEligible` names WHICH movements have nowhere eligible; it never names
- * which ward almost fit, or what gate is closest to passing — that would be exactly the
- * near-miss computation item 4 explicitly prohibits. `escalated` shows `triedUnitIds` resolved
- * to real `Unit` objects purely as a record of what was already tried, never as live candidates.
+ * 🔴 SPEC D4's PROHIBITION IS WITHDRAWN (owner ruling R-2026-09-04-G). What follows DESCRIBES
+ * what this function does today; it is no longer an instruction about what it may ever do.
+ *
+ * As written, this board records and shows. `nowhereEligible` names WHICH movements have nowhere
+ * eligible; it does not name which ward almost fit, or what gate is closest to passing.
+ * `escalated` resolves `triedUnitIds` to real `Unit` objects purely as a record of what was
+ * already tried, not as live candidates.
+ *
+ * ⚠️ THAT IS A STATEMENT ABOUT THE CURRENT IMPLEMENTATION, NOT A RULE. D4 said "IT SUGGESTS
+ * NOTHING — no least-bad options, no ranking of wards the patient does not fit, no near-miss
+ * computation", in capitals, with reasoning. It was never an owner ruling: it was inferred, and
+ * then obeyed by everyone who met it because it reads exactly like a safety principle. The owner
+ * has since ruled the opposite — the board is to match patients to beds — with the boundary that
+ * the software never decides, and the final acceptance comes from the users.
+ *
+ * Nothing here suggests anything YET because the matching work has not been designed, NOT because
+ * it is forbidden. A reader must be able to tell those two apart, and D4's wording made that
+ * impossible.
  *
  * Scoped to OPEN movements only (`isOpen`) — a closed movement's placement cannot still be
  * "going wrong" in a way this board exists to surface.

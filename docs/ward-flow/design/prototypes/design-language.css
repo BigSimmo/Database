@@ -1,0 +1,1362 @@
+/* ═══════════════════════════════════════════════════════════════════════
+     WARD FLOW — "Board" language, second edition.
+
+     This is a PROPOSED EVOLUTION of the canonical block in community-home.html,
+     written to the owner's brief of 2026-09-04: keep the system as inspiration,
+     lift the craft. If it is approved, the canonical block should be replaced
+     from this file — the language must stay in one place, and two editions
+     living side by side is the drift the first edition warned about.
+
+     WHAT IS KEPT, because it is clinical rather than cosmetic:
+       · State is a WORD first. Colour only ever reinforces a word already there.
+       · Contrast floor 4.5:1, computed rather than judged. Every pairing below
+         was measured against every surface it can sit on.
+       · Figures are JetBrains Mono and tabular. Anything comparable lines up.
+       · Absence is stated, never blank.
+       · Every invented figure is listed at the foot of the page.
+
+     WHAT CHANGED:
+       · A real accent. The first edition had no brand hue at all, only alarm
+         colours, so nothing on the page could be calm and important at once.
+         The accent is PsychSift's own primary, which is what ties the two
+         products together.
+       · Crisp white surfaces. The owner's standing note: no cream. Panels are
+         #ffffff and state is carried by an edge, a word and a colour — not by
+         tinting a large surface.
+       · Softer geometry. 3px corners read as a spreadsheet; 8px reads as an
+         application, without becoming a consumer app.
+       · Real elevation, used sparingly: raised for what floats, flat for what
+         sits on the page.
+       · A sticky application bar carrying identity, the ward switcher and the
+         one action you always want.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+
+  --ground: #f1f4f8;
+  --surface: #ffffff;
+  --surface-2: #f7f9fc;
+  --sunken: #eef2f7;
+
+  --ink: #0d1421;
+  --ink-2: #33415a;
+  --muted: #55637a;
+  /* 4.81:1 on the ground, 5.31:1 on white, 5.04:1 on the tinted panel head —
+       computed, not judged. The first edition's faint failed at 3.08:1 and the
+       whole quiet layer of the page went with it. */
+  --faint: #5e6c84;
+
+  --rule: #e4e9f0;
+  --rule-2: #cfd7e3;
+
+  --accent: #1d6fb8;
+  --accent-strong: #185c99;
+  --accent-wash: #eff5fc;
+  --accent-contrast: #ffffff;
+
+  --good: #0c6b41;
+  --good-wash: #f2fbf6;
+  --signal: #8a4d05;
+  --signal-wash: #fffaf2;
+  --crit: #a3190f;
+  --crit-wash: #fdf5f4;
+  --cool: #0f6b73;
+  --cool-wash: #f1fafb;
+
+  --shadow-1: 0 1px 2px rgb(13 20 33 / 0.05);
+  --shadow-2: 0 1px 3px rgb(13 20 33 / 0.07), 0 6px 16px -8px rgb(13 20 33 / 0.1);
+  --shadow-3: 0 12px 36px -14px rgb(13 20 33 / 0.3), 0 2px 8px rgb(13 20 33 / 0.08);
+
+  --r-sm: 5px;
+  --r: 8px;
+  --r-lg: 12px;
+
+  /* The production tap floor, taken from the app's own --spacing-tap (3rem)
+       rather than picked here. globals.css says of it: "Never reduce below it."
+       A dense clinical board earns tighter controls with a mouse; a thumb does
+       not, so the floor is applied at pointer:coarse and phone widths only. */
+  --tap: 3rem;
+
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0a0e15;
+    --surface: #131924;
+    --surface-2: #1a2130;
+    --sunken: #0f141d;
+    --ink: #e8edf5;
+    --ink-2: #c3cdda;
+    --muted: #98a5b8;
+    --faint: #8593a7;
+    --rule: #232c3a;
+    --rule-2: #354152;
+    --accent: #6ea8e0;
+    --accent-strong: #8dbdea;
+    --accent-wash: #132132;
+    --accent-contrast: #0a0e15;
+    --good: #4ec38d;
+    --good-wash: #0f2119;
+    --signal: #e0a63f;
+    --signal-wash: #241c0e;
+    --crit: #f0755c;
+    --crit-wash: #26130f;
+    --cool: #4fb3bd;
+    --cool-wash: #0d2124;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+    --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0a0e15;
+  --surface: #131924;
+  --surface-2: #1a2130;
+  --sunken: #0f141d;
+  --ink: #e8edf5;
+  --ink-2: #c3cdda;
+  --muted: #98a5b8;
+  --faint: #8593a7;
+  --rule: #232c3a;
+  --rule-2: #354152;
+  --accent: #6ea8e0;
+  --accent-strong: #8dbdea;
+  --accent-wash: #132132;
+  --accent-contrast: #0a0e15;
+  --good: #4ec38d;
+  --good-wash: #0f2119;
+  --signal: #e0a63f;
+  --signal-wash: #241c0e;
+  --crit: #f0755c;
+  --crit-wash: #26130f;
+  --cool: #4fb3bd;
+  --cool-wash: #0d2124;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+  --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+}
+
+/* ─── base ────────────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family:
+    "Archivo",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3,
+p,
+dl,
+dd,
+dt,
+ul,
+ol,
+figure {
+  margin: 0;
+}
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+a {
+  color: inherit;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+.skip {
+  position: absolute;
+  left: var(--sp-2);
+  top: var(--sp-2);
+  z-index: 100;
+  padding: 0.5rem 0.85rem;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-radius: var(--r-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip:focus {
+  transform: none;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.num,
+.figure,
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ─── application bar ─────────────────────────────────────────────────── */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-4);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+.mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.mark .dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+.appbar .spacer {
+  flex: 1 1 2rem;
+}
+.appbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+/* ─── THE WARD SWITCHER ────────────────────────────────────────────────
+     The owner asked for this specifically. It replaces a bare <select>, which
+     could not show a ward's designation or how many beds it has ready, sorted
+     23 unrelated names into one flat alphabetical list, and gave no way to
+     search. The network is 23 wards across 15 hospitals with beds — a list
+     that looks fine at nine becomes unusable at that size. */
+.switcher {
+  position: relative;
+}
+.switcher > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0.35rem 0.6rem 0.35rem 0.7rem;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.switcher > summary::-webkit-details-marker {
+  display: none;
+}
+.switcher > summary:hover {
+  border-color: var(--rule-2);
+  box-shadow: var(--shadow-2);
+}
+.switcher[open] > summary {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+.sw-id {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.sw-eyebrow {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint);
+  line-height: 1.4;
+}
+.sw-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.sw-chev {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.12s ease;
+}
+.switcher[open] .sw-chev {
+  transform: rotate(180deg);
+}
+.sw-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 60;
+  width: min(25rem, calc(100vw - 2rem));
+  background: var(--surface);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+}
+.sw-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface-2);
+}
+.sw-count {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.sw-scroll {
+  scrollbar-width: thin;
+}
+.sw-search input {
+  flex: 1;
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink);
+  min-width: 0;
+}
+.sw-scroll {
+  max-height: 24rem;
+  overflow-y: auto;
+  padding: var(--sp-2) 0;
+}
+.sw-group {
+  padding: var(--sp-3) var(--sp-3) var(--sp-1);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.sw-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.1rem var(--sp-3);
+  padding: 0.45rem var(--sp-3);
+  margin: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  border-left: 3px solid transparent;
+  text-decoration: none;
+}
+.sw-item:hover {
+  background: var(--surface-2);
+}
+.sw-item[aria-current="true"] {
+  background: var(--accent-wash);
+  border-left-color: var(--accent);
+}
+.sw-item-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.sw-item-meta {
+  grid-column: 1;
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+.sw-item-n {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  text-align: right;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sw-item-n b {
+  display: block;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.sw-item-n[data-none="true"] b {
+  color: var(--faint);
+}
+.sw-here {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  margin-left: 0.4rem;
+}
+.sw-foot {
+  padding: var(--sp-3);
+  border-top: 1px solid var(--rule);
+  background: var(--surface-2);
+  font-size: 0.6875rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ─── page frame ──────────────────────────────────────────────────────── */
+.shell {
+  max-width: 108rem;
+  margin: 0 auto;
+  padding: var(--sp-4) var(--sp-4) var(--sp-7);
+}
+.prototype {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding-bottom: var(--sp-3);
+}
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-bottom: var(--sp-4);
+}
+.masthead h1 {
+  font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.125rem);
+  font-weight: 700;
+  letter-spacing: -0.028em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+.eyebrow {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  display: block;
+  margin-bottom: 0.3rem;
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: var(--sp-3);
+}
+.fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 100px;
+  padding: 0.2rem 0.6rem;
+}
+.fact b {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.fact[data-tone="accent"] {
+  color: var(--accent-strong);
+  border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+  background: var(--accent-wash);
+}
+.liveness {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.pip {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--good);
+  flex: none;
+}
+
+.scope {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  padding: var(--sp-3) var(--sp-4);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-bottom: var(--sp-4);
+}
+.scope strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ─── figures strip ───────────────────────────────────────────────────── */
+.kpis {
+  display: grid;
+  gap: var(--sp-3);
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  margin-bottom: var(--sp-3);
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-1);
+  padding: var(--sp-3) var(--sp-4);
+  display: grid;
+  gap: 0.1rem;
+  border-top: 3px solid var(--rule-2);
+}
+.kpi dt {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.kpi dd .figure {
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.kpi .caption {
+  font-size: 0.6875rem;
+  color: var(--faint);
+}
+.kpi[data-tone="good"] {
+  border-top-color: var(--good);
+}
+.kpi[data-tone="good"] dd .figure {
+  color: var(--good);
+}
+.kpi[data-tone="signal"] {
+  border-top-color: var(--signal);
+}
+.kpi[data-tone="signal"] dd .figure {
+  color: var(--signal);
+}
+.kpi[data-tone="crit"] {
+  border-top-color: var(--crit);
+}
+.kpi[data-tone="crit"] dd .figure {
+  color: var(--crit);
+}
+.kpi[data-tone="accent"] {
+  border-top-color: var(--accent);
+}
+
+/* ─── body grid ───────────────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  gap: var(--sp-3);
+  align-items: start;
+}
+.col {
+  display: grid;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+@media (min-width: 62rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+@media (min-width: 90rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 21rem;
+  }
+}
+
+/* ─── panel ───────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+.panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--rule);
+}
+.panel-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.n {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+.head-act {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.blurb {
+  padding: var(--sp-3) var(--sp-4) 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.panel-body {
+  padding: var(--sp-4);
+  display: grid;
+  gap: var(--sp-3);
+}
+.panel-foot {
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--rule);
+  background: var(--surface-2);
+  font-size: 0.6875rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.panel-foot strong {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+/* ─── controls. Nothing on this page stretches. ───────────────────────── */
+.btn {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink);
+  white-space: nowrap;
+  width: auto;
+  justify-self: start;
+  text-decoration: none;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.btn:hover {
+  background: var(--surface-2);
+  border-color: var(--rule-2);
+}
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+.btn--primary:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+.btn--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+.btn--quiet:hover {
+  background: var(--sunken);
+  color: var(--ink);
+}
+.field {
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink);
+  min-width: 0;
+}
+.field--num {
+  width: 3.5rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-weight: 700;
+}
+.field-label {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 0.25rem;
+}
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: flex-end;
+}
+
+/* Hit areas. Every control keeps its typographic size and grows its BOX, so
+     nothing about the layout changes on a desktop and nothing is too small for
+     a thumb on a ward round. */
+@media (pointer: coarse), (max-width: 40rem) {
+  .btn,
+  .filter,
+  .field,
+  .switcher > summary,
+  .sw-item {
+    min-height: var(--tap);
+  }
+  .btn,
+  .filter {
+    padding-inline: var(--sp-3);
+  }
+  .seg a {
+    display: inline-flex;
+    align-items: center;
+    min-height: calc(var(--tap) - 0.5rem);
+  }
+}
+
+/* ─── chips ───────────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  color: var(--muted);
+  border-color: var(--rule-2);
+}
+.chip[data-level="urgent"] {
+  color: var(--crit);
+  border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+  background: var(--crit-wash);
+}
+.chip[data-level="stalled"] {
+  color: var(--signal);
+  border-color: color-mix(in oklab, var(--signal) 42%, transparent);
+  background: var(--signal-wash);
+}
+.chip[data-level="accepted"] {
+  color: var(--good);
+  border-color: color-mix(in oklab, var(--good) 40%, transparent);
+  background: var(--good-wash);
+}
+.chip[data-level="planned"] {
+  color: var(--cool);
+  border-color: color-mix(in oklab, var(--cool) 40%, transparent);
+  background: var(--cool-wash);
+}
+.chip[data-level="accent"] {
+  color: var(--accent-strong);
+  border-color: color-mix(in oklab, var(--accent) 38%, transparent);
+  background: var(--accent-wash);
+}
+
+/* ─── occupancy bar ───────────────────────────────────────────────────── */
+.occ {
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  display: grid;
+  gap: var(--sp-2);
+}
+.occ-bar {
+  display: flex;
+  height: 0.6rem;
+  border-radius: 100px;
+  overflow: hidden;
+  background: var(--sunken);
+}
+.occ-bar span {
+  display: block;
+}
+.occ-bar span[data-bed="ready"] {
+  background: var(--good);
+}
+.occ-bar span[data-bed="held"] {
+  background: var(--signal);
+}
+.occ-bar span[data-bed="blocked"] {
+  background: var(--crit);
+}
+.occ-bar span[data-bed="occupied"] {
+  background: var(--rule-2);
+}
+.occ-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem var(--sp-4);
+}
+.occ-key li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+.occ-key .sw {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 2px;
+  flex: none;
+  align-self: center;
+}
+.occ-key .sw[data-bed="ready"] {
+  background: var(--good);
+}
+.occ-key .sw[data-bed="held"] {
+  background: var(--signal);
+}
+.occ-key .sw[data-bed="blocked"] {
+  background: var(--crit);
+}
+.occ-key .sw[data-bed="occupied"] {
+  background: var(--rule-2);
+}
+.occ-key .sw[data-bed="leave"] {
+  background: var(--cool);
+}
+.occ-key b {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink);
+}
+.occ-key .zero {
+  color: var(--faint);
+  font-family: inherit;
+  font-weight: 500;
+}
+
+/* ─── THE BED MAP ─────────────────────────────────────────────────────── */
+.bedgroup {
+  border-top: 1px solid var(--rule);
+}
+.bedgroup > h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4) 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.bedgroup > h3 .sub {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+.beds {
+  display: grid;
+  gap: var(--sp-2);
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+}
+.bed {
+  display: grid;
+  gap: 0.1rem;
+  align-content: start;
+  padding: 0.5rem 0.55rem;
+  min-height: 4.5rem;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-2);
+  border-radius: var(--r-sm);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    transform 0.12s ease;
+}
+.bed:hover {
+  border-color: var(--rule-2);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+}
+.bed .bn {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--faint);
+  letter-spacing: 0.06em;
+}
+.bed .state {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  line-height: 1.25;
+}
+.bed .note {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.bed .stay {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.bed .stay span {
+  font-family: "Archivo", sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 0.15rem;
+}
+.bed[data-bed="ready"] {
+  border-left-color: var(--good);
+  background: var(--good-wash);
+  border-color: color-mix(in oklab, var(--good) 22%, var(--rule));
+}
+.bed[data-bed="ready"] .state {
+  color: var(--good);
+}
+.bed[data-bed="held"] {
+  border-left-color: var(--signal);
+}
+.bed[data-bed="held"] .state {
+  color: var(--signal);
+}
+.bed[data-bed="blocked"] {
+  border-left-color: var(--crit);
+}
+.bed[data-bed="blocked"] .state {
+  color: var(--crit);
+}
+.bed[data-bed="occupied"] .state {
+  color: var(--faint);
+}
+.bed[data-bed="leave"] {
+  border-left-color: var(--cool);
+}
+.bed[data-bed="leave"] .state {
+  color: var(--cool);
+}
+.bed .flagword {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+/* ─── the three daily questions ───────────────────────────────────────── */
+.ask {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-2) var(--sp-3);
+  align-items: start;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--rule);
+}
+.ask:last-child {
+  border-bottom: 0;
+}
+.ask[data-answered="yes"] {
+  background: var(--surface-2);
+}
+.ask-q {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  justify-items: start;
+}
+.ask-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.ask-when {
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+.ask-value {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+  text-align: right;
+}
+.ask-controls {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.ask-controls .grow {
+  flex: 1 1 8rem;
+}
+.answer {
+  font-size: 0.75rem;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  padding: 0.3rem 0.5rem;
+}
+
+/* ─── stacked record rows ─────────────────────────────────────────────── */
+.stack > li {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--rule);
+  display: grid;
+  gap: 0.35rem;
+}
+.stack > li:last-child {
+  border-bottom: 0;
+}
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.rid {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+.attrs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--muted);
+}
+.attrs b {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.attrs .sep {
+  color: var(--rule-2);
+}
+.acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: 0.15rem;
+}
+.note-box {
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--r-sm);
+  border: 1px solid color-mix(in oklab, var(--crit) 35%, transparent);
+  background: var(--crit-wash);
+  color: var(--crit);
+  font-weight: 500;
+}
+.note-box[data-level="soft"] {
+  border-color: color-mix(in oklab, var(--signal) 40%, transparent);
+  background: var(--signal-wash);
+  color: var(--signal);
+}
+.note-box[data-level="ok"] {
+  border-color: color-mix(in oklab, var(--good) 35%, transparent);
+  background: var(--good-wash);
+  color: var(--good);
+}
+
+/* ─── attention list ──────────────────────────────────────────────────── */
+.attention > li {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--muted);
+  border-left: 3px solid var(--signal);
+}
+.attention > li:last-child {
+  border-bottom: 0;
+}
+.attention .who {
+  display: block;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  margin-bottom: 0.1rem;
+}
+
+/* ─── empty states ────────────────────────────────────────────────────── */
+.absent {
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ─── band ────────────────────────────────────────────────────────────── */
+.band {
+  display: grid;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+}
+
+/* ─── footnote ────────────────────────────────────────────────────────── */
+.footnote {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--rule-2);
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.65;
+}
+.footnote h2 {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin: var(--sp-4) 0 var(--sp-2);
+}
+.footnote h2:first-child {
+  margin-top: 0;
+}
+.footnote li {
+  padding-left: 1rem;
+  position: relative;
+  margin-bottom: 0.3rem;
+}
+.footnote li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--rule-2);
+}
+.footnote b {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.footnote code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.6875rem;
+  background: var(--sunken);
+  border-radius: 3px;
+  padding: 0.05rem 0.25rem;
+}
+
+/* ─── high contrast ───────────────────────────────────────────────────
+     ⚠️ THE FIRST EDITION HAD NO forced-colors HANDLING ANYWHERE IN THE SHARED
+     LAYER — not in the language block, and not in ward-tokens, ward-panel,
+     ward-chip or ward-figure. A screen that adopted the layer and deleted its
+     own override was not inheriting a replacement, it was losing high-contrast
+     borders outright, and no test in this repository renders under forced
+     colours, so nothing said so.
+
+     Every token is re-pointed to a system colour, which deliberately COLLAPSES
+     the semantic hues into one. That is the mode working as intended, and it
+     is survivable here only because rule 2 holds: every state already carries
+     its own word, so nothing is lost when the colour goes. The one element
+     that carries meaning in colour alone is the occupancy bar, which is why it
+     is marked role="img" with a label and repeated as a worded key beneath. */
+@media (forced-colors: active) {
+  :root {
+    --ground: Canvas;
+    --surface: Canvas;
+    --surface-2: Canvas;
+    --sunken: Canvas;
+    --ink: CanvasText;
+    --ink-2: CanvasText;
+    --muted: CanvasText;
+    --faint: CanvasText;
+    --rule: CanvasText;
+    --rule-2: CanvasText;
+    --accent: LinkText;
+    --accent-strong: LinkText;
+    --accent-wash: Canvas;
+    --accent-contrast: Canvas;
+    --good: CanvasText;
+    --good-wash: Canvas;
+    --signal: CanvasText;
+    --signal-wash: Canvas;
+    --crit: CanvasText;
+    --crit-wash: Canvas;
+    --cool: CanvasText;
+    --cool-wash: Canvas;
+    --shadow-1: none;
+    --shadow-2: none;
+    --shadow-3: none;
+  }
+  /* Anything whose only edge was a wash now needs a drawn one, or it merges
+       into the page the moment the fill is dropped. */
+  .chip,
+  .bed,
+  .kpi,
+  .panel,
+  .fact,
+  .btn,
+  .field,
+  .filter,
+  .note-box,
+  .answer {
+    border: 1px solid CanvasText;
+  }
+  .btn--primary,
+  .filter[aria-pressed="true"] {
+    border-width: 2px;
+  }
+  .bed,
+  .kpi {
+    border-left-width: 4px;
+  }
+  .occ-bar span,
+  .occ-key .sw {
+    forced-color-adjust: none;
+  }
+}
+
+/* ─── print: the board is printed and taped up, so it must not come out
+     as white text on a colour the printer drops. ────────────────────────── */
+@media print {
+  /* Forced to a light palette by hand rather than left to the theme: a ward
+     prints this board and tapes it up, and a viewer in dark mode would
+     otherwise send white text to a printer that drops the background behind it.
+     Re-pointed on BOTH :root and the dark stamp, because a print block that
+     only sets :root loses to :root[data-theme="dark"] on specificity — the
+     stamped viewer is exactly the one who needs this and would not get it. */
+  :root,
+  :root[data-theme="dark"] {
+    --ground: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #ffffff;
+    --sunken: #ffffff;
+    --ink: #000000;
+    --ink-2: #1a1a1a;
+    --muted: #333333;
+    --faint: #444444;
+    --rule: #999999;
+    --rule-2: #666666;
+    --shadow-1: none;
+    --shadow-2: none;
+    --shadow-3: none;
+  }
+  body {
+    background: #ffffff;
+  }
+  .appbar {
+    position: static;
+    backdrop-filter: none;
+  }
+  .panel,
+  .kpi,
+  .bed {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  /* Controls do nothing on paper, and a filter bar printed as eight grey
+     lozenges reads as data rather than as a control. */
+  .btn,
+  .switcher,
+  .toolbar,
+  .skip,
+  .seg {
+    display: none;
+  }
+}

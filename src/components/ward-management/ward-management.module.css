@@ -548,6 +548,22 @@
   line-height: var(--ward-leading-prose);
 }
 
+/*
+ * The signal the two-amber ceiling withheld, stated in words.
+ *
+ * ⚠️ DELIBERATELY QUIET, AND THAT IS THE WHOLE POINT. Giving this note amber, a warning border or
+ * a raised surface would put a third "look here" on the strip — which is the exact failure the
+ * ceiling exists to prevent, reintroduced by the thing that reports it. It reads as a footnote and
+ * must stay one: the reader's eye still goes to the two flagged figures, and the sentence tells
+ * them what else is true when they get there.
+ */
+.withheldFlagNote {
+  margin: var(--ward-space-8) 0 0;
+  color: var(--ward-muted);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-prose);
+}
+
 .liveCalculationNote strong {
   color: var(--ward-heading);
   font-weight: 700;

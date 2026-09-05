@@ -22,7 +22,7 @@ import {
   suburbOptions,
   type DestinationOption,
 } from "@/components/ward-management/referrals/referral-destination-options";
-import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
+import { HISTORY_FIELDS, ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
 import { PersonScreen } from "@/components/ward-management/patients/person-screen";
 import { CONTESTED_SUBURBS, lookupCatchment } from "@/components/ward-management/ward-catchment";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
@@ -42,6 +42,7 @@ import { referrals as seededReferrals } from "@/components/ward-management/ward-
 import { WARD_NAV } from "@/components/ward-management/ward-nav";
 import { allEmergencyDepartments, allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * THE REFERRAL DESTINATION PICKER — what a referring clinician is shown at the moment of choosing.
  *
@@ -236,6 +237,7 @@ describe("Referral destinations — nothing is removed from the list", () => {
         urgency: URGENCY_LEVELS[0],
         originSiteCode: wardSites[0].code,
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
       },
     ];
 
@@ -300,6 +302,11 @@ function answerEverythingButTheDestination() {
   chooseNeed("secureBedNeeded", "no");
   chooseNeed("involuntaryBedNeeded", "no");
   chooseNeed("transportNeeded", "no");
+  // 2026-09-05: the written history's required half. Without it Send stays unavailable and every
+  // destination test that submits would fail for a reason that has nothing to do with destinations.
+  fireEvent.change(screen.getByTestId("ward-referral-intake-history"), {
+    target: { value: "Seen at home by the crisis team this morning." },
+  });
 }
 
 function destinationCheckbox(kind: string): HTMLInputElement {
@@ -510,10 +517,32 @@ describe("Referral destinations — on the screen", () => {
     expect(box).toBeChecked();
   });
 
-  it("has no free-text input anywhere on the screen", () => {
+  /*
+   * ⚠️ WAS "has no free-text input anywhere on the screen" UNTIL 2026-09-05, WHEN THE OWNER ASKED
+   * FOR A WRITTEN PATIENT HISTORY. Rewritten to the new boundary rather than deleted — see the
+   * long note on the sibling guard in `ward-referral-screens.dom.test.tsx`.
+   *
+   * The `<input>` half of this test is UNCHANGED and still absolute: every input on this screen is
+   * a radio or a checkbox. That was always the stronger half — the textarea is a named, discussed,
+   * bounded field, whereas a text input appearing among the pickers would be free text nobody
+   * decided on.
+   *
+   * ⚠️ WAS THREE TEXTAREAS, NOT ONE, UNTIL THE SAME DAY'S LATER OWNER RULING (2026-09-05) COLLAPSED
+   * `historyWhyNow` / `historyBackground` / `historyRiskAndSafety` TO ONE OPTIONAL `history` FIELD.
+   * The count below moved from 3 to 1 with it; the boundary this test guards — free text lives only
+   * in the history box(es), never among the pickers — did not change.
+   */
+  it("keeps every input a radio or checkbox, and allows free text only in the history box", () => {
     const { container } = renderForm();
 
-    expect(container.querySelectorAll("textarea")).toHaveLength(0);
+    // Floored on the population walked: a screen that rendered no history at all must go red here
+    // rather than quietly satisfying an "only expected textareas" reading.
+    expect(HISTORY_FIELDS.length).toBe(1);
+    expect([...container.querySelectorAll("textarea")].map((el) => el.getAttribute("data-testid")).sort()).toEqual(
+      HISTORY_FIELDS.map((field) => `ward-referral-intake-${field.key}`).sort(),
+    );
+    // A `contenteditable` is free text wearing no control's clothes, and nothing on this screen
+    // has ever needed one. This half stays absolute.
     expect(container.querySelectorAll("[contenteditable]")).toHaveLength(0);
 
     const inputs = [...container.querySelectorAll("input")];

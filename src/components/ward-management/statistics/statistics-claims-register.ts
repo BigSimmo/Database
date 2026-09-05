@@ -596,7 +596,14 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-screen/bed-readiness/confirmed-at-is-one-shared-field",
     renderedIn: STATISTICS_SCREEN,
-    rendered: "<code className={styles.fieldName}>BedRelease.confirmedAt</code>",
+    // Locator moved 2026-09-06 with the field-name removal. The page now says "that record's ONE
+    // shared provenance field"; the evidence below still names `confirmedAt` exactly, so a second
+    // instant appearing on the release record still turns this red.
+    // ⚠️ Lengthened immediately after the move: "ONE shared provenance field" matched TWICE —
+    // once in the rendered paragraph and once in the source comment above it that I had just
+    // written using the same phrase. The register caught it and said so by name. A locator that
+    // matches a comment as well as the page cannot say which paragraph makes the claim.
+    rendered: "record&apos;s ONE shared provenance field",
     claim: "`BedRelease` carries a single `confirmedAt`, not one instant per act on the release.",
     sourceFile: WARD_MODEL,
     evidence: BED_RELEASE_BODY,
@@ -750,7 +757,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-screen/declines/accepted-unit-id-is-written-on-acceptance",
     renderedIn: STATISTICS_SCREEN,
-    rendered: "it is set only when a ward ACCEPTS",
+    rendered: "filled in only when a ward ACCEPTS",
     claim: "The reducer sets an addressing's `acceptedUnitId` on the acceptance path and nowhere else.",
     sourceFile: WARD_REDUCER,
     evidence: 'accepted = { ...addressing, state: "accepted", acceptedUnitId: unit.id,',
@@ -759,7 +766,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-screen/declines/movement-declines-name-a-unit",
     renderedIn: STATISTICS_SCREEN,
-    rendered: "<code className={styles.fieldName}>Movement.declines</code>, which does name a unit",
+    rendered: "sits on the movement, which does name the ward",
     claim: "A movement decline records a unit id, an instant and a reason.",
     sourceFile: WARD_MODEL,
     evidence: DECLINE_BODY,
@@ -1077,7 +1084,10 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-screen/referral-to-bed/referral-id-is-nullable",
     renderedIn: STATISTICS_SCREEN,
-    rendered: "<code className={styles.fieldName}>Admission.referralId</code>",
+    // Locator moved 2026-09-06. The page now says an admission "carries the referral it came from,
+    // or nothing at all" — the nullability stated in words rather than as `string | null`. The
+    // evidence and falsifier below still pin the type.
+    rendered: "carries the referral it came from, or nothing at all",
     claim: "`Admission.referralId` is typed `string | null`, so a null is an ordinary state.",
     sourceFile: WARD_ADMISSIONS,
     evidence: "referralId: string | null;",
@@ -1184,7 +1194,10 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-overview-screen/precedent/addressing-has-one-unit-field",
     renderedIn: OVERVIEW_SCREEN,
-    rendered: "whose only unit field,",
+    // Locator moved 2026-09-06 with the field-name removal. The claim is unchanged and the page
+    // still makes it — in words rather than identifiers. Evidence and falsifier below still name
+    // `acceptedUnitId` exactly, which is what keeps this checkable.
+    rendered: "the one place a ward can be named on that record is filled in only when a ward ACCEPTS",
     claim: "`ReferralAddressing` carries exactly one field that can name a unit: `acceptedUnitId`.",
     sourceFile: WARD_MODEL,
     evidence: REFERRAL_ADDRESSING_BODY,
@@ -1193,7 +1206,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-overview-screen/precedent/movement-declines-name-a-unit",
     renderedIn: OVERVIEW_SCREEN,
-    rendered: "does name a unit,",
+    rendered: "it does name the ward,",
     claim: "A movement decline records a unit id, an instant and a reason.",
     sourceFile: WARD_MODEL,
     evidence: DECLINE_BODY,
@@ -1202,7 +1215,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-overview-screen/precedent/a-movement-is-inside-an-emergency-department",
     renderedIn: OVERVIEW_SCREEN,
-    rendered: "somebody already inside an emergency department",
+    rendered: "already inside a department",
     claim: "Every movement names the emergency department the person is physically in.",
     sourceFile: WARD_MODEL,
     evidence: "originEdId: string;",
@@ -1239,7 +1252,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-compare-screen/declines/addressing-has-one-unit-field",
     renderedIn: COMPARE_SCREEN,
-    rendered: "The one field there that CAN name a ward is",
+    rendered: "The one place a ward can be named on that record is filled in only when a ward ACCEPTS",
     claim: "`ReferralAddressing` carries exactly one field that can name a unit: `acceptedUnitId`.",
     sourceFile: WARD_MODEL,
     evidence: REFERRAL_ADDRESSING_BODY,
@@ -1248,7 +1261,11 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-compare-screen/declines/accepted-unit-id-is-written-on-acceptance",
     renderedIn: COMPARE_SCREEN,
-    rendered: "and it is set only when a ward accepts",
+    // Locator moved 2026-09-06 with the field-name removal. Both this claim and the one above are
+    // now carried by the SAME sentence on the page, which is why they share a locator: the reword
+    // merged two clauses that had been separate. The claims stay distinct here, with distinct
+    // evidence and distinct falsifiers, so they still fail independently.
+    rendered: "The one place a ward can be named on that record is filled in only when a ward ACCEPTS",
     claim: "The reducer sets an addressing's `acceptedUnitId` on the acceptance path and nowhere else.",
     sourceFile: WARD_REDUCER,
     evidence: 'accepted = { ...addressing, state: "accepted", acceptedUnitId: unit.id,',
@@ -1266,7 +1283,10 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-compare-screen/double-count/the-parallel-referral-cap-exists",
     renderedIn: COMPARE_SCREEN,
-    rendered: "<code className={styles.fieldName}>PARALLEL_REFERRAL_CAP</code>",
+    // Locator moved 2026-09-06. The page now says "up to a fixed cap" rather than naming the
+    // constant; the evidence and falsifier below still name it exactly, so a cap that stops
+    // existing still turns this red.
+    rendered: "at several wards at once, up to a fixed cap",
     claim: "A cap on how many wards one referral can be live at exists and is named `PARALLEL_REFERRAL_CAP`.",
     sourceFile: WARD_MODEL,
     evidence: "export const PARALLEL_REFERRAL_CAP = 3;",
@@ -1315,102 +1335,36 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
     falsifiedBy: SITE_BY_CODE_GAINS_A_FALLBACK,
   },
 
+  /*
+   * ⚠️ SIX `statistics-ward-screen` CLAIMS WERE REMOVED ON 2026-09-05, AND THE REASON IS THE
+   * REGISTER'S OWN INSTRUCTION RATHER THAN A JUDGEMENT: "if the paragraph was removed, remove the
+   * register entry with it".
+   *
+   * Five of them recorded that `wardStatistics()` DERIVES a figure while the page carried a
+   * paragraph explaining that the derivations existed and were not surfaced anywhere. The page now
+   * SHOWS those five figures, so the paragraph is gone and with it the sentences those claims cited.
+   * A figure on the screen is not the same kind of thing as a sentence about a figure, and pointing
+   * the old locators at the new values would have recorded a claim the page no longer makes in
+   * words.
+   *
+   * The sixth said `ward-statistics.ts` has no consumer in the app. It now has one — this page —
+   * so the claim is FALSE rather than relocated. Its own guard in
+   * `tests/ward-statistics-sections.test.ts` was written to "go red the day one appears", and it
+   * did exactly that on the commit that added the consumer. That test is inverted in the same
+   * change, because an absence guard outliving its absence is a guard that can only ever be wrong.
+   *
+   * The three `blocked/` claims beside them were NOT removed: their paragraph survives verbatim on
+   * the built page as the `Average wait after being accepted` measure.
+   */
   // ── statistics-ward-screen.tsx ────────────────────────────────────────────────────────────────
-  {
-    id: "statistics-ward-screen/computed/average-length-of-stay-is-derived",
-    renderedIn: WARD_STATS_SCREEN,
-    rendered: 'data-testid="ward-statistics-ward-computed-not-surfaced"',
-    claim: "`wardStatistics()` derives an average length of stay per ward.",
-    /**
-     * ⚠️ **RE-POINTED 2026-09-01: A CLAIM THAT A FIGURE IS DERIVED CANNOT CITE ITS TYPE
-     * DECLARATION.** This cited `averageLengthOfStayDays: number | null;` on `WardStatistics`.
-     * Replace the computing line with `const averageLengthOfStayDays = null;` and the declaration
-     * is untouched, the citation is green, and the ward screen goes on calling the figure "computed
-     * but not surfaced" when nothing computes it any more.
-     *
-     * ⚠️ **THAT IS NOT HYPOTHETICAL — IT IS WHAT ALREADY HAPPENED TO `averageWaitlistWaitMinutes`**,
-     * whose declaration on this same type is still `number | null` while every path returns a
-     * literal `null`. Its sibling claim four entries down cites the returned literal for exactly
-     * that reason, and so does `dischargeDateOutcomes`. Three claims did it right and four did not.
-     */
-    sourceFile: WARD_STATISTICS,
-    evidence:
-      "const averageLengthOfStayDays = averageStayMinutes === null ? null : averageStayMinutes / MINUTES_PER_DAY;",
-    falsifiedBy: {
-      change:
-        "The figure stops being derived and is returned as a literal null — precisely what has already happened to " +
-        "`averageWaitlistWaitMinutes` on this same type, with its declaration left in place.",
-      find: "const averageLengthOfStayDays = averageStayMinutes === null ? null : averageStayMinutes / MINUTES_PER_DAY;",
-      replaceWith: "const averageLengthOfStayDays = null;",
-    },
-  },
-  {
-    id: "statistics-ward-screen/computed/average-empty-bed-minutes-is-derived",
-    renderedIn: WARD_STATS_SCREEN,
-    rendered: "average empty-bed minutes from the pull to the person arriving",
-    claim: "`wardStatistics()` derives average empty-bed minutes per ward.",
-    /** Re-pointed 2026-09-01 from the `WardStatistics` declaration to the arithmetic — see the
-     *  average-length-of-stay entry above for why a declaration cannot witness a derivation. */
-    sourceFile: WARD_STATISTICS,
-    evidence:
-      "const emptyMinutes = forThisUnit .map((admission) => emptyBedMinutes(admission)) " +
-      ".filter((value): value is number => value !== null); const averageEmptyBedMinutes = average(emptyMinutes);",
-    falsifiedBy: {
-      change: "The figure stops being derived and is returned as a literal null, with its declaration left in place.",
-      find: "const averageEmptyBedMinutes = average(emptyMinutes);",
-      replaceWith: "const averageEmptyBedMinutes = null;",
-    },
-  },
-  {
-    id: "statistics-ward-screen/computed/discharge-date-outcomes-are-derived",
-    renderedIn: WARD_STATS_SCREEN,
-    rendered: "discharge-date outcomes as met, missed and",
-    claim: "`wardStatistics()` derives discharge-date outcomes as met, missed and moved.",
-    sourceFile: WARD_STATISTICS,
-    evidence: "dischargeDateOutcomes: { met, missed, moved, consideredCount: met + missed },",
-    falsifiedBy: {
-      change: "The outcomes stop being derived and are returned as fixed zeroes.",
-      find: "dischargeDateOutcomes: { met, missed, moved, consideredCount: met + missed },",
-      replaceWith: "dischargeDateOutcomes: { met: 0, missed: 0, moved: 0, consideredCount: 0 },",
-    },
-  },
-  {
-    id: "statistics-ward-screen/computed/ready-but-blocked-is-derived",
-    renderedIn: WARD_STATS_SCREEN,
-    rendered: "admissions ready to leave but blocked",
-    claim: "`wardStatistics()` derives a count of admissions ready to leave but blocked.",
-    /** Re-pointed 2026-09-01 from the `WardStatistics` declaration to the line that counts — see the
-     *  average-length-of-stay entry above. */
-    sourceFile: WARD_STATISTICS,
-    evidence: "const readyToLeaveCannot = liveAdmissions.filter((admission) => admission.blockReason !== null).length;",
-    falsifiedBy: {
-      change: "The count stops being derived and is returned as a fixed zero, with its declaration left in place.",
-      find: "const readyToLeaveCannot = liveAdmissions.filter((admission) => admission.blockReason !== null).length;",
-      replaceWith: "const readyToLeaveCannot = 0;",
-    },
-  },
-  {
-    id: "statistics-ward-screen/computed/long-stays-are-derived",
-    renderedIn: WARD_STATS_SCREEN,
-    rendered: "and long stays",
-    claim: "`wardStatistics()` derives a count of long stays.",
-    /** Re-pointed 2026-09-01 from the `WardStatistics` declaration to the line that counts — see the
-     *  average-length-of-stay entry above. */
-    sourceFile: WARD_STATISTICS,
-    evidence:
-      'const longStays = liveAdmissions.filter((admission) => stayBand(admission, now)?.id === "over-3-months").length;',
-    falsifiedBy: {
-      change: "The count stops being derived and is returned as a fixed zero, with its declaration left in place.",
-      find:
-        "const longStays = liveAdmissions.filter((admission) => stayBand(admission, now)?.id === " +
-        '"over-3-months").length;',
-      replaceWith: "const longStays = 0;",
-    },
-  },
   {
     id: "statistics-ward-screen/blocked/waitlist-wait-is-always-null",
     renderedIn: WARD_STATS_SCREEN,
-    rendered: 'data-testid="ward-statistics-ward-blocked-figure"',
+    // Moved 2026-09-05: the paragraph survives verbatim as the built `Average wait after being
+    // accepted` measure. The register's own instruction for a reworded claim — move the locator and
+    // re-read the sentence — and the sentence was re-read: it still says the figure is always null
+    // and still states the property of the record's instants without enumerating them.
+    rendered: 'data-testid="ward-stat-waitlist-wait"',
     claim: "`WardStatistics.averageWaitlistWaitMinutes` is returned as a literal null on every path.",
     sourceFile: WARD_STATISTICS,
     evidence: "averageWaitlistWaitMinutes: null,",
@@ -1423,7 +1377,10 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ward-screen/blocked/the-derivation-takes-admissions-only",
     renderedIn: WARD_STATS_SCREEN,
-    rendered: "because it takes admissions only, by design",
+    // Locator moved 2026-09-06: the paragraph was reworded when the owner ruled the field names
+    // off the prototype. The CLAIM is unchanged — the derivation is still given admissions only —
+    // and the sentence was re-read at the move, as this register's failure message instructs.
+    rendered: "because it is given admissions only, by design",
     claim: "`wardStatistics()` is given admissions and a clock, and no referrals.",
     sourceFile: WARD_STATISTICS,
     evidence: "export function wardStatistics(unitId: string, admissions: Admission[], now: Instant): WardStatistics {",
@@ -1438,7 +1395,16 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ward-screen/blocked/the-nearest-equivalent-measures-from-referral-raised-at",
     renderedIn: WARD_STATS_SCREEN,
-    rendered: "<code className={styles.fieldName}>Referral.raisedAt</code>",
+    /*
+     * ⚠️ LOCATOR MOVED 2026-09-06, AND THIS ONE CHANGED WHAT THE PAGE ASSERTS, SO IT IS WORTH THE
+     * NOTE. It used to point at the rendered identifier `Referral.raisedAt`. The screen now says
+     * "the moment a referral was raised" — the same claim about the referral record, made in
+     * words a coordinator reads instead of a field name. **The claim below is therefore now
+     * asserted less precisely ON THE PAGE and just as precisely HERE**, which is the whole point
+     * of a register: the evidence and the falsifier still name the exact field, so this entry
+     * goes red if `raisedAt` stops being required whatever the page happens to call it.
+     */
+    rendered: "measures from the moment a referral was raised",
     claim: "`Referral.raisedAt` exists on the referral record and is required.",
     sourceFile: WARD_MODEL,
     evidence: "source: ReferralSource; raisedAt: Instant;",
@@ -1474,7 +1440,18 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ed-screen/attributable/origin-ed-id-is-required",
     renderedIn: ED_SCREEN,
-    rendered: "<code className={styles.fieldName}>Movement.originEdId</code>",
+    /*
+     * ⚠️ **NARROWED 2026-09-05 BECAUSE THE BARE `<code>` STOPPED BEING UNIQUE.** A second sentence
+     * added to this screen the same day names the same field, so the register found the locator
+     * twice and could no longer say WHICH sentence carries the claim. It now runs on to the claim's
+     * own words — "a required field, never missing" — so the locator and the claim say the same
+     * thing and a rewrite that drops the guarantee takes the locator with it.
+     */
+    // Locator moved 2026-09-06 with the field-name removal. The GUARANTEE the note above insists
+    // must stay inside the locator — "always, never missing" — is still inside it, so a rewrite
+    // that drops the requiredness still takes the locator with it. That was the whole point of
+    // spanning the clause rather than the identifier, and it survives the reword intact.
+    rendered: "A movement says which department a person is physically in — always, never missing",
     claim: "`Movement.originEdId` is a required string, so it is never missing.",
     sourceFile: WARD_MODEL,
     evidence: "originEdId: string;",
@@ -1518,7 +1495,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ed-screen/attributable/an-ed-destination-carries-an-ed-id",
     renderedIn: ED_SCREEN,
-    rendered: "<code className={styles.fieldName}>edId</code> on its destination",
+    rendered: "names the department on its destination",
     claim: "The emergency-department destination arm carries an `edId`.",
     sourceFile: WARD_MODEL,
     evidence: "edId: string; /** WHY. See `REFERRAL_PURPOSES` — a separate axis from `kind`, on purpose. */",
@@ -1531,7 +1508,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ed-screen/attributable/raised-at-is-required",
     renderedIn: ED_SCREEN,
-    rendered: "<code className={styles.fieldName}>raisedAt</code> is always there",
+    rendered: "the moment it was raised is always recorded",
     claim: "`Referral.raisedAt` is required.",
     sourceFile: WARD_MODEL,
     evidence: "source: ReferralSource; raisedAt: Instant;",
@@ -1540,7 +1517,7 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ed-screen/attributable/triaged-at-is-optional",
     renderedIn: ED_SCREEN,
-    rendered: "<code className={styles.fieldName}>triagedAt</code> is optional",
+    rendered: "the moment it was triaged is optional",
     claim: "`Referral.triagedAt` is optional, so a referral may carry none.",
     sourceFile: WARD_MODEL,
     evidence: "triagedAt?: Instant;",
@@ -1553,7 +1530,10 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-ed-screen/near-miss/a-movement-can-close-as-did-not-proceed",
     renderedIn: ED_SCREEN,
-    rendered: "<code className={styles.fieldName}>did_not_proceed</code>",
+    // Locator moved 2026-09-06 with the field-name removal. The page now describes the outcome
+    // rather than naming its enum member; the evidence and falsifier below still pin the member,
+    // so a rename in the model still turns this red.
+    rendered: "an outcome meaning it did not",
     claim: "A movement closure records an outcome, one of which is `did_not_proceed`.",
     sourceFile: WARD_MODEL,
     evidence: 'outcome: "arrived" | "did_not_proceed";',
@@ -1878,9 +1858,30 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
     rendered: 'renders an "Other community teams" switcher',
     claim: "The team screen does render an 'Other community teams' switcher, as this page says it does.",
     sourceFile: COMMUNITY_SCREEN,
+    /*
+     * ⚠️ **RE-POINTED 2026-09-05 AFTER READING THE CODE, WHICH IS THE STEP THIS GATE EXISTS TO FORCE
+     * — not to turn a red test green.** The second-edition port moved the heading inside a
+     * `teamSwitcherHeader` div and renamed `sectionHeading` to `teamSwitcherTitle`, so the recorded
+     * fragment stopped matching. **The claim itself is unchanged and still true:** the `<nav>` is
+     * there, it still carries `aria-label="Other community teams"`, and it still renders that `<h2>`
+     * above a list of links to every other team.
+     *
+     * ⚠️ **THE FRAGMENT DELIBERATELY RUNS ON TO `teamList`, AND TWO OF US INDEPENDENTLY RE-POINTED
+     * THIS LINE TONIGHT — one stopping at the `</h2>`.** The claim on the index page is that the
+     * switcher LINKS every other team; a fragment ending at the heading evidences a heading and
+     * nothing else, so it would keep passing the day the list itself disappeared. The longer
+     * fragment is the one that carries the claim.
+     *
+     * Verified against `community-screen.tsx` by reading the `teamSwitcher` nav itself. **No line
+     * number recorded on purpose:** the earlier version of this comment cited `:626` and the block
+     * had already moved to `:972` by the time it was folded, which is what a line number in a
+     * comment always does.
+     */
     evidence:
       '<nav className={styles.teamSwitcher} aria-label="Other community teams"> ' +
-      "<h2 className={styles.sectionHeading}>Other community teams</h2> " +
+      "<div className={styles.teamSwitcherHeader}> " +
+      "<h2 className={styles.teamSwitcherTitle}>Other community teams</h2> " +
+      "</div> " +
       "<ul className={styles.teamList}>",
     falsifiedBy: {
       change:
@@ -2025,15 +2026,6 @@ export const UNEVIDENCED_CLAIMS: readonly UnevidencedClaim[] = [
       "An absence, and the one that produced the five-instants-when-there-are-seven defect. The page deliberately " +
       "no longer enumerates the instants, precisely because an enumeration is the thing that goes stale; that " +
       "restraint also removes the only substring a citation could have used.",
-  },
-  {
-    id: "statistics-ward-screen/computed/ward-statistics-has-no-consumer-in-the-app",
-    renderedIn: WARD_STATS_SCREEN,
-    claim: "`ward-statistics.ts` has no consumer in the app — only its own test.",
-    reason:
-      "An absence, and a live measurement rather than a standing truth. Already guarded by " +
-      "tests/ward-statistics-sections.test.ts, which walks src for an import of that module and goes red the " +
-      "day one appears. Not duplicated here.",
   },
   {
     id: "statistics-ed-screen/attributable/triage-can-precede-the-referral",

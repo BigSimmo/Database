@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en-AU" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CMHT team hub — v2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    />
+    <style>
+      /* ═══════════════════════════════════════════════════════════════════════
+     CMHT TEAM HUB — v2, 2026-09-05.
+
+     TWO CHANGES FROM v1, BOTH THE OWNER'S:
+
+     1. THE WARNING TEXT IS GONE. v1 carried a prototype strip, a governance
+        banner and three page-level notices before the reader reached a figure.
+        This page has none of them. One short provenance line sits at the very
+        foot, in the quiet ink, because a page of invented numbers that says
+        nothing at all about being invented is a different problem.
+
+        ⚠️ THE LIVE APP IS NOT THIS PAGE AND MUST NOT FOLLOW IT HERE. The
+        caveats that qualify a specific list — above all "this is not a
+        follow-up list" — are clinical copy, and `community-screen.tsx` keeps
+        every one of them, above the list it qualifies. This is a design
+        drawing; the constraint it drops is one only a drawing can drop.
+
+     2. THE COLOUR SCHEME IS PsychSift'S OWN, taken from the design system
+        rather than mixed here. Every value below is the resolved token value
+        from `docs/design-system/token-resolved-values.json`:
+
+          SPEC §4.3  "True-white page, cards and panels. Two non-white surfaces
+                      only — --surface-subtle (table headers, zebra) and
+                      --surface-inset (wells, inputs) — plus --surface-wash."
+          SPEC §4.7  "in-flow cards use border + shadow"
+          SPEC §2.1  "Clinical colour is reserved." Green, amber and red mean
+                      state. Never decoration, never a numeral colour.
+
+        So: white everywhere, separation by a 1.20:1 hairline plus elevation,
+        and colour used only where it means something.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+      :root {
+        color-scheme: light;
+
+        /* Surfaces — PsychSift resolved values. Three non-white roles, each with a job. */
+        --surface: #ffffff; /* page, cards, panels — all the same white */
+        --surface-subtle: #fbfcfd; /* table headers, zebra */
+        --surface-inset: #f4f7fa; /* wells and inputs, and nothing else */
+        --surface-wash: #f8fafc; /* quiet strips */
+
+        /* Ink */
+        --text-heading: #0a1220;
+        --text: #1b2533;
+        --text-muted: #55627a;
+        --decoration: #8894a6; /* rules and glyphs. NEVER a text node — 3.07:1 */
+
+        /* Lines */
+        --border: #e6ebf2; /* the card edge: 1.20:1, a true hairline */
+        --border-strong: #d3dbe5; /* emphasis only */
+
+        /* Accent */
+        --accent: #1d6fb8;
+        --accent-soft: #eff4ff;
+
+        /* State — text / bg / border triplets, used only for state */
+        --info-text: #1c4fbf;
+        --info-bg: #eff4ff;
+        --info-border: #b2ccff;
+        --success-text: #0c6b41;
+        --success-bg: #ecfdf3;
+        --success-border: #abefc6;
+        --warning-text: #8a4d05;
+        --warning-bg: #fffcf6;
+        --warning-border: #f5d9a8;
+        --danger-text: #a3190f;
+        --danger-bg: #fef3f2;
+        --danger-border: #fda29b;
+
+        /* Elevation — e1 resting, e2 cards */
+        --e1: 0 1px 2px #0d28470d;
+        --e2: 0 1px 2px #0d28470a, 0 8px 16px -8px #0d284717;
+
+        --r-sm: 0.375rem;
+        --r-md: 0.625rem;
+        --r-lg: 0.75rem;
+        --tap: 3rem;
+
+        --s1: 0.25rem;
+        --s2: 0.5rem;
+        --s3: 0.75rem;
+        --s4: 1rem;
+        --s5: 1.5rem;
+        --s6: 2rem;
+        --s7: 3rem;
+        --s8: 4rem;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          color-scheme: dark;
+          --surface: #12161a;
+          --surface-subtle: #1c2126;
+          --surface-inset: #0a0c0e;
+          --surface-wash: #161a1e;
+          --text-heading: #fbfcfd;
+          --text: #f4f6f8;
+          --text-muted: #a8b2bd;
+          --decoration: #7d8792;
+          --border: #333a41;
+          --border-strong: #47505a;
+          --accent: #74bdf0;
+          --accent-soft: #122c4c;
+          --info-text: #89c0f0;
+          --info-bg: #122c4c;
+          --info-border: #2c537f;
+          --success-text: #7de0a3;
+          --success-bg: #153f2a;
+          --success-border: #24794f;
+          --warning-text: #f2c45a;
+          --warning-bg: #3d2f14;
+          --warning-border: #725e23;
+          --danger-text: #ff9ca4;
+          --danger-bg: #401c24;
+          --danger-border: #7f2e36;
+          /* In dark, elevation is luminance rather than shadow — the ladder gains a top highlight. */
+          --e1: inset 0 1px 0 #ffffff0a, 0 1px 2px #0006;
+          --e2: inset 0 1px 0 #ffffff0d, 0 8px 18px -8px #0000007a;
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--surface);
+        color: var(--text);
+        font-family:
+          "Archivo",
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      .n {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── app bar ──────────────────────────────────────────────────────── */
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        gap: var(--s4);
+        height: 3.5rem;
+        padding: 0 var(--s6);
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .mark {
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        font-weight: 700;
+        letter-spacing: -0.015em;
+      }
+      .mark i {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .bar .grow {
+        flex: 1;
+      }
+
+      .switch {
+        display: flex;
+        align-items: center;
+        gap: var(--s3);
+        padding: 0.35rem var(--s3);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        background: var(--surface);
+        box-shadow: var(--e1);
+        cursor: pointer;
+      }
+      .switch:hover {
+        border-color: var(--border-strong);
+      }
+      .switch .lab {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.1;
+      }
+      .switch .lab small {
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .switch .lab b {
+        font-size: 0.9375rem;
+        font-weight: 650;
+        color: var(--text-heading);
+      }
+      .switch svg {
+        color: var(--decoration);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font: inherit;
+        font-size: 0.875rem;
+        font-weight: 600;
+        padding: 0.5rem 0.9rem;
+        border-radius: var(--r-md);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: var(--e1);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        border-color: var(--border-strong);
+      }
+      .btn--primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .btn--primary:hover {
+        background: #185c99;
+        border-color: #185c99;
+      }
+      .btn--sm {
+        padding: 0.35rem 0.7rem;
+        font-size: 0.8125rem;
+      }
+
+      /* ── shell ────────────────────────────────────────────────────────── */
+      .shell {
+        max-width: 84rem;
+        margin: 0 auto;
+        padding: var(--s6) var(--s6) var(--s8);
+      }
+
+      /* THE TOP IS THE PART THAT WAS TOO BIG. A 2rem headline over a 32px eyebrow over a lede over a
+     five-tile strip put roughly 260px between the app bar and the first row of real content. The
+     identity is now one line — eyebrow inline with the name, lede beside it — and the figures sit
+     directly under it. A team hub is a working screen; the name is orientation, not a title page. */
+      .head {
+        display: flex;
+        align-items: baseline;
+        gap: var(--s3) var(--s4);
+        flex-wrap: wrap;
+        margin-bottom: var(--s4);
+      }
+      .eyebrow {
+        margin: 0;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.375rem;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        color: var(--text-heading);
+        font-weight: 700;
+      }
+      .lede {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.8125rem;
+      }
+      .head .sep {
+        color: var(--border-strong);
+      }
+
+      /* ── figures ──────────────────────────────────────────────────────── */
+      /* One strip, one card, hairline-divided — five separate boxes read as five objects when this is
+     one reading. Numbers dropped from 1.875rem to 1.5rem: they were competing with the headline for
+     a reader who has already decided which figure they came for. */
+      .figs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+        margin-bottom: var(--s5);
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        background: var(--surface);
+        box-shadow: var(--e1);
+        overflow: hidden;
+      }
+      .fig {
+        padding: var(--s3) var(--s4);
+      }
+      .fig + .fig {
+        border-left: 1px solid var(--border);
+      }
+      .fig dt {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 0.35rem;
+      }
+      .fig dd {
+        margin: 0;
+      }
+      .fig .v {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        color: var(--text-heading);
+      }
+      .fig .u {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-left: 0.15rem;
+      }
+      .fig .c {
+        display: block;
+        margin-top: 0.35rem;
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+      }
+      /* Colour on a figure only where the figure IS a state. Clinical colour is reserved. */
+      /* A flagged figure inside a shared card cannot take a full border without cutting the card in
+     two. It takes a top rule in the state's own ink, and the figure's colour — two carriers, both
+     from the state triplet, neither a fill. */
+      .fig[data-state] {
+        box-shadow: inset 0 2px 0 var(--warning-text);
+      }
+      .fig[data-state] .v {
+        color: var(--warning-text);
+      }
+
+      /* ── layout ───────────────────────────────────────────────────────── */
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--s5);
+        align-items: start;
+      }
+      @media (min-width: 64rem) {
+        .grid {
+          grid-template-columns: minmax(0, 1fr) 19rem;
+        }
+      }
+      .rail {
+        display: flex;
+        flex-direction: column;
+        gap: var(--s4);
+        position: sticky;
+        top: 4.5rem;
+      }
+
+      /* ── panel ────────────────────────────────────────────────────────── */
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        box-shadow: var(--e1);
+        margin-bottom: var(--s4);
+        overflow: hidden;
+      }
+      .panel > header {
+        display: flex;
+        align-items: center;
+        gap: var(--s3);
+        padding: 0.6rem var(--s4);
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-subtle);
+      }
+      .panel h2 {
+        margin: 0;
+        font-size: 0.8125rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--text-heading);
+      }
+      .panel header .count {
+        margin-left: auto;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+      .panel .body {
+        padding: var(--s4);
+      }
+      .blurb {
+        margin: 0 0 var(--s3);
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        max-width: 76ch;
+      }
+
+      /* ── chips ────────────────────────────────────────────────────────── */
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.75rem;
+        font-weight: 650;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface-subtle);
+        color: var(--text);
+        white-space: nowrap;
+      }
+      .chip[data-s="ok"] {
+        border-color: var(--success-border);
+        background: var(--success-bg);
+        color: var(--success-text);
+      }
+      .chip[data-s="hold"] {
+        border-color: var(--warning-border);
+        background: var(--warning-bg);
+        color: var(--warning-text);
+      }
+      .chip[data-s="urgent"] {
+        border-color: var(--danger-border);
+        background: var(--danger-bg);
+        color: var(--danger-text);
+      }
+      .chip[data-s="info"] {
+        border-color: var(--info-border);
+        background: var(--info-bg);
+        color: var(--info-text);
+      }
+
+      /* ── queue ────────────────────────────────────────────────────────── */
+      .queue {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .queue li {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: var(--s2) var(--s3);
+        align-items: center;
+        padding: var(--s3) 0;
+      }
+      .queue li + li {
+        border-top: 1px solid var(--border);
+      }
+      .queue .who {
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        flex-wrap: wrap;
+      }
+      .queue .id {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-weight: 700;
+        font-size: 0.8125rem;
+        color: var(--text-heading);
+      }
+      .queue .meta {
+        grid-column: 1 / -1;
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+      }
+      .queue .meta b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .queue .acts {
+        display: flex;
+        gap: var(--s2);
+      }
+
+      /* ── table ────────────────────────────────────────────────────────── */
+      .wrap {
+        overflow-x: auto;
+        margin: 0 calc(-1 * var(--s4)) calc(-1 * var(--s4));
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        min-width: 36rem;
+      }
+      thead th {
+        text-align: left;
+        padding: var(--s2) var(--s3);
+        background: var(--surface-subtle);
+        border-block: 1px solid var(--border);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      tbody th,
+      tbody td {
+        padding: var(--s3);
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+        text-align: left;
+      }
+      tbody tr:last-child th,
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      tbody th {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-weight: 700;
+        font-size: 0.8125rem;
+        white-space: nowrap;
+        color: var(--text-heading);
+      }
+      td.num {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      tbody tr:hover {
+        background: var(--surface-wash);
+      }
+
+      /* ── lists ────────────────────────────────────────────────────────── */
+      .people {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .people li {
+        display: flex;
+        align-items: center;
+        gap: var(--s3);
+        flex-wrap: wrap;
+        padding: var(--s3) 0;
+      }
+      .people li + li {
+        border-top: 1px solid var(--border);
+      }
+      .people .id {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-weight: 700;
+        font-size: 0.8125rem;
+        color: var(--text-heading);
+      }
+      .people .from {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+      }
+      .people .when {
+        margin-left: auto;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+      }
+
+      /* ── rail ─────────────────────────────────────────────────────────── */
+      .rail .panel {
+        margin: 0;
+      }
+      .attn {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--s3);
+      }
+      .attn li {
+        border-left: 2px solid var(--warning-border);
+        padding-left: var(--s3);
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+      }
+      .attn b {
+        display: block;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 0.75rem;
+        color: var(--text-heading);
+      }
+
+      .facts {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        font-size: 0.875rem;
+      }
+      .facts li {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--s3);
+        padding: var(--s2) 0;
+      }
+      .facts li + li {
+        border-top: 1px solid var(--border);
+      }
+      .facts .k {
+        color: var(--text-muted);
+      }
+      .facts .v {
+        font-weight: 650;
+        color: var(--text-heading);
+      }
+
+      .links {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .links a {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--s3) 0;
+        text-decoration: none;
+        color: var(--text);
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+      .links li + li a {
+        border-top: 1px solid var(--border);
+      }
+      .links a:hover {
+        color: var(--accent);
+      }
+      .links span {
+        color: var(--decoration);
+      }
+
+      .empty {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.875rem;
+        font-style: normal;
+      }
+
+      .foot {
+        margin-top: var(--s7);
+        padding-top: var(--s4);
+        border-top: 1px solid var(--border);
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+
+      @media (max-width: 48rem) {
+        .shell {
+          padding: var(--s4) var(--s4) var(--s7);
+        }
+        h1 {
+          font-size: 1.5rem;
+        }
+        .btn {
+          min-height: var(--tap);
+        }
+        .queue li {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .queue .acts {
+          justify-content: flex-start;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <span class="mark"><i></i>Ward Flow</span>
+      <button class="switch" type="button">
+        <span class="lab"><small>Community team</small><b>Midland</b></span>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      <span class="grow"></span>
+      <a class="btn btn--primary" href="#queue">Answer 4 referrals</a>
+    </div>
+
+    <main class="shell">
+      <header class="head">
+        <p class="eyebrow">Community team</p>
+        <h1>Midland</h1>
+        <span class="sep">&middot;</span>
+        <p class="lede">Everyone this page can match to your team, and where each sits in the bed-flow circle.</p>
+      </header>
+
+      <dl class="figs">
+        <div class="fig">
+          <dt>Waiting for your answer</dt>
+          <dd><span class="v n">4</span></dd>
+          <span class="c">longest 2d 4h</span>
+        </div>
+        <div class="fig" data-state="flag">
+          <dt>Admitted while with you</dt>
+          <dd><span class="v n">3</span><span class="u">of 9</span></dd>
+          <span class="c">accepted before the bed began</span>
+        </div>
+        <div class="fig">
+          <dt>In a bed or holding one</dt>
+          <dd><span class="v n">9</span></dd>
+          <span class="c">8 in the bed &middot; 1 bed pulled</span>
+        </div>
+        <div class="fig">
+          <dt>Expected back</dt>
+          <dd><span class="v n">4</span></dd>
+          <span class="c">1 within 3 days</span>
+        </div>
+        <div class="fig">
+          <dt>Discharged into the area</dt>
+          <dd><span class="v n">6</span></dd>
+          <span class="c">every one on record</span>
+        </div>
+      </dl>
+
+      <div class="grid">
+        <div>
+          <section class="panel" id="queue">
+            <header>
+              <h2>Waiting for your answer</h2>
+              <span class="count">4 &middot; longest first</span>
+            </header>
+            <div class="body">
+              <p class="blurb">
+                Referrals naming Midland that have not yet been accepted or declined. Declining is a recorded answer,
+                not a refusal to engage.
+              </p>
+              <ul class="queue">
+                <li>
+                  <span class="who"
+                    ><span class="id">RF-104</span><span class="chip" data-s="urgent">Urgent</span
+                    ><span class="chip">2d 4h</span></span
+                  >
+                  <span class="acts"
+                    ><button class="btn btn--primary btn--sm" type="button">Accept</button
+                    ><button class="btn btn--sm" type="button">Decline</button></span
+                  >
+                  <span class="meta"><b>Adult</b> &middot; from Royal Perth Hospital ED &middot; transport needed</span>
+                </li>
+                <li>
+                  <span class="who"
+                    ><span class="id">RF-112</span><span class="chip">Routine</span
+                    ><span class="chip">1d 6h</span></span
+                  >
+                  <span class="acts"
+                    ><button class="btn btn--primary btn--sm" type="button">Accept</button
+                    ><button class="btn btn--sm" type="button">Decline</button></span
+                  >
+                  <span class="meta"><b>Adult</b> &middot; from a general practice</span>
+                </li>
+                <li>
+                  <span class="who"
+                    ><span class="id">RF-118</span><span class="chip">Routine</span><span class="chip">19h</span></span
+                  >
+                  <span class="acts"
+                    ><button class="btn btn--primary btn--sm" type="button">Accept</button
+                    ><button class="btn btn--sm" type="button">Decline</button></span
+                  >
+                  <span class="meta"><b>Older adult</b> &middot; from Ward 4B, Fiona Stanley Hospital</span>
+                </li>
+                <li>
+                  <span class="who"
+                    ><span class="id">RF-121</span><span class="chip" data-s="urgent">Urgent</span
+                    ><span class="chip">3h</span></span
+                  >
+                  <span class="acts"
+                    ><button class="btn btn--primary btn--sm" type="button">Accept</button
+                    ><button class="btn btn--sm" type="button">Decline</button></span
+                  >
+                  <span class="meta"><b>Adult</b> &middot; from a community service &middot; transport needed</span>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header>
+              <h2>Admitted while already with you</h2>
+              <span class="chip" data-s="hold">3 of 9</span>
+            </header>
+            <div class="body">
+              <p class="blurb">
+                People your team had already accepted before their bed began. The last column is how long they had been
+                with you when they were admitted.
+              </p>
+              <div class="wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Admission</th>
+                      <th>Unit</th>
+                      <th>In a bed for</th>
+                      <th>With you before the bed</th>
+                      <th>With you altogether</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">AD-2255</th>
+                      <td>Ward 2, Royal Perth</td>
+                      <td class="num">41 days</td>
+                      <td class="num">118 days</td>
+                      <td class="num">159 days</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2274</th>
+                      <td>Ward 4B, Fiona Stanley</td>
+                      <td class="num">26 days</td>
+                      <td class="num">62 days</td>
+                      <td class="num">88 days</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2291</th>
+                      <td>Ward 4B, Fiona Stanley</td>
+                      <td class="num">12 days</td>
+                      <td class="num">23 days</td>
+                      <td class="num">35 days</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header>
+              <h2>Yours, in a bed or holding one</h2>
+              <span class="count">9 people &middot; 5 units</span>
+            </header>
+            <div class="body">
+              <div class="wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Admission</th>
+                      <th>Unit</th>
+                      <th>State</th>
+                      <th>Days</th>
+                      <th>Came to you</th>
+                      <th>Expected back</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">AD-2255</th>
+                      <td>Ward 2, Royal Perth</td>
+                      <td><span class="chip" data-s="ok">In the bed</span></td>
+                      <td class="num">41</td>
+                      <td><span class="chip" data-s="hold">Before the bed</span></td>
+                      <td>Plan passed 2 days ago</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2274</th>
+                      <td>Ward 4B, Fiona Stanley</td>
+                      <td><span class="chip" data-s="ok">In the bed</span></td>
+                      <td class="num">26</td>
+                      <td><span class="chip" data-s="hold">Before the bed</span></td>
+                      <td>No date recorded</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2291</th>
+                      <td>Ward 4B, Fiona Stanley</td>
+                      <td><span class="chip" data-s="ok">In the bed</span></td>
+                      <td class="num">12</td>
+                      <td><span class="chip" data-s="hold">Before the bed</span></td>
+                      <td>In 3 days</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2266</th>
+                      <td>Bentley Adult</td>
+                      <td><span class="chip" data-s="ok">In the bed</span></td>
+                      <td class="num">18</td>
+                      <td>During the bed</td>
+                      <td>No date recorded</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2310</th>
+                      <td>Ward 4B, Fiona Stanley</td>
+                      <td><span class="chip" data-s="ok">In the bed</span></td>
+                      <td class="num">4</td>
+                      <td>During the bed</td>
+                      <td>In 6 days</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2302</th>
+                      <td>Alma Street, Fremantle</td>
+                      <td><span class="chip" data-s="hold">Bed pulled</span></td>
+                      <td>Not yet arrived</td>
+                      <td>During the bed</td>
+                      <td>No date recorded</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header>
+              <h2>Discharged into the area</h2>
+              <span class="count">6 &middot; every one on record</span>
+            </header>
+            <div class="body">
+              <ul class="people">
+                <li>
+                  <span class="id">AD-2240</span><span class="from">left Ward 4B, Fiona Stanley</span
+                  ><span class="when">2 days ago</span>
+                </li>
+                <li>
+                  <span class="id">AD-2231</span><span class="from">left Ward 2, Royal Perth</span
+                  ><span class="when">6 days ago</span>
+                </li>
+                <li>
+                  <span class="id">AD-2218</span><span class="from">left Alma Street, Fremantle</span
+                  ><span class="when">11 days ago</span>
+                </li>
+                <li>
+                  <span class="id">AD-2199</span><span class="from">left Bentley Adult</span
+                  ><span class="when">18 days ago</span>
+                </li>
+              </ul>
+            </div>
+          </section>
+        </div>
+
+        <aside class="rail">
+          <section class="panel">
+            <header><h2>Worth your attention</h2></header>
+            <div class="body">
+              <ul class="attn">
+                <li>
+                  <b>RF-104</b>Waiting 2 days 4 hours, urgent, and needs transport arranged before anyone can move.
+                </li>
+                <li><b>AD-2291</b>Admitted 23 days after you accepted them — the shortest gap of the three.</li>
+                <li><b>AD-2255</b>Forty-one days in a bed, and the ward's expected-back date passed two days ago.</li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header><h2>This team</h2></header>
+            <div class="body">
+              <ul class="facts">
+                <li><span class="k">Suburbs</span><span class="v n">14</span></li>
+                <li><span class="k">Open to you</span><span class="v n">19</span></li>
+                <li><span class="k">Hours, contacts</span><span class="v">Not held</span></li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header><h2>Go to</h2></header>
+            <div class="body">
+              <ul class="links">
+                <li>
+                  <a href="#">All community teams<span>&rarr;</span></a>
+                </li>
+                <li>
+                  <a href="#">Raise a referral<span>&rarr;</span></a>
+                </li>
+                <li>
+                  <a href="#">The bed board<span>&rarr;</span></a>
+                </li>
+              </ul>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <p class="foot">Design prototype &middot; every figure on this page is invented.</p>
+    </main>
+  </body>
+</html>

@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 import { WardBoard } from "@/components/ward-management/board/ward-board";
 import { admissionsForUnit } from "@/components/ward-management/ward-admissions";
@@ -206,7 +207,10 @@ describe("ward board flow column — who is coming in", () => {
     // The record holds no arrival time, no transport and no estimate. A board that invented one
     // would be read as fact by a coordinator planning around it.
     expect(panel!.textContent).not.toMatch(/\bETA\b|arriv(es|ing|al) (at|in|by)|expected to arrive/i);
-    expect(panel!.textContent).toContain("nothing about when anybody will get here");
+    expectSays(panel!.textContent ?? "", "the triage timing caveat", [
+      "when anybody will get here",
+      "nothing about when",
+    ]);
   });
 });
 
@@ -226,7 +230,7 @@ describe("ward board flow column — what is going out", () => {
       expect(text).not.toMatch(/\b(Male|Female)\b/);
       expect(text).not.toMatch(/\bfrom (Perth|Kimberley|Pilbara|Peel|Wheatbelt|Gascoyne|Goldfields|Mid West)/);
     }
-    expect(panel!.textContent).toContain("These are beds, not people");
+    expectSays(panel!.textContent ?? "", "the beds-not-people caveat", ["not people", "not a person", "not persons"]);
   });
 });
 

@@ -83,9 +83,17 @@ export type DestinationOption = {
   readonly kind: ReferralDestinationKind;
   readonly label: string;
   readonly catchment: DestinationCatchment;
-  /** Figures that bear on the choice, read off the seeded network. Never a score. */
+  /*
+   * ⚠️ "Never a score" and "never a rank" below DESCRIBE these two fields; they are no longer a
+   * prohibition on the screen. Spec D4's "it suggests nothing" was withdrawn by owner ruling
+   * R-2026-09-04-G — the board is to match patients to beds, with the user still making the final
+   * acceptance. A rank, if one is ever built, would be a NEW field carrying its own provenance,
+   * not these two quietly changing meaning: `figures` are read off the network and `reasons` are
+   * rules a clinician can disagree with, and both are worth keeping as exactly that.
+   */
+  /** Figures that bear on the choice, read off the seeded network. Not a score. */
   readonly figures: readonly string[];
-  /** Why this option is offered, as rules a clinician can disagree with. Never a rank. */
+  /** Why this option is offered, as rules a clinician can disagree with. Not a rank. */
   readonly reasons: readonly string[];
   /**
    * Whether the catchment table itself points at this option. **A suggestion, never a selection**:
@@ -268,6 +276,11 @@ function wardFigures(inputs: DestinationOptionInputs, ward: WardReferralDestinat
     urgency: 2,
     originSiteCode: "",
     transportNeeded: false,
+    // ⚠️ EMPTY, AND THAT IS THE POINT. A probe asks whether a BED accepts a REQUEST; the written
+    // history is prose about a person and no gate may ever read it (see `Referral.history`).
+    // Empty strings here are not placeholder values waiting to be filled in — they are the
+    // demonstration that the eligibility answer cannot depend on what somebody typed.
+    history: "",
   };
   const verdicts = inputs.units.map((unit) => referralEligibility(probe, ward, unit, inputs.now));
   const accepting = verdicts.filter((verdict) => verdict.eligible).length;

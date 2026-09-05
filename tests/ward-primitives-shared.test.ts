@@ -178,12 +178,75 @@ describe("the breakpoint scale", () => {
     "src/components/ward-management/ed/ed-service-bands.module.css: 60",
     "src/components/ward-management/board/board.module.css: 60",
     "src/components/ward-management/board/board.module.css: 84",
+    // MERGE 02 (2026-09-05): the Capacity screen two-column split. 64rem is already in this set;
+    // the pin is per FILE, so a new stylesheet at an existing value still needs its own row.
+    "src/components/ward-management/capacity/capacity.module.css: 64",
+    // MERGE 03 (2026-09-05): the Movements screen two-column split, same value, new file.
+    "src/components/ward-management/movements/movements.module.css: 64",
     "src/components/ward-management/coordinator/coordinator.module.css: 64",
     "src/components/ward-management/coordinator/coordinator.module.css: 90",
     "src/components/ward-management/referrals/referrals.module.css: 40",
+    // ⚠️ ADDED 2026-09-05, AND THE NUMBER IS DERIVED RATHER THAN CHOSEN — the row exists to carry
+    // that derivation, not to silence the gate. The community hub puts a 20rem rail beside its
+    // content, and its own table declares `--ward-table-min-width: 34rem` (544px) because five
+    // columns of duration text need real room. Measured on the rendered page:
+    //
+    //     at 64rem  the content column resolves to 561px  -> clears the 544px floor by 17px
+    //     at 60rem  it resolves to ~497px                 -> 47px UNDER, so the table starts
+    //                                                        scrolling sideways the moment the
+    //                                                        rail appears
+    //
+    // ⚠️ THE SCALE-COMPLIANT ALTERNATIVE WAS BUILT AND MEASURED BEFORE THIS ROW WAS WRITTEN, which
+    // is the part that makes this admissible rather than convenient. 60rem with the rail narrowed
+    // to 17rem gives 545px against a 544px floor — ONE PIXEL — which renders today and breaks on
+    // the next padding token, font change or scrollbar. One pixel is not a margin.
+    //
+    // And 64 is not a new number here: `coordinator.module.css: 64` is two rows above, and this
+    // file's own note on the previous addition records that "64 is already a pinned breakpoint in
+    // four other ward stylesheets, so it is the existing scale". This row joins that scale; it does
+    // not widen it.
+    "src/components/ward-management/community/community.module.css: 64",
+    // ⚠️ ADDED 2026-09-05, and the row exists to make the PROVENANCE visible rather than to
+    // silence the gate. This 64 arrived on the master line inside `70d4f1fa1`, a commit whose own
+    // message reads "PARKED, NOT FOR FOLDING — the owner asked for a MOCKUP first and I went
+    // straight to implementation… If the mockup takes a different direction, revert this."
+    //
+    // It is admissible because the three commits directly on top of it ARE that mockup and its
+    // lock (`b91e87041` workspace mockup v3, `5830bbd8c` "lock the referral intake design (v4)"),
+    // so the parking condition was met before it reached here — and because 64 is already a
+    // pinned breakpoint in four other ward stylesheets, so it is the existing scale rather than a
+    // new step.
+    //
+    // 🔴 WHAT IS NOT SETTLED, and it is with the owner: he asked for a mockup FIRST, and the v4
+    // design that is now live was locked by a session rather than approved by him. This row does
+    // not represent his approval of that screen. If v4 turns out to diverge from what he wants,
+    // the parked commit's own instruction applies — revert it — and this row goes with it.
+    //
+    // ── and, from Ward Builder Three, how it went unnoticed and what this guard cannot see ──
+    //
+    // ⚠️ ADDED 2026-09-05, AND THIS GATE HAD BEEN RED SINCE 70d4f1fa1 LANDED — the same failure
+    // the two `ed` rows above record, one commit later and in a file that commit's own author
+    // owned. `git log -S "min-width: 64rem"` names it: the parked two-pane intake workspace, which
+    // introduced a legitimate breakpoint (the form gains a second column at 64rem) and did not
+    // bring its rows. Found only because an unrelated visual pass on the referral BOARD happened
+    // to run this suite; nothing in the intake work would have run it, because a `readFileSync`
+    // guard is never selected by a focused run over the files a diff touches.
+    //
+    // ⚠️ ONE ROW, THOUGH THE FILE DECLARES 64rem TWICE. I wrote two, and a comment asserting two
+    // were needed, before running it with one and finding one is enough: `surprises` is a
+    // membership filter, so it de-duplicates by construction and this list pins VALUES, not
+    // occurrences. That means it cannot notice a breakpoint spreading to a second block in a file
+    // that already declares it — a real, deliberate limit of this guard, and worth knowing before
+    // anyone reads a green here as "these files declare exactly these breakpoints".
+    "src/components/ward-management/referrals/referrals.module.css: 64",
     "src/components/ward-management/ward-figure.module.css: 52",
     "src/components/ward-management/ward-figure.module.css: 76",
     "src/components/ward-management/ward-management-modes.module.css: 64",
+    // ⚠️ ADDED 2026-09-05, second-edition visual pass on QueueView/ExceptionsView/GovernanceView.
+    // Not a new step in the scale: 60rem is already pinned twice above
+    // (`board.module.css`, `ward-shared.module.css`) — this file's `.grid` two-column layout
+    // (main panel + a narrower rail) reuses that existing value rather than introducing one.
+    "src/components/ward-management/ward-modes-second-edition.module.css: 60",
     "src/components/ward-management/ward-management.module.css: 64",
     "src/components/ward-management/ward-shared.module.css: 60",
     "src/components/ward-management/ward-sidebar.module.css: 40.0625",

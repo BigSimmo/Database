@@ -47,9 +47,8 @@ import { EdScreen } from "@/components/ward-management/ed/ed-screen";
 import { EscalationBoardPage } from "@/components/ward-management/escalation/escalation-board";
 import { DischargeBoard } from "@/components/ward-management/discharges/discharge-board";
 import { HandoverPage } from "@/components/ward-management/handover/handover-page";
-import { MorningPage } from "@/components/ward-management/morning/morning-page";
 import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
-import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
+import { MovementsScreen } from "@/components/ward-management/movements/movements-screen";
 import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
 import { OutOfAreaBoard } from "@/components/ward-management/out-of-area/out-of-area-board";
 import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
@@ -59,16 +58,21 @@ import { WardBoard } from "@/components/ward-management/board/ward-board";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
 import { WardIndex } from "@/components/ward-management/wards/ward-index";
+import { unitHasLockedBeds, unitHasOpenBeds } from "@/components/ward-management/ward-bed-designation";
 import { wardServiceOrder } from "@/components/ward-management/ward-derivations";
 import type { Unit } from "@/components/ward-management/ward-model";
 import { allEmergencyDepartments, allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { wardPatients } from "@/components/ward-management/ward-patients-seed";
 import { PersonScreen } from "@/components/ward-management/patients/person-screen";
+import { DelaysScreen } from "@/components/ward-management/delays/delays-screen";
+import { CapacityScreen } from "@/components/ward-management/capacity/capacity-screen";
 
 import {
   WARD_DEVELOPER_HUB_HREF,
   WARD_NAV,
+  WARD_MODES,
+  WARD_MODES_NOT_LISTED,
   WARD_NAV_INTENTIONALLY_UNLISTED,
   WARD_REFERRAL_INTAKE_HREF,
   WARD_VIEWS,
@@ -150,7 +154,15 @@ describe("Ward Flow route enumeration (sanity check on the scan itself)", () => 
     // front door `community/[teamId]` shipped without, and it was registered in ward-nav.ts in the
     // same change that moved this number, because an index nothing links to makes nothing more
     // reachable than it already was.
-    expect(wardFlowRoutes.length).toBe(32);
+    // 33, not 32: MERGE 01 (owner-approved 2026-09-05) added `/delays` (`DelaysScreen`), which
+    // folds the priority queue, the exceptions inbox and the escalation board into one screen.
+    // `/queue`, `/exceptions` and `/escalation` all stay on disk as redirect stubs to `/delays`
+    // rather than being deleted, so this is one route ADDED, none removed: 32 + 1 = 33.
+    // STAYS 33: MERGE 02 (owner-approved 2026-09-05) folds `/capacity` and `/morning` into one
+    // screen, but adds no route (`/capacity` already existed) and deletes none (`/morning` becomes
+    // a redirect stub rather than being removed from disk) — no change to this figure. What DOES
+    // move is the renderable/redirect split the RENDERABLE_ROUTES coverage test below records.
+    expect(wardFlowRoutes.length).toBe(33);
     expect(staticRoutes).toContain(ROUTE_PREFIX);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/handover`);
     expect(staticRoutes).toContain(`${ROUTE_PREFIX}/escalation`);
@@ -506,11 +518,21 @@ describe("Ward Flow dynamic routes — what links them, and what they leave orph
     // seeded rail example. That is the failure mode a ratchet is supposed to have.
     expect(board?.builtSites).toEqual(["src/components/ward-management/ward/ward-screen.tsx"]);
     const ward = dynamicRouteScans.get("/mockups/ward-flow/ward/[unitId]");
-    // Two builders now, and the list stays exact rather than becoming a `toContain`: the ward
-    // index (Phase 8) builds one href per unit over the whole network, the role switcher builds
-    // nought to three over a selection. Which is which is the entire subject of the coverage
-    // record above, so a third builder appearing here should cost somebody a decision.
+    // THREE builders now, and the third cost a decision at the fold on 2026-09-06, which is what
+    // this exact list is for. The ward index (Phase 8) builds one href per unit over the whole
+    // network; the role switcher builds nought to three over a selection; and the delays screen now
+    // builds exactly one, on a lapsed bed pull — "Release the bed pull at {ward}".
+    //
+    // That third one was ACCEPTED rather than absorbed. It is the next step the owner approved when
+    // a bed reservation expires: the screen used to name the problem and stop, so a coordinator was
+    // told a bed had been held for someone who may never arrive and offered nowhere to go. The link
+    // is the answer to that, and it is a real navigation edge rather than an incidental href.
+    //
+    // The list stays exact rather than becoming a `toContain`: which builder is which is the entire
+    // subject of the coverage record above, so a FOURTH appearing here should cost somebody a
+    // decision in turn.
     expect([...(ward?.builtSites ?? [])].sort()).toEqual([
+      "src/components/ward-management/delays/delays-screen.tsx",
       "src/components/ward-management/ward-role-switcher.tsx",
       "src/components/ward-management/wards/ward-index.tsx",
     ]);
@@ -649,12 +671,20 @@ describe("Ward Flow navigation — single source (ward-nav.ts)", () => {
   // The eight views moved out of eight literal `<Link>` blocks and into `WARD_VIEWS` so the
   // labelled panel and drawer could render the same destinations the icon rail renders. Direction
   // 1 has to cover them too, or half the navigation would be unchecked.
+  //
+  // SEVEN, NOT EIGHT, as of MERGE 01 (owner-approved 2026-09-05): `queue` ("Priority queue") and
+  // `exceptions` ("Exceptions") were two entries for the same waiting patients; both are now one
+  // entry, `queue` relabelled "Delays" and pointed at `/mockups/ward-flow/delays`. See
+  // ward-nav.ts's own comment on `WARD_VIEWS` for the full reasoning.
+  // SIX, NOT SEVEN, as of MERGE 03 (owner-approved 2026-09-05): `movements` and `transport` were
+  // two entries asking "where is everyone right now" two different ways; both are now one entry,
+  // `movements`, rendering `MovementsScreen`. See ward-nav.ts's own comment on `WARD_VIEWS`.
   it("every WARD_VIEWS href resolves to a real static route, and ids and hrefs are unique", () => {
     const unresolved = WARD_VIEWS.filter((view) => !staticRoutes.includes(view.href)).map((view) => view.href);
     expect(unresolved, `WARD_VIEWS href(s) with no matching route: ${unresolved.join(", ")}`).toEqual([]);
     expect(new Set(WARD_VIEWS.map((view) => view.id)).size).toBe(WARD_VIEWS.length);
     expect(new Set(WARD_VIEWS.map((view) => view.href)).size).toBe(WARD_VIEWS.length);
-    expect(WARD_VIEWS).toHaveLength(8);
+    expect(WARD_VIEWS).toHaveLength(6);
   });
 
   it("no route is listed in both WARD_VIEWS and WARD_NAV", () => {
@@ -680,6 +710,89 @@ describe("Ward Flow navigation — single source (ward-nav.ts)", () => {
         false,
       );
     }
+  });
+
+  /**
+   * ⚠️ **THE TWO-WAY PROPERTY, APPLIED TO MODE IDS RATHER THAN ROUTES.** This file already refuses a
+   * route with no nav entry and a nav entry with no route, because a one-way check is what let D8
+   * ship three boards nobody could reach. Mode ids had no such check at all: `WardMode` was a
+   * hand-written union sitting beside a hand-written `WARD_VIEWS` array, and nothing compared them.
+   *
+   * 🔴 **THE TWO TOTAL `Record`s OVER THE UNION LOOK LIKE THAT CHECK AND ARE NOT.**
+   * `WARD_VIEW_ICONS` and `modeCopy` break the build when a member is ADDED WITHOUT AN ENTRY —
+   * which is a real and valuable guarantee, and a completely different one. A total `Record` proves
+   * every id HAS a value; it can never notice that six of `modeCopy`'s eight values are read by
+   * nothing. Measured 2026-09-05: `modeCopy[mode]` is only ever indexed with `governance` or
+   * `network`, the two modes a route can actually put on screen.
+   *
+   * The union is erased before this test runs, which is why `WARD_MODES` exists as a runtime list
+   * with the type derived from it. A guard specified over a type cannot execute.
+   */
+  it("every WardMode id is either a listed view or recorded as deliberately unlisted, with a reason", () => {
+    // The floor is on the POPULATION WALKED, never on the number of unlisted ids — a floor on the
+    // exceptions goes red the day somebody legitimately retires one, which trains the next person
+    // to delete the guard rather than fix the code.
+    expect(WARD_MODES.length, "WARD_MODES is empty, so every assertion below is vacuous").toBeGreaterThan(0);
+
+    const listed = new Set(WARD_VIEWS.map((view) => view.id));
+    for (const mode of WARD_MODES) {
+      const isListed = listed.has(mode);
+      const isRecorded = WARD_MODES_NOT_LISTED.has(mode);
+      expect(
+        isListed || isRecorded,
+        `the mode id "${mode}" is in neither WARD_VIEWS nor WARD_MODES_NOT_LISTED. Either give it a ` +
+          `view, or record why it is kept — an id that is reachable from nothing and explained by ` +
+          `nothing is the state a fold leaves behind and nobody notices.`,
+      ).toBe(true);
+      expect(isListed && isRecorded, `"${mode}" is both a listed view and recorded as unlisted — pick one`).toBe(false);
+    }
+  });
+
+  it("WARD_MODES_NOT_LISTED names only real mode ids, each with a substantive reason", () => {
+    for (const [mode, reason] of WARD_MODES_NOT_LISTED) {
+      expect(
+        WARD_MODES as readonly string[],
+        `"${mode}" is recorded as an unlisted mode but is no longer a WardMode id at all`,
+      ).toContain(mode);
+      // Long enough to be a reason rather than a shrug. The same shape the route-level map uses,
+      // which asks only for non-empty — this asks for more, because these entries exist to stop a
+      // future reader deleting an id whose consequences live in three other files.
+      expect(reason.trim().length, `"${mode}"'s reason is too short to tell anyone anything`).toBeGreaterThan(40);
+    }
+  });
+
+  /**
+   * ⚠️ **NOT A CLAIM THAT THE REST ARE DEAD.** `command` is excluded from `WardModeWorkspace`'s prop
+   * type, and reading only that file it looks unused; it is in fact the most-consumed mode id in
+   * the application. This pins the two consumers that make it live, so a future sweep counting
+   * `WardModeWorkspace` call sites cannot conclude from that one absence that the id is dead.
+   * Absent from ONE consumer and absent from ALL consumers are different claims that look identical
+   * from inside the consumer you happen to be reading.
+   */
+  it("keeps 'command' as a live mode id — it is absent from WardModeWorkspace, not from the application", () => {
+    expect(
+      WARD_VIEWS.map((view) => view.id),
+      "command lost its own view entry — it is the Command screen's own destination",
+    ).toContain("command");
+    expect(
+      WARD_MODES_NOT_LISTED.has("command"),
+      "command was recorded as an unlisted mode, but it IS listed — this map and WARD_VIEWS disagree",
+    ).toBe(false);
+
+    // ⚠️ COMMENTS STRIPPED. A raw read would be satisfied by prose describing this very pin — the
+    // trap `tests/route-reachability.test.ts` records in its own words, having once passed while
+    // the real link it guarded had been mutated away.
+    const coordinator = stripSourceComments(
+      readFileSync(
+        path.join(REPO_ROOT, "src", "components", "ward-management", "coordinator", "coordinator-screen.tsx"),
+        "utf8",
+      ),
+    );
+    expect(
+      coordinator,
+      'the coordinator screen no longer marks itself active in the rail with activeMode="command" — ' +
+        "if that moved, re-derive this pin against wherever it went rather than deleting it",
+    ).toMatch(/activeMode=["']command["']/u);
   });
 
   it("WARD_NAV item ids and hrefs are each unique", () => {
@@ -929,9 +1042,9 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   },
   { route: ROUTE_PREFIX, render: () => createElement(CoordinatorScreen) },
   { route: `${ROUTE_PREFIX}/queue`, render: () => createElement(WardModeWorkspace, { mode: "queue" }) },
-  { route: `${ROUTE_PREFIX}/capacity`, render: () => createElement(WardModeWorkspace, { mode: "capacity" }) },
+  { route: `${ROUTE_PREFIX}/capacity`, render: () => createElement(CapacityScreen) },
   { route: `${ROUTE_PREFIX}/governance`, render: () => createElement(WardModeWorkspace, { mode: "governance" }) },
-  { route: `${ROUTE_PREFIX}/movements`, render: () => createElement(WardModeWorkspace, { mode: "movements" }) },
+  { route: `${ROUTE_PREFIX}/movements`, render: () => createElement(MovementsScreen) },
   { route: `${ROUTE_PREFIX}/network`, render: () => createElement(WardModeWorkspace, { mode: "network" }) },
   { route: `${ROUTE_PREFIX}/exceptions`, render: () => createElement(WardModeWorkspace, { mode: "exceptions" }) },
   { route: `${ROUTE_PREFIX}/ed/[edId]`, render: () => createElement(EdScreen, { edId: "peel-ed" }) },
@@ -942,9 +1055,7 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/escalation`, render: () => createElement(EscalationBoardPage) },
   { route: `${ROUTE_PREFIX}/discharges`, render: () => createElement(DischargeBoard) },
   { route: `${ROUTE_PREFIX}/handover`, render: () => createElement(HandoverPage) },
-  { route: `${ROUTE_PREFIX}/morning`, render: () => createElement(MorningPage) },
   { route: `${ROUTE_PREFIX}/search`, render: () => createElement(PatientSearchPage) },
-  { route: `${ROUTE_PREFIX}/transport`, render: () => createElement(LiveTracker) },
   { route: `${ROUTE_PREFIX}/transport/officer`, render: () => createElement(OfficerScreen) },
   { route: `${ROUTE_PREFIX}/ward/[unitId]`, render: () => createElement(WardScreen, { unitId: "rph-adult-secure" }) },
   {
@@ -965,14 +1076,26 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/out-of-area`, render: () => createElement(OutOfAreaBoard) },
   { route: `${ROUTE_PREFIX}/wards`, render: () => createElement(WardIndex) },
   { route: `${ROUTE_PREFIX}/community`, render: () => createElement(CommunityIndex) },
+  { route: `${ROUTE_PREFIX}/delays`, render: () => createElement(DelaysScreen) },
 ];
 
 describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on the map)", () => {
-  it("RENDERABLE_ROUTES covers every route the filesystem scan found except the redirect-only stub, and nothing else", () => {
+  it("RENDERABLE_ROUTES covers every route the filesystem scan found except the redirect-only stubs, and nothing else", () => {
     const scanned = new Set(wardFlowRoutes.map((entry) => entry.route));
     const mapped = new Set(RENDERABLE_ROUTES.map((entry) => entry.route));
-    const redirectOnly = `${ROUTE_PREFIX}/constellation`;
-    const uncovered = [...scanned].filter((route) => route !== redirectOnly && !mapped.has(route));
+    // MERGE 02 (owner-approved 2026-09-05) added `/mockups/ward-flow/morning` to this set alongside
+    // `/constellation`: its route is now a `redirect()`-only stub (see morning/page.tsx's own doc
+    // comment), so it renders nothing of its own and has no RENDERABLE_ROUTES entry, exactly like
+    // `/constellation` already didn't. Unlike MERGE 01's `/queue`, `/exceptions` and `/escalation` —
+    // which kept their old renders here because this test predates a REDIRECT_ONLY_ROUTES-style set
+    // and nobody moved them — `/morning` takes the newer, correct path: a redirect-only route is
+    // named here rather than mapped to a component nothing on disk actually renders any more.
+    const redirectOnlyRoutes = new Set([
+      `${ROUTE_PREFIX}/constellation`,
+      `${ROUTE_PREFIX}/morning`,
+      `${ROUTE_PREFIX}/transport`,
+    ]);
+    const uncovered = [...scanned].filter((route) => !redirectOnlyRoutes.has(route) && !mapped.has(route));
     const stale = [...mapped].filter((route) => !scanned.has(route));
     expect(uncovered, `route(s) on disk with no test coverage: ${uncovered.join(", ")}`).toEqual([]);
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
@@ -985,7 +1108,20 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
     // both files together, which is exactly what the paragraph above asks of a future route.
     // 30 with the community team index (`/community`, `CommunityIndex`) — 2026-09-01. Moved in both
     // files together, again.
-    expect(RENDERABLE_ROUTES.length).toBe(31);
+    // 32 with `/delays` (`DelaysScreen`) — MERGE 01, owner-approved 2026-09-05. Moved in both files
+    // together, again; `/queue`, `/exceptions` and `/escalation` keep their existing entries here
+    // unchanged, since this test only checks that every route on disk renders something sane, not
+    // what a live visit to that route actually does.
+    // 31, not 32: MERGE 02 (owner-approved 2026-09-05) folded the morning bed state board into
+    // `CapacityScreen` (`/capacity`'s entry now points there, in place, so that swap costs no
+    // count) and removed `/morning`'s entry entirely rather than leaving a stale render behind it —
+    // see the redirectOnlyRoutes comment above. One entry removed, none added: 32 - 1 = 31.
+    // 30, not 31: MERGE 03 (owner-approved 2026-09-05) folded the live vehicle tracker into
+    // `MovementsScreen` (`/movements`'s entry now renders it, in place, so that swap costs no
+    // count) and removed `/transport`'s entry entirely, joining `/transport` to redirectOnlyRoutes
+    // above rather than leaving a stale `LiveTracker` render behind it. One entry removed, none
+    // added: 31 - 1 = 30.
+    expect(RENDERABLE_ROUTES.length).toBe(30);
   });
 });
 
@@ -1115,6 +1251,20 @@ function renderedCopyIn(markup: string): string[] {
 }
 
 /**
+ * Mirrors the unexported `wardKindWord` in `ward-index.tsx` exactly. Kept as a duplicate rather
+ * than exported for a test to import, because the whole reason that function is not
+ * `designationSummary` is that this ONE page promises "no bed numbers" — a private, page-local
+ * word rather than a shared numeric summary. Any drift between this copy and the component's own
+ * would show up as an "unexpected copy" failure below, the same way every other divergence here
+ * would.
+ */
+function wardKindWord(unit: Unit): string {
+  if (unitHasLockedBeds(unit) && unitHasOpenBeds(unit)) return "Mixed";
+  if (unitHasLockedBeds(unit)) return "Locked";
+  return "Open";
+}
+
+/**
  * Every fixed sentence `ward-index.tsx` renders, written out. Not a sample and not a prefix list —
  * the allowlist below is only an allowlist if this is the whole of the page's non-derived copy, so
  * a sentence the component renders and this list omits is a failure, which is the point. The last
@@ -1125,7 +1275,15 @@ const WARD_INDEX_FIXED_COPY: readonly string[] = [
   "Synthetic prototype",
   "This page is",
   "not a medical device",
-  ". Every ward listed here is invented, and nothing on it has been checked against a real service.",
+  // ⚠️ UPDATED 2026-09-04, and the update IS the finding. The old sentence read ". Every ward
+  // listed here is invented, and nothing on it has been checked against a real service." That was
+  // false: the East Metropolitan Youth Unit is a real unit the product owner supplied on
+  // 2026-08-27 (`ward-sites.ts`), and this page renders `unit.name` for every unit. The banner
+  // that exists to stop a clinician mistaking invented data for real was itself telling them a
+  // real ward was invented.
+  ". Every ward listed here is invented except the East Metropolitan Youth Unit at Bentley Health Service, " +
+    "whose name and site the product owner supplied; its bed numbers are invented like every other figure on " +
+    "this page. Nothing here has been checked against a real service.",
   "All wards",
   "Every ward in this prototype's network, by health service.",
   "This is a way in, not a bed state. It shows what each ward is and links to it — no bed numbers, no availability " +
@@ -1249,9 +1407,55 @@ describe("Ward index — every ward in the network has a way in", () => {
   });
 
   it("is an index and not a second bed board — its rendered copy is only what this test allows", () => {
-    // The owner's restraint decision, given a shape that can fail. Two surfaces answering one
-    // question in wording that can drift is this project's most reliable defect; the index answers
-    // "what is this ward and how do I get to it", and nothing else.
+    // ⚠️ RATIFIED BY THE OWNER ON 2026-09-04 — a DIFFERENT fact from the correction below. The
+    // restraint was put to him as an open question and he ruled the page stays names only, so it
+    // now has a real decision behind it. The provenance finding below stands: the gap was closed by
+    // somebody DECIDING, not by anybody finding the ruling that was missing. Written as two facts
+    // rather than one because a note saying only "the owner ruled it" would make a search that
+    // found nothing look like a search that failed. It did not fail — there was nothing there.
+    //
+    // ⚠️ ATTRIBUTION CORRECTED 2026-09-04: this is NOT a RECORDED owner ruling, and this comment used
+    // to say it was. The verdict is UNTRACEABLE, not INFERRED — a distinction that matters and that
+    // an earlier version of this note got wrong. INFERRED means positive evidence that a session
+    // reasoned its way to the rule; spec D4 has that, because its own withdrawal records it. This
+    // one does not. What is established is where the CLAIM first appears, not where the BELIEF came
+    // from: the session may have been given an instruction it failed to cite. "We could not find it"
+    // must not masquerade as "we know we invented it", and the costly direction is concluding
+    // invention about a rule the owner actually gave, because the next step is somebody removing it.
+    //
+    // ⚠️ AND CITING NOTHING PREDICTS NOTHING. Two rules in ui-ward-coordinator.spec.ts both cite no
+    // authority: "Nothing is allocated until a human refers" is RULED (owner's words, "Keep advising
+    // and let the clinician decide!"), and "the score must never read as clinical severity" is
+    // inferred. A missing citation is where a trace starts, never where it ends.
+    //
+    // Provenance search over 4,800+ doc files across the working tree and both ward branches,
+    // by content rather than filename, found no quoted owner instruction, Q&A record or decision-log
+    // entry for the digit ban, the "All wards" wording, or the "not a second bed board" restraint.
+    // The attribution traces to ONE uncited sentence in the commit that built this page and this test
+    // together (e06427196, 2026-08-29): "the owner restraint decision, now guarded by a test rather
+    // than by good intentions". Everything downstream repeats it as settled fact, and a second
+    // session later cited it as "ward-index.tsx's ruling applied verbatim" for another screen.
+    // ⚠️ VERIFIED NEGATIVE, 2026-09-04: that citation did NOT reach community-index's code — checked,
+    // and recorded here because an absence somebody verified and an absence nobody looked for are
+    // indistinguishable six weeks from now, and the next reader will not re-derive it.
+    //
+    // The method was calibrated on two known cases before being trusted: it returns INFERRED for
+    // spec D4 (withdrawn as R-2026-09-04-G, which says D4 "was never an owner ruling") and RULED for
+    // the coordinator-override rule, whose record sits in a file with no `owner-` prefix. A method
+    // that got either wrong would prove nothing about this one.
+    //
+    // ⚠️ INFERRED IS NOT WRONG, AND THE TEST STAYS. The reason behind it is real and is not
+    // hypothetical: ward-screen.tsx records the same unit reading "Potential 1" on one screen and
+    // "Confirmed 1, Expected 0" on another, for the same release. What the rest of the codebase did
+    // about that was single-source the derivation — eight surfaces now share one breakdown — rather
+    // than omit the figure. This page is the one surface that answers it by omission. Whether that
+    // stands is an OPEN DESIGN QUESTION for the owner, reopened by Ward Lead the same day; it is not
+    // settled by this finding, and "nobody ruled it" is not licence to lift it. Removing this
+    // restraint is a second decision and it is the owner's.
+    //
+    // Until then the restraint is enforced exactly as before. Two surfaces answering one question in
+    // wording that can drift is this project's most reliable defect; the index answers "what is this
+    // ward and how do I get to it", and nothing else.
     //
     // An ALLOWLIST, and that shape is the point. A blocklist of capacity words is unbounded by
     // construction: this test used to block eight words and waved through `capacity`, `free`,
@@ -1259,8 +1463,10 @@ describe("Ward index — every ward in the network has a way in", () => {
     // passed it while `docs/codebase-index.md` and the component's own doc comment both called the
     // restraint "guarded by test". What the page renders is finite — the fixed sentences above,
     // the service headings from `wardServiceOrder`, and per ward its own `name`, `cohort` and
-    // `security` — so the test can state that set and fail on everything else, which no word
-    // nobody thought of can evade. A new sentence on this page is now a deliberate edit here,
+    // kind word (`wardKindWord`, deliberately not `designationSummary` — see that function's own
+    // doc comment in `ward-index.tsx`) — so the test can state that set and fail on everything
+    // else, which no word nobody thought of can evade. A new sentence on this page is now a
+    // deliberate edit here,
     // which is what "deliberately not a second dashboard" has to mean to be worth anything.
     const units = allUnits();
     // Both states the page can render, not just the live one: the not-placed group's own copy was
@@ -1277,10 +1483,15 @@ describe("Ward index — every ward in the network has a way in", () => {
     const allowed = new Set<string>([
       ...WARD_INDEX_FIXED_COPY,
       ...wardServiceOrder,
-      // Per ward: its own three plain fields. Both the joined form and the separate text nodes,
-      // because whether React emits `{cohort} · {security}` as one fragment or three is its
+      // Per ward: its own name, cohort, and kind word. Both the joined form and the separate text
+      // nodes, because whether React emits `{cohort} · {kind}` as one fragment or three is its
       // choice, not this page's claim.
-      ...units.flatMap((unit) => [unit.name, unit.cohort, unit.security, `${unit.cohort} · ${unit.security}`]),
+      ...units.flatMap((unit) => [
+        unit.name,
+        unit.cohort,
+        wardKindWord(unit),
+        `${unit.cohort} · ${wardKindWord(unit)}`,
+      ]),
       "·",
     ]);
     const unexpected = fragments.filter((fragment) => !allowed.has(fragment));

@@ -60,9 +60,9 @@
   flex-shrink: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ward-space-4) var(--ward-space-8);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-3xs);
   font-weight: 700;
   text-transform: uppercase;

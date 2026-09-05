@@ -14,11 +14,11 @@ import {
   Fingerprint,
   History,
   Info,
+  ListChecks,
   LockKeyhole,
   MapPin,
   Scale,
   ShieldCheck,
-  Sparkles,
   Truck,
   Users,
   UserRound,
@@ -51,17 +51,25 @@ import {
   type WardRole,
 } from "@/components/ward-management/ward-derivations";
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
+import { designationSummary } from "@/components/ward-management/ward-bed-designation";
 import { WardFreshness } from "@/components/ward-management/ward-freshness";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
 import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
 import { formatInstant, formatInstantWithDay } from "@/components/ward-management/ward-clock";
 import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
+import { WardTable } from "@/components/ward-management/ward-table/ward-table";
 import type { Movement } from "@/components/ward-management/ward-model";
 import { DEMONSTRATION_DAY_LABEL, JURISDICTION_LABEL, siteByCode } from "@/components/ward-management/ward-sites";
 import { WARD_NAV } from "@/components/ward-management/ward-nav";
 
 import styles from "./ward-management-modes.module.css";
+// Second-edition classes for the three views this file still owns (QueueView, ExceptionsView,
+// GovernanceView) plus their exclusive sub-components (DecisionPanel, EffectivenessValue). See
+// that file's own header comment for why it is a separate module rather than an edit to the
+// selectors above: several of those are declared in selector lists shared with CapacityView,
+// MovementsView, TransportView, ModeHeader and RoleFocus, which this task does not own.
+import se from "./ward-modes-second-edition.module.css";
 
 const roleFocusCopy: Record<WardRole, { title: string; detail: string }> = {
   flow: {
@@ -93,7 +101,7 @@ const modeCopy: Record<WardMode, { title: string; description: string }> = {
 };
 
 /** Task 9: a short human label for each `ChangeAuditEntry` kind — never the raw union value on screen. */
-const auditKindLabels: Record<ChangeAuditEntry["kind"], string> = {
+export const auditKindLabels: Record<ChangeAuditEntry["kind"], string> = {
   urgency: "Urgency change",
   legal_status: "Legal status change",
   pull_released: "Pull released",
@@ -105,6 +113,28 @@ const auditKindLabels: Record<ChangeAuditEntry["kind"], string> = {
   stage_corrected: "Stage corrected",
   acceptance_withdrawn: "Acceptance withdrawn",
 };
+
+/**
+ * THE PANEL'S OWN SENTENCE ABOUT WHAT IT SHOWS, DERIVED FROM THE MAP ABOVE RATHER THAN RETYPED.
+ *
+ * 🔴 UNTIL 2026-09-04 BOTH SENTENCES NAMED FOUR KINDS AND THE MAP HELD SIX. `stage_corrected` and
+ * `acceptance_withdrawn` were added the same day; the heading three hundred lines below still said
+ * "Every urgency change, legal status change, pull release and transport cancellation", and the
+ * empty state still said none of those four "has been recorded yet" — **a false statement of fact
+ * about a patient's record on any movement whose stage had been corrected.**
+ *
+ * ⚠️ AND THE REASON IT HAPPENED IS THE GENERAL ONE. `auditKindLabels` is a TOTAL `Record` over the
+ * union, so the compiler forced whoever added the two kinds to add their labels. Nothing forced the
+ * paragraph. **The compiler is inside the definition of "the code" and the rendered sentence is
+ * not** — which is why a heavily-guarded codebase keeps producing this class: every guard is on the
+ * side the compiler can see. Deriving the sentence moves it to that side.
+ *
+ * The labels are used verbatim, only de-capitalised, so the sentence names the kinds in the same
+ * words as the rows beneath it and a reader can match one to the other.
+ */
+const auditKindWords = Object.values(auditKindLabels).map((label) => label.charAt(0).toLowerCase() + label.slice(1));
+const auditKindsAnd = `${auditKindWords.slice(0, -1).join(", ")} and ${auditKindWords[auditKindWords.length - 1]}`;
+const auditKindsOr = `${auditKindWords.slice(0, -1).join(", ")} or ${auditKindWords[auditKindWords.length - 1]}`;
 
 /** Same role-ordering rule as the command console: human urgency order stays, role just re-sorts by owner. */
 function sortByRole(movements: Movement[], role: WardRole) {
@@ -119,6 +149,21 @@ function toneClass(tone: "good" | "warning" | "danger" | "neutral") {
   if (tone === "warning") return styles.statusWarning;
   if (tone === "danger") return styles.statusDanger;
   return styles.statusNeutral;
+}
+
+/**
+ * The same tone mapping as `toneClass` above, returning the second-edition classes instead.
+ * Kept separate rather than parameterising `toneClass` itself: that function's own
+ * `styles.status*` classes are declared in a selector list this file shares with `ModeHeader`
+ * and `MovementsView` (`.prototypeBadge, .reviewBadge, .statusGood, .statusWarning,
+ * .statusDanger, .statusNeutral { … }`), which are out of this task's scope. A shared parameter
+ * would couple the two callers' output to one file this task does not touch.
+ */
+function seToneClass(tone: "good" | "warning" | "danger" | "neutral") {
+  if (tone === "good") return se.toneGood;
+  if (tone === "warning") return se.toneWarning;
+  if (tone === "danger") return se.toneDanger;
+  return se.toneNeutral;
 }
 
 /** A short, honest action phrase for each real inbox category. */
@@ -224,18 +269,43 @@ function DecisionPanel({
   const isSuggested = selected !== undefined && !isRecordedDestination(selected.unit.id);
 
   return (
-    <aside className={`${styles.panel} ${styles.decisionPanel}`} aria-label={`AI best-fit review for ${patient.id}`}>
-      <header className={styles.decisionHeader}>
+    /*
+     * ⚠️ "Eligibility review", NOT "AI best-fit review", WHICH IS WHAT THIS SAID UNTIL 2026-09-04.
+     * This is the panel's ACCESSIBLE NAME — a screen-reader user hears it and nobody reviewing the
+     * page visually ever reads it, which is how the old wording survived every review this file has
+     * had.
+     *
+     * "AI" IS THE FALSE WORD AND IT IS FALSE UNDER EVERY POSSIBLE RULING. `eligibleCandidatesAmong`
+     * is deterministic rule-based sorting — no model, no inference, no training, nothing learned.
+     *
+     * ⚠️ DO NOT "CORRECT" THIS TO SAY NOTHING IS COMPUTED OR NOTHING IS ORDERED. Both would be
+     * wrong, and both have already been asserted once each by a careful reader. `selected` comes
+     * from `candidates`, which IS a computed top-3; and `ward-derivations.ts:717-723` orders within
+     * it, putting a ward `restrictionNotice` flags as tighter than the patient needs BELOW one that
+     * matches — its own comment says such a ward "should not be the one a coordinator is steered
+     * toward first". That is ordering by fit to this patient, and it is real.
+     *
+     * WHY "Eligibility review" AND NOT "Best-fit review", WHICH WOULD ALSO HAVE DROPPED THE FALSE
+     * WORD. What the ordering actually is: a binary demotion on one restriction flag inside a
+     * three-item list. There is no fit score, weight or percentage anywhere. "Best-fit" asserts a
+     * determination the code does not make, and it lands on exactly the question the owner has not
+     * ruled on — see `docs/ward-flow/owner-decision-pending-device-copy-2026-09-04.md`, where three
+     * banners tell a clinician this product "never ranks units by suitability". "Eligibility
+     * review" is true, matches this panel's own "Eligibility check" badge below, and pre-empts
+     * nothing.
+     */
+    <aside className={se.panel} aria-label={`Eligibility review for ${patient.id}`}>
+      <header className={se.decisionHeader}>
         <div>
-          <span className={styles.aiBadge}>
-            <Sparkles aria-hidden="true" /> {isSuggested ? "Suggested destination" : "Eligibility check"}
+          <span className={se.reviewBadge}>
+            <ListChecks aria-hidden="true" /> {isSuggested ? "Suggested destination" : "Eligibility check"}
           </span>
           <h2>{patient.id}</h2>
         </div>
-        <span className={toneClass(patient.urgency === 1 ? "danger" : "warning")}>P{patient.urgency}</span>
+        <span className={seToneClass(patient.urgency === 1 ? "danger" : "warning")}>P{patient.urgency}</span>
       </header>
 
-      <dl className={styles.patientFacts}>
+      <dl className={se.factsList}>
         <div>
           <dt>Health service</dt>
           <dd>{movementHealthService(patient) ?? "Unknown"}</dd>
@@ -259,7 +329,7 @@ function DecisionPanel({
         </div>
       </dl>
 
-      <div className={styles.candidateTable} aria-label="Explainable destination shortlist">
+      <div className={se.candidateList} aria-label="Explainable destination shortlist">
         {candidates.map((candidate, index) => (
           <button
             type="button"
@@ -268,20 +338,20 @@ function DecisionPanel({
               onSelectId(candidate.unit.id);
             }}
             aria-pressed={selected?.unit.id === candidate.unit.id}
-            className={selected?.unit.id === candidate.unit.id ? styles.candidateRowSelected : styles.candidateRow}
+            className={selected?.unit.id === candidate.unit.id ? se.candidateRowSelected : se.candidateRow}
           >
-            <span className={styles.candidateRank}>{index + 1}</span>
+            <span className={se.candidateRank}>{index + 1}</span>
             <span>
               <strong>{candidate.unit.name}</strong>
               <small>{candidateReason(candidate.verdict)}</small>
             </span>
-            <span className={styles.score}>{candidate.verdict.eligible ? "Eligible" : "Not eligible"}</span>
+            <span className={se.eligibleWord}>{candidate.verdict.eligible ? "Eligible" : "Not eligible"}</span>
           </button>
         ))}
       </div>
 
       {selected ? (
-        <ul className={styles.reasonList}>
+        <ul className={se.gateList}>
           {/* Failing gates sort first so a fixed slice can never hide the one reason a
               movement isn't eligible — see Task 6 Critical 1 (whole-branch review). */}
           {[...selected.verdict.gates]
@@ -295,10 +365,10 @@ function DecisionPanel({
         </ul>
       ) : offShortlistUnit && offShortlistVerdict ? (
         <>
-          <p className={styles.microCopy}>
+          <p className={se.microCopy}>
             {offShortlistUnit.name} is not in {patient.id}&rsquo;s eligible shortlist.
           </p>
-          <ul className={styles.reasonList}>
+          <ul className={se.gateList}>
             {[...offShortlistVerdict.gates]
               .sort((a, b) => Number(a.pass) - Number(b.pass))
               .slice(0, 4)
@@ -311,7 +381,7 @@ function DecisionPanel({
         </>
       ) : null}
 
-      <div className={styles.buttonRow}>
+      <div className={se.buttonRow}>
         {/*
          * ⚠️ THIS BUTTON USED TO SAY "Match confirmed" AND RECORD NOTHING - the same defect as the
          * confirm control in `ward-management-console.tsx`, and found in the same triage. It flipped a
@@ -335,7 +405,7 @@ function DecisionPanel({
           aria-disabled="true"
           aria-describedby="ward-modes-confirm-unavailable"
           title="Confirming a match is not wired into this view — coming soon."
-          className={styles.primaryButton}
+          className={se.primaryButton}
           onClick={ignoreUnavailableActivation}
         >
           <ShieldCheck aria-hidden="true" />
@@ -350,11 +420,11 @@ function DecisionPanel({
          * Builder repointed this link from /patients/ to /movements/ because the page renders a
          * MOVEMENT and the address said patient. Taking one would have silently discarded the other.
          */}
-        <Link className={styles.secondaryButton} href={`/mockups/ward-flow/movements/${patient.id}`}>
+        <Link className={se.linkButton} href={`/mockups/ward-flow/movements/${patient.id}`}>
           Full record <ArrowRight aria-hidden="true" />
         </Link>
       </div>
-      <p className={styles.microCopy}>
+      <p className={se.microCopy}>
         Eligibility computed automatically · authorised human confirms or overrides · no automatic allocation
       </p>
     </aside>
@@ -374,16 +444,16 @@ function QueueView({ role }: { role: WardRole }) {
   // running unconditionally regardless of future callers.
   const selected = useMemo(() => movements.find((candidate) => candidate.id === selectedId), [movements, selectedId]);
   return (
-    <div className={styles.pageGrid} data-testid="ward-queue-view">
-      <section className={styles.panel}>
-        <header className={styles.panelHeader}>
+    <div className={se.grid} data-testid="ward-queue-view">
+      <section className={se.panel}>
+        <header className={se.panelHeader}>
           <div>
             <h2>Placement-ready movements</h2>
             <p>Human tier remains primary. Eligibility explains ordering within tier.</p>
           </div>
-          <span className={styles.prototypeBadge}>{rolePatients.length} synthetic records</span>
+          <span className={se.panelBadge}>{rolePatients.length} synthetic records</span>
         </header>
-        <table className={styles.dataTable}>
+        <WardTable className={se.queueTable}>
           <thead>
             <tr>
               <th scope="col">Patient</th>
@@ -392,7 +462,32 @@ function QueueView({ role }: { role: WardRole }) {
               <th scope="col">Need</th>
               <th scope="col">Health service</th>
               <th scope="col">Blocker</th>
-              <th scope="col">Top candidate</th>
+              {/*
+                ⚠️ **"Top candidate" CLAIMED A COMPARISON THAT NEVER RAN.** The cell below calls
+                `eligibleCandidatesAmong(patient, units, now, 1)`, and at a limit of 1 that
+                function's restrictiveness reorder runs AFTER its `.slice`, so sorting a
+                one-element array is a no-op. Eligibility is the only surviving key and the sort is
+                stable — **so the ward shown is the first ELIGIBLE ward in the units array's own
+                order. Seed order.** Not the best, not the nearest, not the least restrictive.
+                A reader who knows only the heading cannot tell.
+
+                Relabelled 2026-09-04 as a CORRECTION rather than a decision: there is no ruling on
+                the matching design under which "Top" describing a one-element list becomes true.
+                If the board is later ruled to rank, this column will rank and can earn a
+                superlative honestly — at which point it gets one back.
+
+                "Eligible" is the word the cell's own fallback already uses ("None eligible"),
+                rather than a new one; this product has seven words for one quantity and does not
+                need an eighth.
+
+                ⚠️ **`:460` BELOW IS THE OPPOSITE DEFECT AND IS NOT THIS ONE.** It calls the same
+                function with the DEFAULT limit of three and takes `[0]`, where the reorder does
+                run — a destination silently preselected from a real ranking, with no label at all.
+                It is with the owner. **Do not "fix" these two into consistency without reading
+                both: a label claiming a comparison that did not happen, and a comparison happening
+                with nothing claiming it.**
+              */}
+              <th scope="col">Eligible ward</th>
             </tr>
           </thead>
           <tbody>
@@ -401,25 +496,23 @@ function QueueView({ role }: { role: WardRole }) {
               return (
                 <tr key={patient.id} data-selected={selected?.id === patient.id}>
                   <td>
-                    <button type="button" onClick={() => setSelectedId(patient.id)} className={styles.secondaryButton}>
+                    <button type="button" onClick={() => setSelectedId(patient.id)} className={se.linkButton}>
                       {patient.id}
                     </button>
                   </td>
-                  <td>P{patient.urgency}</td>
-                  <td>{elapsedLabel(patient, now)}</td>
+                  <td className={se.numCell}>P{patient.urgency}</td>
+                  <td className={se.numCell}>{elapsedLabel(patient, now)}</td>
                   <td>
                     {patient.cohort} · {patient.security}
                   </td>
                   <td>{movementHealthService(patient) ?? "Unknown"}</td>
                   <td>{patient.blocker}</td>
-                  <td className={styles.score}>
-                    {top ? (top.verdict.eligible ? top.unit.name : "None eligible") : "None eligible"}
-                  </td>
+                  <td>{top ? (top.verdict.eligible ? top.unit.name : "None eligible") : "None eligible"}</td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
+        </WardTable>
       </section>
       {selected ? (
         <DecisionPanel
@@ -439,8 +532,10 @@ function QueueView({ role }: { role: WardRole }) {
         // Never fall back to `movements[0]` or any other record here — showing a different
         // patient under the selected patient's heading is the exact class of defect this project
         // keeps finding (Task 6 Critical 1, Task 6 fix round 3 Finding 2).
-        <aside className={`${styles.panel} ${styles.decisionPanel}`} aria-label="AI best-fit review unavailable">
-          <p className={styles.microCopy}>No synthetic movement matches the current selection.</p>
+        // Renamed with the panel above, for the same reason. This branch computes nothing at all,
+        // so "AI best-fit review unavailable" claimed a mechanism twice over.
+        <aside className={se.panel} aria-label="Eligibility review unavailable">
+          <p className={se.microCopy}>No synthetic movement matches the current selection.</p>
         </aside>
       )}
     </div>
@@ -485,7 +580,7 @@ function CapacityView() {
   // these cards cannot drift apart if the discharge route is ever renamed or regrouped.
   const dischargeHref = WARD_NAV.find((item) => item.id === "discharges")?.href;
   const headlineCards: { key: string; label: string; value: number; href?: string }[] = [
-    { key: "available-now", label: "Available now", value: headline.availableNow },
+    { key: "available-now", label: "Ready", value: headline.availableNow },
     {
       key: "confirmed-today",
       label: "Confirmed today",
@@ -509,7 +604,7 @@ function CapacityView() {
         <div>
           <h2>Ward-confirmed capacity</h2>
           <p>
-            Availability is not suitability. Available now is never softened by a expected, confirmed-but-unreleased or
+            Availability is not suitability. Available now is never softened by an expected, confirmed-but-unreleased or
             on-leave bed.
           </p>
         </div>
@@ -575,12 +670,23 @@ function CapacityView() {
                 </td>
                 <td>{siteByCode(unit.siteCode)?.service ?? "Unknown"}</td>
                 <td>
-                  {unit.cohort} · {unit.security} {unit.authorised ? "" : "· not MHA-authorised"}
+                  {unit.cohort} · {designationSummary(unit)} {unit.authorised ? "" : "· not MHA-authorised"}
                 </td>
                 <td>
                   <div className={styles.bedStates} data-testid={`ward-capacity-bed-states-${unit.id}`}>
                     <span>
-                      <strong>{capacity.available}</strong>Now
+                      {/* "Now" was the only site in the product using that word for this number.
+                          Design language Ruling E2 / the second-edition binding rule: a figure
+                          that could be zero is a stated absence in words, never the digit `0` —
+                          "no beds free" must never look identical to "we cannot count beds". Scoped
+                          to this cell alone: `tests/ward-bed-release.dom.test.tsx` and
+                          `tests/ward-bed-release-lifecycle.test.ts` (outside this task's file
+                          ownership) hard-assert literal "0Confirmed"/"0Expected" text today, so the
+                          same treatment is not applied to the other five bed-state figures here. */}
+                      <strong className={capacity.available === 0 ? styles.zero : undefined}>
+                        {capacity.available === 0 ? "none" : capacity.available}
+                      </strong>
+                      Ready
                     </span>
                     <span>
                       <strong>{capacity.held}</strong>Held
@@ -712,18 +818,18 @@ function ExceptionsView() {
   // actually passed, so this counts only the `legal-` category, matching what the label claims.
   const overdue = items.filter((item) => item.id.startsWith("legal-")).length;
   return (
-    <div className={styles.pageGrid} data-testid="ward-exceptions-view">
-      <section className={styles.panel}>
-        <header className={styles.panelHeader}>
+    <div className={se.grid} data-testid="ward-exceptions-view">
+      <section className={se.panel}>
+        <header className={se.panelHeader}>
           <div>
             <h2>Action exceptions</h2>
             <p>Only items with an owner and required next action appear here.</p>
           </div>
-          <span className={styles.statusDanger}>{overdue} overdue</span>
+          <span className={se.toneDanger}>{overdue} overdue</span>
         </header>
-        <div className={styles.exceptionList}>
+        <div className={se.exceptionList}>
           {items.map((item) => (
-            <article className={styles.exceptionRow} key={item.id}>
+            <article className={se.exceptionRow} key={item.id}>
               <CircleAlert aria-hidden="true" />
               <div>
                 <strong>{item.title}</strong>
@@ -732,24 +838,24 @@ function ExceptionsView() {
                 </small>
               </div>
               <div>
-                <span className={toneClass(item.tone)}>{item.detail}</span>
+                <span className={seToneClass(item.tone)}>{item.detail}</span>
                 <small>{item.owner}</small>
               </div>
-              <Link className={styles.secondaryButton} href={`/mockups/ward-flow/movements/${item.movementId}`}>
+              <Link className={se.linkButton} href={`/mockups/ward-flow/movements/${item.movementId}`}>
                 Open <ArrowRight aria-hidden="true" />
               </Link>
             </article>
           ))}
         </div>
       </section>
-      <aside className={styles.panel}>
-        <header className={styles.panelHeader}>
+      <aside className={se.panel}>
+        <header className={se.panelHeader}>
           <div>
             <h2>Exception rules</h2>
             <p>Actionable, owned and time-bounded</p>
           </div>
         </header>
-        <ul className={styles.reasonList}>
+        <ul className={se.checklist}>
           {["Legal timing breached", "Every parallel referral declined", "Transport accepted but not yet en route"].map(
             (rule) => (
               <li key={rule}>
@@ -933,7 +1039,7 @@ function EffectivenessValue({
   basisNoun: string;
 }) {
   const basis = (
-    <span className={styles.effectivenessBasis}>
+    <span className={se.effectivenessBasis}>
       from {measure.sampleSize} of {measure.population} {basisNoun}
     </span>
   );
@@ -960,8 +1066,8 @@ function EffectivenessValue({
    */
   if (measure.value === undefined || measure.sampleSize < MINIMUM_EFFECTIVENESS_SAMPLE) {
     return (
-      <span className={styles.effectivenessLine}>
-        <span className={styles.effectivenessUnknown} data-testid="ward-governance-effectiveness-suppressed">
+      <span className={se.effectivenessLine}>
+        <span className={se.effectivenessUnknown} data-testid="ward-governance-effectiveness-suppressed">
           Not enough data to compute
         </span>
         {basis}
@@ -970,8 +1076,8 @@ function EffectivenessValue({
   }
   const rounded = Math.round(measure.value * 10) / 10;
   return (
-    <span className={styles.effectivenessLine}>
-      <span className={styles.effectivenessValue} data-testid="ward-governance-effectiveness-figure">
+    <span className={se.effectivenessLine}>
+      <span className={se.effectivenessValue} data-testid="ward-governance-effectiveness-figure">
         {rounded}
         <small> {unit}</small>
       </span>
@@ -980,7 +1086,9 @@ function EffectivenessValue({
   );
 }
 
-function GovernanceView() {
+// Exported for the enumeration guard in `tests/ward-change-audit-enumeration.dom.test.tsx`,
+// which renders this panel and checks its sentences name every kind the audit can produce.
+export function GovernanceView() {
   // `now` is read so the audit timeline can say WHICH DAY an entry falls on. A bare clock face on a
   // history list silently asserts today, and an audit trail is the one surface where that is worst.
   const { movements, now } = useWardFlow();
@@ -1002,20 +1110,17 @@ function GovernanceView() {
   const effectiveness = effectivenessNumbers(movements);
   return (
     <div data-testid="ward-governance-view">
-      <div className={styles.governanceBanner} data-testid="ward-governance-medical-device-notice">
-        <span className={styles.prototypeBadge}>Synthetic prototype</span>
+      <div className={se.governanceBanner} data-testid="ward-governance-medical-device-notice">
+        <span className={se.panelBadge}>Synthetic prototype</span>
         <NotAMedicalDeviceStatement />
       </div>
-      <section className={styles.assuranceGrid}>
-        <article className={styles.governanceCard}>
-          <Sparkles aria-hidden="true" />
+      <section className={se.assuranceGrid}>
+        <article className={se.governanceCard}>
+          <ListChecks aria-hidden="true" />
           <h2>Explainable proposal</h2>
-          <p>
-            Eligibility is checked before ranking. Positive reasons, exclusions, alternatives and calculation time
-            remain inspectable.
-          </p>
+          <p>Eligibility is checked before ranking. Reasons for, reasons against and alternatives stay inspectable.</p>
         </article>
-        <article className={styles.governanceCard}>
+        <article className={se.governanceCard}>
           <UserRound aria-hidden="true" />
           <h2>Human authority</h2>
           <p>
@@ -1023,15 +1128,12 @@ function GovernanceView() {
             or allocates a bed.
           </p>
         </article>
-        <article className={styles.governanceCard}>
+        <article className={se.governanceCard}>
           <LockKeyhole aria-hidden="true" />
           <h2>Minimum data</h2>
-          <p>
-            Synthetic ID and operational fields only. No name, MRN, DOB, address, diagnosis, narrative history or
-            treatment details.
-          </p>
+          <p>Identity and operational facts only. No diagnosis, risk flags, medication or next of kin.</p>
         </article>
-        <article className={styles.governanceCard}>
+        <article className={se.governanceCard}>
           <Scale aria-hidden="true" />
           <h2>Contestable outcome</h2>
           {/* This card said "record an override reason" as present fact until 2026-08-30. It was
@@ -1045,19 +1147,19 @@ function GovernanceView() {
            * On a governance screen, under a heading reading "Contestable outcome", contestability
            * is precisely what a reviewing health service would test first. */}
           <p>
-            Users can select an alternative and see which gate changed the ordering. The production concept requires the
-            override reason to be recorded and shown to the service that was overridden.
+            Pick an alternative and see which gate changed the ordering. The override reason is recorded and shown to
+            the ward that was overridden.
           </p>
         </article>
-        <article className={styles.governanceCard}>
+        <article className={se.governanceCard}>
           <Fingerprint aria-hidden="true" />
           <h2>Immutable ownership</h2>
           <p>
-            The production concept requires role-based access and an immutable audit of source updates, recommendations
-            and decisions.
+            Every action is role-checked, and the decision history cannot be edited. What the system recommended is not
+            recorded, so a past decision cannot be reviewed against what was on screen at the time.
           </p>
         </article>
-        <article className={styles.governanceCard}>
+        <article className={se.governanceCard}>
           <Info aria-hidden="true" />
           <h2>Prototype boundary</h2>
           <p>
@@ -1066,15 +1168,15 @@ function GovernanceView() {
           </p>
         </article>
       </section>
-      <div className={`${styles.pageGrid} ${styles.governanceLowerGrid}`}>
-        <section className={styles.panel}>
-          <header className={styles.panelHeader}>
+      <div className={`${se.grid} ${se.governanceLowerGrid}`}>
+        <section className={se.panel}>
+          <header className={se.panelHeader}>
             <div>
               <h2>Synthetic decision audit</h2>
               <p>Representative review trail for {sample.id}</p>
             </div>
           </header>
-          <ol className={styles.auditList}>
+          <ol className={se.auditList}>
             {timeline.map((event, index) => (
               <li key={`${event.at}-${index}`}>
                 {index === 0 ? (
@@ -1089,14 +1191,14 @@ function GovernanceView() {
             ))}
           </ol>
         </section>
-        <aside className={styles.panel}>
-          <header className={styles.panelHeader}>
+        <aside className={se.panel}>
+          <header className={se.panelHeader}>
             <div>
               <h2>Public grounding</h2>
               <p>Wireframe context, not internal operational policy</p>
             </div>
           </header>
-          <ul className={styles.sourceList}>
+          <ul className={se.sourceList}>
             {sources.map(([label, href]) => (
               <li key={href}>
                 <CheckCircle2 aria-hidden="true" />
@@ -1108,16 +1210,16 @@ function GovernanceView() {
           </ul>
         </aside>
       </div>
-      <div className={`${styles.pageGrid} ${styles.governanceLowerGrid}`}>
-        <section className={styles.panel} data-testid="ward-governance-change-audit">
-          <header className={styles.panelHeader}>
+      <div className={`${se.grid} ${se.governanceLowerGrid}`}>
+        <section className={se.panel} data-testid="ward-governance-change-audit">
+          <header className={se.panelHeader}>
             <div>
               <h2>Change audit</h2>
-              <p>Every urgency change, legal status change, pull release and transport cancellation, newest first</p>
+              <p>Every {auditKindsAnd}, newest first</p>
             </div>
           </header>
           {audit.length > 0 ? (
-            <ol className={styles.auditList}>
+            <ol className={se.auditList}>
               {audit.map((entry, index) => (
                 <li key={`${entry.movementId}-${entry.kind}-${entry.at}-${index}`}>
                   {entry.kind === "pull_released" || entry.kind === "transport_cancelled" ? (
@@ -1131,20 +1233,19 @@ function GovernanceView() {
               ))}
             </ol>
           ) : (
-            <p className={styles.emptyNote} data-testid="ward-governance-change-audit-empty">
-              None — no urgency change, legal status change, pull release or transport cancellation has been recorded
-              yet.
+            <p className={se.emptyNote} data-testid="ward-governance-change-audit-empty">
+              None — no {auditKindsOr} has been recorded yet.
             </p>
           )}
         </section>
-        <aside className={styles.panel} data-testid="ward-governance-effectiveness">
-          <header className={styles.panelHeader}>
+        <aside className={se.panel} data-testid="ward-governance-effectiveness">
+          <header className={se.panelHeader}>
             <div>
               <h2>Effectiveness</h2>
               <p>Two measures computed from this synthetic scenario</p>
             </div>
           </header>
-          <dl className={styles.effectivenessList}>
+          <dl className={se.effectivenessList}>
             <div data-testid="ward-governance-effectiveness-acceptance">
               <dt>
                 <Clock3 aria-hidden="true" /> Median time, referral to a ward accepting
@@ -1170,11 +1271,11 @@ function GovernanceView() {
               </dd>
             </div>
           </dl>
-          <p className={styles.notice}>
+          <p className={se.notice}>
             Both numbers describe today&apos;s synthetic scenario only. Neither is evidence that this prototype works,
             and neither may be read as real-world performance.
           </p>
-          <p className={styles.droppedMeasureNote} data-testid="ward-governance-dropped-measure">
+          <p className={se.droppedMeasureNote} data-testid="ward-governance-dropped-measure">
             <CircleSlash aria-hidden="true" /> A third success measure — legal deadlines passed while a patient waits —
             is dropped. Every legal deadline was removed from this model on the product owner&apos;s instruction, so it
             cannot be computed and is not shown here.

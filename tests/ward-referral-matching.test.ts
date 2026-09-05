@@ -8,6 +8,7 @@ import { referralEligibility } from "../src/components/ward-management/ward-elig
 import { referralCandidates } from "../src/components/ward-management/ward-referrals";
 import type { Referral, Unit, WardReferralDestination } from "../src/components/ward-management/ward-model";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 const NOW = 10 * 60 + 42;
 
 function unit(overrides: Partial<Unit> = {}): Unit {
@@ -16,11 +17,12 @@ function unit(overrides: Partial<Unit> = {}): Unit {
     siteCode: "RPH",
     name: "Test Unit",
     cohort: "Adult",
-    security: "Open",
+    lockedBeds: 0,
     authorised: true,
     beds: 20,
     empty: { value: 3, source: "feed", confirmedAt: NOW - 2, staleAfterMinutes: 15 },
     allocatable: { value: 2, source: "ward", confirmedAt: NOW - 10, staleAfterMinutes: 120 },
+    allocatableLocked: 0,
     held: 0,
     blocked: 0,
     sexMix: { Female: 10, Male: 8 },
@@ -66,6 +68,7 @@ function referral(overrides: ReferralOverrides = {}): Referral {
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
     ...rest,
   };
 }
@@ -259,17 +262,25 @@ describe("forensic", () => {
 
 describe("security (secureBedNeeded)", () => {
   it("accepts a secure-bed-needed referral into a Secure unit", () => {
-    const verdict = verdictFor(referral({ secureBedNeeded: true }), unit({ security: "Secure" }), NOW);
+    const verdict = verdictFor(
+      referral({ secureBedNeeded: true }),
+      unit({ lockedBeds: 20, allocatableLocked: 2 }),
+      NOW,
+    );
     expect(gate(verdict, "security")?.pass).toBe(true);
   });
 
   it("rejects a secure-bed-needed referral from an Open unit", () => {
-    const verdict = verdictFor(referral({ secureBedNeeded: true }), unit({ security: "Open" }), NOW);
+    const verdict = verdictFor(referral({ secureBedNeeded: true }), unit({ lockedBeds: 0, allocatableLocked: 0 }), NOW);
     expect(gate(verdict, "security")?.pass).toBe(false);
   });
 
   it("accepts a referral not needing a secure bed into an Open unit", () => {
-    const verdict = verdictFor(referral({ secureBedNeeded: false }), unit({ security: "Open" }), NOW);
+    const verdict = verdictFor(
+      referral({ secureBedNeeded: false }),
+      unit({ lockedBeds: 0, allocatableLocked: 0 }),
+      NOW,
+    );
     expect(gate(verdict, "security")?.pass).toBe(true);
   });
 });

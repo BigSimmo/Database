@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import { seedWardFlowState, seedWardFlowStateAt } from "@/components/ward-management/ward-flow-reducer";
+import { stripSourceComments } from "./helpers/strip-source-comments";
 
 /**
  * A CLOCK OFFSET IS APPLIED ONCE, AND THE SECOND APPLICATION IS MADE UNREACHABLE RATHER THAN
@@ -41,8 +42,31 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe("the clock offset can only be applied once", () => {
+  /*
+   * ⚠️ **COMMENTS ARE STRIPPED, AND THIS GUARD INVENTED A FALSE CALLER BEFORE THEY WERE
+   * (2026-09-06).** The moment somebody documented a hydration fix in `ward-flow-provider.tsx` and
+   * explained the mechanism accurately — *"`seedWardFlowStateAt`, which is `shiftInstants(seed,
+   * offset)`"* — this scan matched the call shape inside that prose and reported the provider as a
+   * second application-side caller. **A file that applies no shift at all was named as the exact
+   * offence this guard exists to prevent, because it described the problem correctly.**
+   *
+   * ⚠️ **THE FAILURE DIRECTION IS WHAT MAKES IT WORTH FIXING RATHER THAN WORKING AROUND.** The
+   * tempting repair is to reword the comment until the regex is quiet, which leaves the next
+   * careful author to hit the same wall and teaches everyone to write vaguer comments. A guard that
+   * invents a violation trains people to distrust it and eventually to widen it until the real
+   * cases fall out. `tests/ward-mode-workspace-reachability.test.ts` records this happening to it,
+   * on the same day, for the same reason.
+   *
+   * **A MENTION IS NOT A CALL.** Stripping is right HERE specifically because the question is "does
+   * this file apply a shift", and code inside a comment applies nothing. It is not a general
+   * licence: a guard asking about the source RECORD rather than about what executes must not strip.
+   *
+   * `stripSourceComments` rather than a local regex — it is literal-aware, and the naive
+   * `/\/\*[\s\S]*?\*\//` blanks real code whenever a string contains the two characters that open a
+   * comment, which is a silent false NEGATIVE inside a safety guard.
+   */
   const callers = sourceFiles(SRC)
-    .map((file) => ({ file, text: readFileSync(file, "utf8") }))
+    .map((file) => ({ file, text: stripSourceComments(readFileSync(file, "utf8")) }))
     // The import line names it too; only an actual call counts.
     .filter(({ text }) => /\bshiftInstants\s*\(/.test(text))
     .map(({ file }) => file.replace(process.cwd(), "").replace(/\\/g, "/"));

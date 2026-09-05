@@ -146,7 +146,8 @@ export function PersonScreen({ patientId }: { patientId: PatientId }) {
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
             This screen is <strong>not a medical device</strong>. Every person in this prototype is invented, and
-            nothing here has been checked against a real record.
+            nothing here has been checked against a real record. Their suburb and its paired community team are the
+            exception: those are real places and real pairings, taken from this repository&apos;s own catchment table.
           </p>
         </div>
 

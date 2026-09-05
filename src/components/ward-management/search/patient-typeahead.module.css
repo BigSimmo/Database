@@ -1,0 +1,355 @@
+/*
+ * The patient typeahead. Same self-contained-tokens convention every Ward Flow module follows:
+ * this file borrows no other module's scope, and declares no colour of its own.
+ */
+.root {
+  composes: wardTokens from "../ward-tokens.module.css";
+  position: relative;
+  display: grid;
+  gap: var(--ward-space-4);
+  min-width: 0;
+}
+
+.label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ward-muted);
+}
+
+/*
+ * The control's own box. This is the page's primary instrument, so it is the one control here
+ * that carries real weight — everything else on the screen sits flat against the ground.
+ *
+ * ⚠️ NOT CALLED `.field`, AND NOT BY PREFERENCE. `tests/ward-primitives-shared.test.ts` holds a
+ * list of class names that were independently reinvented on seven screens before being pulled into
+ * one shared stylesheet; `.field` and `.hint` are both on it, and a NEW Ward Flow stylesheet
+ * defining either is the regression that guard exists to catch. These two are genuinely private to
+ * this control — a composed combobox box, and its own instruction line — so they take names the
+ * shared set does not own rather than re-forking a primitive.
+ */
+.controlBox {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-8);
+  min-height: var(--ward-tap);
+  padding: 0 var(--ward-space-10);
+  border: 1px solid var(--ward-border-strong);
+  border-radius: var(--ward-radius-pixel);
+  background: var(--surface);
+}
+
+.controlBox:focus-within {
+  border-color: var(--clinical-accent);
+  box-shadow: 0 0 0 3px var(--clinical-accent-soft);
+}
+
+.icon {
+  flex: none;
+  color: var(--ward-muted);
+}
+
+.input {
+  font: inherit;
+  font-size: 1rem;
+  flex: 1 1 8rem;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--ward-text);
+  padding: var(--ward-space-6) 0;
+  /*
+   * 🔴 THE SAME DEFECT AS `.clear`, ONE CONTROL AWAY, AND FIXING THE FIRST DID NOT FIND THE SECOND.
+   *
+   * Measured in a browser at 375px: this input rendered **219 × 36px** against the 48px production
+   * floor. `.controlBox` honours the floor, but `align-items: center` does not stretch a child, so
+   * the field is compliant and the thing a clinician actually taps is not. **I fixed exactly this on
+   * `.clear` earlier today, in this file, and did not look at its sibling** — the repair was aimed at
+   * the control that was reported rather than at the pattern that produced it.
+   *
+   * ⚠️ And it took a BROWSER to find. Nothing in the offline suite can see it: jsdom computes no
+   * layout, and the declaration that was wrong is an ABSENCE — no `min-height` at all — so there was
+   * no wrong value for a stylesheet-reading guard to catch either. An absent declaration is invisible
+   * to both halves of this project's testing.
+   */
+  align-self: stretch;
+  min-height: var(--ward-tap);
+}
+
+.input::placeholder {
+  color: var(--ward-muted);
+}
+
+.input:focus {
+  outline: none;
+}
+
+.clear {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex: none;
+  /*
+   * 🔴 THIS WAS `--ward-space-24` — 24px, HALF THE PRODUCTION TAP FLOOR, on the control that
+   * discards a clinician's query.
+   *
+   * ⚠️ AND THE CONTAINER DID NOT SAVE IT. `.controlBox` sets `min-height: var(--ward-tap)`, so the
+   * FIELD is 48px — but `align-items: center` does not stretch a child, so the button's own floor
+   * governed its hit area and the box's compliance said nothing about it. **A tap target inside a
+   * correctly sized container is not a correctly sized tap target**, and reading the container is
+   * how that gets missed.
+   *
+   * `align-self: stretch` makes it match the field it sits in, and the floor below is what holds if
+   * the field is ever shorter. Both, because either alone can be defeated by a later edit to the
+   * other. Production tap targets here are 48px — do NOT "fix" this down to 44px for a generic WCAG
+   * minimum; that reintroduces a known ui-smoke flake and this project has recorded it.
+   */
+  align-self: stretch;
+  min-height: var(--ward-tap);
+  padding: 0 var(--ward-space-8);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--ward-radius-pixel);
+  background: var(--surface-inset);
+  color: var(--ward-muted);
+  cursor: pointer;
+}
+
+.clear:hover {
+  color: var(--ward-text);
+  border-color: var(--ward-border-strong);
+}
+
+/*
+ * The popup. It is a floating surface, so it takes an edge AND a lift — the one place on this
+ * screen where both are correct, because it overlaps content it must be readable against.
+ */
+.popup {
+  position: absolute;
+  z-index: var(--ward-z-raised);
+  top: calc(100% + var(--ward-space-4));
+  left: 0;
+  right: 0;
+  max-height: 24rem;
+  overflow-y: auto;
+  border: 1px solid var(--ward-border-strong);
+  border-radius: var(--ward-radius-pixel);
+  background: var(--surface);
+  box-shadow: 0 12px 32px -12px var(--ward-divider);
+}
+
+.group {
+  display: block;
+  padding: var(--ward-space-8) var(--ward-space-10) var(--ward-space-4);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ward-muted);
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--ward-border);
+}
+
+.groupNote {
+  display: block;
+  padding: var(--ward-space-6) var(--ward-space-10) var(--ward-space-8);
+  font-size: 0.75rem;
+  line-height: var(--ward-leading-prose);
+  color: var(--ward-muted);
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--ward-border);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+
+.option {
+  display: grid;
+  gap: var(--ward-space-2);
+  padding: var(--ward-space-8) var(--ward-space-10);
+  border-bottom: 1px solid var(--ward-border);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+
+.option:last-child {
+  border-bottom: 0;
+}
+
+/*
+ * ⚠️ HOVER AND KEYBOARD-ACTIVE ARE DELIBERATELY DIFFERENT TREATMENTS, AND A COMMENT HERE USED TO
+ * SAY THE OPPOSITE. The two used to share one declaration on the premise that "a pointer user and
+ * a keyboard user must be looking at the same row" — nothing here ever made that true, and there is
+ * no `onMouseEnter` anywhere in this file to keep the two in sync. A mouse resting on one row while
+ * an arrow key has moved a different row to active is the ORDINARY case, not an edge case, and
+ * rendering them identically meant Enter could commit a row the pointer merely happened to be
+ * sitting on — `onKeyDown` only ever picks `activeIndex`, never whatever is under the cursor. So
+ * the two states have to read as different things: hover gets a neutral tint and nothing else;
+ * `.optionActive` — the row Enter will actually pick — gets the accent tint, the accent left rule,
+ * AND an inset ring, three channels together rather than one. `.option.optionActive` is written
+ * after `.option:hover` and matches its specificity exactly, so the active treatment still wins on
+ * the row the pointer happens to be resting on.
+ */
+.option:hover {
+  background: var(--surface-subtle);
+}
+
+.option.optionActive {
+  background: var(--clinical-accent-soft);
+  border-left-color: var(--clinical-accent);
+  box-shadow: inset 0 0 0 var(--ward-space-1) var(--ward-blue-border);
+}
+
+/*
+ * ⚠️ FORCED-COLORS: THE ACTIVE ROW WAS OTHERWISE CARRIED BY HUE ALONE. `--clinical-accent-soft`
+ * and the popup's own `--surface` both collapse to the same system colour under forced colours, and
+ * the left rule that survives that collapse is distinguished from an unselected row's TRANSPARENT
+ * border by colour only — the one channel forced-colors mode exists to erase. This is the same
+ * shape of problem `coordinator.module.css` (`.queueRowSelected`, `.pressureCardSelected`) already
+ * has a fix for: pin an explicit system colour AND change the border's WIDTH, not only its hue, so
+ * the active row stays findable once every author colour on this popup has been flattened.
+ *
+ * ⚠️ `.mark` IS NOT GIVEN A BLOCK HERE. It already carries a non-colour channel of its own —
+ * `font-weight: 700` against the surrounding text's regular weight — which survives forced-colors
+ * unaffected, so there is nothing this block would add.
+ */
+@media (forced-colors: active) {
+  .option.optionActive {
+    border: 0.125rem solid Highlight;
+  }
+}
+
+.name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ward-heading);
+}
+
+.mark {
+  background: var(--clinical-accent-soft);
+  border-radius: var(--ward-radius-pixel);
+  /*
+   * ⚠️ `em` HERE IS DELIBERATE AND NO TOKEN IS CORRECT FOR IT — the one raw unit left in this file,
+   * with its reason at the site rather than in a review thread.
+   *
+   * This is padding on an inline highlight INSIDE running text. It has to scale with the text it
+   * wraps, or the highlight sits wrong at any font size but the one it was tuned at. Every token on
+   * the ward spacing ladder is `rem` — anchored to the document root, not to this span — so pointing
+   * this at one would replace a correct value with a token-shaped incorrect one. **A raw value with
+   * a reason beats a token that answers a different question.**
+   *
+   * The radius above DID have a token and was a bare `2px`; `--ward-radius-pixel` is 1px, which on a
+   * text highlight is indistinguishable and removes the literal.
+   */
+  padding: 0 0.1em;
+  font-weight: 700;
+  color: var(--clinical-accent);
+}
+
+.attrs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ward-space-2) var(--ward-space-8);
+  font-size: 0.75rem;
+  color: var(--ward-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.attrs b {
+  color: var(--ward-text);
+  font-weight: 600;
+}
+
+/*
+ * What is attached to this person. It is a WORD before it is a colour — the colour only ever
+ * agrees with the word already in the row.
+ */
+.attached {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ward-space-4);
+  /*
+   * ⚠️ `justify-self`, NOT `align-self`. The option row is a grid, so `align-self` governs the
+   * BLOCK axis and left this chip stretched to the full row width — an empty-looking box the width
+   * of the popup, which reads as a field rather than as a label. Caught by looking at the rendered
+   * page; no test asserts the width of anything here.
+   */
+  justify-self: start;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: var(--ward-space-1) var(--ward-space-6);
+  border-radius: var(--ward-radius-pixel);
+  border: 1px solid var(--ward-border);
+  color: var(--ward-muted);
+}
+
+.attachedMovement {
+  color: var(--ward-blue);
+  border-color: var(--ward-blue-border);
+  background: var(--ward-blue-soft);
+}
+
+.attachedReferral {
+  color: var(--ward-warning);
+  border-color: var(--ward-warning);
+  background: var(--ward-warning-soft);
+}
+
+.empty {
+  padding: var(--ward-space-12) var(--ward-space-10);
+  display: grid;
+  gap: var(--ward-space-8);
+  font-size: 0.8125rem;
+  line-height: var(--ward-leading-prose);
+  color: var(--ward-muted);
+}
+
+.empty strong {
+  color: var(--ward-text);
+  font-weight: 600;
+}
+
+.addLink {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ward-tap);
+  padding: 0 var(--ward-space-12);
+  border-radius: var(--ward-radius-pixel);
+  background: var(--clinical-accent);
+  color: var(--surface);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.addLink:hover {
+  background: var(--ward-blue);
+}
+
+.guidance {
+  font-size: 0.6875rem;
+  line-height: var(--ward-leading-prose);
+  color: var(--ward-muted);
+}
+
+/*
+ * ⚠️ NO FONT DECLARATION HERE. `tests/ward-design-language-contract.test.ts` fails any Ward Flow
+ * stylesheet that sets a font family outside the token layer, and an `inherit` value is still a
+ * declaration — this rule had one and it went red. Inheriting is the default anyway, so it bought
+ * nothing and cost a guard.
+ *
+ * ⚠️ AND THE WORDING OF THIS COMMENT IS LOAD-BEARING, WHICH IS A FINDING ABOUT THE GUARD RATHER
+ * THAN ABOUT THIS FILE. That test runs its regex over the RAW FILE TEXT, comments included, so a
+ * comment quoting the forbidden declaration fails the very rule it is explaining. The first draft
+ * of this note did exactly that and went red with no offending CSS anywhere in the file. Anyone
+ * documenting this rule in a stylesheet has to describe the pattern without writing it.
+ */
+.guidance kbd {
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0 var(--ward-space-3);
+  border: 1px solid var(--ward-border);
+  border-radius: 3px;
+  background: var(--surface-inset);
+}

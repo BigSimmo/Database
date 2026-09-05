@@ -16,6 +16,7 @@ import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management
 import type { Referral } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * THE COMMUNITY HUB'S DERIVATIONS, after the association rule changed.
  *
@@ -91,6 +92,7 @@ function referralsNaming(teamNames: readonly string[], homeRegion: Referral["hom
       urgency: 2,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     });
     expect(state.rejections, `the reducer refused a referral naming ${teamName}`).toEqual([]);
   }
@@ -372,9 +374,16 @@ describe("the shipped seed reaches a team page", () => {
       "the seeded community link is gone. AD-LEFT-01's referralId must be the id of a real " +
         "referral naming a community team (RF-010 today) — NOT a value composed from its own id, " +
         "which is what every other seeded admission carries and what joins to nothing.",
-    ).toEqual(["Inner City Clinic"]);
+    ).toEqual(["Inner City Clinic", "Midland"]);
 
-    const lists = communityHubLists(admissions, withPeople[0], referrals);
+    // ⚠️ MIDLAND IS DEMONSTRATION DATA AND INNER CITY CLINIC IS NOT, which is why this test now
+    // NAMES the team it goes on to measure instead of taking the first of a list. Nine referrals
+    // naming "Midland" were added on 2026-09-05 (`MIDLAND_DEMONSTRATION_ROWS`, `ward-movements.ts`)
+    // so one community page has people on it; `withPeople[0]` was Inner City Clinic only because it
+    // sorts first, and a fixture whose order moved would have swapped this whole block onto the
+    // wrong team while still passing every line below.
+    const innerCity = withPeople.find((team) => team.name === "Inner City Clinic")!;
+    const lists = communityHubLists(admissions, innerCity, referrals);
     // ⚠️ The DISCHARGED list, which is the one the hub exists for and the one whose empty state was
     // unfalsifiable. AD-LEFT-01 is also the seed's only admission carrying a follow-up record, so
     // reaching it here is what finally gives `Admission.followUp` a reader as well as a producer.

@@ -1,0 +1,570 @@
+/* src/components/ward-management/ward-modes-second-edition.module.css
+ *
+ * The second-edition "Board" treatment for the three views `ward-management-modes.tsx` still
+ * owns after the WardTable extraction: QueueView, ExceptionsView and GovernanceView, plus
+ * QueueView's own DecisionPanel and GovernanceView's own EffectivenessValue. Every class below is
+ * new and used ONLY by those five functions.
+ *
+ * ⚠️ DELIBERATELY NOT `ward-management-modes.module.css`. Several of that file's classes are
+ * declared in selector lists shared with CapacityView, MovementsView, TransportView, ModeHeader
+ * and RoleFocus — screens and chrome this task does not own:
+ *   `.panel, .summaryCard, .stageColumn, .exceptionRow, .transportRow, .governanceCard { }`
+ *   `.panelHeader, .sectionHeader, .rowTop, .decisionHeader { }`
+ *   `.prototypeBadge, .reviewBadge, .statusGood, .statusWarning, .statusDanger, .statusNeutral { }`
+ *   `.patientFacts, .reasonList, .auditList, .sourceList { }`
+ *   `.queueList, .dataList, .exceptionList, .transportList { }`
+ *   `.primaryButton, .secondaryButton { }`
+ * Editing any one of those rules to match the second edition would restyle a screen the task
+ * brief explicitly puts out of scope. Building a parallel set of classes here, and switching only
+ * the in-scope JSX to reference them, restyles the three owned views with zero risk to the other
+ * three — the old rules stay declared, unedited, still serving CapacityView/MovementsView/
+ * TransportView exactly as before.
+ *
+ * Colour comes from `ward-tokens.module.css` roles only — see
+ * docs/ward-flow/design/second-edition-to-ckb-v2-role-map.md. Panel headers below carry no fill
+ * (Ruling E1 / role-map §3.2): every ward fill role measures below the 1.11:1 floor against a
+ * panel in the light theme, so a header reads as a header from its border-bottom and its
+ * uppercase, weighted type alone.
+ */
+
+.panel {
+  composes: wardTokens from "./ward-tokens.module.css";
+  border: 1px solid var(--ward-border);
+  border-radius: var(--radius-lg);
+  background: var(--ward-canvas);
+  overflow: hidden;
+}
+
+.panelHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ward-space-12);
+  padding: var(--ward-space-12) var(--ward-space-16);
+  border-bottom: 1px solid var(--ward-divider);
+}
+
+.panelHeader h2 {
+  margin: 0 0 var(--ward-space-4);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ward-heading);
+}
+
+.panelHeader p {
+  margin: 0;
+  max-width: 40rem;
+  font-size: var(--text-xs);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-prose);
+}
+
+.panelBadge {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ward-muted);
+}
+
+/* A tone badge states its word first; colour only reinforces it. Never used on a duration, a
+ * count or a wait — those stay plain text (Ruling E15). */
+.toneBadge {
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.toneDanger {
+  composes: toneBadge;
+  color: var(--ward-danger);
+}
+.toneWarning {
+  composes: toneBadge;
+  color: var(--ward-warning);
+}
+.toneGood {
+  composes: toneBadge;
+  color: var(--ward-success);
+}
+.toneNeutral {
+  composes: toneBadge;
+  color: var(--ward-muted);
+}
+
+/* Two-column layout: main panel plus a narrower rail, matching the mockup's grid at the same
+ * pinned breakpoint several other Ward Flow stylesheets already use (60rem). */
+.grid {
+  display: grid;
+  gap: var(--ward-space-16);
+  align-items: start;
+}
+@media (min-width: 60rem) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+  }
+}
+
+.microCopy {
+  margin: 0;
+  padding: var(--ward-space-16);
+  font-size: var(--text-xs);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-prose);
+}
+
+.notice {
+  margin: 0;
+  padding: var(--ward-space-12) var(--ward-space-16);
+  border-top: 1px solid var(--ward-divider);
+  font-size: var(--text-xs);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-prose);
+}
+
+/* ─── controls ────────────────────────────────────────────────────────── */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ward-space-6);
+  min-height: var(--ward-tap);
+  padding: var(--ward-space-6) var(--ward-space-12);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--radius-md);
+  background: var(--ward-canvas);
+  color: var(--ward-text);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.button svg {
+  flex-shrink: 0;
+}
+.linkButton {
+  composes: button;
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ward-blue);
+  font-weight: 600;
+}
+
+/* ─── table cells ─────────────────────────────────────────────────────── */
+.numCell {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── QueueView table ─────────────────────────────────────────────────── */
+.queueTable {
+  composes: table from "./ward-table/ward-table.module.css";
+  --ward-table-min-width: 46rem;
+}
+.queueTable tbody tr[data-selected="true"] td,
+.queueTable tbody tr[data-selected="true"] th {
+  background: var(--ward-blue-soft);
+}
+
+/* ─── DecisionPanel ───────────────────────────────────────────────────── */
+.decisionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ward-space-12);
+  padding: var(--ward-space-12) var(--ward-space-16);
+  border-bottom: 1px solid var(--ward-divider);
+}
+.decisionHeader h2 {
+  margin: var(--ward-space-4) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--ward-heading);
+}
+.reviewBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ward-space-4);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ward-blue);
+}
+.reviewBadge svg {
+  flex-shrink: 0;
+}
+
+.factsList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ward-space-12) var(--ward-space-16);
+  padding: var(--ward-space-16);
+  border-bottom: 1px solid var(--ward-divider);
+}
+.factsList dt {
+  margin: 0;
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ward-muted);
+}
+.factsList dd {
+  margin: var(--ward-space-4) 0 0;
+  font-size: var(--text-xs);
+  color: var(--ward-text);
+  line-height: var(--ward-leading-body);
+}
+
+.candidateList {
+  display: grid;
+  gap: 0;
+}
+.candidateRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ward-space-12);
+  width: 100%;
+  padding: var(--ward-space-10) var(--ward-space-16);
+  border: 0;
+  border-bottom: 1px solid var(--ward-divider);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.candidateRow:last-child {
+  border-bottom: 0;
+}
+.candidateRowSelected {
+  composes: candidateRow;
+  background: var(--ward-blue-soft);
+}
+.candidateRow strong,
+.candidateRowSelected strong {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ward-heading);
+}
+.candidateRow small,
+.candidateRowSelected small {
+  display: block;
+  margin-top: var(--ward-space-4);
+  font-size: var(--text-3xs);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-body);
+}
+.candidateRank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1px solid var(--ward-border);
+  border-radius: var(--radius-pill, 9999px);
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  color: var(--ward-muted);
+}
+.eligibleWord {
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ward-muted);
+  white-space: nowrap;
+}
+
+.gateList {
+  display: grid;
+  gap: var(--ward-space-8);
+  margin: 0;
+  padding: var(--ward-space-16);
+  list-style: none;
+  border-bottom: 1px solid var(--ward-divider);
+}
+.gateList li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ward-space-8);
+  font-size: var(--text-xs);
+  color: var(--ward-text);
+  line-height: var(--ward-leading-body);
+}
+.gateList svg {
+  flex-shrink: 0;
+  margin-top: var(--ward-space-2);
+}
+
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ward-space-8);
+  padding: var(--ward-space-16);
+}
+.primaryButton {
+  composes: button;
+  border-color: var(--ward-blue);
+  background: var(--ward-blue);
+  color: var(--surface);
+}
+.primaryButton[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ─── ExceptionsView ──────────────────────────────────────────────────── */
+.exceptionList {
+  display: grid;
+  gap: 0;
+}
+.exceptionRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--ward-space-12);
+  padding: var(--ward-space-12) var(--ward-space-16);
+  border-bottom: 1px solid var(--ward-divider);
+  border-left: 3px solid var(--ward-warning);
+}
+.exceptionRow:last-child {
+  border-bottom: 0;
+}
+.exceptionRow > svg {
+  flex-shrink: 0;
+  color: var(--ward-warning);
+}
+.exceptionRow strong {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ward-heading);
+}
+.exceptionRow small {
+  display: block;
+  margin-top: var(--ward-space-4);
+  font-size: var(--text-3xs);
+  color: var(--ward-muted);
+}
+
+.checklist {
+  display: grid;
+  gap: var(--ward-space-10);
+  margin: 0;
+  padding: var(--ward-space-16);
+  list-style: none;
+}
+.checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ward-space-8);
+  font-size: var(--text-xs);
+  color: var(--ward-text);
+  line-height: var(--ward-leading-body);
+}
+.checklist svg {
+  flex-shrink: 0;
+  margin-top: var(--ward-space-2);
+  color: var(--ward-success);
+}
+
+/* ─── GovernanceView ──────────────────────────────────────────────────── */
+.governanceBanner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ward-space-12);
+  padding: var(--ward-space-12) var(--ward-space-16);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--radius-lg);
+}
+.governanceBanner p {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 16rem;
+  font-size: var(--text-xs);
+  color: var(--ward-text);
+  line-height: var(--ward-leading-prose);
+}
+.governanceBanner p strong {
+  color: var(--ward-heading);
+}
+
+.assuranceGrid {
+  display: grid;
+  gap: var(--ward-space-12);
+  margin-top: var(--ward-space-16);
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+.governanceCard {
+  composes: panel;
+  display: grid;
+  gap: var(--ward-space-8);
+  padding: var(--ward-space-16);
+}
+.governanceCard svg {
+  color: var(--ward-blue);
+}
+.governanceCard h2 {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ward-heading);
+}
+.governanceCard p {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-prose);
+}
+
+.governanceLowerGrid {
+  margin-top: var(--ward-space-16);
+}
+
+.auditList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.auditList li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ward-space-8);
+  padding: var(--ward-space-10) var(--ward-space-16);
+  border-bottom: 1px solid var(--ward-divider);
+  font-size: var(--text-xs);
+  color: var(--ward-text);
+  line-height: var(--ward-leading-body);
+}
+.auditList li:last-child {
+  border-bottom: 0;
+}
+.auditList svg {
+  flex-shrink: 0;
+  margin-top: var(--ward-space-2);
+  color: var(--ward-muted);
+}
+
+.sourceList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sourceList li {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-8);
+  padding: var(--ward-space-10) var(--ward-space-16);
+  border-bottom: 1px solid var(--ward-divider);
+  font-size: var(--text-xs);
+}
+.sourceList li:last-child {
+  border-bottom: 0;
+}
+.sourceList svg {
+  flex-shrink: 0;
+  color: var(--ward-success);
+}
+.sourceList a {
+  color: var(--ward-blue);
+  text-decoration: underline;
+}
+
+.emptyNote {
+  margin: 0;
+  padding: var(--ward-space-16);
+  font-size: var(--text-xs);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-prose);
+}
+
+.effectivenessList {
+  display: grid;
+  gap: var(--ward-space-16);
+  margin: 0;
+  padding: var(--ward-space-16);
+}
+.effectivenessList dt {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-6);
+  margin: 0;
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ward-muted);
+}
+.effectivenessList dt svg {
+  flex-shrink: 0;
+}
+.effectivenessList dd {
+  margin: var(--ward-space-6) 0 0;
+}
+.effectivenessLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ward-space-8);
+}
+.effectivenessValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ward-heading);
+}
+.effectivenessValue small {
+  margin-left: var(--ward-space-4);
+  font-family: var(--font-sans);
+  font-size: var(--text-3xs);
+  font-weight: 500;
+  color: var(--ward-muted);
+}
+.effectivenessUnknown {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ward-muted);
+}
+.effectivenessBasis {
+  font-size: var(--text-3xs);
+  color: var(--ward-muted);
+}
+
+.droppedMeasureNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ward-space-8);
+  margin: 0;
+  padding: var(--ward-space-12) var(--ward-space-16);
+  border-top: 1px solid var(--ward-divider);
+  font-size: var(--text-3xs);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-prose);
+}
+.droppedMeasureNote svg {
+  flex-shrink: 0;
+  margin-top: var(--ward-space-2);
+}

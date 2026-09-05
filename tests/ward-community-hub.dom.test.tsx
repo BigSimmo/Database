@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
+
 import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectNeverSaysAgain, expectSays } from "./helpers/ward-caption";
 
 // Same reason as every sibling dom suite: `ClinicalRail` and the team switcher render next/link
 // anchors, and jsdom cannot provide an App Router context.
@@ -21,6 +24,7 @@ import { WardFlowProvider } from "@/components/ward-management/ward-flow-provide
 import type { Referral } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * THE COMMUNITY HUB, ON THE SCREEN, AFTER THE ASSOCIATION RULE WAS REVERSED.
  *
@@ -103,6 +107,7 @@ function referralsNaming(teamNames: readonly string[], homeRegion: Referral["hom
       urgency: 2,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     });
     expect(state.rejections, `the reducer refused a referral naming ${teamName}`).toEqual([]);
   }
@@ -133,12 +138,28 @@ function renderTeam(teamId: string, admissions: Admission[], referrals: Referral
   );
 }
 
+/**
+ * Every admission actually shown in the "currently admitted" section, read off the per-admission
+ * testid rather than counted by list-item role. The FACT this file's central falsifier proves is
+ * "exactly this person appears here, and that other one does not" — a fact a rendered `<li>` and a
+ * rendered `<tr>` state equally well, so the count is taken from the testid the row carries in
+ * either shape rather than from `getAllByRole("listitem")`, which only the `<li>` shape satisfies.
+ */
+function admittedIds(): string[] {
+  return [...document.querySelectorAll('[data-testid^="ward-community-admitted-AD-"]')].map(
+    (el) => el.getAttribute("data-testid") ?? "",
+  );
+}
+
 describe("community hub — an unknown team is never another team", () => {
   it("says no team matches, and renders no list at all", () => {
     const [toA] = referralsNaming([TEAM_A.name], "Perth Metropolitan");
     renderTeam("atlantis", [admission({ id: "AD-A", referralId: toA.id })], [toA]);
 
-    expect(screen.getByTestId("ward-community-unresolved").textContent).toContain("No community team matches");
+    expectSays(screen.getByTestId("ward-community-unresolved").textContent, "the empty team search", [
+      "no community team",
+      "no match",
+    ]);
     // A fallback would render one of these names in the heading, so the absence is asserted over
     // the whole page rather than over the heading alone.
     const page = document.body.textContent ?? "";
@@ -166,8 +187,7 @@ describe("community hub — who the page shows is who the referral named", () =>
     renderTeam(TEAM_A.id, [admission({ id: "AD-A", referralId: toA.id, state: "occupied" })], [toA]);
 
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(TEAM_A.name);
-    const list = screen.getByTestId("ward-community-admitted-list");
-    expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+    expect(admittedIds()).toHaveLength(1);
     expect(screen.getByTestId("ward-community-admitted-AD-A")).toBeTruthy();
     expect(screen.getByTestId("ward-community-admitted-count").textContent).toContain("1");
     // The rule is stated on the page, once, above every list that depends on it.
@@ -191,7 +211,7 @@ describe("community hub — who the page shows is who the referral named", () =>
     const both = [personA, personB];
 
     const first = renderTeam(TEAM_A.id, both, [toA, toB]);
-    expect(within(screen.getByTestId("ward-community-admitted-list")).getAllByRole("listitem")).toHaveLength(1);
+    expect(admittedIds()).toHaveLength(1);
     expect(screen.getByTestId("ward-community-admitted-AD-A")).toBeTruthy();
     expect(screen.queryByTestId("ward-community-admitted-AD-B")).toBeNull();
     expect(screen.getByTestId("ward-community-admitted-count").textContent).toContain("1");
@@ -200,7 +220,7 @@ describe("community hub — who the page shows is who the referral named", () =>
     // The converse, on the same fixture: the exclusion above is a consequence of the referral and
     // not of one person being invisible everywhere.
     renderTeam(TEAM_B.id, both, [toA, toB]);
-    expect(within(screen.getByTestId("ward-community-admitted-list")).getAllByRole("listitem")).toHaveLength(1);
+    expect(admittedIds()).toHaveLength(1);
     expect(screen.getByTestId("ward-community-admitted-AD-B")).toBeTruthy();
     expect(screen.queryByTestId("ward-community-admitted-AD-A")).toBeNull();
   });
@@ -213,7 +233,7 @@ describe("community hub — who the page shows is who the referral named", () =>
     const noRegion = admission({ id: "AD-NONE", referralId: toA.id, homeRegion: null });
 
     renderTeam(TEAM_A.id, [farAway, noRegion], [toA]);
-    expect(within(screen.getByTestId("ward-community-admitted-list")).getAllByRole("listitem")).toHaveLength(2);
+    expect(admittedIds()).toHaveLength(2);
     expect(screen.getByTestId("ward-community-admitted-AD-FAR")).toBeTruthy();
     expect(screen.getByTestId("ward-community-admitted-AD-NONE")).toBeTruthy();
   });
@@ -240,9 +260,9 @@ describe("community hub — the cohort that appears on no team's page", () => {
     );
 
     const text = screen.getByTestId("ward-community-unattributable").textContent ?? "";
-    expect(text).toContain("0 admissions are on no community team's page");
-    expect(text).toContain("a referral NAMED this team");
-    expect(text).toContain("It is not a picture of an area");
+    expectSays(text, "the unattributed-admissions count", ["0 admission"]);
+    expectSays(text, "the attribution note", ["named this team", "names this team"]);
+    expectSays(text, "the not-a-catchment caveat", ["not a picture of an area", "not an area"]);
   });
 
   it("counts them when they exist, and shows them on no list", () => {
@@ -275,11 +295,29 @@ describe("community hub — an empty list must never read as an all-clear", () =
     // `Admission.followUp` exists, carries a state/instant/role, and is seeded. What is true is that
     // nothing writes it and nothing reads it. The negative pin below is what stops the false version
     // returning; see `tests/ward-community-index.test.ts` for the full pin and the measurement.
-    expect(notice).toContain("Whether follow-up has been arranged is recorded on the admission");
-    expect(notice, "the false 'no such field' claim has come back").not.toContain(
-      "is not recorded anywhere in this prototype",
-    );
-    expect(notice.toLowerCase()).toContain("does not mean everybody is being followed up");
+    expectSays(notice, "the follow-up provenance note", ["follow-up", "admission"]);
+    /*
+     * ⚠️ **THIS BANNED ONE EXACT SENTENCE UNTIL 2026-09-06, AND THE CLAIM IT GUARDS IS TRIVIAL TO
+     * RESTATE.** The false version said the field is not recorded anywhere in this prototype;
+     * `Admission.followUp` exists, carries a state, an instant and a role, and is seeded. Any of
+     * "there is no such field", "the model has no field for it", "we do not hold that" says the same
+     * false thing and walked straight past a single-string ban.
+     *
+     * The true claim is narrower and is asserted separately, by the model rather than by wording:
+     * the field has NO PRODUCER — see "no reducer event gives Admission.followUp a value" in this
+     * file, which reads the reducer and goes red if that stops being true. **A ban on wording and a
+     * check on the model guard different halves, and neither substitutes for the other**: the model
+     * check cannot see the page tell a lie about the schema, and this cannot see the schema change.
+     */
+    expectNeverSaysAgain(notice, "the follow-up provenance note", [
+      "is not recorded anywhere",
+      "no such field",
+      "has no field",
+      "does not exist in this prototype",
+      "is not held anywhere",
+      "nothing in the model records",
+    ]);
+    expectSays(notice.toLowerCase(), "the follow-up caveat", ["does not mean", "followed up"]);
   });
 
   it("carries the same wording on a team that DOES have a discharge, so it is not an empty-state message", () => {
@@ -306,10 +344,74 @@ describe("community hub — an empty list must never read as an all-clear", () =
     renderTeam(TEAM_A.id, [admission({ id: "AD-A", referralId: toA.id })], [toA]);
 
     const page = (document.body.textContent ?? "").toLowerCase();
-    expect(page).not.toContain("no follow-up arranged");
-    expect(page).not.toContain("nobody is missing follow-up");
+    // ⚠️ Widened past the two exact strings, because a claim the model cannot express is still
+    // unexpressible when it is rephrased — the original pin would pass on "everyone has follow-up".
+    // Spellings chosen so they CANNOT collide with the honest copy on this same page, which says
+    // "does not mean everybody is being followed up": a naive ban on "followed up" would go red on
+    // correct work, which is the failure this whole pass exists to remove.
+    expectNeverSaysAgain(page, "the community hub", [
+      "no follow-up arranged",
+      "nobody is missing follow-up",
+      "no one is missing follow-up",
+      "everybody has follow-up",
+      "everyone has follow-up",
+      "all follow-up arranged",
+    ]);
     // Non-vacuity: the scan must actually have text to search.
     expect(page.length).toBeGreaterThan(500);
+  });
+  /**
+   * 🔴 **THE BAN ABOVE IS A LIST OF WORDINGS. THIS IS THE FACT THAT MAKES IT LEGITIMATE, AND UNTIL
+   * NOW NOTHING HELD IT.**
+   *
+   * The page must never claim a patient's follow-up is arranged because `Admission.followUp` has no
+   * producer: it exists, it carries the vocabulary ["arranged", "not_arranged"], the seed writes it
+   * — and **no reducer event can set one**, so a value on screen would be describing fixture data as
+   * though a ward had done something. A ban on sentences cannot see that premise change: a rewrite
+   * that gave the field a producer would leave every spelling above green while the ban quietly
+   * became wrong.
+   *
+   * ⚠️ **AND THE NEAREST EXISTING GUARD PINS THE PROSE ABOUT THIS, NOT THE PROPERTY.**
+   * `ward-community-corrected-claims.test.ts` asserts that the explanatory comment still contains
+   * "no producer and no consumer" — which is true of a sentence, and stays true when the code stops
+   * matching it. This asserts the code.
+   *
+   * Comments are dropped before the scan, because the comment explaining this very rule names the
+   * field and would otherwise satisfy the check that describes it.
+   */
+  it("no reducer event gives Admission.followUp a value, which is why the wordings above are banned", () => {
+    const reducer = readFileSync("src/components/ward-management/ward-flow-reducer.ts", "utf8");
+    const executable = reducer.split("\n").filter((line) => {
+      const trimmed = line.trim();
+      return trimmed !== "" && !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+    });
+
+    const FIELD = "followUp:";
+    const writes = executable
+      .filter((line) => line.includes(FIELD))
+      .map((line) =>
+        line
+          .slice(line.indexOf(FIELD) + FIELD.length)
+          .split(",")[0]
+          .trim(),
+      );
+
+    // ⚠️ FLOORED ON THE POPULATION WALKED, NEVER ON THE FINDINGS. Renaming the field takes this to
+    // zero writes, and "every write is null" is trivially true of no writes — the vacuous green.
+    // A rename must go RED here, because it means the ban above is guarding a premise that moved.
+    expect(
+      writes.length,
+      "no `followUp:` write found anywhere in the reducer. Either the field was renamed — in which " +
+        "case the follow-up wording ban above is guarding a premise that has moved and must be " +
+        "re-derived — or this scan is broken. Neither is evidence that nothing writes one.",
+    ).toBeGreaterThan(0);
+
+    expect(
+      writes.filter((value) => value !== "null"),
+      "a reducer event now writes a non-null `Admission.followUp`. The field has gained a producer, " +
+        "so 'nothing can arrange follow-up' has stopped being true — take the wording ban above back " +
+        "to the owner rather than widening it.",
+    ).toEqual([]);
   });
 
   it("accounts for the departures that are not on list 1 rather than dropping them", () => {
@@ -330,7 +432,7 @@ describe("community hub — an empty list must never read as an all-clear", () =
     // Deliberately trimmed before "into this area". The screen still carries region-era wording in
     // its headings and empty states (reported, not fixed here), and pinning that phrasing would make
     // this guard resist the copy correction rather than survive it.
-    expect(footnote).toContain("None of those records says the person came back");
+    expectSays(footnote, "the return caveat", ["came back", "returned"]);
   });
 });
 
@@ -341,8 +443,8 @@ describe("community hub — the list that cannot be built", () => {
 
     const section = screen.getByTestId("ward-community-referrals");
     const statement = within(section).getByTestId("ward-community-referrals-unattributable").textContent ?? "";
-    expect(statement).toContain("Referrals RAISED BY this team cannot be attributed");
-    expect(statement).toContain("the source side carries no team");
+    expectSays(statement, "the raised-by attribution refusal", ["cannot be attributed", "not attributable"]);
+    expectSays(statement, "the raised-by attribution refusal", ["source side", "no team"]);
     // A section that says why it is empty is honest; a list here would necessarily be a
     // fabrication, because nothing in the model says which team raised a referral.
     expect(within(section).queryByRole("list")).toBeNull();
@@ -398,15 +500,27 @@ describe("community hub — elapsed time is rendered, never a calendar date or c
     }
 
     // The retired "a date is recorded, and nothing more" wording must not have come back.
-    expect(page).not.toContain("The date itself is not shown");
-    expect(page).not.toContain("No row above says when somebody left");
-    expect(page).not.toContain("The ward has written down an expected discharge date");
+    // ⚠️ The retired wording, plus the rephrasings that would restore the same withdrawn claim.
+    // A ban on three exact sentences is defeated by anyone who paraphrases them — which is what a
+    // redesign does — so the guard has to forbid the CLAIM, not the sentence that carried it.
+    expectNeverSaysAgain(page, "the community hub's departure rows", [
+      "The date itself is not shown",
+      "the date is not shown",
+      "No row above says when somebody left",
+      "no row says when somebody left",
+      "The ward has written down an expected discharge date",
+      "the ward has recorded an expected discharge date",
+    ]);
 
     // What the rows say INSTEAD of an instant: elapsed time, in both directions.
     expect(screen.getByTestId("ward-community-expected-AD-DATED").textContent).toContain(
       "Expected discharge in 3 days",
     );
-    expect(screen.getByTestId("ward-community-discharged-AD-HOME").textContent).toContain("Left this ward 5 weeks ago");
+    expectSays(
+      screen.getByTestId("ward-community-discharged-AD-HOME").textContent,
+      "the elapsed-since-departure figure",
+      ["5 weeks", "left"],
+    );
   });
 });
 
@@ -440,7 +554,11 @@ describe("community hub — the week-rounding boundary is floored, and pinned on
 
     renderTeam(TEAM_A.id, [stillFourWeeks, justFiveWeeks], [toA]);
 
-    expect(screen.getByTestId("ward-community-discharged-AD-34").textContent).toContain("Left this ward 4 weeks ago");
+    expectSays(
+      screen.getByTestId("ward-community-discharged-AD-34").textContent,
+      "the elapsed-since-departure figure",
+      ["4 weeks", "left"],
+    );
     expect(screen.getByTestId("ward-community-discharged-AD-34").textContent).not.toContain("5 weeks");
     expect(screen.getByTestId("ward-community-discharged-AD-35").textContent).toContain("Left this ward 5 weeks ago");
   });
@@ -464,8 +582,16 @@ describe("community hub — the week-rounding boundary is floored, and pinned on
 
     renderTeam(TEAM_A.id, [sixDays, oneWeek], [toA]);
 
-    expect(screen.getByTestId("ward-community-discharged-AD-6D").textContent).toContain("Left this ward 6 days ago");
-    expect(screen.getByTestId("ward-community-discharged-AD-7D").textContent).toContain("Left this ward 1 week ago");
+    expectSays(
+      screen.getByTestId("ward-community-discharged-AD-6D").textContent,
+      "the elapsed-since-departure figure",
+      ["6 days", "left"],
+    );
+    expectSays(
+      screen.getByTestId("ward-community-discharged-AD-7D").textContent,
+      "the elapsed-since-departure figure",
+      ["1 week", "left"],
+    );
   });
 });
 
@@ -506,7 +632,7 @@ describe("community hub — an overdue expected date reads as overdue, not as a 
     renderTeam(TEAM_A.id, [overdue], [toA]);
 
     const row = screen.getByTestId("ward-community-expected-AD-OVERDUE").textContent ?? "";
-    expect(row).toContain("Expected discharge was 1 week ago");
+    expectSays(row, "the overdue-expected-date figure", ["1 week", "expected"]);
     // Never a negative count, and never the word this screen still does not use.
     expect(row).not.toMatch(/-\s*\d/);
     expect(row.toLowerCase()).not.toContain("overdue");
@@ -532,7 +658,7 @@ describe("community hub — an unrecorded departure time is an absence, never a 
     renderTeam(TEAM_A.id, [noDepartureTime], [toA]);
 
     const row = screen.getByTestId("ward-community-discharged-AD-NO-TIME").textContent ?? "";
-    expect(row).toContain("Left this ward; the departure time was not recorded");
+    expectSays(row, "the unrecorded-departure line", ["not recorded", "left"]);
     expect(row).not.toContain("0 days");
     expect(row).not.toContain("today");
   });
@@ -605,5 +731,317 @@ describe("community hub — the team switcher, and the route it resolves", () =>
     for (const team of COMMUNITY_TEAM_PAGES) {
       expect(communityTeamHref(team)).toBe(`/mockups/ward-flow/community/${team.id}`);
     }
+  });
+});
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════
+ * THIRD EDITION — the referral queue and "admitted while already with this team".
+ *
+ * Everything below guards the CLAIM and the CLINICAL PROPERTY, never the rendering: no pinned
+ * sentence, no class name, no DOM shape, no positional column index. Table columns are read by
+ * their HEADER NAME, resolved at render time from the real `<thead>`, so a restyle of this panel
+ * cannot break these tests the way a restyle would break a test that read `cells[3]`.
+ * ════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/** One referral naming `teamName`, raised at `raisedAt`, through the reducer's own write path —
+ *  never constructed by hand, so its shape is a shape the live system actually produces. Returns
+ *  the state it landed in (for a caller that wants to accept it next) alongside the referral. */
+function raiseTeamReferral(
+  state: ReturnType<typeof seedWardFlowState>,
+  teamName: string,
+  raisedAt: number,
+): { state: ReturnType<typeof seedWardFlowState>; referral: Referral } {
+  const before = state.referrals.length;
+  const next = wardFlowReducer(state, {
+    type: "RECEIVE_REFERRAL",
+    role: "community",
+    now: raisedAt,
+    ageBand: "Adult",
+    destinations: [{ kind: "community_team", teamName }],
+    homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Armadale" },
+    source: "community",
+    urgency: 2,
+    originSiteCode: "RPH",
+    transportNeeded: false,
+    ...FIXTURE_HISTORY,
+  });
+  expect(next.rejections, "the fixture referral was refused").toEqual([]);
+  const created = next.referrals.slice(before);
+  expect(created, "the reducer did not create the fixture referral").toHaveLength(1);
+  return { state: next, referral: created[0] };
+}
+
+/** `referral` accepted by the network at `decidedAt`, as `coordinator` — the one role this
+ *  reducer lets answer ANY destination kind (`CO-D2`), so it is the realistic way a community
+ *  destination ever reaches `"accepted"` today; the community hub itself offers no such control
+ *  (see the "the team's own queue offers no way to decide" describe block below). */
+function acceptTeamReferral(
+  state: ReturnType<typeof seedWardFlowState>,
+  referralId: string,
+  decidedAt: number,
+): ReturnType<typeof seedWardFlowState> {
+  const next = wardFlowReducer(state, {
+    type: "ACCEPT_REFERRAL",
+    role: "coordinator",
+    now: decidedAt,
+    referralId,
+    destinationKind: "community_team",
+  });
+  expect(next.rejections, "the fixture acceptance was refused").toEqual([]);
+  return next;
+}
+
+/** The `<td>`/`<th>` text under a header name, resolved from the real `<thead>` rather than a
+ *  hard-coded index — exactly what the brief asks for: address a column by its name, not its
+ *  position, so a reordered or renamed column fails loudly instead of silently comparing the
+ *  wrong cell. */
+function cellByHeader(table: HTMLElement, row: HTMLElement, headerName: string): string {
+  const headers = within(table)
+    .getAllByRole("columnheader")
+    .map((header) => header.textContent?.trim());
+  const index = headers.indexOf(headerName);
+  expect(index, `no column named "${headerName}" in this table (headers: ${headers.join(", ")})`).toBeGreaterThan(-1);
+  // `th[scope=row]` and `td` together, in DOM order — the same order the headers were read in, so
+  // the two arrays line up by position without either being read by a hard-coded index.
+  const cells = Array.from(row.querySelectorAll("th, td"));
+  return cells[index]?.textContent?.trim() ?? "";
+}
+
+const ACCEPTED_TEAM = COMMUNITY_TEAM_PAGES[2];
+
+describe("admitted while already with this team — the acceptance-before-admission rule", () => {
+  /**
+   * ⚠️ **THE FLOOR.** One fixture, three admissions, each forcing a different one of the three
+   * outcomes `categoriseTeamAdmission` can produce. If the seed only ever produced one shape, every
+   * assertion below would pass vacuously — this walks the population and proves it is not vacuous
+   * before drawing any conclusion from it.
+   */
+  function buildThreeShapeFixture() {
+    let state = seedWardFlowState();
+
+    // Shape 1: accepted well before the bed began — belongs in the table.
+    const acceptedEarly = raiseTeamReferral(state, ACCEPTED_TEAM.name, NOW_ANCHOR - 20 * MINUTES_PER_DAY);
+    state = acceptTeamReferral(acceptedEarly.state, acceptedEarly.referral.id, NOW_ANCHOR - 15 * MINUTES_PER_DAY);
+    // ⚠️ Re-read the referral from the state the acceptance actually landed in. Keeping the
+    // pre-acceptance object here is the bug this comment exists to prevent: it still reads
+    // "queued", so the admission below would never resolve to "accepted-before-admission" at all.
+    const acceptedEarlyReferral = state.referrals.find((referral) => referral.id === acceptedEarly.referral.id)!;
+    const admittedAfterAcceptance = admission({
+      id: "AD-ACCEPTED-FIRST",
+      referralId: acceptedEarlyReferral.id,
+      state: "occupied",
+      arrivedAt: NOW_ANCHOR - 5 * MINUTES_PER_DAY,
+    });
+
+    // Shape 2: the bed began first, and the referral to this team came afterwards — the ward
+    // reaching out during an admission that is still open. Must be EXCLUDED from the table.
+    const referredLate = raiseTeamReferral(state, ACCEPTED_TEAM.name, NOW_ANCHOR - 10 * MINUTES_PER_DAY);
+    state = acceptTeamReferral(referredLate.state, referredLate.referral.id, NOW_ANCHOR - 8 * MINUTES_PER_DAY);
+    const referredLateReferral = state.referrals.find((referral) => referral.id === referredLate.referral.id)!;
+    const admittedBeforeReferral = admission({
+      id: "AD-REFERRED-DURING",
+      referralId: referredLateReferral.id,
+      state: "occupied",
+      arrivedAt: NOW_ANCHOR - 30 * MINUTES_PER_DAY,
+    });
+
+    // Shape 3: a bed pulled for this team and nobody has arrived yet — no admission start exists
+    // to compare an acceptance against, so this can be neither of the other two.
+    const pulledFor = raiseTeamReferral(state, ACCEPTED_TEAM.name, NOW_ANCHOR - 3 * MINUTES_PER_DAY);
+    state = pulledFor.state;
+    const bedPulled = admission({
+      id: "AD-PULLED",
+      referralId: pulledFor.referral.id,
+      state: "pulled",
+      pulledAt: NOW_ANCHOR - 1 * MINUTES_PER_DAY,
+      arrivedAt: null,
+    });
+
+    return {
+      referrals: [acceptedEarlyReferral, referredLateReferral, pulledFor.referral],
+      admissions: [admittedAfterAcceptance, admittedBeforeReferral, bedPulled],
+    };
+  }
+
+  it("floors the population: the fixture really does produce both an included and an excluded admission", () => {
+    const { admissions, referrals } = buildThreeShapeFixture();
+    // Non-vacuity on the fixture itself, independent of the rendered page: three admissions, three
+    // distinct referrals, none colliding.
+    expect(admissions).toHaveLength(3);
+    expect(new Set(referrals.map((referral) => referral.id)).size).toBe(3);
+  });
+
+  it("includes only the admission this team accepted BEFORE the bed began", () => {
+    const { admissions, referrals } = buildThreeShapeFixture();
+    renderTeam(ACCEPTED_TEAM.id, admissions, referrals);
+
+    const table = screen.getByTestId("ward-community-accepted-before-admission-table");
+    expect(within(table).queryByTestId("ward-community-accepted-before-admission-AD-ACCEPTED-FIRST")).toBeTruthy();
+    expect(within(table).queryByTestId("ward-community-accepted-before-admission-AD-REFERRED-DURING")).toBeNull();
+    expect(within(table).queryByTestId("ward-community-accepted-before-admission-AD-PULLED")).toBeNull();
+  });
+
+  it("excludes a referral raised during the admission the person is still in, and names it in the other-groups count", () => {
+    const { admissions, referrals } = buildThreeShapeFixture();
+    renderTeam(ACCEPTED_TEAM.id, admissions, referrals);
+
+    const otherGroups = screen.getByTestId("ward-community-accepted-before-admission-other-groups").textContent ?? "";
+    // One admission referred during its own bed (AD-REFERRED-DURING), one bed pulled with nobody
+    // arrived (AD-PULLED) — both real counts, read from the same fixture the table renders.
+    expectSays(otherGroups, "the referred-during-stay count", ["1 admission", "referred"]);
+    expectSays(otherGroups, "the pulled-not-arrived count", ["1 ", "bed pulled"]);
+  });
+
+  it("reads the acceptance-before-admission gap by its column header, not by position", () => {
+    const { admissions, referrals } = buildThreeShapeFixture();
+    renderTeam(ACCEPTED_TEAM.id, admissions, referrals);
+
+    const table = screen.getByTestId("ward-community-accepted-before-admission-table");
+    const row = within(table).getByTestId("ward-community-accepted-before-admission-AD-ACCEPTED-FIRST");
+    // 15 days accepted before now, 5 days into the bed — the gap between acceptance and arrival is
+    // 10 days, resolved by the column NAMED "Accepted before the bed began".
+    const gapCell = cellByHeader(table, row, "Accepted before the bed began");
+    expect(gapCell.length, "the gap column rendered nothing").toBeGreaterThan(0);
+    expect(gapCell.toLowerCase()).not.toContain("overdue");
+  });
+
+  it("never claims, in any heading or sentence, that a person is currently or actively with the team", () => {
+    const { admissions, referrals } = buildThreeShapeFixture();
+    renderTeam(ACCEPTED_TEAM.id, admissions, referrals);
+
+    // The NEGATIVE half is a page-wide ban and must stay page-wide: a forbidden claim anywhere on
+    // the screen is the defect, so narrowing this would be the bug, not the fix.
+    const page = (document.body.textContent ?? "").toLowerCase();
+    for (const forbidden of ["currently active with", "actively with this team", "currently with this team"]) {
+      expect(page, `the page claims active care with the forbidden phrase "${forbidden}"`).not.toContain(forbidden);
+    }
+
+    /*
+     * 🔴 **THE POSITIVE HALF READ THE WHOLE PAGE UNTIL 2026-09-05, AND THAT MADE IT UNABLE TO FAIL.**
+     * A second paragraph further down repeats "no team discharge, no episode end", so both concepts
+     * were satisfied by a sentence that is not this caveat. Measured, not argued: deleting the whole
+     * `<p data-testid="ward-community-accepted-before-admission-not-active-claim">` from
+     * `community-screen.tsx` — the caveat gone from the screen entirely — left this test GREEN.
+     *
+     * That caveat is the only thing stopping a coordinator reading the table above as "these people
+     * are currently under this team's care", which the record cannot support. Pointed at its own
+     * element, the same deletion now fails on the missing testid before any wording is compared.
+     *
+     * ⚠️ The fix is the ELEMENT, not the wording. Do not repair a future red here by adding
+     * spellings: a longer list makes a guard that already cannot fail harder to fail.
+     */
+    const caveat = screen.getByTestId("ward-community-accepted-before-admission-not-active-claim");
+    expectSays(caveat, "the still-with-team caveat", ["does not say", "still with"]);
+    expectSays(caveat, "the still-with-team caveat", ["no team discharge", "no episode end"]);
+  });
+
+  it("carries no colour or emphasis keyed to the size of the gap: two very different gaps render identically apart from their own id", () => {
+    let state = seedWardFlowState();
+    const short = raiseTeamReferral(state, ACCEPTED_TEAM.name, NOW_ANCHOR - 6 * MINUTES_PER_DAY);
+    state = acceptTeamReferral(short.state, short.referral.id, NOW_ANCHOR - 5 * MINUTES_PER_DAY);
+    const shortReferral = state.referrals.find((referral) => referral.id === short.referral.id)!;
+    const shortGapAdmission = admission({
+      id: "AD-SHORT-GAP",
+      referralId: shortReferral.id,
+      state: "occupied",
+      arrivedAt: NOW_ANCHOR - 4 * MINUTES_PER_DAY,
+    });
+
+    const long = raiseTeamReferral(state, ACCEPTED_TEAM.name, NOW_ANCHOR - 400 * MINUTES_PER_DAY);
+    state = acceptTeamReferral(long.state, long.referral.id, NOW_ANCHOR - 380 * MINUTES_PER_DAY);
+    const longReferral = state.referrals.find((referral) => referral.id === long.referral.id)!;
+    const longGapAdmission = admission({
+      id: "AD-LONG-GAP",
+      referralId: longReferral.id,
+      state: "occupied",
+      arrivedAt: NOW_ANCHOR - 4 * MINUTES_PER_DAY,
+    });
+
+    renderTeam(ACCEPTED_TEAM.id, [shortGapAdmission, longGapAdmission], [shortReferral, longReferral]);
+
+    const table = screen.getByTestId("ward-community-accepted-before-admission-table");
+    const shortRow = within(table).getByTestId("ward-community-accepted-before-admission-AD-SHORT-GAP");
+    const longRow = within(table).getByTestId("ward-community-accepted-before-admission-AD-LONG-GAP");
+    // Same class list on both rows regardless of a roughly sixty-fold difference in the gap they
+    // render — the only thing distinguishing them is their own identity, never a rule keyed to
+    // how long the gap is.
+    expect(shortRow.className).toBe(longRow.className);
+    expect(shortRow.hasAttribute("data-tone")).toBe(false);
+    expect(longRow.hasAttribute("data-tone")).toBe(false);
+  });
+
+  it("says nobody accepted-before-admission in words, when there is nobody, and never a bare dash or blank", () => {
+    const [toTeam] = referralsNaming([ACCEPTED_TEAM.name], "Perth Metropolitan");
+    renderTeam(ACCEPTED_TEAM.id, [admission({ id: "AD-A", referralId: toTeam.id, state: "occupied" })], [toTeam]);
+
+    const empty = screen.getByTestId("ward-community-accepted-before-admission-empty").textContent ?? "";
+    expect(empty.length).toBeGreaterThan(10);
+    expect(empty.trim()).not.toBe("");
+    expect(empty.trim()).not.toBe("-");
+    expect(empty.trim()).not.toBe("—");
+  });
+});
+
+describe("waiting for your answer — the team's own queue, and why it offers no way to decide", () => {
+  it("shows a referral whose addressing to this team is still queued", () => {
+    const [toTeam] = referralsNaming([ACCEPTED_TEAM.name], "Perth Metropolitan");
+    renderTeam(ACCEPTED_TEAM.id, [], [toTeam]);
+
+    expect(screen.getByTestId(`ward-community-waiting-${toTeam.id}`)).toBeTruthy();
+  });
+
+  it("excludes a referral once this team's addressing has been answered", () => {
+    let state = seedWardFlowState();
+    const raised = raiseTeamReferral(state, ACCEPTED_TEAM.name, NOW_ANCHOR - 2 * MINUTES_PER_DAY);
+    state = acceptTeamReferral(raised.state, raised.referral.id, NOW_ANCHOR - 1 * MINUTES_PER_DAY);
+    const accepted = state.referrals.find((referral) => referral.id === raised.referral.id)!;
+
+    renderTeam(ACCEPTED_TEAM.id, [], [accepted]);
+
+    expect(screen.queryByTestId(`ward-community-waiting-${accepted.id}`)).toBeNull();
+    expect(screen.getByTestId("ward-community-waiting-empty")).toBeTruthy();
+  });
+
+  it("offers no button that could accept or decline, and says why", () => {
+    const [toTeam] = referralsNaming([ACCEPTED_TEAM.name], "Perth Metropolitan");
+    renderTeam(ACCEPTED_TEAM.id, [], [toTeam]);
+
+    const panel = screen.getByTestId("ward-community-waiting");
+    expect(within(panel).queryAllByRole("button")).toHaveLength(0);
+    expect(screen.getByTestId("ward-community-waiting-not-actionable").textContent).toContain(
+      "Accepting or declining a referral is not available from this page",
+    );
+  });
+});
+
+describe("the discharged-into-the-area caveat renders above its list, never below", () => {
+  it("puts the follow-up notice before the list (or its empty state) in document order", () => {
+    const [toTeam] = referralsNaming([ACCEPTED_TEAM.name], "Perth Metropolitan");
+    renderTeam(ACCEPTED_TEAM.id, [admission({ id: "AD-A", referralId: toTeam.id, state: "occupied" })], [toTeam]);
+
+    const section = screen.getByTestId("ward-community-discharged");
+    const notice = within(section).getByTestId("ward-community-follow-up-not-recorded");
+    const emptyOrList =
+      within(section).queryByTestId("ward-community-discharged-list") ??
+      within(section).getByTestId("ward-community-discharged-empty");
+
+    // DOCUMENT_POSITION_FOLLOWING means the second node comes after the first — i.e. the notice is
+    // above the list it qualifies, not read-able-past on the way down to an empty one.
+    const relation = notice.compareDocumentPosition(emptyOrList);
+    expect(Boolean(relation & Node.DOCUMENT_POSITION_FOLLOWING), "the follow-up notice is not above its list").toBe(
+      true,
+    );
+  });
+});
+
+describe("the KPI figures state absence in words, never a bare zero rendered as nothing", () => {
+  it("says 'None waiting' rather than a bare number when nobody is waiting on this team", () => {
+    renderTeam(ACCEPTED_TEAM.id, [], []);
+
+    const longestWaitLabel = screen.getByText("Longest wait");
+    const figure = longestWaitLabel.closest('[data-ward-primitive="figure"]');
+    expect(figure, "the Longest wait figure tile was not found").toBeTruthy();
+    expect(figure?.textContent).toContain("None waiting");
   });
 });

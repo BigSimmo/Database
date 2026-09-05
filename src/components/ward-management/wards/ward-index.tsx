@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { unitHasLockedBeds, unitHasOpenBeds } from "@/components/ward-management/ward-bed-designation";
 import { wardServiceOrder } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
@@ -21,8 +22,45 @@ import styles from "./ward-index.module.css";
  * ward screens could be reached only by typing an address. That shortfall is recorded as a figure
  * in `tests/ward-nav.test.ts`'s `WARD_DYNAMIC_ROUTE_ORPHANS`, and this page is what closes it.
  *
- * **Deliberately not a second dashboard. Owner's decision, and it is the constraint that shapes
- * the whole file.** No bed count, no empty/allocatable figure, no availability, no occupancy, no
+ * ⚠️ **RATIFIED BY THE OWNER ON 2026-09-04, AND THAT IS A DIFFERENT FACT FROM THE ONE BELOW.**
+ * The restraint was put to him as an open question — should this page show any figures at all — and
+ * he ruled it stays names only, including the sequencing: settle the word before touching the
+ * layout. **So the rule now has a real decision behind it for the first time.**
+ *
+ * ⚠️ **THE PROVENANCE FINDING BELOW WAS CORRECT WHEN MADE AND IS NOT SUPERSEDED BY THAT.** The gap
+ * was closed by somebody deciding, not by anybody discovering the ruling that was missing. A reader
+ * arriving later must be able to tell those apart: if this note simply said "the owner ruled it",
+ * the search that found nothing would look like a search that failed. **It did not fail. There was
+ * nothing there until 2026-09-04.**
+ *
+ * **Deliberately not a second dashboard — and this comment used to call that an owner's decision.
+ * ⚠️ NO SUCH RULING IS RECORDED. ATTRIBUTION CORRECTED 2026-09-04. The verdict is UNTRACEABLE, not
+ * INFERRED**, and an earlier version of this note overstated it. INFERRED needs positive evidence
+ * that a session reasoned its way to the rule — spec D4 has that, from its own withdrawal; this does
+ * not. What is established is where the CLAIM first appears, not where the BELIEF came from: the
+ * session may have been given an instruction it failed to cite. "We could not find it" must not
+ * masquerade as "we know we invented it". A content-based provenance search over
+ * 4,800+ documents, across the working tree and both ward branches, found no owner ruling for the
+ * digit ban, the "All wards" wording, or the restraint itself. It traces to one uncited sentence in
+ * `e06427196` — the commit that built this page and its guarding test together — and every later
+ * statement of it, including this file's own, simply repeated that. The method was calibrated first
+ * on a rule known to be inferred (spec D4, withdrawn as `R-2026-09-04-G`) and one known to be ruled
+ * (the coordinator override, recorded in a file with no `owner-` prefix), and got both right.
+ *
+ * ⚠️ **INFERRED IS NOT WRONG, AND NOTHING IS RELAXED HERE.** The reason behind the restraint is
+ * real and already happened once: `ward-screen.tsx` records the same unit reading "Potential 1" on
+ * one screen and "Confirmed 1, Expected 0" on another for the same release. The rest of the codebase
+ * answered that by SINGLE-SOURCING — eight surfaces share one breakdown — rather than by omission.
+ * This page is the one surface that answers it by omission, which is a different remedy to the same
+ * real concern. Which of the two is right here is an OPEN QUESTION for the owner, not a defect.
+ *
+ * The closest recorded owner view is `docs/ward-flow-mission-and-refusals.md`'s "Beds are anonymous
+ * tiles; no bed numbers or ward geography" — filed under "Open design choices... recorded so nobody
+ * treats them as settled law", with the reason "a stale bed number on a board is worse than none".
+ * ⚠️ That entry is about bed IDENTITY on a board, not about a count on an index, and it is marked
+ * non-binding; it is adjacent evidence, not authority for this page.
+ *
+ * Until the owner settles it: no bed count, no empty/allocatable figure, no availability, no occupancy, no
  * pressure colour — nothing this page renders answers a question the capacity board, the morning
  * bed state or a ward's own screen already answers. Two surfaces answering one question in wording
  * that can drift is this project's most reliable defect, and an index that quietly grew a bed
@@ -103,8 +141,10 @@ export function WardIndex({ units: unitsOverride }: { units?: Unit[] }) {
         <div className={styles.governanceBanner} data-testid="ward-index-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
-            This page is <strong>not a medical device</strong>. Every ward listed here is invented, and nothing on it
-            has been checked against a real service.
+            This page is <strong>not a medical device</strong>. Every ward listed here is invented except the East
+            Metropolitan Youth Unit at Bentley Health Service, whose name and site the product owner supplied; its bed
+            numbers are invented like every other figure on this page. Nothing here has been checked against a real
+            service.
           </p>
         </div>
 
@@ -173,11 +213,22 @@ export function WardIndex({ units: unitsOverride }: { units?: Unit[] }) {
  * through the router, and the href is built from the unit's own id so it cannot name a ward that
  * does not exist.
  *
- * The two descriptors are what the record already says about the ward and nothing derived: `cohort`
- * (who it takes) and `security` (open or locked). Both are plain fields on `Unit`. Neither is a
- * count, and neither can go stale against a figure on another screen, because neither is a figure.
- * `authorised` is deliberately NOT rendered: it is the bed's legal-status capability, and a
- * legal-status word on a ward index is the shape that invites a legal figure beside it later.
+ * The two descriptors are what the record already says about the ward: `cohort` (who it takes) and
+ * a word for its bed designation. `authorised` is deliberately NOT rendered: it is the bed's
+ * legal-status capability, and a legal-status word on a ward index is the shape that invites a
+ * legal figure beside it later.
+ *
+ * ⚠️ `wardKindWord` below is deliberately NOT `designationSummary` (`ward-bed-designation.ts`).
+ * That function is correct everywhere else in this plan (`ward-screen.tsx`, `ed-screen.tsx`, the
+ * capacity tables, the coordinator diagram) because those screens already show figures. This page
+ * says on itself, a few lines below, "no bed numbers, no availability" — and `designationSummary`
+ * returns `"4 locked, 13 open"` for a mixed ward, which is a count. Rendering it here would make
+ * that sentence false the day the fixture grew its first mixed ward (2026-09-04), on the one page
+ * that promises it is not showing one. `wardKindWord` answers the same question
+ * (`unitHasLockedBeds`/`unitHasOpenBeds`, both from Task 1) with a WORD only, never a number, so
+ * a mixed ward reads "Mixed" here and its actual split stays on its own screen, exactly where this
+ * page's own copy already sends a reader who wants it. (Plan author's — the implementer who ran
+ * Tasks 3 and 4 — reasoning, 2026-09-04. Not an owner ruling.)
  *
  * `data-testid={`ward-index-link-${unit.id}`}` — one identifier per ward, the same
  * `${prefix}-${item.id}` shape every other repeated row in this codebase uses (`ward-network-card-
@@ -188,6 +239,13 @@ export function WardIndex({ units: unitsOverride }: { units?: Unit[] }) {
  * — see e.g. `[data-testid^="ward-network-card-"]`, `[data-testid^="ward-tracker-row-"]`) — nothing
  * extra to add, because the per-ward id already carries the common prefix.
  */
+/** A word, never a number — see the doc comment above `WardLink`. */
+function wardKindWord(unit: Unit): string {
+  if (unitHasLockedBeds(unit) && unitHasOpenBeds(unit)) return "Mixed";
+  if (unitHasLockedBeds(unit)) return "Locked";
+  return "Open";
+}
+
 function WardLink({ unit }: { unit: Unit }) {
   return (
     <li className={styles.wardItem}>
@@ -198,7 +256,7 @@ function WardLink({ unit }: { unit: Unit }) {
       >
         <span className={styles.wardName}>{unit.name}</span>
         <span className={styles.wardKind}>
-          {unit.cohort} · {unit.security}
+          {unit.cohort} · {wardKindWord(unit)}
         </span>
       </Link>
     </li>

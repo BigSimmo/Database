@@ -1,0 +1,3125 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ward Home Board — final</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+       WARD FLOW — "Board" language, second edition.
+
+       This is a PROPOSED EVOLUTION of the canonical block in community-home.html,
+       written to the owner's brief of 2026-09-04: keep the system as inspiration,
+       lift the craft. If it is approved, the canonical block should be replaced
+       from this file — the language must stay in one place, and two editions
+       living side by side is the drift the first edition warned about.
+
+       WHAT IS KEPT, because it is clinical rather than cosmetic:
+         · State is a WORD first. Colour only ever reinforces a word already there.
+         · Contrast floor 4.5:1, computed rather than judged. Every pairing below
+           was measured against every surface it can sit on.
+         · Figures are JetBrains Mono and tabular. Anything comparable lines up.
+         · Absence is stated, never blank.
+         · Every invented figure is listed at the foot of the page.
+
+       WHAT CHANGED:
+         · A real accent. The first edition had no brand hue at all, only alarm
+           colours, so nothing on the page could be calm and important at once.
+           The accent is PsychSift's own primary, which is what ties the two
+           products together.
+         · Crisp white surfaces. The owner's standing note: no cream. Panels are
+           #ffffff and state is carried by an edge, a word and a colour — not by
+           tinting a large surface.
+         · Softer geometry. 3px corners read as a spreadsheet; 8px reads as an
+           application, without becoming a consumer app.
+         · Real elevation, used sparingly: raised for what floats, flat for what
+           sits on the page.
+         · A sticky application bar carrying identity, the ward switcher and the
+           one action you always want.
+       ═══════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    color-scheme: light;
+
+    --ground: #f1f4f8;
+    --surface: #ffffff;
+    --surface-2: #f7f9fc;
+    --sunken: #eef2f7;
+
+    --ink: #0d1421;
+    --ink-2: #33415a;
+    --muted: #55637a;
+    /* 4.81:1 on the ground, 5.31:1 on white, 5.04:1 on the tinted panel head —
+         computed, not judged. The first edition's faint failed at 3.08:1 and the
+         whole quiet layer of the page went with it. */
+    --faint: #5e6c84;
+
+    --rule: #e4e9f0;
+    --rule-2: #cfd7e3;
+
+    --accent: #1d6fb8;
+    --accent-strong: #185c99;
+    --accent-wash: #eff5fc;
+    --accent-contrast: #ffffff;
+
+    --good: #0c6b41;
+    --good-wash: #f2fbf6;
+    --signal: #8a4d05;
+    --signal-wash: #fffaf2;
+    --crit: #a3190f;
+    --crit-wash: #fdf5f4;
+    --cool: #0f6b73;
+    --cool-wash: #f1fafb;
+
+    --shadow-1: 0 1px 2px rgb(13 20 33 / 0.05);
+    --shadow-2: 0 1px 3px rgb(13 20 33 / 0.07), 0 6px 16px -8px rgb(13 20 33 / 0.1);
+    --shadow-3: 0 12px 36px -14px rgb(13 20 33 / 0.3), 0 2px 8px rgb(13 20 33 / 0.08);
+
+    --r-sm: 5px;
+    --r: 8px;
+    --r-lg: 12px;
+
+    /* The production tap floor, taken from the app's own --spacing-tap (3rem)
+         rather than picked here. globals.css says of it: "Never reduce below it."
+         A dense clinical board earns tighter controls with a mouse; a thumb does
+         not, so the floor is applied at pointer:coarse and phone widths only. */
+    --tap: 3rem;
+
+    /* Controls and typed text read one step above surrounding prose — this is the
+         text a clinician reads back to check what they wrote, and 14px is mean for
+         it. 1rem also matches the 16px floor globals.css already forces on
+         controls below 640px to stop iOS zooming the viewport on focus, so the
+         size does not change across that breakpoint.
+
+         Ward Builder Three proposed this at 0.9375rem and then corrected its own
+         value to 1rem for the reason above — the first value was already being
+         overridden on every phone, so the control text changed size across 640px
+         for no stated reason. Taken from what the app enforces, not picked. */
+    --t-input: 1rem;
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0a0e15;
+      --surface: #131924;
+      --surface-2: #1a2130;
+      --sunken: #0f141d;
+      --ink: #e8edf5;
+      --ink-2: #c3cdda;
+      --muted: #98a5b8;
+      --faint: #8593a7;
+      --rule: #232c3a;
+      --rule-2: #354152;
+      --accent: #6ea8e0;
+      --accent-strong: #8dbdea;
+      --accent-wash: #132132;
+      --accent-contrast: #0a0e15;
+      --good: #4ec38d;
+      --good-wash: #0f2119;
+      --signal: #e0a63f;
+      --signal-wash: #241c0e;
+      --crit: #f0755c;
+      --crit-wash: #26130f;
+      --cool: #4fb3bd;
+      --cool-wash: #0d2124;
+      --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+      --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+      --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0a0e15;
+    --surface: #131924;
+    --surface-2: #1a2130;
+    --sunken: #0f141d;
+    --ink: #e8edf5;
+    --ink-2: #c3cdda;
+    --muted: #98a5b8;
+    --faint: #8593a7;
+    --rule: #232c3a;
+    --rule-2: #354152;
+    --accent: #6ea8e0;
+    --accent-strong: #8dbdea;
+    --accent-wash: #132132;
+    --accent-contrast: #0a0e15;
+    --good: #4ec38d;
+    --good-wash: #0f2119;
+    --signal: #e0a63f;
+    --signal-wash: #241c0e;
+    --crit: #f0755c;
+    --crit-wash: #26130f;
+    --cool: #4fb3bd;
+    --cool-wash: #0d2124;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+    --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+  }
+
+  /* ─── base ────────────────────────────────────────────────────────────── */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family:
+      "Archivo",
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  p,
+  dl,
+  dd,
+  dt,
+  ul,
+  ol,
+  figure {
+    margin: 0;
+  }
+  ul,
+  ol {
+    padding: 0;
+    list-style: none;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+  }
+  .skip {
+    position: absolute;
+    left: var(--sp-2);
+    top: var(--sp-2);
+    z-index: 100;
+    padding: 0.5rem 0.85rem;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    border-radius: var(--r-sm);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+    transform: translateY(-200%);
+  }
+  .skip:focus {
+    transform: none;
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .num,
+  .figure,
+  .mono {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  /* ─── application bar ─────────────────────────────────────────────────── */
+  .appbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-2) var(--sp-4);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 0.8125rem;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .mark .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: none;
+  }
+  .appbar .spacer {
+    flex: 1 1 2rem;
+  }
+  .appbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+
+  /* ─── THE WARD SWITCHER ────────────────────────────────────────────────
+       The owner asked for this specifically. It replaces a bare <select>, which
+       could not show a ward's designation or how many beds it has ready, sorted
+       23 unrelated names into one flat alphabetical list, and gave no way to
+       search. The network is 23 wards across 15 hospitals with beds — a list
+       that looks fine at nine becomes unusable at that size. */
+  .switcher {
+    position: relative;
+  }
+  .switcher > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: 0.35rem 0.6rem 0.35rem 0.7rem;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
+    transition:
+      border-color 0.12s ease,
+      box-shadow 0.12s ease;
+  }
+  .switcher > summary::-webkit-details-marker {
+    display: none;
+  }
+  .switcher > summary:hover {
+    border-color: var(--rule-2);
+    box-shadow: var(--shadow-2);
+  }
+  .switcher[open] > summary {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-wash);
+  }
+  .sw-id {
+    display: grid;
+    gap: 0.05rem;
+    min-width: 0;
+  }
+  .sw-eyebrow {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .sw-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .sw-chev {
+    flex: none;
+    color: var(--muted);
+    transition: transform 0.12s ease;
+  }
+  .switcher[open] .sw-chev {
+    transform: rotate(180deg);
+  }
+  .sw-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    z-index: 60;
+    width: min(25rem, calc(100vw - 2rem));
+    background: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-3);
+    overflow: hidden;
+  }
+  .sw-search {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface-2);
+  }
+  .sw-count {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    white-space: nowrap;
+  }
+  .sw-scroll {
+    scrollbar-width: thin;
+  }
+  .sw-search input {
+    flex: 1;
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--ink);
+    min-width: 0;
+  }
+  .sw-scroll {
+    max-height: 24rem;
+    overflow-y: auto;
+    padding: var(--sp-2) 0;
+  }
+  .sw-group {
+    padding: var(--sp-3) var(--sp-3) var(--sp-1);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .sw-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.1rem var(--sp-3);
+    padding: 0.45rem var(--sp-3);
+    margin: 0 var(--sp-2);
+    border-radius: var(--r-sm);
+    border-left: 3px solid transparent;
+    text-decoration: none;
+  }
+  .sw-item:hover {
+    background: var(--surface-2);
+  }
+  .sw-item[aria-current="true"] {
+    background: var(--accent-wash);
+    border-left-color: var(--accent);
+  }
+  .sw-item-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .sw-item-meta {
+    grid-column: 1;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .sw-item-n {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    text-align: right;
+    font-size: 0.6875rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .sw-item-n b {
+    display: block;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+  .sw-item-n[data-none="true"] b {
+    color: var(--faint);
+  }
+  .sw-here {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    margin-left: 0.4rem;
+  }
+  .sw-foot {
+    padding: var(--sp-3);
+    border-top: 1px solid var(--rule);
+    background: var(--surface-2);
+    font-size: 0.6875rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ─── page frame ──────────────────────────────────────────────────────── */
+  .shell {
+    max-width: 108rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.6rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-3);
+  }
+
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: var(--sp-4);
+  }
+  .masthead h1 {
+    font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.125rem);
+    font-weight: 700;
+    letter-spacing: -0.028em;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+  .eyebrow {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: var(--sp-3);
+  }
+  .fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 100px;
+    padding: 0.2rem 0.6rem;
+  }
+  .fact b {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+  .fact[data-tone="accent"] {
+    color: var(--accent-strong);
+    border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+    background: var(--accent-wash);
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--muted);
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  .pip {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+
+  .scope {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--muted);
+    margin-bottom: var(--sp-4);
+  }
+  .scope strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ─── figures strip ───────────────────────────────────────────────────── */
+  /* Five figures do not wrap tidily on an auto-fit grid — at most widths one
+     tile is left alone on its own row, which reads as a dropped tile rather
+     than as a second row. Explicit steps instead: two, then three (5 = 3 + 2,
+     no orphan), then all five. A lone final tile on the two-column step spans
+     the full width, so it reads as deliberate. */
+  .kpis {
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: var(--sp-3);
+  }
+  .kpis > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  @media (min-width: 48rem) {
+    .kpis {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .kpis > :last-child:nth-child(odd) {
+      grid-column: auto;
+    }
+  }
+  @media (min-width: 75rem) {
+    .kpis {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+  /* --- figure tile --------------------------------------------------------
+     THE COLOURED TOP BAR IS GONE, at the owner's instruction on 2026-09-05:
+     "removing the colour scheme top for the square components and modernising
+     them". It was a 3px rule across the top of every tile, tinted per tone.
+
+     IT COST NOTHING INFORMATIONAL, AND THAT IS WHY IT COULD GO. The tone was
+     already carried twice over - by the tile's own label ("Referrals awaiting
+     your answer") and by the figure's colour. The bar was a third statement of
+     a fact stated twice, and five tiles in a row each wearing a different
+     coloured cap is what made the strip read as decoration rather than data.
+
+     BUT IT MEANS THE FIGURE COLOUR IS NOW THE ONLY COLOUR SIGNAL, so the
+     language's own rule does more work than it did: a tile's meaning must be in
+     its LABEL, and colour may only reinforce it. A tile whose tone is the only
+     thing distinguishing it from its neighbour is now a defect rather than a
+     weak design - there is nothing left to fall back on.
+
+     Modernised with it: one uniform hairline edge instead of a heavy cap, more
+     room around the figure, and a three-row grid so a two-line label cannot
+     shove the figure off the baseline its neighbours sit on. */
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-1);
+    padding: var(--sp-4);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 0.15rem;
+  }
+  .kpi dt {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .kpi dd .figure {
+    font-size: 1.875rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+  .kpi .caption {
+    font-size: 0.6875rem;
+    color: var(--faint);
+  }
+  /* Tone is the FIGURE only now. No edge, no cap, no tinted surface. */
+  .kpi[data-tone="good"] dd .figure {
+    color: var(--good);
+  }
+  .kpi[data-tone="signal"] dd .figure {
+    color: var(--signal);
+  }
+  .kpi[data-tone="crit"] dd .figure {
+    color: var(--crit);
+  }
+  .kpi[data-tone="accent"] dd .figure {
+    color: var(--accent-strong);
+  }
+
+  /* A movement indicator for the dashboard screens. IT CARRIES A WORD, NOT ONLY
+     AN ARROW - "up 3 on yesterday" survives a reader with no colour perception
+     and a greyscale printout; a red triangle does not. And it never says
+     "worse": whether a rising figure is bad is a clinical judgement this
+     software does not make, which is why every direction is the same ink. */
+  .kpi-delta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+  .kpi-delta .n {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-delta[data-dir="flat"] {
+    color: var(--faint);
+  }
+
+  /* --- data table ---------------------------------------------------------
+     Added 2026-09-05 for the owner's "modular tabular layout". The second
+     edition had NO table primitive at all - measured at zero occurrences of any
+     table class - so every screen needing one was about to invent one, and nine
+     screens inventing a table is nine tables.
+
+     THE WRAPPER SCROLLS, NEVER THE PAGE. A wide table that widens the body is
+     the defect this exists to prevent: it drags every other column on the
+     screen sideways, and on a phone it makes the whole page swipe.
+
+     NO ZEBRA STRIPING, DELIBERATELY. Alternating fills read as meaning on a
+     screen where every other fill does mean something, and they are the first
+     thing a printer drops - so the row you were reading changes identity
+     between the screen and the paper. One hairline rule per row instead. */
+  .table-wrap {
+    overflow-x: auto;
+    border-top: 1px solid var(--rule);
+  }
+  .dtable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+  }
+  .dtable caption {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.6875rem;
+    color: var(--faint);
+    line-height: 1.5;
+  }
+  .dtable th,
+  .dtable td {
+    padding: 0.5rem var(--sp-4);
+    text-align: left;
+    vertical-align: baseline;
+    border-bottom: 1px solid var(--rule);
+  }
+  .dtable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface-2);
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.085em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--rule-2);
+  }
+  .dtable tbody th {
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .dtable td {
+    color: var(--ink-2);
+  }
+  /* Anything a reader compares down a column lines up, and sits right-aligned
+     so the digits form one edge. */
+  .dtable .n,
+  .dtable th.n {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .dtable tbody tr:last-child th,
+  .dtable tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .dtable tbody tr:hover th,
+  .dtable tbody tr:hover td {
+    background: var(--surface-2);
+  }
+  /* A flagged row carries a word in one of its own cells; this only reinforces
+     it. Never the sole carrier of the flag. */
+  .dtable tbody tr[data-level="urgent"] th {
+    box-shadow: inset 3px 0 0 var(--crit);
+  }
+  .dtable tbody tr[data-level="stalled"] th {
+    box-shadow: inset 3px 0 0 var(--signal);
+  }
+  .dtable tbody tr[data-level="ok"] th {
+    box-shadow: inset 3px 0 0 var(--good);
+  }
+  /* A totals row is a different KIND of row, not a heavier one. */
+  .dtable tfoot th,
+  .dtable tfoot td {
+    border-top: 2px solid var(--rule-2);
+    border-bottom: 0;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--surface-2);
+  }
+
+  /* ─── body grid ───────────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    align-items: start;
+  }
+  .col {
+    display: grid;
+    gap: var(--sp-3);
+    min-width: 0;
+  }
+  @media (min-width: 62rem) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+  @media (min-width: 90rem) {
+    .grid {
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 21rem;
+    }
+  }
+
+  /* ─── panel ───────────────────────────────────────────────────────────── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-1);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .n {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .head-act {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+  .blurb {
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .panel-body {
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-3);
+  }
+  .panel-foot {
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+    background: var(--surface-2);
+    font-size: 0.6875rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .panel-foot strong {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  /* ─── controls. Nothing on this page stretches. ───────────────────────── */
+  .btn {
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.75rem;
+    cursor: pointer;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+    width: auto;
+    justify-self: start;
+    text-decoration: none;
+    transition:
+      background 0.12s ease,
+      border-color 0.12s ease;
+  }
+  .btn:hover {
+    background: var(--surface-2);
+    border-color: var(--rule-2);
+  }
+  .btn--primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-contrast);
+  }
+  .btn--primary:hover {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+  }
+  .btn--quiet {
+    border-color: transparent;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .btn--quiet:hover {
+    background: var(--sunken);
+    color: var(--ink);
+  }
+  .field {
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--ink);
+    min-width: 0;
+  }
+  .field--num {
+    width: 3.5rem;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    font-weight: 700;
+  }
+  .field-label {
+    display: block;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 0.25rem;
+  }
+  .inline-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: flex-end;
+  }
+
+  /* Hit areas. Every control keeps its typographic size and grows its BOX, so
+       nothing about the layout changes on a desktop and nothing is too small for
+       a thumb on a ward round. */
+  @media (pointer: coarse), (max-width: 40rem) {
+    .btn,
+    .filter,
+    .field,
+    .switcher > summary,
+    .sw-item {
+      min-height: var(--tap);
+    }
+    .btn,
+    .filter {
+      padding-inline: var(--sp-3);
+    }
+    .seg a {
+      display: inline-flex;
+      align-items: center;
+      min-height: calc(var(--tap) - 0.5rem);
+    }
+  }
+
+  /* ─── chips ───────────────────────────────────────────────────────────── */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--r-sm);
+    border: 1px solid transparent;
+    color: var(--muted);
+    border-color: var(--rule-2);
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+    background: var(--crit-wash);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 42%, transparent);
+    background: var(--signal-wash);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+    background: var(--good-wash);
+  }
+  .chip[data-level="planned"] {
+    color: var(--cool);
+    border-color: color-mix(in oklab, var(--cool) 40%, transparent);
+    background: var(--cool-wash);
+  }
+  .chip[data-level="accent"] {
+    color: var(--accent-strong);
+    border-color: color-mix(in oklab, var(--accent) 38%, transparent);
+    background: var(--accent-wash);
+  }
+
+  /* ─── occupancy bar ───────────────────────────────────────────────────── */
+  .occ {
+    padding: var(--sp-4) var(--sp-4) var(--sp-3);
+    display: grid;
+    gap: var(--sp-2);
+  }
+  .occ-bar {
+    display: flex;
+    height: 0.6rem;
+    border-radius: 100px;
+    overflow: hidden;
+    background: var(--sunken);
+  }
+  .occ-bar span {
+    display: block;
+  }
+  .occ-bar span[data-bed="ready"] {
+    background: var(--good);
+  }
+  .occ-bar span[data-bed="held"] {
+    background: var(--signal);
+  }
+  .occ-bar span[data-bed="blocked"] {
+    background: var(--crit);
+  }
+  .occ-bar span[data-bed="occupied"] {
+    background: var(--rule-2);
+  }
+  .occ-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem var(--sp-4);
+  }
+  .occ-key li {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .occ-key .sw {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 2px;
+    flex: none;
+    align-self: center;
+  }
+  .occ-key .sw[data-bed="ready"] {
+    background: var(--good);
+  }
+  .occ-key .sw[data-bed="held"] {
+    background: var(--signal);
+  }
+  .occ-key .sw[data-bed="blocked"] {
+    background: var(--crit);
+  }
+  .occ-key .sw[data-bed="occupied"] {
+    background: var(--rule-2);
+  }
+  .occ-key .sw[data-bed="leave"] {
+    background: var(--cool);
+  }
+  .occ-key b {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .occ-key .zero {
+    color: var(--faint);
+    font-family: inherit;
+    font-weight: 500;
+  }
+
+  /* ─── THE BED MAP ─────────────────────────────────────────────────────── */
+  .bedgroup {
+    border-top: 1px solid var(--rule);
+  }
+  .bedgroup > h3 {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .bedgroup > h3 .sub {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--muted);
+  }
+  .beds {
+    display: grid;
+    gap: var(--sp-2);
+    grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  }
+  .bed {
+    display: grid;
+    gap: 0.1rem;
+    align-content: start;
+    padding: 0.5rem 0.55rem;
+    min-height: 4.5rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    text-decoration: none;
+    color: inherit;
+    transition:
+      border-color 0.12s ease,
+      box-shadow 0.12s ease,
+      transform 0.12s ease;
+  }
+  .bed:hover {
+    border-color: var(--rule-2);
+    box-shadow: var(--shadow-2);
+    transform: translateY(-1px);
+  }
+  .bed .bn {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--faint);
+    letter-spacing: 0.06em;
+  }
+  .bed .state {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+    line-height: 1.25;
+  }
+  .bed .note {
+    font-size: 0.6875rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+  .bed .stay {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+  .bed .stay span {
+    font-family: "Archivo", sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--muted);
+    margin-left: 0.15rem;
+  }
+  .bed[data-bed="ready"] {
+    border-left-color: var(--good);
+    background: var(--good-wash);
+    border-color: color-mix(in oklab, var(--good) 22%, var(--rule));
+  }
+  .bed[data-bed="ready"] .state {
+    color: var(--good);
+  }
+  .bed[data-bed="held"] {
+    border-left-color: var(--signal);
+  }
+  .bed[data-bed="held"] .state {
+    color: var(--signal);
+  }
+  .bed[data-bed="blocked"] {
+    border-left-color: var(--crit);
+  }
+  .bed[data-bed="blocked"] .state {
+    color: var(--crit);
+  }
+  .bed[data-bed="occupied"] .state {
+    color: var(--faint);
+  }
+  .bed[data-bed="leave"] {
+    border-left-color: var(--cool);
+  }
+  .bed[data-bed="leave"] .state {
+    color: var(--cool);
+  }
+  .bed .flagword {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--signal);
+  }
+
+  /* ─── the three daily questions ───────────────────────────────────────── */
+  .ask {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--sp-2) var(--sp-3);
+    align-items: start;
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--rule);
+  }
+  .ask:last-child {
+    border-bottom: 0;
+  }
+  .ask[data-answered="yes"] {
+    background: var(--surface-2);
+  }
+  .ask-q {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+    justify-items: start;
+  }
+  .ask-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.35;
+  }
+  .ask-when {
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .ask-value {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+    text-align: right;
+  }
+  .ask-controls {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .ask-controls .grow {
+    flex: 1 1 8rem;
+  }
+  .answer {
+    font-size: 0.75rem;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-sm);
+    padding: 0.3rem 0.5rem;
+  }
+
+  /* ─── stacked record rows ─────────────────────────────────────────────── */
+  .stack > li {
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    gap: 0.35rem;
+  }
+  .stack > li:last-child {
+    border-bottom: 0;
+  }
+  .line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .rid {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+  .attrs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.5rem;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .attrs b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .attrs .sep {
+    color: var(--rule-2);
+  }
+  .acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin-top: 0.15rem;
+  }
+  .note-box {
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    padding: 0.4rem 0.55rem;
+    border-radius: var(--r-sm);
+    border: 1px solid color-mix(in oklab, var(--crit) 35%, transparent);
+    background: var(--crit-wash);
+    color: var(--crit);
+    font-weight: 500;
+  }
+  .note-box[data-level="soft"] {
+    border-color: color-mix(in oklab, var(--signal) 40%, transparent);
+    background: var(--signal-wash);
+    color: var(--signal);
+  }
+  .note-box[data-level="ok"] {
+    border-color: color-mix(in oklab, var(--good) 35%, transparent);
+    background: var(--good-wash);
+    color: var(--good);
+  }
+
+  /* ─── attention list ──────────────────────────────────────────────────── */
+  .attention > li {
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: var(--muted);
+    border-left: 3px solid var(--signal);
+  }
+  .attention > li:last-child {
+    border-bottom: 0;
+  }
+  .attention .who {
+    display: block;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+    margin-bottom: 0.1rem;
+  }
+
+  /* ─── empty states ────────────────────────────────────────────────────── */
+  .absent {
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  /* ─── band ────────────────────────────────────────────────────────────── */
+  .band {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  }
+
+  /* ─── footnote ────────────────────────────────────────────────────────── */
+  .footnote {
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--rule-2);
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+  .footnote h2 {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin: var(--sp-4) 0 var(--sp-2);
+  }
+  .footnote h2:first-child {
+    margin-top: 0;
+  }
+  .footnote li {
+    padding-left: 1rem;
+    position: relative;
+    margin-bottom: 0.3rem;
+  }
+  .footnote li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--rule-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .footnote code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.6875rem;
+    background: var(--sunken);
+    border-radius: 3px;
+    padding: 0.05rem 0.25rem;
+  }
+
+  /* ─── high contrast ───────────────────────────────────────────────────
+       ⚠️ THE FIRST EDITION HAD NO forced-colors HANDLING ANYWHERE IN THE SHARED
+       LAYER — not in the language block, and not in ward-tokens, ward-panel,
+       ward-chip or ward-figure. A screen that adopted the layer and deleted its
+       own override was not inheriting a replacement, it was losing high-contrast
+       borders outright, and no test in this repository renders under forced
+       colours, so nothing said so.
+
+       Every token is re-pointed to a system colour, which deliberately COLLAPSES
+       the semantic hues into one. That is the mode working as intended, and it
+       is survivable here only because rule 2 holds: every state already carries
+       its own word, so nothing is lost when the colour goes. The one element
+       that carries meaning in colour alone is the occupancy bar, which is why it
+       is marked role="img" with a label and repeated as a worded key beneath. */
+  @media (forced-colors: active) {
+    :root {
+      --ground: Canvas;
+      --surface: Canvas;
+      --surface-2: Canvas;
+      --sunken: Canvas;
+      --ink: CanvasText;
+      --ink-2: CanvasText;
+      --muted: CanvasText;
+      --faint: CanvasText;
+      --rule: CanvasText;
+      --rule-2: CanvasText;
+      --accent: LinkText;
+      --accent-strong: LinkText;
+      --accent-wash: Canvas;
+      --accent-contrast: Canvas;
+      --good: CanvasText;
+      --good-wash: Canvas;
+      --signal: CanvasText;
+      --signal-wash: Canvas;
+      --crit: CanvasText;
+      --crit-wash: Canvas;
+      --cool: CanvasText;
+      --cool-wash: Canvas;
+      --shadow-1: none;
+      --shadow-2: none;
+      --shadow-3: none;
+    }
+    /* Anything whose only edge was a wash now needs a drawn one, or it merges
+         into the page the moment the fill is dropped. */
+    .chip,
+    .bed,
+    .kpi,
+    .panel,
+    .fact,
+    .btn,
+    .field,
+    .filter,
+    .note-box,
+    .answer {
+      border: 1px solid CanvasText;
+    }
+    .btn--primary,
+    .filter[aria-pressed="true"] {
+      border-width: 2px;
+    }
+    .bed {
+      border-left-width: 4px;
+    }
+    /* The kpi tone cap is gone (see the figure-tile block), so there is no
+       border-width left to thicken here. Under forced colours a toned tile and
+       a plain one are now identical, which is correct: the label is the signal
+       and colour was only ever reinforcing it. */
+    .dtable thead th,
+    .dtable tfoot th,
+    .dtable tfoot td {
+      border-bottom: 1px solid CanvasText;
+      border-top: 1px solid CanvasText;
+    }
+    /* An inset box-shadow is dropped outright under forced colours, so a
+       flagged row would lose its only mark. */
+    .dtable tbody tr[data-level] th {
+      border-left: 4px solid CanvasText;
+    }
+    .occ-bar span,
+    .occ-key .sw {
+      forced-color-adjust: none;
+    }
+  }
+
+  /* ─── print: the board is printed and taped up, so it must not come out
+       as white text on a colour the printer drops. ────────────────────────── */
+  @media print {
+    /* Forced to a light palette by hand rather than left to the theme: a ward
+       prints this board and tapes it up, and a viewer in dark mode would
+       otherwise send white text to a printer that drops the background behind it.
+       Re-pointed on BOTH :root and the dark stamp, because a print block that
+       only sets :root loses to :root[data-theme="dark"] on specificity — the
+       stamped viewer is exactly the one who needs this and would not get it.
+
+       ⚠️ AND ON :root:not([data-theme="light"]), WHICH IS THE ONE THAT MATTERS
+       MOST AND WAS MISSING UNTIL 2026-09-05. The paragraph above had the right
+       argument and stopped one selector short. The dark palette is written to
+       `:root:not([data-theme="light"])` — also 0,2,0, and earlier in this file —
+       so it beat the `:root` above for any root carrying NO data-theme at all.
+       That root is not an edge case: it is every dark-mode reader who has never
+       touched the theme control, which is the default. For them the whole dark
+       palette reached the paper — `--ink` stayed #e8edf5 and went onto white
+       paper the moment the printer dropped the backgrounds, which is precisely
+       the outcome this block exists to prevent. Half a fix, and the half that
+       was missing was the majority case.
+
+       Measured in a browser, with all three outcomes written down before the
+       run: unstamped root took the dark value, `data-theme="dark"` and
+       `data-theme="light"` both took the print value. A control token proved the
+       later rules were being read at all — the first attempt at that probe
+       returned a clean, wrong answer from a zero-width viewport where no media
+       query matched, which is indistinguishable from a real result.
+
+       THE SECOND HALF: this rule used to re-point thirteen neutral tokens and
+       none of the twelve state colours, so those kept their dark values for
+       EVERY dark-mode reader, stamped or not — `--good-wash` is #0f2119, and a
+       green note box printed as near-black. All twelve now take their
+       light-theme value, which is the conservative fix: it changes nothing at
+       all for a reader already in light mode, and gives the dark reader the
+       same page. The rule is now checkable in one sentence — FOR PRINT, EVERY
+       TOKEN TAKES ITS LIGHT-THEME VALUE. */
+    :root,
+    :root[data-theme="dark"],
+    :root:not([data-theme="light"]) {
+      --ground: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #ffffff;
+      --sunken: #ffffff;
+      --ink: #000000;
+      --ink-2: #1a1a1a;
+      --muted: #333333;
+      --faint: #444444;
+      --rule: #999999;
+      --rule-2: #666666;
+      --accent: #1d6fb8;
+      --accent-strong: #185c99;
+      --accent-wash: #eff5fc;
+      --accent-contrast: #ffffff;
+      --good: #0c6b41;
+      --good-wash: #f2fbf6;
+      --signal: #8a4d05;
+      --signal-wash: #fffaf2;
+      --crit: #a3190f;
+      --crit-wash: #fdf5f4;
+      --cool: #0f6b73;
+      --cool-wash: #f1fafb;
+      --shadow-1: none;
+      --shadow-2: none;
+      --shadow-3: none;
+    }
+    body {
+      background: #ffffff;
+    }
+    .appbar {
+      position: static;
+      backdrop-filter: none;
+    }
+    .panel,
+    .kpi,
+    .bed {
+      box-shadow: none;
+      break-inside: avoid;
+    }
+    /* A table that scrolls on screen must not be cropped on paper, and a header
+       repeated on every page is what makes a multi-page table readable at all. */
+    .table-wrap {
+      overflow-x: visible;
+    }
+    .dtable thead {
+      display: table-header-group;
+    }
+    .dtable tr {
+      break-inside: avoid;
+    }
+    /* Controls do nothing on paper, and a filter bar printed as eight grey
+       lozenges reads as data rather than as a control. */
+    .btn,
+    .switcher,
+    .toolbar,
+    .skip,
+    .seg {
+      display: none;
+    }
+  }
+  /* ═══════════════════════════════════════════════════════════════════════
+     WARD HOME ONLY — everything above is the canonical block, byte for byte.
+     Verified, not asserted: this file's <style> block, from its opening tag
+     down to this marker, is byte-identical to the same span in
+     design-language.html (which carries nothing else, so its whole <style>
+     block is the comparison) and to the same span in
+     mockup-ward-board-v3.html (down to its own "BED BOARD ONLY" marker).
+     Reproduced by marker, not by line number, so the check still holds after
+     an edit moves every line number below it — find the boundaries with
+     grep instead of trusting a number written here, then diff up to them:
+     `s=$(grep -n '<style>' mockup-ward-home-v4.html | head -1 | cut -d: -f1)
+     e=$(grep -n 'ONLY —' mockup-ward-home-v4.html | head -1 | cut -d: -f1)
+     diff <(sed -n "$s,$((e-2))p" mockup-ward-home-v4.html) <(sed -n "$s,$((e-2))p" design-language.html)`
+     Same shape again against mockup-ward-board-v3.html, using its own
+     `<style>` tag and its own "BED BOARD ONLY —" marker line.
+
+     ⚠️ The decline group below is a CANDIDATE PRIMITIVE, not a home-page
+     pattern: the ED screen refuses referrals from the same seven reasons. It
+     is kept local until a second screen actually needs it, because a primitive
+     extracted from one instance is a guess.
+     ═══════════════════════════════════════════════════════════════════════ */
+  .reasons {
+    display: grid;
+    gap: 0.15rem;
+    margin: 0.35rem 0 0;
+    padding: var(--sp-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+  }
+  .reasons legend {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding: 0 0 0.2rem;
+  }
+  .reason {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .asked {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--signal);
+    border: 1px solid color-mix(in oklab, var(--signal) 42%, transparent);
+    background: var(--signal-wash);
+    border-radius: var(--r-sm);
+    padding: 0.15rem 0.45rem;
+  }
+
+  /* ─── the heading ──────────────────────────────────────────────────────
+     What the ward IS, under the name, so the six identity chips stop
+     competing with each other. Only the bed split stays a chip, because it
+     is the one identity fact that decides a placement. */
+  .wardsub {
+    margin-top: 0.3rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  .wardsub b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  /* The heading's right-hand side was a status chip reading "1 of 3 answered
+     today". A status is not a route: this is the same fact with somewhere to
+     go. */
+  .head-cta {
+    display: grid;
+    gap: 0.3rem;
+    justify-items: start;
+    align-content: end;
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--signal);
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
+  }
+  .head-cta-line {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .head-cta-line b {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ─── the route to the bed board ───────────────────────────────────────
+     The owner asked for this one action to be slightly more prominent. It is
+     the same primary button with more room around the words, a little more
+     letter-spacing, and a ring that lifts it off the bar it sits on — plus an
+     arrow, because the two places it appears are a DESTINATION rather than a
+     command, and an arrow says that without a longer label.
+
+     What it deliberately is NOT: a new colour, a new size step, or a taller
+     tap target. It stays inside the language.
+
+     ⚠️ It also unified the label. The bar said "Open the full bed board" and
+     the panel header said "Open the full board" for the same destination, and
+     one act with two names is how a reader comes to believe there are two.
+
+     No transition and no transform, so there is nothing for a reduced-motion
+     query to switch off — the canonical block's reduced-motion rules sit above
+     this marker and could not have covered a new animation added below it. */
+  .btn--go {
+    padding-inline: var(--sp-4);
+    font-weight: 700;
+    letter-spacing: 0.012em;
+    gap: 0.45rem;
+    box-shadow: var(--shadow-2);
+  }
+
+  /* ─── the day ──────────────────────────────────────────────────────────
+     Full width, directly under the figures, because a day is temporal and
+     reads across rather than down — and because in a 21rem rail it would
+     have had to become a list of times with the events truncated. */
+  .day-figs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  @media (min-width: 48rem) {
+    .day-figs {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 75rem) {
+    .day-figs {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+  .day-fig {
+    background: var(--surface);
+    padding: var(--sp-3) var(--sp-4);
+    display: grid;
+    gap: 0.15rem;
+    align-content: start;
+  }
+  .day-fig dt {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .day-fig dd {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--ink);
+  }
+  .day-fig .zero {
+    font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--faint);
+  }
+  .day-line {
+    display: grid;
+    gap: 0;
+    padding: var(--sp-2) 0;
+  }
+  .day-ev {
+    display: grid;
+    grid-template-columns: 4.25rem 1fr;
+    gap: var(--sp-3);
+    align-items: baseline;
+    padding: 0.4rem var(--sp-4);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--ink-2);
+    border-left: 3px solid transparent;
+  }
+  .day-t {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--muted);
+    text-align: right;
+  }
+  .day-ev b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .day-ev[data-level="urgent"] {
+    border-left-color: var(--crit);
+    background: var(--crit-wash);
+  }
+  .day-ev[data-level="urgent"] .day-t {
+    color: var(--crit);
+  }
+  .day-ev[data-level="signal"] {
+    border-left-color: var(--signal);
+  }
+  .day-ev[data-level="now"] {
+    border-left-color: var(--accent);
+    background: var(--accent-wash);
+  }
+  .day-ev[data-level="now"] .day-t,
+  .day-ev[data-level="now"] b {
+    color: var(--accent-strong);
+  }
+
+  /* ─── where to refer ──────────────────────────────────────────────────
+     Placed in the bed column, immediately after the discharges: the owner's
+     one-way rule says the community referral is raised separately, WHEN
+     DISCHARGE IS BEING PLANNED, so this is where a person is already
+     standing when they need it. */
+  .refer-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    align-items: flex-end;
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--rule);
+  }
+  .refer-ans {
+    display: grid;
+    gap: 0.3rem;
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--rule);
+    border-left: 3px solid var(--rule-2);
+  }
+  .refer-ans:last-of-type {
+    border-bottom: 0;
+  }
+  .refer-ans[data-state="reviewed"] {
+    border-left-color: var(--good);
+  }
+  .refer-ans[data-state="unreviewed"] {
+    border-left-color: var(--signal);
+  }
+  .refer-ans[data-state="contested"] {
+    border-left-color: var(--crit);
+  }
+  .refer-ans[data-state="unknown"] {
+    border-left-color: var(--rule-2);
+  }
+  .refer-q {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .refer-q .suburb {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .refer-team {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: baseline;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .refer-team .or {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--crit);
+  }
+  .refer-team .and {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .refer-src {
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    color: var(--faint);
+  }
+  .refer-src code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+
+  /* ─── sizes ────────────────────────────────────────────────────────────
+     Two deliberate size changes, both about rhythm rather than taste.
+
+     1. Six bed tiles per row once the three-column layout is in. The bay is
+        12 beds and the open group is 6, so six across makes each group a
+        whole number of rows — 2 and 1 — and the bay structure is readable
+        without counting. auto-fill was giving five, which split 12 into
+        5 + 5 + 2.
+     2. One tile height for every bed, set to the tallest case. Bed 09 carries
+        a state, a stay and an overdue flag; beds carrying less were shorter,
+        so a row of tiles did not line up along its bottom edge and the grid
+        stopped reading as a grid. */
+  @media (min-width: 90rem) {
+    .beds {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+  .bed {
+    min-height: 5.5rem;
+  }
+
+  /* ─── forced colours, for what this screen adds ────────────────────────
+     Every token is re-pointed to a system colour by the canonical block, so
+     colour is handled. What is NOT handled is an element whose only edge is
+     a fill: the fill goes to Canvas and the element merges into the page.
+     The canonical block lists its own primitives for exactly this; these are
+     this screen's, plus `.asked`, which the previous edition added without
+     one and which loses BOTH its wash and its color-mix border here. */
+  @media (forced-colors: active) {
+    .asked,
+    .head-cta,
+    .day-fig,
+    .refer-ans {
+      border: 1px solid CanvasText;
+    }
+    .day-ev[data-level] {
+      border-left: 4px solid CanvasText;
+    }
+    .refer-ans[data-state] {
+      border-left-width: 4px;
+    }
+  }
+
+  /* ─── print, for what THIS screen adds ────────────────────────────────
+     ✅ The token half of this block was hoisted into the canonical block on
+     2026-09-05 at the owner's instruction, and DELETED from here rather than
+     left as a second copy — two copies of a colour decision is the drift the
+     design language exists to prevent, and a stale copy is worse than none
+     because it looks authoritative.
+
+     What is left is only this screen's own components, which the canonical
+     block cannot know about. If either of these ever appears on a second
+     screen, it moves up too. */
+  @media print {
+    .day-fig,
+    .head-cta {
+      break-inside: avoid;
+    }
+    /* A form prints as empty boxes and reads as data rather than as a control,
+       which is the same argument the canonical block makes for hiding .btn.
+       The answers stay; only the things you would have typed into go. */
+    .refer-form,
+    .inline-form,
+    .reasons,
+    .ask-controls,
+    .acts {
+      display: none;
+    }
+  }
+</style>
+
+<a class="skip" href="#beds">Skip to the bed grid</a>
+
+<div class="appbar">
+  <span class="mark"><span class="dot" aria-hidden="true"></span>Ward Flow</span>
+
+  <!-- ══════════ THE WARD SWITCHER ══════════ -->
+  <details class="switcher">
+    <summary aria-label="Change ward. Currently FSH Adult Secure.">
+      <span class="sw-id">
+        <span class="sw-eyebrow">Ward</span>
+        <span class="sw-name">FSH Adult Secure</span>
+      </span>
+      <span class="chip" data-level="accepted">3 ready</span>
+      <svg class="sw-chev" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+        <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      </svg>
+    </summary>
+    <div class="sw-panel">
+      <div class="sw-search">
+        <input type="search" placeholder="Find a ward or a hospital…" aria-label="Find a ward or a hospital" />
+        <span class="sw-count">23 wards &middot; 15 hospitals</span>
+      </div>
+      <div class="sw-scroll">
+        <p class="sw-group">Fiona Stanley Hospital</p>
+        <a class="sw-item" href="#" aria-current="true">
+          <span class="sw-item-name">FSH Adult Secure<span class="sw-here">You are here</span></span>
+          <span class="sw-item-meta">Adult &middot; 18 beds &middot; 12 locked, 6 open</span>
+          <span class="sw-item-n"><b>3</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">FSH Older Adult</span>
+          <span class="sw-item-meta">Older adult &middot; 12 beds &middot; all open</span>
+          <span class="sw-item-n" data-none="true"><b>0</b>ready</span>
+        </a>
+
+        <p class="sw-group">Royal Perth Hospital</p>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">RPH Adult Secure</span>
+          <span class="sw-item-meta">Adult &middot; 20 beds &middot; all locked</span>
+          <span class="sw-item-n"><b>1</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">RPH Older Adult</span>
+          <span class="sw-item-meta">Older adult &middot; 14 beds &middot; all open</span>
+          <span class="sw-item-n"><b>2</b>ready</span>
+        </a>
+
+        <p class="sw-group">Sir Charles Gairdner Hospital</p>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">SCGH Adult Open</span>
+          <span class="sw-item-meta">Adult &middot; 24 beds &middot; all open</span>
+          <span class="sw-item-n"><b>2</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">SCGH Older Adult</span>
+          <span class="sw-item-meta">Older adult &middot; 16 beds &middot; all open</span>
+          <span class="sw-item-n" data-none="true"><b>0</b>ready</span>
+        </a>
+
+        <p class="sw-group">Bentley Health Service</p>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">BTY Adult Secure</span>
+          <span class="sw-item-meta">Adult &middot; 17 beds &middot; 4 locked, 13 open</span>
+          <span class="sw-item-n"><b>2</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">BTY Older Adult</span>
+          <span class="sw-item-meta">Older adult &middot; 11 beds &middot; all open</span>
+          <span class="sw-item-n"><b>1</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">East Metropolitan Youth Unit (EMyU)</span>
+          <span class="sw-item-meta">Youth &middot; 8 beds &middot; all open</span>
+          <span class="sw-item-n" data-none="true"><b>0</b>ready</span>
+        </a>
+
+        <p class="sw-group">Graylands Hospital</p>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">Graylands Adult Secure</span>
+          <span class="sw-item-meta">Adult &middot; 15 beds &middot; all locked</span>
+          <span class="sw-item-n"><b>1</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">Graylands Older Adult</span>
+          <span class="sw-item-meta">Older adult &middot; 10 beds &middot; all open</span>
+          <span class="sw-item-n" data-none="true"><b>0</b>ready</span>
+        </a>
+
+        <p class="sw-group">Fremantle Hospital</p>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">FRE Adult Open</span>
+          <span class="sw-item-meta">Adult &middot; 22 beds &middot; all open</span>
+          <span class="sw-item-n"><b>4</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">FRE Older Adult</span>
+          <span class="sw-item-meta">Older adult &middot; 13 beds &middot; all open</span>
+          <span class="sw-item-n"><b>1</b>ready</span>
+        </a>
+
+        <p class="sw-group">Armadale Health Service</p>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">ARM Adult Open</span>
+          <span class="sw-item-meta">Adult &middot; 19 beds &middot; all open</span>
+          <span class="sw-item-n"><b>2</b>ready</span>
+        </a>
+
+        <p class="sw-group">St John of God Midland Public Hospital</p>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">SJGM Adult Open</span>
+          <span class="sw-item-meta">Adult &middot; 16 beds &middot; all open</span>
+          <span class="sw-item-n"><b>1</b>ready</span>
+        </a>
+
+        <p class="sw-group">Rockingham General Hospital</p>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">RGH Adult Secure</span>
+          <span class="sw-item-meta">Adult &middot; 14 beds &middot; all locked</span>
+          <span class="sw-item-n" data-none="true"><b>0</b>ready</span>
+        </a>
+
+        <p class="sw-group">St John of God Subiaco Hospital</p>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">SJGS Adult Open</span>
+          <span class="sw-item-meta">Adult &middot; 10 beds &middot; all open &middot; not authorised</span>
+          <span class="sw-item-n"><b>3</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">SJGS Adult Secure</span>
+          <span class="sw-item-meta">Adult &middot; 8 beds &middot; all locked &middot; not authorised</span>
+          <span class="sw-item-n"><b>1</b>ready</span>
+        </a>
+
+        <p class="sw-group">Country services</p>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">Albany Adult Open</span>
+          <span class="sw-item-meta">Albany Health Campus &middot; 8 beds &middot; all open</span>
+          <span class="sw-item-n"><b>1</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">Bunbury Adult Open</span>
+          <span class="sw-item-meta">Bunbury Hospital &middot; 9 beds &middot; all open</span>
+          <span class="sw-item-n" data-none="true"><b>0</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">Geraldton Adult Open</span>
+          <span class="sw-item-meta">Geraldton Hospital &middot; 7 beds &middot; all open</span>
+          <span class="sw-item-n"><b>2</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">Broome Adult Secure</span>
+          <span class="sw-item-meta">Broome Hospital &middot; 6 beds &middot; all locked</span>
+          <span class="sw-item-n" data-none="true"><b>0</b>ready</span>
+        </a>
+        <a class="sw-item" href="#">
+          <span class="sw-item-name">Kununurra Adult Open</span>
+          <span class="sw-item-meta">Kununurra District Hospital &middot; 6 beds &middot; all open</span>
+          <span class="sw-item-n"><b>1</b>ready</span>
+        </a>
+      </div>
+      <p class="sw-foot">
+        Opening a ward shows that ward&rsquo;s own view and nothing else. Joondalup and Peel have an emergency
+        department but no beds, so neither is listed here.
+      </p>
+    </div>
+  </details>
+
+  <span class="spacer"></span>
+  <span class="appbar-right">
+    <span class="liveness">
+      <span class="pip" aria-hidden="true"></span>Live <span aria-hidden="true">&middot;</span> confirmed 21:41 by NUM
+      FSH Adult Secure
+    </span>
+    <a class="btn btn--primary btn--go" href="#beds">Open the full bed board <span aria-hidden="true">&rarr;</span></a>
+  </span>
+</div>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">&middot;</span><span>No real patient data</span
+    ><span aria-hidden="true">&middot;</span><span>Every invented figure listed at the foot</span>
+  </p>
+
+  <!-- ══════════ THE HEADING ══════════
+       The name, then what the ward IS in one sentence, then the one identity
+       fact that decides a placement. The previous edition put all six facts in
+       equal chips, so the bed split — the only one a coordinator acts on — read
+       the same as the hospital's name. -->
+  <header class="masthead">
+    <div>
+      <span class="eyebrow">Ward home</span>
+      <h1>FSH Adult Secure</h1>
+      <p class="wardsub">
+        <b>Fiona Stanley Hospital</b> &middot; adult &middot; <b>male only</b> &middot; authorised under the
+        <b>Mental Health Act 2014</b> &middot; specialling capacity <b>2</b>
+      </p>
+      <div class="facts">
+        <span class="fact" data-tone="accent"><b>18</b> beds &middot; <b>12</b> locked &middot; <b>6</b> open</span>
+      </div>
+    </div>
+    <div class="head-cta">
+      <span class="eyebrow">Today&rsquo;s questions</span>
+      <p class="head-cta-line"><b>1</b> of <b>3</b> answered</p>
+      <a class="btn btn--primary" href="#questions">Answer the other two</a>
+    </div>
+  </header>
+
+  <p class="scope">
+    <strong>This is FSH Adult Secure&rsquo;s own view.</strong> Every figure and every referral below belongs to this
+    ward &mdash; never another one. <strong>No bed is ever allocated automatically:</strong> a person here confirms
+    every step, an unanswered question never closes the ward, and a rule that refuses a referral records the refusal
+    rather than blocking the decision.
+  </p>
+
+  <!-- ══════════ THE FIVE FIGURES ══════════
+       One alarm colour on this strip, not four. The previous edition toned four
+       of the five tiles, which is the habit the design language warns about in
+       its own words: amber means "look here" and loses all meaning if
+       everything is amber. Out of service is a standing fact rather than an
+       alarm — it keeps its red where the bed itself is drawn, and it leads the
+       attention list. -->
+  <dl class="kpis">
+    <div class="kpi" data-tone="good">
+      <dt>Ready</dt>
+      <dd><span class="figure num">3</span></dd>
+      <span class="caption">2 locked &middot; 1 open &middot; one already pulled</span>
+    </div>
+    <div class="kpi">
+      <dt>Occupied</dt>
+      <dd><span class="figure num">14</span></dd>
+      <span class="caption">Longest stay 156 days</span>
+    </div>
+    <div class="kpi">
+      <dt>Out of service</dt>
+      <dd><span class="figure num">1</span></dd>
+      <span class="caption">Bed 18, no return date recorded</span>
+    </div>
+    <div class="kpi" data-tone="signal">
+      <dt>Referrals awaiting your answer</dt>
+      <dd><span class="figure num">3</span></dd>
+      <span class="caption">Longest waiting 2d 6h</span>
+    </div>
+    <div class="kpi" data-tone="accent">
+      <dt>Accepted or on the way here</dt>
+      <dd><span class="figure num">2</span></dd>
+      <span class="caption">Counted separately from beds</span>
+    </div>
+  </dl>
+
+  <!-- ══════════ TODAY ON THIS WARD ══════════ -->
+  <section class="panel" id="day" style="margin-bottom: var(--sp-3)">
+    <header>
+      <h2 class="panel-title">Today on this ward</h2>
+      <span class="head-act">
+        <span class="n">Handover 08:00 &mdash; passed &middot; now 21:48</span>
+        <a class="btn" href="#">Print the handover sheet</a>
+      </span>
+    </header>
+    <p class="blurb">
+      The six figures this ward reports, and everything it has recorded today, in the order it happened.
+      <strong>The six travel together and none is dropped</strong> &mdash; a figure that disappears when it is zero
+      reads as a figure nobody asked for.
+    </p>
+
+    <dl class="day-figs">
+      <div class="day-fig">
+        <dt>Ready</dt>
+        <dd>3</dd>
+      </div>
+      <div class="day-fig">
+        <dt>Confirmed today</dt>
+        <dd><span class="zero">none</span></dd>
+      </div>
+      <div class="day-fig">
+        <dt>Expected today</dt>
+        <dd>1</dd>
+      </div>
+      <div class="day-fig">
+        <dt>Blocked releases</dt>
+        <dd><span class="zero">none</span></dd>
+      </div>
+      <div class="day-fig">
+        <dt>Held</dt>
+        <dd><span class="zero">none</span></dd>
+      </div>
+      <div class="day-fig">
+        <dt>Leave (usable)</dt>
+        <dd><span class="zero">none</span></dd>
+      </div>
+    </dl>
+
+    <div class="day-line">
+      <p class="day-ev">
+        <span class="day-t">08:00</span>
+        <span
+          ><b>Morning handover</b> &mdash; passed. Before 08:00 this ward reports no handover figure at all, rather than
+          yesterday&rsquo;s.</span
+        >
+      </p>
+      <p class="day-ev" data-level="urgent">
+        <span class="day-t">14:00</span>
+        <span
+          ><b>Bed 09 was expected free</b> &mdash; still occupied, <b>7h overdue</b>. Waiting on ward round, no blocker
+          recorded.</span
+        >
+      </p>
+      <p class="day-ev">
+        <span class="day-t">17:02</span>
+        <span
+          ><b>WF-297 withdrawn</b> from this ward &mdash; accepted at RPH Adult Secure first. Nothing is expected from
+          you.</span
+        >
+      </p>
+      <p class="day-ev">
+        <span class="day-t">18:45</span>
+        <span><b>WF-361 accepted</b> from the Rockingham community team. No bed pulled for them yet.</span>
+      </p>
+      <p class="day-ev">
+        <span class="day-t">20:10</span>
+        <span
+          ><b>Bed 17 pulled for WF-355</b>, from Fiona Stanley Hospital Emergency Department. The bed is still counted
+          as ready and it is not free to give to anybody else.</span
+        >
+      </p>
+      <p class="day-ev">
+        <span class="day-t">21:41</span>
+        <span
+          ><b>Allocatable beds confirmed at 3</b> by NUM FSH Adult Secure &mdash; the answer the rest of the service is
+          reading.</span
+        >
+      </p>
+      <p class="day-ev">
+        <span class="day-t">21:44</span>
+        <span><b>Constraint answered:</b> male-only ward, no female admissions today.</span>
+      </p>
+      <p class="day-ev" data-level="signal">
+        <span class="day-t">21:46</span>
+        <span
+          ><b>The coordinator asked for a refresh</b> of the number you are offering. Nothing is blocked while it is
+          unanswered.</span
+        >
+      </p>
+      <p class="day-ev" data-level="now">
+        <span class="day-t">21:48</span>
+        <span><b>Now.</b> The feed reads 3 beds empty; nobody has confirmed that reading since this page opened.</span>
+      </p>
+    </div>
+
+    <p class="panel-foot">
+      <strong>Nothing else has been recorded against this ward today.</strong> That means nothing was recorded &mdash;
+      not that nothing happened. There is no roster, no ward-round time and no meeting here, because this ward records
+      none of those: a schedule drawn from nothing would be the most believable thing on the page.
+      <strong>Freshness: confirmed &mdash; 1 of 1 ward, oldest confirmation 21:41.</strong>
+    </p>
+  </section>
+
+  <div class="grid">
+    <!-- ══════════ COLUMN 1 — WHAT THIS WARD HAS ══════════ -->
+    <div class="col">
+      <section class="panel" id="beds">
+        <header>
+          <h2 class="panel-title">Every bed on this ward</h2>
+          <span class="head-act">
+            <span class="n">18 beds &middot; 3 ready</span>
+            <a class="btn btn--primary btn--go" href="#"
+              >Open the full bed board <span aria-hidden="true">&rarr;</span></a
+            >
+          </span>
+        </header>
+
+        <div class="occ">
+          <div class="occ-bar" role="img" aria-label="Of 18 beds: 3 ready, 1 out of service, 14 occupied. None held.">
+            <span data-bed="ready" style="width: 16.67%"></span><span data-bed="blocked" style="width: 5.56%"></span
+            ><span data-bed="occupied" style="width: 77.77%"></span>
+          </div>
+          <ul class="occ-key">
+            <li><span class="sw" data-bed="ready" aria-hidden="true"></span>Ready <b>3</b></li>
+            <li><span class="sw" data-bed="held" aria-hidden="true"></span>Held <span class="zero">none</span></li>
+            <li><span class="sw" data-bed="blocked" aria-hidden="true"></span>Out of service <b>1</b></li>
+            <li><span class="sw" data-bed="occupied" aria-hidden="true"></span>Occupied <b>14</b></li>
+            <li><span class="sw" data-bed="leave" aria-hidden="true"></span>On leave <span class="zero">none</span></li>
+          </ul>
+        </div>
+
+        <div class="bedgroup">
+          <h3>
+            <span>Locked bay &mdash; 12 beds</span>
+            <span class="sub">2 ready. These are the only beds that can hold a detained patient.</span>
+          </h3>
+          <ol class="beds">
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">01</span><span class="state">Occupied</span
+                ><span class="stay">156<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">02</span><span class="state">Occupied</span
+                ><span class="stay">104<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">03</span><span class="state">Occupied</span
+                ><span class="stay">81<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">04</span><span class="state">Occupied</span
+                ><span class="stay">63<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">05</span><span class="state">Occupied</span
+                ><span class="stay">47<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">06</span><span class="state">Occupied</span
+                ><span class="stay">36<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">07</span><span class="state">Occupied</span
+                ><span class="stay">29<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">08</span><span class="state">Occupied</span
+                ><span class="stay">24<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">09</span><span class="state">Occupied</span
+                ><span class="stay">19<span>days</span></span
+                ><span class="flagword">Overdue 7h</span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">10</span><span class="state">Occupied</span
+                ><span class="stay">15<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="ready" href="#"><span class="bn">11</span><span class="state">Ready</span></a>
+            </li>
+            <li>
+              <a class="bed" data-bed="ready" href="#"><span class="bn">12</span><span class="state">Ready</span></a>
+            </li>
+          </ol>
+        </div>
+
+        <div class="bedgroup">
+          <h3>
+            <span>Open beds &mdash; 6</span>
+            <span class="sub">1 ready, and it is already pulled. A detained patient cannot be placed here.</span>
+          </h3>
+          <ol class="beds">
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">13</span><span class="state">Occupied</span
+                ><span class="stay">12<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">14</span><span class="state">Occupied</span
+                ><span class="stay">8<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">15</span><span class="state">Occupied</span
+                ><span class="stay">5<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="occupied" href="#"
+                ><span class="bn">16</span><span class="state">Occupied</span
+                ><span class="stay">3<span>days</span></span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="ready" href="#"
+                ><span class="bn">17</span><span class="state">Ready</span
+                ><span class="flagword">Pulled for WF-355</span></a
+              >
+            </li>
+            <li>
+              <a class="bed" data-bed="blocked" href="#"
+                ><span class="bn">18</span><span class="state">Out of service</span
+                ><span class="note">No return date recorded</span></a
+              >
+            </li>
+          </ol>
+        </div>
+
+        <p class="panel-foot">
+          <strong>Ready, held, out of service and occupied account for all 18 beds.</strong> Held means empty but not
+          currently offered; <strong>no bed is held here today</strong>, and
+          <strong>no bed is recorded as on leave</strong> &mdash; both keep their place in the key so their absence is
+          readable rather than invisible. <br /><br />
+          <strong>Ready means empty and offered. It does not mean free to give to somebody else.</strong> Bed 17 is one
+          of the three and was pulled for WF-355 at 20:10, so two of the three are the locked beds and the third is
+          spoken for. The bed board says of the same bed that it is <strong>taken, not free</strong>, and both pages are
+          describing one thing rather than disagreeing. Beds pulled for a named person are also counted under
+          <em>Coming in</em>, and that is a second count of the same bed rather than a second bed.
+        </p>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Beds on the way out</h2>
+          <span class="n">1 expected &middot; 0 confirmed</span>
+        </header>
+        <ul class="stack">
+          <li>
+            <span class="line"
+              ><span class="rid">Bed 09</span><span class="chip" data-level="urgent">Overdue 7h</span
+              ><span class="n">Was expected free 14:00</span></span
+            >
+            <span class="attrs"
+              ><b>Waiting on</b> ward round<span class="sep" aria-hidden="true">|</span><b>No blocker recorded</b></span
+            >
+            <span class="acts">
+              <button type="button" class="btn">Confirm the discharge</button>
+              <button type="button" class="btn">Record a blocker</button>
+              <button type="button" class="btn">Being made ready</button>
+              <button type="button" class="btn btn--quiet">Bed is now free</button>
+            </span>
+          </li>
+        </ul>
+        <p class="panel-foot">
+          A discharge that is decided and stuck is still a decided discharge, and it keeps counting as one. Nothing here
+          records anything about the departing person.
+        </p>
+      </section>
+
+      <!-- ══════════ WHERE TO REFER ══════════ -->
+      <section class="panel" id="refer">
+        <header>
+          <h2 class="panel-title">Where to refer</h2>
+          <span class="n">Community referral &mdash; raised separately</span>
+        </header>
+        <p class="blurb">
+          <strong>A referral points one way.</strong> Asking for a bed and asking for community care are two referrals,
+          not one act &mdash; so this raises the community referral on its own,
+          <strong>when discharge is being planned</strong>. It does not deny that a patient may need both.
+        </p>
+        <div class="refer-form">
+          <span>
+            <label class="field-label" for="suburb">Patient&rsquo;s suburb</label>
+            <input class="field" id="suburb" type="text" value="Ashfield" />
+          </span>
+          <button type="button" class="btn btn--primary">Look up the team</button>
+          <span class="n">
+            The key is the <b>suburb</b>, never the postcode &mdash; postcode is missing for about 42 suburbs and
+            appears in only one of the five source documents.
+          </span>
+        </div>
+
+        <div class="refer-ans" data-state="reviewed">
+          <span class="refer-q"
+            ><span class="suburb">Ashfield</span
+            ><span class="chip" data-level="accepted">One answer &middot; reviewed</span></span
+          >
+          <span class="refer-team">Midland</span>
+          <span class="refer-src">
+            Statewide catchment table, 22 November 2015, page 1 &mdash; the cell reads <code>Midland</code>. Postcode
+            <code>6054</code> is shown for reference and is not what the answer was found by.
+          </span>
+        </div>
+
+        <div class="refer-ans" data-state="unreviewed">
+          <span class="refer-q"
+            ><span class="suburb">Calista</span
+            ><span class="chip" data-level="stalled">A set, and the row is marked</span></span
+          >
+          <span class="refer-team">Peel <span class="and">and</span> Rockingham</span>
+          <span class="refer-src">
+            The cell reads <code>Peel /Rockingham</code> verbatim, page 2. A slash is not a typo &mdash; it is a set
+            written by somebody with no field for one, so <strong>both teams are the answer</strong>.
+            <br />
+            <strong>Marked, not trusted silently:</strong> this row is one of exactly two in 537 where the source names
+            <code>Kwinana</code> as the approved hospital while every other Kwinana-area suburb says
+            <code>Rockingham</code>. The anomaly is unexplained, and the hospital column is not carried into this
+            software at all &mdash; only the mark travels.
+          </span>
+        </div>
+
+        <div class="refer-ans" data-state="contested">
+          <span class="refer-q"
+            ><span class="suburb">Woodbridge</span
+            ><span class="chip" data-level="urgent">Contested &mdash; will not route</span></span
+          >
+          <span class="refer-team">Rockingham <span class="or">or</span> Midland</span>
+          <span class="refer-src">
+            Two rows, same name, same document, same page 11: <code>6168 &rarr; Rockingham</code> and
+            <code>6056 &rarr; Midland</code>. <strong>Both readings are shown and neither is chosen.</strong> Nothing is
+            sent automatically from a contested answer &mdash; a person picks, because rendering both and then quietly
+            routing on one would make the display honest and the behaviour dishonest.
+          </span>
+        </div>
+
+        <div class="refer-ans" data-state="unknown">
+          <span class="refer-q"
+            ><span class="suburb">Christmas Island</span><span class="chip">No catchment recorded</span></span
+          >
+          <span class="refer-team">
+            <span class="absent" style="font-size: 0.8125rem; font-weight: 500">No team is held for this suburb</span>
+          </span>
+          <span class="refer-src">
+            The suburb <em>is</em> in the source table, at <code>6798</code>, page 3 &mdash; and the follow-up clinic
+            cell on it is empty. <strong>This is the only such row in all 537.</strong> That is a different answer from
+            &ldquo;the suburb is not in the table&rdquo;, and the two are never merged: one means nobody wrote it down,
+            the other means the suburb is unknown here.
+          </span>
+        </div>
+
+        <p class="panel-foot">
+          <strong>Nothing on this panel asks for a bed</strong>, and nothing here is sent until somebody sends it. No
+          spelling is corrected and no answer is guessed at from a similar name &mdash; a variant only resolves through
+          an alias somebody wrote down and a clinician can review.
+        </p>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Coming in</h2>
+          <span class="n">2</span>
+        </header>
+        <ul class="stack">
+          <li>
+            <span class="line"
+              ><span class="rid">WF-355</span><span class="chip" data-level="accepted">Bed pulled</span
+              ><span class="n">Bed 17</span></span
+            >
+            <span class="attrs">Pulled 20:10 &middot; from Fiona Stanley Hospital Emergency Department</span>
+            <span class="acts">
+              <button type="button" class="btn btn--primary">They have arrived</button>
+              <button type="button" class="btn">Release the bed</button>
+            </span>
+          </li>
+          <li>
+            <span class="line"
+              ><span class="rid">WF-361</span><span class="chip" data-level="planned">Accepted, no bed yet</span></span
+            >
+            <span class="attrs">Accepted 18:45 &middot; from Rockingham community team</span>
+            <span class="acts">
+              <button type="button" class="btn">Pull a bed</button>
+              <button type="button" class="btn btn--quiet">Withdraw the acceptance</button>
+            </span>
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- ══════════ COLUMN 2 — WHAT THIS WARD IS ASKED, AND WHAT IT MUST ANSWER ══════════
+         The referral decisions moved here from the 21rem rail. They are the
+         most consequential thing on the page — an accept, a decline and a
+         reason — and in the rail their two buttons, three attribute lines and
+         a seven-option reason group had 336px to live in. -->
+    <div class="col">
+      <section class="panel" id="questions">
+        <header>
+          <h2 class="panel-title">Today&rsquo;s three questions</h2>
+          <span class="head-act">
+            <span class="n">1 of 3</span>
+            <button type="button" class="btn btn--primary">Confirm both counts</button>
+          </span>
+        </header>
+        <p class="blurb">
+          If nothing has changed, confirm with one tap &mdash; you never re-enter a number that is already right.
+          Leaving any of this unanswered does not close the ward and does not block a referral.
+        </p>
+        <ul>
+          <li class="ask" data-answered="no">
+            <span class="ask-q">
+              <span class="ask-label">Beds empty right now</span>
+              <span class="chip" data-level="stalled">Not confirmed since this page opened</span>
+              <span class="ask-when">As at 21:48, from the feed &mdash; nobody has confirmed it</span>
+            </span>
+            <span class="ask-value">3</span>
+            <span class="ask-controls">
+              <button type="button" class="btn">Confirm &mdash; unchanged</button>
+              <button type="button" class="btn btn--quiet">Change the number</button>
+            </span>
+          </li>
+          <li class="ask" data-answered="no">
+            <span class="ask-q">
+              <span class="ask-label">Of those, how many can you actually allocate</span>
+              <span class="chip" data-level="stalled">Not confirmed since this page opened</span>
+              <span class="ask-when">Confirmed 21:41 by NUM FSH Adult Secure</span>
+            </span>
+            <span class="ask-value">3</span>
+            <span class="ask-controls">
+              <button type="button" class="btn">Confirm &mdash; unchanged</button>
+              <button type="button" class="btn btn--quiet">Change the number</button>
+            </span>
+          </li>
+          <li class="ask" data-answered="yes">
+            <span class="ask-q">
+              <span class="ask-label">Anything limiting who can come in right now</span>
+              <span class="chip" data-level="accepted">Answered 21:44</span>
+              <span class="answer">Male-only ward &mdash; no female admissions today.</span>
+            </span>
+            <span class="ask-value" aria-hidden="true">&mdash;</span>
+            <span class="ask-controls">
+              <button type="button" class="btn btn--quiet">Change the answer</button>
+            </span>
+          </li>
+        </ul>
+        <p class="panel-foot">
+          Leaving the last one blank would not stop anyone opening this ward. It would only mean the coordinator sees no
+          constraint recorded against these beds.
+        </p>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Awaiting your answer</h2>
+          <span class="n">3</span>
+        </header>
+        <ul class="stack">
+          <li>
+            <span class="line"><span class="rid">WF-411</span><span class="chip" data-level="urgent">2d 6h</span></span>
+            <span class="attrs"
+              ><b>Adult</b><span class="sep" aria-hidden="true">|</span>Male<span class="sep" aria-hidden="true">|</span
+              >Involuntary &mdash; inpatient order<span class="sep" aria-hidden="true">|</span>Needs a locked bed</span
+            >
+            <span class="attrs">From <b>RPH Emergency Department</b> &middot; 24 km</span>
+            <span class="note-box" data-level="ok"
+              >Beds 11 and 12 are locked and ready, and this ward is authorised under the Act &mdash; it may lawfully
+              hold this person.</span
+            >
+            <span class="acts">
+              <button type="button" class="btn btn--primary">Accept in principle</button>
+              <button type="button" class="btn">Decline, with a reason</button>
+            </span>
+          </li>
+          <li>
+            <span class="line"><span class="rid">WF-388</span><span class="chip">9h</span></span>
+            <span class="attrs"
+              ><b>Adult</b><span class="sep" aria-hidden="true">|</span>Female<span class="sep" aria-hidden="true"
+                >|</span
+              >Voluntary<span class="sep" aria-hidden="true">|</span>An open bed would suit</span
+            >
+            <span class="attrs">From <b>Alma Street (Melville) community team</b> &middot; 9 km</span>
+            <span class="note-box"
+              >This ward is designated male only, so a female admission is refused on both the referral and the movement
+              path. A coordinator may still override, and the override is recorded.</span
+            >
+            <span class="acts">
+              <button type="button" class="btn btn--primary">Accept in principle</button>
+              <button type="button" class="btn" aria-expanded="true">Decline, with a reason</button>
+            </span>
+            <fieldset class="reasons">
+              <legend>Why can this ward not take them?</legend>
+              <label class="reason"><input type="radio" name="wf388" />No suitable bed</label>
+              <label class="reason"><input type="radio" name="wf388" />Age band not provided here</label>
+              <label class="reason"><input type="radio" name="wf388" checked />Sex designation unavailable</label>
+              <label class="reason"><input type="radio" name="wf388" />Secure bed unavailable</label>
+              <label class="reason"><input type="radio" name="wf388" />Belongs to another service</label>
+              <label class="reason"><input type="radio" name="wf388" />Referred elsewhere</label>
+              <label class="reason"><input type="radio" name="wf388" />Another reason</label>
+              <span class="acts">
+                <button type="button" class="btn btn--primary">Record the decline</button>
+                <button type="button" class="btn btn--quiet">Cancel</button>
+              </span>
+            </fieldset>
+          </li>
+          <li>
+            <span class="line"><span class="rid">WF-402</span><span class="chip">5h</span></span>
+            <span class="attrs"
+              ><b>Adult</b><span class="sep" aria-hidden="true">|</span>Male<span class="sep" aria-hidden="true">|</span
+              >Voluntary<span class="sep" aria-hidden="true">|</span>An open bed would suit</span
+            >
+            <span class="attrs">From <b>SJGS Adult Open</b> &middot; transfer &middot; 14 km</span>
+            <span class="note-box" data-level="soft"
+              >Voluntary patient on a ward with locked beds &mdash; review legal status before admission.</span
+            >
+            <span class="acts">
+              <button type="button" class="btn btn--primary">Accept in principle</button>
+              <button type="button" class="btn">Decline, with a reason</button>
+            </span>
+          </li>
+        </ul>
+        <p class="panel-foot">
+          Accepting records a decision. It does not move anyone, and it never allocates a bed on its own.
+        </p>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">The number you are offering</h2>
+          <span class="head-act">
+            <span class="asked">Refresh asked for at 21:46 by the coordinator</span>
+            <span class="n">Currently 3, set 21:41</span>
+          </span>
+        </header>
+        <div class="panel-body">
+          <form class="inline-form" onsubmit="return false;">
+            <span>
+              <label class="field-label" for="cap">Allocatable beds</label>
+              <input class="field field--num" id="cap" type="number" min="0" max="18" value="3" />
+            </span>
+            <button type="submit" class="btn btn--primary">Confirm</button>
+            <span class="n">Writes to FSH Adult Secure only &mdash; never any other ward</span>
+          </form>
+        </div>
+        <p class="panel-foot">
+          Of the three you are offering, <strong>two are locked beds and one is open</strong>. That split is what
+          decides whether a detained patient can be offered a bed here at all, so it is shown wherever the figure is.
+        </p>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Flag a bed coming free</h2>
+        </header>
+        <div class="panel-body">
+          <form class="inline-form" onsubmit="return false;">
+            <span>
+              <label class="field-label" for="wait-on">Waiting on</label>
+              <select class="field" id="wait-on">
+                <option>Awaiting ward round</option>
+                <option>Awaiting transport</option>
+                <option>Awaiting accommodation</option>
+                <option>Awaiting family</option>
+                <option>Awaiting pharmacy</option>
+              </select>
+            </span>
+            <span>
+              <label class="field-label" for="free-at">Expected free</label>
+              <input class="field" id="free-at" type="time" value="14:00" />
+            </span>
+            <span>
+              <label class="field-label" for="blocker">Blocker</label>
+              <select class="field" id="blocker">
+                <option>No blocker</option>
+                <option>No transport available</option>
+                <option>No accommodation</option>
+                <option>Awaiting a decision elsewhere</option>
+              </select>
+            </span>
+            <button type="submit" class="btn">Flag it</button>
+          </form>
+        </div>
+        <p class="panel-foot">
+          Records what the discharge is waiting on, when the bed is expected free, and any blocker.
+          <strong>Nothing about the departing person is recorded here.</strong>
+        </p>
+      </section>
+    </div>
+
+    <!-- ══════════ COLUMN 3 — WHAT IS WRONG, AND WHAT IS ABSENT ══════════
+         The rail is now only things that are read, never acted on, which is
+         what a 21rem column can carry honestly. -->
+    <div class="col">
+      <section class="panel">
+        <header><h2 class="panel-title">Worth your attention</h2></header>
+        <ul class="attention">
+          <li>
+            <span class="who">Bed 17</span>The only open bed counted as ready, and it was pulled for WF-355 at 20:10.
+            Ready means empty and offered; it does not mean free to give to somebody else.
+          </li>
+          <li>
+            <span class="who">Bed 09</span>Expected free at 14:00 and still occupied &mdash; 7h overdue, waiting on ward
+            round, with no blocker recorded against it.
+          </li>
+          <li>
+            <span class="who">Bed 18</span>Out of service, with no bed release recorded against it. Nothing here says
+            when it comes back, and it is not counted as ready.
+          </li>
+          <li>
+            <span class="who">WF-388</span>Refused by this ward&rsquo;s male-only designation. Nothing is blocked
+            &mdash; a coordinator can override it, and the override is recorded.
+          </li>
+          <li>
+            <span class="who">Bed 01</span>156 days, which is 52 days longer than the next longest stay on this ward.
+          </li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Beds on leave</h2>
+          <span class="n">none</span>
+        </header>
+        <div class="panel-body">
+          <p class="absent">
+            No bed here is recorded as occupied by someone on approved leave. That means none has been recorded &mdash;
+            not that nobody is away.
+          </p>
+          <form class="inline-form" onsubmit="return false;">
+            <label class="reason" for="leave-usable"
+              ><input type="checkbox" id="leave-usable" />Usable while they are away</label
+            >
+            <span>
+              <label class="field-label" for="leave-back">Expected back</label>
+              <input class="field" id="leave-back" type="time" value="18:00" />
+            </span>
+            <button type="submit" class="btn">Record it</button>
+          </form>
+          <p class="absent" style="font-size: 0.6875rem">
+            Both questions are about the <strong>bed</strong>. Nothing here records anything about the person on leave.
+          </p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Withdrawn from this ward</h2>
+          <span class="n">1</span>
+        </header>
+        <ul class="stack">
+          <li>
+            <span class="line"
+              ><span class="rid">WF-297</span><span class="chip" data-level="stalled">Withdrawn 17:02</span></span
+            >
+            <span class="attrs">Accepted at <b>RPH Adult Secure</b> first. Nothing is expected from you.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Overrides recorded here</h2>
+          <span class="n">none</span>
+        </header>
+        <div class="panel-body">
+          <p class="absent">
+            No coordinator has overridden an eligibility rule for this ward. An override is always recorded, never
+            silent, and it never blocks the decision it records.
+          </p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <h2>What is real, taken from the repository</h2>
+    <ul>
+      <li>
+        <b>This ward and every figure in its header.</b> FSH Adult Secure at Fiona Stanley Hospital: adult,
+        <b>18 beds, 12 locked and 6 open</b>, authorised, <b>male only</b>, specialling capacity <b>2</b> &mdash; all
+        from <code>ward-sites.ts</code>.
+      </li>
+      <li>
+        <b>Every bed count on this page follows from that fixture.</b> Empty 3 and allocatable 3 give <b>3 ready</b>;
+        <b>2 of the 3 are locked beds</b> and 1 is open, from <code>allocatableLocked: 2</code>;
+        <b>1 bed is out of service</b>; <b>held is 0</b> because held is <em>derived</em> as empty minus ready, not
+        authored; and <b>14 are occupied</b>, which is exactly the 14 occupants the fixture records.
+      </li>
+      <li>
+        <b>All 23 wards in the switcher</b>, their hospitals, bed counts, locked/open splits, cohorts, and the two
+        Subiaco wards that are <b>not authorised</b> under the Act. Joondalup and Peel are absent because they have an
+        emergency department and no beds &mdash; also from <code>ward-sites.ts</code>.
+      </li>
+      <li>
+        <b>The six figures on &ldquo;Today on this ward&rdquo;, and their exact labels</b> &mdash; Ready, Confirmed
+        today, Expected today, Blocked releases, Held, Leave (usable) &mdash; are <code>CAPACITY_FIGURE_LABELS</code> in
+        <code>ward-morning-rollup.ts</code>, verbatim. <b>The 08:00 handover</b> is
+        <code>MORNING_HANDOVER_MINUTES</code> in the same file, and the rule that a ward reports no handover figure at
+        all before 08:00 rather than yesterday&rsquo;s is <code>morningHandoverInstant</code> returning null.
+        <b>The three freshness states</b> &mdash; confirmed, partial, never &mdash; are <code>RollupFreshness</code>.
+      </li>
+      <li>
+        <b>Every answer on &ldquo;Where to refer&rdquo; is a real row of the real catchment table</b> in
+        <code>ward-catchment.ts</code>, built from the owner&rsquo;s five WA Health documents across 537 suburbs:
+        <code>6054 Ashfield &rarr; Midland</code> (page 1) &middot;
+        <code>6167 Calista &rarr; &ldquo;Peel /Rockingham&rdquo;</code> (page 2, and one of the two
+        <code>Kwinana</code>-anomaly rows) &middot; <code>6168 Woodbridge &rarr; Rockingham</code> and
+        <code>6056 Woodbridge &rarr; Midland</code> (both page 11) &middot;
+        <code>6798 Christmas Island &rarr; &lt;empty&gt;</code> (page 3, the only row in the table with no follow-up
+        clinic). <b>The four behaviours are the module&rsquo;s own recorded decisions:</b> the key is suburb and never
+        postcode; a slash is a set rather than a typo; a contested answer must not route; and a variant resolves only
+        through a written-down alias, never by similarity.
+      </li>
+      <li>
+        <b>The one-way referral rule</b> &mdash; that asking for a bed and asking for community care are two referrals
+        &mdash; is the owner&rsquo;s ruling <code>R-B-06</code>, including the requirement that the refusal say the
+        community referral is raised separately when discharge is being planned.
+      </li>
+      <li>
+        <b>The male-only refusal</b> is a real gate on both the referral and movement paths, and a coordinator override
+        is recorded rather than refused. <b>The voluntary-on-a-locked-ward notice</b> is real and fires for any ward
+        holding a locked bed.
+      </li>
+      <li>
+        <b>The five bed states</b> &mdash; ready, held, out of service, occupied, on leave &mdash; and the three daily
+        questions, the allocatable-beds form, the waiting-on and blocker lists, and the accept, decline, pull and
+        release actions.
+      </li>
+    </ul>
+
+    <h2>What is invented</h2>
+    <ul>
+      <li>
+        <b>Which particular bed is in which state</b>, and every length of stay from 3 to 156 days. The
+        <em>counts</em> are real; their arrangement across bed numbers is not, because the fixture does not record beds
+        individually.
+      </li>
+      <li>
+        <b>Every referral</b> &mdash; WF-411, WF-388, WF-402, WF-355, WF-361, WF-297 &mdash; with its waiting time,
+        origin, distance, sex and legal status.
+      </li>
+      <li><b>Every ready count in the ward switcher except this ward&rsquo;s own 3.</b></li>
+      <li>
+        <b>All times, and there are nine:</b> 14:00, 17:02, 18:00, 18:45, 20:10, 21:41, 21:44, 21:46, 21:48 &mdash; plus
+        the &ldquo;Live&rdquo; marker, and the answer text &ldquo;Male-only ward &mdash; no female admissions
+        today&rdquo;, though the male-only designation behind it is real.
+        <b>08:00 is not in that list because it is real.</b>
+        <br />
+        <b>This edition invents no new time:</b> every entry on &ldquo;Today on this ward&rdquo; is drawn from those
+        nine or from the real 08:00, which is why that panel is a record of the day rather than a schedule. The one it
+        does not use is 18:00, the expected-back default in the leave form.
+        <br />
+        ⚠️ <b>Two of the nine were rendered by the previous edition and missing from its own list of them</b> &mdash;
+        21:46, the coordinator&rsquo;s refresh request, and 18:00. The rule that every invented figure is listed at the
+        foot is only ever as good as the sweep behind it, and a list that is checked for containing the right things is
+        not thereby checked for containing all of them.
+      </li>
+      <li>
+        <b>One figure on this page is a derivation, so here is the arithmetic.</b> Bed 09 is flagged
+        <b>Overdue 7h</b> against an expected-free time of 14:00 and a now of 21:48, which is 7h48m truncated to whole
+        hours. The figure is the locked edition&rsquo;s and is unchanged; it is written down here because a truncated
+        overdue reads as smaller than it is, and on this project a flag disagreeing with the figure beside it has
+        already been a real defect twice.
+      </li>
+      <li>
+        <b
+          >That Christmas Island, Calista, Woodbridge and Ashfield are the four suburbs a clinician happened to look
+          up.</b
+        >
+        The rows are real; choosing these four to draw is not, and they were chosen because between them they are the
+        only four answer states the lookup can return.
+      </li>
+    </ul>
+
+    <h2>What this edition changes, and why</h2>
+    <ul>
+      <li>
+        🔴 <b>A sentence that was false is gone.</b> The previous edition said a bed becomes ready only once released,
+        <em>&ldquo;which is why that figure is always one you can fill this minute&rdquo;</em>. One of the three was bed
+        17, pulled for WF-355 &mdash; and the bed board, locked the same night, calls that same bed
+        <b>taken, not free</b>. Both pages were internally consistent and one of them told a clinician something untrue.
+        The figure is unchanged; the promise around it is corrected, the tile carries the pull, and the fact leads the
+        attention list.
+      </li>
+      <li>
+        <b>The tile label is now &ldquo;Ready&rdquo;, not &ldquo;Ready to fill this minute&rdquo;.</b> Not a preference:
+        <code>CAPACITY_FIGURE_LABELS.availableNow</code> is already the word <code>Ready</code>, so the mockup now says
+        what the software will say.
+      </li>
+      <li>
+        <b>One alarm colour on the figures strip instead of four.</b> The design language&rsquo;s own rule is that amber
+        means &ldquo;look here&rdquo; and loses all meaning if everything is amber; the previous edition toned four of
+        five tiles. Out of service is a standing fact, not an alarm, and keeps its red where the bed is drawn.
+      </li>
+      <li>
+        <b>The heading says what the ward is in a sentence.</b> Six equal chips made the hospital&rsquo;s name read as
+        loudly as the locked/open split, which is the one identity fact that decides a placement. The split stays a
+        chip; everything else became prose.
+      </li>
+      <li>
+        <b>The heading&rsquo;s status became a route.</b> &ldquo;1 of 3 answered today&rdquo; was a chip that told you
+        something was outstanding and gave you nowhere to go. It now says the same thing and takes you there.
+      </li>
+      <li>
+        <b>The referral decisions moved out of the 19&ndash;21rem rail into the middle column.</b> They are the most
+        consequential act on the page &mdash; accept, decline, and a seven-option reason &mdash; and the rail is the
+        narrowest thing on it. The rail now carries only what is read rather than acted on.
+      </li>
+      <li>
+        <b>Six bed tiles to a row once the three-column layout is in, and one tile height for all eighteen.</b> The bay
+        is 12 and the open group is 6, so six across makes each group a whole number of rows; automatic fitting was
+        giving five, which split 12 into 5, 5 and 2. Two tiles also carried a note repeating their own group heading
+        (&ldquo;can hold a detained patient&rdquo;), which made them taller than their neighbours &mdash; the notes are
+        gone and the bottom edges line up.
+      </li>
+      <li>
+        <b>&ldquo;Today on this ward&rdquo; is full width, under the figures.</b> A day reads across, not down, and in
+        the rail its events would have had to be truncated. It carries the six figures that travel together and the day
+        as recorded &mdash; <b>and deliberately no roster, ward round or meeting</b>, because this ward records none of
+        those and an invented schedule would have been the most believable thing on the page.
+      </li>
+      <li>
+        <b>&ldquo;Where to refer&rdquo; sits under the discharges, not in the rail.</b> The owner&rsquo;s one-way rule
+        says the community referral is raised when discharge is being planned, so it belongs where somebody is already
+        standing when they need it. All four answer states are drawn, including the two that refuse to give one answer.
+      </li>
+      <li>
+        🔴 <b>A print defect is patched here that belongs in the shared block.</b> The canonical block re-points its
+        colours for printing on <code>:root</code> and <code>:root[data-theme="dark"]</code>, and its own comment
+        explains that the second selector is needed because a rule on <code>:root</code> alone loses on specificity. The
+        same argument defeats it once more: the dark palette is written to <code>:root:not([data-theme="light"])</code>,
+        which is equally specific and earlier in the file, so
+        <b
+          >a reader in dark mode who never touched the theme control &mdash; the default &mdash; prints the entire dark
+          palette</b
+        >, including near-white text onto white paper once the printer drops the backgrounds. Measured in a browser with
+        the outcomes written down before the run. A second half: the block re-points thirteen neutral tokens and none of
+        the twelve state colours, so a green note box prints near-black for <em>every</em> dark-mode reader.
+        <br />
+        ✅
+        <b
+          >Both are now fixed in the canonical block, at the owner&rsquo;s instruction on 2026-09-05, and the copy that
+          was in this file has been deleted rather than left behind.</b
+        >
+        The rule is one checkable sentence &mdash; <b>for print, every token takes its light-theme value</b> &mdash; and
+        it reaches all four second-edition files, because the block was edited at its source and the three mockups were
+        re-cut from it. Verified by hash: the canonical prefix is identical in <code>design-language.html</code>, both
+        v3 mockups and this one. The hoisted fix was itself proved against a control that reproduced the old selector
+        list and showed the old, wrong answer.
+        <br />
+        ⚠️ <b>The ten first-edition mockups in this folder have no print block at all</b>, so a dark-mode reader
+        printing any of them still gets the dark palette. That is a different thing from the defect above &mdash;
+        nothing there was half-fixed, there was never a fix &mdash; and it is recorded rather than repaired, because it
+        is ten files outside what was asked for.
+      </li>
+      <li>
+        <b>The route to the bed board is more prominent, at the owner&rsquo;s request.</b> Both places it appears are
+        now the same primary button with more room around the words, a heavier weight and an arrow &mdash; the panel
+        header&rsquo;s version was a quiet outline before. <b>And the two were saying different things:</b> the bar read
+        &ldquo;Open the full bed board&rdquo; and the panel header read &ldquo;Open the full board&rdquo; for one
+        destination, which is how a reader comes to believe there are two. One name now.
+      </li>
+      <li>
+        <b>Three smaller repairs.</b> <code>.asked</code> was added by the previous edition with a wash background and a
+        <code>color-mix</code> border, and under forced colours it loses both &mdash; it now has a drawn edge, along
+        with everything this screen adds. The <code>&lt;ul class="asks"&gt;</code> wrapper was styled by nothing in any
+        block, so the class is gone rather than left looking load-bearing. And &ldquo;Coming in&rdquo; now names the bed
+        WF-355 was pulled into, so the same fact is not stated in two places without a way to tie them together.
+      </li>
+      <li>
+        <b>Unchanged from the locked edition, on purpose:</b> the bed map is still the page, the accent is still
+        PsychSift&rsquo;s own primary, surfaces are still crisp white, the switcher still groups 23 real wards by
+        hospital, and <code>DESIGN-LANGUAGE.md</code> still governs Ward Flow and is untouched. The canonical style
+        block above is byte-identical to the two locked mockups &mdash; every change on this page is composition, or
+        sits below the marker.
+      </li>
+    </ul>
+  </div>
+</div>

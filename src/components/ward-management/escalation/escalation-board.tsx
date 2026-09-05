@@ -11,6 +11,7 @@ import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import type { Movement } from "@/components/ward-management/ward-model";
 import { edById } from "@/components/ward-management/ward-sites";
+import { WardTable } from "@/components/ward-management/ward-table/ward-table";
 
 import styles from "./escalation.module.css";
 
@@ -23,11 +24,17 @@ import styles from "./escalation.module.css";
  * `useWardFlow()`'s live `movements`/`units`/`now`, with no `useState` freeze. Nothing here
  * mutates anything; both sections are read-only.
  *
- * THE HARDEST RULE IN THIS TASK: THE BOARD RECORDS AND SHOWS. IT SUGGESTS NOTHING (spec D4). No
- * "least-bad options", no ranking of wards the patient does not fit, no statement of what would
- * need to change. `escalationBoard` itself already enforces this in its own derivation — see
- * that function's doc comment in `ward-derivations.ts` — so nothing in this component may
- * compute a near-miss, a "closest" ward, or any suggestion of its own.
+ * 🔴 WHAT WAS CALLED "THE HARDEST RULE IN THIS TASK" IS WITHDRAWN (owner ruling R-2026-09-04-G).
+ *
+ * Spec D4 said this board records and shows and SUGGESTS NOTHING — no least-bad options, no
+ * ranking of wards the patient does not fit, no near-miss computation. It was never an owner
+ * ruling; it was inferred and then enforced. The owner has ruled the opposite: the board is to
+ * match patients to beds, with the software never deciding and the final acceptance coming from
+ * the users.
+ *
+ * As it stands this component computes no suggestion of its own, and `escalationBoard` computes
+ * none either. That is a description of today's code, not a constraint on tomorrow's — and the
+ * matching work is a design that has not been done yet rather than a door that is closed.
  */
 export function EscalationBoardPage() {
   const { movements, units, now } = useWardFlow();
@@ -41,8 +48,8 @@ export function EscalationBoardPage() {
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
             This board is <strong>not a medical device</strong>. It records and shows what has already happened — a
-            recorded escalation, or a movement with nowhere eligible right now — and nothing more. It never ranks a ward
-            the patient does not fit, and it never states what would need to change for one to work.
+            recorded escalation, or a movement with nowhere eligible right now. It places nobody: a coordinator decides
+            every placement, one at a time, and this board reports what they decided.
           </p>
         </div>
 
@@ -67,34 +74,32 @@ export function EscalatedSection({ board, now }: { board: EscalationBoard; now: 
           None — no open movement carries a recorded escalation.
         </p>
       ) : (
-        <div className={styles.tableScroll}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th scope="col">Movement</th>
-                <th scope="col">When</th>
-                <th scope="col">Units tried</th>
-                <th scope="col">Contact</th>
-                <th scope="col">Wait</th>
+        <WardTable className={styles.table}>
+          <thead>
+            <tr>
+              <th scope="col">Movement</th>
+              <th scope="col">When</th>
+              <th scope="col">Units tried</th>
+              <th scope="col">Contact</th>
+              <th scope="col">Wait</th>
+            </tr>
+          </thead>
+          <tbody>
+            {board.escalated.map((entry) => (
+              <tr key={entry.movement.id}>
+                <td>{entry.movement.id}</td>
+                <td>
+                  {entry.movement.escalation
+                    ? formatInstantWithDay(entry.movement.escalation.at, now)
+                    : "No time recorded"}
+                </td>
+                <td>{triedUnitsLabel(entry.triedUnits)}</td>
+                <td>{entry.movement.escalation?.contact ?? "No contact recorded"}</td>
+                <td>{elapsedLabel(entry.movement, now)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {board.escalated.map((entry) => (
-                <tr key={entry.movement.id}>
-                  <td>{entry.movement.id}</td>
-                  <td>
-                    {entry.movement.escalation
-                      ? formatInstantWithDay(entry.movement.escalation.at, now)
-                      : "No time recorded"}
-                  </td>
-                  <td>{triedUnitsLabel(entry.triedUnits)}</td>
-                  <td>{entry.movement.escalation?.contact ?? "No contact recorded"}</td>
-                  <td>{elapsedLabel(entry.movement, now)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </WardTable>
       )}
     </section>
   );
@@ -109,28 +114,26 @@ export function NowhereEligibleSection({ board, now }: { board: EscalationBoard;
           None — every open movement has at least one eligible ward right now.
         </p>
       ) : (
-        <div className={styles.tableScroll}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th scope="col">Movement</th>
-                <th scope="col">Wait</th>
-                <th scope="col">Stage</th>
-                <th scope="col">Department</th>
+        <WardTable className={styles.table}>
+          <thead>
+            <tr>
+              <th scope="col">Movement</th>
+              <th scope="col">Wait</th>
+              <th scope="col">Stage</th>
+              <th scope="col">Department</th>
+            </tr>
+          </thead>
+          <tbody>
+            {board.nowhereEligible.map((movement) => (
+              <tr key={movement.id}>
+                <td>{movement.id}</td>
+                <td>{elapsedLabel(movement, now)}</td>
+                <td>{stageCopy[movement.stage].label}</td>
+                <td>{departmentLabel(movement)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {board.nowhereEligible.map((movement) => (
-                <tr key={movement.id}>
-                  <td>{movement.id}</td>
-                  <td>{elapsedLabel(movement, now)}</td>
-                  <td>{stageCopy[movement.stage].label}</td>
-                  <td>{departmentLabel(movement)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </WardTable>
       )}
     </section>
   );

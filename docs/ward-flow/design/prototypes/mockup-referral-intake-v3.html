@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Raise a referral — workspace (mockup v3)</title>
+
+    <!--
+      MOCKUP ONLY. Nothing is wired.
+
+      v3 adds the PATIENT ANCHOR and lifts every surface. The anchor is the interesting problem on
+      this screen, not a decoration: the referral is raised FROM a person's record, so a referrer
+      must be able to see who they are referring — yet the referral itself may carry only a pointer
+      to that record, an id and nothing else. So the anchor shows the person to the human and says,
+      in words, that the name is not what gets written down. Showing who and recording only the id
+      are not in tension once the screen says which is which.
+    -->
+    <style>
+      :root {
+        color-scheme: light;
+        --ground: #f1f4f8;
+        --surface: #ffffff;
+        --surface-2: #f7f9fc;
+        --sunken: #eef2f7;
+        --ink: #0d1421;
+        --ink-2: #33415a;
+        --muted: #55637a;
+        --faint: #5e6c84;
+        --rule: #e4e9f0;
+        --rule-2: #cfd7e3;
+        --accent: #1d6fb8;
+        --accent-strong: #185c99;
+        --accent-wash: #eff5fc;
+        --accent-contrast: #ffffff;
+        --good: #0c6b41;
+        --good-wash: #f2fbf6;
+        --signal: #8a4d05;
+        --signal-wash: #fffaf2;
+        --crit: #a3190f;
+        --crit-wash: #fdf5f4;
+        --cool: #0f6b73;
+        --cool-wash: #f1fafb;
+        --shadow-1: 0 1px 2px rgb(13 20 33 / 0.05);
+        --shadow-2: 0 1px 3px rgb(13 20 33 / 0.07), 0 6px 16px -8px rgb(13 20 33 / 0.1);
+        --shadow-3: 0 12px 36px -14px rgb(13 20 33 / 0.3), 0 2px 8px rgb(13 20 33 / 0.08);
+        --r-sm: 5px;
+        --r: 8px;
+        --r-lg: 12px;
+        --sp-1: 0.25rem;
+        --sp-2: 0.5rem;
+        --sp-3: 0.75rem;
+        --sp-4: 1rem;
+        --sp-5: 1.5rem;
+        --sp-6: 2rem;
+        --sp-7: 3rem;
+        --tap: 3rem;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          color-scheme: dark;
+          --ground: #0a0e15;
+          --surface: #131924;
+          --surface-2: #1a2130;
+          --sunken: #0f141d;
+          --ink: #e8edf5;
+          --ink-2: #c3cdda;
+          --muted: #98a5b8;
+          --faint: #8593a7;
+          --rule: #232c3a;
+          --rule-2: #354152;
+          --accent: #6ea8e0;
+          --accent-strong: #8dbdea;
+          --accent-wash: #132132;
+          --accent-contrast: #0a0e15;
+          --good: #4ec38d;
+          --good-wash: #0f2119;
+          --signal: #e0a63f;
+          --signal-wash: #241c0e;
+          --crit: #f0755c;
+          --crit-wash: #251312;
+          --cool: #5bc0c8;
+          --cool-wash: #0d2124;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font-family:
+          "Archivo",
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+        font-size: 0.875rem;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      .mono,
+      .figure,
+      .n {
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-variant-numeric: tabular-nums;
+      }
+      a {
+        color: var(--accent-strong);
+      }
+
+      /* ── app bar ─────────────────────────────────────────────────────── */
+      .appbar {
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+        padding: var(--sp-2) var(--sp-4);
+        background: color-mix(in srgb, var(--surface) 86%, transparent);
+        backdrop-filter: saturate(1.5) blur(12px);
+        border-bottom: 1px solid var(--rule);
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+      }
+      .brand .dot {
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 2px;
+        background: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-wash);
+      }
+      .crumb {
+        color: var(--faint);
+        font-size: 0.75rem;
+      }
+      .crumb b {
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      .appbar-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+      }
+      .liveness {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.6875rem;
+        color: var(--muted);
+      }
+      .pip {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-radius: 100px;
+        background: var(--good);
+        box-shadow: 0 0 0 3px var(--good-wash);
+      }
+
+      .shell {
+        max-width: 112rem;
+        margin: 0 auto;
+        padding: var(--sp-4) var(--sp-4) var(--sp-7);
+      }
+
+      /* ── prototype notice ────────────────────────────────────────────── */
+      .prototype {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: flex-start;
+        padding: var(--sp-3) var(--sp-4);
+        border: 1px solid var(--rule);
+        border-left: 3px solid var(--signal);
+        border-radius: var(--r);
+        background: var(--signal-wash);
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+      }
+      .tagline {
+        flex: none;
+        padding: 0.1rem 0.45rem;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--signal);
+        color: var(--signal);
+        background: var(--surface);
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      /* ══ PATIENT ANCHOR ══════════════════════════════════════════════════
+         The person this referral is about, stated once, at the top, where it
+         cannot be lost. Everything below it is a claim ABOUT this person. */
+      .anchor {
+        margin-top: var(--sp-4);
+        border: 1px solid var(--rule);
+        border-radius: var(--r-lg);
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--accent-wash) 70%, var(--surface)) 0%,
+          var(--surface) 58%
+        );
+        box-shadow: var(--shadow-2);
+        overflow: hidden;
+      }
+      .anchor-main {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-4);
+        align-items: flex-start;
+        padding: var(--sp-4) var(--sp-5);
+      }
+      .avatar {
+        flex: none;
+        width: 3.25rem;
+        height: 3.25rem;
+        border-radius: var(--r);
+        display: grid;
+        place-items: center;
+        background: var(--accent);
+        color: var(--accent-contrast);
+        font-weight: 700;
+        font-size: 1.0625rem;
+        letter-spacing: 0.02em;
+        box-shadow:
+          0 0 0 3px var(--surface),
+          0 0 0 4px var(--accent-wash);
+      }
+      .who {
+        min-width: 14rem;
+        flex: 1 1 22rem;
+      }
+      .who h2 {
+        margin: 0;
+        font-size: 1.375rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+      }
+      .who .called {
+        color: var(--muted);
+        font-size: 0.8125rem;
+      }
+      .idline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 0.9rem;
+        margin-top: 0.4rem;
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+      }
+      .idline span {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.35rem;
+      }
+      .idline .lab {
+        font-size: 0.625rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .anchor-flags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: var(--sp-3);
+      }
+      .anchor-acts {
+        margin-left: auto;
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-2);
+        align-items: flex-end;
+      }
+
+      /* the governance strip along the bottom of the anchor — the whole point */
+      .anchor-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--sp-2) var(--sp-3);
+        padding: var(--sp-3) var(--sp-5);
+        border-top: 1px dashed var(--rule-2);
+        background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+      .anchor-foot b {
+        color: var(--ink);
+        font-weight: 650;
+      }
+      .ptr {
+        padding: 0.1rem 0.4rem;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--ink-2);
+        font-size: 0.75rem;
+      }
+
+      /* ── chips ───────────────────────────────────────────────────────── */
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        padding: 0.18rem 0.5rem;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--rule-2);
+        background: var(--surface);
+        color: var(--muted);
+      }
+      .chip .sw {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-radius: 100px;
+        background: currentColor;
+      }
+      .chip[data-tone="good"] {
+        color: var(--good);
+        border-color: var(--good);
+        background: var(--good-wash);
+      }
+      .chip[data-tone="signal"] {
+        color: var(--signal);
+        border-color: var(--signal);
+        background: var(--signal-wash);
+      }
+      .chip[data-tone="crit"] {
+        color: var(--crit);
+        border-color: var(--crit);
+        background: var(--crit-wash);
+      }
+      .chip[data-tone="cool"] {
+        color: var(--cool);
+        border-color: var(--cool);
+        background: var(--cool-wash);
+      }
+      .chip[data-tone="accent"] {
+        color: var(--accent-strong);
+        border-color: var(--accent);
+        background: var(--accent-wash);
+      }
+
+      .btn {
+        min-height: 2.25rem;
+        padding: 0 var(--sp-4);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        cursor: default;
+        text-decoration: none;
+      }
+      .btn--primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-contrast);
+      }
+      .btn--quiet {
+        background: transparent;
+        border-color: transparent;
+        color: var(--accent-strong);
+      }
+      .btn--tap {
+        min-height: var(--tap);
+        padding: 0 var(--sp-5);
+        font-size: 0.875rem;
+      }
+      .btn[aria-disabled="true"] {
+        background: var(--sunken);
+        border-color: var(--rule-2);
+        color: var(--faint);
+      }
+
+      /* ── masthead + KPIs ─────────────────────────────────────────────── */
+      .masthead {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-4);
+        justify-content: space-between;
+        align-items: flex-end;
+        padding: var(--sp-5) 0 var(--sp-4);
+      }
+      .eyebrow {
+        display: block;
+        margin-bottom: 0.3rem;
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent-strong);
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.125rem);
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.08;
+      }
+      .blurb {
+        margin: var(--sp-2) 0 0;
+        color: var(--muted);
+        max-width: 48ch;
+      }
+
+      .kpis {
+        display: grid;
+        gap: var(--sp-3);
+        margin-bottom: var(--sp-4);
+        grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+      }
+      .kpi {
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-top: 3px solid var(--rule-2);
+        border-radius: var(--r);
+        box-shadow: var(--shadow-1);
+        padding: var(--sp-3) var(--sp-4);
+        display: grid;
+        gap: 0.1rem;
+      }
+      .kpi[data-tone="accent"] {
+        border-top-color: var(--accent);
+      }
+      .kpi[data-tone="good"] {
+        border-top-color: var(--good);
+      }
+      .kpi[data-tone="signal"] {
+        border-top-color: var(--signal);
+      }
+      .kpi .k {
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .kpi .figure {
+        font-size: 1.625rem;
+        font-weight: 700;
+        line-height: 1.12;
+        letter-spacing: -0.02em;
+      }
+      .kpi .sub {
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .meter {
+        height: 0.35rem;
+        border-radius: 100px;
+        background: var(--sunken);
+        overflow: hidden;
+        margin-top: 0.4rem;
+      }
+      .meter > i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+      }
+
+      /* ── workspace ───────────────────────────────────────────────────── */
+      .workspace {
+        display: grid;
+        gap: var(--sp-4);
+        align-items: start;
+      }
+      @media (min-width: 70rem) {
+        .workspace {
+          grid-template-columns: minmax(0, 1fr) 23.5rem;
+        }
+      }
+      @media (min-width: 104rem) {
+        .workspace {
+          grid-template-columns: minmax(0, 1fr) 26rem;
+        }
+      }
+      .col {
+        min-width: 0;
+        display: grid;
+        gap: var(--sp-4);
+        align-content: start;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: var(--r);
+        box-shadow: var(--shadow-1);
+        overflow: hidden;
+      }
+      .panel > header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+        padding: var(--sp-3) var(--sp-4);
+        background: linear-gradient(180deg, var(--surface-2), color-mix(in srgb, var(--surface-2) 40%, var(--surface)));
+        border-bottom: 1px solid var(--rule);
+      }
+      .panel[data-active="true"] {
+        border-color: var(--accent);
+        box-shadow: var(--shadow-2);
+      }
+      .panel[data-active="true"] > header {
+        background: var(--accent-wash);
+        border-bottom-color: var(--accent);
+      }
+      .ptitle {
+        margin: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--ink);
+      }
+      .stepno {
+        width: 1.35rem;
+        height: 1.35rem;
+        border-radius: 100px;
+        display: grid;
+        place-items: center;
+        background: var(--sunken);
+        color: var(--muted);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        border: 1px solid var(--rule-2);
+      }
+      .panel[data-done="true"] .stepno {
+        background: var(--good-wash);
+        color: var(--good);
+        border-color: var(--good);
+      }
+      .panel[data-active="true"] .stepno {
+        background: var(--accent);
+        color: var(--accent-contrast);
+        border-color: var(--accent);
+      }
+      .panel-body {
+        padding: var(--sp-4);
+        display: grid;
+        gap: var(--sp-4);
+      }
+
+      /* ── fields ──────────────────────────────────────────────────────── */
+      .fields {
+        display: grid;
+        gap: var(--sp-4);
+      }
+      @media (min-width: 46rem) {
+        .fields.two {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .field-label {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.35rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .tick {
+        color: var(--good);
+        font-weight: 700;
+      }
+      select {
+        width: 100%;
+        min-height: var(--tap);
+        padding: 0 var(--sp-3);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+      }
+      select:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      .field[data-state="todo"] select {
+        border-color: var(--signal);
+        background: var(--signal-wash);
+      }
+      .hint {
+        margin: 0.4rem 0 0;
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .hint[data-tone="signal"] {
+        color: var(--signal);
+        font-weight: 600;
+      }
+
+      fieldset {
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+      legend {
+        padding: 0;
+        margin-bottom: 0.35rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .segmented {
+        display: flex;
+        gap: 0.4rem;
+      }
+      .seg {
+        flex: 1 1 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: var(--tap);
+        padding: 0 var(--sp-3);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+      }
+      .seg[aria-pressed="true"] {
+        border-color: var(--accent);
+        background: var(--accent-wash);
+        color: var(--accent-strong);
+        font-weight: 650;
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+
+      /* ── destinations ────────────────────────────────────────────────── */
+      .dests {
+        display: grid;
+        gap: var(--sp-3);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .dest {
+        position: relative;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r);
+        background: var(--surface);
+        padding: var(--sp-3) var(--sp-4) var(--sp-4);
+        display: grid;
+        gap: var(--sp-3);
+        transition:
+          box-shadow 130ms ease,
+          border-color 130ms ease,
+          transform 130ms ease;
+      }
+      .dest::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 3px;
+        border-radius: var(--r) 0 0 var(--r);
+        background: transparent;
+      }
+      .dest:hover {
+        border-color: var(--accent);
+        box-shadow: var(--shadow-2);
+      }
+      .dest[data-chosen="true"] {
+        border-color: var(--accent);
+        background: var(--accent-wash);
+      }
+      .dest[data-chosen="true"]::before {
+        background: var(--accent);
+      }
+      .dest[data-blocked="true"] {
+        background: var(--sunken);
+      }
+      .dest[data-blocked="true"]::before {
+        background: var(--crit);
+      }
+      .dest-top {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+      }
+      .dest-top .name {
+        font-size: 0.9375rem;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+      .box {
+        width: 1.1rem;
+        height: 1.1rem;
+        border: 1px solid var(--rule-2);
+        border-radius: 3px;
+        display: inline-grid;
+        place-items: center;
+        background: var(--surface);
+        font-size: 0.72rem;
+        color: var(--accent-contrast);
+      }
+      .dest[data-chosen="true"] .box {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .why {
+        margin: 0;
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+      }
+      .fact {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.35rem;
+        padding: 0.22rem 0.5rem;
+        border: 1px solid var(--rule);
+        border-radius: var(--r-sm);
+        background: var(--surface-2);
+        font-size: 0.75rem;
+        color: var(--ink-2);
+      }
+      .fact b {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: 0.8125rem;
+        color: var(--ink);
+      }
+      .occ {
+        display: grid;
+        gap: 0.35rem;
+      }
+      .occ-bar {
+        display: flex;
+        height: 0.55rem;
+        border-radius: 100px;
+        overflow: hidden;
+        background: var(--sunken);
+      }
+      .occ-bar i {
+        display: block;
+        height: 100%;
+      }
+      .occ-key {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+        font-size: 0.6875rem;
+        color: var(--muted);
+      }
+      .occ-key span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+      .sw2 {
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 2px;
+      }
+
+      /* ── send ────────────────────────────────────────────────────────── */
+      .sendbar {
+        position: sticky;
+        bottom: var(--sp-3);
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+        padding: var(--sp-3) var(--sp-4);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r);
+        background: color-mix(in srgb, var(--surface) 92%, transparent);
+        backdrop-filter: blur(10px);
+        box-shadow: var(--shadow-3);
+      }
+      .sendwhy {
+        margin: 0;
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+      .sendwhy b {
+        color: var(--signal);
+        font-weight: 650;
+      }
+
+      /* ── rail ────────────────────────────────────────────────────────── */
+      @media (min-width: 70rem) {
+        .rail {
+          position: sticky;
+          top: 3.7rem;
+        }
+      }
+      .summary {
+        display: grid;
+        gap: 0;
+        margin: 0;
+      }
+      .summary > div {
+        display: grid;
+        grid-template-columns: 9rem minmax(0, 1fr);
+        gap: var(--sp-3);
+        align-items: baseline;
+        padding: 0.45rem 0;
+        border-bottom: 1px dashed var(--rule);
+      }
+      .summary > div:last-child {
+        border-bottom: 0;
+      }
+      .summary dt {
+        font-size: 0.6875rem;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .summary dd {
+        margin: 0;
+        font-size: 0.8125rem;
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+      .summary dd[data-missing="true"] {
+        color: var(--signal);
+        font-style: italic;
+      }
+      .note {
+        margin: 0;
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+      .note + .note {
+        margin-top: var(--sp-2);
+      }
+      .note b,
+      .note strong {
+        color: var(--ink);
+      }
+
+      .footnote {
+        margin-top: var(--sp-6);
+        padding-top: var(--sp-4);
+        border-top: 1px solid var(--rule-2);
+        font-size: 0.75rem;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="appbar">
+      <span class="brand"><i class="dot"></i> Ward Flow</span>
+      <span class="crumb">Referrals&nbsp;/ <b>Raise a referral</b></span>
+      <span class="appbar-right">
+        <span class="chip" data-tone="accent"><i class="sw"></i> Maya Whitlock · 41 88 207</span>
+        <span class="liveness"><i class="pip"></i> Reads live</span>
+      </span>
+    </div>
+
+    <div class="shell">
+      <div class="prototype">
+        <span class="tagline">Synthetic prototype</span>
+        <p style="margin: 0">
+          This form is <strong>not a medical device</strong>. It records only the five permitted facts about the person
+          referred, the request itself, and — when the referral was raised from a person’s record — a pointer to that
+          record: an id and nothing else. Never a name, never free text, and never a figure from the Mental Health Act.
+        </p>
+      </div>
+
+      <!-- ══════════ PATIENT ANCHOR ══════════ -->
+      <section class="anchor" aria-label="The person this referral is about">
+        <div class="anchor-main">
+          <div class="avatar" aria-hidden="true">MW</div>
+
+          <div class="who">
+            <h2>Whitlock, Maya</h2>
+            <div class="called">Known as <strong>Maya</strong></div>
+            <div class="idline">
+              <span><i class="lab">UMRN</i> <b class="mono">41 88 207</b></span>
+              <span><i class="lab">Born</i> <b class="mono">14 Mar 1991</b> · 34</span>
+              <span><i class="lab">Sex</i> <b>female</b></span>
+              <span><i class="lab">Suburb</i> <b>Fremantle</b></span>
+              <span><i class="lab">Catchment team</i> <b>Fremantle Adult CMHS</b></span>
+            </div>
+            <div class="anchor-flags">
+              <span class="chip" data-tone="cool"><i class="sw"></i> Voluntary</span>
+              <span class="chip"><i class="sw"></i> No legal form recorded</span>
+              <span class="chip" data-tone="signal"><i class="sw"></i> Interpreter — Auslan</span>
+              <span class="chip">Aboriginal or Torres Strait Islander status not recorded</span>
+            </div>
+          </div>
+
+          <div class="anchor-acts">
+            <a class="btn btn--primary" href="#">View full profile →</a>
+            <a class="btn btn--quiet" href="#">Refer a different person</a>
+          </div>
+        </div>
+
+        <div class="anchor-foot">
+          <span class="ptr mono">patient&nbsp;·&nbsp;p-4188207</span>
+          <span>
+            <b>This referral will carry the pointer above — an id, and nothing else.</b> The name, date of birth and
+            record number are shown here so you know who you are referring; none of them is written into the referral.
+          </span>
+        </div>
+      </section>
+
+      <div class="masthead">
+        <div>
+          <span class="eyebrow">Front door</span>
+          <h1>Raise a referral</h1>
+          <p class="blurb">
+            One form for every source — community, crisis service, police, ambulance or inter-hospital.
+          </p>
+        </div>
+        <div class="liveness"><i class="pip"></i> Nothing is sent until you press Send</div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi" data-tone="accent">
+          <span class="k">Progress</span><span class="figure">10 / 12</span>
+          <span class="sub">questions answered</span>
+          <span class="meter"><i style="width: 83%"></i></span>
+        </div>
+        <div class="kpi" data-tone="signal">
+          <span class="k">Urgency</span><span class="figure">2</span>
+          <span class="sub">of 3 — recorded, never derived</span>
+        </div>
+        <div class="kpi" data-tone="good">
+          <span class="k">In catchment</span><span class="figure">2</span>
+          <span class="sub">of 3 destination kinds</span>
+        </div>
+        <div class="kpi">
+          <span class="k">Beds ready now</span><span class="figure">3</span>
+          <span class="sub">across 7 accepting units</span>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <div class="col">
+          <section class="panel" data-done="true">
+            <header>
+              <h2 class="ptitle"><span class="stepno">✓</span> Who the referral is about</h2>
+              <span class="chip" data-tone="good">Complete</span>
+            </header>
+            <div class="panel-body">
+              <div class="fields two">
+                <div class="field">
+                  <span class="field-label">Age band <i class="tick">✓</i></span
+                  ><select>
+                    <option>adult</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <span class="field-label">Sex <i class="tick">✓</i></span
+                  ><select>
+                    <option>female</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <span class="field-label">Home region <i class="tick">✓</i></span
+                  ><select>
+                    <option>South Metropolitan</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <span class="field-label">Suburb <i class="tick">✓</i></span
+                  ><select>
+                    <option>Fremantle</option>
+                  </select>
+                  <p class="hint">
+                    Taken from the record above, and read against the catchment table for each destination.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" data-active="true">
+            <header>
+              <h2 class="ptitle"><span class="stepno">2</span> What they need</h2>
+              <span class="chip" data-tone="signal">2 outstanding</span>
+            </header>
+            <div class="panel-body">
+              <div class="fields two">
+                <div class="field">
+                  <span class="field-label">Referral source <i class="tick">✓</i></span
+                  ><select>
+                    <option>community</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <span class="field-label">Urgency <i class="tick">✓</i></span
+                  ><select>
+                    <option>2 — within 24 hours</option>
+                  </select>
+                </div>
+                <div class="field" data-state="todo">
+                  <span class="field-label">Origin site</span
+                  ><select>
+                    <option>Choose one</option>
+                  </select>
+                  <p class="hint" data-tone="signal">Still to answer</p>
+                </div>
+              </div>
+              <div class="fields two">
+                <fieldset>
+                  <legend>Needs a secure bed</legend>
+                  <div class="segmented">
+                    <span class="seg" aria-pressed="true">Yes</span><span class="seg">No</span>
+                  </div>
+                </fieldset>
+                <fieldset>
+                  <legend>Needs a bed that can hold someone involuntarily</legend>
+                  <div class="segmented">
+                    <span class="seg">Yes</span><span class="seg" aria-pressed="true">No</span>
+                  </div>
+                </fieldset>
+                <fieldset>
+                  <legend>Needs transport</legend>
+                  <div class="segmented"><span class="seg">Yes</span><span class="seg">No</span></div>
+                  <p class="hint" data-tone="signal">Still to answer</p>
+                </fieldset>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header>
+              <h2 class="ptitle"><span class="stepno">3</span> Where to refer</h2>
+              <span class="chip">Up to 3, chosen in one act</span>
+            </header>
+            <div class="panel-body">
+              <ul class="dests">
+                <li class="dest" data-chosen="true">
+                  <div class="dest-top">
+                    <span class="box">✓</span><span class="name">Psychiatric ward</span>
+                    <span class="chip" data-tone="good"><i class="sw"></i> In catchment</span>
+                    <span class="chip" data-tone="cool">7 units accept</span>
+                  </div>
+                  <p class="why">
+                    Fremantle sits in the South Metropolitan catchment. Units are listed in the network’s own fixed
+                    order — this view ranks nothing.
+                  </p>
+                  <div class="occ">
+                    <div class="occ-bar" role="img" aria-label="3 ready, 2 held, 15 occupied of 20 beds">
+                      <i style="width: 15%; background: var(--good)"></i
+                      ><i style="width: 10%; background: var(--signal)"></i
+                      ><i style="width: 75%; background: var(--rule-2)"></i>
+                    </div>
+                    <div class="occ-key">
+                      <span><i class="sw2" style="background: var(--good)"></i> 3 ready</span>
+                      <span><i class="sw2" style="background: var(--signal)"></i> 2 held</span>
+                      <span><i class="sw2" style="background: var(--rule-2)"></i> 15 occupied</span>
+                    </div>
+                  </div>
+                  <div class="facts">
+                    <span class="fact"><b>2</b> referrals waiting</span>
+                    <span class="fact"><b>41</b> min median answer</span>
+                    <span class="fact">Secure beds <b>available</b></span>
+                  </div>
+                </li>
+
+                <li class="dest">
+                  <div class="dest-top">
+                    <span class="box"></span><span class="name">Emergency department</span>
+                    <span class="chip" data-tone="good"><i class="sw"></i> In catchment</span>
+                  </div>
+                  <p class="why">Fiona Stanley Hospital is the catchment emergency department for Fremantle.</p>
+                  <div class="facts">
+                    <span class="fact"><b>4</b> departments accept</span
+                    ><span class="fact"><b>1</b> referral waiting</span>
+                  </div>
+                </li>
+
+                <li class="dest" data-blocked="true">
+                  <div class="dest-top">
+                    <span class="box"></span><span class="name">Community team</span>
+                    <span class="chip" data-tone="signal"><i class="sw"></i> Out of catchment</span>
+                    <span class="chip" data-tone="crit">Not with a bed request</span>
+                  </div>
+                  <p class="why">
+                    Still offered and still sendable — asking outside the catchment is legitimate, and this screen
+                    records the choice rather than blocking it. It cannot travel on the same referral as a psychiatric
+                    bed: send those as two.
+                  </p>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <div class="sendbar">
+            <button class="btn btn--primary btn--tap" aria-disabled="true" type="button">Send referral</button>
+            <p class="sendwhy">
+              Not yet answered: <b>Origin site</b>, <b>Needs transport</b>. Send stays focusable so the reason can be
+              read aloud.
+            </p>
+          </div>
+        </div>
+
+        <aside class="col rail">
+          <section class="panel">
+            <header>
+              <h2 class="ptitle">What this referral will record</h2>
+              <span class="chip" data-tone="accent">Live</span>
+            </header>
+            <div class="panel-body">
+              <dl class="summary">
+                <div>
+                  <dt>Person</dt>
+                  <dd class="mono">p-4188207 <span style="color: var(--faint)">(pointer only)</span></dd>
+                </div>
+                <div>
+                  <dt>Age band</dt>
+                  <dd>adult</dd>
+                </div>
+                <div>
+                  <dt>Sex</dt>
+                  <dd>female</dd>
+                </div>
+                <div>
+                  <dt>Home region</dt>
+                  <dd>South Metropolitan</dd>
+                </div>
+                <div>
+                  <dt>Suburb</dt>
+                  <dd>Fremantle</dd>
+                </div>
+                <div>
+                  <dt>Source</dt>
+                  <dd>community</dd>
+                </div>
+                <div>
+                  <dt>Urgency</dt>
+                  <dd>2</dd>
+                </div>
+                <div>
+                  <dt>Origin site</dt>
+                  <dd data-missing="true">Not answered yet</dd>
+                </div>
+                <div>
+                  <dt>Secure bed</dt>
+                  <dd>yes</dd>
+                </div>
+                <div>
+                  <dt>Involuntary bed</dt>
+                  <dd>no</dd>
+                </div>
+                <div>
+                  <dt>Transport</dt>
+                  <dd data-missing="true">Not answered yet</dd>
+                </div>
+                <div>
+                  <dt>Destinations</dt>
+                  <dd>psychiatric ward</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header><h2 class="ptitle">Not written down</h2></header>
+            <div class="panel-body">
+              <p class="note">
+                <b>Maya Whitlock</b>, her record number and her date of birth are on this screen so you know who you are
+                referring. <b>None of them goes onto the referral.</b>
+              </p>
+              <p class="note">
+                The receiving team opens the person’s record through the pointer, where access is theirs to have or not.
+              </p>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header><h2 class="ptitle">What sending does</h2></header>
+            <div class="panel-body">
+              <p class="note">Sending records the request and queues it for a coordinator.</p>
+              <p class="note">
+                It <b>places nobody</b>: a coordinator decides every placement, one at a time. Nothing on this page
+                chooses a destination for you.
+              </p>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <p class="footnote">
+        Mockup only — nothing is wired. Shown mid-flight so the answered, outstanding, in-catchment, out-of-catchment
+        and refused-combination states are visible at once. Every person, bed figure, wait and median is invented. The
+        anchor’s fields are the ones a person record actually holds — record number, name, preferred name, date of
+        birth, sex or gender, suburb, catchment team, legal status, interpreter language and Aboriginal or Torres Strait
+        Islander status — and an unrecorded one says so in words rather than showing a blank.
+      </p>
+    </div>
+  </body>
+</html>

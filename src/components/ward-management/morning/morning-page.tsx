@@ -258,7 +258,7 @@ function GovernanceBanner() {
       <span className={styles.prototypeBadge}>Synthetic prototype</span>
       <p>
         This page is <strong>not a medical device</strong>. It shows only the bed-availability figures a ward has
-        recorded, rolled up to hospital and network level, and it never adds a expected, confirmed-but-unreleased or
+        recorded, rolled up to hospital and network level, and it never adds an expected, confirmed-but-unreleased or
         leave bed into &quot;available now&quot;.
       </p>
     </div>
@@ -337,7 +337,8 @@ export function FreshnessLine({ freshness, now }: { freshness: RollupFreshness; 
 export function HeadlineFigure({ rollup, now }: { rollup: CapacityRollup; now: Instant }) {
   return (
     <section className={styles.headline} data-testid="ward-morning-headline">
-      <h1 className={styles.headlineTitle}>Beds available right now</h1>
+      {/* Names the figure printed directly beneath it, so it is a label rather than prose. */}
+      <h1 className={styles.headlineTitle}>Ready beds</h1>
       <p className={styles.headlineNumber} data-testid="ward-morning-figure-service-availableNow">
         <span className={styles.headlineValue}>{rollup.availableNow}</span>
         <span className={styles.headlineLabel}>{CAPACITY_FIGURE_LABELS.availableNow}</span>

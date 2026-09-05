@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Admission } from "@/components/ward-management/ward-admissions";
 import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import { referralEligibility } from "@/components/ward-management/ward-eligibility";
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 import {
   HOME_REGIONS,
   SEXES,
@@ -37,11 +38,12 @@ function testUnit(overrides: Partial<Unit> = {}): Unit {
     siteCode: "TST",
     name: "Test Ward",
     cohort: "Adult",
-    security: "Open",
+    lockedBeds: 0,
     authorised: true,
     beds: 20,
     empty: figure(4),
     allocatable: figure(4),
+    allocatableLocked: 0,
     held: 0,
     blocked: 0,
     sexMix: { Female: 0, Male: 0 },
@@ -162,6 +164,7 @@ describe("the accepts rule is never an equality", () => {
       urgency: 2,
       originSiteCode: "TST",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     };
     const probeWard = probe.destinations[0].destination;
     if (probeWard.kind !== "psychiatric_ward") throw new Error("the probe must be a ward question");

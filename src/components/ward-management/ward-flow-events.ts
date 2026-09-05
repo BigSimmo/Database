@@ -650,6 +650,26 @@ export type WardFlowEvent =
       /** A synthetic site code (see `wardSites`), never an address. */
       originSiteCode: string;
       transportNeeded: boolean;
+      /**
+       * ⚠️ THE WRITTEN HISTORY. The only free text this event carries, and the only part of a
+       * referral that arrives unvalidated.
+       *
+       * Every other field on this event is a closed union, a boolean, a membership-checked code or
+       * an id, and the reducer refuses anything outside the set. **This one is whatever a person
+       * typed.** The reducer checks its LENGTH and nothing else — it cannot check meaning, and it
+       * must not try.
+       *
+       * ⚠️ **PASSED THROUGH UNTOUCHED.** No trim, no collapse of whitespace, no normalisation. A
+       * referrer's paragraph breaks are part of what they wrote. `RECEIVE_REFERRAL` rejects an
+       * over-length value rather than shortening it.
+       *
+       * ⚠️ **AND IT NO LONGER REJECTS AN EMPTY ONE.** It did until the owner's ruling of
+       * 2026-09-05 — one story box, optional. `""` is a valid, complete answer on this event.
+       *
+       * See `Referral.history` for the full contract, including the rule that nothing may ever be
+       * derived from it.
+       */
+      history: string;
     }
   | {
       type: "ACCEPT_REFERRAL";

@@ -34,6 +34,8 @@ import styles from "./board.module.css";
 export type DailySheetPerson = {
   key: string;
   days: number | null;
+  /** Which day of the stay today is, arrival day = Day 1. An ORDINAL, unlike `days`. */
+  dayNumber: number | null;
   bandLabel: string | null;
   pastDate: boolean;
   sex: string;
@@ -175,7 +177,10 @@ function SheetPerson({ person, testId }: { person: DailySheetPerson; testId: str
   return (
     <li className={styles.sheetRow} data-testid={testId}>
       <p className={styles.sheetRowLead}>
-        {person.days === null ? "No stay yet — not arrived" : `Day ${person.days}`}
+        {/* `dayNumber`, never `days`. `days` is a DURATION and is 0 for everybody admitted since
+         *  yesterday; this line is an ORDINAL, and printing the duration here read "Day 0". Both
+         *  arrive as props — this file still derives nothing. See `stayDayNumber`. */}
+        {person.dayNumber === null ? "No stay yet — not arrived" : `Day ${person.dayNumber}`}
         {person.bandLabel !== null && <span className={styles.sheetRowBand}>{person.bandLabel}</span>}
       </p>
       {/*

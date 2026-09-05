@@ -87,8 +87,26 @@ describe("ward scenarios", () => {
    * so a gate change; `strandedMovements` did not move in either scenario, so no patient lost
    * their last option — `brm-adult-secure` was never a real placement the referral path would
    * have honoured, only a display bug on the movement path's own shortlist.
+   *
+   * RE-MEASURED on 2026-09-04. Two changes are folded into this single re-measurement, because
+   * the full offline suite was never run to completion between them landing and this test finally
+   * being exercised again: (1) `ward-eligibility.ts`'s security gate was rewritten (commit
+   * `da9931e00`) from a form that passed every Open movement unconditionally, even at a ward with
+   * zero free beds, to one that requires `unit.allocatable.value > 0` for an Open movement (see
+   * that file's `security` gate for the exact expression); and (2) the locked/open bed-designation
+   * split (Task 3 of `docs/superpowers/plans/2026-09-04-ward-flow-mixed-locked-open-beds.md`)
+   * widened three previously wholly-open adult units — `scgh-adult-open`, `fsh-adult-secure` and
+   * `fre-adult-open` — into genuinely mixed ones, each now carrying real free locked beds. Which
+   * of the two moved this number in which direction is not decomposed here — the figure below is
+   * the actual measured output of both changes together, not a guess.
+   *
+   *   standard: 43 open movements, **349** pairs (was 325), **1** stranded (was 2) — WF-009,
+   *   previously stranded, is no longer stranded; WF-308 stays stranded (confirmed against the
+   *   real fixture in `tests/ward-escalation.dom.test.tsx`, which names both movements
+   *   explicitly).
+   *   scarce: 95 pairs (was 87), 9 stranded — unchanged.
    */
-  it("the standard night leaves most open movements real choice, but already strands two", () => {
+  it("the standard night leaves most open movements real choice, but already strands one", () => {
     const counts = eligibleCounts("standard");
 
     // ABSOLUTE, not floors — changed 2026-08-30, and the reason is the point. This read
@@ -158,7 +176,7 @@ describe("ward scenarios", () => {
     const scarce = scenarioUnits("scarce");
     expect(scarce.map((unit) => unit.id)).toEqual(standard.map((unit) => unit.id));
     expect(scarce.map((unit) => unit.cohort)).toEqual(standard.map((unit) => unit.cohort));
-    expect(scarce.map((unit) => unit.security)).toEqual(standard.map((unit) => unit.security));
+    expect(scarce.map((unit) => unit.lockedBeds)).toEqual(standard.map((unit) => unit.lockedBeds));
     expect(scarce.map((unit) => unit.authorised)).toEqual(standard.map((unit) => unit.authorised));
     expect(scarce.map((unit) => unit.name)).toEqual(standard.map((unit) => unit.name));
   });

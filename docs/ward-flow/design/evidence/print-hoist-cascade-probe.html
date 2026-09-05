@@ -1,0 +1,87 @@
+<title>print hoist probe</title>
+<!--
+  EVIDENCE FOR THE PRINT-HOIST FINDING, 2026-09-05. Open it in a browser; it prints its own verdict.
+
+  The finding: hoisting a background into a shared layer also inherits that layer's
+  RESPONSIBILITIES, not merely its properties. The print reset was carried by a selector list that
+  did not include `:root:not([data-theme="light"])`, so an unstamped root — the DEFAULT, since
+  "system" theme stamps nothing — resolved to the dark value at print time. Every ward route would
+  have printed dark ink on a dark ground, or a blank page.
+
+  WHY THE CONTROL IS THE IMPORTANT HALF. `--before` reproduces the selector list as it was BEFORE
+  the fix. If the control does not report DARK for an unstamped root, the probe is not exercising
+  the cascade it claims to and its six "ok"s mean nothing. A probe whose control passes silently is
+  the shape that certifies a fix nobody made — so the verdict line says so out loud rather than
+  leaving it to the reader.
+
+  Kept because it is cheap, self-verifying, and re-runnable by anyone who later doubts the hoist.
+-->
+<style>
+  /* ── FIXED: the selector list as now hoisted into the canonical block ── */
+  :root {
+    --fixed: bare;
+  }
+  :root:not([data-theme="light"]) {
+    --fixed: DARK;
+  }
+  :root,
+  :root[data-theme="dark"],
+  :root:not([data-theme="light"]) {
+    --fixed: PRINT;
+  }
+
+  /* ── CONTROL: the selector list as it was BEFORE the hoist. If this does
+        not show DARK for an unstamped root, the probe is not testing anything. ── */
+  :root {
+    --before: bare;
+  }
+  :root:not([data-theme="light"]) {
+    --before: DARK;
+  }
+  :root,
+  :root[data-theme="dark"] {
+    --before: PRINT;
+  }
+</style>
+<pre id="out"></pre>
+<script>
+  const g = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const EXPECT = {
+    unstamped: { fixed: "PRINT", before: "DARK" },
+    dark: { fixed: "PRINT", before: "PRINT" },
+    light: { fixed: "PRINT", before: "PRINT" },
+  };
+  const rows = [];
+  let bad = 0;
+  [
+    ["unstamped", null],
+    ["dark", "dark"],
+    ["light", "light"],
+  ].forEach(([k, v]) => {
+    v === null
+      ? document.documentElement.removeAttribute("data-theme")
+      : document.documentElement.setAttribute("data-theme", v);
+    const f = g("--fixed"),
+      b = g("--before");
+    const okF = f === EXPECT[k].fixed,
+      okB = b === EXPECT[k].before;
+    if (!okF || !okB) bad++;
+    rows.push(
+      k.padEnd(10) +
+        " fixed: expect " +
+        EXPECT[k].fixed.padEnd(6) +
+        " got " +
+        f.padEnd(6) +
+        (okF ? "ok " : "FAIL ") +
+        "| before(control): expect " +
+        EXPECT[k].before.padEnd(6) +
+        " got " +
+        b.padEnd(6) +
+        (okB ? "ok" : "FAIL"),
+    );
+  });
+  rows.push("");
+  rows.push(bad === 0 ? "ALL 6 EXPECTATIONS MET" : bad + " EXPECTATION(S) FAILED");
+  rows.push("CONTROL MUST HAVE SHOWN DARK for unstamped — if it showed PRINT, this probe proves nothing.");
+  document.getElementById("out").textContent = rows.join("\n");
+</script>

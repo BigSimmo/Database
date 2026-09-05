@@ -58,9 +58,9 @@
   flex-shrink: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ward-space-4) var(--ward-space-8);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-3xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -125,34 +125,16 @@
   font-style: italic;
 }
 
+/*
+ * Composes the shared `WardTable` primitive's `.table` rule (`ward-table.module.css`) rather than
+ * redeclaring it — see that file for the canonical block and `tests/ward-table-single-source.test.ts`
+ * for the guard holding it to one declaration. This file has no per-screen `min-width` (one of the
+ * three observed cases — see `ward-table.module.css`'s own note), so nothing else is added here;
+ * the local class exists only so the print block below (`.table th, .table td { border-bottom-
+ * color: CanvasText; }`) still has a class to target on the actual `<table>` element.
+ */
 .table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-xs);
-}
-
-.table th,
-.table td {
-  border-bottom: 0.0625rem solid var(--ward-divider);
-  padding: var(--ward-space-6) var(--ward-space-8);
-  text-align: left;
-  vertical-align: top;
-}
-
-.table th {
-  color: var(--text-muted);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.table td {
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
-.table tbody tr:last-child th,
-.table tbody tr:last-child td {
-  border-bottom: none;
+  composes: table from "../ward-table/ward-table.module.css";
 }
 
 /* Spec D9: one-line link back to the morning bed state, naming the question each page answers —

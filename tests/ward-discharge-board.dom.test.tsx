@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 import { vi } from "vitest";
 
 // Same reason as every sibling dom suite (ward-handover.dom.test.tsx, ward-ed-screen.dom.test.tsx):
@@ -60,16 +61,96 @@ function FarFutureReleaseFlagger() {
 }
 
 /**
- * The rendered "Expected" cell of every data row in a group's table — the third column, which
- * `discharge-board.tsx` fills with `BAND_LABELS[releaseBand(release, now)]`. Read through the
- * rendered table rather than by calling `releaseBand` again, so the assertion fails if the band
- * the screen SHOWS stops matching the clock the provider serves.
+ * The rendered header names of a table, in DOM order — read once per table so a column lookup
+ * below can find "where is Expected THIS RENDER" instead of assuming it never moves.
+ */
+function tableHeaders(table: HTMLElement): string[] {
+  return within(table)
+    .getAllByRole("columnheader")
+    .map((header) => header.textContent ?? "");
+}
+
+/**
+ * Old shape of this file: every cell lookup hard-coded a column's index — `[2]` for Expected,
+ * `[0]`/`[3]` for Unit/Stage. That index happened to keep two properties true at once: it read the
+ * right FACT (because the index matched today's layout) and, incidentally, it would go wrong if a
+ * value ever rendered under the wrong heading (because it read a fixed DOM position regardless of
+ * what the `<thead>` said lived there). A redesign that adds, removes or reorders a column breaks
+ * the first property on purpose and the second one by accident, and nothing told the two apart.
+ *
+ * Cell lookups below now find a column by its HEADER NAME, resolved fresh from the rendered
+ * `<thead>` on every call — never a hard-coded integer — so a column moving in the header moves
+ * the lookup with it. This function is what a name-based lookup still needs beyond that: proof
+ * that a row's cells actually line up with the header row promising them, for every data row the
+ * number of cells must equal the number of headers, and every column name this file reads must
+ * resolve to a real, in-range position. Without it, a row that silently rendered one cell short
+ * (say, a conditional column that dropped out for one row but not its header) would have the
+ * name-based lookup quietly read the WRONG neighbouring cell instead of failing loudly.
+ *
+ * ⚠️ **MEASURED, NOT ASSUMED — THIS FUNCTION IS NOT WHAT CATCHES A VALUE RENDERED UNDER THE WRONG
+ * HEADING.** Mutation-tested 2026-09-05: swapping the `Health service` and `Expected` `<td>`s while
+ * leaving the `<thead>` untouched left `assertRowsMatchHeaders` green (the cell COUNT never
+ * changed) and turned red the ordinary value assertion in the test body instead
+ * (`expect(expectedColumn(...)).toEqual(["By midday", "By midday"])`, which read "East Metro" —
+ * see the mutation report kept in the task record). That is the coverage this file's cell-swap
+ * mutation actually needs, and it survives the refactor for a plainer reason than this function:
+ * so long as the HEADER order is unchanged, "Expected"'s resolved index is the same number `[2]`
+ * always was, so the value assertion reads the identical position it always did and still catches
+ * a value landing there wrong. What this function adds beyond that is the case a value comparison
+ * cannot cover on its own — the header ITSELF moving. If a redesign reorders the `<thead>` (Stage
+ * before Expected, say) along with the matching `<td>`s, a hard-coded `[2]` would silently start
+ * reading Stage's values as Expected's; the name-based lookup here follows "Expected" wherever the
+ * header goes, and this function is what confirms there is still one real cell per header for it
+ * to land on.
+ */
+function assertRowsMatchHeaders(headers: string[], rows: HTMLElement[], columnNames: readonly string[]): void {
+  /*
+   * FLOORED ON THE POPULATION WALKED, NOT ON THE VIOLATIONS FOUND. The per-row loop below asserts
+   * nothing at all when `rows` is empty, so a board that rendered no rows would satisfy this helper
+   * completely — and that is precisely the day it is worth least. Both floors are asserted here
+   * rather than assumed from the caller, because a caller that stops passing rows is exactly the
+   * change nobody would think to re-check this helper against.
+   */
+  expect(headers.length, "the table rendered no column headers, so every lookup below is vacuous").toBeGreaterThan(0);
+  expect(
+    rows.length,
+    "the table rendered no data rows, so the per-row correspondence check ran zero times",
+  ).toBeGreaterThan(0);
+  for (const name of columnNames) {
+    expect(
+      headers.indexOf(name),
+      `no column is headed "${name}" — headers are: ${headers.join(" | ")}`,
+    ).toBeGreaterThanOrEqual(0);
+  }
+  for (const row of rows) {
+    expect(
+      within(row).getAllByRole("cell"),
+      `a row has a different number of cells than the table has headers (${headers.length})`,
+    ).toHaveLength(headers.length);
+  }
+}
+
+/** The in-range index of a named column, resolved fresh from this render's header row. */
+function columnIndex(headers: string[], name: string): number {
+  const index = headers.indexOf(name);
+  expect(index).toBeGreaterThanOrEqual(0);
+  return index;
+}
+
+/**
+ * The rendered "Expected" cell of every data row in a group's table, which `discharge-board.tsx`
+ * fills with `BAND_LABELS[releaseBand(release, now)]`. Read through the rendered table rather than
+ * by calling `releaseBand` again, so the assertion fails if the band the screen SHOWS stops
+ * matching the clock the provider serves — and read by the "Expected" header's own runtime
+ * position, guarded by `assertRowsMatchHeaders`, rather than by a hard-coded column number. See
+ * that function's comment for why the header-name lookup alone would not be enough.
  */
 function expectedColumn(table: HTMLElement): string[] {
-  return within(table)
-    .getAllByRole("row")
-    .slice(1)
-    .map((row) => within(row).getAllByRole("cell")[2]?.textContent ?? "");
+  const headers = tableHeaders(table);
+  const rows = within(table).getAllByRole("row").slice(1);
+  assertRowsMatchHeaders(headers, rows, ["Expected"]);
+  const index = columnIndex(headers, "Expected");
+  return rows.map((row) => within(row).getAllByRole("cell")[index]?.textContent ?? "");
 }
 
 describe("DischargeBoard", () => {
@@ -107,10 +188,26 @@ describe("DischargeBoard", () => {
     const dataRows = within(blockedTable).getAllByRole("row").slice(1);
     expect(dataRows).toHaveLength(2);
 
+    // Header names, resolved fresh from this render's `<thead>` rather than assumed. A Unit/Stage
+    // `<td>` swap is still caught the same way the "Expected" column's swap was measured to be —
+    // by the ordinary `.toBe(...)` assertions below, once the resolved index lands on the same
+    // position a hard-coded `[0]`/`[3]` always did (see `assertRowsMatchHeaders`'s comment for the
+    // measured mutation and what it did and did not catch). `assertRowsMatchHeaders` itself is the
+    // structural half: proof this row still has one cell per header before either index is trusted.
+    //
+    // Scoped to the BLOCKED table, which is why the 2026-09-05 removal of the Blocker column from
+    // the other three groups does not silently retarget these lookups: blocked kept all six
+    // columns, so "Stage"'s resolved index is unaffected by a change that shifted Freshness from
+    // column 4 to column 3 everywhere else. A hard-coded index would not have noticed that
+    // difference between groups; a name resolved per-table does.
+    const headers = tableHeaders(blockedTable);
+    assertRowsMatchHeaders(headers, dataRows, ["Unit", "Stage"]);
+    const unitIndex = columnIndex(headers, "Unit");
+    const stageIndex = columnIndex(headers, "Stage");
     const stagesByUnit = new Map(
       dataRows.map((row) => {
         const cells = within(row).getAllByRole("cell");
-        return [cells[0].textContent, cells[3].textContent];
+        return [cells[unitIndex].textContent, cells[stageIndex].textContent];
       }),
     );
     expect(stagesByUnit.get("FSH Adult Secure")).toBe("Confirmed");
@@ -303,10 +400,26 @@ describe("DischargeBoard", () => {
     expect(screen.getByTestId("ward-discharge-group-discharged-today-empty")).toBeInTheDocument();
     expect(screen.queryByTestId("ward-discharge-table-discharged-today")).not.toBeInTheDocument();
 
-    // Dropped from the group is not the same as dropped from the board: WR-008 must still be
-    // declared at the foot, which is the half a "the group is empty" assertion cannot reach.
+    /*
+     * Dropped from the group is not the same as dropped from the board: WR-008 must still be
+     * declared at the foot, which is the half a "the group is empty" assertion cannot reach.
+     *
+     * ⚠️ **IT IS NOW DECLARED IN ITS OWN WORDS, AND THAT IS THE CHANGE.** WR-008 is a
+     * COMPLETED discharge. It used to be counted into *"N releases excluded — expected beyond
+     * tonight"*, which is false of it: it is not expected, it happened yesterday. The two
+     * populations are counted separately now, so this asserts the count that is true of WR-008 AND
+     * that the other count does not claim it — the half a bare "still declared" check would miss.
+     *
+     * ⚠️ **THE COMMENT ABOVE IS WHY THE REPAIR TOOK THIS SHAPE.** A ruling to drop the row
+     * silently was reversed because whoever wrote this test had already decided the question and
+     * left the reasoning here rather than only in a commit message.
+     */
+    const completed = screen.getByTestId("ward-discharge-completed-before-today");
+    expectSays(completed, "the completed-before-today count", ["1 discharge", "before today"]);
+    expect(completed.textContent?.toLowerCase()).toContain("completed before today");
+
     const excluded = screen.getByTestId("ward-discharge-excluded");
-    expect(excluded).toHaveTextContent(/^1\b/);
+    expect(excluded).toHaveTextContent("0 releases excluded");
     expect(excluded.textContent?.toLowerCase()).not.toContain("none");
 
     // The other eight releases are untouched: every fixture expectedAt falls at or before

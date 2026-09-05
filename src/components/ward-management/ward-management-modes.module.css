@@ -145,7 +145,7 @@
 }
 
 .prototypeBadge,
-.aiBadge,
+.reviewBadge,
 .statusGood,
 .statusWarning,
 .statusDanger,
@@ -163,13 +163,13 @@
 }
 
 .prototypeBadge,
-.aiBadge {
+.reviewBadge {
   border-color: var(--ward-blue-border);
   background: var(--ward-blue-soft);
   color: var(--ward-blue);
 }
 
-.aiBadge svg {
+.reviewBadge svg {
   width: 0.875rem;
   height: 0.875rem;
 }
@@ -542,6 +542,10 @@
   margin: 0.25rem 0 0.125rem;
   color: var(--ward-heading);
   font-size: var(--text-xl);
+  /* Second-edition binding rule: a figure is monospace and tabular so a reader can compare it
+     down a column without the digits themselves shifting width. */
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .bedStates {
@@ -564,6 +568,19 @@
   display: block;
   color: var(--ward-heading);
   font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A stated absence, never a bare `0` — design language Ruling E2. Compound selector
+   (`.bedStates strong.zero`) deliberately: a bare `.zero` alone is specificity (0,1,0) against
+   `.bedStates strong`'s (0,1,1) and the colour below would silently lose — see
+   `ward-table.module.css`'s own documented lesson on exactly this trap. `font-weight: 400`
+   de-emphasises the word relative to a real count, matching `community-teams-table.module.css`'s
+   `.zero` precedent for the same rule. */
+.bedStates strong.zero {
+  color: var(--ward-muted);
+  font-weight: 400;
 }
 
 .stageBoard {

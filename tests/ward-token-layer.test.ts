@@ -3,7 +3,26 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const TOKENS = readFileSync("src/components/ward-management/ward-tokens.module.css", "utf8");
+/**
+ * Every guard in this file matches declaration-shaped text with a regex, and a CSS comment is
+ * declaration-shaped text that declares nothing. Three such mentions exist in the ward estate
+ * today — one of them inside `ward-tokens.module.css` itself, at the file's own comment about
+ * `--ward-canvas: var(--surface)`. Nothing is currently fooled by them (the canonical declaration
+ * comes first, and the exactly-once count runs on the pre-`@media` slice that excludes the
+ * mention), so this is a latent defect rather than a live one — which is exactly when it is cheap.
+ * A guard that reads prose as code fails in whichever direction the prose happens to point, and
+ * the direction that stays green is the one nothing reports.
+ *
+ * ⚠️ This materially changes what the length floor in the exactly-once guard measures. The base
+ * slice was 7,164 characters raw and is 1,698 stripped — the file is 86% comment — against a floor
+ * of 1,000. It still clears it, and the floor is now a floor on actual declarations rather than on
+ * prose, which is stronger. But the margin went from roughly 7x to 1.7x, so a future token removal
+ * could trip it where it would not have before. Left at 1,000 deliberately: lowering it to restore
+ * the old margin would weaken the only thing it checks.
+ */
+const withoutComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//gu, "");
+
+const TOKENS = withoutComments(readFileSync("src/components/ward-management/ward-tokens.module.css", "utf8"));
 
 const WARD_DIR = "src/components/ward-management";
 
@@ -33,22 +52,225 @@ const REQUIRED = [
   "--ward-blue",
 ];
 
+/**
+ * The token layer's BASE declarations — every `@media` block stripped out.
+ *
+ * 🔴 WHY THIS EXISTS. The uniqueness check below used to count raw occurrences
+ * across the whole file, and on 2026-09-05 a `@media (forced-colors: active)`
+ * block was added re-pointing eight roles to system colours. Two of them are in
+ * `REQUIRED`, so the guard reported `--ward-divider declared 2 times` and went
+ * red against a change that was correct.
+ *
+ * ⚠️ A HIGH-CONTRAST OVERRIDE IS NOT A SECOND DECLARATION. It is a conditional
+ * replacement, and re-declaring the token is the only way CSS expresses one. A
+ * layer that must not repeat itself in its base block must still be allowed to
+ * override itself in a media block, or it can never support forced colours,
+ * print or a theme at all.
+ *
+ * ⚠️ AND THE COUNT WAS NOT THE ONLY THING AT RISK. Anything resolving a token by
+ * first textual match would have started resolving `--ward-divider` to
+ * `CanvasText` and computing a contrast ratio against a system keyword. Stripping
+ * the media blocks fixes both, which is why it is done here once rather than at
+ * each call site.
+ *
+ * Fails loudly rather than silently on unbalanced braces: a strip that quietly
+ * returned the whole file would restore the original defect, and a strip that
+ * quietly returned nothing would make every count 0 and read as a different bug.
+ */
+function splitOnMediaBlocks(css: string): { base: string; blocks: string[] } {
+  let base = "";
+  const blocks: string[] = [];
+  let i = 0;
+  while (i < css.length) {
+    const at = css.indexOf("@media", i);
+    if (at === -1) {
+      base += css.slice(i);
+      break;
+    }
+    base += css.slice(i, at);
+    const open = css.indexOf("{", at);
+    if (open === -1) throw new Error("ward-tokens.module.css: an @media with no opening brace");
+    let depth = 0;
+    let j = open;
+    for (; j < css.length; j += 1) {
+      if (css[j] === "{") depth += 1;
+      else if (css[j] === "}") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    if (depth !== 0) throw new Error("ward-tokens.module.css: an @media block never closes");
+    blocks.push(css.slice(at, j + 1));
+    i = j + 1;
+  }
+  return { base, blocks };
+}
+
 describe("the Ward Flow token layer", () => {
-  it("declares every required token exactly once, in one file", () => {
+  it("declares every required token exactly once in its base block", () => {
+    const { base } = splitOnMediaBlocks(TOKENS);
+    // Anti-vacuity: a strip that removed too much would make every count 0, and
+    // "declared 0 times" reads as a missing token rather than as a broken strip.
+    expect(base.length, "the media-block strip removed nearly everything").toBeGreaterThan(1000);
+    expect(base, "the strip left an @media block behind").not.toContain("@media");
+    // A sentinel, on Ward Verifier's suggestion: `--ward-tap` is declared in the
+    // base block only, and near the END of it. A strip that swallowed forward
+    // from a stray brace would lose it while leaving enough text to clear the
+    // length floor above — so the floor alone does not cover that direction.
+    expect(base, "--ward-tap is base-only and near the end; the strip swallowed forward").toContain("--ward-tap:");
     for (const token of REQUIRED) {
-      const declarations = TOKENS.split(`${token}:`).length - 1;
-      expect(declarations, `${token} declared ${declarations} times in ward-tokens.module.css`).toBe(1);
+      const declarations = base.split(`${token}:`).length - 1;
+      expect(declarations, `${token} declared ${declarations} times in ward-tokens.module.css's base block`).toBe(1);
     }
   });
 
-  it("adds a ground distinct from the panel surface, because Board floats panels on it", () => {
-    // The whole direction depends on panel and ground being different. If --ward-ground
-    // resolves to the same thing as --ward-canvas the design collapses to white-on-white
-    // and nothing fails visually — so it is asserted here instead.
+  it("counts every required token on the media side too, one block at a time", () => {
+    /*
+     * 🔴 THIS TEST REPLACES ONE THAT NAMED TWO OF THE EIGHT TOKENS, AND WARD
+     * VERIFIER BROKE IT ON 2026-09-05 WITH TWO MUTANTS THE OLD VERSION PASSED:
+     *   M3 — a duplicate `--ward-text` INSIDE the forced-colours block
+     *   M6 — a duplicate `--ward-muted` in a SECOND media block
+     * Both stayed GREEN. Test 1 counts the base block only, and the media-side
+     * count named `--ward-border` and `--ward-divider` and nothing else, so a
+     * duplicate declared inside ANY media block was invisible for the other six.
+     *
+     * ⚠️ AND THE REFRAME MATTERS MORE THAN THE FIX. I had been hunting a failure
+     * of the strip, and added two anti-vacuity assertions aimed at "did it remove
+     * too much, or too little". The strip was never the problem: it works, and the
+     * media half was then simply not counted. **A third anti-vacuity assertion
+     * would not have caught this — the gap was COVERAGE, not vacuity.**
+     *
+     * ⚠️ COUNTED PER BLOCK, NEVER OVER THE CONCATENATION. A token legitimately
+     * re-pointed in BOTH a dark-theme block and a forced-colours block would total
+     * 2 across all blocks and go falsely red — which is a defect waiting for the
+     * day a second override lands, i.e. it would fire on correct work exactly the
+     * way the original whole-file count did.
+     */
+    const { base, blocks } = splitOnMediaBlocks(TOKENS);
+    expect(blocks.length, "the token layer declares no @media block at all").toBeGreaterThan(0);
+    const forced = blocks.filter((block) => block.includes("(forced-colors: active)"));
+    expect(forced.length, "expected exactly one forced-colours block").toBe(1);
+
+    for (const token of REQUIRED) {
+      expect(base.split(`${token}:`).length - 1, `${token} in the base block`).toBe(1);
+      for (const [index, block] of blocks.entries()) {
+        const count = block.split(`${token}:`).length - 1;
+        const condition = block.slice(0, block.indexOf("{")).trim();
+        expect(
+          count,
+          `${token} declared ${count} times inside media block ${index + 1} (${condition})`,
+        ).toBeLessThanOrEqual(1);
+      }
+    }
+
+    // The two the layer actually re-points, asserted POSITIVELY so the tolerance
+    // is exercised rather than merely available: a strip that returned empty
+    // blocks would satisfy every `toBeLessThanOrEqual(1)` above.
+    for (const token of ["--ward-border", "--ward-divider"]) {
+      expect(forced[0].split(`${token}:`).length - 1, `${token} re-pointed under forced colours`).toBe(1);
+      // And the raw file therefore carries two — the exact count the original
+      // guard called a defect. This is the regression pin: it states the thing
+      // that used to fail, and asserts it is legitimate.
+      expect(TOKENS.split(`${token}:`).length - 1, `${token} across the whole file`).toBe(2);
+    }
+  });
+
+  it("keeps a panel distinguishable from the ground — by its EDGE, not by the two tokens differing", () => {
+    /*
+     * 🔴 **RE-DERIVED 2026-09-05. THIS ASSERTION WATCHED DISTINCTNESS AND THE PROPERTY THAT MATTERS
+     * IS VISIBILITY — WHICH IS THE EXACT LESSON THE NEXT TEST IN THIS FILE ALREADY RECORDS ABOUT
+     * `--ward-divider`, TWENTY LINES BELOW.**
+     *
+     * It asserted `--ward-ground !== --ward-canvas`, reasoning that if they resolved to the same
+     * thing "the design collapses to white-on-white and nothing fails visually". The owner then
+     * asked for a white ground — three times, and the third time by pointing at it; PsychSift
+     * SPEC §4.3, *"true-white page, cards and panels"* — and both now resolve to `var(--surface)`,
+     * so this went red on a deliberate decision.
+     *
+     * ⚠️ **AND ITS PREMISE WAS MEASURABLY FALSE BEFORE THE CHANGE.** The tint it was protecting was
+     * `--surface-inset` against a white panel: **1.08:1**. Invisible as a boundary. The separation
+     * was NEVER coming from the two tokens differing — it came from the panel's own border, then
+     * and now:
+     *
+     *     --ward-border on the light ground             4.88:1
+     *     --ward-border on the dark ground              4.98:1
+     *     the retired tint against a white panel        1.08:1
+     *
+     * So a guard that had gone green for months was watching a property that did nothing, while
+     * the property that actually held the design up was unwatched. **Distinctness passes on an
+     * invisible difference; visibility does not** — and this file says so, in as many words, about
+     * a sibling token, immediately below.
+     *
+     * **WHAT IS ASSERTED NOW: the panel primitive carries an EDGE.** That is the thing whose loss
+     * would actually collapse the design, it is checkable from source, and it is indifferent to
+     * whether the two surface tokens happen to be the same alias — which is now a decision the
+     * owner has made and this guard has no business re-litigating.
+     */
+
+    /*
+     * 🔴 **TWO CHATS RE-DERIVED THIS ASSERTION INDEPENDENTLY ON THE SAME DAY, AND THE OTHER ONE
+     * MADE THE EDGE CHECK CONDITIONAL. THAT FORM IS RECORDED HERE BECAUSE IT MUST NOT COME BACK.**
+     *
+     * Ward Builder Three reached the same conclusion from the same spec — its wording for the
+     * property is the better one, and is borrowed above: *what must never be true is NEITHER.* But
+     * it expressed the property as
+     *
+     *     if (ground === canvas) { ...require border and shadow... }
+     *
+     * which is disarmed by the very thing the original guard was afraid of. **Re-introduce any
+     * tint at all — including one measuring 1.08:1, i.e. invisible — and `ground !== canvas`, the
+     * branch is skipped, and the panel may then lose both its border and its shadow with nothing
+     * failing.** The conditional turns an invisible difference into a licence to drop the visible
+     * one, which is precisely the distinctness-not-visibility error the re-derivation exists to
+     * escape. So the edge is required UNCONDITIONALLY, whatever the two tokens resolve to.
+     */
     const ground = /--ward-ground:\s*([^;]+);/u.exec(TOKENS)?.[1]?.trim();
-    const canvas = /--ward-canvas:\s*([^;]+);/u.exec(TOKENS)?.[1]?.trim();
-    expect(ground).toBeTruthy();
-    expect(ground).not.toBe(canvas);
+    expect(ground, "--ward-ground is no longer declared in the token layer").toBeTruthy();
+
+    const panel = readFileSync(join(WARD_DIR, "ward-panel.module.css"), "utf8");
+
+    /*
+     * Anti-vacuity first: the file must actually be the panel primitive, or every check below is
+     * satisfied by an empty string.
+     */
+    expect(panel.length, "ward-panel.module.css is too short to be the real primitive").toBeGreaterThan(400);
+
+    /*
+     * ⚠️ LOCATED BY PATTERN, NOT BY THE LITERAL `".panel {"` — Ward Builder Three's second
+     * improvement, and worth keeping for the same reason the rest of this estate was reworked this
+     * week. The literal fails on `.panel{`, which is a reformat rather than a defect, and a guard
+     * that goes red on formatting is a guard someone eventually deletes along with the honest ones.
+     */
+    const panelStart = panel.search(/\.panel\s*\{/u);
+    expect(panelStart, "the panel primitive no longer declares a .panel class").toBeGreaterThanOrEqual(0);
+    const panelBlock = panel.slice(panelStart, panel.indexOf("}", panelStart));
+
+    /*
+     * BOTH, AND MY FIRST ATTEMPT AT THIS DEMANDED THE WRONG ONE. I asserted `--ward-border` on the
+     * panel, from my own 4.88:1 measurement — which was taken BEFORE the panel moved to SPEC §4.7's
+     * "in-flow cards use border + shadow". A measurement is scoped to what it measured, and mine had
+     * been overtaken by a change I folded myself an hour earlier.
+     *
+     * The panel now carries `--border` for the edge and `--e1` for the lift, and the primitive's own
+     * comment is emphatic that NEITHER ALONE WOULD DO IT: `--border` against a ward surface measures
+     * 1.11-1.20:1 -- "NOT A FAINT LINE, IT IS NO LINE". So the property is the PAIR. Demanding only
+     * a border would pass on an invisible edge with the shadow deleted, which is the same
+     * distinctness-not-visibility error this assertion was just re-derived to escape.
+     */
+    /*
+     * ANCHORED TO THE START OF A DECLARATION. A bare /border:/ also matches `-border:` inside any
+     * hyphenated property name — my own mutation renamed `border:` to `MUTANTX-border:` and the
+     * loose pattern still matched, so the border arm reported a pass on a panel with no border
+     * declaration at all. A guard defeated by a prefix.
+     */
+    expect(panelBlock, "the panel primitive no longer draws any border").toMatch(/(?:^|[;{\n])\s*border:/u);
+    expect(
+      panelBlock,
+      "the panel primitive no longer carries a shadow. With the ground and the panel surface now the " +
+        "same alias by the owner's decision, and the edge itself measuring 1.11-1.20:1 against a ward " +
+        "surface, the LIFT is half of what separates a panel from the page. Losing either collapses it " +
+        "to a white block on a white page, and nothing fails visually.",
+    ).toMatch(/box-shadow:/u);
   });
 
   /**
@@ -239,7 +461,7 @@ describe("the Ward Flow token layer", () => {
 
     const mismatches: string[] = [];
     for (const file of wardStylesheets()) {
-      const css = readFileSync(file, "utf8");
+      const css = withoutComments(readFileSync(file, "utf8"));
       for (const [name, canonicalValue] of Object.entries(canonical)) {
         const re = new RegExp(String.raw`${name}:\s*([^;]+);`, "gu");
         let match: RegExpExecArray | null;
@@ -251,6 +473,61 @@ describe("the Ward Flow token layer", () => {
         }
       }
     }
+    expect(mismatches, mismatches.join("\n")).toEqual([]);
+  });
+
+  /**
+   * The convention that forked the leadings applies to the spacing ladder too, and the guard above
+   * cannot see it: it is hard-coded to two token names, so it answers the question the leading
+   * incident asked rather than the one the mechanism poses. `ward-sidebar.module.css` hand-copies
+   * seven `--ward-space-*` steps, for the reason documented there — `.drawerBody` renders through a
+   * portal, outside the shell's DOM subtree, so it cannot inherit canonical tokens from an ancestor.
+   * They agree with canonical today. Nothing made them keep agreeing, and the leadings prove this
+   * family drifts when nothing does.
+   *
+   * Parity rather than deletion, exactly like the leadings — the local declaration has to stay.
+   *
+   * ⚠️ Scoped to the spacing family ON PURPOSE. `--ward-border`, `--ward-border-strong`,
+   * `--ward-divider`, `--ward-canvas` and `--ward-table-min-width` are legitimately overridden per
+   * module (a board sets its own min-width; forced-colors sets `Canvas`), and a blanket "no local
+   * `--ward-*` may differ from canonical" rule goes red on more than forty deliberate declarations.
+   * The first draft of this guard was exactly that blanket rule and was discarded for it. The scale
+   * is the one family with no legitimate per-module variant, because a second spacing scale is the
+   * thing the ladder exists to prevent.
+   *
+   * The floor is on the redeclarations WALKED, not on the mismatches found: a guard that quietly
+   * stopped reaching the sidebar's copy would otherwise pass by looking at nothing at all.
+   */
+  it("keeps every --ward-space-* step at one value everywhere it is declared", () => {
+    const canonical: Record<string, string> = {};
+    for (const match of withoutComments(TOKENS).matchAll(/(--ward-space-\d+):\s*([^;]+);/gu)) {
+      canonical[match[1]] ??= match[2].trim();
+    }
+    expect(
+      Object.keys(canonical).length,
+      "ward-tokens.module.css declares almost no --ward-space-* steps — the canonical side is wrong, not the callers",
+    ).toBeGreaterThan(7);
+
+    let walked = 0;
+    const mismatches: string[] = [];
+    for (const file of wardStylesheets()) {
+      if (file.endsWith("ward-tokens.module.css")) continue;
+      const css = withoutComments(readFileSync(file, "utf8"));
+      for (const [name, canonicalValue] of Object.entries(canonical)) {
+        for (const match of css.matchAll(new RegExp(String.raw`${name}:\s*([^;]+);`, "gu"))) {
+          walked += 1;
+          const value = match[1].trim();
+          if (value !== canonicalValue) {
+            mismatches.push(`${file}: ${name}: ${value} (canonical: ${canonicalValue})`);
+          }
+        }
+      }
+    }
+
+    expect(
+      walked,
+      "no ward stylesheet redeclares a --ward-space-* step any more — this guard now proves nothing and must be re-aimed or removed, not left green",
+    ).toBeGreaterThan(0);
     expect(mismatches, mismatches.join("\n")).toEqual([]);
   });
 
@@ -283,7 +560,7 @@ describe("the Ward Flow token layer", () => {
   it("declares no Ward Flow stylesheet with the old single --ward-z-phone name", () => {
     const offenders: string[] = [];
     for (const file of wardStylesheets()) {
-      const css = readFileSync(file, "utf8");
+      const css = withoutComments(readFileSync(file, "utf8"));
       if (/--ward-z-phone\s*:/u.test(css)) offenders.push(file);
     }
     expect(offenders, `--ward-z-phone still declared in: ${offenders.join(", ")}`).toEqual([]);

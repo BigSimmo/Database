@@ -1,4 +1,10 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
+import {
+  designationSummary,
+  lockedBedsFree,
+  openBedsFree,
+  unitHasLockedBeds,
+} from "@/components/ward-management/ward-bed-designation";
 import type {
   LegalStatus,
   Movement,
@@ -120,11 +126,36 @@ export function eligibility(movement: Movement, unit: Unit, now: Instant): Eligi
     },
     {
       gate: "security",
-      pass: movement.security === "Open" || unit.security === "Secure",
-      detail:
-        movement.security === "Open" || unit.security === "Secure"
-          ? `${unit.security} ward meets ${article(movement.security)} ${movement.security.toLowerCase()} requirement`
-          : `${unit.security} ward does not meet ${article(movement.security)} ${movement.security.toLowerCase()} requirement`,
+      /*
+       * ⚠️ WAS `movement.security === "Open" || unit.security === "Secure"` UNTIL 2026-09-04.
+       * That asked "is this ward of the right TYPE", and a mixed locked/open ward has no single
+       * type — so a mixed ward recorded as Open hid every one of its locked beds from every
+       * patient who needed one. `unitHasLockedBeds` replaces the whole-ward flag and fixes exactly
+       * that, changing nothing else about the shape of the test.
+       *
+       * 🔴 THIS GATE ASKS ABOUT KIND, NEVER ABOUT CAPACITY, AND THE FIRST VERSION GOT THAT WRONG.
+       * It read `movement.security === "Open" ? unit.allocatable.value > 0 : lockedBedsFree(unit) > 0`
+       * — a freeness test inside a suitability gate. That duplicated `allocatable_bed` and broke
+       * the leniency it deliberately carries: the movement path passes on raw `allocatable`, the
+       * referral path on `min(allocatable, empty)`, and the guard that makes either safe is
+       * `PATIENT_ARRIVED` refusing when `empty.value <= 0`, three events downstream in a different
+       * case block. The symptom was the last-bed reducer test: a second acceptance failed HERE, on
+       * capacity, instead of reaching the pull guard that answers `bed_pulled_for_earlier_referral`.
+       * Two other sessions warned about precisely this before it was written.
+       *
+       * An Open movement passes wherever the ward has beds at all — a voluntary patient may be
+       * nursed in a locked bed, so no kind of ward is unsuitable on this axis.
+       *
+       * ⚠️ KNOWN RESIDUAL, deliberately not closed here: a Secure movement passes a mixed ward
+       * whose locked beds are all occupied while its open beds are free. The old code could not
+       * have this problem because a wholly-Secure ward's free beds were necessarily locked ones.
+       * Closing it means teaching the CAPACITY gates about bed kind, which is a change to a
+       * protected surface and belongs to the matcher, not to this one. The detail sentence below
+       * states the real locked-bed figures so the gap is visible to a coordinator rather than
+       * silent. (Plan author's reasoning, 2026-09-04 — not an owner ruling.)
+       */
+      pass: movement.security === "Open" || unitHasLockedBeds(unit),
+      detail: securityGateDetail(movement, unit),
     },
     {
       // The ward's own designation, which `referralEligibility` has gated on since Phase 7 and
@@ -198,6 +229,23 @@ export function eligibility(movement: Movement, unit: Unit, now: Instant): Eligi
         : `Last confirmed ${now - unit.allocatable.confirmedAt} min ago — stale`,
     },
     {
+      /*
+       * ⚠️ **THE LENIENT FIGURE, AND WHAT MAKES THAT SAFE IS NOT IN THIS FILE.** This passes on
+       * `allocatable` alone, so a ward with three allocatable and no empty bed is eligible here —
+       * and `PULL_PATIENT` bounds the same lenient figure, so the pull succeeds too. **Neither is
+       * the guard.** The guard is `PATIENT_ARRIVED` in `ward-flow-reducer.ts`, which refuses on
+       * `unit.empty.value <= 0` with `(no_bed)`, pinned by *"refuses an arrival once the unit's
+       * physically empty beds are exhausted"* in `tests/ward-flow-reducer.test.ts`.
+       *
+       * **A pull is a reservation; an arrival is the physical act.** The leniency is what lets a
+       * ward accept in principle today and receive tomorrow, which is the whole of the
+       * `accepted_awaiting_bed` stage.
+       *
+       * ⚠️ **THE EDIT THAT BREAKS IT LOOKS LIKE A STRENGTHENING.** Hoisting the empty check here
+       * "for symmetry" with `referralEligibility`'s gate of the same name would read as tightening
+       * a loose rule and would delete accept-in-principle. If that looks right to you, go and read
+       * the guard named above first — it is the reason this line is allowed to be lenient.
+       */
       gate: "allocatable_bed",
       pass: unit.allocatable.value > 0,
       detail: `${unit.allocatable.value} allocatable`,
@@ -205,6 +253,37 @@ export function eligibility(movement: Movement, unit: Unit, now: Instant): Eligi
   ];
 
   return { eligible: gates.every((gate) => gate.pass), gates };
+}
+
+/**
+ * The sentence beside the `security` gate's verdict, on either path — shared by `eligibility()`'s
+ * `securityGateDetail` wrapper below and `referralEligibility()`'s own gate further down, because
+ * DECIDED (plan Global Constraints): the bed-kind rule is IDENTICAL on both paths, and a second
+ * hand-written copy of this wording is exactly how the two would drift apart again.
+ *
+ * Always names the real figures, because a coordinator reading "does not meet the requirement"
+ * needs to know whether the ward has no locked beds at all or simply none free right now — they
+ * are different problems with different next actions (look elsewhere, versus wait or ask).
+ */
+function bedKindGateDetail(needsSecureBed: boolean, unit: Unit): string {
+  const free = lockedBedsFree(unit);
+  if (needsSecureBed) {
+    if (free > 0) {
+      return `${unit.name} has ${free} locked bed${free === 1 ? "" : "s"} free (${designationSummary(unit)})`;
+    }
+    return unitHasLockedBeds(unit)
+      ? `${unit.name} has locked beds but no locked bed is free (${designationSummary(unit)})`
+      : `${unit.name} has no locked beds (${designationSummary(unit)})`;
+  }
+  if (unit.allocatable.value <= 0) return `${unit.name} has no free bed`;
+  return openBedsFree(unit) > 0
+    ? `${unit.name} has ${openBedsFree(unit)} open bed${openBedsFree(unit) === 1 ? "" : "s"} free`
+    : `${unit.name} has only locked beds free — open admission is possible but not usual`;
+}
+
+/** `eligibility()`'s `security` gate detail — see `bedKindGateDetail` above for the shared rule. */
+function securityGateDetail(movement: Movement, unit: Unit): string {
+  return bedKindGateDetail(movement.security === "Secure", unit);
 }
 
 /**
@@ -267,7 +346,12 @@ export function referralEligibility(
   const fresh = capacityIsFresh(unit, now);
   const sameSexOccupants = unit.sexMix[ward.sex] ?? 0;
   const designationAccepts = sexDesignationAccepts(unit.sexDesignation, ward.sex);
-  const securityMet = !ward.secureBedNeeded || unit.security === "Secure";
+  // Same bed-kind rule as `eligibility()`'s `security` gate above, via the shared
+  // `bedKindGateDetail`/this identical arithmetic — DECIDED (plan Global Constraints): bed kind
+  // is a suitability question and does not change between "can this ward take them in principle"
+  // and "can this person come now", so both paths ask it identically. `ward.secureBedNeeded` is
+  // this path's counterpart of `movement.security === "Secure"`.
+  const securityMet = ward.secureBedNeeded ? lockedBedsFree(unit) > 0 : unit.allocatable.value > 0;
   // See the `legal_status` gate's own comment below for why this is an accepts-rule, never an
   // equality: a referral that does not need an involuntary bed is accepted by ANY bed, including
   // an authorised one — `unit.authorised` is a capability a bed has, not a value to match against.
@@ -344,11 +428,7 @@ export function referralEligibility(
     {
       gate: "security",
       pass: securityMet,
-      detail: ward.secureBedNeeded
-        ? securityMet
-          ? `${unit.name} is a secure ward`
-          : `${unit.name} is not a secure ward`
-        : "No secure ward required",
+      detail: bedKindGateDetail(ward.secureBedNeeded, unit),
     },
     {
       // `availableNow`, not `unit.allocatable.value` alone — the same C2 correction fix round B
@@ -393,9 +473,21 @@ export function referralEligibility(
       // declaration above. The detail names both source figures so a coordinator (or a future
       // reader of this code) can see why they can diverge, without reading anything but the
       // unit's own two confirmed numbers.
+      //
+      // ⚠️ **THE MOVEMENT PATH'S GATE OF THIS NAME IS DELIBERATELY LOOSER, AND IT IS NOT A DRIFT.**
+      // `eligibility()` above passes on `allocatable` alone because a movement is asking whether
+      // the ward can accept in principle; a referral is asking whether this person can come now.
+      // The safety of that looser gate rests on `PATIENT_ARRIVED` in `ward-flow-reducer.ts` — read
+      // the comment at its site before assuming either gate is wrong.
+      //
+      // **One name, two pass conditions, on purpose.** Nobody had noticed until a 2026-09-04
+      // census; the risk is the shared NAME inviting the assumption that they are one test.
       gate: "allocatable_bed",
       pass: availableNow > 0,
-      detail: `${availableNow} available now (${unit.allocatable.value} allocatable, ${unit.empty.value} empty)`,
+      // "ready" for the min, per the owner's 2026-09-04 one-word ruling. The two figures in
+      // parentheses keep their own field names — they are DIFFERENT quantities and relabelling
+      // either would put one number's name on another.
+      detail: `${availableNow} ready (${unit.allocatable.value} allocatable, ${unit.empty.value} empty)`,
     },
   ];
 

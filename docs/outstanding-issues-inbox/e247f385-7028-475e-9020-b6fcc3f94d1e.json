@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e247f385-7028-475e-9020-b6fcc3f94d1e",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Ward Flow: Aboriginal cultural safety review is unstarted and cannot be done by this team",
+    "detail": "Unchanged and unchangeable from inside the project: it requires Aboriginal health practitioners. Recorded here as a Ward Flow gate in its own right rather than relying on the Caring Contacts entry (#1S81R8), because Ward Flow is a separate surface — bed allocation, transport and detention-adjacent legal status — with its own cultural safety questions, and an item filed under another feature will not be found by someone preparing Ward Flow for use. HARD GATE BEFORE ANY REAL-PATIENT USE. Not a blocker on further prototype building.",
+    "source": "Ward Lead, 2026-09-04",
+    "issueUlid": "01M1NW29J3G4YPNEARGCE768QX"
+  }
+}
