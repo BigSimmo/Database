@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "42f0ddb075ddb3ee9e839762c53552c771248cd3",
-    "committed_at": "2026-09-04T17:36:37+00:00"
+    "sha": "7e1deb80560a2a3a65d7964228cfb4b2746c919e",
+    "committed_at": "2026-09-04T18:58:20+00:00"
   },
   "routes": {
     "modes": [
@@ -10608,6 +10608,14 @@
         "scope": "Required base sync through main d301d8f4",
         "outcome": "approved",
         "checks": "git diff --check; script syntax; ledger and issue guards"
+      },
+      {
+        "date": "2026-09-04",
+        "ref": "claude/psychsift-modes-architecture-378ktx",
+        "head": "3abade6d40bd373783753105b8579ccdcf245e57",
+        "scope": "prlanded",
+        "outcome": "Merged clean via squash (PR #2614). Content diff between the squash commit and the branch tip (75eabfd, before GitHub deleted the remote branch) is empty — no orphaned late commits, nothing lost from the auto-merge race.",
+        "checks": "PR policy: success; PR mergeability: success; Build: success; Unit coverage: in progress at last check, no failures observed; Production UI (1/2/3): in progress at last check, no failures observed; Safety and config checks: success; Caring Contacts database: success; GitGuardian/Gitleaks/Semgrep: success; merge confirmed via pull_request_read (state closed, merged true, merged_by BigSimmo, merged_at 2026-09-04T12:57:23Z)."
       },
       {
         "date": "2026-07-28",
