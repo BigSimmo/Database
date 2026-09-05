@@ -16,6 +16,7 @@ import {
   sourceGovernanceDangerFailuresForAnswer,
   sourceWarningsForRagQualityAnswer,
   type RagQualityResult,
+  qualityThresholds,
 } from "../scripts/eval-quality";
 import { evaluateGoldenRetrievalCase, type GoldenRetrievalResult } from "../scripts/eval-retrieval";
 
@@ -489,6 +490,10 @@ describe("eval quality reporting", () => {
     const allowed = buildEvalQualityReport({
       generatedAt: "2026-08-22T00:00:00.000Z",
       retrievalResults: [],
+      sourceBackedReviewFallbackAllowance: [
+        { id: "quality-antipsychotic-metabolic-monitoring", reason: "guidance_wrapper_fragment" },
+        { id: "quality-discharge-documentation", reason: "guidance_wrapper_fragment" },
+      ],
       ragResults: [
         ragResult({
           id: "quality-antipsychotic-metabolic-monitoring",
@@ -512,6 +517,10 @@ describe("eval quality reporting", () => {
     const substituted = buildEvalQualityReport({
       generatedAt: "2026-08-22T00:00:00.000Z",
       retrievalResults: [],
+      sourceBackedReviewFallbackAllowance: [
+        { id: "quality-antipsychotic-metabolic-monitoring", reason: "guidance_wrapper_fragment" },
+        { id: "quality-discharge-documentation", reason: "guidance_wrapper_fragment" },
+      ],
       ragResults: [
         ragResult({
           id: "quality-discharge-documentation",
@@ -538,6 +547,10 @@ describe("eval quality reporting", () => {
     const otherReason = buildEvalQualityReport({
       generatedAt: "2026-08-22T00:00:00.000Z",
       retrievalResults: [],
+      sourceBackedReviewFallbackAllowance: [
+        { id: "quality-antipsychotic-metabolic-monitoring", reason: "guidance_wrapper_fragment" },
+        { id: "quality-discharge-documentation", reason: "guidance_wrapper_fragment" },
+      ],
       ragResults: [
         ragResult({
           id: "quality-antipsychotic-metabolic-monitoring",
@@ -1059,5 +1072,36 @@ describe("cross-region retrieval-exhausted carve-out (E-3b)", () => {
       ragAnswerTimingDiagnostics({ routingMode: "extractive", latencyTimings: exhaustedTimings }).timings
         .budgetExhaustedByRetrieval,
     ).toBe(true);
+  });
+});
+
+describe("source-backed-review-fallback allowance must name real cases (#NPQJKP)", () => {
+  // PR #2301 added two allowance entries written as `quality-<id>`, while every id in
+  // ragEvalCases is bare. `allowed.id === result.id` is an exact match, so neither entry has
+  // ever excused anything: the waiver reads as active in the source and is inert at runtime,
+  // and the canary stayed red on cases nobody had accepted. An allowance that cannot match is
+  // worse than no allowance, because it stops the reader looking further.
+  it("every allowance id exists in the eval fixture", async () => {
+    const { ragEvalCases } = await import("../src/lib/rag/rag-eval-cases");
+    const known = new Set(ragEvalCases.map((evalCase) => evalCase.id));
+    const unmatched = qualityThresholds.ragSourceBackedReviewFallbackAllowance
+      .map((allowed) => allowed.id)
+      .filter((id) => !known.has(id));
+    expect(unmatched).toEqual([]);
+  });
+
+  it("every allowance reason is a reason the pipeline can actually emit", () => {
+    const emittable = new Set([
+      "guidance_wrapper_fragment",
+      "bare_document_title_list",
+      "provider_source_gap",
+      "source_gap",
+      "empty_after_sanitize",
+      "generation_quality_failed",
+      "invalid_model_citation_ids",
+    ]);
+    for (const allowed of qualityThresholds.ragSourceBackedReviewFallbackAllowance) {
+      expect(emittable.has(allowed.reason)).toBe(true);
+    }
   });
 });

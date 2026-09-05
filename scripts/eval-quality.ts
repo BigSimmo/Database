@@ -85,6 +85,14 @@ export type RagQualityResult = {
   unverifiedNumericTokenCount: number;
   hasFaithfulnessWarning: boolean;
   routingReason?: string;
+  /** Opening sentence of the answer — the span the text-shape gates inspect. */
+  answerOpeningSentence?: string | null;
+  /**
+   * Full answer text, recorded only when a text-shape gate rejected it. This is the
+   * pre-fallback candidate text the gate actually judged (RagAnswer.rejectedCandidateText),
+   * not the generic fallback text ultimately shown to the user.
+   */
+  answerText?: string | null;
   timings?: {
     retrievalMs: number;
     routingMs: number;
@@ -208,7 +216,7 @@ export function ragAnswerTimingDiagnostics(
   };
 }
 
-const qualityThresholds = {
+export const qualityThresholds = {
   retrievalTopKHitRate: 0.8,
   retrievalDocumentRecallAt5: 0.8,
   retrievalContentRecallAt5: 0.8,
@@ -234,10 +242,16 @@ const qualityThresholds = {
   //
   // Do not add an entry to clear a red run. A block here names the offending case and reason:
   // investigate that case, exactly as canary 32589154243 did for these two.
-  ragSourceBackedReviewFallbackAllowance: [
-    { id: "quality-antipsychotic-metabolic-monitoring", reason: "guidance_wrapper_fragment" },
-    { id: "quality-discharge-documentation", reason: "guidance_wrapper_fragment" },
-  ] as ReadonlyArray<{ id: string; reason: string }>,
+  //
+  // EMPTIED 2026-09-02, and this is a no-op rather than a policy change. Both entries were
+  // written as `quality-<id>` while every id in ragEvalCases is bare, and the match is
+  // `allowed.id === result.id`, so neither has excused a single case since PR #2301 landed.
+  // The canary has been red continuously since 2026-08-22 on cases nobody accepted, while the
+  // source read as though two degradations had been signed off. Removing dead entries changes
+  // no runtime behaviour and stops the file asserting a waiver that does not exist; the
+  // accompanying test in tests/eval-quality.test.ts fails if an id is ever added that names no
+  // case. Re-accepting a degradation now requires naming a real case id, with evidence.
+  ragSourceBackedReviewFallbackAllowance: [] as ReadonlyArray<{ id: string; reason: string }>,
   numericGroundingFailureRate: 0,
   staleTopResultRate: 0.25,
   reviewRequiredTopResultRate: 0.25,
@@ -428,6 +442,27 @@ function rate(numerator: number, denominator: number) {
   return denominator === 0 ? 0 : Number((numerator / denominator).toFixed(4));
 }
 
+const TEXT_SHAPE_GATE_REASONS = [
+  "guidance_wrapper_fragment",
+  "bare_document_title_list",
+  "provider_source_gap",
+  "empty_after_sanitize",
+] as const;
+
+/** True when a gate that judges the answer PROSE rejected this answer. */
+function textShapeGateRejected(routingReason: string | undefined) {
+  const reason = (routingReason ?? "").toLowerCase();
+  return TEXT_SHAPE_GATE_REASONS.some((token) => reason.includes(token));
+}
+
+/** The opening sentence, which is the span the wrapper predicate actually inspects. */
+function openingSentenceOf(answer: string | undefined | null) {
+  const text = (answer ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  const stop = text.search(/[.!?](\s|$)/);
+  return (stop === -1 ? text : text.slice(0, stop + 1)).slice(0, 400);
+}
+
 function isSourceBackedReviewFallback(routingReason: string | undefined) {
   return (routingReason ?? "")
     .split(";")
@@ -568,7 +603,12 @@ function topResultGovernanceCounts(results: GoldenRetrievalResult[]) {
   };
 }
 
-function summarizeRagQualityResults(results: RagQualityResult[], providerMode: EvalQualityProviderMode) {
+function summarizeRagQualityResults(
+  results: RagQualityResult[],
+  providerMode: EvalQualityProviderMode,
+  allowanceOverride?: ReadonlyArray<{ id: string; reason: string }>,
+) {
+  const fallbackAllowance = allowanceOverride ?? qualityThresholds.ragSourceBackedReviewFallbackAllowance;
   const supported = results.filter((result) => result.supported);
   const unsupported = results.filter((result) => !result.supported);
   // A supported case counts as grounded-supported when it grounds, OR — for
@@ -614,7 +654,7 @@ function summarizeRagQualityResults(results: RagQualityResult[], providerMode: E
   const sourceBackedReviewFallbackUnaccounted = sourceBackedReviewFallbackResults
     .filter(
       (result) =>
-        !qualityThresholds.ragSourceBackedReviewFallbackAllowance.some(
+        !fallbackAllowance.some(
           (allowed) => allowed.id === result.id && (result.routingReason ?? "").toLowerCase().includes(allowed.reason),
         ),
     )
@@ -678,10 +718,18 @@ export function buildEvalQualityReport(args: {
   ragResults: RagQualityResult[];
   sourceMetadataDebtAcceptance?: SourceMetadataDebtAcceptance;
   providerMode?: EvalQualityProviderMode;
+  // Tests supply their own allowance so the mechanism can be exercised without depending on
+  // whatever the production list happens to contain. The production list and the test fixtures
+  // previously shared the same typo'd ids, so both agreed and neither could fail.
+  sourceBackedReviewFallbackAllowance?: ReadonlyArray<{ id: string; reason: string }>;
 }) {
   const providerMode = args.providerMode ?? "openai";
   const retrievalSummary = summarizeGoldenRetrievalResults(args.retrievalResults);
-  const ragSummary = summarizeRagQualityResults(args.ragResults, providerMode);
+  const ragSummary = summarizeRagQualityResults(
+    args.ragResults,
+    providerMode,
+    args.sourceBackedReviewFallbackAllowance,
+  );
   // `--rag-only` intentionally leaves retrieval metrics and gates empty. The
   // canary can still supply the preceding golden-retrieval artifact so this
   // report renders its source-governance metadata without rerunning retrieval
@@ -1254,6 +1302,24 @@ async function runRagQualityCases(args: {
       unverifiedNumericTokenCount: answer.unverifiedNumericTokens?.length ?? 0,
       hasFaithfulnessWarning: Boolean(answer.faithfulnessWarning),
       routingReason: answer.routingReason,
+      // The text-shape gates (guidance_wrapper_fragment, bare_document_title_list,
+      // provider_source_gap) judge the ANSWER PROSE and then the harness discarded it, so a
+      // blocked canary could not be investigated without paying for another live run. That is
+      // why #NPQJKP sat red for eleven days. Record what the gate actually read: the opening
+      // sentence always (it is what isLaunderedGuidanceWrapperAnswer inspects), and the full
+      // text only for the cases a text-shape gate rejected, so reports stay small.
+      //
+      // The rejected candidate's text is not `answer.answer` by the time we get here — for a
+      // gate rejection, `finalizeRagAnswerQualityCore` has already replaced `answer.answer`
+      // with a generic evidence-gap response, and for a source-backed-review rejection, rag.ts
+      // has additionally replaced it again with a different generic fallback answer. Prefer
+      // `answer.rejectedCandidateText`, the pre-replacement text the gate actually judged
+      // (see RagAnswer.rejectedCandidateText); fall back to `answer.answer` only for the rare
+      // case a text-shape reason fired without that field being populated.
+      answerOpeningSentence: openingSentenceOf(answer.answer),
+      answerText: textShapeGateRejected(answer.routingReason)
+        ? (answer.rejectedCandidateText ?? answer.answer ?? null)
+        : undefined,
       timings,
       routeCeilingExceeded,
       executionType:
