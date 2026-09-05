@@ -183,11 +183,15 @@ describe("OnCallSearchPage", () => {
     expect(screen.getByRole("status").textContent).not.toMatch(/\d/);
   });
 
-  it("renders no count when signed out", () => {
+  // On Call entries are readable by any visitor (2026-09-04), so being signed out is an
+  // ordinary state rather than a fault: the band reports a real count over the shared set and
+  // no "sign in" alert is raised. The replaced test asserted the opposite.
+  it("reports a real count when signed out, with no sign-in fault", () => {
     onCallEntriesState.signedOut = true;
-    render(<OnCallSearchPage initialQuery="clozapine" />);
-    expect(screen.getByRole("status").textContent).not.toMatch(/\d/);
-    expect(screen.getByRole("alert")).toHaveTextContent(/sign in/i);
+    onCallEntriesState.entries = [HAEMATOLOGY_CONTACT, CAR_PARK_LOGISTICS];
+    render(<OnCallSearchPage initialQuery="" />);
+    expect(screen.getByRole("status").textContent).toMatch(/2/);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("never renders a native select for the section filter — a badged trigger opening a sheet instead", async () => {
