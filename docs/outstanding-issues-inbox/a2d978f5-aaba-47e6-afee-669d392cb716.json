@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a2d978f5-aaba-47e6-afee-669d392cb716",
+  "createdOn": "2026-09-05",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "on_call_entries.linked_document_ids is uuid[], so Postgres cannot enforce a foreign key to documents",
+    "detail": "supabase/migrations/20260904120000_on_call_entries.sql:25 declares linked_document_ids uuid[] not null default '{}'. Postgres cannot place a foreign key on an array element, so nothing at the database layer stops an entry referencing a deleted or non-existent document. Behaviour is conservative: the viewer resolves each id and simply omits links it cannot resolve, so a stale id degrades to a missing link rather than a wrong or broken one. No symptom has been observed. Recommendation: LEAVE AS-IS. Enforcing it properly means restructuring the link into a join table (on_call_entry_documents) with a real foreign key and a migration to backfill, which is disproportionate to a defect that fails safely. Revisit only if entries ever start displaying stale links in practice, or if the join table is wanted for another reason (per-link ordering, labels, or reverse lookup from a document to the entries citing it).",
+    "source": "Session 2026-09-05, owner-reported loose end after the On Call mode build",
+    "issueUlid": "01M1RE7RB7NADB8P8Z5H1ZYG39"
+  }
+}

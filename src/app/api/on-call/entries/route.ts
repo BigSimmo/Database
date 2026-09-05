@@ -18,7 +18,7 @@ import {
   onCallEntrySchema,
   type OnCallSection,
 } from "@/lib/on-call/entry-model";
-import { fetchOwnerOnCallEntries, onCallEntryToRow, rowToOnCallEntry } from "@/lib/on-call/repository";
+import { fetchVisibleOnCallEntries, onCallEntryToRow, rowToOnCallEntry } from "@/lib/on-call/repository";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -96,12 +96,12 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("On Call requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    if (!access.ownerId) {
-      return NextResponse.json({ entries: [], signedOut: true });
-    }
-
-    const entries = await fetchOwnerOnCallEntries(supabase, access.ownerId, { section });
-    return NextResponse.json({ entries, signedOut: false });
+    // On Call is a shared reference surface: an anonymous caller gets the shared entries rather
+    // than an empty list. Deliberate owner decision (2026-09-04) — see the visibility note on
+    // fetchSharedOnCallEntries. `signedOut` still reports whether the caller has an account,
+    // because the client uses it to decide whether editing is offered, not whether to render.
+    const entries = await fetchVisibleOnCallEntries(supabase, access.ownerId, { section });
+    return NextResponse.json({ entries, signedOut: !access.ownerId });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
