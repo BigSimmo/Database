@@ -92,8 +92,15 @@ describe("CommunityTeamsTable", () => {
   it("still renders a real digit for a team that does have somebody waiting", () => {
     const withOne = new Map([[COMMUNITY_TEAM_PAGES[0].id, 7]]);
     render(<CommunityTeamsTable rows={rowsFor(withOne)} onOpenTeam={() => {}} />);
+    // Addressed by header, never by position — the same discipline
+    // tests/ward-statistics-compare-two-tables.dom.test.tsx adopted after a column removal there
+    // shifted every later index by one and a positional assertion kept passing about whichever
+    // column had slid into the slot.
+    const headers = screen.getAllByRole("columnheader").map((th) => (th.textContent ?? "").trim());
+    const waitingIndex = headers.indexOf("Waiting");
+    expect(waitingIndex, `no column headed "Waiting" — headers are: ${headers.join(" | ")}`).toBeGreaterThanOrEqual(0);
     const rows = screen.getAllByRole("row").slice(1);
     const firstRowCells = rows[0].querySelectorAll("td");
-    expect(firstRowCells[2].textContent).toBe("7");
+    expect(firstRowCells[waitingIndex].textContent).toBe("7");
   });
 });

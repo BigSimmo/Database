@@ -26,7 +26,11 @@ import {
 import { homedir, hostname, tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { RECEIPT_FORMAT_VERSION, receiptKey } from "../gate-receipts.mjs";
+// `receiptKey` alone: `validateRunnerReceiptCandidate` still recomputes a receipt key from a
+// receipt's own inputs, and is still exercised directly by the focused test. RECEIPT_FORMAT_VERSION
+// went with the runner-receipt lookup — see assertActivationTreeSignature for why that lookup could
+// not stay answered.
+import { receiptKey } from "../gate-receipts.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(scriptDirectory, "..", "..");
@@ -770,6 +774,18 @@ export function validateSystemState(state, contract) {
     const provided = transitionEvidence.map((receipt) => receipt.id);
     if (JSON.stringify(provided) !== JSON.stringify(requiredEvidence)) {
       fail("steady-state transitionEvidence must name each required receipt exactly once in gate order");
+    }
+    /*
+     * ⚠️ BOTH FIELDS, SEPARATELY, AND NEITHER MAY BE NULL. They are checked against the real tree in
+     * `assertActivationTreeSignature`; this only fixes their shape. The pair is deliberately two
+     * values rather than one: a hash that agrees while a count does not means the record does not
+     * describe a single tree, and a check reading only the hash would report the count for show.
+     */
+    if (!SHA256_PATTERN.test(state.activationTreeHash ?? "")) {
+      fail("steady-state mode requires activationTreeHash as 64 lowercase hex characters");
+    }
+    if (!Number.isInteger(state.activationTreeFileCount) || state.activationTreeFileCount <= 0) {
+      fail("steady-state mode requires activationTreeFileCount as a positive integer");
     }
   } else if (state.activationSnapshot !== null) fail("recovery mode activationSnapshot must be null");
   const updated = new Date(state.updatedAt);
@@ -2224,68 +2240,99 @@ export function validateRunnerReceiptCandidate(candidate, { gate, args, inputHas
 }
 
 /**
- * Every checkout of this repository, so a receipt produced in one can be read from another.
+ * 🔴 THIS REPLACED A CHECK THAT COULD NOT STAY ANSWERED, AND IT ASKS A DELIBERATELY WEAKER QUESTION.
  *
- * ⚠️ **THE RECEIPT ATTESTS A COMMITTED TREE, AND A COMMITTED TREE IS THE SAME IN EVERY WORKTREE.**
- * Reading the store from the CURRENT worktree alone made steady-state validation impossible in any
- * checkout that had not itself run the test at the activation snapshot — which is every fresh one.
- * Found 2026-09-01 while creating a Ward Verifier: its worktree is detached at a LATER commit, so
- * it could never produce a receipt for the snapshot's tree no matter how many times it ran the
- * test. The role that exists to check the work could not be created because of where a cache file
- * happened to live.
+ * The previous version required a receipt PRODUCED BY THE TEST RUNNER whose input hash equalled the
+ * activation tree's signature. The intent was sound — it is the difference between a run and a claim
+ * that there was a run. **But its evidence lived in `node_modules/.cache/database-gate-receipts.json`,
+ * an eight-deep LRU shared by every vitest invocation in the checkout.** Any eight test runs in any
+ * worktree evicted it, and a ward session runs dozens. So the gate was not occasionally red: it was
+ * red in every session, permanently, with brief accidental green windows, and recovery needed a
+ * pristine detached checkout at the activation commit that the next eight runs undid.
  *
- * This does not weaken the gate. The identity being checked is still the exact committed tree, and
- * `validateRunnerReceiptCandidate` still recomputes the receipt key from the receipt's own inputs;
- * all that changes is which directories are searched for an attestation about that tree.
+ * ⚠️ **A GATE SHOULD NOT ASK A QUESTION WHOSE HONEST ANSWER EXPIRES.** It should ask the strongest
+ * question that stays answerable and say plainly which stronger one it is not asking. That sentence
+ * is worth more than the receipt was — Ward Verifier's finding and its wording.
+ *
+ * **THE EARLIER SYMPTOM, KEPT BECAUSE IT IS THE SAME CAUSE AND WAS TREATED AS A DIFFERENT ONE.**
+ * On 2026-09-01 the store was widened to search every worktree, because reading only the current
+ * one made steady-state validation impossible in any checkout that had not itself run the test at
+ * the activation snapshot. It was found while creating a Ward Verifier: that worktree is detached at
+ * a LATER commit, so it could never produce a receipt for the snapshot's tree however many times it
+ * ran the test. **The role that exists to check the work could not be created because of where a
+ * cache file happened to live.** That repair was correct and insufficient — widening WHERE the
+ * evidence is searched for does nothing about evidence with a half-life of eight test runs. Two
+ * symptoms, one cause, four days apart, and the first fix made the second harder to see by making
+ * the gate briefly green.
+ *
+ * WHY THE RECORD LIVES IN `system-state.json` RATHER THAN IN THE RECEIPT, which is where it belongs
+ * and where it cannot go. The three transition receipts are read AT `evidenceRef` — in steady-state,
+ * the frozen `activationSnapshot`. Recording a field in the control-plane receipt therefore means
+ * editing a file inside a commit 1,488 commits back, which is history; and moving the snapshot
+ * forward to a commit that could carry the field is refused by `assertTransitionEvidenceWindow`,
+ * which permits zero source-affecting changes between the receipts' `sourceSha` and the snapshot
+ * (measured: 0 today, 2,176 to HEAD). **Storing a tree's hash inside that same tree is circular in
+ * any case.** So the record goes in the state file, which is outside the hashed history and can be
+ * written now.
+ *
+ * ⚠️ **AND THAT IS WEAKER THAN ITS TWO SIBLINGS, WHICH IS STATED RATHER THAN GLOSSED.**
+ * `recovery-bundle` and `current-truth` pin hashes recorded in receipts frozen in history; this pins
+ * one in a mutable, committed, reviewable file. An editor who changes the snapshot and the hash
+ * together passes. The honest claim is exactly the one in the failure messages below and no larger.
  */
-function gateReceiptStorePaths(root) {
-  const roots = [root];
-  try {
-    const listed = git(["worktree", "list", "--porcelain"], { cwd: root });
-    for (const line of listed.replaceAll("\r", "").split("\n")) {
-      if (line.startsWith("worktree ")) roots.push(line.slice("worktree ".length));
-    }
-  } catch {
-    /* not a worktree list we can read — the current root alone is still a valid place to look */
-  }
-  const seen = new Set();
-  const paths = [];
-  for (const candidate of roots) {
-    const storePath = path.join(candidate, "node_modules", ".cache", "database-gate-receipts.json");
-    const identity = localPathIdentity(storePath);
-    if (seen.has(identity)) continue;
-    seen.add(identity);
-    paths.push(storePath);
-  }
-  return paths;
-}
-
-function assertRunnerProducedFocusedTestReceipt(ref, root = repositoryRoot) {
+export function assertActivationTreeSignature(state, ref, root = repositoryRoot) {
   const signature = committedTreeInputSignature(ref, root);
-  const args = ["run", "tests/ward-flow-chat-control.test.ts"];
-  const storePaths = gateReceiptStorePaths(root).filter((storePath) => existsSync(storePath));
-  if (storePaths.length === 0) {
-    fail("control-plane activation requires the gate runner receipt store; rerun the exact focused test");
-  }
-  for (const storePath of storePaths) {
-    const store = readJson(storePath, "gate runner receipt store");
-    if (store.version !== RECEIPT_FORMAT_VERSION || !isObject(store.gates)) continue;
-    const receipts = requireArray(store.gates.vitest ?? [], "Vitest gate receipts");
-    const receipt = receipts.find((candidate) =>
-      validateRunnerReceiptCandidate(candidate, {
-        gate: "vitest",
-        args,
-        inputHash: signature.hash,
-        fileCount: signature.fileCount,
-      }),
+  const disclosure =
+    " — this check proves the recorded pass was asserted about this exact committed tree and no " +
+    "other. IT DOES NOT PROVE A HUMAN RAN THE COMMAND. The runner-receipt requirement it replaced " +
+    "did not prove that durably either: its evidence lived in an eight-deep LRU shared with every " +
+    "vitest run and was evicted within about eight runs of any session.";
+  /*
+   * ⚠️ EVERY REFUSAL GOES THROUGH HERE, WHICH MAKES TWO THINGS STRUCTURAL RATHER THAN REMEMBERED.
+   *
+   * The disclosure is appended by the helper, so a fourth refusal added later carries it without
+   * anybody knowing it exists — the correct thing is the only thing, rather than a convention a
+   * guard has to police.
+   *
+   * And `cause` is what lets a test tell the branches apart WITHOUT matching prose. The first
+   * version of that test matched each branch's sentence, and a mutation rewording one went red —
+   * a wording pin, written by me minutes after warning three other sessions about wording pins.
+   * A machine-readable cause survives every rewrite and fails only when a refusal genuinely
+   * changes which question it answers.
+   */
+  const refuse = (cause, message) => {
+    try {
+      fail(message + disclosure);
+    } catch (error) {
+      error.activationTreeCause = cause;
+      throw error;
+    }
+  };
+  if (state.activationTreeHash === undefined || state.activationTreeFileCount === undefined) {
+    refuse(
+      "absent",
+      "steady-state system state must record activationTreeHash and activationTreeFileCount for the " +
+        `activation snapshot. The snapshot's signature is ${signature.hash} over ${signature.fileCount} ` +
+        "committed files; record both. An absent record is not agreement",
     );
-    if (receipt) return receipt;
   }
-  fail(
-    "control-plane activation has no runner-produced passing receipt for the exact activation tree in any " +
-      "checkout of this repository; run node scripts/run-vitest.mjs run tests/ward-flow-chat-control.test.ts " +
-      "at that clean commit",
-  );
+  if (state.activationTreeHash !== signature.hash) {
+    refuse(
+      "hash",
+      `activation tree signature does not match the recorded hash: recorded ${state.activationTreeHash}, ` +
+        `computed ${signature.hash} for ${ref}. Either the snapshot moved under the record or the record ` +
+        "was edited",
+    );
+  }
+  if (state.activationTreeFileCount !== signature.fileCount) {
+    refuse(
+      "fileCount",
+      `activation tree file count does not match the recorded count: recorded ${state.activationTreeFileCount}, ` +
+        `computed ${signature.fileCount} for ${ref}. The hash agreeing while the count does not means the ` +
+        "recorded pair does not describe one tree",
+    );
+  }
+  return signature;
 }
 
 export function assertTransitionEvidenceWindow(sourceSha, activationSnapshot, root = repositoryRoot) {
@@ -2425,7 +2472,16 @@ function validateStateRepositoryEvidence(state, root = repositoryRoot) {
       ) {
         fail("control-plane gateEvidence must record the exact validator and focused-test pass");
       }
-      assertRunnerProducedFocusedTestReceipt(evidenceRef, root);
+      /*
+       * ⚠️ STEADY-STATE ONLY, AND SKIPPING IT IN RECOVERY IS THE POINT RATHER THAN AN EXEMPTION.
+       * `evidenceRef` is the frozen `activationSnapshot` in steady-state and the INTEGRATION BRANCH
+       * TIP in recovery. A tree signature over a moving tip changes on every commit, so enforcing it
+       * in recovery would recreate — in a new costume — exactly the defect this replaced: a check
+       * that cannot stay answered. There is no activation to attest while the control plane is being
+       * rebuilt, and a check that certifies nothing is worse than an absent one because it looks like
+       * cover. Recovery is gated by the mode's own rules, not by this.
+       */
+      if (state.mode === "steady-state") assertActivationTreeSignature(state, evidenceRef, root);
     }
   }
   if (state.mode === "steady-state") assertCommonTransitionSourceSha(transitionSourceShas);

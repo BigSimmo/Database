@@ -14,7 +14,9 @@ vi.mock("next/link", () => ({
 import { PersonScreen } from "@/components/ward-management/patients/person-screen";
 import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { seedWardFlowState } from "@/components/ward-management/ward-flow-reducer";
-import { patientAgeYears, patientDisplayName } from "@/components/ward-management/ward-patients";
+// `patientAgeYears` is deliberately NOT imported — see the age assertion below. Importing it here
+// is what made this test a mirror of the function it was supposed to check.
+import { patientDisplayName } from "@/components/ward-management/ward-patients";
 import { allEmergencyDepartments, wardSites } from "@/components/ward-management/ward-sites";
 
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
@@ -73,12 +75,69 @@ describe("a person's own screen", () => {
     expect(identity).toHaveTextContent(patientDisplayName(someone));
     expect(identity).toHaveTextContent(someone.umrn);
     expect(identity).toHaveTextContent(someone.dateOfBirth);
-    // Age is DERIVED and never stored — `patientAgeYears` reads the date of birth. Asserted through
-    // the same function the screen uses, so a screen that stored or recomputed its own age would
-    // still have to agree with the one place this project derives it.
-    const age = patientAgeYears(someone, new Date(`${someone.dateOfBirth.slice(0, 4)}-01-01`));
-    expect(typeof age).toBe("number");
-    expect(identity).toHaveTextContent(/\d+\s*(years|year)/i);
+    /*
+     * Age is DERIVED and never stored — `patientAgeYears` reads the date of birth. Asserted through
+     * the same function the screen uses, so a screen that stored or recomputed its own age would
+     * still have to agree with the one place this project derives it.
+     *
+     * 🔴 **THAT COMMENT WAS TRUE OF THE INTENT AND FALSE OF THE CODE UNTIL 2026-09-04, AND NOTHING
+     * MADE THEM AGREE.** The computed `age` was used only as `typeof age === "number"` and then
+     * discarded; the render was checked against any digits followed by "years". The reference date
+     * passed in was 1 January of the BIRTH year, so even had the two been compared it would have
+     * compared against roughly zero.
+     *
+     * Mutation-proved before and after: `ward-patients.ts` `return age` -> `return 999` turned the
+     * model test red ("expected 999 to be 36") and left THIS test green while the screen rendered
+     * "999 years". The control firing is what proves the mutant executed.
+     *
+     * ⚠️ It is fixed FIRST, ahead of the `dayZero` hazard it was found next to, and the order is
+     * deliberate: `dayZero` reads the system clock unconditionally, and nothing today asserts a
+     * calendar date derived from it. **Until this guard can fail, a future `dayZero` repair would
+     * have had nothing to prove it worked.**
+     *
+     * `new Date()` is correct here and is not a flake: the screen's own `dayZero` reads the real
+     * system clock too, so both sides move together. If a pinned date is ever introduced, this
+     * assertion is the one that will go red and say so.
+     */
+    /*
+     * 🔴 **COMPUTED HERE, NOT BY `patientAgeYears`, AND THE FIRST FIX GOT THIS WRONG.** Asserting
+     * the render against the very function the screen calls is a MIRROR: mutating
+     * `ward-patients.ts` to `return 999` moved BOTH sides, the screen rendered "999 years", and
+     * this test stayed green — the same green the broken version gave. A test that recomputes
+     * through the subject agrees with it forever, including when it is wrong.
+     *
+     * So the expected value is derived independently from the stored date of birth. The two
+     * calculations now have to agree, which is what the comment above always claimed.
+     */
+    const born = new Date(someone.dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - born.getFullYear();
+    const monthsApart = today.getMonth() - born.getMonth();
+    if (monthsApart < 0 || (monthsApart === 0 && today.getDate() < born.getDate())) age -= 1;
+    expect(age).toBeGreaterThan(0);
+    /*
+     * ⚠️ THE UPPER BOUND IS THE ONE THING AN INDEPENDENT COMPUTATION CANNOT CATCH, and it is Ward
+     * Builder Two's contribution after it conceded this file to master's version.
+     *
+     * Everything else here rests on computing the age twice, by two routes, and requiring the
+     * answers to agree. That catches a wrong FUNCTION. It cannot catch a wrong FIXTURE: a date of
+     * birth of 1200-03-14 gives an age of 826, both sides compute 826, they agree, and the screen
+     * renders a number no human has ever had. Agreement is not plausibility.
+     */
+    expect(age, "a fixture date of birth is producing an implausible age; both sides would agree on it").toBeLessThan(
+      130,
+    );
+    /*
+     * ⚠️ `\b` FAILS AT BOTH ENDS HERE, AND IT COST TWO ATTEMPTS. Every figure and its unit are
+     * separate elements, so `textContent` concatenates with no separator at all — the panel reads
+     * "…Date of birth1988-03-14Age38yearsAge is calculated from…". There is no word boundary
+     * between "Age" and "38", and none between "years" and the "Age" of the next sentence.
+     *
+     * The lookbehind does the job `\b` was there for — stopping a rendered "138" from satisfying an
+     * expected "38". Nothing is needed at the tail: the number must sit immediately against the
+     * word "year", which is the property being asserted.
+     */
+    expect(identity).toHaveTextContent(new RegExp(`(?<!\\d)${age}\\s*year`, "i"));
   });
 
   it("⚠️ NEVER SHOWS WHERE ELSE THIS PERSON HAS BEEN REFERRED — FD-23, asserted as an absence", () => {
@@ -149,6 +208,93 @@ describe("a person's own screen", () => {
           "before widening this list.",
       ).toContain(name);
     }
+  });
+
+  it("⚠️ AND THIS FILE NEVER REACHES FOR THE AGE HELPER AGAIN — the guard that stops the mirror returning", async () => {
+    /*
+     * 🔴 WHAT THIS PROTECTS, AND WHY A COMMENT WAS NOT ENOUGH.
+     *
+     * The age assertion above computes the age here, from the stored date of birth, deliberately
+     * NOT by calling the same helper the screen calls. An earlier version imported that helper, and
+     * a test that asks the screen and the helper to agree cannot notice when they are wrong
+     * together — Ward Builder Two mutated the helper to `return age + 3`, a plausible wrong age well
+     * inside any human range, and its version of this test PASSED while the sibling model test
+     * caught it. The mutant demonstrably ran; the screen guard simply could not see it.
+     *
+     * That decision was pinned only by a comment at the top of this file. **A comment is exactly
+     * what somebody simplifying "the duplicated arithmetic" deletes on the way to reintroducing the
+     * mirror, with every test green — which is the state this file was already in once.** So the
+     * decision is asserted now, not explained.
+     *
+     * ⚠️ THE NAME IS ASSEMBLED FROM TWO HALVES ON PURPOSE. A guard searching for a literal would
+     * match its own source and fail on itself, and the next person would delete the guard rather
+     * than read it — the trap the FD-23 guard above records against a blunt search for "referrals".
+     * Comments are stripped for the same reason: this file's own doc comment names the helper while
+     * explaining why it is not imported, and that prose must stay legal.
+     */
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync("tests/ward-person-screen.dom.test.tsx", "utf8");
+
+    /*
+     * 🔴 THE PRECONDITION, AND WARD VERIFIER FOUND TWO SILENT BYPASSES BEFORE IT EXISTED.
+     *
+     * Comment-stripping by regex is only sound while no string literal in this file contains a
+     * comment sequence. Verifier measured what happens when one does:
+     *
+     *   a BLOCK-comment opener inside a string -> opens a phantom comment that runs to the next
+     *                            real close, deleting 1,157 characters of REAL code including a
+     *                            genuine helper call. Both anti-vacuity assertions below still
+     *                            passed: the length stayed well over 2,000, and the upper-bound
+     *                            marker survived because the phantom opened after it.
+     *   a LINE-comment opener inside a string  -> deletes the rest of that line. Moves the
+     *                            stripped length by 22 characters, which NO length assertion
+     *                            can see.
+     *
+     * ⚠️ THE SEQUENCES ARE DESCRIBED IN WORDS HERE AND NOT QUOTED, AND THAT IS THE POINT RATHER
+     * THAN AN INCONVENIENCE. The first version of this comment quoted them inside backticks, and
+     * the assertion below — which scans raw file text, comments included — flagged its own
+     * explanation. **The temptation at that moment is to soften the guard so it can be
+     * documented. Do not.** A blunt check that occasionally flags prose is a false positive the
+     * author controls; a cleverer one has more room to be wrong about code. Reword the prose.
+     *
+     * ⚠️ And my own hypothesis — a string containing a CLOSING sequence — was wrong, tested in
+     * both directions: it can only close a comment early, which leaks prose IN. That is the
+     * false-alarm direction and it is harmless. **The hiding direction is the OPENING sequence.**
+     *
+     * A correct stripper needs a tokenizer, which is too much to own here. So the assumption is
+     * asserted instead, and fails loudly the day it stops holding. Escaped pairs are removed
+     * first, because this file's own guard regex writes the sequences backslash-escaped — they
+     * are not adjacent characters there, which is why the control is green for a real reason
+     * rather than a lucky one.
+     */
+    const deEscaped = source.replace(/\\./g, "");
+    const risky = deEscaped
+      .split("\n")
+      .map((line, index) => ({ line, number: index + 1 }))
+      .filter(({ line }) => /(["'`])[^"'`\n]*(\/\*|\/\/)/.test(line))
+      .map(({ number }) => number);
+    expect(
+      risky,
+      "a string literal in this file now contains a comment-opening sequence, so the " +
+        "comment stripping below is no longer sound and can silently delete real code. " +
+        "Escape the sequence, or move the value out of a literal.",
+    ).toEqual([]);
+
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
+    // Anti-vacuity: if comment-stripping ate the file, every check below passes over nothing.
+    expect(code.length, "comment stripping removed almost the whole file").toBeGreaterThan(2000);
+    expect(code, "the stripped code no longer contains the age assertion this guard protects").toContain(
+      "toBeLessThan(",
+    );
+
+    const helper = "patientAge" + "Years";
+    expect(
+      code.includes(helper),
+      `${helper} is referenced in this file's CODE. The age here is computed locally on purpose: ` +
+        "asking the screen and the helper to agree cannot catch them being wrong together. " +
+        "If you are consolidating the duplicated arithmetic, that is the defect, not the tidy-up.",
+    ).toBe(false);
   });
 
   it("offers a way to refer this person, which is the whole point of the screen", () => {

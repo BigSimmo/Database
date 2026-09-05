@@ -27,6 +27,7 @@ import {
   publishHandover,
   sha256,
   loadCommittedCriterion,
+  assertActivationTreeSignature,
   validateControlPlane,
   validateCurrentTruthManifest,
   validateHandoverDraft,
@@ -1923,4 +1924,126 @@ describe("Ward Flow compact chat control", () => {
     expect(result.certificateCount).toBeGreaterThanOrEqual(0);
     expect(sha256("stable")).toHaveLength(64);
   }, 300_000);
+
+  it("says on EVERY refusal path which stronger question the activation-tree check is not asking", () => {
+    /*
+     * 🔴 THE DISCLOSURE WAS PROSE, AND PROSE FAILING TO BEAR LOAD IS THE WHOLE SUBJECT OF THIS GATE.
+     *
+     * `assertActivationTreeSignature` replaced a check that required a receipt the TEST RUNNER
+     * produced. That check was unanswerable — its evidence lived in an eight-deep LRU shared by
+     * every vitest run — but it did attempt something this one does not: evidence that a human ran
+     * the command. The replacement therefore carries a disclaimer saying so, in the FAILURE MESSAGE
+     * rather than only a comment, because the message reaches the person the gate just stopped and a
+     * comment reaches only somebody already auditing it.
+     *
+     * ⚠️ **Ward Verifier predicted, before seeing the implementation, that the sentence would be
+     * present and NOT load-bearing — that deleting it would not go red.** It was right. So this
+     * asserts the property over EVERY refusal path rather than over one message: adding a fourth
+     * failure to that function without the disclaimer fails here, which is the realistic future
+     * edit. A guard that checked one message would pass while the new path said nothing.
+     *
+     * ⚠️ **THE MATCH IS DELIBERATELY LOOSE.** Pinning the exact sentence would make three harmless
+     * rewordings go red and teach the next person to delete the test — the shape that has bitten
+     * this repository repeatedly. What must survive is the CLAIM: that this does not evidence a
+     * human execution. Reword freely around it.
+     */
+    const NOT_HUMAN_RUN = /does not prove[\s\S]{0,60}human ran/i;
+    const snapshot = (readJson("system-state.json") as { activationSnapshot?: unknown }).activationSnapshot;
+    /*
+     * ⚠️ AN EXEMPTION REPORTED AS A PASS IS THE SHAPE WE HAVE BEEN CHASING ALL NIGHT, even where the
+     * exemption is correct. In recovery mode there is no frozen tree to attest, so this test has
+     * nothing to assert — but returning silently makes it report GREEN while asserting nothing, which
+     * is indistinguishable from a guard that ran. Ward Verifier's point. Assert the reason instead.
+     */
+    if (typeof snapshot !== "string" || snapshot.length === 0) {
+      expect(
+        (readJson("system-state.json") as { mode?: unknown }).mode,
+        "this test asserted nothing, and the only honest reason is recovery mode — where there is no " +
+          "frozen activation tree to attest. Any other mode reaching here means the snapshot went " +
+          "missing and this guard went quiet at the same moment.",
+      ).toBe("recovery");
+      return;
+    }
+    const sound = readJson("system-state.json") as Record<string, unknown>;
+
+    /*
+     * 🔴 EACH CASE CARRIES THE CLAIM ITS OWN BRANCH MAKES, BECAUSE THE DISCLOSURE ALONE CANNOT TELL
+     * THE BRANCHES APART — AND A MUTATION PROVED IT RATHER THAN A READING.
+     *
+     * Ward Verifier predicted that absence was caught by the wrong assertion. It was, and the first
+     * version of this test did not fix it: disabling the absence branch entirely
+     * (`if (false)`) left the mutant SURVIVING, because an absent hash then falls through to the
+     * comparison, where `undefined !== <hash>` refuses anyway — with a different message that also
+     * carries the disclosure. **The branch could be deleted and nothing here would notice.**
+     *
+     * A refusal for the wrong reason is a refusal, and a guard that only asks "did it refuse" cannot
+     * see the difference. So each case names the claim its branch exists to make. Loose matches, for
+     * the same reason as the disclosure: pin what must remain true, not the sentence.
+     */
+    const refusals = [
+      ["absent", { ...sound, activationTreeHash: undefined, activationTreeFileCount: undefined }],
+      ["hash", { ...sound, activationTreeHash: "0".repeat(64) }],
+      ["fileCount", { ...sound, activationTreeFileCount: 1 }],
+    ] as const;
+
+    /*
+     * 🔴 "EVERY REFUSAL PATH" WAS ENFORCED OVER A LIST I TYPED, WHICH IS THE DEFECT THIS TEST NAMES.
+     *
+     * The comment above says the realistic future edit is a fourth `fail(` added without the
+     * disclosure — and a fourth `fail(` does not appear in `refusals`, so the guard would have passed
+     * on exactly the edit it exists for. Complete today, and nothing kept it complete. Ward Verifier
+     * found it; it is the same shape as a single-source guard keyed to a class name while claiming to
+     * be keyed to a rule.
+     *
+     * **Floor the POPULATION, not the finding.** Counting the refusal paths in the shipped function
+     * and requiring the enumeration to match means a new path goes red here until somebody adds its
+     * case. Reading the function's own source is crude and it fails CLOSED, which is the direction
+     * that costs a minute rather than a guarantee.
+     */
+    const source = assertActivationTreeSignature.toString();
+    // Call sites only: the helper is declared as `const refuse = (cause, message) =>`, which carries
+    // no `refuse(`, so every match here is a refusal path rather than the definition.
+    const declaredPaths = [...source.matchAll(/\brefuse\(/g)].length;
+    expect(
+      refusals.length,
+      `assertActivationTreeSignature has ${declaredPaths} refusal paths and this test enumerates ` +
+        `${refusals.length}. A refusal path was added or removed without its case here, so the ` +
+        '"every path carries the disclosure" claim above is no longer being checked over every path. ' +
+        "Add the missing case — do not adjust this number to match.",
+    ).toBe(declaredPaths);
+    // Exactly one `fail(` — the one inside `refuse` itself. A second means a refusal bypassed the
+    // helper, and that path would carry neither the disclosure nor a cause.
+    expect(
+      [...source.matchAll(/\bfail\(/g)].length,
+      "a refusal in assertActivationTreeSignature calls fail() directly instead of going through the " +
+        "refuse() helper. That path gets no disclosure and no cause — which is exactly what routing " +
+        "every refusal through one helper exists to make impossible.",
+    ).toBe(1);
+
+    const missing: string[] = [];
+    for (const [cause, state] of refusals) {
+      let message = "";
+      let seenCause: unknown;
+      try {
+        assertActivationTreeSignature(state, snapshot, projectRoot);
+        missing.push(`${cause}: did not refuse at all`);
+        continue;
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error);
+        seenCause = (error as { activationTreeCause?: unknown }).activationTreeCause;
+      }
+      if (!NOT_HUMAN_RUN.test(message)) missing.push(`${cause}: no disclosure — ${message.slice(0, 110)}`);
+      if (seenCause !== cause) {
+        missing.push(`${cause}: refused for a DIFFERENT reason than its own branch — cause was ${String(seenCause)}`);
+      }
+    }
+    expect(
+      missing,
+      "a refusal path of the activation-tree check no longer says that it does not evidence a human " +
+        "having run the command. That sentence is the only thing standing between this gate and being " +
+        "read as stronger than it is — it replaced a check that did attempt human-execution evidence. " +
+        "Reword it freely; do not remove it, and do not add a refusal path without it:\n" +
+        missing.join("\n"),
+    ).toEqual([]);
+  }, 120_000);
 });

@@ -15,6 +15,7 @@ import {
 } from "@/components/ward-management/ward-referrals";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * A REFERRAL RECORDS THE SUBURB, AND THE SUBURB IS RESOLVED AGAINST THE REAL TABLE.
  *
@@ -59,6 +60,7 @@ function receive(suburb: ReferralSuburb) {
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
   } as never);
 }
 

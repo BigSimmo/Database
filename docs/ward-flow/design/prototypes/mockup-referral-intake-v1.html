@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Raise a referral — two-pane workspace (mockup v1)</title>
+
+    <!--
+      MOCKUP ONLY. Nothing here is wired to anything. It exists to be looked at and argued with
+      before a line of the real screen changes.
+
+      TOKENS ARE COPIED, NOT INVENTED. Every value in the :root block below was read out of
+      src/app/globals.css and src/components/ward-management/ward-tokens.module.css. Below that
+      block there is no raw hex, per DESIGN-LANGUAGE.md rule 1 — so anything that looks wrong here
+      is wrong in the real token layer too, which is the point of copying rather than eyeballing.
+
+      Fonts are the system stack rather than a web font: the prototypes README forbids copying
+      Google Font <link> tags into anything under src/, and a mockup that needs the network to
+      look right is a mockup that will look different for the person reviewing it.
+    -->
+    <style>
+      :root {
+        /* ── copied verbatim from globals.css ─────────────────────────────── */
+        --neutral-500: #667085;
+        --neutral-600: #475467;
+        --neutral-900: #101418;
+        --primary-500: #1d6fb8;
+        --background: #f1f4f8;
+        --surface: #fcfdfe;
+        --surface-raised: #ffffff;
+        --surface-subtle: #f7f9fc;
+        --surface-inset: #eaeef4;
+        --text: var(--neutral-900);
+        --text-heading: #080b0f;
+        --text-muted: var(--neutral-600);
+        --info-text: #1c4fbf;
+        --info-bg: #eff4ff;
+        --info-border: #b2ccff;
+        --success-text: #0c6b41;
+        --success-bg: #ecfdf3;
+        --success-border: #abefc6;
+        --warning-text: #8a4d05;
+        --warning-bg: #fffcf6;
+        --warning-border: #f5d9a8;
+        --radius-sm: 0.375rem;
+        --radius-md: 0.625rem;
+        --radius-lg: 0.75rem;
+        --radius-pill: 9999px;
+        --e1: 0 1px 2px rgb(11 42 56 / 7%);
+        --e2: 0 1px 2px rgb(11 42 56 / 5%), 0 4px 10px -2px rgb(11 42 56 / 8%);
+        --spacing-tap: 3rem;
+        --tracking-label: 0.06em;
+        --text-2xs: 0.6875rem;
+        --text-sm-minus: 0.8125rem;
+        --text-base-minus: 0.9375rem;
+        --text-2xl-minus: 1.375rem;
+
+        /* ── ward aliases, same mapping as ward-tokens.module.css ─────────── */
+        --ward-ground: var(--surface-inset);
+        --ward-canvas: var(--surface);
+        --ward-subtle: var(--surface-subtle);
+        --ward-border: var(--neutral-500);
+        --ward-text: var(--text);
+        --ward-heading: var(--text-heading);
+        --ward-muted: var(--text-muted);
+        --ward-blue: var(--primary-500);
+
+        --ward-space-2: 0.125rem;
+        --ward-space-4: 0.25rem;
+        --ward-space-6: 0.375rem;
+        --ward-space-8: 0.5rem;
+        --ward-space-10: 0.625rem;
+        --ward-space-12: 0.75rem;
+        --ward-space-14: 0.875rem;
+        --ward-space-16: 1rem;
+        --ward-space-20: 1.25rem;
+        --ward-space-24: 1.5rem;
+        --ward-space-32: 2rem;
+
+        --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--ward-ground);
+        color: var(--ward-text);
+        font-family: var(--font-sans);
+        font-size: var(--text-base-minus);
+        line-height: 1.45;
+      }
+
+      .shell {
+        max-width: 86rem;
+        margin: 0 auto;
+        padding: var(--ward-space-24) var(--ward-space-20) var(--ward-space-32);
+      }
+
+      /* ── governance banner: copy is owner-ruled and reproduced verbatim ── */
+      .governance {
+        display: flex;
+        gap: var(--ward-space-12);
+        align-items: flex-start;
+        padding: var(--ward-space-10) var(--ward-space-14);
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-sm);
+        background: var(--warning-bg);
+        color: var(--ward-text);
+        font-size: var(--text-sm-minus);
+      }
+      .badge {
+        flex: none;
+        padding: var(--ward-space-2) var(--ward-space-8);
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-pill);
+        background: var(--surface-raised);
+        color: var(--warning-text);
+        font-size: var(--text-2xs);
+        font-weight: 700;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .governance p {
+        margin: 0;
+      }
+
+      .pageHead {
+        margin: var(--ward-space-20) 0 var(--ward-space-16);
+      }
+      .pageHead h1 {
+        margin: 0;
+        color: var(--ward-heading);
+        font-size: clamp(1.45rem, 1.1rem + 1.1vw, 1.875rem);
+        font-weight: 700;
+        letter-spacing: -0.022em;
+        line-height: 1.1;
+      }
+      .pageHead p {
+        margin: var(--ward-space-6) 0 0;
+        color: var(--ward-muted);
+        font-size: var(--text-sm-minus);
+      }
+
+      /* ── the workspace ─────────────────────────────────────────────────── */
+      .workspace {
+        display: grid;
+        gap: var(--ward-space-16);
+        align-items: start;
+      }
+      @media (min-width: 64rem) {
+        .workspace {
+          grid-template-columns: minmax(0, 1fr) 21rem;
+        }
+      }
+      .column {
+        min-width: 0;
+        display: grid;
+        gap: var(--ward-space-16);
+      }
+
+      /* ── grouped question cards (left) ─────────────────────────────────── */
+      .group {
+        border: 1px solid var(--ward-border);
+        border-radius: var(--radius-md);
+        background: var(--ward-canvas);
+        overflow: hidden;
+        box-shadow: var(--e1);
+      }
+      .groupHead {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--ward-space-12);
+        padding: var(--ward-space-12) var(--ward-space-16);
+        background: var(--ward-subtle);
+        border-bottom: 1px solid var(--ward-border);
+      }
+      .groupHead h2 {
+        margin: 0;
+        color: var(--ward-heading);
+        font-size: var(--text-base-minus);
+        font-weight: 650;
+      }
+      .groupStep {
+        color: var(--ward-muted);
+        font-size: var(--text-2xs);
+        font-weight: 600;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .groupBody {
+        padding: var(--ward-space-16);
+        display: grid;
+        gap: var(--ward-space-14);
+      }
+      @media (min-width: 40rem) {
+        .twoUp {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      .field label,
+      .fieldset legend {
+        display: block;
+        margin-bottom: var(--ward-space-6);
+        color: var(--ward-heading);
+        font-size: var(--text-sm-minus);
+        font-weight: 600;
+      }
+      .field select {
+        width: 100%;
+        min-height: var(--spacing-tap);
+        padding: 0 var(--ward-space-12);
+        border: 1px solid var(--ward-border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-raised);
+        color: var(--ward-text);
+        font: inherit;
+      }
+      .hint {
+        margin: var(--ward-space-6) 0 0;
+        color: var(--ward-muted);
+        font-size: var(--text-sm-minus);
+      }
+
+      .fieldset {
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+      .choices {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ward-space-8);
+      }
+      .choice {
+        flex: 1 1 8rem;
+        display: flex;
+        align-items: center;
+        gap: var(--ward-space-8);
+        min-height: var(--spacing-tap);
+        padding: 0 var(--ward-space-14);
+        border: 1px solid var(--ward-border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-raised);
+        font-size: var(--text-sm-minus);
+      }
+      .choice[data-chosen="true"] {
+        border-color: var(--ward-blue);
+        background: var(--info-bg);
+        box-shadow: inset 0 0 0 1px var(--ward-blue);
+        font-weight: 600;
+      }
+
+      /* ── destinations ──────────────────────────────────────────────────── */
+      .destinations {
+        display: grid;
+        gap: var(--ward-space-10);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .destination {
+        border: 1px solid var(--ward-border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-raised);
+        padding: var(--ward-space-12) var(--ward-space-14);
+      }
+      .destination[data-chosen="true"] {
+        border-color: var(--ward-blue);
+        box-shadow: inset 0 0 0 1px var(--ward-blue);
+        background: var(--info-bg);
+      }
+      .destinationTop {
+        display: flex;
+        align-items: center;
+        gap: var(--ward-space-10);
+        min-height: 1.5rem;
+      }
+      .destinationTop strong {
+        color: var(--ward-heading);
+        font-size: var(--text-base-minus);
+      }
+      .tag {
+        margin-left: auto;
+        padding: var(--ward-space-2) var(--ward-space-8);
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--success-border);
+        background: var(--success-bg);
+        color: var(--success-text);
+        font-size: var(--text-2xs);
+        font-weight: 700;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+      }
+      .tag[data-tone="caution"] {
+        border-color: var(--warning-border);
+        background: var(--warning-bg);
+        color: var(--warning-text);
+      }
+      .destination p {
+        margin: var(--ward-space-8) 0 0;
+        color: var(--ward-muted);
+        font-size: var(--text-sm-minus);
+      }
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ward-space-6) var(--ward-space-12);
+        margin: var(--ward-space-8) 0 0;
+        padding: 0;
+        list-style: none;
+        color: var(--ward-muted);
+        font-size: var(--text-sm-minus);
+      }
+      .facts li::before {
+        content: "· ";
+      }
+
+      /* ── the send row ──────────────────────────────────────────────────── */
+      .sendRow {
+        display: grid;
+        gap: var(--ward-space-10);
+        padding: var(--ward-space-16);
+        border: 1px solid var(--ward-border);
+        border-radius: var(--radius-md);
+        background: var(--ward-canvas);
+      }
+      .send {
+        min-height: var(--spacing-tap);
+        padding: 0 var(--ward-space-20);
+        border: 1px solid var(--ward-blue);
+        border-radius: var(--radius-sm);
+        background: var(--ward-blue);
+        color: var(--surface-raised);
+        font: inherit;
+        font-weight: 650;
+        justify-self: start;
+      }
+      .send[aria-disabled="true"] {
+        border-color: var(--ward-border);
+        background: var(--surface-inset);
+        color: var(--ward-muted);
+      }
+      .sendReason {
+        margin: 0;
+        color: var(--ward-muted);
+        font-size: var(--text-sm-minus);
+      }
+
+      /* ── context rail (right) ──────────────────────────────────────────── */
+      .rail {
+        display: grid;
+        gap: var(--ward-space-12);
+        align-content: start;
+        min-width: 0;
+      }
+      @media (min-width: 64rem) {
+        .rail {
+          position: sticky;
+          top: var(--ward-space-16);
+        }
+      }
+      .card {
+        border: 1px solid var(--ward-border);
+        border-radius: var(--radius-sm);
+        background: var(--ward-canvas);
+        overflow: hidden;
+      }
+      .cardTitle {
+        margin: 0;
+        padding: var(--ward-space-10) var(--ward-space-14);
+        background: var(--ward-subtle);
+        border-bottom: 1px solid var(--ward-border);
+        color: var(--ward-muted);
+        font-size: var(--text-2xs);
+        font-weight: 600;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+      }
+      .cardBody {
+        padding: var(--ward-space-12) var(--ward-space-14);
+      }
+      .figure {
+        display: block;
+        color: var(--ward-heading);
+        font-size: var(--text-2xl-minus);
+        font-weight: 700;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+      .figureLabel {
+        display: block;
+        margin-top: var(--ward-space-6);
+        color: var(--ward-muted);
+        font-size: var(--text-sm-minus);
+      }
+      .summary {
+        display: grid;
+        gap: var(--ward-space-8);
+        margin: 0;
+      }
+      .summary div {
+        display: grid;
+        gap: var(--ward-space-2);
+      }
+      .summary dt {
+        color: var(--ward-muted);
+        font-size: var(--text-2xs);
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+      }
+      .summary dd {
+        margin: 0;
+        color: var(--ward-text);
+        font-size: var(--text-sm-minus);
+        overflow-wrap: anywhere;
+      }
+      .summary dd[data-missing="true"] {
+        color: var(--ward-muted);
+        font-style: italic;
+      }
+      .note {
+        margin: 0;
+        color: var(--ward-muted);
+        font-size: var(--text-sm-minus);
+      }
+
+      .mockNote {
+        max-width: 86rem;
+        margin: 0 auto var(--ward-space-16);
+        padding: var(--ward-space-10) var(--ward-space-14);
+        border: 1px dashed var(--ward-border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-raised);
+        color: var(--ward-muted);
+        font-size: var(--text-sm-minus);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="shell">
+      <p class="mockNote">
+        <strong>Mockup, not the app.</strong> Nothing here is wired up. Shown part-filled so the empty and answered
+        states are both visible at once — in the real screen every value on the right appears only once its question has
+        been answered.
+      </p>
+
+      <div class="governance">
+        <span class="badge">Synthetic prototype</span>
+        <p>
+          This form is <strong>not a medical device</strong>. It records only the five permitted facts about the person
+          referred, the request itself, and — when the referral was raised from a person’s record — a pointer to that
+          record: an id and nothing else. Never a name, never free text, and never a figure from the Mental Health Act.
+        </p>
+      </div>
+
+      <header class="pageHead">
+        <h1>Raise a referral</h1>
+        <p>One form for every source — community, crisis service, police, ambulance or inter-hospital.</p>
+      </header>
+
+      <div class="workspace">
+        <!-- ══ LEFT: what the referrer is asserting ══ -->
+        <div class="column">
+          <section class="group">
+            <div class="groupHead">
+              <h2>Who the referral is about</h2>
+              <span class="groupStep">Step 1 of 3</span>
+            </div>
+            <div class="groupBody twoUp">
+              <div class="field">
+                <label for="m-age">Age band</label>
+                <select id="m-age">
+                  <option>adult</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="m-sex">Sex</label>
+                <select id="m-sex">
+                  <option>female</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="m-region">Home region</label>
+                <select id="m-region">
+                  <option>South Metropolitan</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="m-suburb">Suburb</label>
+                <select id="m-suburb">
+                  <option>Fremantle</option>
+                </select>
+                <p class="hint">
+                  Recorded on the referral, and used here to read the catchment for each destination below. If it is not
+                  known, the list has an answer for that — the referral can still be sent.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="group">
+            <div class="groupHead">
+              <h2>What they need</h2>
+              <span class="groupStep">Step 2 of 3</span>
+            </div>
+            <div class="groupBody">
+              <div class="groupBody twoUp" style="padding: 0; gap: var(--ward-space-14)">
+                <div class="field">
+                  <label for="m-source">Referral source</label>
+                  <select id="m-source">
+                    <option>community</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="m-urgency">Urgency</label>
+                  <select id="m-urgency">
+                    <option>2</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="m-origin">Origin site</label>
+                  <select id="m-origin">
+                    <option>Choose one</option>
+                  </select>
+                </div>
+              </div>
+
+              <fieldset class="fieldset">
+                <legend>Needs a secure bed</legend>
+                <div class="choices">
+                  <span class="choice" data-chosen="true">● Yes</span>
+                  <span class="choice">○ No</span>
+                </div>
+              </fieldset>
+
+              <fieldset class="fieldset">
+                <legend>Needs a bed that can hold someone involuntarily</legend>
+                <div class="choices">
+                  <span class="choice">○ Yes</span>
+                  <span class="choice" data-chosen="true">● No</span>
+                </div>
+              </fieldset>
+
+              <fieldset class="fieldset">
+                <legend>Needs transport</legend>
+                <div class="choices">
+                  <span class="choice">○ Yes</span>
+                  <span class="choice">○ No</span>
+                </div>
+              </fieldset>
+            </div>
+          </section>
+
+          <section class="group">
+            <div class="groupHead">
+              <h2>Where to refer</h2>
+              <span class="groupStep">Step 3 of 3 · up to 3, in one act</span>
+            </div>
+            <div class="groupBody">
+              <ul class="destinations">
+                <li class="destination" data-chosen="true">
+                  <div class="destinationTop">
+                    <input type="checkbox" checked />
+                    <strong>Psychiatric ward</strong>
+                    <span class="tag">In catchment</span>
+                  </div>
+                  <p>Fremantle sits in the South Metropolitan catchment for this destination.</p>
+                  <ul class="facts">
+                    <li>7 units accept this referral</li>
+                    <li>3 with a bed ready</li>
+                    <li>2 referrals waiting for an answer</li>
+                  </ul>
+                </li>
+
+                <li class="destination">
+                  <div class="destinationTop">
+                    <input type="checkbox" />
+                    <strong>Emergency department</strong>
+                    <span class="tag">In catchment</span>
+                  </div>
+                  <p>Fiona Stanley Hospital is the catchment emergency department for Fremantle.</p>
+                  <ul class="facts">
+                    <li>4 departments accept this referral</li>
+                    <li>1 referral waiting for an answer</li>
+                  </ul>
+                </li>
+
+                <li class="destination">
+                  <div class="destinationTop">
+                    <input type="checkbox" />
+                    <strong>Community team</strong>
+                    <span class="tag" data-tone="caution">Out of catchment</span>
+                  </div>
+                  <p>
+                    Still offered, and still sendable — a team outside the catchment is a legitimate ask, and this
+                    screen records the choice rather than blocking it.
+                  </p>
+                  <ul class="facts">
+                    <li>Cannot be sent with a psychiatric bed on the same referral</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <div class="sendRow">
+            <button class="send" aria-disabled="true" type="button">Send referral</button>
+            <p class="sendReason">
+              Not yet answered: Origin site, Needs transport. Send stays unavailable until each has an answer.
+            </p>
+          </div>
+        </div>
+
+        <!-- ══ RIGHT: what the system will record ══ -->
+        <aside class="rail">
+          <section class="card">
+            <h2 class="cardTitle">Progress</h2>
+            <div class="cardBody">
+              <span class="figure">10 of 12</span>
+              <span class="figureLabel">questions answered. Send stays unavailable until each one has an answer.</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2 class="cardTitle">What this referral will record</h2>
+            <div class="cardBody">
+              <dl class="summary">
+                <div>
+                  <dt>Age band</dt>
+                  <dd>adult</dd>
+                </div>
+                <div>
+                  <dt>Sex</dt>
+                  <dd>female</dd>
+                </div>
+                <div>
+                  <dt>Home region</dt>
+                  <dd>South Metropolitan</dd>
+                </div>
+                <div>
+                  <dt>Suburb</dt>
+                  <dd>Fremantle</dd>
+                </div>
+                <div>
+                  <dt>Referral source</dt>
+                  <dd>community</dd>
+                </div>
+                <div>
+                  <dt>Urgency</dt>
+                  <dd>2</dd>
+                </div>
+                <div>
+                  <dt>Origin site</dt>
+                  <dd data-missing="true">Not answered yet</dd>
+                </div>
+                <div>
+                  <dt>Needs a secure bed</dt>
+                  <dd>yes</dd>
+                </div>
+                <div>
+                  <dt>Needs an involuntary bed</dt>
+                  <dd>no</dd>
+                </div>
+                <div>
+                  <dt>Needs transport</dt>
+                  <dd data-missing="true">Not answered yet</dd>
+                </div>
+                <div>
+                  <dt>Where to refer</dt>
+                  <dd>psychiatric ward</dd>
+                </div>
+                <div>
+                  <dt>Person’s record</dt>
+                  <dd>a pointer only — an id, no name</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2 class="cardTitle">What sending does</h2>
+            <div class="cardBody">
+              <p class="note">
+                Sending records the request and queues it for a coordinator. It places nobody: a coordinator decides
+                every placement, one at a time. Nothing on this page chooses a destination for you.
+              </p>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </body>
+</html>

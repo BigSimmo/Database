@@ -1,0 +1,258 @@
+/* The Capacity screen — merge 02 (`capacity` + `morning`).
+ * Layout only. Every colour and every space resolves through a --ward-* token, and this screen
+ * paints no ground of its own: `ward-shell.module.css` owns that, pinned by ward-shell.dom.test.tsx.
+ * Mirrors `delays.module.css`'s shell exactly rather than inventing a second one — same page
+ * header, same `.bar`/`.filters`/`.foot`/`.absent`/`.attention` shapes, so a coordinator moving
+ * between Ward Flow screens meets one visual language rather than several. */
+.screen {
+  composes: wardTokens from "../ward-tokens.module.css";
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: auto minmax(0, 1fr);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  grid-column: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ward-space-12);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--ward-space-16) var(--ward-space-20) var(--ward-space-24);
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-4);
+}
+
+.pageTitle {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: 700;
+}
+
+.pageSubtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+/*
+ * Two-column split above 64rem, one column below — design lock § layout: "panel-and-ground, not a
+ * card grid… two-column split (minmax(0,1fr) 19rem) above 64rem, one column below." 64rem is
+ * already a pinned breakpoint value elsewhere in this layer (`ward-management.module.css`,
+ * `ward-sidebar.module.css`); this file adds its own `file: value` row to
+ * `tests/ward-primitives-shared.test.ts`'s `KNOWN_BREAKPOINTS` list — outside this task's three
+ * owned files, so it is called out in the handoff report rather than edited here.
+ */
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ward-space-16);
+  align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr) 19rem;
+  }
+}
+
+.primary {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ward-space-12);
+}
+
+.secondary {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ward-space-12);
+}
+
+.bar {
+  padding: var(--ward-space-16);
+}
+
+.filters {
+  padding: var(--ward-space-10) var(--ward-space-16);
+  border-bottom: 1px solid var(--ward-divider);
+}
+
+.foot {
+  margin: 0;
+  padding: var(--ward-space-10) var(--ward-space-16);
+  border-top: 1px solid var(--ward-divider);
+  font-size: 0.6875rem;
+  line-height: var(--ward-leading-relaxed);
+  color: var(--ward-muted);
+}
+.foot strong {
+  color: var(--ward-text);
+  font-weight: 600;
+}
+
+.absent {
+  margin: 0;
+  padding: var(--ward-space-16);
+  font-size: 0.75rem;
+  line-height: var(--ward-leading-relaxed);
+  color: var(--ward-muted);
+}
+
+.attention {
+  margin: 0;
+  padding: var(--ward-space-16);
+  display: grid;
+  gap: var(--ward-space-12);
+  list-style: none;
+}
+
+.attentionItem {
+  padding-left: var(--ward-space-10);
+  border-left: var(--ward-space-2) solid var(--ward-warning);
+  font-size: 0.75rem;
+  line-height: var(--ward-leading-relaxed);
+  color: var(--ward-text);
+}
+
+.attentionWho {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ward-warning);
+}
+
+/* The "need"/"who" and "ward"/"site" two-line cell — a bold primary line and a quieter second
+ * line underneath it, used in both tables below rather than each growing its own variant. */
+.who {
+  margin-top: var(--ward-space-2);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--ward-muted);
+}
+
+/* `WardTable`'s per-screen width variable (`ward-table.module.css`), same mechanism
+ * `search.module.css` already uses — never a length prop. */
+.gapTable {
+  composes: table from "../ward-table/ward-table.module.css";
+  --ward-table-min-width: 34rem;
+}
+
+.networkTable {
+  composes: table from "../ward-table/ward-table.module.css";
+  --ward-table-min-width: 40rem;
+}
+
+/* The "All four together" row: heavier than a body row so it reads as a sum rather than a fifth
+ * bed kind. Figures stay tabular-nums via `.screen`, so this only needs weight and a resting tone. */
+.totalRow th,
+.totalRow td {
+  font-weight: 600;
+  background: var(--ward-subtle);
+  border-top: 1px solid var(--ward-border);
+}
+
+.gapNumber {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+/* ⚠️ NOT A GREYED-OUT CELL. `notTracked` renders the same weight and colour as any other cell text
+ * — an absence stated in words is a fact, not a lesser one, and dimming it would read as "ignore
+ * this column" rather than "this column has an honest answer of 'not tracked'". */
+.notTracked {
+  color: var(--ward-muted);
+  font-style: italic;
+}
+
+/* The cleaning count beside a Ready figure (owner ruling 2026-09-05). Its own line, because it is a
+ * second fact rather than a qualifier on the number — and muted, because the number is what a
+ * coordinator scans down the column and this must not compete with it. */
+.beingMadeReady {
+  display: block;
+  margin-top: var(--ward-space-2);
+  font-size: 0.6875rem;
+  line-height: var(--ward-leading-relaxed);
+  color: var(--ward-muted);
+}
+
+/*
+ * ⚠️ RESERVE THE FIXED PHONE BAR. `ward-sidebar.module.css`'s `.phoneBar` is `position: fixed` at
+ * the top on phones, so it is out of flow and this shell's content would sit underneath it — the
+ * first row of a board hidden behind the navigation, which does not look broken.
+ *
+ * Missed when this screen was built and caught by `ward-sidebar-phone-contract` only once the ward
+ * suite was discovered from disk rather than hand-picked: the contract had been red on three of the
+ * merged screens and nobody's chosen file list included it.
+ *
+ * Same declaration every sibling board makes (board, community-index, and the rest) — deliberately
+ * copied rather than re-derived, because a shell that reserves a different amount is worse than one
+ * that reserves none.
+ */
+@media (max-width: 40rem) {
+  .screen {
+    padding-top: var(--spacing-ward-phone-bar);
+  }
+}
+
+/*
+ * Restored 2026-09-05 with the coordinator's capacity-refresh control (see capacity-screen.tsx).
+ *
+ * ⚠️ EVERY CUSTOM PROPERTY BELOW WAS CHECKED AGAINST `ward-tokens.module.css` BEFORE USE. A first
+ * draft of this block used `--ward-surface`, `--ward-ink`, `--ward-radius-sm`, `--ward-text-sm`,
+ * `--ward-surface-raised` and `--ward-ink-muted` — none of which are defined anywhere in `src`.
+ * An undefined custom property does not fail a build, a lint or a test: the declaration is simply
+ * dropped and the element renders unstyled.
+ *
+ * 🔴 **THE PARENTHESIS THAT USED TO BE HERE WAS FALSE AND IS WITHDRAWN.** It said several of those
+ * names were "already used elsewhere in THIS file and are equally dead there". They are not used
+ * anywhere in this file's live CSS — they appear twice, in the comment immediately above, **which I
+ * had just written.** I grepped the whole file for `--ward-` and read my own new prose back as
+ * evidence of pre-existing dead code. Measured properly, with comments blanked before counting:
+ * every one of those six names has 0 live uses here.
+ *
+ * ⚠️ **AND THE WIDER CLAIM IT IMPLIED IS ALSO FALSE.** Audited across all 56 stylesheets under
+ * `src/`, with comments stripped: the only `var()` references to an undefined property that carry
+ * no fallback are three Next.js font variables (injected on an element at runtime, not in CSS) and
+ * two uses of `--text-2xl`, which Tailwind's own default theme defines via `@import "tailwindcss"`.
+ * **No live ward declaration is dropped for want of a token.** The hazard described above is real
+ * and it caught my own draft; it is not an existing condition of this codebase.
+ *
+ * `--ward-tap` is the repo's production tap target. It is used rather than a literal, so this
+ * control cannot drift to the 44px a generic WCAG reading suggests — that reintroduces a known
+ * ui-smoke flake.
+ */
+.refreshButton {
+  min-height: var(--ward-tap);
+  padding: var(--ward-space-4) var(--ward-space-10);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--ward-radius-pixel);
+  background: var(--ward-chrome);
+  color: var(--ward-text);
+  font-size: 0.75rem;
+  line-height: var(--ward-leading-ui);
+  cursor: pointer;
+}
+
+.refreshButton:hover {
+  border-color: var(--ward-border-strong);
+}
+
+/* The releases this board deliberately leaves out of every figure, stated rather than dropped. */
+.excluded {
+  margin: 0;
+  padding: var(--ward-space-10) var(--ward-space-16);
+  font-size: 0.75rem;
+  line-height: var(--ward-leading-relaxed);
+  color: var(--ward-muted);
+}

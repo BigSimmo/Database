@@ -320,12 +320,34 @@ export function referralPersonFacts(referral: Referral): string[] {
     : [referral.ageBand, referral.homeRegion];
 }
 
-/** The sex cell for a table with a fixed Sex column. An em dash where the fact is not held, which
- *  is a different statement from an empty cell and reads as one. */
+/**
+ * The sex cell for a table with a fixed Sex column.
+ *
+ * ⚠️ **WORDS WHERE THE FACT IS NOT HELD, NOT AN EM DASH.** This returned `"—"` until 2026-09-05,
+ * with the reasoning that a dash *"is a different statement from an empty cell and reads as one"* —
+ * which is true as far as it goes, and stops one step short. **A dash says "nothing here" and this
+ * cell has a specific, explainable reason:** `sex` sits on the ward arm, to be matched against a
+ * bed's designation, so a referral that asks for no bed never carried one. That is a fact about the
+ * REQUEST, and a reader who sees a dash cannot tell it from missing data.
+ *
+ * ⚠️ **THE SAME RULE IS ALREADY ENFORCED ON THIS FUNCTION'S SIBLING, IN THIS FILE.**
+ * `tests/ward-referral-clocks.test.ts` asserts `REFERRAL_CLOCK_TERMS.notInDepartment` is neither a
+ * digit nor `"—"`, for the same reason — and its wording, `"not in department yet"`, is the idiom
+ * followed here: lower case, a term rather than a sentence, no full stop, screens compose the
+ * layout. **One screen family enforcing the rule on one absent value and printing a dash for the
+ * other is the drift a house rule exists to stop.**
+ *
+ * Pinned by `tests/ward-referral-sex-cell.test.ts`, which fails on a dash, on a blank, and on the
+ * ward case losing its real value.
+ */
 export function referralSexCell(referral: Referral): string {
   const ward = referral.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
-  return ward && ward.destination.kind === "psychiatric_ward" ? ward.destination.sex : "—";
+  return ward && ward.destination.kind === "psychiatric_ward" ? ward.destination.sex : SEX_NOT_HELD;
 }
+
+/** What the Sex column says when no bed was asked for, so the fact was never recorded. A term, in
+ *  the idiom of `REFERRAL_CLOCK_TERMS` — exported so a test and a screen cannot spell it apart. */
+export const SEX_NOT_HELD = "not a ward referral";
 
 export function referralCandidates(
   referral: Referral,

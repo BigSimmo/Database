@@ -289,10 +289,6 @@ export type Unit = {
   siteCode: string;
   name: string;
   cohort: Cohort;
-  /** Physical/procedural security, not one of the four bed-matching dimensions below — do not
-   *  fold this into `forensic`; they are independent facts (a locked ward need not be forensic,
-   *  and a forensic bed is not automatically a locked ward in this model). */
-  security: Security;
   /**
    * Authorised under the Mental Health Act 2014 to receive involuntary admissions. This IS the
    * bed's legal-status dimension — an authorised bed accepts BOTH voluntary and involuntary
@@ -301,11 +297,41 @@ export type Unit = {
    * fact: two fields for one fact is how a screen ends up giving two answers.
    */
   authorised: boolean;
+  /**
+   * HOW MANY OF THIS WARD'S BEDS ARE DESIGNATED LOCKED. Replaced `security: Security` on
+   * 2026-09-04 by owner ruling: "Ward 7 in Bentley is a locked/Open ward so some wards are a
+   * combination with a number of designated locked beds and open beds." `(OWNER, 2026-09-04)`
+   *
+   * ⚠️ A whole-ward flag could not express that, and the failure was not cosmetic: the old
+   * eligibility gate read `movement.security === "Open" || unit.security === "Secure"`, so a
+   * mixed ward recorded as `Open` hid every one of its locked beds from every patient who
+   * needed one.
+   *
+   * ⚠️ **OPEN BEDS ARE DERIVED, NEVER STORED** — `openBeds(unit)` in `ward-bed-designation.ts`
+   * returns `beds - lockedBeds`. Storing both is two sources for one fact, which the owner
+   * ruled against by name in the same decision. A wholly-open ward carries `0` here.
+   *
+   * ⚠️ **THIS IS A PROPERTY OF THE WARD, NOT OF A PATIENT.** An involuntary patient is a
+   * property of the person (`LegalStatus`); a voluntary patient may be nursed on a locked
+   * ward. Never rename this to anything containing "involuntary".
+   */
+  lockedBeds: number;
   beds: number;
   /** Physically empty beds, per the feed. */
   empty: CapacityFigure;
   /** Beds the ward says it can actually allocate. Never greater than `empty` in practice. */
   allocatable: CapacityFigure;
+  /**
+   * HOW MANY OF THE `allocatable` BEDS ARE LOCKED ONES. The open half is derived
+   * (`openBedsFree` in `ward-bed-designation.ts`), for the same one-source reason as
+   * `lockedBeds` above.
+   *
+   * ⚠️ Splits the ALLOCATABLE figure, not the `empty` one. `allocatable` is what the ward says
+   * it can actually fill; `empty` is what the feed believes is physically vacant. Every
+   * eligibility gate has always asked about allocatable beds, so the split belongs there.
+   * (Plan author's reasoning, 2026-09-04 — not an owner ruling.)
+   */
+  allocatableLocked: number;
   /**
    * ⚠️ **AUTHORED AND READ BY NOTHING.** Every "Held" figure any screen shows is DERIVED —
    * `unitCapacity` computes it as `empty.value - min(allocatable.value, empty.value)` and never
@@ -1397,6 +1423,37 @@ export const suburbUnknownLabels: Record<SuburbUnknownReason, string> = {
 
 export type ReferralSuburb = { kind: "named"; name: string } | { kind: "unknown"; reason: SuburbUnknownReason };
 
+/**
+ * How long each written-history field may be.
+ *
+ * ⚠️ **PLACEHOLDERS. NOBODY HAS MEASURED A REAL REFERRAL AGAINST THEM.** Chosen to be generous
+ * enough that no ordinary referral meets one, and small enough that the field is BOUNDED — a
+ * bounded free-text field is a different privacy proposition from an endless one. The owner has
+ * been told they are unmeasured and it is his number to set.
+ *
+ * ⚠️ **A LIMIT IS ENFORCED BY REFUSING, NEVER BY CUTTING.** The reducer rejects an over-length
+ * value and the front door shows a counted, blocking state. Nothing truncates: silently dropping
+ * the tail of a risk note is the worst thing this form could do, and it would look like success.
+ *
+ * ⚠️ **2000, AND IT IS NOT A NEW NUMBER.** The three-box form used 1500 / 2000 / 1000; the owner's
+ * 2026-09-05 ruling collapsed it to one box and this takes the LARGEST of the three rather than
+ * authoring a fresh figure or summing them. Total capacity therefore falls from 4500 to 2000, and
+ * that is a real reduction — but an over-long story BLOCKS the Send with a counted, visible
+ * message, so a referrer who needs more is told, not truncated.
+ *
+ * The keys are exactly the history fields on `Referral`, so a second field cannot be added without
+ * either appearing here or failing `historyFieldsAreLimited` in the model tests.
+ */
+export const REFERRAL_HISTORY_LIMITS = {
+  history: 2000,
+} as const;
+
+export type ReferralHistoryField = keyof typeof REFERRAL_HISTORY_LIMITS;
+
+/* `REQUIRED_HISTORY_FIELD` was declared here until the owner's ruling of 2026-09-05: ONE story
+ * box, OPTIONAL. There is no required history field any more, so the constant is gone rather than
+ * left pointing at a rule nobody enforces. The reducer's blank-refusal went with it. */
+
 export type Referral = {
   id: string;
   /**
@@ -1479,6 +1536,54 @@ export type Referral = {
   /** A synthetic site code (see `wardSites`), never an address. */
   originSiteCode: string;
   transportNeeded: boolean;
+  /**
+   * ⚠️ THE WRITTEN HISTORY — THE ONLY FREE TEXT ON A REFERRAL, AND THE ONLY FIELD HERE THAT
+   * NOTHING CAN CHECK.
+   *
+   * Owner instruction, 2026-09-05: a referrer must be able to write the patient's story. Until
+   * that date this type held no free text of any kind, and the front door had NO free-text control
+   * — no `<textarea>`, no `[contenteditable]` — which made "this form cannot record a name, an
+   * address or a clinical note" true BY CONSTRUCTION rather than by anyone's care. Three screens
+   * said so to clinicians and were right.
+   *
+   * ⚠️ **THAT GUARANTEE IS GONE, AND THIS IS WHERE IT WENT.** It is now a policy people keep, not
+   * a property the software holds. Every sentence that promised otherwise was rewritten in the
+   * same change that added this field, and `mockup-referral-intake-v6.html` carries the wording.
+   * If you are reading this because you are about to write a governance sentence: say which half
+   * is enforced. The STRUCTURED fields still cannot hold a name. This one plainly can.
+   *
+   * ⚠️ **NOTHING MAY EVER BE DERIVED FROM IT.** Not an urgency, not a risk level, not a
+   * destination, not a ranking, not a summary. `urgency` is recorded from the referrer and
+   * `UrgencyLevel` is a closed union for exactly this reason; a screen that read a risk out of
+   * this prose would be inferring a clinical judgement from it, which is the line this prototype
+   * does not cross. No parser, no keyword scan, no length heuristic. **A referral whose story is
+   * blank is not a referral about a safe person** — the field being optional makes that clearer,
+   * not less true.
+   *
+   * ⚠️ **STORED BYTE FOR BYTE.** No trim, no normalisation, no truncation. A form that quietly
+   * drops the last paragraph of a story is worse than one that refuses to send, so the length
+   * limit is enforced at the front door as a BLOCKING, VISIBLE state and never by silently
+   * cutting. `REFERRAL_HISTORY_LIMITS` holds it, and the reducer refuses an over-length value
+   * rather than shortening it.
+   *
+   * ⚠️ **EMPTY IS A REAL ANSWER, WHICH IS WHY THIS IS `string` AND NOT OPTIONAL.** `""` means
+   * the referrer left it blank; there is no third state where the field did not exist. Screens
+   * render the blank as words — "Not written yet" — never as an empty box, because a blank reads
+   * as a value.
+   *
+   * ⚠️ **AND NOTHING REQUIRES IT TO BE NON-EMPTY. Owner ruling, 2026-09-05: one story box,
+   * OPTIONAL.** It was three boxes with the first required until that ruling; `FD-13` had said one
+   * optional field from 2026-08-30 and the built form had diverged from it. A referrer with
+   * nothing written down should not be made to invent something to get a referral out of the
+   * door, and a blocked Send at 3am is answered by typing a character, not by writing a history.
+   *
+   * ⚠️ **ONE FLAT `string`, NEVER AN OBJECT.** The three-box version was three flat keys for a
+   * reason that survives the collapse to one: a `history: {...}` object would be ONE permitted key
+   * in `ALLOWED_REFERRAL_FIELDS` with an unchecked shape behind it — precisely the hole that opened
+   * when the decision fields moved inside `destinations` and needed two more allowlists to close.
+   * If a second box is ever wanted, it is a second flat key, not a nested one.
+   */
+  history: string;
   // `state`, `acceptedUnitId`, `declineReason`, `decidedAt` and `decidedBy` were here until
   // 2026-08-30. All five moved onto `ReferralAddressing`, because with several destinations there
   // is no longer one thing to decide — see that type's own doc comment. `referralState` derives the

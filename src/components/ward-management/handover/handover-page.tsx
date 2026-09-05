@@ -73,7 +73,7 @@ export function HandoverPage() {
           </button>
         </header>
 
-        <LongestWaitsSection snapshot={snapshot} />
+        <LongestWaitsSection snapshot={snapshot} units={units} />
         <PulledBedsSection snapshot={snapshot} />
         <InTransitSection snapshot={snapshot} units={units} />
         <PlacementGoneWrongSection snapshot={snapshot} />
@@ -87,7 +87,41 @@ export function HandoverPage() {
   );
 }
 
-export function LongestWaitsSection({ snapshot }: { snapshot: HandoverSnapshot }) {
+/**
+ * WHAT TO PRINT IN A "DESTINATION" CELL, FOR ANY MOVEMENT, ON ANY SECTION OF THIS PAGE.
+ *
+ * ACCEPTED-ONLY, never `destinationUnit`. That helper is `acceptedUnitId ?? referredUnitIds[0]`, so
+ * on a movement with an open referral and no acceptance it names the FIRST WARD ASKED as though it
+ * were the destination — the same defect already repaired on the movement workspace, where the
+ * masthead read "Bound for FSH Older Adult" beside "No ward has accepted this patient".
+ *
+ * The three states are kept apart rather than collapsed into one fallback: a ward has accepted, or
+ * wards have been asked and none has answered, or nobody has been asked. The middle one is the one
+ * the old fallback erased, and it is the one a coordinator acts on differently — chase an answer,
+ * versus start asking. The wards are named for the same reason as `patient-search.tsx`'s own
+ * column: a status without the wards is honest and unhelpful, and this table is read at handover
+ * where "who has been asked" is the next question anybody has.
+ *
+ * ⚠️ **THIS IS A FUNCTION BECAUSE THE LAST FIX WAS NOT.** The identical logic was written inline in
+ * `InTransitSection` and repaired there, while `LongestWaitsSection` — seventy lines above, in this
+ * same file, under a column literally headed "Destination" — went on calling `destinationUnit()`
+ * and was never opened. **A fix applied to a page is not a fix applied to a page's sections.** One
+ * function is what makes the next section inherit the repair instead of re-earning it.
+ */
+export function destinationCell(movement: Movement, units: Unit[]): string {
+  const accepted = movement.acceptedUnitId
+    ? units.find((candidate) => candidate.id === movement.acceptedUnitId)
+    : undefined;
+  if (accepted) return accepted.name;
+  if (movement.referredUnitIds.length === 0) return "No destination unit recorded";
+  const askedNames = movement.referredUnitIds
+    .map((id) => units.find((candidate) => candidate.id === id)?.name)
+    .filter((name): name is string => name !== undefined);
+  const asked = `${movement.referredUnitIds.length} ward${movement.referredUnitIds.length === 1 ? "" : "s"} asked, none has accepted`;
+  return askedNames.length > 0 ? `${asked} — ${askedNames.join(", ")}` : asked;
+}
+
+export function LongestWaitsSection({ snapshot, units }: { snapshot: HandoverSnapshot; units: Unit[] }) {
   return (
     <section className={styles.section} data-testid="ward-handover-longest-waits">
       <h2 className={styles.sectionHeading}>Longest waits</h2>
@@ -115,7 +149,7 @@ export function LongestWaitsSection({ snapshot }: { snapshot: HandoverSnapshot }
                 <td>{elapsedLabel(entry.movement, snapshot.takenAt)}</td>
                 <td>{stageCopy[entry.movement.stage].label}</td>
                 <td>{departmentLabel(entry.movement)}</td>
-                <td>{entry.unit?.name ?? "No destination chosen"}</td>
+                <td>{destinationCell(entry.movement, units)}</td>
               </tr>
             ))}
           </tbody>
@@ -175,41 +209,13 @@ export function InTransitSection({ snapshot, units }: { snapshot: HandoverSnapsh
             </tr>
           </thead>
           <tbody>
-            {snapshot.inTransit.map((entry) => {
-              /*
-               * ACCEPTED-ONLY, never `destinationUnit`. That helper is
-               * `acceptedUnitId ?? referredUnitIds[0]`, so on a movement with an open referral and
-               * no acceptance it names the FIRST WARD ASKED as though it were the destination —
-               * the same defect already repaired on the movement workspace, where the masthead
-               * read "Bound for FSH Older Adult" beside "No ward has accepted this patient".
-               *
-               * The three states are kept apart rather than collapsed into one fallback: a ward
-               * has accepted, or wards have been asked and none has answered, or nobody has been
-               * asked. The middle one is the one the old fallback erased, and it is the one a
-               * coordinator acts on differently — chase an answer, versus start asking.
-               */
-              const unit = entry.movement.acceptedUnitId
-                ? units.find((candidate) => candidate.id === entry.movement.acceptedUnitId)
-                : undefined;
-              // Named here too, for the same reason as `patient-search.tsx`'s own column: a status
-              // without the wards is honest and unhelpful, and this table is read at handover where
-              // "who has been asked" is the next question anybody has.
-              const askedNames = entry.movement.referredUnitIds
-                .map((id) => units.find((candidate) => candidate.id === id)?.name)
-                .filter((name): name is string => name !== undefined);
-              const destinationCell = unit
-                ? unit.name
-                : entry.movement.referredUnitIds.length > 0
-                  ? `${entry.movement.referredUnitIds.length} ward${entry.movement.referredUnitIds.length === 1 ? "" : "s"} asked, none has accepted${askedNames.length > 0 ? ` — ${askedNames.join(", ")}` : ""}`
-                  : "No destination unit recorded";
-              return (
-                <tr key={entry.movement.id}>
-                  <td>{entry.movement.id}</td>
-                  <td>{destinationCell}</td>
-                  <td>{entry.leg ?? "No transport leg recorded"}</td>
-                </tr>
-              );
-            })}
+            {snapshot.inTransit.map((entry) => (
+              <tr key={entry.movement.id}>
+                <td>{entry.movement.id}</td>
+                <td>{destinationCell(entry.movement, units)}</td>
+                <td>{entry.leg ?? "No transport leg recorded"}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}

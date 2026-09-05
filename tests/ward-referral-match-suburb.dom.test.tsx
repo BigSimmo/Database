@@ -7,6 +7,7 @@ import { referrals as seededReferrals } from "@/components/ward-management/ward-
 import { suburbUnknownLabels, type Referral, type Unit } from "@/components/ward-management/ward-model";
 import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * The owner's ruling: the coordinator sees a patient's suburb (`referral-match.tsx`'s
  * `ward-referral-match-suburb` line). Two cases: a named suburb renders its name, and an unknown
@@ -53,6 +54,7 @@ const BASE_WARD_REFERRAL: Referral = {
   urgency: 2,
   originSiteCode: "RPH",
   transportNeeded: false,
+  ...FIXTURE_HISTORY,
 };
 
 const NAMED_SUBURB_REFERRAL: Referral = BASE_WARD_REFERRAL;

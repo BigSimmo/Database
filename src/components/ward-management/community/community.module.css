@@ -18,6 +18,42 @@
  * The two `.absenceNotice` blocks — "follow-up is not recorded" and "referrals cannot be attributed
  * to a team" — carry the warning treatment, and that IS deliberate weighting: they are the two
  * sentences that stop an empty list being read as an all-clear.
+ *
+ * ⚠️ SECOND-EDITION PRESENTATION PASS, 2026-09-05 — MARKUP AND STYLE ONLY, SAME RULE
+ * `community-index.module.css` RECORDS FOR ITS OWN PASS THE SAME DAY. Every sentence this screen
+ * renders, it still renders; every `data-testid` it carried, it still carries. Three changes:
+ *
+ *   1. `.section`/`.sectionHeading` are GONE. The four numbered lists are now `WardPanel`
+ *      (`ward-panel.tsx`/`ward-panel.module.css`) — the panel border, header bar, uppercase title
+ *      and the count slot in the corner all come from the primitive now, not from a local copy of
+ *      the same shape. `.panelBody` replaces `.section`'s own padding for the content each panel
+ *      holds, the same way `community-index.module.css`'s `.emptyNotice`/`.teamList` supply their
+ *      own padding into a primitive that paints none.
+ *   2. The two page-level warning notices (the placeholder-source statement and the invisible-
+ *      cohort count) are grouped under `.noticeGroup` so they read as one governance cluster above
+ *      the four clinical panels, rather than as loose warnings interleaved with them — each keeps
+ *      its own bordered box; only the stacking is shared.
+ *   3. A `.eyebrow` line now sits above the team's own name, stating what kind of thing a
+ *      community team page is — the identity block the second-edition layout calls for, in the same
+ *      idiom `statistics-sections.module.css` already uses for its own eyebrow.
+ *
+ * The team switcher stays a `<nav>` for its landmark role — `WardPanel` renders a `<section>` — and
+ * instead `composes` `ward-panel.module.css`'s own `panel`/`panelHeader`/`panelTitle` classes, so
+ * its chrome is pixel-identical to a real panel's rather than a hand-copied approximation of one.
+ *
+ * Contrast RE-DERIVED for every pair that changed surface, computed from the live token values
+ * (`src/app/ckb-v2-tokens.css`, the file that wins by specificity — see the forced-colours block
+ * below for why), never quoted from a document:
+ *
+ *     --text        on --ward-canvas (= --surface)   15.45:1 light,  16.78:1 dark   (`.count`)
+ *     --text-muted  on --ward-canvas (= --surface)     6.15:1 light,   8.45:1 dark   (`.footnote`, `.emptyNote`)
+ *     --text-muted  on --ward-ground (= --surface-inset)  5.72:1 light,   9.11:1 dark   (`.eyebrow`, top-level `.notice`/`.provenance`)
+ *     --warning-text on --warning-bg                    6.52:1 light,   7.94:1 dark   (`.notice`, `.absenceNotice`, `.notFoundBody`)
+ *
+ * The middle two match the figures already measured lower in this file for `--text-muted` against
+ * the canvas and the ground — recomputed here rather than assumed, because a panel moving content
+ * from `--surface-subtle` onto `--ward-canvas` is exactly the kind of surface change that can
+ * silently change which floor applies. Every pair clears 4.5:1 by a wide margin in both themes.
  */
 .screen {
   composes: wardTokens from "../ward-tokens.module.css";
@@ -73,29 +109,57 @@
 }
 
 .prototypeBadge {
+  display: inline-block;
   flex-shrink: 0;
-  border: 0.0625rem solid var(--warning-border);
+  margin-inline-end: var(--ward-space-6);
+  border: 0.0625rem solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: var(--warning-bg);
-  padding: var(--ward-space-4) var(--ward-space-8);
-  color: var(--warning-text);
+  padding: 0.05rem 0.4rem;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  vertical-align: 0.05rem;
+}
+
+.pageHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ward-space-6) var(--ward-space-10);
+}
+
+/* The identity, the name and the sentence share one baseline. `.prototypeNote` is the exception —
+   it takes the full width beneath them, because a safety line reading as a fourth item on a busy
+   line is a safety line nobody reads. */
+.prototypeNote {
+  flex-basis: 100%;
+}
+
+.headSep {
+  color: var(--ward-border-strong);
+}
+
+/* "What kind of thing it is" — the identity block's category label, above the team's own name.
+   Same idiom as `statistics-sections.module.css`'s `.eyebrow`: quiet, uppercase, muted rather than
+   heading-coloured, so it reads as a label and not a second heading. */
+.eyebrow {
+  margin: 0;
+  color: var(--text-muted);
   font-size: var(--text-3xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.pageHeader {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ward-space-4);
-}
-
 .pageTitle {
   margin: 0;
   color: var(--text-heading);
-  font-size: var(--text-lg, 1.125rem);
+  font-size: var(--text-xl, 1.375rem);
   font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .pageSubtitle {
@@ -104,15 +168,43 @@
   font-size: var(--text-xs);
 }
 
+/*
+ * The two page-level warning notices, stacked as one governance cluster — the separation from the
+ * clinical panels below that the second-edition layout asks for. Each `.notice` keeps its own
+ * bordered warning box; this only supplies the gap between them.
+ */
+.noticeGroup {
+  display: grid;
+  gap: var(--ward-space-8);
+}
+
+/*
+ * ⚠️ THESE TWO WERE FILLED AMBER FIELDS UNTIL 2026-09-05, AND THE PROMINENCE IS NOT WHAT CHANGED.
+ *
+ * The owner's standing principle, recorded verbatim in `globals.css` beside the identical change he
+ * asked for on `--warning-bg` on 2026-09-04 — "I want the crisp white... not the cream colour" —
+ * is that the signal "sits in `--warning-border` and `--warning-text`, which already carry it,
+ * rather than in a large tinted field". Three of these stacked above the first figure on this page
+ * were the cream he was pointing at.
+ *
+ * **What they say is load-bearing and none of it is quieter now.** The text keeps `--warning-text`,
+ * which is the colour carrying the signal, and gains a solid 3px edge in the same ink — so the
+ * notice still reads as a warning at a glance, from the two properties the system says should carry
+ * it. What goes is the wash behind the words, which was doing the same job a third time.
+ *
+ * ⚠️ DO NOT DEMOTE THESE TO `--text-muted` WHILE YOU ARE HERE. The reason they exist is that an
+ * empty list under one of these headings reads as an all-clear when it is nothing of the kind. A
+ * grey note beside a list of zero is worse than no note, because it looks like a caption.
+ */
 /* The placeholder statement and the missing-region count. Full width, full text, above every list
    and never collapsed behind anything — they are the reason this screen can be shown to anyone. */
 .notice {
   margin: 0;
-  border: 0.0625rem solid var(--warning-border);
-  border-radius: var(--radius-lg);
-  background: var(--warning-bg);
-  padding: var(--ward-space-10) var(--ward-space-12);
-  color: var(--warning-text);
+  border: 0;
+  border-inline-start: 0.1875rem solid var(--ward-warning);
+  border-radius: 0;
+  padding: var(--ward-space-2) 0 var(--ward-space-2) var(--ward-space-12);
+  color: var(--ward-warning);
   font-size: var(--text-xs);
   line-height: var(--ward-leading-relaxed);
 }
@@ -127,34 +219,63 @@
   line-height: var(--ward-leading-relaxed);
 }
 
-.section {
+/*
+ * The content each `WardPanel` holds. `ward-panel.module.css`'s `.panel` paints no body padding of
+ * its own — deliberately, so a panel can hold a table that wants to run edge to edge — so every
+ * consumer supplies its own, the same way `community-index.module.css`'s `.emptyNotice`/`.teamList`
+ * and `delays.module.css`'s `.bar`/`.filters`/`.attention` already do. Same shape `.section` used to
+ * declare directly; only the surrounding border/radius/background moved into the primitive.
+ */
+.panelBody {
   display: grid;
   gap: var(--ward-space-8);
-  border: 0.0625rem solid var(--ward-border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-subtle);
   padding: var(--ward-space-12) var(--ward-space-14);
 }
 
-.sectionHeading {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: var(--text-sm, 0.875rem);
-  font-weight: 700;
-}
-
 /*
- * The two sentences that say what a list CANNOT tell you, inside their own section and directly
+ * The two sentences that say what a list CANNOT tell you, inside their own panel and directly
  * beneath its heading. Same treatment as the page-level notices, because they carry the same kind
  * of weight: an empty list under either of these headings would otherwise read as an all-clear.
  */
+/*
+ * 🔴 **THE INFO REGISTER, NOT THE WARNING ONE, AND THAT IS THE WHOLE POINT OF THE CLASS.**
+ *
+ * `.notice` and `.absenceNotice` are amber: something is missing, or something is unsafe to
+ * assume. **A ratified service alias is the opposite — a person has RESOLVED something**, and
+ * rendering it amber would read as "there is a problem here" when the problem is the one that has
+ * just been answered.
+ *
+ * ⚠️ **IT MUST ALSO NOT LOOK LIKE THE NEAR-DUPLICATE SENTENCE IN THE PARAGRAPH ABOVE IT.** That
+ * sentence is a string resemblance a rule computed. This is a clinical judgement a named person
+ * made on a named date. **They carry completely different authority and a reader has to be able to
+ * tell which is which without being told** — which is why this is a separate element in a separate
+ * colour rather than another `<strong>` in the same paragraph.
+ */
+.ratifiedNotice {
+  margin: 0;
+  border: 0;
+  border-inline-start: 0.1875rem solid var(--info-border);
+  border-radius: 0;
+  padding: var(--ward-space-2) 0 var(--ward-space-2) var(--ward-space-12);
+  color: var(--info-text);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-relaxed);
+}
+
+.ratifiedProvenance {
+  display: block;
+  margin-top: var(--ward-space-2);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+}
+
 .absenceNotice {
   margin: 0;
-  border: 0.0625rem solid var(--warning-border);
-  border-radius: var(--radius-md);
-  background: var(--warning-bg);
-  padding: var(--ward-space-10) var(--ward-space-12);
-  color: var(--warning-text);
+  border: 0;
+  border-inline-start: 0.1875rem solid var(--ward-warning);
+  border-radius: 0;
+  padding: var(--ward-space-2) 0 var(--ward-space-2) var(--ward-space-12);
+  color: var(--ward-warning);
   font-size: var(--text-xs);
   line-height: var(--ward-leading-relaxed);
 }
@@ -219,20 +340,31 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * The switcher stays a `<nav>` for its landmark role (`getByRole("navigation", ...)`) — `WardPanel`
+ * renders a `<section>`, so it cannot be the outer element here. `composes` borrows the primitive's
+ * own panel/header/title classes instead, so this nav's chrome is the same panel look pixel for
+ * pixel rather than a hand-copied approximation that can drift from it.
+ */
 .teamSwitcher {
-  display: grid;
-  gap: var(--ward-space-8);
-  border: 0.0625rem solid var(--ward-border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-subtle);
-  padding: var(--ward-space-12) var(--ward-space-14);
+  composes: panel from "../ward-panel.module.css";
 }
 
+.teamSwitcherHeader {
+  composes: panelHeader from "../ward-panel.module.css";
+}
+
+.teamSwitcherTitle {
+  composes: panelTitle from "../ward-panel.module.css";
+}
+
+/* `padding`, not `margin`: the composed `.panel` paints no body inset of its own, same reasoning as
+   `.panelBody` above and `community-index.module.css`'s `.teamList`. */
 .teamList {
   display: grid;
   gap: var(--ward-space-6);
   margin: 0;
-  padding: 0;
+  padding: var(--ward-space-12) var(--ward-space-14);
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
   list-style: none;
 }
@@ -265,11 +397,176 @@
   font-weight: 700;
 }
 
+/* Warning treatment, matching `statistics-sections.module.css`'s `.notFoundBody`: the one state on
+   this screen where what the reader asked for genuinely does not exist, and the page must not look
+   as though it answered anyway. `--warning-text` on `--warning-bg` is the same pair `.notice` and
+   `.absenceNotice` already use — 6.52:1 light, 7.94:1 dark, computed above. */
 .notFoundBody {
   margin: 0;
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-lg);
+  background: var(--ward-warning-soft);
+  padding: var(--ward-space-10) var(--ward-space-12);
+  color: var(--ward-warning);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-relaxed);
+}
+
+/*
+ * ── Third edition: the reordered layout ─────────────────────────────────────────────────────
+ * A two-column layout below the figure strip — the seven ordered panels on the left, the rail on
+ * the right — collapsing to one column on anything narrower than `ward-tokens.module.css`'s own
+ * board breakpoint. `WardFigureStrip` (`ward-figure.module.css`) already handles the figure row's
+ * own responsive columns, so nothing here repeats that.
+ */
+.contentGrid {
+  display: grid;
+  gap: var(--ward-space-16);
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.primaryColumn {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ward-space-16);
+}
+
+/* The rail's own panels are `WardPanel`s like every other panel on this page — this only supplies
+   the gap between them and the column's own width once there is room for two columns. */
+.rail {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ward-space-16);
+}
+
+/*
+ * ⚠️ 64rem IS OFF THE KNOWN SCALE (48 / 52 / 60 / 76) AND IT IS DERIVED, NOT PICKED. Measured on
+ * the rendered page 2026-09-05 rather than reasoned:
+ *
+ *     at 64rem   the content column resolves to 561px
+ *     the table's own floor is 34rem = 544px  (`--ward-table-min-width`, below)
+ *     so it clears by 17px — the rail can appear without the table scrolling
+ *
+ *     at 60rem   the same layout gives the content column ~497px
+ *                which is 47px UNDER the table's floor, so the table would begin
+ *                scrolling sideways at the exact moment the rail arrived
+ *
+ * **So this number is a consequence of `--ward-table-min-width: 34rem` plus the 20rem rail, and
+ * moving it to the nearest scale step would trade a scale violation for a horizontal scrollbar on
+ * a clinical table.** If that floor ever changes, this breakpoint has to be re-measured with it —
+ * CSS cannot compute a media query from a custom property, which is exactly why the derivation is
+ * written down here instead of being implied by the number.
+ *
+ * ⚠️ AND `KNOWN_BREAKPOINTS` IS NOT TO BE WIDENED TO ADMIT IT. Adding 64rem to the allowlist is the
+ * resolution that goes green and loses the constraint: the gate exists to make an off-scale value
+ * argue for itself, and this comment is the argument. A silent entry in a list is not one.
+ */
+@media (min-width: 64rem) {
+  .contentGrid {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+}
+
+/* The "admitted while already with this team" table. Same composition `referrals.module.css` and
+   `ward-table.module.css` already establish; `--ward-table-min-width` is the whole reason a
+   composed table keeps scrolling instead of squashing at narrow widths (see that file's own
+   comment) — five columns of duration text need real room. */
+.table {
+  composes: table from "../ward-table/ward-table.module.css";
+  --ward-table-min-width: 34rem;
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+/* "Worth your attention" — a duration or an id leads each item, never a colour: this list's only
+   signal is which entry appears at all, not how it is drawn. */
+.attentionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attentionItem {
+  border-inline-start: 0.1875rem solid var(--ward-border-strong);
+  padding-inline-start: var(--ward-space-10);
+  color: var(--text);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-relaxed);
+}
+
+/* "What this page cannot tell you" — plain prose bullets, no warning treatment: these restate
+   limits the page already states in full elsewhere, so they read as a reference rather than a
+   second set of alarms. */
+.limitsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-10);
+  margin: 0;
+  padding: 0;
+  list-style: none;
   color: var(--text-muted);
   font-size: var(--text-xs);
   line-height: var(--ward-leading-relaxed);
+}
+
+/* "This team" — a `<dl>` of short facts. Each `.factsRow` `<div>` holds exactly one `<dt>`/`<dd>`
+   pair, the one shape a `<dl>` permits inside a wrapping `<div>`. */
+.factsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-6);
+  margin: 0;
+}
+
+.factsRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ward-space-8);
+  font-size: var(--text-xs);
+}
+
+.factsRow dt {
+  color: var(--text-muted);
+}
+
+.factsRow dd {
+  margin: 0;
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+}
+
+/* "Go to" — real routes only; see the component for why each one is there. 48px tap target, the
+   production floor this repository holds to (never 44px, which reintroduces a known flake). */
+.linksList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linksItem {
+  display: flex;
+  min-height: var(--ward-tap);
+  align-items: center;
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.linksItem:hover {
+  color: var(--text-heading);
 }
 
 /*
@@ -367,4 +664,36 @@
        background produces black ink on a still-dark card. */
     background-color: Canvas !important;
   }
+}
+
+/* The one safety line kept in the header, and the footer the three page-level notices moved to.
+   Both mirror `community-index.module.css` exactly, so the two community screens do not drift into
+   two treatments of the same idea. */
+.prototypeNote {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-relaxed);
+}
+
+.prototypeNote strong {
+  color: var(--text-heading);
+}
+
+.aboutPage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-10);
+  margin-block-start: var(--ward-space-32);
+  border-top: 0.0625rem solid var(--border);
+  padding-block-start: var(--ward-space-16);
+}
+
+.aboutHeading {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }

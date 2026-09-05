@@ -86,8 +86,9 @@
 .pageTitle {
   margin: 0;
   color: var(--text-heading);
-  font-size: var(--text-xl);
+  font-size: var(--text-2xl);
   font-weight: 700;
+  letter-spacing: -0.01em;
   line-height: var(--pe-leading-body);
 }
 
@@ -104,6 +105,25 @@
   font-size: var(--text-sm);
   font-weight: 700;
   line-height: var(--pe-leading-body);
+}
+
+/*
+ * ⚠️ RULING E1 (`docs/ward-flow/design/second-edition-to-ckb-v2-role-map.md` §3.2): no fill in
+ * the ward palette clears 1.11:1 against a panel in the light theme, so a header distinguished
+ * only by a tinted fill is not distinguished at all. `WardPanel`'s own `.panelHeader`
+ * (`ward-panel.module.css`) still paints `--ward-subtle` — a SHARED primitive several other
+ * screens still render exactly as before, so fixing it there would restyle screens this task does
+ * not own (the same reason `ward-modes-second-edition.module.css` exists as a parallel file rather
+ * than an edit to `ward-management-modes.module.css`).
+ *
+ * So the fix lives here, scoped twice: by `.screen` (only WardPanel instances this screen
+ * renders) and by WardPanel's own `data-ward-primitive="panel-header"` attribute — a plain DOM
+ * attribute, not a CSS-module class, so it is reachable from a different module's stylesheet. The
+ * border-bottom and the uppercase, weighted `.panelTitle` type WardPanel already supplies are left
+ * untouched; only the fill goes.
+ */
+.screen [data-ward-primitive="panel-header"] {
+  background: none;
 }
 
 /*
@@ -128,29 +148,113 @@
  * `WardFigure` — see `person-screen.tsx`), and a table invites a fourth column of somebody else —
  * which is the direction PD-1 explicitly does not authorise.
  */
+/*
+ * 🔴 ONE COLUMN, AND IT IS THE PLACEMENT RULE RATHER THAN A LAYOUT PREFERENCE.
+ *
+ * This was `repeat(auto-fit, minmax(9rem, 1fr))`, which becomes as many columns as fit. The eight
+ * placement facts then reflow, and at TWO columns — `floor((W + gap) / (9rem + gap))`, which a 375px
+ * phone gives exactly — **Aboriginal or Torres Strait Islander status renders directly above
+ * interpreter / preferred language.** Those are the two fields the placement rule keeps apart.
+ *
+ * ⚠️ **EVERY EXISTING GUARD STAYED GREEN, AND CORRECTLY SO: they assert DOM ORDER, and the DOM
+ * order never changed.** `person-screen.tsx` separates the two fields with GENERAL PRACTITIONER on
+ * purpose, and `tests/ward-patient-placement-fields.dom.test.tsx` proves each half with its own
+ * mutation. None of that is wrong. It is simply blind to reflow — the rule is about what a reader
+ * sees, and in a grid the DOM order is not the reading order.
+ *
+ * Computed positions, for whoever is tempted to widen this again:
+ *
+ *     1 col : Aboriginal r4c1, interpreter r6c1  -> separated
+ *     2 cols: Aboriginal r2c2, interpreter r3c2  -> VERTICALLY ADJACENT
+ *     3 cols: Aboriginal r2c1, interpreter r2c3  -> same row, separated by GP
+ *     4 cols: Aboriginal r1c4, interpreter r2c2  -> separated
+ *
+ * **One column is the only setting under which the mutation-proved DOM-order guards mean what they
+ * claim.** `tests/ward-patient-sensitive-adjacency-css.test.ts` reads this declaration and goes red
+ * on any multi-track template, in the base block and in every media block — jsdom computes no
+ * layout, so a guard asserting positions there could not fail.
+ *
+ * ⚠️ **A MULTI-COLUMN FACT LIST HERE IS NOT A STYLING DECISION.** It needs the owner and a
+ * positional guard, because the sensitive pair's separation depends on the column count. This also
+ * governs the identity panel, which shares the class: keeping one rule means the identity list
+ * cannot acquire the same exposure by gaining a field later.
+ */
 .factList {
   display: grid;
   margin: 0;
-  gap: var(--pe-space-12);
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  /*
+   * ⚠️ ZERO, NOT A GAP — the definition-table treatment below gives every `.fact` row its own
+   * padding and a row rule, so a gap here on top of that would double the space between rows.
+   * Changing this value is safe: the frozen guard below only reads `display`,
+   * `grid-template-columns`, `grid-auto-flow` and the `grid-template` shorthand on THIS rule, and
+   * `gap` is none of those.
+   */
+  gap: 0;
+  grid-template-columns: 1fr;
 }
 
 /*
- * Layout (flex column, label-to-value gap) now comes from `ward-shared.module.css`'s `.field`,
- * composed alongside this class in the JSX. `.fact` keeps only the typography below, so it is not
- * declaring the same gap twice under two names.
+ * 🔴 THE DEFINITION-TABLE TREATMENT, AND WHY THIS SELECTOR IS TWO LEVELS DEEP.
+ *
+ * ✅ THE OLD RESTRICTION ON THIS COMMENT IS LIFTED — YOU MAY NAME `.factList` HERE. It used to say
+ * this paragraph must never spell that selector out. The reason was real: the guard in
+ * `tests/ward-patient-sensitive-adjacency-css.test.ts` matched the selector as literal text
+ * ANYWHERE in this stylesheet, comments included, then scanned forward to the next opening brace
+ * and took whatever it found as a "rule body". A mention up here therefore attached THIS rule's
+ * two-track `grid-template-columns` and failed it as though it belonged to the one-column class
+ * above. The first draft of this comment did exactly that and made the guard fail with that value
+ * quoted back.
+ *
+ * The guard now strips comments before matching, so prose is inert to it again. Measured both
+ * ways: without the strip, a mention here yields two bodies — `1fr` and `minmax(9rem, 14rem) 1fr`;
+ * with it, one, `1fr`. The workaround imposed a permanent tax on every future editor of this
+ * comment, for a rule whose only real defence is that somebody reads why it exists — so it was the
+ * guard that had to change, not the documentation.
+ *
+ * ⚠️ Note for anyone re-proving this: a mention INSIDE a rule body cannot reproduce it. The pattern
+ * allows no brace between the mention and the next opening brace, and inside a body the next one
+ * that matters is that body's own closing brace. A mutation placed there reports SURVIVED on broken
+ * code and proves nothing. This paragraph also keeps literal braces out of its prose deliberately:
+ * with them, the scan above stops on a brace in a sentence and captures a body with no template at
+ * all, which fails on a different branch than the one this file is a witness for.
+ *
+ * So: this row's label/value split lives on a DIFFERENT selector than the one-column rule above —
+ * the screen root with the row class, rather than the list class with the row class.
+ *
+ * The second half of the reason this selector is two levels deep rather than one: the row class
+ * also composes `ward-shared.module.css`'s `.field` (`display: flex; flex-direction: column`)
+ * alongside itself in the JSX, and `.field` is a bare single class too — a bare-class override
+ * here would leave the winner decided by stylesheet import order rather than by anything declared
+ * in either file. Two selectors deep beats one, regardless of order.
  */
+.screen .fact {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) 1fr;
+  column-gap: var(--pe-space-8);
+  align-items: baseline;
+  padding: var(--pe-space-6) 0;
+  border-bottom: 0.0625rem solid var(--wf-border, var(--neutral-500));
+}
+
+.screen .fact:last-child {
+  border-bottom: none;
+}
+
+/* Label column: the quiet ink role, same weight/colour relationship as `WardTable`'s `<th>`. */
 .fact dt {
+  margin: 0;
   color: var(--text-muted);
-  font-size: var(--text-3xs);
+  font-size: var(--text-xs);
+  font-weight: 600;
   line-height: var(--pe-leading-body);
 }
 
+/* Value column: body ink, plain weight — the fact itself, not a heading. */
 .fact dd {
   margin: 0;
-  color: var(--text-heading);
+  color: var(--text);
   font-size: var(--text-sm);
-  font-weight: 700;
+  font-weight: 400;
   line-height: var(--pe-leading-body);
 }
 
@@ -161,17 +265,25 @@
   align-items: center;
   justify-content: center;
   align-self: flex-start;
-  border-radius: var(--radius-sm);
-  padding: 0 var(--pe-space-16);
+  border-radius: var(--radius-md);
+  padding: 0 var(--pe-space-20);
   font-size: var(--text-xs);
   font-weight: 700;
   text-decoration: none;
 }
 
+/*
+ * The prominence the ward home's primary action receives — the control this screen exists to
+ * offer, so it is the one thing on the page that reads as an action rather than a fact. `--e1` is
+ * the same subtle elevation token already used elsewhere in Ward Flow (`coordinator.module.css`);
+ * it is theme-aware on its own, so nothing here needs a separate dark-mode value.
+ */
 .primaryButton {
   border: 0.0625rem solid var(--clinical-accent-border);
   background: var(--clinical-accent);
   color: var(--surface);
+  font-size: var(--text-sm);
+  box-shadow: var(--e1);
 }
 
 .secondaryButton {
@@ -264,11 +376,16 @@
    * class plus the universal selector (specificity 0,1,0; the universal contributes zero), and any
    * rule combining a class with a type selector or a pseudo/attribute selector outranks it — `.fact
    * dd` (0,1,1) here, and the same shape recurs across this file's siblings as `.bedChip[data-state=
-   * "…"]` (0,2,0), `.dataTable td`, `.timeline span`. Confirmed: `.fact dd` computed
-   * `rgb(244, 246, 248)` — still near-white — with the wildcard alone, and `rgb(0, 0, 0)` once
-   * `!important` was added. `color-scheme` needs no `!important`: nothing competes for it.
-   * `coordinator.module.css` already carries `color: CanvasText !important` in its own print
-   * blocks — this file now matches that precedent rather than re-deriving it.
+   * "…"]` (0,2,0), `.dataTable td`, `.timeline span`. Confirmed at the time this was written, when
+   * `.fact dd` still set `color: var(--text-heading)`: it computed `rgb(244, 246, 248)` — still
+   * near-white — with the wildcard alone, and `rgb(0, 0, 0)` once `!important` was added. The
+   * second-edition pass (2026-09-05) moved `.fact dd` to `color: var(--text)` for the definition-
+   * table treatment; the specificity argument does not depend on which colour role the declaration
+   * names, only on its shape (a class plus a type selector), so it still stands — the exact figure
+   * above is a historical measurement of the old role, not a claim about the current one.
+   * `color-scheme` needs no `!important`: nothing competes for it. `coordinator.module.css` already
+   * carries `color: CanvasText !important` in its own print blocks — this file now matches that
+   * precedent rather than re-deriving it.
    *
    * ⚠️ THE WILDCARD ALONE WOULD HAVE LOOKED FIXED. It corrects every plain element, so a spot-check
    * on any single-class element prints black and the fix reads as confirmed, while the elements that

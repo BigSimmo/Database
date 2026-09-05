@@ -21,7 +21,8 @@ import {
   formatRemaining,
   minutesUntil,
 } from "@/components/ward-management/ward-clock";
-import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
+import { bedsPendingPreparation, capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
+import { designationSummary } from "@/components/ward-management/ward-bed-designation";
 import {
   BED_RELEASE_BLOCKED_FIGURE_LABEL,
   BED_RELEASE_BLOCKED_LABEL,
@@ -305,6 +306,9 @@ export function WardScreen({ unitId }: WardScreenProps) {
   // the same breakdown so both screens describe the same beds the same way. `unitCapacity()` itself
   // is untouched — see its own doc comment on `potential` in `ward-derivations.ts`.
   const breakdown = capacityBreakdown(unit, bedReleases, leaveBeds, now);
+  // Owner ruling 2026-09-05: shown BESIDE the Ready figure, never subtracted from it. The
+  // reducer's own helper, so this screen and the PULL_PATIENT refusal read one source.
+  const pendingPreparation = bedsPendingPreparation(unit.id, bedReleases);
   // TypeScript's narrowing of `unit` above does not reach into the `submitDecline` /
   // `submitCapacity` closures defined further down (the same reason `shortlist-panel.tsx`'s
   // `handleRefer` closes over a plain `movementId` rather than re-checking `movement`), so this
@@ -750,7 +754,8 @@ export function WardScreen({ unitId }: WardScreenProps) {
         <header className={styles.unitCard} data-testid={`ward-unit-card-${unit.id}`}>
           <h1 className={styles.unitName}>{unit.name}</h1>
           <p className={styles.unitMeta}>
-            {site ? `${site.name} (${site.code})` : unit.siteCode} &middot; {unit.cohort} &middot; {unit.security}
+            {site ? `${site.name} (${site.code})` : unit.siteCode} &middot; {unit.cohort} &middot;{" "}
+            {designationSummary(unit)}
             {unit.authorised ? "" : " · Not authorised under the Mental Health Act 2014"}
           </p>
           {/*
@@ -780,11 +785,26 @@ export function WardScreen({ unitId }: WardScreenProps) {
         <section className={styles.entryHero} aria-labelledby="ward-hero-title" data-testid="ward-hero">
           <div className={styles.entryHeroFigures}>
             <div className={styles.heroFigureMain}>
-              <span className={styles.heroFigureValue} data-testid="ward-hero-free">
+              {/*
+               * ⚠️ "READY", NOT "FREE", AND THE SCREEN CHOSE THE WORD RATHER THAN THIS LINE.
+               *
+               * `capacity.available` is `Math.min(unit.allocatable.value, unit.empty.value)` — beds
+               * that are empty AND that the ward is offering. The line after it in the same helper
+               * computes `held = empty - available`: the beds that ARE empty and are NOT in this
+               * figure. So "free beds" understated the ward's empty beds whenever `held > 0`, and
+               * the contradiction was already on this page — the breakdown below renders
+               * `Ready {capacity.available}` beside `Held {capacity.held}` as two different things.
+               *
+               * The word is taken from that breakdown deliberately. Whether the product's term for
+               * this quantity should be "free", "ready", or the board's "beds you can fill today"
+               * is a question with the owner; aligning this hero to its own screen removes the
+               * contradiction without answering it by implementation.
+               */}
+              <span className={styles.heroFigureValue} data-testid="ward-hero-ready">
                 {capacity.available}
               </span>
               <span className={styles.heroFigureLabel} id="ward-hero-title">
-                free bed{capacity.available === 1 ? "" : "s"} on this ward right now
+                ready bed{capacity.available === 1 ? "" : "s"} on this ward right now
               </span>
             </div>
             <p className={styles.heroCost}>
@@ -796,7 +816,10 @@ export function WardScreen({ unitId }: WardScreenProps) {
             <Link className={styles.heroCta} href="#bed-capacity" data-testid="ward-hero-open-bed-list">
               <span>Open bed list</span>
               <span className={styles.heroCtaSub}>
-                {unit.beds} beds &middot; {capacity.available} free
+                {/* Same word as the hero and the breakdown. "N free" beside the ward's total bed
+                    count invited the reader to take the remainder as occupied; it is
+                    `held + blocked + occupied`, which this screen itemises below. */}
+                {unit.beds} beds &middot; {capacity.available} ready
               </span>
             </Link>
             <p className={styles.heroAvailability} data-testid="ward-hero-availability">
@@ -976,6 +999,22 @@ export function WardScreen({ unitId }: WardScreenProps) {
             ) : null}
           </div>
           <div className={styles.bedGrid} data-testid="ward-unit-beds">
+            {/*
+              🔴 **THE CLEANING COUNT SITS BESIDE THE FIGURE, AND THE FIGURE DOES NOT MOVE.** Owner
+              ruling 2026-09-05, carried here 2026-09-06.
+
+              ⚠️ **THIS SCREEN MATTERS MORE THAN THE CAPACITY BOARD FOR THIS ONE FACT, because this
+              is where the refusal actually fires.** `PULL_PATIENT` is dispatched from this screen,
+              and the reducer rejects it with *"every free bed at X is still being made ready"*. A
+              reader here is not forming a general impression of the network — they are about to act
+              on this number and be refused.
+
+              ⚠️ **`bedsPendingPreparation` IS THE REDUCER'S OWN HELPER**, called rather than
+              re-derived, so this figure and the refusal that gates it cannot disagree about which
+              beds are still being made ready. It is fed `bedReleases` from `useWardFlow()` — the
+              live reducer state a ward's own preparation form writes to, a few hundred lines below
+              this line — so recording a note here is visible here immediately.
+            */}
             <span className={styles.bedChip} data-state="available">
               Ready {capacity.available}
             </span>
@@ -1006,6 +1045,31 @@ export function WardScreen({ unitId }: WardScreenProps) {
               Leave (usable) {breakdown.leaveUsable}
             </span>
           </div>
+          {/*
+            🔴 **THE CLEANING COUNT, BESIDE THE FIGURE AND NOT INSIDE IT.** Owner ruling 2026-09-05,
+            carried to this screen 2026-09-06.
+
+            ⚠️ **IT WAS INSIDE THE `Ready` CHIP FIRST, AND LOOKING AT IT IS WHAT MOVED IT.** That chip
+            is a 24px pill in a row of eight, laid out with `display: flex; align-items: center` — so
+            a `display: block` note became a flex ITEM and sat on the SAME line as the figure,
+            rendering "Ready 2" immediately followed by "1 still being made ready". **A 2 and a 1
+            adjacent inside one pill can be read as 21**, on the screen whose whole job is telling a
+            ward how many beds it has. Every test passed either way; the browser is what found it.
+
+            As its own sentence it states the same fact in the reader's own words and cannot be
+            misparsed as a figure. It renders only when there is one — an absence here is silence,
+            never a "0 being made ready", which would be a claim nobody made.
+          */}
+          {pendingPreparation > 0 ? (
+            <p className={styles.beingMadeReady} data-testid="ward-unit-beds-pending">
+              <strong>
+                {pendingPreparation} of the {capacity.available} ready {capacity.available === 1 ? "bed" : "beds"} at{" "}
+                {unit.name} {pendingPreparation === 1 ? "is" : "are"} still being made ready.
+              </strong>{" "}
+              The bed stays offered and stays counted — pulling the next patient takes hours anyway — but the ward
+              cannot admit into it yet.
+            </p>
+          ) : null}
           <p className={styles.bedNote}>
             Ready, held, blocked and occupied add up to all {unit.beds} beds at {unit.name}. Confirmed, expected and
             leave beds are never counted into those four &mdash; a bed only becomes Ready once it has actually been

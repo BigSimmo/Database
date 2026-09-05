@@ -12,14 +12,32 @@ import { describe, expect, it } from "vitest";
  * on the `ward-*` prefix.
  *
  * Scope: this walks `tests/**\/*.test.ts` and `tests/**\/*.dom.test.tsx`, i.e. exactly the two
- * populations vitest.config.mts collects for the node and jsdom projects (the "113 node + 80
- * jsdom = 193" full ward suite figure this guard exists to keep honest). `tests/ui-*.spec.ts`
+ * populations vitest.config.mts collects for the node and jsdom projects. `tests/ui-*.spec.ts`
  * Playwright journeys are a separate runner and population and are deliberately out of scope.
  *
  * The distinction that makes this correct, and it was measured: IMPORTS, not MENTIONS.
  * `tests/dependency-drift-check.test.ts` and `tests/viewport-fill-contract.test.ts` both name
  * `src/components/ward-management` as a string (a path fixture / contract assertion) with zero
  * imports -- they are not ward guards and must not be flagged.
+ *
+ * ⚠️ **AND THE SAME-SHAPED PHRASE IN THE OTHER RULE DRAWS THE OPPOSITE LINE.** The ward suite
+ * POPULATION rule -- the one that yields 273 files, published in
+ * `docs/ward-flow/NEW-CHAT-PROMPTS-2026-09-05.md` -- says "EXECUTABLE, not MENTION", where a
+ * comment is what does not count and an executable STRING does. This file says "IMPORTS, not
+ * MENTIONS", where a string does not count at all. `dependency-drift-check.test.ts` is the worked
+ * example sitting in both: excluded here, included there, correctly by each. The two rules answer
+ * different questions -- *"is this file named honestly for what it imports?"* versus *"must this
+ * file run to know Ward Flow is healthy?"* -- so neither is a definition of the other, and a
+ * reader who carries the phrase across from one to the other gets it exactly backwards.
+ *
+ * ⚠️ **THE COUNTS BELOW ARE A DATED SNAPSHOT AND NOTHING ENFORCES THEM. DO NOT CITE THEM AS
+ * AUTHORITY.** Measured 2026-09-05 at master-line tip `ae41ca860`: 121 node + 106 jsdom = **227
+ * ward-management importers**, out of 1 185 test files walked. That is the IMPORTER count, which
+ * is a third unit again -- not the 273-file suite population, and not the 3 509 passing tests.
+ * This docblock previously read "113 node + 80 jsdom = 193" and had drifted 34 files without
+ * anything going red, because the assertions below floor at >150 on purpose (see the anti-vacuity
+ * note on each). A number in prose beside a rule that never checks it is exactly the defect this
+ * file exists to catch, so re-measure before quoting rather than trusting the line above.
  */
 
 const TESTS_ROOT = path.join(process.cwd(), "tests");

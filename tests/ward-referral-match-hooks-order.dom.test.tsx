@@ -6,6 +6,7 @@ import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward
 import { REFERRAL_DECLINE_REASONS, type Referral, type Unit } from "@/components/ward-management/ward-model";
 import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * `ReferralMatchView` returns early for a referral with no psychiatric-ward destination — an ED or
  * a community team is answered by a person, not by matching a bed — and every one of its hooks was
@@ -56,6 +57,7 @@ const WARD_REFERRAL: Referral = {
   urgency: 2,
   originSiteCode: "RPH",
   transportNeeded: false,
+  ...FIXTURE_HISTORY,
 };
 
 const COMMUNITY_ONLY_REFERRAL: Referral = {

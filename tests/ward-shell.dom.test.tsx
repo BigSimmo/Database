@@ -41,10 +41,50 @@ describe("Task 1 — the shell owns the ground", () => {
   });
 
   it("has exactly one stylesheet painting --ward-ground, and it is the shell's", () => {
-    const painters = files.filter((file) => /background:\s*var\(--ward-ground\)/.test(readFileSync(file, "utf8")));
+    /*
+     * ⚠️ **A STICKY OCCLUDER IS EXEMPT, AND THE EXEMPTION IS NARROW ON PURPOSE (2026-09-05).** A bar
+     * pinned over scrolling content has to repaint the ground it sits on, or the rows pass through
+     * it. That is not a second OWNER of the page ground — it is the same value being re-laid over
+     * itself — and the alternative was worse in both directions: hard-coding `var(--surface)` in the
+     * sticky rule silently un-tracks the ground the day it changes again, and dropping this guard
+     * loses the drift it exists to catch.
+     *
+     * **So the rule must ALSO declare `position: sticky`.** A plain panel or card reaching for the
+     * ground still fails here, which is the case that actually goes wrong.
+     *
+     * ⚠️ **A SECOND CHAT NARROWED THIS SAME ASSERTION TONIGHT TO PAGE-LEVEL SELECTORS —
+     * `.screen|.shell|.page|.root` — AND THIS VERSION IS THE BETTER ONE, WHICH IS WHY IT WON.** That
+     * one matched on the CLASS NAME, so a page-level container called `.wrap` or `.board` escaped it
+     * entirely: a detector defeated by a rename. **This one computes the exemption from the rule's own
+     * declaration, which cannot be renamed around.** It also fixed the two offending chips
+     * (`.kbdHint` and `.familyCard` now take `var(--surface)`) instead of widening the guard to
+     * tolerate them — a smaller exemption AND fewer things exempted.
+     *
+     * ⚠️ **WHY A NON-STICKY GROUND PAINT IS DANGEROUS AT ALL, carried across from that other
+     * narrowing because it is the justification this exemption rests on and was measured:** a
+     * dark-theme `--ward-ground` survives into print, because the dark palette is scoped by a CLASS on
+     * `<html>` and not by a media query. A card painted with it would print dark while the screen's
+     * print reset forces text to `CanvasText` — black ink on a dark card. `community-index`'s print
+     * block already declares `background-color: Canvas !important` on `.screen` and `.screen *`, which
+     * is what makes the sticky exemption safe rather than merely convenient. **A screen that paints
+     * the ground WITHOUT such a reset is the real defect, and it still fails here.**
+     */
+    const painters = files.filter((file) => {
+      const rules = readFileSync(file, "utf8").split("}");
+      return rules.some((rule) => /background:\s*var\(--ward-ground\)/.test(rule) && !/position:\s*sticky/.test(rule));
+    });
     // Pinned as a sorted list, not a count: a count survives the declaration moving to
     // another file, which is the failure this guard exists to catch.
     expect(painters).toEqual([join(WARD_DIR, "ward-shell.module.css")]);
+
+    // ⚠️ Non-vacuity for the exemption itself: if nothing anywhere paints the ground on a sticky
+    // rule, the branch above is dead code and this test has quietly become the old one.
+    const stickyPainters = files.filter((file) =>
+      readFileSync(file, "utf8")
+        .split("}")
+        .some((rule) => /background:\s*var\(--ward-ground\)/.test(rule) && /position:\s*sticky/.test(rule)),
+    );
+    expect(stickyPainters.length, "the sticky exemption above matches nothing and can be deleted").toBeGreaterThan(0);
   });
 
   it("declares the token exactly once, so the shell is painting a real value", () => {

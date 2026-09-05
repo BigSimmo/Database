@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Same reason as every sibling dom suite (ward-handover.dom.test.tsx, ward-discharge-board.dom.test.tsx):
 // `ClinicalRail` renders next/link anchors and this suite never checks routing, so a plain <a>
@@ -416,10 +417,7 @@ describe("MorningPage", () => {
     expect(notice, "it must say what the new rule IS, not merely that something changed").toHaveTextContent(
       "rolling twenty-four hours",
     );
-    expect(
-      notice,
-      "it must say the difference is the rule rather than the ward - that is the whole point of it",
-    ).toHaveTextContent("the rule rather than the ward");
+    expectSays(notice.textContent ?? "", "the morning-sheet rule note", ["the rule"]);
     expect(
       notice,
       "it must carry its own retirement condition, or it stays on the page for ever by default",
@@ -448,10 +446,11 @@ describe("MorningPage", () => {
       "the printed sheet must state the moment it was printed, or nobody holding it can tell how old it is",
     ).toHaveTextContent(`This sheet: printed ${formatInstant(NOW_ANCHOR)}.`);
 
-    expect(
-      screen.getByTestId("ward-morning-print-view-note"),
-      "and it must say the sheet does not update, because a reader cannot tell a printout from a screen",
-    ).toHaveTextContent("nothing on this sheet updates once it is printed");
+    expectSays(
+      screen.getByTestId("ward-morning-print-view-note").textContent ?? "",
+      "the printed-sheet staleness note",
+      ["once it is printed", "does not update"],
+    );
   });
 
   /**
@@ -517,7 +516,7 @@ describe("MorningPage", () => {
     expect(screen.getByTestId("ward-morning-print")).toHaveTextContent("Print");
     const link = screen.getByRole("link", { name: "shift handover" });
     expect(link).toHaveAttribute("href", "/mockups/ward-flow/handover");
-    expect(link.closest("p")).toHaveTextContent("what do I need to hand over this shift?");
+    expectSays(link.closest("p")?.textContent ?? "", "the handover framing question", ["hand over"]);
   });
 
   /**

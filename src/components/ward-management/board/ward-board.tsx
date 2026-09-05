@@ -9,6 +9,7 @@ import {
   isPastExpectedDischarge,
   LEAVING_DESTINATIONS,
   stayBand,
+  stayDayNumber,
   STAY_BANDS,
   type Admission,
   type LeavingDestination,
@@ -241,8 +242,13 @@ function buildTiles(
  */
 type Occupant = {
   key: string;
-  /** Whole days in the bed, or `null` for a bed given away to somebody who has not arrived. */
+  /** Whole days in the bed, or `null` for a bed given away to somebody who has not arrived.
+   *  A DURATION. The tile renders it as "N days"; it is 0 for everybody admitted since yesterday. */
   days: number | null;
+  /** Which day of the stay today is, arrival day = Day 1, or `null` when there is no stay.
+   *  An ORDINAL, and the only thing the handover sheet's "Day N" lead may use. Carried separately
+   *  from `days` because printing the duration there read "Day 0" — see `stayDayNumber`. */
+  dayNumber: number | null;
   /** The stay band's own label, or `null` when there is no stay to band. */
   bandLabel: string | null;
   pastDate: boolean;
@@ -339,6 +345,7 @@ function buildOccupants(unit: Unit, admissions: readonly Admission[], now: Insta
     .map((admission) => ({
       key: admission.id,
       days: daysInBed(admission, now),
+      dayNumber: stayDayNumber(daysInBed(admission, now)),
       bandLabel: stayBand(admission, now)?.label ?? null,
       pastDate: isPastExpectedDischarge(admission, now),
       sex: admission.sex,
@@ -861,7 +868,7 @@ export function WardBoard({ unitId }: { unitId: string }) {
           </p>
           <p className={styles.headline} data-testid="ward-board-headline">
             <span className={styles.headlineValue}>{available}</span>
-            <span className={styles.headlineLabel}>bed{available === 1 ? "" : "s"} you can fill today</span>
+            <span className={styles.headlineLabel}>ready bed{available === 1 ? "" : "s"}</span>
           </p>
           {/* `constraintSentence` returns null — never an empty string — when nothing is
             constraining, so nothing is rendered rather than a blank line that reads as a sentence
@@ -1247,7 +1254,7 @@ export function WardBoard({ unitId }: { unitId: string }) {
                         service" (never fillable today). The word is what makes it unambiguous; the
                         dotted edge and dot pattern only make it quicker to spot. */}
                       {tile.kind === "held" && <span className={styles.heldLabel}>Held</span>}
-                      {tile.kind === "empty" && <span className={styles.emptyLabel}>Empty</span>}
+                      {tile.kind === "empty" && <span className={styles.emptyLabel}>Ready</span>}
                       {/* Selection in WORDS, beside the heavier edge that carries it visually. A sheet
                         that has made no decision must not show a filled element — a fill reads as a
                         decision taken — and a weight alone is a mark a greyscale reader can miss. */}

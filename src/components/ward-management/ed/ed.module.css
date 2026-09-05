@@ -575,3 +575,19 @@
     background-color: Canvas !important;
   }
 }
+
+/*
+ * The cleaning count beside a ward's Ready figure in the statewide table (owner ruling 2026-09-05).
+ * Matches `capacity.module.css`'s `.beingMadeReady` exactly rather than inventing a second look for
+ * the same fact on a second screen — two screens stating one thing should state it the same way.
+ *
+ * `display: block` deliberately: `.capacityTable td` sets `white-space: nowrap`, so an inline note
+ * would push the column wide on every row that has one.
+ */
+.beingMadeReady {
+  display: block;
+  margin-top: var(--ward-space-2);
+  font-size: 0.6875rem;
+  line-height: var(--ward-leading-relaxed);
+  color: var(--ward-muted);
+}

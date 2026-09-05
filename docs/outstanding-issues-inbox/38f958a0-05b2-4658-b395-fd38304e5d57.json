@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "38f958a0-05b2-4658-b395-fd38304e5d57",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Ward Flow: wards/ward-overview.module.css is orphan CSS with no component at all",
+    "detail": "MEASURED 2026-09-04: 'find src -iname *ward-overview*' returns the stylesheet and nothing else — no component, no route, no importer. It is not a planned screen with its styling ready; it is a stylesheet for something that does not exist. It is the single remaining row in KNOWN_UNFIXED in tests/ward-management-print-coverage.test.ts, exempted because fixing print coverage on a file nothing mounts is work with no effect. Deleting it is an owner call under the protected-work rule, not an integrator's. Options: delete, or keep with a recorded reason if a ward-overview screen is still intended.",
+    "source": "Ward Lead, 2026-09-04",
+    "issueUlid": "01M1NW2ABG8E2BX80M665X5QFZ"
+  }
+}

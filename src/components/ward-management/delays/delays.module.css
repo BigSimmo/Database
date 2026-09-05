@@ -1,0 +1,176 @@
+/* The Delays screen — merge 01.
+ * Layout only. Every colour and every space resolves through a --ward-* token, and this screen
+ * paints no ground of its own: `ward-shell.module.css` owns that, pinned by ward-shell.dom.test.tsx. */
+/* ⚠️ THE PAGE SHELL, ADDED 2026-09-05 AFTER IT WAS MISSING ENTIRELY.
+ * This screen shipped with no rail column, no `.main` and no page header — so a coordinator who
+ * reached it had no way to any other board, and two landmarks every other Ward Flow route
+ * guarantees were absent. Mirrors `escalation.module.css`'s shell exactly rather than inventing a
+ * second one; that file is the template because this screen replaces it.
+ * Still paints no ground of its own — `ward-shell.module.css` owns that. */
+.screen {
+  composes: wardTokens from "../ward-tokens.module.css";
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: auto minmax(0, 1fr);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  grid-column: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ward-space-12);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--ward-space-16) var(--ward-space-20) var(--ward-space-24);
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-4);
+}
+
+.pageTitle {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: 700;
+}
+
+.pageSubtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.bar {
+  padding: var(--ward-space-16);
+}
+
+.filters {
+  padding: var(--ward-space-10) var(--ward-space-16);
+  border-bottom: 1px solid var(--ward-divider);
+}
+
+.foot {
+  margin: 0;
+  padding: var(--ward-space-10) var(--ward-space-16);
+  border-top: 1px solid var(--ward-divider);
+  font-size: 0.6875rem;
+  line-height: var(--ward-leading-relaxed);
+  color: var(--ward-muted);
+}
+.foot strong {
+  color: var(--ward-text);
+  font-weight: 600;
+}
+
+.absent {
+  margin: 0;
+  padding: var(--ward-space-16);
+  font-size: 0.75rem;
+  line-height: var(--ward-leading-relaxed);
+  color: var(--ward-muted);
+}
+
+.attention {
+  margin: 0;
+  padding: var(--ward-space-16);
+  display: grid;
+  gap: var(--ward-space-12);
+  list-style: none;
+}
+
+.attentionItem {
+  padding-left: var(--ward-space-10);
+  border-left: var(--ward-space-2) solid var(--ward-warning);
+  font-size: 0.75rem;
+  line-height: var(--ward-leading-relaxed);
+  color: var(--ward-text);
+}
+
+.attentionWho {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ward-warning);
+}
+
+.action {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: var(--ward-space-5) var(--ward-space-10);
+  cursor: pointer;
+  color: var(--ward-text);
+  background: var(--ward-canvas);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--ward-radius-pixel);
+}
+/* ⚠️ **THE HOVER CUE IS THE BORDER, NOT THE BACKGROUND — and that is the whole point of this rule.**
+ *
+ * This used to be `background: var(--ward-subtle)` alone, against `.action`'s `--ward-canvas`. Ward
+ * Lead measured the pair at **1.04:1, a channel distance of 11** — invisible. So the button gave no
+ * response at all under the pointer. It did not LOOK broken, which is exactly why it survived a
+ * direct look at all three merged screens.
+ *
+ * 🔴 **IT IS ALSO THE THIRD INSTANCE OF ONE LINEAGE**, and the first where the tint carried an
+ * interaction rather than decoration: the retired `--ward-ground` claimed to separate panels at
+ * 1.08:1, `.totalRow` claims to lift a summary row at 1.04:1, and this claimed to signal hover.
+ * A tint that reads as "a slightly different surface" in a stylesheet and as nothing on a monitor.
+ * **This pair was copied from the ward primitives, so the primitives taught it — do not copy it into
+ * a fourth place.**
+ *
+ * **Why no neutral token replaced it:** Ward Lead measured every candidate and the best,
+ * `--surface-inset`, is 1.14:1 — still inside the noise. There is no neutral surface token in this
+ * palette that gives a usable hover cue, so the ruling was to stop signalling hover with a
+ * background alone.
+ *
+ * **What each property does, because they fail independently:**
+ *   `--clinical-accent-soft`   the house pattern (`.pwa-action-secondary:hover`, globals.css).
+ *                              Works by HUE, not luminance — weak on luminance in light, a genuine
+ *                              cue in dark (1.48:1). Never sufficient alone.
+ *   `--ward-border-strong`     #667085 -> #55627a, 4.88:1 -> 5.99:1 against the canvas. **This is
+ *                              the load-bearing half.** It survives forced colours, a v2 palette
+ *                              change and a monitor with a blue cast, none of which the hue does.
+ *                              Measured identical on both this branch and master, unlike the
+ *                              accent, whose value differs between trees.
+ */
+.action:hover {
+  background: var(--clinical-accent-soft);
+  border-color: var(--ward-border-strong);
+}
+
+/* Restoring the per-row facts the old priority queue and escalation board each carried alone
+ * (MERGE 01 audit, 2026-09-05): a blocked-on sentence and the escalation facts are each their own
+ * fact, so each renders on its own line inside the row's shared `annotation` slot rather than
+ * running together as one paragraph. */
+.annotationLine {
+  display: block;
+}
+.annotationLine + .annotationLine {
+  margin-top: var(--ward-space-4);
+}
+
+/*
+ * ⚠️ RESERVE THE FIXED PHONE BAR. `ward-sidebar.module.css`'s `.phoneBar` is `position: fixed` at
+ * the top on phones, so it is out of flow and this shell's content would sit underneath it — the
+ * first row of a board hidden behind the navigation, which does not look broken.
+ *
+ * Missed when this screen was built and caught by `ward-sidebar-phone-contract` only once the ward
+ * suite was discovered from disk rather than hand-picked: the contract had been red on three of the
+ * merged screens and nobody's chosen file list included it.
+ *
+ * Same declaration every sibling board makes (board, community-index, and the rest) — deliberately
+ * copied rather than re-derived, because a shell that reserves a different amount is worse than one
+ * that reserves none.
+ */
+@media (max-width: 40rem) {
+  .screen {
+    padding-top: var(--spacing-ward-phone-bar);
+  }
+}

@@ -57,11 +57,12 @@ import { EdScreen } from "@/components/ward-management/ed/ed-screen";
 import { EscalationBoardPage } from "@/components/ward-management/escalation/escalation-board";
 import { DischargeBoard } from "@/components/ward-management/discharges/discharge-board";
 import { HandoverPage } from "@/components/ward-management/handover/handover-page";
-import { MorningPage } from "@/components/ward-management/morning/morning-page";
 import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
 import { seedWardFlowState } from "@/components/ward-management/ward-flow-reducer";
 import { PersonScreen } from "@/components/ward-management/patients/person-screen";
-import { LiveTracker } from "@/components/ward-management/tracker/live-tracker";
+import { DelaysScreen } from "@/components/ward-management/delays/delays-screen";
+import { CapacityScreen } from "@/components/ward-management/capacity/capacity-screen";
+import { MovementsScreen } from "@/components/ward-management/movements/movements-screen";
 import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
 import { OutOfAreaBoard } from "@/components/ward-management/out-of-area/out-of-area-board";
 import { WardIndex } from "@/components/ward-management/wards/ward-index";
@@ -111,8 +112,22 @@ const wardFlowRoutes = collectWardFlowRoutes(WARD_FLOW_ROOT);
  * Recorded here, by name, with a reason, rather than silently missing from RENDERABLE_ROUTES: the
  * coverage test below fails loudly if this set and the filesystem scan ever disagree on anything
  * else.
+ *
+ * `/mockups/ward-flow/morning` joined this set under MERGE 02 (owner-approved 2026-09-05): the
+ * morning bed state board folded into `CapacityScreen`, and the old route is now a `redirect()`-only
+ * stub for the same bookmark/deep-link reason `/constellation` is (see morning/page.tsx's own doc
+ * comment).
+ *
+ * `/mockups/ward-flow/transport` joined this set under MERGE 03 (owner-approved 2026-09-05): the
+ * live vehicle tracker folded into `MovementsScreen`, and the old route is now a `redirect()`-only
+ * stub for the same bookmark/deep-link reason `/constellation` and `/morning` are (see
+ * transport/page.tsx's own doc comment).
  */
-const REDIRECT_ONLY_ROUTES = new Set<string>([`${ROUTE_PREFIX}/constellation`]);
+const REDIRECT_ONLY_ROUTES = new Set<string>([
+  `${ROUTE_PREFIX}/constellation`,
+  `${ROUTE_PREFIX}/morning`,
+  `${ROUTE_PREFIX}/transport`,
+]);
 
 type RouteRender = { route: string; render: () => ReactNode };
 
@@ -151,9 +166,9 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   },
   { route: ROUTE_PREFIX, render: () => createElement(CoordinatorScreen) },
   { route: `${ROUTE_PREFIX}/queue`, render: () => createElement(WardModeWorkspace, { mode: "queue" }) },
-  { route: `${ROUTE_PREFIX}/capacity`, render: () => createElement(WardModeWorkspace, { mode: "capacity" }) },
+  { route: `${ROUTE_PREFIX}/capacity`, render: () => createElement(CapacityScreen) },
   { route: `${ROUTE_PREFIX}/governance`, render: () => createElement(WardModeWorkspace, { mode: "governance" }) },
-  { route: `${ROUTE_PREFIX}/movements`, render: () => createElement(WardModeWorkspace, { mode: "movements" }) },
+  { route: `${ROUTE_PREFIX}/movements`, render: () => createElement(MovementsScreen) },
   { route: `${ROUTE_PREFIX}/network`, render: () => createElement(WardModeWorkspace, { mode: "network" }) },
   { route: `${ROUTE_PREFIX}/exceptions`, render: () => createElement(WardModeWorkspace, { mode: "exceptions" }) },
   { route: `${ROUTE_PREFIX}/ed/[edId]`, render: () => createElement(EdScreen, { edId: "peel-ed" }) },
@@ -164,9 +179,7 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/escalation`, render: () => createElement(EscalationBoardPage) },
   { route: `${ROUTE_PREFIX}/discharges`, render: () => createElement(DischargeBoard) },
   { route: `${ROUTE_PREFIX}/handover`, render: () => createElement(HandoverPage) },
-  { route: `${ROUTE_PREFIX}/morning`, render: () => createElement(MorningPage) },
   { route: `${ROUTE_PREFIX}/search`, render: () => createElement(PatientSearchPage) },
-  { route: `${ROUTE_PREFIX}/transport`, render: () => createElement(LiveTracker) },
   { route: `${ROUTE_PREFIX}/transport/officer`, render: () => createElement(OfficerScreen) },
   { route: `${ROUTE_PREFIX}/ward/[unitId]`, render: () => createElement(WardScreen, { unitId: "rph-adult-secure" }) },
   {
@@ -187,10 +200,11 @@ const RENDERABLE_ROUTES: RouteRender[] = [
   { route: `${ROUTE_PREFIX}/out-of-area`, render: () => createElement(OutOfAreaBoard) },
   { route: `${ROUTE_PREFIX}/wards`, render: () => createElement(WardIndex) },
   { route: `${ROUTE_PREFIX}/community`, render: () => createElement(CommunityIndex) },
+  { route: `${ROUTE_PREFIX}/delays`, render: () => createElement(DelaysScreen) },
 ];
 
 describe("Ward Flow route/render-map coverage (sanity check on the scan and the map)", () => {
-  it("finds every known page.tsx under src/app/mockups/ward-flow: 32 (31 renderable + 1 redirect-only)", () => {
+  it("finds every known page.tsx under src/app/mockups/ward-flow: 33 (30 renderable + 3 redirect-only)", () => {
     // A silently broken scan (wrong directory, wrong glob) would collapse this to 0 or a handful,
     // and every assertion below would then vacuously pass — so this is checked before trusting
     // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 21, not 20: Phase 8 Task 5
@@ -213,7 +227,19 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     // page that gives `community/[teamId]`'s teams a way in that is not typing a URL. Registered in
     // ward-nav.ts in the same change, because an index nothing links to makes nothing reachable.
     // 30 renderable + 1 redirect-only (`/constellation`) = 31.
-    expect(wardFlowRoutes.length).toBe(32);
+    // 33, not 32: MERGE 01 (owner-approved 2026-09-05) added `/delays` (`DelaysScreen`), folding
+    // the priority queue, the exceptions inbox and the escalation board into one screen. `/queue`,
+    // `/exceptions` and `/escalation` stay on disk as redirects to `/delays` rather than being
+    // deleted, so this is one route ADDED, none removed. Mirrors tests/ward-nav.test.ts's own count.
+    // STAYS 33: MERGE 02 (owner-approved 2026-09-05) folds `/capacity` and `/morning` into one
+    // screen (`CapacityScreen`) but adds no route and deletes none — `/morning` becomes a redirect
+    // stub rather than being removed from disk. The breakdown in this test's title moves from
+    // 32 renderable + 1 redirect-only to 31 renderable + 2 redirect-only; the total does not.
+    // STAYS 33: MERGE 03 (owner-approved 2026-09-05) folds `/movements` and `/transport` into one
+    // screen (`MovementsScreen`) but adds no route and deletes none — `/transport` becomes a
+    // redirect stub rather than being removed from disk. The breakdown moves again, from
+    // 31 renderable + 2 redirect-only to 30 renderable + 3 redirect-only; the total still does not.
+    expect(wardFlowRoutes.length).toBe(33);
   });
 
   it("RENDERABLE_ROUTES plus REDIRECT_ONLY_ROUTES covers every route the scan found, and nothing else", () => {
@@ -225,7 +251,7 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
   });
 
-  it("RENDERABLE_ROUTES has exactly 31 entries, one per live route", () => {
+  it("RENDERABLE_ROUTES has exactly 30 entries, one per live route", () => {
     // 21 at the fold: both branches added one renderable route each, and both entries merged in.
     // 22 with the ward index (`/wards`, `WardIndex`) — Phase 8.
     // 23 with a person's own screen (`/people/[patientId]`, `PersonScreen`) — 2026-08-30.
@@ -233,7 +259,21 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
     // The title of this test said 24 while this line said 29, from 2026-08-30 until 2026-09-01: a
     // count in a title is prose, so nothing recomputes it and nothing can go red on it. Both halves
     // are moved together from here on, and that is the only thing keeping them honest.
-    expect(RENDERABLE_ROUTES.length).toBe(31);
+    // 32 with `/delays` (`DelaysScreen`) — MERGE 01, owner-approved 2026-09-05. `/queue`,
+    // `/exceptions` and `/escalation` keep their existing entries unchanged: this test only checks
+    // that every route on disk renders something sane, not what a live visit to it now does.
+    // ⚠️ THE TITLE SAID 31 THROUGH ALL OF THE ABOVE, from the 32-with-`/delays` change onward — the
+    // exact "count in prose, nothing recomputes it" trap the paragraph above already names, caught
+    // here rather than fixed silently. 31, now, not 32: MERGE 02 (owner-approved 2026-09-05) removed
+    // `/morning`'s entry — its board folds into `CapacityScreen`, whose entry replaces `/capacity`'s
+    // in place, and `/morning` moves to REDIRECT_ONLY_ROUTES instead of keeping a stale render — so
+    // one entry is removed and none added. The title is finally true again, for a different reason
+    // than the one that made it wrong.
+    // 30, now, not 31: MERGE 03 (owner-approved 2026-09-05) removed `/transport`'s entry — the live
+    // vehicle tracker folds into `MovementsScreen`, whose entry replaces `/movements`'s in place, and
+    // `/transport` moves to REDIRECT_ONLY_ROUTES instead of keeping a stale `LiveTracker` render —
+    // so again one entry is removed and none added.
+    expect(RENDERABLE_ROUTES.length).toBe(30);
   });
 });
 

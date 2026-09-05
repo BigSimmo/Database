@@ -109,6 +109,21 @@ async function answerEveryIntakeQuestion(
   // suburbOptions(), so an invented value would not be selectable. No assertion in this file
   // depends on WHICH suburb, only that the question is answered.
   await page.getByTestId("ward-referral-intake-suburb").selectOption("Albany");
+  // The TWELFTH question, required since the written-history change (2026-09-05) — and this is the
+  // FOURTH time this helper has been missed, exactly as the note above predicted. Three journeys
+  // in this file and `ui-ward-discharges.spec.ts` went red the moment `historyWhyNow` became
+  // required, and stayed red all day: no routine gate runs a `@mockup` spec, so nothing said so.
+  //
+  // ⚠️ THE REPAIR IS THIS ANSWER, NOT A SOFTENED ASSERTION BELOW — the instruction the previous
+  // two people left here, followed rather than rediscovered. Only `historyWhyNow` is filled:
+  // `historyBackground` and `historyRiskAndSafety` are genuinely optional and answering them here
+  // would hide a future change that made either one required.
+  //
+  // Free text, so any non-blank string serves; the reducer stores it byte for byte and refuses
+  // only a blank one. No assertion in this file depends on WHAT it says.
+  await page
+    .getByTestId("ward-referral-intake-history")
+    .fill("Brought in by family after two days of not sleeping and increasing agitation at home.");
   // Send only becomes available once the last question is answered, so this is both a wait and an
   // assertion: a journey that had missed one would fail here rather than time out on a click.
   await expect(page.getByTestId("ward-referral-intake-submit")).not.toHaveAttribute("aria-disabled", "true");
@@ -869,5 +884,151 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
       clipped,
       "column(s) of the out-of-area table are off the screen at 641px, reachable only by scrolling sideways inside the table",
     ).toEqual([]);
+  });
+
+  /**
+   * A DECLARATION THAT LOSES ON SPECIFICITY IS INERT AND LOOKS EXACTLY LIKE A WORKING ONE.
+   *
+   * `referrals.module.css` gives the queue's Tier cell heading ink so the board agrees with the
+   * match view, where the same fact is bold heading ink one click away. It was written as a bare
+   * `.tierCell` — (0,1,0) — against `ward-table.module.css`'s `.table td { color: var(--text) }`,
+   * a compound descendant selector at (0,1,1). **Specificity is decided before source order, so
+   * the colour never applied**, while the `font-weight` beside it did, because the primitive
+   * declares no weight. Measured on the running board: the Tier cell rendered `rgb(27, 37, 51)`,
+   * byte-identical to the plain cell beside it, under a commit claiming it now matched the match
+   * view's heading ink. Half of that was true.
+   *
+   * ⚠️ **NOTHING ANYWHERE COULD HAVE GONE RED.** The class is applied, the token exists, the
+   * stylesheet reads as though the override works, `vitest` loads no CSS Modules so no DOM test
+   * can evaluate a cascade, and a screenshot of near-black on near-black is a screenshot of the
+   * intended design. Only a browser reading two computed colours can tell.
+   *
+   * ⚠️ **AND IT IS ASSERTED AS A DIFFERENCE, NOT AS A VALUE.** Pinning `rgb(10, 18, 32)` would go
+   * red on any legitimate token change and green on the day both cells are given the same new
+   * colour — which is the defect itself. The property is "the Tier cell is inked differently from
+   * the plain cell in its own row", which is what the design claims and what specificity broke.
+   *
+   * Found because Ward Builder One hit the identical trap on the statistics compare page and
+   * reported it rather than fixing it quietly.
+   */
+  test("the referral board's Tier cell is inked differently from the plain cells in its own row", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/mockups/ward-flow/referrals", { waitUntil: "load" });
+
+    const queued = page.getByTestId("ward-referral-board-queued-table");
+    await expect(queued, "the queued table is not rendered at 1280px").toBeVisible();
+
+    const measured = await queued.evaluate((scroll) => {
+      const table = scroll.querySelector("table");
+      const headers = [...(table?.querySelectorAll("thead th") ?? [])].map((th) => (th.textContent ?? "").trim());
+      const row = table?.querySelector("tbody tr") as HTMLTableRowElement | null;
+      const tierIndex = headers.indexOf("Tier");
+      const plainIndex = headers.indexOf("Age band");
+      const cells = [...(row?.cells ?? [])];
+      const read = (index: number) => {
+        const cell = cells[index];
+        if (!cell) return null;
+        const style = getComputedStyle(cell);
+        return { text: (cell.textContent ?? "").trim(), color: style.color, weight: style.fontWeight };
+      };
+      return { headers, tierIndex, plainIndex, tier: read(tierIndex), plain: read(plainIndex) };
+    });
+
+    /*
+     * The floor first, and it is not decoration: `indexOf` returns -1 for a renamed column, `read`
+     * then returns null, and a comparison of two nulls is equal — so a board that had lost its Tier
+     * column entirely would fail this test with a confusing message rather than a clear one, and a
+     * comparison written less carefully would have PASSED it.
+     */
+    expect(
+      measured.tierIndex,
+      `no \`Tier\` column on the queued board — headers are ${measured.headers.join(", ")}`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      measured.plainIndex,
+      `no \`Age band\` column to compare against — headers are ${measured.headers.join(", ")}`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(measured.tier, "the queued board rendered no first row to measure").not.toBeNull();
+    expect(measured.plain, "the queued board rendered no first row to measure").not.toBeNull();
+    expect(measured.tier?.text.length, "the Tier cell is empty, so its ink says nothing").toBeGreaterThan(0);
+    expect(measured.plain?.text.length, "the comparison cell is empty, so its ink says nothing").toBeGreaterThan(0);
+
+    expect(
+      measured.tier?.color,
+      `the Tier cell is inked ${measured.tier?.color}, the same as the plain cell beside it — its ` +
+        "colour declaration is losing on specificity to `.table td` in the shared primitive and is inert",
+    ).not.toBe(measured.plain?.color);
+    expect(measured.tier?.weight, "the Tier cell is no longer bolder than the plain cell beside it").not.toBe(
+      measured.plain?.weight,
+    );
+  });
+
+  /**
+   * NO COLUMN OF THE REFERRAL BOARD'S TABLES IS OFF THE SCREEN AT ANY WIDTH THE TABLE IS USED AT.
+   *
+   * ⚠️ **THIS WAS A LIVE DEFECT UNTIL 2026-09-05 AND MY OWN DESIGN PASS WALKED PAST IT.** The
+   * board's scroll threshold was 40rem (640px) while the narrowest scroller it is ever shown in is
+   * 499px — at a 641px viewport, the first width above the card/table swap. Measured there before
+   * the fix: `Sex` and `Home region` sat outside the queued table, and `Waited` and `Decided`
+   * outside the decided one. **The decided table's two timing columns are what that section is
+   * for.**
+   *
+   * Every column was in the document at every width, which is why nothing went red — they were
+   * simply never on the screen, and the only way to reach them was to scroll sideways inside a
+   * table that shows no sign of having more (`ward-table.module.css` gives `.tableScroll` nothing
+   * but `overflow-x: auto`). This is out-of-area's Task 10 defect on a different board, and the
+   * sibling assertion in `ui-ward-discharges.spec.ts` is the template this follows, at the same
+   * four widths.
+   *
+   * ⚠️ **AND THE REASON IT SURVIVED A DESIGN PASS IS WORTH MORE THAN THE FIX: I measured 375px and
+   * 1440px and nothing in between.** A scroll threshold does its damage in the band between the
+   * card swap and a desk screen, which is exactly the band neither of those two widths is in.
+   *
+   * The floor first, and it is not decoration: `toEqual([])` on a list of escaping cells passes
+   * against a board rendering no tables at all, which is precisely what this page does below 40rem.
+   */
+  test("no column of the referral board's tables is off the screen at any width the table is used at", async ({
+    page,
+  }) => {
+    for (const width of [641, 700, 760, 820]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/mockups/ward-flow/referrals", { waitUntil: "load" });
+
+      const scrollers = page.locator('[data-testid^="ward-referral-board-"][data-ward-primitive="table"]');
+      expect(
+        await scrollers.count(),
+        `the referral board renders no table at ${width}px, so the containment check below would ` +
+          "pass having measured nothing",
+      ).toBeGreaterThan(0);
+
+      const measured = await scrollers.evaluateAll((nodes) =>
+        nodes.map((scroll) => {
+          const right = scroll.getBoundingClientRect().right;
+          const cells = [...scroll.querySelectorAll("thead th, tbody tr:first-child td")];
+          return {
+            id: scroll.getAttribute("data-testid") ?? "(no testid)",
+            cells: cells.length,
+            clipped: cells
+              .filter((cell) => cell.getBoundingClientRect().right > right + 1)
+              .map(
+                (cell) =>
+                  `${(cell.textContent ?? "").trim()} (right edge ${Math.round(cell.getBoundingClientRect().right)} vs scroller ${Math.round(right)})`,
+              ),
+          };
+        }),
+      );
+
+      for (const table of measured) {
+        expect(
+          table.cells,
+          `${table.id} rendered no header or first-row cell at ${width}px — nothing was measured`,
+        ).toBeGreaterThan(0);
+        expect(
+          table.clipped,
+          `column(s) of ${table.id} are off the screen at ${width}px, reachable only by scrolling ` +
+            "sideways inside a table that shows no sign of having more",
+        ).toEqual([]);
+      }
+    }
   });
 });

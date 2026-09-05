@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 const router = vi.hoisted(() => ({
   back: vi.fn(),
@@ -314,12 +315,15 @@ describe("finding 2 — the voluntary-on-locked warning must render, not just re
     const alternatives = screen.getByTestId("ward-console-alternatives");
     // Review finding 2 named both: "RPH Adult Secure" and "FSH Adult Secure" each offered as
     // "Eligible now" with the legal warning stripped. Both rows carry it, so both are checked.
-    const notices = within(alternatives).getAllByText(
-      "Voluntary patient on a locked ward — review legal status before admission",
-    );
-    expect(notices).toHaveLength(2);
+    // Selected by the RESTRICTION ATTRIBUTE, not by the sentence. The attribute is the contract
+    // between the derivation and the screen; the sentence is rendering, and the owner is rewording
+    // these pages. Finding the notices by their text made a reworded warning look like a MISSING
+    // warning — the same red as the defect this test exists for, which is the one thing it must
+    // never be confused with.
+    const notices = Array.from(alternatives.querySelectorAll<HTMLElement>('[data-restriction="voluntary_on_locked"]'));
+    expect(notices, "both locked-ward alternatives must carry the restriction marker").toHaveLength(2);
     for (const notice of notices) {
-      expect(notice).toHaveAttribute("data-restriction", "voluntary_on_locked");
+      expectSays(notice.textContent ?? "", "the locked-ward legal-status warning", ["voluntary", "locked", "legal"]);
       // Information, never a gate: the row this notice sits on still reads its own real verdict.
       // Walked by DOM structure (span -> row), never by CSS-module class name — the vitest
       // CSS-module proxy fabricates a class for any property asked of it, so a
@@ -341,7 +345,7 @@ describe("finding 2 — the voluntary-on-locked warning must render, not just re
     fireEvent.click(screen.getByTestId("test-change-legal-status"));
 
     const notice = screen.getByTestId("ward-console-destination-restriction");
-    expect(notice).toHaveTextContent("Voluntary patient on a locked ward — review legal status before admission");
+    expectSays(notice.textContent ?? "", "the locked-ward legal-status warning", ["voluntary", "locked", "legal"]);
     expect(notice).toHaveAttribute("data-restriction", "voluntary_on_locked");
   });
 });

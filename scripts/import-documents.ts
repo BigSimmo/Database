@@ -13,7 +13,6 @@ import {
 } from "@/lib/bulk-import";
 import { planDocumentName } from "@/lib/document-naming";
 import { assertSupabaseHealthy, probeSupabaseHealth } from "@/lib/supabase/health";
-import { findOwnerIdByEmail } from "./lib/find-owner-id-by-email";
 
 loadEnvConfig(process.cwd());
 
@@ -22,6 +21,21 @@ type SupabaseAdmin = Awaited<ReturnType<typeof loadAdminClient>>;
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
+}
+
+async function findOwnerIdByEmail(supabase: SupabaseAdmin, email: string) {
+  const normalized = email.trim().toLowerCase();
+  const perPage = 1000;
+
+  for (let page = 1; page < 50; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    if (error) throw new Error(error.message);
+    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === normalized);
+    if (user?.id) return user.id;
+    if (data.users.length < perPage) break;
+  }
+
+  throw new Error(`No Supabase Auth user found for ${email}. Sign in once before importing.`);
 }
 
 async function existingDocumentsByHash(supabase: SupabaseAdmin, ownerId: string, hashes: string[]) {
@@ -139,7 +153,7 @@ async function main() {
       const supabase = await loadAdminClient();
       requireServerEnv();
       assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Import dry-run duplicate check");
-      const ownerId = await findOwnerIdByEmail(supabase, args.ownerEmail, { purpose: "importing" });
+      const ownerId = await findOwnerIdByEmail(supabase, args.ownerEmail);
       existing = await existingDocumentsByHash(
         supabase,
         ownerId,
@@ -177,8 +191,7 @@ async function main() {
   }
 
   const requestedOwnerId =
-    configuredOwnerId ??
-    (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail, { purpose: "importing" }) : undefined);
+    configuredOwnerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
   const batch = await loadOrCreateBatch({
     supabase,
     ownerId: requestedOwnerId,

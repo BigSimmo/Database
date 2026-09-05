@@ -1,10 +1,31 @@
 /* src/components/ward-management/ward-panel.module.css
  * The shared Board vocabulary. Every Ward Flow screen uses these rather than its own copy. */
+/*
+ * THE PANEL EDGE FOLLOWS THE DESIGN SYSTEM'S OWN RULE, 2026-09-05 — SPEC §4.7: "in-flow cards use
+ * border + shadow". It used `--ward-border` (neutral-500, 4.97:1 on white) and NO shadow, which is
+ * four times the contrast of PsychSift's own card edge (`--border`, 1.20:1) and is most of why the
+ * ward screens read as heavier than the rest of the app.
+ *
+ * ⚠️ AND THE HEAVY LINE WAS NOT A MISTAKE — IT WAS THE ONLY THING SEPARATING THE PANEL.
+ * `ward-tokens.module.css` records rejecting `--border` on measurement: "NOT A FAINT LINE — IT IS
+ * NO LINE", 1.11–1.20:1 across every ward surface. That finding is correct **about a border with
+ * nothing beside it**. The system's answer is not a darker line, it is a lighter line PLUS
+ * elevation, and the ward layer had adopted only half the pattern.
+ *
+ * So: `--border` for the edge, `--e1` for the lift. Neither alone would do it.
+ *
+ * ⚠️ `--ward-border` IS DELIBERATELY UNTOUCHED and still paints every rule INSIDE a panel. Its
+ * comment records that `--neutral-400` failed a 2:1 floor on three of four surfaces IN DARK MODE,
+ * and that the dark ramp has no step between invisible and this. A shadow separates a panel from
+ * the page; it does nothing for a divider between two rows, so lightening that too would reverse a
+ * measured accessibility decision for no gain.
+ */
 .panel {
   composes: wardTokens from "./ward-tokens.module.css";
-  border: 1px solid var(--ward-border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--ward-canvas);
+  box-shadow: var(--e1);
   overflow: hidden;
 }
 .panelHeader {

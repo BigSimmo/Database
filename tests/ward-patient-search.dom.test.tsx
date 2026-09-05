@@ -1,7 +1,9 @@
-import { referralState } from "../src/components/ward-management/ward-referrals";
+import { declinedAddressings, referralState } from "../src/components/ward-management/ward-referrals";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
+import type { Referral } from "@/components/ward-management/ward-model";
 
 // Same reason as every sibling dom suite (ward-handover.dom.test.tsx, ward-escalation.dom.test.tsx,
 // ward-screen.dom.test.tsx): `ClinicalRail` renders next/link anchors and this suite checks the
@@ -15,7 +17,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
+import { PatientSearchPage, ResultsSection } from "@/components/ward-management/search/patient-search";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { isOpen } from "@/components/ward-management/ward-derivations";
 import { seedWardFlowState } from "@/components/ward-management/ward-flow-reducer";
@@ -233,11 +235,10 @@ describe("search finds PEOPLE, including ones the movement search structurally c
 
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "zzzznobody" } });
 
-    expect(
-      screen.getByTestId("ward-patient-search-people-empty"),
-      "an empty result must SAY nobody is known and what that means. A blank space reads as a page " +
-        "that has not loaded, and the decision resting on it is whether to add a person.",
-    ).toHaveTextContent("need adding before they can be referred");
+    expectSays(screen.getByTestId("ward-patient-search-people-empty"), "the not-in-system note", [
+      "before they can be referred",
+      "adding",
+    ]);
   });
 
   it("prompts rather than listing everybody before anything is typed", () => {
@@ -362,5 +363,129 @@ describe("the results table never claims more than the record holds", () => {
         "and this model records no arrival instant. Triage is not arrival and no screen may word it " +
         "as one (see `Referral.triagedAt`).",
     ).toBe(false);
+  });
+});
+
+/*
+ * 🔴 THE REFERRAL ROW NEVER SAID HOW MANY DESTINATIONS HAD ALREADY DECLINED.
+ *
+ * Every queued-referral row rendered the same sentence — "waiting for a decision, no bed accepted
+ * yet" — whether nobody had been asked yet or several destinations had already said no. Those are
+ * opposite clinical situations and the sentence could not tell them apart. `declinedAddressings`
+ * already existed for exactly this and this row never called it.
+ *
+ * Both fixtures below are built from a REAL seeded referral (RF-011: two queued destinations, one
+ * ward and one ED) rather than invented from scratch, so the shape stays whatever `Referral`
+ * actually requires. Only `destinations` is touched.
+ *
+ * ⚠️ THE EXPECTED COUNTS ARE COMPUTED FROM THE MODEL, NEVER HAND-TYPED. `declinedAddressings` is
+ * the same function the component must call — asserting a hand-typed "1" would pass even if the
+ * component counted something else that happened to also be 1 on this fixture.
+ */
+describe("the referral row states how many destinations have declined", () => {
+  const seededReferrals = seedWardFlowState().referrals;
+  const baseReferral = seededReferrals.find((referral) => referral.id === "RF-011");
+  if (!baseReferral) {
+    throw new Error("fixture RF-011 (two queued destinations) is required by this suite and is missing");
+  }
+  // Guards the fixture assumption this whole suite is built on: two destinations, neither declined.
+  if (baseReferral.destinations.length !== 2 || declinedAddressings(baseReferral).length !== 0) {
+    throw new Error("RF-011 no longer has two queued destinations with none declined — re-point this fixture");
+  }
+
+  const noneDeclinedReferral: Referral = baseReferral;
+
+  const partiallyDeclinedReferral: Referral = {
+    ...baseReferral,
+    id: "RF-011-TEST-partial-decline",
+    destinations: [
+      {
+        ...baseReferral.destinations[0],
+        state: "declined",
+        declineReason: "belongs_to_another_service",
+        decidedAt: NOW_ANCHOR - 10,
+        decidedBy: "Flow coordinator",
+      },
+      baseReferral.destinations[1],
+    ],
+  };
+  // Guards that the mutation actually produced a still-QUEUED referral with exactly one decline —
+  // the case this fix is for. If this ever fails, the built fixture no longer exercises the row
+  // this suite exists to check.
+  if (
+    referralState(partiallyDeclinedReferral) !== "queued" ||
+    declinedAddressings(partiallyDeclinedReferral).length !== 1
+  ) {
+    throw new Error("the constructed partial-decline fixture is no longer queued-with-one-decline");
+  }
+
+  function renderRow(referral: Referral) {
+    render(<ResultsSection results={[{ kind: "referral", referral }]} units={allUnits()} now={NOW_ANCHOR} />);
+    return screen.getByTestId(`ward-patient-search-referral-${referral.id}`);
+  }
+
+  it("says nothing has declined when declinedAddressings is empty", () => {
+    const row = renderRow(noneDeclinedReferral);
+    const declinedCount = declinedAddressings(noneDeclinedReferral).length;
+
+    expect(declinedCount, "this fixture is the zero-decline case; if it is not 0 the test proves nothing").toBe(0);
+    expect(row).not.toHaveTextContent(/declined/i);
+  });
+
+  it("states the exact number of destinations that have declined, computed from declinedAddressings", () => {
+    const row = renderRow(partiallyDeclinedReferral);
+    const declinedCount = declinedAddressings(partiallyDeclinedReferral).length;
+    const totalCount = partiallyDeclinedReferral.destinations.length;
+
+    expect(row).toHaveTextContent(String(declinedCount));
+    expect(row).toHaveTextContent(new RegExp(`\\b${declinedCount}\\b.*declined`, "i"));
+    // The referral is still QUEUED — at least one destination has not declined — so a sentence
+    // claiming every destination declined would be a false claim this data cannot support.
+    expect(row).not.toHaveTextContent(/all.*declined/i);
+    expect(row).toHaveTextContent(String(totalCount));
+  });
+
+  it("uses different wording for zero declines than for one or more — not the same template with a swapped number", () => {
+    const zeroRow = renderRow(noneDeclinedReferral);
+    const zeroText = zeroRow.textContent ?? "";
+    document.body.innerHTML = "";
+    const declinedRow = renderRow(partiallyDeclinedReferral);
+    const declinedText = declinedRow.textContent ?? "";
+
+    // Strip the shared prefix (origin/age/region, which both rows legitimately share) and compare
+    // only the clause this fix actually changes.
+    const zeroClause = zeroText.split("—")[1] ?? zeroText;
+    const declinedClause = declinedText.split("—")[1] ?? declinedText;
+    expect(declinedClause).not.toBe(zeroClause);
+  });
+
+  it("never claims a declined destination is a 'ward' when the model does not say so — a declined destination can be an ED or a community team", () => {
+    // RF-011's first destination (the one mutated to declined above) is a psychiatric ward, so this
+    // fixture alone cannot prove the word "ward" is safe in general. The row must not assert
+    // "ward" from `declinedAddressings` alone, since a declined addressing can be any of the three
+    // destination kinds and the component has no per-kind branch.
+    const edDeclinedReferral: Referral = {
+      ...baseReferral,
+      id: "RF-011-TEST-ed-decline",
+      destinations: [
+        baseReferral.destinations[0],
+        {
+          ...baseReferral.destinations[1],
+          state: "declined",
+          declineReason: "belongs_to_another_service",
+          decidedAt: NOW_ANCHOR - 10,
+          decidedBy: "Flow coordinator",
+        },
+      ],
+    };
+    expect(referralState(edDeclinedReferral)).toBe("queued");
+    expect(declinedAddressings(edDeclinedReferral).length).toBe(1);
+
+    const row = renderRow(edDeclinedReferral);
+    expect(
+      row,
+      "the declined destination here is an emergency department, not a ward — the row must not say " +
+        '"ward" for a count that includes non-ward destinations.',
+    ).not.toHaveTextContent(/\bwards?\b/i);
   });
 });

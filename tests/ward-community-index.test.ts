@@ -5,6 +5,8 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { guardControls } from "./helpers/guard-control";
+
 // ⚠️ COMMENT-BLINDNESS CHECKED 2026-09-04 (see tests/ward-guard-comment-blindness.test.ts). Every
 // link/heading/text assertion in this file reads `renderToStaticMarkup` output, never raw source —
 // a JSX comment can never reach that string, so there is no comment-defeat surface here. Proved:
@@ -146,6 +148,85 @@ function linkCountIn(markup: string): number {
   return (mainRegionOf(markup).match(/data-testid="community-index-link"/g) ?? []).length;
 }
 
+/*
+ * 🔴 **THE PREDICATE, LIFTED OUT SO A CONTROL CAN RUN THROUGH THE SAME CODE THE PAGE DOES — and
+ * the reason it is lifted is a narrowing of mine that went GREEN on the defect it was written for.**
+ *
+ * 2026-09-05. This guard forbade every numeral in the page's furniture; its own message is about a
+ * count labelled as SERVICES. Broader than its rationale, so it went red on the correct fix — "All
+ * teams 65" honestly corrected to "All names 65". I narrowed it to require a numeral AND a service
+ * noun **in the same element**, the page went green, and the reasoning was sound.
+ *
+ * **It could never have matched.** The page renders the noun in a `<button>` and the number in a
+ * nested `<span>`, so a same-element predicate sees "All teams" and "65" as two separate strings.
+ * Only re-running the original defect showed it, and nothing else would have.
+ *
+ * ⚠️ **SO THE RULE — and Ward Verifier's mechanical form of it, which is why this pair exists:**
+ *
+ *   > **After narrowing any guard, re-run the original defect. A narrowing that goes green on it is
+ *   > worse than the over-broad version it replaced.**
+ *
+ * A discipline nobody remembers becomes a test that re-runs itself: **keep the defect as a fixture
+ * beside the guard and assert the predicate FIRES on it.** Then a future narrowing cannot pass
+ * silently, because the corpus runs on every change.
+ *
+ * ⚠️ **ITS OWN FAILURE MODE, so this is not a free win: a fixture written from MEMORY of the defect
+ * gives a positive control that passes for the wrong reason.** The two below are copied verbatim
+ * out of the running page — hashed class names and all — because the `<button>`/`<span>` boundary
+ * is exactly the detail a remembered version smooths away, and it is the whole defect.
+ */
+export function furnitureIn(markup: string): readonly string[] {
+  return ["h1", "h2", "h3", "span", "strong", "button", "label"]
+    .flatMap((tag) => markup.match(new RegExp(`<${tag}[^>]*>[^]*?</${tag}>`, "gu")) ?? [])
+    .filter((element) => !element.includes("href="));
+}
+
+const SERVICE_NOUN = /\b(teams?|services?|clinics?)\b/iu;
+
+export function serviceCountClaimsIn(markup: string): readonly string[] {
+  return furnitureIn(markup)
+    .map((element) => ({ element, text: element.replace(/<[^>]*>/gu, " ") }))
+    .filter(({ text }) => /\d/u.test(text) && SERVICE_NOUN.test(text))
+    .map(({ element }) => element);
+}
+
+/*
+ * ⚠️ **ONE IS COPIED VERBATIM AND THE OTHER IS DERIVED, and I first described both as copied.**
+ * Caught by Ward Verifier, and the correction matters precisely because this helper's warning is
+ * about fixture provenance: a reader who believes both were copied will not re-check the derived
+ * one when the chip's markup changes.
+ *
+ * `HONEST_CHIP` is copied out of the running page, hashed CSS-module class names and all.
+ * `DEFECT_CHIP` is derived from it by one substitution — **and the derivation is sounder than
+ * copying would have been.** It guarantees the pair differs ONLY in the noun under test, which is
+ * the isolation a control wants, and it fails safe: if `HONEST_CHIP` ever stops containing "All
+ * names" the replace is a no-op, the two fixtures become identical, and `guardControls`'s own
+ * anti-vacuity check goes red rather than quietly passing.
+ */
+const HONEST_CHIP =
+  '<button type="button" class="community-index-module__DaeaVa__chip" aria-pressed="true">All names ' +
+  '<span class="community-index-module__DaeaVa__chipCount">65</span></button>';
+const DEFECT_CHIP = HONEST_CHIP.replace("All names", "All teams");
+
+describe("the numeral guard's own controls — it must fire on the defect and not on the fix", () => {
+  /*
+   * ⚠️ **CONVERGED ONTO `guardControls` 2026-09-05. Ward Verifier and I built this pattern
+   * INDEPENDENTLY, in different files, on the same night, from the same defect of mine — and it
+   * produced NO CONFLICT, which is how a duplication survives.** Two conventions for one idea,
+   * and the next reader adopts whichever they meet first.
+   *
+   * Its version won on a property mine did not have: **it refuses a pair whose two fixtures are
+   * identical**, on the grounds that such a pair passes whatever the predicate does. Mine had the
+   * proof against a real defect; its had the anti-vacuity. This keeps both.
+   */
+  guardControls({
+    guarding: "the community index's numeral-and-service-noun ban",
+    predicate: (subject) => serviceCountClaimsIn(subject).length > 0,
+    defect: DEFECT_CHIP,
+    honest: HONEST_CHIP,
+  });
+});
+
 describe("Community team index — every team the prototype can name has a way in", () => {
   const markup = renderIndex();
   const linked = linkedTeamIdsIn(markup);
@@ -222,6 +303,100 @@ describe("Community team index — every team the prototype can name has a way i
     // No heading, badge or label carries a comparative or a count. The page renders one section and
     // one list; a second heading here would be the first step towards a grouping nobody decided.
     expect((main.match(/<h2/g) ?? []).length, "the index grew a second heading — it renders one flat list").toBe(1);
+
+    /*
+     * 🔴 **THE SENTENCE ABOVE STATED A RULE AND THE ASSERTION BESIDE IT CHECKED A DIFFERENT ONE.**
+     * "No heading, badge or label carries a comparative or a count" was enforced by nothing — the
+     * assertion counts `<h2>` elements. A second-edition pass on 2026-09-05 added a team count to
+     * the panel header and every test here stayed green. **A worry in a comment is not a check**,
+     * which is the second instance of that exact shape found today.
+     *
+     * ⚠️ **AND THE COUNT WOULD HAVE BEEN A CLAIM THE SOURCE DOES NOT SUPPORT.** "65" asserts
+     * sixty-five community teams; `community-vocabulary.ts` derives that 22 of those names sit in a
+     * family with a near-identical sibling, and the catchment document names several as one service
+     * spelled more than one way. The list is a vocabulary a referral can name, not a roster.
+     *
+     * Asserted over the region OUTSIDE the team links, so a team whose real name contains a numeral
+     * cannot trip it — the rule is about the page's own furniture, not about the data.
+     */
+    /*
+     * ⚠️ **NO BACKREFERENCE, AND NO STRIPPING PASS EITHER — BOTH EARLIER DRAFTS FAILED SILENTLY.**
+     * The first removed the anchors before matching, and an anchor opening before a heading and
+     * closing after it swallowed the heading. The second used a backreference; **the shell turned
+     * its `\b` into a literal 0x08 backspace and its `\1` into 0x01 on the way to disk** — `cat -A`
+     * showed `^H` and `^A` inside the emitted pattern. It compiled, matched nothing, and no gate
+     * complained.
+     *
+     * **Both drafts produced an empty match set and both were caught by the floor below rather than
+     * by anybody reading the regex.** That is what the floor is for. One explicit pattern per tag,
+     * built from a template literal, no groups to lose.
+     */
+    /*
+     * ⚠️ **`button` AND `label` ARE IN THIS LIST BECAUSE OF A CONTROL THAT FAILED, AND THE FAILURE
+     * IS WORTH MORE THAN THE FIX.** Ward Lead narrowed this assertion on 2026-09-05 to require a
+     * numeral AND a service noun in the same element — then ran the mutation and found the narrowed
+     * guard **GREEN on the original defect**. The reason: the page renders
+     * `<button>All teams <span class=chipCount>65</span></button>`, so the noun and the numeral are
+     * in DIFFERENT elements and a same-element predicate can never see them together.
+     *
+     * **A narrowing that goes green on the very defect the guard was written for is worse than the
+     * over-broad version it replaced**, and it would have shipped had the mutation not been run.
+     * Scanning the enclosing labelled control is what puts the claim and its number in one string.
+     */
+    const headingsAndLabels = furnitureIn(main);
+    expect(headingsAndLabels.length, "no headings or labels were found, so the check below is vacuous").toBeGreaterThan(
+      2,
+    );
+    /*
+     * ⚠️ **THE TEXT, NOT THE MARKUP — AND TESTING THE MARKUP FLAGGED SIXTY-EIGHT ELEMENTS.** CSS
+     * Module class names carry a generated hash, so every `class="community-index_teamName__x3F1"`
+     * contains a digit and every element looks like it renders one. The property is what a READER
+     * sees, so the tags come off first.
+     */
+    /*
+     * ⚠️ **NARROWED 2026-09-05 BY WARD LEAD, AND THE NARROWING IS TO THIS GUARD'S OWN STATED
+     * PROPERTY RATHER THAN TO WHATEVER MADE THE PAGE GREEN.**
+     *
+     * It forbade EVERY numeral in the page's furniture. Its own message says why it exists: *"this
+     * page lists a vocabulary a referral can name, not a roster of distinct services, and a total
+     * asserts the second"*. **The defect is a count labelled as SERVICES. It is not arithmetic.**
+     *
+     * The page shipped "All teams 65", which is exactly the defect — 24 of those 65 names are 10
+     * groups, so at most 51 services exist and the label claimed 65. Ward Builder Three corrected
+     * the noun to "All names 65", which is TRUE: the page really does hold 65 names, and saying so
+     * is the honest form of the very thing the guard's first clause calls this page. **The guard
+     * kept firing, because it was checking for digits rather than for the claim.**
+     *
+     * ⚠️ **A GUARD BROADER THAN ITS OWN RATIONALE FORBIDS THE CORRECT FIX**, which is how an honest
+     * guard gets deleted — and the honest ones go with it in the same tidy-up. So the assertion now
+     * matches the property: a numeral presented as a count of TEAMS, SERVICES or CLINICS.
+     *
+     * **PROVED, not asserted: mutating "All names" back to "All teams" makes this RED again.** The
+     * narrowing did not cost the original catch. Run that mutation before touching this line.
+     */
+    const numbered = serviceCountClaimsIn(main);
+
+    /*
+     * The floor is on the POPULATION that could trip it — furniture carrying a numeral at all —
+     * never on the number of violations. Without it, deleting every count from the page would make
+     * this vacuously green and nobody would know the check had stopped meaning anything.
+     */
+    const numeralBearing = headingsAndLabels.filter((element) => /\d/u.test(element.replace(/<[^>]*>/gu, " ")));
+    expect(
+      numeralBearing.length,
+      "no furniture on this page carries a numeral at all, so the service-noun check below cannot " +
+        "discriminate. Either the counts were removed — in which case this guard has nothing left to " +
+        "do and should be retired deliberately — or the element scan above has stopped matching.",
+    ).toBeGreaterThan(0);
+
+    expect(
+      numbered,
+      "a heading, badge or label pairs a numeral with 'team', 'service' or 'clinic'. This page lists " +
+        "a vocabulary a referral can name, not a roster of distinct services, and a total labelled " +
+        "that way asserts the second — 24 of these names are 10 groups, so the real number of " +
+        "services is smaller and this page cannot say by how much. Counting NAMES is fine and true; " +
+        "counting TEAMS is the claim that is not.",
+    ).toEqual([]);
   });
 });
 

@@ -16,10 +16,23 @@
   --ward-blue-soft: var(--clinical-accent-soft);
   --ward-blue-border: var(--clinical-accent-border);
 
-  /* Surfaces. `--ward-ground` is the one genuinely new role the Board direction needs: panels
-   * sit ON something rather than being white on white, and that separation is what makes each
-   * panel read as a discrete instrument. */
-  --ward-ground: var(--surface-inset);
+  /* Surfaces. `--ward-ground` is what every ward page sits on, painted once by `WardGround`.
+   *
+   * ⚠️ IT WAS `--surface-inset` UNTIL 2026-09-05, AND THE OWNER ASKED FOR IT WHITE —
+   * three times, and the third time by pointing at it. The note that used to sit here argued the
+   * tint earns its place because "panels sit ON something rather than being white on white, and
+   * that separation is what makes each panel read as a discrete instrument". That reasoning is
+   * sound and it is not the only way to get the separation: **the panels carry a real
+   * `--ward-border`, so the edge does the work the tint was doing**, and the result is the crisper
+   * page he asked for rather than a flatter one.
+   *
+   * ⚠️ THIS IS THE SHARED GROUND FOR EVERY WARD SCREEN, NOT JUST THE COMMUNITY PAGES. It is
+   * changed here, in the one token, rather than overridden per page — a page painting its own
+   * background over this one is the `COVERING_THE_GROUND` defect this file's neighbours are
+   * guarded against, and doing it locally would have hidden the change from every other ward
+   * screen while looking correct on mine. If a ward screen relies on the tint for separation
+   * rather than on its own borders, it will look flat now and the fix belongs on that screen. */
+  --ward-ground: var(--surface);
   --ward-canvas: var(--surface);
   --ward-chrome: var(--surface-chrome);
   --ward-subtle: var(--surface-subtle);
@@ -121,6 +134,100 @@
   --ward-z-phone-bar: 30;
 
   --ward-radius-pixel: 0.0625rem;
+
+  /* `WardTable`'s (`ward-table.module.css`) one per-screen variable: the width below which a
+   * table scrolls instead of squashing its columns — a fact about how many columns a screen has,
+   * not a colour or a spacing step, but the same class of non-colour fact `--ward-tap` and
+   * `--ward-radius-pixel` above already own. `0` here means "no threshold, scroll never forces" —
+   * the safe default for a module that composes the shared block without setting its own value.
+   * Each consuming module sets it to its own value on its own local `.table` class; a same-element
+   * declaration there wins over this inherited default, same as every other `--ward-*` token. */
+  --ward-table-min-width: 0;
+}
+
+/*
+ * 🔴 HIGH CONTRAST: THE EIGHT ROLES THAT INHERIT NOTHING.
+ *
+ * `src/app/ckb-v2-tokens.css:427` carries a `@media (forced-colors: active)` block re-pointing 83
+ * tokens, scoped to `.ckb-v2.ckb-v2` — and `.ckb-v2` sits on the `<html>` element
+ * (`src/app/layout.tsx:124`), so every ward screen is already inside it. **Most of this layer is
+ * therefore already handled, and the first draft of this fix claimed otherwise.**
+ *
+ * Measured, not recalled — of this layer's 19 colour roles, ELEVEN inherit high-contrast handling
+ * because they alias a v2 token that block re-points (`--ward-canvas: var(--surface)`,
+ * `--ward-text: var(--text)`, `--ward-blue: var(--clinical-accent)` and eight more). EIGHT do not,
+ * and they are the eight below. `--ward-tap` also resolves to an unre-pointed token and is
+ * deliberately absent: it is a spacing minimum, and a high-contrast block has no business changing
+ * how big a tap target is.
+ *
+ * ⚠️ THE TWO THAT MATTER MOST ARE THE TWO NOTHING COVERS. `--ward-border` and `--ward-divider`
+ * resolve to `--neutral-500`, and the v2 block re-points `--border`, not the neutral ramp. Those
+ * two carry EVERY panel edge and EVERY row rule in Ward Flow. So a screen that adopted this layer
+ * and deleted its own forced-colors block kept its text and its surfaces and silently lost its
+ * borders — which is precisely why the defect survives being looked at.
+ *
+ * WHY EVERY STATUS ROLE COLLAPSES TO ONE COLOUR, WHICH IS CORRECT AND NOT A SHORTCUT. Under forced
+ * colours a danger chip and a success chip become indistinguishable by colour. That is what forced
+ * colours is FOR, and it is why this design language requires that state be a word before it is a
+ * colour — the word is what survives here. If a state is ever carried by colour alone, this block
+ * is where that becomes a defect rather than a preference.
+ *
+ * MAPPED BY ROLE, NOT BY NAME. The app sends its text roles to `CanvasText` and its fills to
+ * `Canvas`. `--ward-danger` aliases `--danger-text`, a TEXT role, so it goes to `CanvasText` —
+ * NOT to `Mark`, which is where the app sends `--danger`, its FILL role. Matching on the similar
+ * name rather than the actual role is how a text colour ends up as a highlight background.
+ *
+ * WHY THE CLASS IS DOUBLED. `.wardTokens.wardTokens` is 0,2,0, matching the app's own
+ * `.ckb-v2.ckb-v2` idiom and for the same reason: a screen-local forced-colors block that also
+ * sets `--ward-border` would otherwise be an equal-specificity 0,1,0 rule, and which one won would
+ * come down to stylesheet order. Screens are mid-migration off their own blocks, so that
+ * competition is live rather than hypothetical.
+ *
+ * ⚠️ NOTHING EXTRA IS NEEDED ON THE PRIMITIVES, AND THAT WAS CHECKED RATHER THAN ASSUMED. Every
+ * variant in `ward-chip.module.css` sets a `border-color` from a `--ward-*` role over a
+ * `1px solid transparent` base, `ward-panel` draws its edge from `--ward-border` and its rule from
+ * `--ward-divider`, and `ward-figure`'s warning state sets both a border and a background. So
+ * re-pointing these eight gives every one of them a drawn `CanvasText` edge.
+ *
+ * 🔴 THIS SENTENCE USED TO END "a primitive whose only edge was a fill would need its own rule here;
+ * NONE CURRENTLY IS." It was true when it was written and false two and a half minutes later, and it
+ * is corrected rather than deleted because the correction is the useful part. Measured, not recalled:
+ *
+ *     the claim      d5f0fcc05   2026-09-05 02:48:14 +0800
+ *     ward-bar.css   c4d8b885a   2026-09-05 02:50:43 +0800
+ *     ancestry       neither commit is an ancestor of the other — parallel branches, folded later
+ *
+ * So a claim and its counter-example merged with NO CONFLICT and nothing went red. `.segment` and
+ * `.swatch` in `ward-bar.module.css` are two classes whose only edge is a fill, in the one primitive
+ * whose fill IS its content — five coloured bands and nothing else.
+ *
+ * THE ANSWER IS NOT A NINTH ROLE HERE. WardBar carries its own `forced-colors` and `@media print`
+ * blocks, which DRAW the split rather than buy the fills back — deliberately, because this layer's
+ * own position two paragraphs above is that under forced colours a danger and a success state SHOULD
+ * become indistinguishable, since the word is what survives. `tests/ward-bar-fill-only-edges.test.ts`
+ * derives the fill-only population from that stylesheet rather than listing it, so a sixth tone added
+ * tomorrow fails without anyone remembering this note exists.
+ *
+ * ⚠️ AND THE POINT OF CORRECTING IT RATHER THAN QUIETLY DROPPING IT: a true-sounding "none currently
+ * is" stops the next reader looking. That is what it did.
+ */
+@media (forced-colors: active) {
+  .wardTokens.wardTokens {
+    /* Every panel edge and every row rule in Ward Flow. */
+    --ward-border: CanvasText;
+    --ward-divider: CanvasText;
+
+    /* Status TEXT roles. */
+    --ward-success: CanvasText;
+    --ward-warning: CanvasText;
+    --ward-danger: CanvasText;
+
+    /* Status FILL roles. A tinted surface is not a boundary once the tint is gone, which is what
+     * makes the drawn borders above load-bearing rather than decorative. */
+    --ward-success-soft: Canvas;
+    --ward-warning-soft: Canvas;
+    --ward-danger-soft: Canvas;
+  }
 }
 
 /*
@@ -201,3 +308,27 @@
     background-color: Canvas !important;
   }
 }
+
+/*
+ * ⚠️ **A ~1.05:1 TINT IS NOT A SEPARATION, AND THIS DESIGN LANGUAGE HAS NOW BELIEVED IT TWICE.**
+ *
+ * Measured by Ward Lead, 2026-09-05, after the ground went white and a border became load-bearing:
+ *
+ *   --ward-ground (retired tint #f4f7fa) against a white panel        1.08:1
+ *   --ward-subtle (#f7f9fc) against --ward-canvas (#fcfdfe)           1.04:1
+ *   --ward-border (#667085) against the new ground (#fcfdfe)          4.88:1
+ *   --ward-border (#667085) against a --ward-subtle row (#f7f9fc)     4.72:1
+ *
+ * **Both tints are invisible as boundaries. In both places the BORDER was doing the separating all
+ * along** — the retired `--ward-ground` comment claimed panels "sit ON something rather than being
+ * white on white", and `capacity.module.css`'s `.totalRow` uses `--ward-subtle` to "lift" the
+ * summary row out of its table. Neither tint lifts anything; both rows and panels also carry a
+ * `--ward-border` edge, and that is what a reader actually sees.
+ *
+ * ⚠️ **THE POINT IS NOT TO DELETE THE TINTS.** At 1.04:1 they cost nothing and they do no harm; a
+ * faint warmth is a legitimate thing to want. **The point is that no rule may DEPEND on one.** If a
+ * row, panel or state is distinguishable only by a tint at this weight, it is not distinguishable —
+ * and a comment asserting that it is will be inherited by everything downstream, because nobody
+ * re-derives a stated reason. That is how both of these survived unchallenged until somebody put a
+ * number to them.
+ */

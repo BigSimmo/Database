@@ -1,0 +1,2699 @@
+<title>Patient Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     WARD FLOW — PATIENT SEARCH. The working build.
+
+     Everything on this page runs. Type in the box and the results, the counts,
+     the facets, the yield strip and the preview all recompute. The eight people
+     are the real seeded records; the referrals and movements attached to them
+     are invented, and both lists are at the foot.
+
+     TIME IS PINNED to 2026-09-05 09:00 (+08:00), deliberately. Every elapsed
+     figure is measured from that instant rather than from the visitor's clock,
+     so this page reads the same tomorrow as it does today. An unpinned demo
+     clock is a defect this project has already shipped once.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    color-scheme: light;
+
+    --ground: #f1f4f8;
+    --surface: #ffffff;
+    --surface-2: #f7f9fc;
+    --sunken: #eef2f7;
+
+    --ink: #0d1421;
+    --ink-2: #33415a;
+    --muted: #55637a;
+    --faint: #5e6c84;
+
+    --rule: #e4e9f0;
+    --rule-2: #cfd7e3;
+
+    --accent: #1d6fb8;
+    --accent-strong: #185c99;
+    --accent-wash: #eff5fc;
+    --accent-contrast: #ffffff;
+
+    --good: #0c6b41;
+    --good-wash: #f2fbf6;
+    --signal: #8a4d05;
+    --signal-wash: #fffaf2;
+    --crit: #a3190f;
+    --crit-wash: #fdf5f4;
+    --cool: #0f6b73;
+    --cool-wash: #f1fafb;
+
+    --mark: #dbeafb;
+    --mark-ink: #123f68;
+    --picked: #f4f8fd;
+
+    --shadow-1: 0 1px 2px rgb(13 20 33 / 0.05);
+    --shadow-2: 0 1px 3px rgb(13 20 33 / 0.07), 0 6px 16px -8px rgb(13 20 33 / 0.1);
+    --shadow-3: 0 12px 36px -14px rgb(13 20 33 / 0.3), 0 2px 8px rgb(13 20 33 / 0.08);
+
+    --r-sm: 5px;
+    --r: 8px;
+    --r-lg: 12px;
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+
+    --row-y: 0.75rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0a0e15;
+      --surface: #131924;
+      --surface-2: #1a2130;
+      --sunken: #0f141d;
+      --ink: #e8edf5;
+      --ink-2: #c3cdda;
+      --muted: #98a5b8;
+      --faint: #8593a7;
+      --rule: #232c3a;
+      --rule-2: #354152;
+      --accent: #6ea8e0;
+      --accent-strong: #8dbdea;
+      --accent-wash: #132132;
+      --accent-contrast: #0a0e15;
+      --good: #4ec38d;
+      --good-wash: #0f2119;
+      --signal: #e0a63f;
+      --signal-wash: #241c0e;
+      --crit: #f0755c;
+      --crit-wash: #26130f;
+      --cool: #4fb3bd;
+      --cool-wash: #0d2124;
+      --mark: #1e3a56;
+      --mark-ink: #cfe4f7;
+      --picked: #17202e;
+      --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+      --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+      --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0a0e15;
+    --surface: #131924;
+    --surface-2: #1a2130;
+    --sunken: #0f141d;
+    --ink: #e8edf5;
+    --ink-2: #c3cdda;
+    --muted: #98a5b8;
+    --faint: #8593a7;
+    --rule: #232c3a;
+    --rule-2: #354152;
+    --accent: #6ea8e0;
+    --accent-strong: #8dbdea;
+    --accent-wash: #132132;
+    --accent-contrast: #0a0e15;
+    --good: #4ec38d;
+    --good-wash: #0f2119;
+    --signal: #e0a63f;
+    --signal-wash: #241c0e;
+    --crit: #f0755c;
+    --crit-wash: #26130f;
+    --cool: #4fb3bd;
+    --cool-wash: #0d2124;
+    --mark: #1e3a56;
+    --mark-ink: #cfe4f7;
+    --picked: #17202e;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+    --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+  }
+
+  /* ─── base ────────────────────────────────────────────────────────────── */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family:
+      "Archivo",
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  p,
+  dl,
+  dd,
+  dt,
+  ul,
+  ol {
+    margin: 0;
+  }
+  ul,
+  ol {
+    padding: 0;
+    list-style: none;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .mono {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  mark {
+    background: var(--mark);
+    color: var(--mark-ink);
+    border-radius: 2px;
+    padding: 0 0.1em;
+    font-weight: 700;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  /* ─── app bar ─────────────────────────────────────────────────────────── */
+  .appbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-2) var(--sp-4);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .mark-id {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 0.8125rem;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .mark-id .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  .crumb {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--faint);
+    white-space: nowrap;
+  }
+  .crumb b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .bar-end {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+  kbd {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.25rem 0.35rem;
+    border: 1px solid var(--rule-2);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--muted);
+  }
+
+  /* ─── frame ───────────────────────────────────────────────────────────── */
+  .shell {
+    max-width: 108rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.6rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-3);
+  }
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: var(--sp-4);
+  }
+  .masthead h1 {
+    font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.125rem);
+    font-weight: 700;
+    letter-spacing: -0.028em;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+  .eyebrow {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .lede {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    max-width: 48ch;
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--muted);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .pip {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--good);
+  }
+  .scope {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--muted);
+    margin-bottom: var(--sp-4);
+  }
+  .scope strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ─── the console ─────────────────────────────────────────────────────── */
+  .console {
+    background: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-2);
+    overflow: hidden;
+    margin-bottom: var(--sp-3);
+    transition:
+      border-color 0.12s ease,
+      box-shadow 0.12s ease;
+  }
+  .console:focus-within {
+    border-color: var(--accent);
+    box-shadow:
+      var(--shadow-2),
+      0 0 0 3px var(--accent-wash);
+  }
+  .console-input {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .console-input > svg {
+    flex: none;
+    color: var(--muted);
+  }
+  .console-input input {
+    font: inherit;
+    font-size: 1.0625rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    flex: 1 1 12rem;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    padding: 0.35rem 0;
+  }
+  .console-input input::placeholder {
+    color: var(--faint);
+    font-weight: 400;
+  }
+  .console-input input:focus {
+    outline: none;
+  }
+  .count-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--r-sm);
+    border: 1px solid color-mix(in oklab, var(--accent) 38%, transparent);
+    background: var(--accent-wash);
+    color: var(--accent-strong);
+  }
+  .count-pill[data-zero="true"] {
+    border-color: var(--rule-2);
+    background: var(--sunken);
+    color: var(--muted);
+  }
+  .clear {
+    font: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--sunken);
+    border: 1px solid var(--rule);
+    border-radius: 100px;
+    padding: 0.25rem 0.65rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .clear:hover {
+    color: var(--ink);
+    border-color: var(--rule-2);
+  }
+
+  .tokens {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 0 var(--sp-4) var(--sp-3);
+  }
+  .tokens[hidden] {
+    display: none;
+  }
+  .tokens-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .token {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.2rem 0.28rem 0.2rem 0.55rem;
+    border-radius: var(--r-sm);
+    border: 1px solid color-mix(in oklab, var(--accent) 38%, transparent);
+    background: var(--accent-wash);
+    color: var(--accent-strong);
+    white-space: nowrap;
+  }
+  .token .k {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-weight: 700;
+    opacity: 0.72;
+  }
+  .token button {
+    font: inherit;
+    font-size: 0.8125rem;
+    line-height: 1;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    padding: 0.1rem 0.25rem;
+    border-radius: 3px;
+    opacity: 0.7;
+  }
+  .token button:hover {
+    opacity: 1;
+    background: color-mix(in oklab, var(--accent) 16%, transparent);
+  }
+
+  .scopes {
+    display: flex;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--rule);
+    background: var(--surface-2);
+  }
+  .scope-tab {
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.6rem 0.9rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .scope-tab:hover {
+    color: var(--ink);
+    background: var(--sunken);
+  }
+  .scope-tab b {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+  .scope-tab[aria-selected="true"] {
+    color: var(--accent-strong);
+    border-bottom-color: var(--accent);
+    background: var(--surface);
+  }
+  .scope-tab[data-zero="true"] b {
+    color: var(--faint);
+    font-weight: 500;
+  }
+
+  /* ─── yield strip ─────────────────────────────────────────────────────── */
+  .yield {
+    display: grid;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-1);
+    overflow: hidden;
+    grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+    margin-bottom: var(--sp-3);
+  }
+  .cell {
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    border: 0;
+    cursor: pointer;
+    background: var(--surface);
+    padding: var(--sp-4) var(--sp-4) var(--sp-3);
+    display: grid;
+    gap: 0.3rem;
+    align-content: start;
+    position: relative;
+    transition: background 0.12s ease;
+  }
+  .cell:hover {
+    background: var(--surface-2);
+  }
+  .cell[aria-pressed="true"] {
+    background: var(--accent-wash);
+  }
+  .cell-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .cell-label .sig {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+    background: var(--rule-2);
+    flex: none;
+  }
+  .cell[data-tone="signal"] .sig {
+    background: var(--signal);
+  }
+  .cell[data-tone="crit"] .sig {
+    background: var(--crit);
+  }
+  .cell[data-tone="good"] .sig {
+    background: var(--good);
+  }
+  .cell-figure {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    line-height: 1;
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: 0.1em;
+  }
+  .cell-figure u {
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--muted);
+    margin-right: 0.2em;
+  }
+  .cell-figure u:last-child {
+    margin-right: 0;
+  }
+  .cell[data-tone="crit"] .cell-figure {
+    color: var(--crit);
+  }
+  .cell[data-tone="crit"] .cell-figure u {
+    color: color-mix(in oklab, var(--crit) 74%, transparent);
+  }
+  .cell-caption {
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    color: var(--faint);
+    text-wrap: pretty;
+  }
+  .cell[data-tone] .cell-caption {
+    color: var(--muted);
+  }
+  .cell[data-tone="signal"] .cell-caption b {
+    color: var(--signal);
+  }
+  .cell[data-tone="crit"] .cell-caption b {
+    color: var(--crit);
+  }
+  .cell[data-tone="good"] .cell-caption b {
+    color: var(--good);
+  }
+  .compo {
+    display: flex;
+    height: 3px;
+    border-radius: 100px;
+    overflow: hidden;
+    background: var(--sunken);
+    margin-top: 0.1rem;
+  }
+  .compo span {
+    display: block;
+    min-width: 0;
+  }
+  .compo span[data-kind="person"] {
+    background: var(--accent);
+  }
+  .compo span[data-kind="referral"] {
+    background: var(--signal);
+  }
+  .compo span[data-kind="movement"] {
+    background: var(--cool);
+  }
+  .cell-act {
+    position: absolute;
+    top: var(--sp-3);
+    right: var(--sp-3);
+    font-size: 0.5625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+  .cell:hover .cell-act,
+  .cell:focus-visible .cell-act {
+    opacity: 1;
+  }
+
+  /* ─── grid ────────────────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    align-items: start;
+  }
+  .col {
+    display: grid;
+    gap: var(--sp-3);
+    min-width: 0;
+  }
+  @media (min-width: 62rem) {
+    .grid {
+      grid-template-columns: 15rem minmax(0, 1fr);
+    }
+  }
+  @media (min-width: 92rem) {
+    .grid {
+      grid-template-columns: 15rem minmax(0, 1fr) 23rem;
+    }
+  }
+
+  /* ─── panel ───────────────────────────────────────────────────────────── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-1);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .n {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .head-act {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+  .blurb {
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.55;
+    border-bottom: 1px solid var(--rule);
+  }
+  .blurb b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .panel-foot {
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+    background: var(--surface-2);
+    font-size: 0.6875rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .panel-foot strong {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  /* ─── controls ────────────────────────────────────────────────────────── */
+  .btn {
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.75rem;
+    cursor: pointer;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+      background 0.12s ease,
+      border-color 0.12s ease;
+  }
+  .btn:hover {
+    background: var(--surface-2);
+  }
+  .btn--primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-contrast);
+  }
+  .btn--primary:hover {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+  }
+  .btn--quiet {
+    border-color: transparent;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .btn--quiet:hover {
+    background: var(--sunken);
+    color: var(--ink);
+  }
+  .btn--sm {
+    font-size: 0.6875rem;
+    padding: 0.3rem 0.5rem;
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .seg button {
+    font: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.28rem 0.5rem;
+    border: 0;
+    border-right: 1px solid var(--rule);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .seg button:last-child {
+    border-right: 0;
+  }
+  .seg button[aria-pressed="true"] {
+    background: var(--accent-wash);
+    color: var(--accent-strong);
+  }
+  select.field {
+    font: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.3rem 0.4rem;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--rule-2);
+    color: var(--muted);
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+    background: var(--crit-wash);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 42%, transparent);
+    background: var(--signal-wash);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+    background: var(--good-wash);
+  }
+  .chip[data-level="planned"] {
+    color: var(--cool);
+    border-color: color-mix(in oklab, var(--cool) 40%, transparent);
+    background: var(--cool-wash);
+  }
+  .chip[data-level="accent"] {
+    color: var(--accent-strong);
+    border-color: color-mix(in oklab, var(--accent) 38%, transparent);
+    background: var(--accent-wash);
+  }
+
+  /* ─── facets ──────────────────────────────────────────────────────────── */
+  .facet-group {
+    border-bottom: 1px solid var(--rule);
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .facet-group:last-child {
+    border-bottom: 0;
+  }
+  .facet-group > h3 {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: var(--sp-2);
+  }
+  .facet {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    font: inherit;
+    font-size: 0.75rem;
+    text-align: left;
+    padding: 0.28rem 0.4rem;
+    margin-left: -0.4rem;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .facet:hover {
+    background: var(--sunken);
+    color: var(--ink);
+  }
+  .facet .box {
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 1px solid var(--rule-2);
+    border-radius: 3px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: var(--surface);
+  }
+  .facet[aria-pressed="true"] {
+    color: var(--accent-strong);
+    font-weight: 600;
+  }
+  .facet[aria-pressed="true"] .box {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .facet[aria-pressed="true"] .box::after {
+    content: "";
+    width: 0.42rem;
+    height: 0.24rem;
+    border-left: 2px solid var(--accent-contrast);
+    border-bottom: 2px solid var(--accent-contrast);
+    transform: rotate(-45deg) translateY(-1px);
+  }
+  .facet .fc {
+    margin-left: auto;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.6875rem;
+    color: var(--faint);
+  }
+  .facet[data-zero="true"] {
+    color: var(--faint);
+    cursor: default;
+  }
+  .facet[data-zero="true"]:hover {
+    background: transparent;
+  }
+  .facet-note {
+    font-size: 0.6875rem;
+    color: var(--faint);
+    line-height: 1.5;
+    margin-top: 0.5rem;
+  }
+
+  /* ─── results ─────────────────────────────────────────────────────────── */
+  .group-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+    border-top: 1px solid var(--rule);
+  }
+  .group-head h3 {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .group-head .why {
+    font-size: 0.6875rem;
+    color: var(--muted);
+    flex: 1 1 14rem;
+  }
+
+  .row {
+    display: grid;
+    gap: 0.35rem;
+    padding: var(--row-y) var(--sp-4);
+    border-bottom: 1px solid var(--rule);
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    transition: background 0.1s ease;
+  }
+  .row:last-child {
+    border-bottom: 0;
+  }
+  .row:hover {
+    background: var(--surface-2);
+  }
+  .row[aria-selected="true"] {
+    background: var(--picked);
+    border-left-color: var(--accent);
+  }
+  .results[data-density="compact"] {
+    --row-y: 0.4rem;
+  }
+  .results[data-density="compact"] .note-box,
+  .results[data-density="compact"] .tie {
+    display: none;
+  }
+  .row-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .rid {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+  .name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+  }
+  .attrs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.5rem;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .attrs b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .attrs .sep {
+    color: var(--rule-2);
+  }
+  .elapsed {
+    margin-left: auto;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--ink-2);
+    white-space: nowrap;
+    text-align: right;
+  }
+  .elapsed u {
+    text-decoration: none;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--faint);
+    margin-right: 0.15em;
+  }
+  .elapsed u:last-of-type {
+    margin-right: 0;
+  }
+  .elapsed[data-tone="signal"] {
+    color: var(--signal);
+  }
+  .elapsed[data-tone="crit"] {
+    color: var(--crit);
+  }
+  .elapsed small {
+    display: block;
+    font-family: "Archivo", sans-serif;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--faint);
+    text-align: right;
+  }
+  .tie {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--accent-strong);
+    background: var(--accent-wash);
+    border: 1px solid color-mix(in oklab, var(--accent) 25%, transparent);
+    border-radius: var(--r-sm);
+    padding: 0.25rem 0.5rem;
+    margin-top: 0.15rem;
+  }
+  .tie b {
+    font-weight: 700;
+  }
+  .note-box {
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    padding: 0.4rem 0.55rem;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--rule-2);
+    background: var(--sunken);
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .note-box[data-level="soft"] {
+    border-color: color-mix(in oklab, var(--signal) 40%, transparent);
+    background: var(--signal-wash);
+    color: var(--signal);
+  }
+  .empty {
+    padding: var(--sp-6) var(--sp-4);
+    text-align: center;
+    display: grid;
+    gap: var(--sp-3);
+    justify-items: center;
+  }
+  .empty h3 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .empty p {
+    font-size: 0.75rem;
+    color: var(--muted);
+    max-width: 42ch;
+    line-height: 1.6;
+  }
+  .empty .acts {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ─── preview ─────────────────────────────────────────────────────────── */
+  .preview-id {
+    padding: var(--sp-4) var(--sp-4) var(--sp-3);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    gap: 0.3rem;
+  }
+  .preview-id .name {
+    font-size: 1.125rem;
+  }
+  .dl {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: 0.4rem var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.75rem;
+    align-items: baseline;
+  }
+  .dl dt {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .dl dd {
+    color: var(--ink-2);
+    min-width: 0;
+  }
+  .dl dd.none {
+    color: var(--faint);
+    font-style: italic;
+  }
+  .timeline {
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  }
+  .timeline li {
+    display: grid;
+    grid-template-columns: 0.9rem minmax(0, 1fr);
+    gap: var(--sp-2);
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding-bottom: var(--sp-3);
+    position: relative;
+  }
+  .timeline li:last-child {
+    padding-bottom: 0;
+  }
+  .timeline li::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--rule-2);
+    margin-top: 0.42rem;
+    justify-self: center;
+  }
+  .timeline li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 0.42rem;
+    top: 1rem;
+    bottom: 0.1rem;
+    width: 1px;
+    background: var(--rule);
+  }
+  .timeline li[data-now="true"]::before {
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-wash);
+  }
+  .timeline li[data-now="true"] b {
+    color: var(--accent-strong);
+  }
+  .timeline b {
+    display: block;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .timeline time {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.6875rem;
+    color: var(--faint);
+  }
+
+  .recent li {
+    border-bottom: 1px solid var(--rule);
+  }
+  .recent li:last-child {
+    border-bottom: 0;
+  }
+  .recent button {
+    font: inherit;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem var(--sp-4);
+    border: 0;
+    background: transparent;
+    color: var(--ink-2);
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .recent button:hover {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+  .recent .q {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .recent .meta {
+    margin-left: auto;
+    font-size: 0.6875rem;
+    color: var(--faint);
+    white-space: nowrap;
+  }
+
+  .teach {
+    display: grid;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  }
+  .teach-row {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: var(--sp-3);
+    font-size: 0.75rem;
+    align-items: baseline;
+  }
+  .teach-row button {
+    font: inherit;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    background: var(--sunken);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.1rem 0.35rem;
+    color: var(--ink-2);
+    justify-self: start;
+    cursor: pointer;
+  }
+  .teach-row button:hover {
+    border-color: var(--accent);
+    color: var(--accent-strong);
+  }
+  .teach-row span {
+    color: var(--muted);
+  }
+
+  .refusals {
+    display: grid;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  }
+  .refusal {
+    display: grid;
+    grid-template-columns: 0.9rem minmax(0, 1fr);
+    gap: var(--sp-2);
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+  .refusal svg {
+    margin-top: 0.28rem;
+    color: var(--crit);
+  }
+  .refusal b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ─── toast ───────────────────────────────────────────────────────────── */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    transform: translateX(-50%);
+    z-index: 90;
+    background: var(--ink);
+    color: var(--ground);
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.55rem 0.9rem;
+    border-radius: var(--r-sm);
+    box-shadow: var(--shadow-3);
+    max-width: min(32rem, calc(100vw - 2rem));
+  }
+  .toast[hidden] {
+    display: none;
+  }
+
+  /* ─── footnote ────────────────────────────────────────────────────────── */
+  .footnote {
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--rule-2);
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+  .footnote h2 {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin: var(--sp-4) 0 var(--sp-2);
+  }
+  .footnote h2:first-child {
+    margin-top: 0;
+  }
+  .footnote li {
+    padding-left: 1rem;
+    position: relative;
+    margin-bottom: 0.3rem;
+  }
+  .footnote li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--rule-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .footnote code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.6875rem;
+    background: var(--sunken);
+    border-radius: 3px;
+    padding: 0.05rem 0.25rem;
+  }
+  .footcols {
+    display: grid;
+    gap: 0 var(--sp-6);
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  }
+
+  @media print {
+    :root {
+      --ground: #fff;
+      --surface: #fff;
+      --surface-2: #fff;
+      --sunken: #fff;
+      --ink: #000;
+      --ink-2: #1a1a1a;
+      --muted: #333;
+      --faint: #444;
+      --mark: #fff;
+      --mark-ink: #000;
+      --picked: #fff;
+      --rule: #b4bcc8;
+      --rule-2: #8b95a4;
+    }
+    .appbar,
+    .scopes,
+    .clear,
+    .head-act,
+    .cell-act,
+    .toast,
+    .btn {
+      display: none !important;
+    }
+    .panel,
+    .console,
+    .yield,
+    .cell {
+      box-shadow: none;
+      break-inside: avoid;
+    }
+    .compo {
+      display: none;
+    }
+    mark {
+      text-decoration: underline;
+    }
+  }
+</style>
+
+<div class="appbar">
+  <span class="mark-id"><span class="dot" aria-hidden="true"></span>Ward Flow</span>
+  <span class="crumb">Boards <span aria-hidden="true">›</span> <b>Patient search</b></span>
+  <div class="bar-end">
+    <span class="crumb"><kbd>/</kbd> search</span>
+    <span class="crumb"><kbd>↑</kbd><kbd>↓</kbd> move</span>
+    <span class="crumb"><kbd>↵</kbd> open</span>
+    <span class="crumb"><kbd>esc</kbd> clear</span>
+  </div>
+</div>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">·</span><span>No real patient data</span
+    ><span aria-hidden="true">·</span><span>Working build — everything here runs</span><span aria-hidden="true">·</span
+    ><span>Clock pinned to 5 Sep 2026, 09:00</span>
+  </p>
+
+  <header class="masthead">
+    <div>
+      <span class="eyebrow">Board</span>
+      <h1>Patient search</h1>
+      <p class="lede">
+        One box for a person, a referral waiting for a decision, and a movement already under way. Records that have
+        left the system are not here, and the page says so rather than leaving you to wonder.
+      </p>
+    </div>
+    <p class="liveness">
+      <span class="pip" aria-hidden="true"></span>
+      <span id="liveness">Reads live · 8 people, 3 referrals, 6 movements</span>
+    </p>
+  </header>
+
+  <p class="scope">
+    <strong>This search is not a medical device.</strong> It looks up people already known to this synthetic system by
+    name or record number, queued referrals, and open movements by id, department, destination, stage and owner — it
+    <strong>never assesses a patient's risk, acuity or treatment</strong>, and a movement that has already left the
+    system (closed or arrived) never appears here.
+  </p>
+
+  <section class="console" aria-label="Search">
+    <div class="console-input">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+        <path d="M12.8 12.8 17 17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+      </svg>
+      <input
+        id="q"
+        type="search"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Search people, referrals and open movements"
+        aria-describedby="live"
+        placeholder="Name, record number, movement id, ward, department…"
+      />
+      <span class="count-pill" id="countPill">18 records</span>
+      <button class="clear" type="button" id="clearBtn" hidden>Clear</button>
+    </div>
+
+    <div class="tokens" id="tokens" hidden></div>
+
+    <div class="scopes" role="tablist" aria-label="Result kind" id="scopes"></div>
+  </section>
+
+  <p class="sr" id="live" role="status" aria-live="polite"></p>
+
+  <div class="yield" role="group" aria-label="What this search found" id="yield"></div>
+
+  <div class="grid">
+    <div class="col">
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Narrow it</h2>
+          <button class="btn btn--quiet btn--sm" type="button" id="resetFacets">Reset</button>
+        </header>
+        <div id="facets"></div>
+      </section>
+
+      <section class="panel" id="recentPanel" hidden>
+        <header>
+          <h2 class="panel-title">Recent</h2>
+          <button class="btn btn--quiet btn--sm" type="button" id="clearRecent">Clear</button>
+        </header>
+        <ul class="recent" id="recent"></ul>
+        <div class="panel-foot">
+          Recent searches stay in this browser tab and are never sent anywhere.
+          <strong>Clearing them clears them for good.</strong>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Results</h2>
+          <span class="n" id="resultCount"></span>
+          <div class="head-act">
+            <label class="sr" for="sort">Order by</label>
+            <select class="field" id="sort">
+              <option value="open">Order: longest open first</option>
+              <option value="recent">Order: most recently opened</option>
+              <option value="family">Order: family name A–Z</option>
+              <option value="umrn">Order: record number</option>
+            </select>
+            <div class="seg" role="group" aria-label="Row density">
+              <button type="button" data-density="comfortable" aria-pressed="true">Comfortable</button>
+              <button type="button" data-density="compact" aria-pressed="false">Compact</button>
+            </div>
+          </div>
+        </header>
+
+        <p class="blurb" id="orderNote"></p>
+
+        <div class="results" id="results" data-density="comfortable"></div>
+
+        <div class="panel-foot">
+          <strong>Nobody here?</strong> If the person you want is not in this system yet, add them — what you typed
+          carries across, so you do not retype it.
+          <span style="display: block; margin-top: var(--sp-2)">
+            <button class="btn btn--primary btn--sm" type="button" id="addPerson">
+              Add a person not in the system
+            </button>
+          </span>
+        </div>
+      </section>
+
+      <section class="panel" id="refusals">
+        <header>
+          <h2 class="panel-title">What this page will not do</h2>
+          <span class="chip">Design decision</span>
+        </header>
+        <div class="refusals">
+          <p class="refusal">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.4" />
+              <path d="M2.5 9.5 9.5 2.5" stroke="currentColor" stroke-width="1.4" />
+            </svg>
+            <span
+              ><b>No risk, acuity or triage score, and no clinical priority sort.</b> The sentence at the top promises
+              the search never assesses risk, acuity or treatment. A sort on clinical need would break it, so every
+              ordering offered is an operational fact: elapsed time, recency, name, number.</span
+            >
+          </p>
+          <p class="refusal">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.4" />
+              <path d="M2.5 9.5 9.5 2.5" stroke="currentColor" stroke-width="1.4" />
+            </svg>
+            <span
+              ><b>No "best match" and no "top result".</b> A superlative asserts a comparison happened. The order key is
+              named above the list instead, so you can see what decided it.</span
+            >
+          </p>
+          <p class="refusal">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.4" />
+              <path d="M2.5 9.5 9.5 2.5" stroke="currentColor" stroke-width="1.4" />
+            </svg>
+            <span
+              ><b>A referral is never rounded up to a destination.</b> Destination shows a ward that has accepted. Where
+              none has, the row says so in words rather than borrowing the first ward that was asked.</span
+            >
+          </p>
+          <p class="refusal">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.4" />
+              <path d="M2.5 9.5 9.5 2.5" stroke="currentColor" stroke-width="1.4" />
+            </svg>
+            <span
+              ><b>Closed and arrived records never appear</b> — and the stage filter says so out loud rather than
+              quietly omitting the option.</span
+            >
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" id="previewPanel"></section>
+
+      <section class="panel">
+        <header><h2 class="panel-title">What you can search</h2></header>
+        <p class="blurb">Type plainly and it searches everything. Click any example to try it.</p>
+        <div class="teach">
+          <div class="teach-row">
+            <button type="button" data-try="hallow">hallow</button
+            ><span>Name or record number. Related spellings come too — this finds both Halloway and Hallowin.</span>
+          </div>
+          <div class="teach-row">
+            <button type="button" data-try="marrow">marrow</button><span>Marrowby and Marrowbee, the same way.</span>
+          </div>
+          <div class="teach-row">
+            <button type="button" data-try="oquinn">oquinn</button
+            ><span>Punctuation is ignored, so this finds O'Quinn as well as Oquinn.</span>
+          </div>
+          <div class="teach-row">
+            <button type="button" data-try="UM1000">UM1000</button><span>A record number, whole or partial.</span>
+          </div>
+          <div class="teach-row">
+            <button type="button" data-try="WF-411">WF-411</button><span>A movement or referral id.</span>
+          </div>
+          <div class="teach-row">
+            <button type="button" data-try="peel">peel</button><span>The department a movement came from.</span>
+          </div>
+          <div class="teach-row">
+            <button type="button" data-try="secure">secure</button
+            ><span>A ward that has accepted. Never a ward that was merely asked.</span>
+          </div>
+          <div class="teach-row">
+            <button type="button" data-try="moving">moving</button><span>A stage, by its own name.</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <div class="footcols">
+      <div>
+        <h2>What is real, taken from the repository</h2>
+        <ul>
+          <li>
+            <b>All eight people, with their real record numbers and dates of birth.</b> Talia Halloway
+            <code>UM100001</code> and Marcus Hallowin <code>UM100002</code> are a deliberately seeded near-spelling
+            pair, as are Marrowby/Marrowbee and O'Quinn/Oquinn — they exist so related-spelling matching has something
+            to catch.
+          </li>
+          <li>
+            <b>The matching rule itself.</b> A record number matches on any part of it; a name matches from the start of
+            the given or family name; punctuation and case are folded away first. That is the real behaviour, not an
+            approximation of it.
+          </li>
+          <li>
+            <b>The seven movement stages and their exact labels.</b> Arrived is one of them and is deliberately absent
+            from the filter, because an arrived movement has left the system.
+          </li>
+          <li>
+            <b>That destination reads only an accepted ward.</b> A movement with referrals out and no acceptance shows
+            no destination.
+          </li>
+          <li><b>"Open for", not "since arrival"</b> — the record holds no arrival instant, so it cannot say one.</li>
+          <li>
+            <b>The three record kinds and their order</b> — people, then referrals, then movements, because a referral
+            is somebody still waiting for a decision.
+          </li>
+          <li><b>The governance sentence at the top</b>, word for word as the running screen carries it today.</li>
+        </ul>
+      </div>
+
+      <div>
+        <h2>What is invented</h2>
+        <ul>
+          <li>
+            <b>Every movement and referral</b> — six and three of them — with every department, destination, owner,
+            timestamp and decline count attached.
+          </li>
+          <li><b>The four emergency departments and four wards</b> as a working list for this page.</li>
+          <li><b>Every timeline entry</b> in the preview pane.</li>
+          <li><b>The age bands, home regions and decline counts.</b> The fields are real; these values are not.</li>
+        </ul>
+
+        <h2>Three things this build adds beyond the mockup</h2>
+        <ul>
+          <li>
+            <b>A movement can now be found by its patient's name.</b> The running screen searches movements by id,
+            department, destination, stage and owner only — so searching a name found the person but not the journey
+            they are on. This is a real addition and it needs a decision, not just a build.
+          </li>
+          <li>
+            <b>The clock is pinned</b> to 5 September 2026, 09:00. Every elapsed figure is measured from that instant,
+            so this page reads the same tomorrow. An unpinned demo clock is a defect this project has already shipped
+            once.
+          </li>
+          <li>
+            <b>Facet counts are computed against the other filters, not against everything.</b> Tick a department and
+            the stage counts drop to what that department actually contains — so a count of 0 means "nothing here", not
+            "nothing anywhere".
+          </li>
+        </ul>
+
+        <h2>Still open for you</h2>
+        <ul>
+          <li><b>Should recent searches persist at all?</b> They are a record of who was looked for.</li>
+          <li>
+            <b>Is "Nothing attached" right</b> for a person with no referral and no movement? It is accurate, and it may
+            read as a judgement about the person rather than the record.
+          </li>
+          <li><b>Should the person-to-movement tie appear here</b>, or only on the person's own page?</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+  "use strict";
+
+  /* ═══════════ DATA ═══════════
+     People are the eight real seeded records. Everything attached to them is
+     invented for this build and listed at the foot of the page. */
+
+  const NOW = new Date("2026-09-05T09:00:00+08:00").getTime();
+
+  const PEOPLE = [
+    { id: "PT-001", umrn: "UM100001", given: "Talia", family: "Halloway", dob: "1988-03-14" },
+    { id: "PT-002", umrn: "UM100002", given: "Marcus", family: "Hallowin", dob: "1961-11-02" },
+    { id: "PT-003", umrn: "UM100003", given: "Ines", family: "Marrowby", dob: "1995-07-21" },
+    { id: "PT-004", umrn: "UM100004", given: "Devan", family: "Marrowbee", dob: "1974-01-09" },
+    { id: "PT-005", umrn: "UM100005", given: "Roshan", family: "O'Quinn", dob: "2003-05-30" },
+    { id: "PT-006", umrn: "UM100006", given: "Priya", family: "Oquinn", dob: "1952-09-17" },
+    { id: "PT-007", umrn: "UM100007", given: "Feodora", family: "Blennerhast", dob: "1969-12-25" },
+    { id: "PT-008", umrn: "UM100008", given: "Kwame", family: "Vandersloot", dob: "1991-04-03" },
+  ];
+
+  const EDS = [
+    { id: "peel-ed", name: "Peel Health Campus ED", code: "PHC" },
+    { id: "fsh-ed", name: "Fiona Stanley ED", code: "FSH" },
+    { id: "rph-ed", name: "Royal Perth ED", code: "RPH" },
+    { id: "bun-ed", name: "Bunbury ED", code: "BUN" },
+  ];
+
+  const UNITS = [
+    { id: "rph-adult-secure", name: "RPH Adult Secure" },
+    { id: "fsh-adult-secure", name: "FSH Adult Secure" },
+    { id: "scgh-adult-open", name: "SCGH Adult Open" },
+    { id: "bentley-emyu", name: "Bentley EMYU" },
+  ];
+
+  /* The six stages a movement can still be at. `arrived` is the seventh and is
+     deliberately not here — an arrived movement has left the system. */
+  const STAGES = [
+    { id: "placement_requested", label: "Placement requested", tone: "" },
+    { id: "destination_review", label: "Destination review", tone: "planned" },
+    { id: "accepted_awaiting_bed", label: "Accepted, awaiting bed", tone: "accepted" },
+    { id: "pulled", label: "Bed pulled", tone: "stalled" },
+    { id: "handover_ready", label: "Handover ready", tone: "accepted" },
+    { id: "moving", label: "Moving", tone: "planned" },
+  ];
+
+  const MOVEMENTS = [
+    {
+      id: "WF-411",
+      patientId: "PT-001",
+      stage: "accepted_awaiting_bed",
+      edId: "peel-ed",
+      unitId: "rph-adult-secure",
+      openedAt: "2026-09-03T02:22:00Z",
+      owner: "Coordinator",
+    },
+    {
+      id: "WF-388",
+      patientId: "PT-003",
+      stage: "destination_review",
+      edId: "peel-ed",
+      unitId: null,
+      openedAt: "2026-09-03T05:05:00Z",
+      owner: "Coordinator",
+      asked: 2,
+    },
+    {
+      id: "WF-402",
+      patientId: "PT-008",
+      stage: "handover_ready",
+      edId: "fsh-ed",
+      unitId: "fsh-adult-secure",
+      openedAt: "2026-09-04T14:10:00Z",
+      owner: "Ward",
+    },
+    {
+      id: "WF-355",
+      patientId: "PT-006",
+      stage: "moving",
+      edId: "rph-ed",
+      unitId: "scgh-adult-open",
+      openedAt: "2026-09-04T22:40:00Z",
+      owner: "Officer",
+    },
+    {
+      id: "WF-361",
+      patientId: "PT-007",
+      stage: "placement_requested",
+      edId: "bun-ed",
+      unitId: null,
+      openedAt: "2026-09-04T23:55:00Z",
+      owner: "Coordinator",
+      asked: 0,
+    },
+    {
+      id: "WF-297",
+      patientId: "PT-004",
+      stage: "pulled",
+      edId: "fsh-ed",
+      unitId: "bentley-emyu",
+      openedAt: "2026-09-04T03:30:00Z",
+      owner: "Ward",
+    },
+  ];
+
+  const REFERRALS = [
+    {
+      id: "RF-2291",
+      patientId: null,
+      edId: "peel-ed",
+      ageBand: "35–44",
+      region: "South Metropolitan",
+      raisedAt: "2026-09-03T20:50:00Z",
+      declines: 3,
+    },
+    {
+      id: "RF-2304",
+      patientId: "PT-005",
+      edId: "rph-ed",
+      ageBand: "18–24",
+      region: "North Metropolitan",
+      raisedAt: "2026-09-04T18:15:00Z",
+      declines: 0,
+    },
+    {
+      id: "RF-2288",
+      patientId: null,
+      edId: "bun-ed",
+      ageBand: "45–54",
+      region: "South West",
+      raisedAt: "2026-09-03T12:00:00Z",
+      declines: 1,
+    },
+  ];
+
+  /* ═══════════ HELPERS ═══════════ */
+
+  const byId = (list, id) => list.find((x) => x.id === id) || null;
+  const edName = (id) => (byId(EDS, id) || {}).name || "";
+  const unitName = (id) => (byId(UNITS, id) || {}).name || "";
+  const stageOf = (id) => byId(STAGES, id) || { label: id, tone: "" };
+  const personOf = (id) => byId(PEOPLE, id);
+  const fullName = (p) => `${p.given} ${p.family}`;
+
+  function esc(s) {
+    return String(s).replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+    );
+  }
+
+  /* Case, accents and punctuation are folded away before matching, which is why
+     "oquinn" finds O'Quinn. */
+  function fold(s) {
+    return String(s)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/['’.\-\s]/g, "");
+  }
+
+  /** Highlight the matched run. Folding removes characters, so the fold-space
+   *  offset cannot be used directly on the display string — each display index
+   *  is mapped back through its folded position instead. */
+  function highlight(text, needle) {
+    if (!needle) return esc(text);
+    const map = [];
+    let folded = "";
+    for (let i = 0; i < text.length; i += 1) {
+      const f = fold(text[i]);
+      for (let k = 0; k < f.length; k += 1) map.push(i);
+      folded += f;
+    }
+    const at = folded.indexOf(needle);
+    if (at < 0) return esc(text);
+    const start = map[at];
+    const endFold = at + needle.length - 1;
+    const end = (map[endFold] !== undefined ? map[endFold] : text.length - 1) + 1;
+    return esc(text.slice(0, start)) + "<mark>" + esc(text.slice(start, end)) + "</mark>" + esc(text.slice(end));
+  }
+
+  function elapsed(fromIso) {
+    const ms = NOW - new Date(fromIso).getTime();
+    const mins = Math.max(0, Math.floor(ms / 60000));
+    const d = Math.floor(mins / 1440);
+    const h = Math.floor((mins % 1440) / 60);
+    return { ms, days: d, hours: h, totalHours: ms / 3600000 };
+  }
+
+  function elapsedHtml(fromIso) {
+    const e = elapsed(fromIso);
+    return e.days > 0 ? `${e.days}<u>d</u>${e.hours}<u>h</u>` : `${e.hours}<u>h</u>`;
+  }
+
+  function elapsedTone(fromIso) {
+    const h = elapsed(fromIso).totalHours;
+    return h >= 48 ? "crit" : h >= 24 ? "signal" : "";
+  }
+
+  function waitBand(fromIso) {
+    const h = elapsed(fromIso).totalHours;
+    return h < 6 ? "lt6" : h < 24 ? "6to24" : "gt24";
+  }
+
+  function dobLabel(iso) {
+    const d = new Date(iso + "T00:00:00Z");
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  }
+
+  function stampLabel(iso) {
+    const d = new Date(iso);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const pad = (n) => String(n).padStart(2, "0");
+    // +08:00, the only timezone this product is used in.
+    const local = new Date(d.getTime() + 8 * 3600000);
+    return `${local.getUTCDate()} ${months[local.getUTCMonth()]}, ${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}`;
+  }
+
+  /* ═══════════ MATCHING ═══════════
+     Faithful to the running screen: a record number matches on any part, a name
+     matches from the START of the given or family name. A middle-of-word name
+     match is deliberately not offered — "ally" should not return Halloway. */
+
+  function personMatches(p, needle) {
+    if (!needle) return true;
+    return (
+      fold(p.umrn).includes(needle) ||
+      fold(p.given).startsWith(needle) ||
+      fold(p.family).startsWith(needle) ||
+      fold(p.id).includes(needle)
+    );
+  }
+
+  function movementMatches(m, needle) {
+    if (!needle) return true;
+    const p = personOf(m.patientId);
+    return (
+      fold(m.id).includes(needle) ||
+      fold(edName(m.edId)).includes(needle) ||
+      fold(m.edId).includes(needle) ||
+      (m.unitId && fold(unitName(m.unitId)).includes(needle)) ||
+      fold(stageOf(m.stage).label).includes(needle) ||
+      fold(m.owner).includes(needle) ||
+      (p && personMatches(p, needle))
+    );
+  }
+
+  function referralMatches(r, needle) {
+    if (!needle) return true;
+    const p = personOf(r.patientId);
+    return (
+      fold(r.id).includes(needle) ||
+      fold(edName(r.edId)).includes(needle) ||
+      fold(r.region).includes(needle) ||
+      fold(r.ageBand).includes(needle) ||
+      (p && personMatches(p, needle))
+    );
+  }
+
+  /* ═══════════ STATE ═══════════ */
+
+  const state = {
+    q: "",
+    kinds: new Set(),
+    stages: new Set(),
+    depts: new Set(),
+    dests: new Set(),
+    waits: new Set(),
+    sort: "open",
+    density: "comfortable",
+    selected: null, // { kind, id }
+    recent: [],
+  };
+
+  /* ═══════════ SELECTION ═══════════
+     Each facet dimension is applied to every dimension EXCEPT itself when its
+     own counts are computed, which is what makes a count of 0 mean "nothing
+     here" rather than "nothing anywhere". */
+
+  function select(skip) {
+    const needle = fold(state.q);
+    const kindOk = (k) => skip === "kinds" || state.kinds.size === 0 || state.kinds.has(k);
+    const stageOk = (s) => skip === "stages" || state.stages.size === 0 || state.stages.has(s);
+    const deptOk = (d) => skip === "depts" || state.depts.size === 0 || state.depts.has(d);
+    const destOk = (d) => skip === "dests" || state.dests.size === 0 || state.dests.has(d || "none");
+    const waitOk = (w) => skip === "waits" || state.waits.size === 0 || state.waits.has(w);
+
+    // A person carries no stage, department, destination or clock of their own.
+    // Filters on those dimensions therefore exclude people outright rather than
+    // silently keeping them — a person shown under "stage: moving" would be a
+    // claim the record cannot support.
+    const personDimsActive =
+      (skip !== "stages" && state.stages.size > 0) ||
+      (skip !== "depts" && state.depts.size > 0) ||
+      (skip !== "dests" && state.dests.size > 0) ||
+      (skip !== "waits" && state.waits.size > 0);
+
+    const people = personDimsActive ? [] : PEOPLE.filter((p) => kindOk("person") && personMatches(p, needle));
+
+    const referrals = REFERRALS.filter(
+      (r) =>
+        kindOk("referral") &&
+        referralMatches(r, needle) &&
+        deptOk(r.edId) &&
+        destOk(null) &&
+        waitOk(waitBand(r.raisedAt)) &&
+        (skip === "stages" || state.stages.size === 0),
+    );
+
+    const movements = MOVEMENTS.filter(
+      (m) =>
+        kindOk("movement") &&
+        movementMatches(m, needle) &&
+        stageOk(m.stage) &&
+        deptOk(m.edId) &&
+        destOk(m.unitId) &&
+        waitOk(waitBand(m.openedAt)),
+    );
+
+    return { people, referrals, movements };
+  }
+
+  function sortAll(sel) {
+    const famKey = (x) => {
+      const p = x.patientId ? personOf(x.patientId) : x.family ? x : null;
+      return p ? fold(p.family || "") : "zzzz";
+    };
+    const openedKey = (x) => new Date(x.openedAt || x.raisedAt || 0).getTime();
+
+    if (state.sort === "family") {
+      sel.people.sort((a, b) => fold(a.family).localeCompare(fold(b.family)));
+      sel.referrals.sort((a, b) => famKey(a).localeCompare(famKey(b)));
+      sel.movements.sort((a, b) => famKey(a).localeCompare(famKey(b)));
+    } else if (state.sort === "umrn") {
+      sel.people.sort((a, b) => a.umrn.localeCompare(b.umrn));
+      sel.referrals.sort((a, b) => a.id.localeCompare(b.id));
+      sel.movements.sort((a, b) => a.id.localeCompare(b.id));
+    } else {
+      const dir = state.sort === "open" ? 1 : -1;
+      sel.people.sort((a, b) => a.umrn.localeCompare(b.umrn));
+      sel.referrals.sort((a, b) => (openedKey(a) - openedKey(b)) * dir);
+      sel.movements.sort((a, b) => (openedKey(a) - openedKey(b)) * dir);
+    }
+    return sel;
+  }
+
+  /* ═══════════ RENDER ═══════════ */
+
+  const $ = (id) => document.getElementById(id);
+
+  function render() {
+    const sel = sortAll(select(null));
+    const total = sel.people.length + sel.referrals.length + sel.movements.length;
+
+    renderCount(total);
+    renderScopes(sel);
+    renderTokens();
+    renderYield(sel, total);
+    renderFacets();
+    renderOrderNote();
+    renderResults(sel, total);
+    renderPreview();
+    renderRecent();
+
+    $("live").textContent =
+      `${total} ${total === 1 ? "record" : "records"} — ${sel.people.length} people, ${sel.referrals.length} referrals, ${sel.movements.length} movements.`;
+  }
+
+  function renderCount(total) {
+    const pill = $("countPill");
+    pill.textContent = total === 1 ? "1 record" : `${total} records`;
+    pill.dataset.zero = String(total === 0);
+    $("clearBtn").hidden = state.q === "";
+    $("resultCount").textContent = `${total} ${total === 1 ? "record" : "records"}`;
+  }
+
+  function renderScopes(sel) {
+    const kinds = [
+      ["person", "People", sel.people.length],
+      ["referral", "Waiting referrals", sel.referrals.length],
+      ["movement", "Open movements", sel.movements.length],
+    ];
+    const total = sel.people.length + sel.referrals.length + sel.movements.length;
+    let html = `<button class="scope-tab" role="tab" type="button" data-kind="" aria-selected="${state.kinds.size === 0}">Everything <b>${total}</b></button>`;
+    for (const [id, label, n] of kinds) {
+      html += `<button class="scope-tab" role="tab" type="button" data-kind="${id}" aria-selected="${state.kinds.has(id)}" data-zero="${n === 0}">${label} <b>${n}</b></button>`;
+    }
+    $("scopes").innerHTML = html;
+  }
+
+  function activeTokens() {
+    const t = [];
+    for (const s of state.stages) t.push({ dim: "stages", val: s, k: "stage:", label: stageOf(s).label });
+    for (const d of state.depts) t.push({ dim: "depts", val: d, k: "dept:", label: edName(d) });
+    for (const d of state.dests)
+      t.push({ dim: "dests", val: d, k: "dest:", label: d === "none" ? "No ward accepted yet" : unitName(d) });
+    for (const w of state.waits)
+      t.push({
+        dim: "waits",
+        val: w,
+        k: "waiting:",
+        label: w === "lt6" ? "under 6 hours" : w === "6to24" ? "6 to 24 hours" : "over 24 hours",
+      });
+    for (const k of state.kinds)
+      t.push({
+        dim: "kinds",
+        val: k,
+        k: "kind:",
+        label: k === "person" ? "people" : k === "referral" ? "referrals" : "movements",
+      });
+    return t;
+  }
+
+  function renderTokens() {
+    const t = activeTokens();
+    const box = $("tokens");
+    box.hidden = t.length === 0;
+    if (t.length === 0) return;
+    box.innerHTML =
+      `<span class="tokens-label">Narrowed by</span>` +
+      t
+        .map(
+          (x) =>
+            `<span class="token"><span class="k">${x.k}</span>${esc(x.label)}<button type="button" data-dim="${x.dim}" data-val="${esc(x.val)}" aria-label="Remove ${esc(x.label)} filter">×</button></span>`,
+        )
+        .join("") +
+      `<button class="btn btn--quiet btn--sm" type="button" id="clearAllTokens">Clear ${t.length === 1 ? "it" : "all " + t.length}</button>`;
+  }
+
+  function renderYield(sel, total) {
+    const waiting = sel.referrals.length;
+    const dated = [...sel.movements.map((m) => m.openedAt), ...sel.referrals.map((r) => r.raisedAt)];
+    let longest = null;
+    for (const iso of dated) if (!longest || new Date(iso) < new Date(longest)) longest = iso;
+    const longestRec =
+      sel.movements.find((m) => m.openedAt === longest) || sel.referrals.find((r) => r.raisedAt === longest) || null;
+
+    // people whose own record is also present as a referral or a movement
+    const tiedIds = new Set([...sel.movements, ...sel.referrals].map((x) => x.patientId).filter(Boolean));
+    const ties = sel.people.filter((p) => tiedIds.has(p.id));
+
+    const p = sel.people.length,
+      r = sel.referrals.length,
+      m = sel.movements.length;
+
+    const cells = [
+      {
+        label: "Matches",
+        fig: String(total),
+        cap: `${p} ${p === 1 ? "person" : "people"} · ${r} ${r === 1 ? "referral" : "referrals"} · ${m} ${m === 1 ? "movement" : "movements"}`,
+        compo: [p, r, m],
+        act: "",
+      },
+      {
+        label: "People",
+        fig: String(p),
+        cap:
+          p === 0
+            ? "Nobody by that name or number"
+            : state.q
+              ? "Matched on name or record number"
+              : "Everyone known to this system",
+        act: "Filter",
+        dim: "kinds",
+        val: "person",
+      },
+      {
+        label: "Still waiting",
+        fig: String(waiting),
+        tone: waiting > 0 ? "signal" : "",
+        cap: waiting === 0 ? "Nothing is awaiting a decision" : "<b>No ward has accepted them</b>",
+        act: "Filter",
+        dim: "kinds",
+        val: "referral",
+      },
+      {
+        label: "Longest open",
+        fig: longestRec ? elapsedHtml(longestRec.openedAt || longestRec.raisedAt) : "—",
+        tone:
+          longestRec && elapsed(longestRec.openedAt || longestRec.raisedAt).totalHours >= 48
+            ? "crit"
+            : longestRec
+              ? "signal"
+              : "",
+        cap: longestRec ? `${esc(longestRec.id)} · <b>opened, not arrived</b>` : "No open record in this result",
+        act: longestRec ? "Open" : "",
+        open: longestRec ? { kind: longestRec.openedAt ? "movement" : "referral", id: longestRec.id } : null,
+      },
+      {
+        /* Names are listed only while the list is short enough to READ. Past
+           two, a caption naming everybody stops being information and becomes
+           a paragraph inside a figure — it also made this cell twice the
+           height of its four siblings, which is what broke the strip. */
+        label: ties.length === 1 ? "One person, two records" : "People also on a record",
+        fig: String(ties.length),
+        tone: ties.length > 0 ? "good" : "",
+        cap:
+          ties.length === 0
+            ? "No person here also appears as a record"
+            : ties.length <= 2
+              ? ties.map((t) => `<b>${esc(fullName(t))}</b>`).join(" and ")
+              : `<b>${ties.length} of the ${p} people</b> here are also a referral or a movement below`,
+        act: "",
+      },
+    ];
+
+    $("yield").innerHTML = cells
+      .map((c) => {
+        const pressed = c.dim ? state[c.dim].has(c.val) : false;
+        const compo =
+          c.compo && c.compo.some((n) => n > 0)
+            ? `<span class="compo" aria-hidden="true">${["person", "referral", "movement"]
+                .map((k, i) => (c.compo[i] > 0 ? `<span data-kind="${k}" style="flex:${c.compo[i]}"></span>` : ""))
+                .join("")}</span>`
+            : "";
+        return `<button class="cell" type="button"${c.tone ? ` data-tone="${c.tone}"` : ""}${c.dim ? ` data-dim="${c.dim}" data-val="${c.val}" aria-pressed="${pressed}"` : ""}${c.open ? ` data-open-kind="${c.open.kind}" data-open-id="${c.open.id}"` : ""}>
+          ${c.act ? `<span class="cell-act">${c.act}</span>` : ""}
+          <span class="cell-label"><span class="sig" aria-hidden="true"></span>${esc(c.label)}</span>
+          <span class="cell-figure">${c.fig}</span>
+          ${compo}
+          <span class="cell-caption">${c.cap}</span>
+        </button>`;
+      })
+      .join("");
+  }
+
+  function facetRow(dim, val, label, count) {
+    const on = state[dim].has(val);
+    const zero = count === 0 && !on;
+    return `<button class="facet" type="button" data-dim="${dim}" data-val="${esc(val)}" aria-pressed="${on}"${zero ? ' data-zero="true"' : ""}>
+      <span class="box" aria-hidden="true"></span>${esc(label)}<span class="fc">${count}</span></button>`;
+  }
+
+  function renderFacets() {
+    const kindSel = select("kinds");
+    const stageSel = select("stages");
+    const deptSel = select("depts");
+    const destSel = select("dests");
+    const waitSel = select("waits");
+
+    const countStage = (id) => stageSel.movements.filter((m) => m.stage === id).length;
+    const countDept = (id) =>
+      deptSel.movements.filter((m) => m.edId === id).length + deptSel.referrals.filter((r) => r.edId === id).length;
+    const countDest = (id) =>
+      id === "none"
+        ? destSel.movements.filter((m) => !m.unitId).length + destSel.referrals.length
+        : destSel.movements.filter((m) => m.unitId === id).length;
+    const countWait = (band) =>
+      waitSel.movements.filter((m) => waitBand(m.openedAt) === band).length +
+      waitSel.referrals.filter((r) => waitBand(r.raisedAt) === band).length;
+
+    let html = "";
+
+    html += `<div class="facet-group"><h3>Kind of record</h3>
+      ${facetRow("kinds", "person", "People", kindSel.people.length)}
+      ${facetRow("kinds", "referral", "Waiting referrals", kindSel.referrals.length)}
+      ${facetRow("kinds", "movement", "Open movements", kindSel.movements.length)}
+      </div>`;
+
+    html += `<div class="facet-group"><h3>Stage</h3>
+      ${STAGES.map((s) => facetRow("stages", s.id, s.label, countStage(s.id))).join("")}
+      <p class="facet-note"><b>Arrived</b> is not listed. An arrived movement has left the system and this board never shows one.</p>
+      </div>`;
+
+    html += `<div class="facet-group"><h3>Department it came from</h3>
+      ${EDS.map((e) => facetRow("depts", e.id, e.name, countDept(e.id))).join("")}
+      </div>`;
+
+    html += `<div class="facet-group"><h3>Accepted destination</h3>
+      ${UNITS.map((u) => facetRow("dests", u.id, u.name, countDest(u.id))).join("")}
+      ${facetRow("dests", "none", "No ward accepted yet", countDest("none"))}
+      </div>`;
+
+    html += `<div class="facet-group"><h3>How long open</h3>
+      ${facetRow("waits", "lt6", "Under 6 hours", countWait("lt6"))}
+      ${facetRow("waits", "6to24", "6 to 24 hours", countWait("6to24"))}
+      ${facetRow("waits", "gt24", "Over 24 hours", countWait("gt24"))}
+      <p class="facet-note">A person carries no stage, department or clock, so filtering on any of those hides people rather than guessing at values they do not have.</p>
+      </div>`;
+
+    $("facets").innerHTML = html;
+  }
+
+  function renderOrderNote() {
+    const notes = {
+      open: "Ordered by <b>how long each record has been open</b>, longest first — the one key, named here because it is the only thing deciding the order.",
+      recent: "Ordered by <b>how recently each record was opened</b>, newest first.",
+      family: "Ordered by <b>family name</b>, A to Z. A record with no person attached sorts last.",
+      umrn: "Ordered by <b>record number</b>, then by record id.",
+    };
+    $("orderNote").innerHTML =
+      notes[state.sort] + " Nothing on this page ranks a person by need, and no row is a recommendation.";
+  }
+
+  function rowSelected(kind, id) {
+    return state.selected && state.selected.kind === kind && state.selected.id === id;
+  }
+
+  function renderResults(sel, total) {
+    const needle = fold(state.q);
+    const box = $("results");
+    box.dataset.density = state.density;
+
+    if (total === 0) {
+      box.innerHTML = `<div class="empty">
+        <h3>Nothing matches ${state.q ? `“${esc(state.q)}”` : "these filters"}</h3>
+        <p>${
+          state.q
+            ? "No person, waiting referral or open movement fits. A closed or arrived record would not appear here even if it existed."
+            : "Every filter you have set is on, and nothing satisfies all of them at once."
+        }</p>
+        <div class="acts">
+          ${activeTokens().length ? `<button class="btn btn--sm" type="button" id="emptyClearFilters">Clear the ${activeTokens().length} filter${activeTokens().length === 1 ? "" : "s"}</button>` : ""}
+          ${state.q ? `<button class="btn btn--sm" type="button" id="emptyClearQuery">Clear the search box</button>` : ""}
+          ${state.q ? `<button class="btn btn--primary btn--sm" type="button" id="emptyAdd">Add “${esc(state.q)}” as a new person</button>` : ""}
+        </div>
+      </div>`;
+      return;
+    }
+
+    const tiedIds = new Set([...sel.movements, ...sel.referrals].map((x) => x.patientId).filter(Boolean));
+    let html = "";
+
+    if (sel.people.length) {
+      html += `<div class="group-head"><h3>People</h3><span class="why">Matched on name or record number. A person listed here may have nothing attached to them.</span><span class="n">${sel.people.length}</span></div>`;
+      for (const p of sel.people) {
+        const mv = sel.movements.find((m) => m.patientId === p.id) || MOVEMENTS.find((m) => m.patientId === p.id);
+        const rf = sel.referrals.find((r) => r.patientId === p.id) || REFERRALS.find((r) => r.patientId === p.id);
+        const shown = tiedIds.has(p.id);
+        html += `<button class="row" type="button" role="option" data-kind="person" data-id="${p.id}" aria-selected="${rowSelected("person", p.id)}">
+          <span class="row-line">
+            <span class="name">${highlight(p.given, needle)} ${highlight(p.family, needle)}</span>
+            ${mv ? `<span class="chip" data-level="accent">Has an open movement</span>` : rf ? `<span class="chip" data-level="stalled">Has a waiting referral</span>` : `<span class="chip">Nothing attached</span>`}
+          </span>
+          <span class="attrs"><span class="mono">${highlight(p.umrn, needle)}</span> <span class="sep">·</span> <span>born <b>${dobLabel(p.dob)}</b></span> <span class="sep">·</span> <span>${p.id}</span></span>
+          ${
+            shown && mv
+              ? `<span class="tie">${linkIcon()}Also on this page as movement <b>${mv.id}</b> — same person, two records.</span>`
+              : shown && rf
+                ? `<span class="tie">${linkIcon()}Also on this page as referral <b>${rf.id}</b> — same person, two records.</span>`
+                : !mv && !rf
+                  ? `<span class="note-box">Known to the system, with no referral, no movement and no bed. That is a fact about the record, not about the person.</span>`
+                  : ""
+          }
+        </button>`;
+      }
+    }
+
+    if (sel.referrals.length) {
+      html += `<div class="group-head"><h3>Waiting for a decision</h3><span class="why">Nobody has accepted them yet. These sit above movements because they are the ones you can still act on.</span><span class="n">${sel.referrals.length}</span></div>`;
+      for (const r of sel.referrals) {
+        const p = personOf(r.patientId);
+        html += `<button class="row" type="button" role="option" data-kind="referral" data-id="${r.id}" aria-selected="${rowSelected("referral", r.id)}">
+          <span class="row-line">
+            <span class="rid">${highlight(r.id, needle)}</span>
+            <span class="chip" data-level="stalled">No bed accepted</span>
+            <span class="elapsed" data-tone="${elapsedTone(r.raisedAt)}">${elapsedHtml(r.raisedAt)}<small>waiting</small></span>
+          </span>
+          <span class="attrs"><span>from <b>${highlight(edName(r.edId), needle)}</b></span> <span class="sep">·</span> <span>age band <b>${esc(r.ageBand)}</b></span> <span class="sep">·</span> <span>home region <b>${highlight(r.region, needle)}</b></span></span>
+          ${p ? `<span class="tie">${linkIcon()}This is <b>${esc(fullName(p))}</b>.</span>` : ""}
+          <span class="note-box"${r.declines ? ' data-level="soft"' : ""}>${
+            r.declines
+              ? `Put to <b>${r.declines} ward${r.declines === 1 ? "" : "s"}</b>, ${r.declines === 1 ? "which" : "all of which"} declined. It can be put to fresh wards — the record does not count how many it has been put to over its life.`
+              : `Not yet put to any ward.`
+          }</span>
+        </button>`;
+      }
+    }
+
+    if (sel.movements.length) {
+      html += `<div class="group-head"><h3>Open movements</h3><span class="why">A decision has been made. Destination shows only a ward that has actually accepted.</span><span class="n">${sel.movements.length}</span></div>`;
+      for (const m of sel.movements) {
+        const p = personOf(m.patientId);
+        const st = stageOf(m.stage);
+        html += `<button class="row" type="button" role="option" data-kind="movement" data-id="${m.id}" aria-selected="${rowSelected("movement", m.id)}">
+          <span class="row-line">
+            <span class="rid">${highlight(m.id, needle)}</span>
+            <span class="chip"${st.tone ? ` data-level="${st.tone}"` : ""}>${highlight(st.label, needle)}</span>
+            <span class="elapsed" data-tone="${elapsedTone(m.openedAt)}">${elapsedHtml(m.openedAt)}<small>open for</small></span>
+          </span>
+          <span class="attrs"><span>from <b>${highlight(edName(m.edId), needle)}</b></span> ${m.unitId ? `<span class="sep">·</span> <span>to <b>${highlight(unitName(m.unitId), needle)}</b></span>` : ""} <span class="sep">·</span> <span>owner <b>${highlight(m.owner, needle)}</b></span></span>
+          ${p ? `<span class="tie">${linkIcon()}This is <b>${esc(fullName(p))}</b>.</span>` : ""}
+          ${
+            !m.unitId
+              ? `<span class="note-box"><b>No destination.</b> ${m.asked ? `${m.asked} ward${m.asked === 1 ? " is" : "s are"} deciding; ${m.asked === 1 ? "it has" : "none has"} accepted.` : "No ward has been asked yet."} This stays empty until one accepts, rather than showing a ward that has not agreed to take them.</span>`
+              : ""
+          }
+        </button>`;
+      }
+    }
+
+    box.innerHTML = html;
+  }
+
+  function linkIcon() {
+    return `<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="flex:none"><path d="M4.5 7.5 7.5 4.5M3 6a2.5 2.5 0 0 1 0-3.5l.5-.5a2.5 2.5 0 0 1 3.5 3.5M9 6a2.5 2.5 0 0 1 0 3.5l-.5.5a2.5 2.5 0 0 1-3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+  }
+
+  function renderPreview() {
+    const panel = $("previewPanel");
+    if (!state.selected) {
+      panel.innerHTML = `<header><h2 class="panel-title">Selected record</h2></header>
+        <div class="empty" style="padding: var(--sp-5) var(--sp-4)">
+          <h3>Nothing selected</h3>
+          <p>Pick a result — with the mouse, or with <kbd>↑</kbd> <kbd>↓</kbd> — and it opens here without losing your place in the list.</p>
+        </div>`;
+      return;
+    }
+
+    const { kind, id } = state.selected;
+    if (kind === "person") {
+      const p = personOf(id);
+      if (!p) return;
+      const mv = MOVEMENTS.find((m) => m.patientId === p.id);
+      const rf = REFERRALS.find((r) => r.patientId === p.id);
+      panel.innerHTML = `<header><h2 class="panel-title">Selected record</h2><span class="chip" data-level="accent">Person</span></header>
+        <div class="preview-id"><span class="name">${esc(fullName(p))}</span>
+          <span class="attrs"><span class="mono">${esc(p.umrn)}</span> <span class="sep">·</span> <span>${p.id}</span> <span class="sep">·</span> <span>born <b>${dobLabel(p.dob)}</b></span></span></div>
+        <dl class="dl">
+          <dt>Record number</dt><dd class="mono">${esc(p.umrn)}</dd>
+          <dt>Date of birth</dt><dd>${dobLabel(p.dob)}</dd>
+          <dt>Open movement</dt><dd${mv ? "" : ' class="none"'}>${mv ? `<b>${mv.id}</b> — ${esc(stageOf(mv.stage).label)}` : "None"}</dd>
+          <dt>Waiting referral</dt><dd${rf ? "" : ' class="none"'}>${rf ? `<b>${rf.id}</b> — no bed accepted` : "None"}</dd>
+          <dt>Risk or acuity</dt><dd class="none">Not held by this system, and not shown anywhere on this page</dd>
+        </dl>
+        ${mv ? timelineFor(mv) : ""}
+        <div class="panel-foot"><button class="btn btn--primary btn--sm" type="button" data-open="person">Open this person</button>${mv ? ` <button class="btn btn--sm" type="button" data-open="movement" data-open-id="${mv.id}">Open ${mv.id}</button>` : ""}</div>`;
+      return;
+    }
+
+    if (kind === "movement") {
+      const m = byId(MOVEMENTS, id);
+      if (!m) return;
+      const p = personOf(m.patientId);
+      panel.innerHTML = `<header><h2 class="panel-title">Selected record</h2><span class="chip" data-level="planned">Movement</span></header>
+        <div class="preview-id"><span class="name mono">${esc(m.id)}</span>
+          <span class="attrs">${p ? `<span>${esc(fullName(p))}</span> <span class="sep">·</span> ` : ""}<span>${esc(stageOf(m.stage).label)}</span></span></div>
+        <dl class="dl">
+          <dt>Person</dt><dd>${p ? esc(fullName(p)) + " · " + esc(p.umrn) : '<span class="none">Not linked</span>'}</dd>
+          <dt>From</dt><dd>${esc(edName(m.edId))}</dd>
+          <dt>Destination</dt><dd${m.unitId ? "" : ' class="none"'}>${m.unitId ? esc(unitName(m.unitId)) : "No ward has accepted"}</dd>
+          <dt>Owner</dt><dd>${esc(m.owner)}</dd>
+          <dt>Open for</dt><dd class="mono">${elapsedHtml(m.openedAt).replace(/<\/?u>/g, "")} since ${stampLabel(m.openedAt)}</dd>
+        </dl>
+        ${timelineFor(m)}
+        <div class="panel-foot"><button class="btn btn--primary btn--sm" type="button" data-open="movement" data-open-id="${m.id}">Open ${m.id}</button></div>`;
+      return;
+    }
+
+    const r = byId(REFERRALS, id);
+    if (!r) return;
+    const p = personOf(r.patientId);
+    panel.innerHTML = `<header><h2 class="panel-title">Selected record</h2><span class="chip" data-level="stalled">Referral</span></header>
+      <div class="preview-id"><span class="name mono">${esc(r.id)}</span>
+        <span class="attrs"><span>Waiting for a decision</span> <span class="sep">·</span> <span>${elapsedHtml(r.raisedAt).replace(/<\/?u>/g, "")} so far</span></span></div>
+      <dl class="dl">
+        <dt>Person</dt><dd>${p ? esc(fullName(p)) + " · " + esc(p.umrn) : '<span class="none">No record pointer on this referral</span>'}</dd>
+        <dt>From</dt><dd>${esc(edName(r.edId))}</dd>
+        <dt>Age band</dt><dd>${esc(r.ageBand)}</dd>
+        <dt>Home region</dt><dd>${esc(r.region)}</dd>
+        <dt>Declined by</dt><dd${r.declines ? "" : ' class="none"'}>${r.declines ? `${r.declines} ward${r.declines === 1 ? "" : "s"}` : "No ward has been asked yet"}</dd>
+        <dt>Destination</dt><dd class="none">None — nobody has accepted, so there is nothing to show</dd>
+      </dl>
+      <div class="panel-foot"><button class="btn btn--primary btn--sm" type="button" data-open="referral" data-open-id="${r.id}">Open ${r.id}</button></div>`;
+  }
+
+  function timelineFor(m) {
+    const steps = [{ b: "Movement opened", t: `${stampLabel(m.openedAt)} · ${edName(m.edId)}` }];
+    if (m.unitId) {
+      steps.push({ b: "Put to wards", t: "recorded on the movement" });
+      steps.push({ b: `${unitName(m.unitId)} accepted`, t: stageOf(m.stage).label, now: true });
+    } else {
+      steps.push({
+        b: m.asked ? `Put to ${m.asked} ward${m.asked === 1 ? "" : "s"}` : "Not yet put to a ward",
+        t: stageOf(m.stage).label,
+        now: true,
+      });
+    }
+    return `<div class="panel-foot" style="border-bottom:1px solid var(--rule)"><strong>What happened to this movement</strong> — recorded steps only, newest last.</div>
+      <ul class="timeline">${steps.map((s) => `<li${s.now ? ' data-now="true"' : ""}><div><b>${esc(s.b)}</b><time>${esc(s.t)}</time></div></li>`).join("")}</ul>`;
+  }
+
+  function renderRecent() {
+    $("recentPanel").hidden = state.recent.length === 0;
+    $("recent").innerHTML = state.recent
+      .map(
+        (r) =>
+          `<li><button type="button" data-recent="${esc(r.q)}"><span class="q">${esc(r.q)}</span><span class="meta">${r.n} ${r.n === 1 ? "record" : "records"}</span></button></li>`,
+      )
+      .join("");
+  }
+
+  /* ═══════════ RECENT ═══════════ */
+
+  let recentTimer = null;
+  function noteRecent() {
+    clearTimeout(recentTimer);
+    recentTimer = setTimeout(() => {
+      const q = state.q.trim();
+      if (q.length < 2) return;
+      const sel = select(null);
+      const n = sel.people.length + sel.referrals.length + sel.movements.length;
+      state.recent = [{ q, n }, ...state.recent.filter((r) => r.q !== q)].slice(0, 5);
+      renderRecent();
+    }, 900);
+  }
+
+  /* ═══════════ TOAST ═══════════ */
+
+  let toastTimer = null;
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      t.hidden = true;
+    }, 3200);
+  }
+
+  /* ═══════════ EVENTS ═══════════ */
+
+  function toggle(dim, val) {
+    const set = state[dim];
+    if (set.has(val)) set.delete(val);
+    else set.add(val);
+    render();
+  }
+
+  $("q").addEventListener("input", (e) => {
+    state.q = e.target.value;
+    state.selected = null;
+    render();
+    noteRecent();
+  });
+
+  $("clearBtn").addEventListener("click", () => {
+    state.q = "";
+    $("q").value = "";
+    state.selected = null;
+    render();
+    $("q").focus();
+  });
+
+  $("sort").addEventListener("change", (e) => {
+    state.sort = e.target.value;
+    render();
+  });
+
+  $("resetFacets").addEventListener("click", () => {
+    for (const d of ["kinds", "stages", "depts", "dests", "waits"]) state[d].clear();
+    render();
+  });
+
+  $("clearRecent").addEventListener("click", () => {
+    state.recent = [];
+    renderRecent();
+    toast("Recent searches cleared.");
+  });
+
+  $("addPerson").addEventListener("click", () => {
+    toast(
+      state.q.trim()
+        ? `Would open the add-person form with “${state.q.trim()}” already filled in.`
+        : "Would open the add-person form.",
+    );
+  });
+
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest(
+      "[data-dim], [data-kind], [data-id], [data-try], [data-recent], [data-open], [data-open-kind], #clearAllTokens, #emptyClearFilters, #emptyClearQuery, #emptyAdd",
+    );
+    if (!t) return;
+
+    if (t.id === "clearAllTokens" || t.id === "emptyClearFilters") {
+      for (const d of ["kinds", "stages", "depts", "dests", "waits"]) state[d].clear();
+      return render();
+    }
+    if (t.id === "emptyClearQuery") {
+      state.q = "";
+      $("q").value = "";
+      return render();
+    }
+    if (t.id === "emptyAdd") {
+      return toast(`Would open the add-person form with “${state.q.trim()}” already filled in.`);
+    }
+    if (t.dataset.try !== undefined) {
+      state.q = t.dataset.try;
+      $("q").value = t.dataset.try;
+      state.selected = null;
+      render();
+      noteRecent();
+      return $("q").focus();
+    }
+    if (t.dataset.recent !== undefined) {
+      state.q = t.dataset.recent;
+      $("q").value = t.dataset.recent;
+      state.selected = null;
+      return render();
+    }
+    if (t.dataset.open !== undefined) {
+      return toast(
+        `Would open ${t.dataset.openId || "this person's record"}. Nothing leaves this page in the prototype.`,
+      );
+    }
+    if (t.dataset.openKind !== undefined) {
+      state.selected = { kind: t.dataset.openKind, id: t.dataset.openId };
+      return render();
+    }
+    // yield cell or facet acting as a filter
+    if (t.dataset.dim !== undefined && t.dataset.val !== undefined) {
+      if (t.dataset.zero === "true") return;
+      return toggle(t.dataset.dim, t.dataset.val);
+    }
+    // scope tab
+    if (t.classList.contains("scope-tab")) {
+      state.kinds.clear();
+      if (t.dataset.kind) state.kinds.add(t.dataset.kind);
+      return render();
+    }
+    // result row
+    if (t.classList.contains("row")) {
+      state.selected = { kind: t.dataset.kind, id: t.dataset.id };
+      return render();
+    }
+  });
+
+  document.querySelectorAll(".seg [data-density]").forEach((b) => {
+    b.addEventListener("click", () => {
+      state.density = b.dataset.density;
+      document.querySelectorAll(".seg [data-density]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      render();
+    });
+  });
+
+  /* keyboard: / focuses, ↑↓ move through results, ↵ opens, esc clears */
+  document.addEventListener("keydown", (e) => {
+    const input = $("q");
+    if (e.key === "/" && document.activeElement !== input) {
+      e.preventDefault();
+      return input.focus();
+    }
+    if (e.key === "Escape") {
+      if (state.q || activeTokens().length) {
+        state.q = "";
+        input.value = "";
+        for (const d of ["kinds", "stages", "depts", "dests", "waits"]) state[d].clear();
+        state.selected = null;
+        render();
+        toast("Search and filters cleared.");
+      }
+      return;
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
+
+    const rows = [...document.querySelectorAll("#results .row")];
+    if (!rows.length) return;
+
+    if (e.key === "Enter") {
+      if (document.activeElement === input && state.selected) {
+        e.preventDefault();
+        return toast(`Would open ${state.selected.id}. Nothing leaves this page in the prototype.`);
+      }
+      return;
+    }
+
+    e.preventDefault();
+    const cur = rows.findIndex((r) => r.getAttribute("aria-selected") === "true");
+    const next = e.key === "ArrowDown" ? Math.min(rows.length - 1, cur + 1) : Math.max(0, cur < 0 ? 0 : cur - 1);
+    const row = rows[next];
+    state.selected = { kind: row.dataset.kind, id: row.dataset.id };
+    render();
+    const painted = document.querySelector('#results .row[aria-selected="true"]');
+    if (painted) painted.scrollIntoView({ block: "nearest" });
+  });
+
+  render();
+</script>

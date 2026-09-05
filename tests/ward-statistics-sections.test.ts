@@ -222,7 +222,20 @@ describe("the ward screen's claim that wardStatistics has no consumer in the app
     );
   }
 
-  it("finds no module under src importing ward-statistics", () => {
+  /*
+   * ⚠️ INVERTED 2026-09-05. THIS GUARD DID EXACTLY WHAT IT WAS BUILT TO DO AND THEN HAD TO CHANGE.
+   *
+   * It watched an ABSENCE — `ward-statistics.ts` computed six figures per ward and no module in the
+   * app imported it — and its own register entry said it would "go red the day one appears". One
+   * appeared: the ward statistics page now renders those figures. The red was the guard working.
+   *
+   * An absence guard that outlives its absence can only ever be wrong, so it is re-pointed at the
+   * property that matters NOW: the derivation has a consumer, and the consumer is the page that
+   * shows a ward its own figures. The zero-match floor below is untouched, because the failure it
+   * closes — a mistyped root scanning nothing and passing by finding nothing — is identical in
+   * both directions and is the only reason either version means anything.
+   */
+  it("finds the ward statistics page consuming ward-statistics, now that the absence has ended", () => {
     const sources = walk(SRC_ROOT).filter((file) => file.endsWith(".ts") || file.endsWith(".tsx"));
 
     // The zero-match guard: a mistyped root would scan nothing and pass by finding nothing.
@@ -237,7 +250,12 @@ describe("the ward screen's claim that wardStatistics has no consumer in the app
       return source.includes('ward-management/ward-statistics"') || source.includes("ward-management/ward-statistics'");
     });
 
-    expect(importers).toEqual([]);
+    expect(importers.length, "ward-statistics has no consumer in the app at all").toBeGreaterThan(0);
+    const consumers = importers.map((file) => file.replaceAll("\\", "/"));
+    expect(
+      consumers.some((file) => file.endsWith("statistics/statistics-ward-screen.tsx")),
+      `the ward statistics page does not consume the derivation it exists to show: ${consumers.join(", ")}`,
+    ).toBe(true);
   });
 });
 
@@ -316,8 +334,102 @@ describe("the corrected comment claims on the statistics surface", () => {
     // Not vacuous: an unreadable or truncated file would satisfy every negative below for the
     // wrong reason, which is the failure mode of an absence assertion.
     expect(source.length, `${fileName} is too short to be the real file`).toBeGreaterThan(2000);
-    return source;
+    /*
+     * 🔴 WHITESPACE COLLAPSED, AND THE NEGATIVE ASSERTIONS ARE WHY.
+     *
+     * Prettier wraps JSX and doc-comment prose, so a sentence in the source can carry a newline and
+     * indentation inside it. Matching raw text then fails in BOTH directions, and the second is the
+     * dangerous one:
+     *
+     *   a POSITIVE assertion goes RED on correct copy — a guard calling honest prose a lie, whose
+     *   obvious "fix" is to change the honest prose;
+     *   a NEGATIVE assertion (`.not.toContain`) SILENTLY PASSES the moment the forbidden sentence is
+     *   reflowed — so a retired unscoped absolute can come back, wrapped, and the guard reports
+     *   green.
+     *
+     * Four of the assertions below are regression guards for absolutes this screen already had to
+     * withdraw once. Every one of them was failing open. Collapsing here rather than per-assertion
+     * means a caller cannot forget it.
+     *
+     * ⚠️ **COLLAPSING WHITESPACE ALONE IS HALF A FIX, AND THE HALF IT MISSES IS THE ONE THESE FOUR
+     * ASSERTIONS LIVE IN.** Every sentence guarded below sits in a BLOCK COMMENT, and Prettier wraps
+     * a block comment by starting the continuation line with ` * `. That marker is not whitespace,
+     * so a plain `\s+` collapse turns the wrapped sentence into `element * here is` and the guard
+     * stays GREEN. Measured, not reasoned: the retired unscoped absolute was put back into
+     * `statistics-section-frame.tsx` wrapped that way, and with the whitespace-only collapse the
+     * suite reported 26 passed. Stripping the continuation marker FIRST is what makes it red.
+     *
+     * The `\*\/?` also takes a wrapped comment TERMINATOR, so a sentence ending a doc block is
+     * normalised the same way rather than keeping a trailing `/`. The pattern is anchored to
+     * start-of-line so it cannot touch a multiplication, a comment opener sitting mid-line, or an
+     * `import * as` — those never begin a line here, and the whole file's 26 assertions (positive
+     * ones included) are the control that they do not.
+     *
+     * ⚠️ The floor above is calibrated on RAW length and collapsing shortens the string, so it is
+     * checked before the collapse deliberately. Measured across all ten statistics sources, the
+     * smallest collapses 5,701 -> 5,382, so the floor still clears with room; that is a measurement
+     * rather than an assumption because an identical collapse elsewhere took 7,164 -> 1,698 against
+     * a floor of 1,000.
+     */
+    return source.replace(/\r?\n[ \t]*\*\/?/gu, "\n").replace(/\s+/gu, " ");
   }
+
+  /*
+   * 🔴 **THIS NORMALISATION REASSEMBLES COMMENTS. IT DOES NOT STRIP THEM — AND THAT IS A CHOICE
+   * WITH A SHARP EDGE ON BOTH SIDES.**
+   *
+   * Reported by Ward Verifier after Ward Builder Two hit it in its own guard having adopted the
+   * same approach. Removing the " * " continuation marker flattens a wrapped BLOCK COMMENT into one
+   * clean sentence, which makes comment text MORE matchable than before the fix, not less. So:
+   *
+   *   a POSITIVE assertion over this output can pass because a COMMENT mentions the wording, while
+   *   the screen no longer says it — a false GREEN, and invisible;
+   *   a NEGATIVE assertion can go red because a comment honestly records what was withdrawn — a
+   *   false RED, whose obvious fix is to delete the explanation.
+   *
+   * Same mechanism, opposite outcomes, and only one of them announces itself.
+   *
+   * ⚠️ **NEITHER IS LIVE IN THIS FILE, AND THE REASON IS WHAT MAKES IT SAFE — NOT LUCK.** Every
+   * assertion here is about the SOURCE RECORD: that a correction is written down, that a retired
+   * wording is absent from the tree, that a locator names a real line. **The rendered copy is owned
+   * by `ward-statistics-sections.dom.test.tsx`, which reads the DOM, where a comment cannot
+   * appear.** The false-green needs a positive assertion about what a SCREEN says, and this file
+   * makes none.
+   *
+   * And the false-red is deliberate for the three retired reachability phrases below: the note at
+   * that assertion argues the wording must be absent from the SOURCE too, because a record quoting
+   * it back word for word puts the retired sentence into the tree in a form no scan can tell from a
+   * relapse. Forbidding it outright is the decision; a comment tripping it is the decision working.
+   *
+   * **SO THE RULE FOR ANYONE REUSING THIS HELPER, AND IT IS THE ONLY THING THAT MATTERS HERE:
+   * never assert with it that a screen SAYS something.** Use the DOM test for that. If you need
+   * source-matching that a comment cannot satisfy, strip comments BEFORE this marker handling —
+   * outright, not reassembled — and re-run all four subjects: flat JSX prose and wrapped JSX prose
+   * must be found; a sentence only in a JSX comment and a sentence only in a block comment must not.
+   */
+  it("includes comment text, deliberately — and this pins it so a future strip cannot pass silently", () => {
+    const frame = statisticsSource("statistics-section-frame.tsx");
+
+    /*
+     * The frame carries 41 block-comment lines and one JSX comment, so the shape is reachable and
+     * this is not a vacuous check. Floored on the POPULATION — the file being long enough to hold
+     * its own record — rather than on any count of matches.
+     */
+    expect(frame.length, "the frame collapsed to almost nothing; re-derive before reading below").toBeGreaterThan(2000);
+
+    /*
+     * A sentence that exists ONLY inside a block comment in that file. If somebody later makes this
+     * helper strip comments, this goes red and sends them to the note above rather than letting the
+     * change land silently — at which point every assertion in this file quietly stops covering the
+     * record it was written for, with nothing failing.
+     */
+    expect(
+      frame,
+      "this helper no longer sees comment text. That may be right — but every assertion in this file " +
+        "is about the source RECORD, so they have all just stopped covering what they were written " +
+        "for, and none of them will fail. Read the note above this test before proceeding.",
+    ).toContain("THIS FRAME ADDS NO CONTROLS.");
+  });
 
   /** Every CSS module under `src/components/ward-management/`, walked rather than listed. */
   function cssModules(directory: string): string[] {
@@ -395,8 +507,9 @@ describe("the corrected comment claims on the statistics surface", () => {
    * relapse. So the wording is forbidden outright and the note describes it instead.
    */
   it("carries the retired reachability sentence nowhere in the overview screen's source", () => {
-    const overview = readFileSync(join(STATISTICS_DIR, "statistics-overview-screen.tsx"), "utf8");
-    expect(overview.length, "the overview screen is too short to be the real file").toBeGreaterThan(2000);
+    // Through the helper, not a second raw read: this assertion is a `.not.toContain` and would
+    // otherwise keep the fail-open behaviour the helper above exists to remove.
+    const overview = statisticsSource("statistics-overview-screen.tsx");
 
     for (const retired of [
       "no way in from the statistics home page",

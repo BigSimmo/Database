@@ -136,6 +136,72 @@ const stageIcons = {
  * green, because they were exercising the copy. Measured, not assumed — the mutation caught only
  * the source-text pin. Exporting deletes the mirror and the whole class of drift with it.
  */
+/**
+ * WHAT TO SAY WHEN A MOVEMENT'S RECORDED ORIGIN DEPARTMENT CANNOT BE RESOLVED.
+ *
+ * ⚠️ IT NAMES THE ID, AND IT NEVER SAYS "NOT RECORDED". `Movement.originEdId` is a REQUIRED
+ * `string`, so an origin id is always recorded; `allEmergencyDepartments().find(...)` returns
+ * `undefined` only when that recorded id matches no department. Saying "no origin department is
+ * recorded" therefore reports the wrong absence entirely — a lookup miss dressed as a missing
+ * record — and sends whoever reads it to look for the wrong thing.
+ *
+ * The wording is not new. Five other surfaces already render exactly this sentence for exactly this
+ * case (`escalation-board`, `handover-page`, `officer-screen`, `patient-search`, `live-tracker`).
+ * This file was the sixth and said something else, in TWO places.
+ *
+ * ⚠️ AND THE SECOND PLACE IS THE POINT. One site was reported to me; the other was fifteen lines
+ * from a row I had repaired earlier the same night in the same panel. **When you repair a row, read
+ * the panel. When you repair a panel, read the page.** A function, rather than a sixth and seventh
+ * copy of the string, is what makes the next site inherit this instead of re-earning it.
+ */
+/**
+ * Which figures carry amber, and which urgent fact the ceiling withheld.
+ *
+ * 🔴 **EXTRACTED SO THE PROPERTY CAN BE TESTED OVER EVERY COMBINATION, not over whichever one the
+ * fixture happens to produce.** While this lived inline it was reachable only through a patient who
+ * met all three conditions at once, so the case it exists for — the sickest movement on the board —
+ * was the single hardest case to construct and therefore the one nobody checked.
+ *
+ * ⚠️ **`WardFigureStrip` THROWS above two flagged tiles**, and that ceiling is deliberate: amber
+ * means "look here" and directs the eye nowhere when everything carries it. So a third urgent fact
+ * cannot be given amber. Before 2026-09-06 it was simply dropped and nothing said so, which made
+ * the screen assert "these two are the urgent things" on the one patient for whom three were.
+ *
+ * ⚠️ **A REORDER IS NOT A FIX.** Whichever key sorts third still vanishes; only the identity of the
+ * vanished fact changes. What this returns instead is the withheld fact BY NAME, for the caller to
+ * state in words — the ceiling keeps deciding the colour and stops deciding what the reader is told.
+ *
+ * Order is the owner's ruling, 2026-09-06: a breached deadline, then the declines, and the expired
+ * hold yields. A refusal is a fact a coordinator must act on; an expired hold is usually already
+ * known to whoever let it expire.
+ */
+export const URGENT_FIGURE_FLAG_CEILING = 2;
+
+export function urgentFigureFlags(conditions: { deadlineBreached: boolean; declined: boolean; pullExpired: boolean }): {
+  flagged: Set<string>;
+  withheldFlags: string[];
+} {
+  const labels: Record<string, string> = {
+    deadline: "the passed deadline on the legal form",
+    declines: "the wards that have declined",
+    pull: "the hold on the bed, which has run out",
+  };
+  const urgent = [
+    conditions.deadlineBreached ? "deadline" : undefined,
+    conditions.declined ? "declines" : undefined,
+    conditions.pullExpired ? "pull" : undefined,
+  ].filter((key): key is string => key !== undefined);
+
+  return {
+    flagged: new Set(urgent.slice(0, URGENT_FIGURE_FLAG_CEILING)),
+    withheldFlags: urgent.slice(URGENT_FIGURE_FLAG_CEILING).map((key) => labels[key] ?? key),
+  };
+}
+
+export function unresolvedOriginDepartment(movement: Movement): string {
+  return `No synthetic department matches "${movement.originEdId}"`;
+}
+
 export function stageReachedAt(movement: Movement, stage: MovementStage): Instant | undefined {
   /*
    * 🔴 `findLast`, NOT `find` — THE CURRENT VISIT, NOT THE FIRST ONE EVER.
@@ -679,15 +745,29 @@ export function WardPatientWorkspace({ movementId }: { movementId: MovementId })
   const deadline = patient.legalForm?.dueAt;
   const deadlineBreached = open && deadline !== undefined && clockState(deadline, now) === "breached";
   const pullExpired = open && patient.pullExpiresAt !== undefined && patient.pullExpiresAt <= now;
-  const flagged = new Set(
-    [
-      deadlineBreached ? "deadline" : undefined,
-      pullExpired ? "pull" : undefined,
-      open && patient.declines.length > 0 ? "declines" : undefined,
-    ]
-      .filter((key): key is string => key !== undefined)
-      .slice(0, 2),
-  );
+
+  /*
+   * 🔴 **THE THIRD SIGNAL IS NAMED IN WORDS RATHER THAN DROPPED IN SILENCE — 2026-09-06.**
+   * Until today this list was truncated and nothing said so, which meant the screen asserted "these
+   * two are the urgent things" on the one patient for whom three were. The sickest movement on the
+   * board — declined, past its legal deadline, and holding a bed that has run out — lost its
+   * declines amber and nothing on the page indicated a signal had been withheld.
+   *
+   * ⚠️ **REORDERING IS NOT THE FIX, AND IT LOOKS LIKE ONE.** Whichever key sorts third disappears,
+   * so a reorder only changes which fact vanishes. The ceiling is real and stays — amber means
+   * "look here" and directs the eye nowhere when everything carries it — so the ceiling keeps
+   * deciding the COLOUR and stops deciding what the reader is told. `withheldFlagLabel` below is
+   * what makes the difference visible.
+   *
+   * Order is the owner's ruling of 2026-09-06: a breached deadline first, then the declines, and
+   * the expired hold yields. A refusal is a fact a coordinator must act on; an expired hold is
+   * usually already known to whoever let it expire.
+   */
+  const { flagged, withheldFlags } = urgentFigureFlags({
+    deadlineBreached,
+    declined: open && patient.declines.length > 0,
+    pullExpired,
+  });
 
   // Task 10 (spec item 8): status and urgency changes are the same kind of fact to a reader, so
   // they render as one chronological record rather than two disconnected lists.
@@ -1032,7 +1112,7 @@ export function WardPatientWorkspace({ movementId }: { movementId: MovementId })
         <div className={styles.masthead}>
           <span className={styles.eyebrow}>Movement workspace</span>
           <h1 className={styles.mastheadTitle}>
-            {patient.id} — {originEd ? `in ${originEd.name}` : "no origin department is recorded"}
+            {patient.id} — {originEd ? `in ${originEd.name}` : unresolvedOriginDepartment(patient)}
           </h1>
           <p className={styles.where}>
             {destination
@@ -1174,6 +1254,13 @@ export function WardPatientWorkspace({ movementId }: { movementId: MovementId })
               />
             ) : null}
           </WardFigureStrip>
+          {withheldFlags.length > 0 ? (
+            <p className={styles.withheldFlagNote} data-testid="ward-console-withheld-flags">
+              {withheldFlags.length === 1
+                ? `Also urgent, and not highlighted above: ${withheldFlags[0]}. At most two figures carry amber, so that this screen still points somewhere.`
+                : `Also urgent, and not highlighted above: ${withheldFlags.join("; ")}. At most two figures carry amber, so that this screen still points somewhere.`}
+            </p>
+          ) : null}
         </div>
 
         <div className={styles.layout}>
@@ -1476,9 +1563,7 @@ export function WardPatientWorkspace({ movementId }: { movementId: MovementId })
                       says so. Anything genuinely about the patient's present location belongs in
                       the narrative above, which already has a tense. */}
                   <dt className={styles.factLabel}>Origin department</dt>
-                  <dd className={styles.factValue}>
-                    {originEd ? originEd.name : "No origin department is recorded on this movement."}
-                  </dd>
+                  <dd className={styles.factValue}>{originEd ? originEd.name : unresolvedOriginDepartment(patient)}</dd>
                 </div>
                 <div className={styles.factRow}>
                   <dt className={styles.factLabel}>Accepted by</dt>

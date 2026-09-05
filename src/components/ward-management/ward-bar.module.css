@@ -1,0 +1,224 @@
+/* WardBar — one distribution bar, one meaning, always with a key.
+ * Every value resolves through a --ward-* token declared in ward-tokens.module.css. */
+.bar {
+  composes: wardTokens from "./ward-tokens.module.css";
+  display: grid;
+  gap: var(--ward-space-8);
+}
+
+/* The sentence naming what the whole rail is. Rendered since 2026-09-06 — it lived only in the
+ * aria-label before that, so the eye had nothing saying what a full bar represented. Muted and
+ * small: it is context for the rail, not a heading competing with the panel's own. */
+.caption {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-ui);
+  color: var(--ward-muted);
+}
+
+.track {
+  display: flex;
+  height: var(--ward-space-10);
+  overflow: hidden;
+  background: var(--ward-chrome);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--ward-radius-pixel);
+}
+
+/*
+ * 🔴 THE DIVIDER IS DRAWN IN EVERY MEDIUM, NOT ONLY UNDER FORCED COLOURS. MEASURED 2026-09-06.
+ *
+ * The two adjacent bands on Capacity are separated by HUE ALONE. Their luminance contrast against
+ * each other:
+ *
+ *     light theme   accent rgb(29, 111, 184)  vs  good rgb(12, 107, 65)    1.26:1
+ *     dark theme    accent rgb(116, 189, 240) vs  good rgb(125, 224, 163)  1.27:1
+ *
+ * ⚠️ **IDENTICAL IN BOTH THEMES, so this is inherent to the tone palette and NOT a dark-mode
+ * regression** — worth stating, because it was found during a dark-mode pass and the obvious
+ * conclusion would have been the wrong one. Nothing about the recent colour work caused it.
+ *
+ * 1.26:1 is below any separation threshold; where two bands meet, the boundary is visible to
+ * someone who can distinguish blue from green and to nobody else. The legend below already carries
+ * every band's word and number, so the meaning survives — the same mitigation the forced-colors
+ * block relies on. But a boundary a reader cannot see makes the WIDTHS unreadable too, and the
+ * widths are the only thing a bar adds over the legend.
+ *
+ * A drawn edge separates them at any luminance, which is exactly what the forced-colors block below
+ * already does. Doing it only there would have been treating the accessible case as the exception:
+ * the same reader has the same difficulty in ordinary light mode. So it moves to the base rule and
+ * the at-rule blocks re-point its colour rather than introducing it.
+ */
+.segment {
+  display: block;
+  border-right: 1px solid var(--ward-canvas);
+}
+
+/* The track's own border already closes the right-hand end of the last band. */
+.segment:last-child {
+  border-right: 0;
+}
+.segment[data-tone="good"] {
+  background: var(--ward-success);
+}
+.segment[data-tone="warning"] {
+  background: var(--ward-warning);
+}
+.segment[data-tone="danger"] {
+  background: var(--ward-danger);
+}
+.segment[data-tone="accent"] {
+  background: var(--ward-blue);
+}
+.segment[data-tone="rest"] {
+  background: var(--ward-border-strong);
+}
+
+.key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ward-space-6) var(--ward-space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.keyItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ward-space-5);
+  font-size: 0.6875rem;
+  line-height: var(--ward-leading-ui);
+  color: var(--ward-muted);
+}
+
+.swatch {
+  width: var(--ward-space-8);
+  height: var(--ward-space-8);
+  flex: none;
+  border-radius: var(--ward-radius-pixel);
+}
+.swatch[data-tone="good"] {
+  background: var(--ward-success);
+}
+.swatch[data-tone="warning"] {
+  background: var(--ward-warning);
+}
+.swatch[data-tone="danger"] {
+  background: var(--ward-danger);
+}
+.swatch[data-tone="accent"] {
+  background: var(--ward-blue);
+}
+.swatch[data-tone="rest"] {
+  background: var(--ward-border-strong);
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ward-heading);
+}
+
+/* ⚠️ NOT the mono face. A zero written as a word is prose, and setting it in the figure face makes
+ * "none" line up in a column of numbers as though it were one. */
+.zero {
+  color: var(--ward-muted);
+}
+
+/*
+ * 🔴 THE ONE PRIMITIVE IN THIS SET WHOSE ONLY EDGE IS A FILL — AND THE SHARED TOKEN LAYER SAYS
+ * THERE ISN'T ONE.
+ *
+ * `ward-tokens.module.css` reasons, correctly, that re-pointing eight `--ward-*` roles under
+ * forced colours gives chip, panel, figure and table a drawn `CanvasText` edge, because each of
+ * those sets a `border-color` over a real border. It then closes with: *a primitive whose only edge
+ * was a fill would need its own rule here; none currently is.*
+ *
+ * ⚠️ **THAT SENTENCE WAS TRUE WHEN IT WAS WRITTEN AND FALSE TWO AND A HALF MINUTES LATER.** Measured,
+ * not recalled: the claim landed in `d5f0fcc05` at 2026-09-05 02:48:14 +0800; `ward-bar.module.css`
+ * was created in `c4d8b885a` at 02:50:43 +0800. Neither commit is an ancestor of the other — they
+ * were parallel branches, folded later — so **a claim and its counter-example merged with no
+ * conflict and nothing went red.** The sentence is still there, and it is the kind that stops
+ * anybody looking.
+ *
+ * ⚠️ **AND THE CORRECTION IS NOT "TWO OR THREE PRIMITIVES", IT IS EXACTLY TWO CLASSES.** A detector
+ * over the 19 top-level `*.module.css` files — every class given a `--ward-*` fill, minus every
+ * class given a border or outline ANYWHERE in its own file — reports ten fill-only classes across
+ * six files. Only two of them are in a primitive whose fill IS its content: `.segment` and
+ * `.swatch`, both here. (`.shell`, `.rule`, `.railRule`, `.modeContent` and the rest are grounds and
+ * hairlines, where losing the fill costs a surface rather than a fact.)
+ *
+ * ⚠️ **THE FIRST RUN OF THAT DETECTOR REPORTED `.swatch` AS ALREADY EDGED, AND IT WAS WRONG.** Its
+ * edge test matched `border-radius`, which is not a drawn edge. A corner radius satisfying a check
+ * about visible boundaries is the same defect one level up as the sentence this block corrects.
+ *
+ * WHAT ACTUALLY HAPPENS WITHOUT THE TWO BLOCKS BELOW, and the two media fail differently:
+ *
+ *   forced colours  every `background` here is overridden to a system colour, and the four
+ *                   `--ward-*` fills this file uses are re-pointed by the token layer as well. All
+ *                   five tones land on one colour. The bar reads as a single undivided band, which
+ *                   is not merely uninformative — it looks like one category at 100%.
+ *   print           `ward-tokens.module.css`'s own `@media print { .wardTokens, .wardTokens * }`
+ *                   reset already reaches every element here, because `.bar` COMPOSES `wardTokens`
+ *                   and the compiled root carries both class names. It sets
+ *                   `background-color: Canvas !important`, which beats `.segment[data-tone]`
+ *                   (0,2,0, not important) outright. So the bar prints as an empty outlined rail —
+ *                   **the exact "looks like a loading state" appearance `ward-bar.tsx` throws an
+ *                   error to prevent**, reintroduced by the shared reset rather than by an absence.
+ *
+ * ⚠️ **THE FILLS ARE DELIBERATELY NOT RESTORED, IN EITHER MEDIUM.** `forced-color-adjust: none` and
+ * `print-color-adjust: exact` would both bring the colours back, and both are the wrong answer here.
+ * The token layer states this design language's position in terms: under forced colours a danger
+ * chip and a success chip become indistinguishable *and that is what forced colours is FOR* — the
+ * word is what survives. Overriding that in one primitive would contradict the layer in the file
+ * that states it. On paper the same choice also spends no ink and survives a mono printer, where
+ * five tones become five greys.
+ *
+ * **So the split is DRAWN instead of filled.** The rail keeps its proportions as an outlined,
+ * divided bar; the key beneath it already renders every segment's word AND its number visibly, not
+ * only in the `aria-label`. Together those degrade the bar to uninformative rather than to
+ * misleading, which is the whole difference.
+ *
+ * 🔴 **ONE LIMIT, STATED RATHER THAN PAPERED OVER: the drawn bands and the key are not positionally
+ * one-to-one.** `ward-bar.tsx` filters `value > 0` before rendering the track, while the key lists
+ * every segment including the zeros as "none". So a reader mapping bands left-to-right onto key
+ * entries must skip the zeros. Changing which segments render is a behaviour change in the
+ * component, not a stylesheet decision, so it is reported here rather than taken.
+ *
+ * `tests/ward-bar-fill-only-edges.test.ts` derives the fill-only population from this file and
+ * requires a drawn edge for each member in BOTH blocks, so a sixth tone added tomorrow fails
+ * without anyone remembering this comment exists.
+ */
+@media (forced-colors: active) {
+  .track {
+    background: Canvas;
+  }
+  .segment {
+    background: Canvas;
+    border-right: 1px solid CanvasText;
+  }
+  /* The track's own border already draws the right-hand end of the last band. */
+  .segment:last-child {
+    border-right: 0;
+  }
+  .swatch {
+    background: Canvas;
+    border: 1px solid CanvasText;
+  }
+}
+
+@media print {
+  /* No `!important` and none needed: the composed reset sets colours, never borders, so nothing
+   * competes with these. The fills are left to that reset — see the block comment above. */
+  .segment {
+    border-right: 1px solid CanvasText;
+  }
+  .segment:last-child {
+    border-right: 0;
+  }
+  .swatch {
+    border: 1px solid CanvasText;
+  }
+}

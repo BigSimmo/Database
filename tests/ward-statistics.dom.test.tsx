@@ -1,6 +1,20 @@
 import { render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+import { expectCaption, expectNeverSaysAgain, expectSays } from "./helpers/ward-caption";
+
+const OF_GAP = "the constant-gap note";
+const OF_READY = "the bed-readiness timing refusal";
+const OF_JOIN = "the referral-join refusal";
+const OF_PREP = "the preparing-count note";
+const OF_OFFER = "the not-offered refusal";
+const OF_SOFAR = 'the "so far" heading note';
+const OF_ESC = "the escalated-movements disclosure";
+const OF_REASON = "the declines-by-reason note";
+const OF_CLEAN = "the nought-preparing count";
 
 // Same reason as every sibling dom suite: `ClinicalRail` renders next/link anchors, and jsdom
 // cannot provide an App Router context.
@@ -322,14 +336,23 @@ describe("the withheld statistic says so on the page", () => {
     const system = screen.getByTestId("ward-statistics-system");
     expect(within(system).queryByTestId("ward-statistics-declines")).not.toBeNull();
 
-    const text = screen.getByTestId("ward-statistics-declines-withheld").textContent ?? "";
-    expect(text).toContain("withheld pending an owner ruling");
-    // Both records named, because the ruling is a choice between them.
-    expect(text).toContain("ReferralAddressing");
-    expect(text).toContain("Movement.declines");
-    // And the two readings it must explicitly rule out.
-    expect(text).toContain("not that no ward declines");
-    expect(text).toContain("not that declines go unrecorded");
+    // Concepts, not sentences: the owner is redesigning these pages, and pinning the wording made
+    // a reworded caption and a DELETED one produce the same red. The deletion is the defect.
+    expectCaption(screen.getByTestId("ward-statistics-declines-withheld"), {
+      of: "the withheld declines figure",
+      mentions: [
+        ["withheld", "held back", "pending"],
+        // Both records, because the ruling is a choice between them. Named by CONCEPT since the
+        // field names came off these pages on 2026-09-06 (the owner's ruling); the identifiers are
+        // still checkable, and the test below this one is what keeps them so.
+        ["ReferralAddressing", "referral decline", "on the referral"],
+        ["Movement.declines", "movement decline", "on the movement"],
+        // The two readings the block must rule out. Stems rather than the phrases, so "declines are
+        // not recorded" and "no decline is captured" both still satisfy it.
+        "decline",
+        ["record", "captur"],
+      ],
+    });
   });
 });
 
@@ -343,7 +366,9 @@ describe("a count of nought is an answer, and never looks like a missing one", (
 
     const count = screen.getByTestId("ward-statistics-preparing-count");
     expect(count.textContent).toContain("0");
-    expect(count.textContent).toContain("beds are currently marked as being made ready");
+    // "cleaned", not "made ready", since the owner's 2026-09-04 one-word ruling fixed "Ready" to
+    // the beds a coordinator can fill — close to the opposite of a bed under cleaning.
+    expectSays(count.textContent ?? "", OF_CLEAN, ["cleaned", "being prepared"]);
     /*
      * ⚠️ AND IT MUST NOT SAY "EXPECTED". `expected` is a member of `BED_RELEASE_STATES` meaning the
      * discharge has NOT yet happened, so "0 expected beds are being made ready" told a coordinator
@@ -523,20 +548,20 @@ describe("a constant gap names its cause, and only while it is constant", () => 
     const text = screen.getByTestId("ward-statistics-arrival-constant-gap").textContent ?? "";
     // What the condition ACTUALLY entails, and the warning it earns: identical gaps, therefore no
     // variation, therefore not a measurement of the service.
-    expect(text).toContain("Every measured gap here is the same length");
-    expect(text).toContain("not a measurement of how long beds take to fill");
+    expectSays(text, OF_GAP, ["same length", "identical", "all the same"]);
+    expectSays(text, OF_GAP, ["not a measurement", "never a measurement"]);
     // The mechanism, named rather than gestured at...
-    expect(text).toContain("derives one of the two instants from the other by a fixed offset");
+    expectSays(text, OF_GAP, ["offset"]);
     // ...but offered as an explanation rather than asserted as a finding, which is the half that
     // keeps this paragraph honest. The guard is an observed EQUALITY of two numbers; independently
     // generated gaps that happened to coincide would satisfy it identically, so the page cannot
     // know the offset is there. Asserting it from the symptom would be this page's own defect
     // class — a claim it cannot verify — moved out of a number and into a cause.
-    expect(text).toContain("What this page can see is that the two ends coincide, never why they do");
-    expect(text).toContain("an explanation this shape points at rather than a finding");
+    expectSays(text, OF_GAP, ["coincide", "two ends"]);
+    expectSays(text, OF_GAP, ["explanation"]);
     // And whose change would fix it — the property every other gap on this page already has.
-    expect(text).toContain("written that way on the admissions side");
-    expect(text).toContain("change to the fixture rather than to this page");
+    expectSays(text, OF_GAP, ["admissions"]);
+    expectSays(text, OF_GAP, ["fixture"]);
     // It must never name the seeded value or the population size: both are seed facts that move,
     // and a sentence carrying them would age into a wrong figure on the page that is believed
     // hardest. Any digit at all in this paragraph is that defect.
@@ -600,19 +625,107 @@ describe("a constant gap names its cause, and only while it is constant", () => 
   });
 });
 
+/**
+ * The one retired claim BOTH empty states must never make again: that the missing figure is merely
+ * uncollected and will arrive once somebody types it in. Both paragraphs exist to rule that out —
+ * neither figure is producible by data entry against today's model — so a wording that promises it
+ * later is false on either page, and the two lists were duplicated as one exact string each.
+ *
+ * ⚠️ **EVERY SPELLING HERE WAS RUN AGAINST THE HONEST COPY ON BOTH PAGES, because widening a ban is
+ * not free: a ban forbids more, so each addition is a new way to go red on correct work.** The
+ * near miss is real — the readiness paragraph legitimately says bed readiness "is recorded as
+ * BedRelease.preparing", so a ban on the bare stem "recorded" would fail on true copy. These are
+ * phrases, and the phrase is what carries the promise.
+ */
+const DATA_ENTRY_FRAMINGS: readonly string[] = [
+  "not yet collected",
+  "not yet recorded",
+  "not yet captured",
+  "not yet gathered",
+  "not yet entered",
+  "has not been collected",
+  "have not been collected",
+  "yet to be collected",
+  "awaiting collection",
+  "once the data is collected",
+  "when the data is collected",
+];
+
+/**
+ * THE FIELD NAMES CAME OFF THE SCREEN AND MUST STAY REACHABLE FROM THE SOURCE.
+ *
+ * 🔴 **WARD LEAD'S RULING, 2026-09-06 — NOT the owner's, and an earlier version of this comment
+ * said it was his.** He ruled that the two method write-ups stay unpublished; the field names were
+ * my call, taken under the authority he had delegated. Thirty-six internal
+ * identifiers were rendered to the clinician across the five statistics screens. They are gone from
+ * every screen; the explanations that turned on them are not.
+ *
+ * ⚠️ **DELETING THE IDENTIFIER IS THE EASY GREEN AND IT IS THE WRONG ONE.** Each of these
+ * paragraphs makes a claim about what a record can and cannot hold. A reader who wants to check one
+ * needs the field name — that reader is a developer, and the source comment is where they look. An
+ * identifier removed from BOTH places leaves a confident, unfalsifiable paragraph, which is worse
+ * than the pill ever was.
+ *
+ * ⚠️ **SO THIS ASSERTS BOTH DIRECTIONS, AND THAT IS THE POINT.** Absent from the render (the
+ * ruling) and present in the source (checkability). A one-directional version of this test is
+ * satisfied by deleting the field name outright — which is exactly the shortcut it exists to catch —
+ * and the other one-directional version is satisfied by putting the pills back.
+ */
+describe("the identifiers came off the screen and stayed in the source", () => {
+  const SOURCE = join(process.cwd(), "src/components/ward-management/statistics/statistics-screen.tsx");
+
+  // Every identifier this file's own assertions used to read off the rendered page. It is the list
+  // that shrinks when somebody takes the easy green, so it is spelled out rather than derived.
+  const identifiers = [
+    "ReferralAddressing",
+    "Movement.declines",
+    "BedRelease.preparing",
+    "BedRelease.confirmedAt",
+    "Admission.referralId",
+    "Unit.empty",
+    "Unit.allocatable",
+    "Admission.blockReason",
+    "Movement.blocker",
+  ] as const;
+
+  it.each(identifiers)("%s is nowhere on the rendered page", (identifier) => {
+    renderScreen({ admissions: [], referrals: [], bedReleases: [], movements: [] });
+
+    expect(
+      document.body.textContent ?? "",
+      `${identifier} is being published to the clinician again. The owner ruled these off the ` +
+        "prototype on 2026-09-06. Say which RECORD in plain English and keep the identifier in a source comment.",
+    ).not.toContain(identifier);
+  });
+
+  it.each(identifiers)("%s is still named in the source, so the claim it supports stays checkable", (identifier) => {
+    expect(
+      readFileSync(SOURCE, "utf8"),
+      `statistics-screen.tsx no longer names ${identifier} anywhere, so the paragraph that turns on ` +
+        "it can no longer be checked by the one reader who would check it. Put it back in the comment " +
+        "above that paragraph — the ruling was about the screen, not about the source.",
+    ).toContain(identifier);
+  });
+});
+
 describe("the two empty states say WHY, mechanically", () => {
-  it("names the field and the reason bed readiness cannot be timed", () => {
+  it("names the record and the reason bed readiness cannot be timed", () => {
     renderScreen({ admissions: [], referrals: [], bedReleases: [] });
 
     const text = screen.getByTestId("ward-statistics-readiness-timing-absent").textContent ?? "";
-    expect(text).toContain("BedRelease.preparing");
-    expect(text).toContain("boolean");
+    expectSays(text, OF_READY, ["bed-release record", "BedRelease"]);
+    // What readiness IS on that record — a flag, not an instant — which is the whole reason.
+    expectSays(text, OF_READY, ["yes/no", "boolean", "true or false"]);
     // The point that stops somebody filling the gap with data entry: the two ends cannot coexist.
-    expect(text).toContain("BedRelease.confirmedAt");
-    expect(text).toContain("no pair of instants to subtract");
+    // The mechanism rather than the second field name — one field shared by every act, so the act
+    // that ends preparation overwrites the instant that began it.
+    expectSays(text, OF_READY, ["shared provenance field", "the same one every other act"]);
+    expectSays(text, OF_READY, ["never both", "destroyed by"]);
+    expectSays(text, OF_READY, ["instants", "timestamps", "two ends"]);
     expect(text).toContain("change to the bed model");
-    // "Not yet collected" is the wording this test exists to forbid.
-    expect(text).not.toContain("not yet collected");
+    // The DATA-ENTRY framing is the retired falsehood: no amount of data entry against today's
+    // model produces this figure, so any wording promising it later is wrong however it is spelt.
+    expectNeverSaysAgain(text, "the bed-readiness refusal", DATA_ENTRY_FRAMINGS);
   });
 
   /**
@@ -626,24 +739,49 @@ describe("the two empty states say WHY, mechanically", () => {
     renderScreen({ admissions: [], referrals: [], bedReleases: [] });
 
     const text = screen.getByTestId("ward-statistics-readiness-timing-absent").textContent ?? "";
-    expect(text).not.toContain("nothing marks the moment preparation started");
-    expect(text).not.toContain("no timed state to measure");
-    expect(text).not.toContain("not a missing timestamp");
+    // Widened past the two exact sentences: a withdrawn claim returns just as wrongly when it is
+    // paraphrased, and the original ban passes on any rewrite of it.
+    expectNeverSaysAgain(text, "the readiness-timing refusal", [
+      "nothing marks the moment preparation started",
+      "nothing records when preparation started",
+      "no instant marks the moment preparation",
+      "no timed state to measure",
+      "no timed state",
+    ]);
+    /*
+     * 🔴 **A BARE BAN ON "not a missing timestamp" STOOD HERE UNTIL 2026-09-05 AND IT WAS A
+     * FIGHTER — it went red on copy stating the very fact the paragraph exists to state.**
+     *
+     * It was never one of the five claims corrected in `ab16d11a9`; that commit lists them, and
+     * only "nothing marks the moment preparation started" came from this paragraph. The phrase was
+     * collateral in the same rewrite, and banning it froze one wording of a surviving true claim.
+     *
+     * **The live headline says the reason is "not that nobody writes a time down". "The reason is
+     * not a missing timestamp" says the same thing — the obstacle is not an unfilled field — and
+     * it is arguably the better sentence.** Measured rather than argued: substituting it into
+     * `statistics-screen.tsx` failed THIS test ALONE, by name, with the other 47 in the file green,
+     * including every assertion about `confirmedAt`, the boolean, the pair of instants and the
+     * model change. Source hash 73a0700c before and after.
+     *
+     * That is Ward Lead's own test for a fighter — restate the fact differently and the guard must
+     * SURVIVE — failed in one mutation. The retired FALSE claim is guarded above, by concept, which
+     * is where the protection belongs. Do not reinstate this line.
+     */
   });
 
   it("explains the refusal by what the join can establish, not by what the fixture holds", () => {
     renderScreen({ admissions: [], referrals: [], bedReleases: [] });
 
     const text = screen.getByTestId("ward-statistics-referral-join-absent").textContent ?? "";
-    expect(text).toContain("Admission.referralId");
+    expectSays(text, OF_JOIN, ["admission carries the referral", "Admission.referralId"]);
     // The mechanism, and specifically NOT "the join resolves to nothing" — whether it does depends
     // on the data, and the paragraph must not depend on that either way.
-    expect(text).toContain("a matching id does not establish");
+    expectSays(text, OF_JOIN, ["matching id", "same id"]);
     expect(text).toContain("the two ends of one wait");
-    expect(text).toContain("the request that PRODUCED the bed");
+    expectSays(text, OF_JOIN, ["produced the bed", "created the bed"]);
     expect(text).toContain("dates the wrong event");
-    expect(text).toContain("a change to the data rather than to this page");
-    expect(text).not.toContain("not yet collected");
+    expectSays(text, OF_JOIN, ["change to the data"]);
+    expectNeverSaysAgain(text, "the referral-join refusal", DATA_ENTRY_FRAMINGS);
   });
 
   /**
@@ -698,8 +836,13 @@ describe("the two empty states say WHY, mechanically", () => {
     expect(page).not.toMatch(/ward tag/i);
     expect(page).not.toContain("the field is populated");
     // And the two model-level claims corrected in the same pass.
-    expect(page).not.toContain("nothing marks the moment preparation started");
-    expect(page).not.toContain("These beds are already free");
+    expectNeverSaysAgain(page, "the statistics page", [
+      "nothing marks the moment preparation started",
+      "nothing records when preparation started",
+      "These beds are already free",
+      "these beds are free already",
+      "the beds are already free",
+    ]);
   });
 
   /**
@@ -713,8 +856,12 @@ describe("the two empty states say WHY, mechanically", () => {
 
     const text = screen.getByTestId("ward-statistics-bed-readiness").textContent ?? "";
     expect(text).toContain("should already be free");
-    expect(text).toContain("nothing in the model enforces that");
-    expect(text).not.toContain("These beds are already free");
+    expectSays(text, OF_PREP, ["enforce"]);
+    expectNeverSaysAgain(text, "the bed-readiness note", [
+      "These beds are already free",
+      "these beds are free already",
+      "the beds are already free",
+    ]);
   });
 
   it("shows the measured join beside the claim, so the claim is checkable", () => {
@@ -816,11 +963,22 @@ describe("the live world", () => {
      * `RF-007`; the referral is raised 24 days before the anchor and the admission arrived 23 days
      * ago, so MATCHED and COHERENT are both one. The equality is the check that matters — a matched
      * count running ahead of the coherent one is the `52ad01dda` shape returning under a new name.
+     *
+     * ⚠️ **TEN SINCE 2026-09-05, AND THE NINE ADDED ARE DEMONSTRATION DATA — see
+     * `MIDLAND_DEMONSTRATION_ROWS` (`ward-movements.ts`).** The owner asked for one community
+     * team's page to be populated so the redesign could be judged on a screen with people on it,
+     * and nine referrals naming `"Midland"` were added using ids the admissions seed ALREADY
+     * manufactures. **Not one admission changed.**
+     *
+     * ⚠️ **THE TWO FIGURES BELOW MOVED TOGETHER, WHICH IS THE WHOLE TEST.** Every one of the nine
+     * is raised, and answered, before its admission's bed was pulled — so each match can date a
+     * bed, and MATCHED still equals COHERENT. **A ten that is not matched by a ten below is the
+     * `52ad01dda` shape returning**, and the fix is the fixture's timing, never this number.
      */
     expect(Number(screen.getByTestId("ward-statistics-join-with-id-count").textContent)).toBeGreaterThan(0);
     expect(Number(screen.getByTestId("ward-statistics-join-referrals-searched").textContent)).toBeGreaterThan(0);
-    expect(screen.getByTestId("ward-statistics-join-matched-count").textContent).toBe("1");
-    expect(screen.getByTestId("ward-statistics-join-coherent-count").textContent).toBe("1");
+    expect(screen.getByTestId("ward-statistics-join-matched-count").textContent).toBe("10");
+    expect(screen.getByTestId("ward-statistics-join-coherent-count").textContent).toBe("10");
   });
 });
 
@@ -883,20 +1041,20 @@ describe("empty beds that were not offered — an absence, with no proxy beside 
    * what the record actually holds, and says whose change would fix it — "not yet collected" would
    * invite somebody to fill the gap later with a plausible number.
    */
-  it("names both capacity fields, says what the model does hold, and says whose change would fix it", () => {
+  it("names both capacity measures, says what the model does hold, and says whose change would fix it", () => {
     renderScreen({ admissions: [], referrals: [], bedReleases: [], movements: [] });
 
     const absence = normalise(screen.getByTestId("ward-statistics-not-offered-absent").textContent);
 
-    expect(absence).toContain("Unit.empty");
-    expect(absence).toContain("Unit.allocatable");
+    expectSays(absence, OF_OFFER, ["physically empty", "Unit.empty"]);
+    expectSays(absence, OF_OFFER, ["can actually allocate", "Unit.allocatable"]);
     // What the nearest derived signal actually measures — a ward-side readiness gap over every bed
     // the ward has, never a record of an offer to a particular request.
-    expect(absence).toContain("aggregate counts for the whole ward");
+    expectSays(absence, OF_OFFER, ["aggregate", "whole ward"]);
     expect(absence).toContain("ward-side readiness gap");
     // And where the fix lives. Without this the reader is left thinking better data entry would do.
-    expect(absence).toContain("a record per bed or per offer");
-    expect(absence).toContain("a change to the bed model, not a change to this page");
+    expectSays(absence, OF_OFFER, ["per bed", "per offer"]);
+    expectSays(absence, OF_OFFER, ["bed model"]);
   });
 });
 
@@ -988,11 +1146,34 @@ describe("referrals where every ward asked so far has refused", () => {
     expect(why).toContain("no closure flag");
     expect(why).toContain("cap-reached marker");
     // 2. A decline is not terminal — the movement can be referred onward immediately.
-    expect(why).toContain("the moment a decline lands");
+    expectSays(why, OF_SOFAR, ["decline lands", "a decline arrives"]);
     // 3. The cap is what makes the gap material rather than pedantic, and it is RENDERED from the
     //    model rather than typed into the sentence, so the numeral cannot go stale.
     expect(screen.getByTestId("ward-statistics-refused-so-far-cap").textContent).toBe(String(PARALLEL_REFERRAL_CAP));
-    expect(why).toContain("the rest have never been asked");
+    /*
+     * 🔴 **THIS ASSERTION USED TO PIN A FALSE SENTENCE, AND THAT IS WHY THE DEFECT SURVIVED.** It
+     * required the note to contain "the rest have never been asked" — so the note said it, the test
+     * went green, and a guard stood over the error rather than catching it.
+     *
+     * The claim was invalid. `REFER_TO_UNITS` rejects only `event.unitIds.length >
+     * PARALLEL_REFERRAL_CAP` — a per-CALL check on the array passed in, with no test of
+     * `referredUnitIds` and no lifetime total — and `REFERRABLE_MOVEMENT_STAGES` includes
+     * `destination_review`, which is exactly where a movement sits after its wards decline. So a
+     * movement declined by three wards may be put to three more, repeatedly. **A patient refused by
+     * six wards was described to a clinician as having been put to three, with the other three
+     * counted among wards that had "never been asked" — on the screen built to show how hard
+     * someone is to place.**
+     *
+     * ⚠️ The paragraph already carried its own refutation two sentences earlier ("a coordinator can
+     * put it to fresh wards the moment a decline lands"), asserted by the guard above. Both
+     * assertions passed together for as long as the contradiction existed.
+     *
+     * Pinned now as a PROPERTY rather than a phrase: the note must not tell a reader that the
+     * unasked wards are knowable, however it words that. Wording may change; this may not.
+     */
+    expect(why).not.toContain("never been asked");
+    expect(why).not.toContain("at most");
+    expect(why).toContain("not on how many have been asked");
     // And it must say what the number IS, not only what it is not.
     expect(why).toContain("worklist");
 
@@ -1007,13 +1188,24 @@ describe("referrals where every ward asked so far has refused", () => {
      * source can witness, sitting inside the one paragraph whose job is to stop a reader
      * over-reading the number.
      *
-     * The cap bounds the figure from above and establishes nothing whatever about the mode, so the
-     * note says "at most", and says out loud that the distribution is unmeasured.
+     * 🔴 **AND THE 2026-09-01 CORRECTION WAS ITSELF WRONG, WHICH IS WHY THIS BLOCK IS BEING
+     * REWRITTEN A SECOND TIME.** It replaced "most" with "at most" and pinned the result — but the
+     * cap does NOT bound the figure from above. `REFER_TO_UNITS` checks `event.unitIds.length`
+     * per CALL, never the lifetime total, and a declined movement sits in `destination_review`,
+     * which is referrable. **There is no ceiling at all.** The earlier fix made a false sentence
+     * less wrong, kept its false half, and then pinned that half with an assertion — so the next
+     * reader met a guard where the defect was.
+     *
+     * ⚠️ **A CORRECTION THAT PINS ITS OWN REMAINDER IS WORSE THAN NO CORRECTION**, because the
+     * pin certifies the part nobody re-read. Two assertions three lines apart both stood over the
+     * same false claim, and both were green.
+     *
+     * What is pinned now is the property the paragraph exists to protect: the note must say the
+     * total is unmeasured, and must not offer any bound on it.
      */
-    expect(why).toContain("has been put to at most that many wards");
-    expect(why).toContain("Nothing on the record measures how many it was actually put to");
-    expect(why).not.toContain("most of what is counted here");
-    expect(why).not.toMatch(/most of what is counted/i);
+    expect(why).toContain("nothing on the record measures how many wards a movement has actually been put to");
+    expect(why).toContain("no ceiling here at all");
+    expect(why).not.toMatch(/at most|ceiling here[^ ]* is|most of what is counted/i);
   });
 
   /**
@@ -1042,7 +1234,7 @@ describe("referrals where every ward asked so far has refused", () => {
 
     const escalated = normalise(screen.getByTestId("ward-statistics-refused-so-far-escalated").textContent);
     expect(escalated).toContain("1 open movement carries a recorded escalation");
-    expect(escalated).toContain("floor rather than the whole of it");
+    expectSays(escalated, OF_ESC, ["floor"]);
     // And the escalation must be described as an opinion, never as a derived fact — a page that
     // treated it as a terminal marker would be publishing somebody's judgement as a measurement.
     expect(escalated).toContain("recorded opinion");
@@ -1175,7 +1367,7 @@ describe("declines by reason — generated from the model's vocabulary", () => {
     expect(block).toContain("This names no ward");
     // The front-door boundary, in the one durable sentence: which referral reasons a screen can
     // even offer is a fact about the software, so no distribution over them belongs here.
-    expect(block).toContain("not referrals refused at the front door");
+    expectSays(block, OF_REASON, ["front door"]);
 
     expect(screen.getByTestId("ward-statistics-declines-withheld")).toBeTruthy();
   });
@@ -1304,16 +1496,22 @@ describe("blocked discharges by reason — generated from the model's blocker vo
   });
 
   /**
-   * ⚠️ **THE FIGURE NAMES ITS OWN FIELD AND DISTINGUISHES IT FROM `Movement.blocker`, ON THE PAGE.**
-   * The deferral this figure corrects named the wrong field; the blurb says which field this is, so a
-   * reader who already knows the trap can see the page got it right without opening the source.
+   * ⚠️ **THE FIGURE SAYS WHICH RECORD ITS BLOCKER SITS ON, AND RULES OUT THE OTHER ONE, ON THE PAGE.**
+   * The deferral this figure corrects named the wrong field, so the distinction is the content here
+   * rather than decoration: a reader who already knows the trap can see the page got it right
+   * without opening the source.
+   *
+   * 🔴 The two field names were the way it said this until 2026-09-06, when the owner ruled internal
+   * identifiers off the prototype. They are asserted in the source instead, by the identifier guard
+   * above — which is why this can be re-pointed at the distinction without the claim going unchecked.
    */
-  it("names Admission.blockReason and distinguishes it from Movement.blocker", () => {
+  it("says which record the blocker sits on and rules out the other", () => {
     renderScreen({ admissions: [], referrals: [], bedReleases: [], movements: [] });
 
     const block = screen.getByTestId("ward-statistics-blocked-discharges-by-reason").textContent ?? "";
-    expect(block).toContain("Admission.blockReason");
-    expect(block).toContain("Movement.blocker");
+    const OF_BLOCKED = "the blocked-discharges figure";
+    expectSays(block, OF_BLOCKED, ["against the ADMISSION", "against the admission", "Admission.blockReason"]);
+    expectSays(block, OF_BLOCKED, ["against a movement", "Movement.blocker"]);
   });
 
   /**

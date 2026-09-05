@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Same reason as every sibling dom suite: `ClinicalRail` renders next/link anchors, and jsdom
 // cannot provide an App Router context.
@@ -81,11 +85,12 @@ function aUnit(overrides: Partial<Unit> = {}): Unit {
     siteCode: "RPH",
     name: "Test Ward",
     cohort: "Adult",
-    security: "Open",
+    lockedBeds: 0,
     authorised: false,
     beds: 0,
     empty: capacity,
     allocatable: capacity,
+    allocatableLocked: 0,
     held: 0,
     blocked: 0,
     sexMix: { Female: 0, Male: 0 },
@@ -171,15 +176,36 @@ describe("every statistics section page carries the disclaimer", () => {
   // `id="main-content"` landmarks in one page — a state no route can produce, so the test was
   // asserting against a document unlike anything a reader sees.
   it.each(
-    pages.map((page, index) => ({
-      ...page,
-      statementTestId: [
-        "ward-statistics-overview-not-built-body",
-        "ward-statistics-compare-not-built-body",
-        "ward-statistics-ward-not-built-body",
-        "ward-statistics-ed-not-built-body",
-      ][index],
-    })),
+    pages
+      .map((page, index) => ({
+        ...page,
+        statementTestId: [
+          "ward-statistics-overview-not-built-body",
+          /*
+           * ⚠️ THE COMPARISONS PAGE LEFT THIS LIST BY BEING BUILT, exactly as the ward page did, and
+           * for it the rule does not merely relocate — it STOPS APPLYING. This page now carries two
+           * tables of real figures, so "states the absence without a numeral" is not a property it
+           * can have or should have. What replaces it is stronger and lives in
+           * `tests/ward-statistics-compare-two-tables.dom.test.tsx`: no empty cell in either table,
+           * because a blank in a comparison reads as a measured zero — the same defect this no-numeral
+           * rule was guarding against, on a page that now has numerals in it.
+           */
+          null,
+          /*
+           * ⚠️ THE WARD PAGE LEFT THIS LIST BY BEING BUILT, NOT BY BEING EXEMPTED, and its rule got
+           * STRONGER on the way out. It has no single "not built" paragraph any more, so there is
+           * nothing here to point at. The same requirement — no numeral inside a statement that
+           * there is no figure — is now enforced over all THREE of its nullable measures by
+           * `tests/ward-statistics-ward-nulls.dom.test.tsx`, which additionally forbids a trailing
+           * dash and forbids an unmeasurable average rendering the same words as a true nought.
+           * Removing the row without that file existing would be an exemption; with it, it is a
+           * handover. Do not add a ward row back here — add it there.
+           */
+          null,
+          "ward-statistics-ed-not-built-body",
+        ][index],
+      }))
+      .filter((page): page is typeof page & { statementTestId: string } => page.statementTestId !== null),
   )("$name states the absence without a numeral in it", ({ node, statementTestId }) => {
     renderInProvider(node);
 
@@ -198,7 +224,7 @@ describe("across all services — the overview section", () => {
     const main = mainOf("ward-statistics-overview-screen");
     // The guard against a vacuous pass: a page that rendered nothing would also contain no numeral.
     expect(main.textContent?.length ?? 0).toBeGreaterThan(600);
-    expect(main.textContent).toContain("Nothing here is built yet");
+    expectSays(main.textContent, "the unbuilt-section notice", ["not built", "nothing here is built"]);
     expect(main.textContent).not.toMatch(/[0-9]/);
   });
 
@@ -242,8 +268,8 @@ describe("across all services — the overview section", () => {
     }
 
     // The rest of the paragraph is unchanged and still the point of it.
-    expect(notBuilt).toContain("No whole-of-prototype figure has been derived");
-    expect(notBuilt).toContain("nobody re-checks a number that renders");
+    expectSays(notBuilt, "the no-whole-of-prototype-figure refusal", ["has been derived", "no whole-of-prototype"]);
+    expectSays(notBuilt, "the no-whole-of-prototype-figure refusal", ["re-check"]);
   });
 
   it("is linked from the hub index, which is what made that sentence false", () => {
@@ -303,15 +329,61 @@ describe("what the pages say about the model is true of the model", () => {
     expect(text).not.toMatch(/no unit at all/i);
   });
 
-  it.each(claims)("$name names the field that makes the asymmetry true", ({ node, testId }) => {
+  /*
+   * 🔴 THIS ASSERTED `toContain("acceptedUnitId")` UNTIL 2026-09-06, AND THE OWNER RULED THE FIELD
+   * NAMES OFF THE PROTOTYPE — "don't publish on the prototype". So the identifier is gone from all
+   * three pages, and this guard had to move with it or be deleted.
+   *
+   * ⚠️ **IT WAS PINNING THE RENDERING AS A PROXY FOR THE CLAIM**, which is the standing policy's own
+   * named failure: *guard the claim and the clinical property, never the rendering.* The claim was
+   * never "the string `acceptedUnitId` appears" — it is **the asymmetry**: that record CAN name a
+   * ward, the place it does so is filled in only on acceptance, and therefore an acceptance is
+   * attributable and a decline is not. That is what these three pages must keep saying, in whatever
+   * words, and it is what is asserted now.
+   *
+   * ⚠️ **AND THE IDENTIFIER STAYS CHECKABLE, WHICH IS THE OTHER HALF OF THE OWNER'S RULING.** Two
+   * things hold it: `statistics-claims-register.ts` pins `acceptedUnitId` as EVIDENCE in
+   * `ward-model.ts` with a falsifier, so the claim still goes red if the model changes; and each
+   * screen's source carries the identifier in a comment, asserted below, so the pointer a developer
+   * needs cannot be deleted quietly along with the rendered one.
+   */
+  it.each(claims)("$name still states the asymmetry, in whatever words", ({ node, testId }) => {
     renderInProvider(node);
     const text = normalise(screen.getByTestId(testId).textContent);
 
-    expect(text).toContain("acceptedUnitId");
-    // The conclusion the corrected reason supports, still stated: acceptance names a ward, a
-    // decline does not. A page that fixed the premise and dropped the point would pass the
-    // negative above and say nothing useful.
-    expect(text).toMatch(/when a ward accepts/i);
+    // The mechanism: the ward-naming place exists and is written only on acceptance.
+    expect(text, "the page no longer says the ward is named only when a ward accepts").toMatch(
+      /only when a ward accepts/i,
+    );
+    // Half one: an acceptance CAN be attributed to a named ward.
+    expect(text, "the page no longer says an acceptance names a ward").toMatch(
+      /acceptance (is attributable to|names) a( named)? ward/i,
+    );
+    // Half two: a decline CANNOT. A page that kept the premise and dropped this would pass the
+    // negative above and say nothing useful — the failure the original guard was written against.
+    expect(text, "the page no longer says a decline cannot name a ward").toMatch(
+      /decline (is not|cannot|and a decline)/i,
+    );
+  });
+
+  it.each(claims)("$name keeps the identifier in its source, so the claim stays checkable", ({ testId }) => {
+    /*
+     * The owner's ruling was that the field names must not be PUBLISHED, not that they must be
+     * lost. This is the half that makes "keep the explanations checkable" a tested property rather
+     * than a promise: the screen that makes the claim must still name the field somewhere a
+     * developer reads.
+     */
+    const sourceByTestId: Record<string, string> = {
+      "ward-statistics-compare-declines-example": "statistics-compare-screen.tsx",
+      "ward-statistics-overview-precedent": "statistics-overview-screen.tsx",
+      "ward-statistics-declines-withheld": "statistics-screen.tsx",
+    };
+    const file = sourceByTestId[testId];
+    expect(file, `no source file recorded for ${testId}`).toBeDefined();
+    const source = readFileSync(join(process.cwd(), "src/components/ward-management/statistics", file), "utf8");
+    expect(source, `${file} no longer names acceptedUnitId anywhere, so the claim is no longer checkable`).toContain(
+      "acceptedUnitId",
+    );
   });
 });
 
@@ -350,11 +422,21 @@ describe("ward and ED comparisons — the chooser", () => {
 
     const rule = normalise(screen.getByTestId("ward-statistics-compare-attributability-rule").textContent);
     expect(rule).toContain("required unit id");
-    expect(rule).toContain("Admission");
+    // Was `toContain("Admission")` until 2026-09-06, when the owner ruled the field names off the
+    // prototype. The claim is that ADMISSIONS attribute cleanly BECAUSE the ward is always present —
+    // the record and the guarantee, which is what the rule turns on. The identifier was the proxy.
+    expect(rule, "the rule no longer names admissions as the record that attributes cleanly").toMatch(/admission/i);
+    expect(rule, "the rule no longer says the ward is always present on that record").toMatch(
+      /always (has one|carries|present)|with no exceptions/i,
+    );
 
     const doubleCount = normalise(screen.getByTestId("ward-statistics-compare-double-count-example").textContent);
-    expect(doubleCount).toContain("Movement.referredUnitIds");
-    expect(doubleCount).toMatch(/list, not a single id/);
+    // Was `toContain("Movement.referredUnitIds")` until 2026-09-06. The claim is that the referred
+    // wards are a LIST rather than one ward, which is what makes the column double-count — asserted
+    // directly below, where it was previously carried by the identifier plus a phrase.
+    expect(doubleCount, "the page no longer says the referred wards are a list rather than one").toMatch(
+      /as a LIST, not a single ward|list, not a single id/i,
+    );
     expect(doubleCount).toMatch(/sum to more than/);
   });
 
@@ -383,7 +465,7 @@ describe("ward and ED comparisons — the chooser", () => {
 
     const link = screen.getByRole("link", { name: /Unplaceable Ward/ });
     expect(link.getAttribute("href")).toBe(wardStatisticsHref("unplaceable-ward"));
-    expect(link.textContent).toContain("matches no site in this prototype");
+    expectSays(link.textContent, "the unknown-site notice", ["no site", "matches no site"]);
   });
 
   it("says so rather than rendering an empty list when there is nothing to choose", () => {
@@ -461,7 +543,7 @@ describe("one ward in detail", () => {
     expect(screen.getByTestId("ward-statistics-ward-site").textContent).toBe(
       "Test Ward is recorded at Royal Perth Hospital.",
     );
-    expect(screen.getByTestId("ward-statistics-ward-not-built")).toBeTruthy();
+    expect(screen.getByTestId("ward-statistics-ward-measures")).toBeTruthy();
     expect(screen.queryByTestId("ward-statistics-ward-unresolved")).toBeNull();
   });
 
@@ -500,11 +582,13 @@ describe("one ward in detail", () => {
 
     const unresolved = screen.getByTestId("ward-statistics-ward-unresolved");
     expect(unresolved.textContent).toContain("no-such-ward");
-    expect(unresolved.textContent).toContain("never falls back to a different ward");
+    expectSays(unresolved.textContent, "the no-fallback-ward refusal", ["falls back", "fall back"]);
 
     // Not an empty shell, and not a page about some other ward.
     expect(screen.queryByTestId("ward-statistics-ward-identity")).toBeNull();
-    expect(screen.queryByTestId("ward-statistics-ward-not-built")).toBeNull();
+    // The not-found state must not carry the measures section either — a page about no ward
+    // showing measures would be showing them about nothing.
+    expect(screen.queryByTestId("ward-statistics-ward-measures")).toBeNull();
     for (const unit of allUnits()) {
       expect(mainOf("ward-statistics-ward-screen").textContent).not.toContain(unit.name);
     }
@@ -550,11 +634,14 @@ describe("one ward in detail", () => {
       />,
     );
 
-    const blocked = normalise(screen.getByTestId("ward-statistics-ward-blocked-figure").textContent);
+    // Repointed 2026-09-05: this paragraph is now the built `Average wait after being accepted`
+    // measure rather than a stub's explanation of one. The rule it carries is unchanged, which is
+    // why the assertions below are untouched.
+    const blocked = normalise(screen.getByTestId("ward-stat-waitlist-wait").textContent);
 
     // The conclusion, unchanged and still the point of the paragraph.
-    expect(blocked).toContain("no instant on Admission marks the moment they entered waitlisted");
-    expect(blocked).toContain("deliberately not listed here");
+    expectSays(blocked, "the waitlist-timing refusal", ["no instant", "Admission"]);
+    expectSays(blocked, "the waitlist-timing refusal", ["deliberately not listed", "not listed"]);
 
     /*
      * ⚠️ **THE CHARACTERISATION BESIDE IT WAS FALSE UNTIL 2026-09-01, AND IS NOW PINNED BOTH WAYS.**
@@ -569,7 +656,7 @@ describe("one ward in detail", () => {
      * further person-fact instant arriving cannot falsify it and no enumeration returns.
      */
     expect(blocked).toContain("not all of one kind");
-    expect(blocked).toContain("at least one is a fact about the person rather than about the bed");
+    expectSays(blocked, "the person-versus-bed note", ["about the person", "rather than about the bed"]);
     expect(blocked).not.toContain("every one of them is about the bed");
     expect(blocked).not.toContain("about the bed or about the discharge plan; none is the moment");
 
@@ -596,7 +683,7 @@ describe("one emergency department in detail", () => {
 
     const unresolved = screen.getByTestId("ward-statistics-ed-unresolved");
     expect(unresolved.textContent).toContain("no-such-ed");
-    expect(unresolved.textContent).toContain("never falls back to a different department");
+    expectSays(unresolved.textContent, "the no-fallback-department refusal", ["falls back", "fall back"]);
 
     expect(screen.queryByTestId("ward-statistics-ed-identity")).toBeNull();
     expect(screen.queryByTestId("ward-statistics-ed-not-built")).toBeNull();
@@ -633,13 +720,23 @@ describe("one emergency department in detail", () => {
 
     const attributable = normalise(screen.getByTestId("ward-statistics-ed-attributable").textContent);
 
-    expect(attributable).toContain("raisedAt");
-    expect(attributable).toContain("triagedAt");
+    /*
+     * Was `toContain("raisedAt")` / `toContain("triagedAt")` until 2026-09-06 and the owner ruled the
+     * field names off the prototype. The CLAIM is the asymmetry between the referral's two clocks —
+     * one always recorded, the other optional — which is what makes an unqualified pair unsafe. That
+     * is asserted directly now; the identifiers are pinned as evidence in the claims register.
+     */
+    expect(attributable, "the page no longer says the raised instant is always there").toMatch(
+      /raised is always recorded|raisedAt is always/i,
+    );
+    expect(attributable, "the page no longer says the triage instant is optional").toMatch(
+      /triaged is optional|triagedAt is optional/i,
+    );
     expect(attributable).toContain("is optional");
-    expect(attributable).toContain("the triage can precede the referral");
+    expectSays(attributable, "the triage-ordering note", ["precede", "before the referral"]);
     // The conclusion, re-attributed to the record that never goes missing.
-    expect(attributable).toContain("a required field, never missing");
-    expect(attributable).toContain("derivable from the movement side");
+    expectSays(attributable, "the required-field note", ["required field"]);
+    expectSays(attributable, "the derivability note", ["derivable", "movement side"]);
 
     // The retired wording, forbidden by name.
     expect(attributable).not.toContain("the two clocks the referral record already keeps");

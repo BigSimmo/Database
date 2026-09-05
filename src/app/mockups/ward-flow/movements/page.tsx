@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
+import { MovementsScreen } from "@/components/ward-management/movements/movements-screen";
 
 export const metadata: Metadata = {
   title: "Movements - Ward Flow",
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function WardMovementsPage() {
-  return <WardModeWorkspace mode="movements" />;
+  return <MovementsScreen />;
 }

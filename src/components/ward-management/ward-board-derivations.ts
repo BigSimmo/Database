@@ -120,6 +120,11 @@ function bedAcceptsSex(unit: Unit, sex: Sex, admissions: readonly Admission[], n
     urgency: 2,
     originSiteCode: unit.siteCode,
     transportNeeded: false,
+    // ⚠️ EMPTY, AND THAT IS THE POINT. A probe asks whether a BED accepts a REQUEST; the written
+    // history is prose about a person and no gate may ever read it (see `Referral.history`).
+    // Empty strings here are not placeholder values waiting to be filled in — they are the
+    // demonstration that the eligibility answer cannot depend on what somebody typed.
+    history: "",
   };
   const probeWard = probe.destinations[0].destination;
   if (probeWard.kind !== "psychiatric_ward") throw new Error("the board probe must be a ward question");

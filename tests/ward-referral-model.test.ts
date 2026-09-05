@@ -1,6 +1,7 @@
 // tests/ward-referral-model.test.ts
 import { describe, expect, it } from "vitest";
 
+import { unitHasLockedBeds } from "../src/components/ward-management/ward-bed-designation";
 import { referralEligibility } from "../src/components/ward-management/ward-eligibility";
 import { EVENT_ROLE, type WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
@@ -34,6 +35,7 @@ import {
 } from "../src/components/ward-management/ward-referrals";
 import { NOW_ANCHOR, allUnits, siteByCode, unitById } from "../src/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * Narrows a seeded referral to the ward arm, throwing if it is not one.
  *
@@ -83,13 +85,13 @@ describe("bed category — SexDesignation", () => {
     expect(allUnits().filter((unit) => unit.forensic).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("never merges `forensic` with `security` — a forensic unit here is Secure, but security still varies independently of forensic elsewhere in the fixture", () => {
+  it("never merges `forensic` with locked-bed designation — a forensic unit here has locked beds, but that varies independently of forensic elsewhere in the fixture", () => {
     const units = allUnits();
     const forensicUnits = units.filter((unit) => unit.forensic);
-    expect(forensicUnits.every((unit) => unit.security === "Secure")).toBe(true);
-    // Plenty of non-forensic units are also Secure — `security` is not derived from `forensic`.
-    const nonForensicSecure = units.filter((unit) => !unit.forensic && unit.security === "Secure");
-    expect(nonForensicSecure.length).toBeGreaterThanOrEqual(1);
+    expect(forensicUnits.every((unit) => unitHasLockedBeds(unit))).toBe(true);
+    // Plenty of non-forensic units also have locked beds — that is not derived from `forensic`.
+    const nonForensicLocked = units.filter((unit) => !unit.forensic && unitHasLockedBeds(unit));
+    expect(nonForensicLocked.length).toBeGreaterThanOrEqual(1);
   });
 
   /**
@@ -128,6 +130,7 @@ describe("bed category — SexDesignation", () => {
       urgency: 2,
       originSiteCode: "BRM",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     };
     const verdict = referralEligibility(compatible, wardOf(compatible).destination, unit, NOW_ANCHOR);
     const forensicGate = verdict.gates.find((gate) => gate.gate === "forensic");
@@ -160,6 +163,7 @@ describe("bed category — SexDesignation", () => {
       urgency: 2,
       originSiteCode: "FSH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     };
     const verdict = referralEligibility(compatible, wardOf(compatible).destination, unit, NOW_ANCHOR);
     const designationGate = verdict.gates.find((gate) => gate.gate === "sex_designation");
@@ -566,7 +570,7 @@ describe("referrals fixture — the awkward cases (seed rule 4)", () => {
       const secureNeeded = referral.destinations.some(
         (addressing) => addressing.destination.kind === "psychiatric_ward" && addressing.destination.secureBedNeeded,
       );
-      const viable = secureNeeded ? candidates.filter((unit) => unit.security === "Secure") : candidates;
+      const viable = secureNeeded ? candidates.filter((unit) => unitHasLockedBeds(unit)) : candidates;
       return viable.length === 0;
     });
     expect(structurallyImpossible.length).toBeGreaterThanOrEqual(1);
@@ -580,7 +584,7 @@ describe("referrals fixture — the awkward cases (seed rule 4)", () => {
     });
     expect(referralState(rf001!)).toBe("queued");
     const youthUnits = allUnits().filter((unit) => unit.cohort === "Youth");
-    expect(youthUnits.every((unit) => unit.security === "Open")).toBe(true);
+    expect(youthUnits.every((unit) => !unitHasLockedBeds(unit))).toBe(true);
   });
 
   /** Seed rule 4(b). */
@@ -836,6 +840,40 @@ describe("Referral privacy — structural", () => {
     // "12 Wellington St, Perth" is a non-empty string and a length check would have put the very
     // thing this field is coarser than into the field itself.
     "suburb",
+    /*
+     * ⚠️ THE WRITTEN HISTORY — 2026-09-05, OWNER INSTRUCTION, AND THE LARGEST WIDENING THIS LIST
+     * HAS EVER TAKEN. Recorded here at length because the prose above forbids exactly this.
+     *
+     * Every other member of this list is a closed union, a boolean, a code or an id. These three
+     * are **whatever a person typed**. The list's own commentary says its job is to keep "who the
+     * patient is, what is wrong with them, and where they live" off a referral — and a free-text
+     * clinical history can contain all three, by design, because that is what a referral is for.
+     *
+     * ⚠️ **SO THIS GUARD NO LONGER PROVES WHAT IT USED TO PROVE.** Before today, membership in
+     * this list was very nearly a privacy proof: nothing on a `Referral` could hold a name because
+     * no field had a shape that could. That is over. The list still does a real job — it stops a
+     * `patientName`, an `address` or a `diagnosis` field appearing, and it still fails on every one
+     * of them — but it can no longer be cited as evidence that a referral holds no identifying
+     * text. **Anyone quoting this guard in a privacy argument must say which half it covers.**
+     *
+     * ⚠️ **THREE FLAT KEYS, NOT ONE NESTED `history` OBJECT, AND THAT IS A DECISION ABOUT THIS
+     * GUARD.** A `history: {...}` object would be one permitted member with an unchecked shape
+     * behind it — precisely the hole that opened when the decision fields moved inside
+     * `destinations` and needed `ALLOWED_ADDRESSING_FIELDS` and `ALLOWED_DESTINATION_FIELDS` to
+     * close. A flat key is a thing this list names out loud, and a second history field cannot
+     * appear without failing here.
+     *
+     * ⚠️ **THIS WAS THREE MEMBERS UNTIL THE OWNER'S RULING OF 2026-09-05** — one story box,
+     * optional — which collapsed `historyWhyNow`, `historyBackground` and `historyRiskAndSafety`
+     * into one `history`. The list shrinking is the ruling landing; **a list shrinking on its own
+     * would be a field leaving the guard**, which is why the count is asserted rather than the
+     * membership being spot-checked.
+     *
+     * The countervailing control is that nothing may READ it: no gate, no ranking, no derivation.
+     * That is stated on `Referral.history` and enforced by the probes in
+     * `ward-board-derivations.ts` and `referral-destination-options.ts`, which pass `""`.
+     */
+    "history",
   ].sort();
 
   /**
@@ -977,6 +1015,7 @@ describe("Referral privacy — structural", () => {
       urgency: 2,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
       // A role, never a person — and no note, reason or outcome field exists to populate.
       localBedSought: { at: NOW_ANCHOR + 2, by: "coordinator" },
       // Before `raisedAt`: this canonical referral is somebody already in the department when
@@ -1051,6 +1090,7 @@ describe("Referral privacy — structural", () => {
       urgency: 2,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     });
     expect(after.rejections).toEqual([]);
     const created = after.referrals.at(-1)!;
@@ -1361,6 +1401,7 @@ describe("the patient link is a pointer, and the guard still refuses everything 
       urgency: 2 as const,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     };
 
     // ⚠️ THE ID MUST NAME A REAL SEEDED PATIENT, AND THIS TEST USED TO USE A MADE-UP ONE.
@@ -1428,6 +1469,7 @@ describe("the patient link is a pointer, and the guard still refuses everything 
       urgency: 2 as const,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     };
 
     const before = seeded.referrals.length;

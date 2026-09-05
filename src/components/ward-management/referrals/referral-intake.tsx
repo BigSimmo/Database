@@ -17,6 +17,8 @@ import {
   COHORTS,
   HOME_REGIONS,
   PARALLEL_REFERRAL_CAP,
+  REFERRAL_HISTORY_LIMITS,
+  type ReferralHistoryField,
   REFERRAL_DESTINATION_KINDS,
   REFERRAL_SOURCES,
   SEXES,
@@ -168,6 +170,27 @@ function isUnanswered(value: unknown): boolean {
 }
 
 /**
+ * Whether ONE required field is still unanswered in this draft — the field's own rule when it has
+ * one, and the shared sentinel rule otherwise.
+ *
+ * ⚠️ **ONE FUNCTION, BECAUSE THERE ARE THREE READERS.** The progress figure, the summary rows and
+ * the outstanding-questions sentence all ask this question, and before the written history they
+ * each asked it by calling `isUnanswered` directly. Adding a field whose blank state is `""` to
+ * three separate call sites is how two of them come to agree and the third does not — and the one
+ * that disagrees would be the Send button's reason, which is the one a clinician acts on.
+ */
+function fieldIsUnanswered(
+  field: {
+    readonly key: keyof ReferralDraft;
+    readonly unanswered?: (value: ReferralDraft[keyof ReferralDraft]) => boolean;
+  },
+  draft: ReferralDraft,
+): boolean {
+  const value = draft[field.key];
+  return field.unanswered ? field.unanswered(value) : isUnanswered(value);
+}
+
+/**
  * THE PURPOSE EVERY EMERGENCY-DEPARTMENT DESTINATION THIS FORM RAISES CARRIES, AND WHY IT IS A
  * CONSTANT RATHER THAN AN ELEVENTH QUESTION.
  *
@@ -275,6 +298,20 @@ type ReferralDraft = {
    */
   suburb: string;
   /**
+   * ⚠️ THE WRITTEN HISTORY, AS THE BOXES HOLD IT. Plain `string`s, and the ONLY fields on this
+   * draft with no `UNANSWERED_VALUE` arm.
+   *
+   * A picker can be in a state no option represents, so it needs a sentinel. A typed box cannot:
+   * every state it can be in is a string somebody could type, and `""` is what "nothing written"
+   * looks like. Giving these the sentinel would mean the literal text `not-answered` sitting in a
+   * box, which a referrer could then edit into a sentence.
+   *
+   * Kept untrimmed all the way to the dispatch — the reducer stores them byte for byte, so
+   * trimming here would be this screen quietly editing what somebody wrote. Blankness is decided
+   * by the `unanswered` predicate on `REQUIRED_FIELDS`, which trims only to make the decision.
+   */
+  history: string;
+  /**
    * Everywhere this referral is addressed, chosen in ONE act (FD-21) — never one destination at a
    * time and never a repeat referral. An empty list is the unanswered state; see `isUnanswered`.
    */
@@ -375,6 +412,22 @@ const REQUIRED_FIELDS: readonly {
    * for an answer with nothing to attach to — rather than because answering it is inconvenient.
    */
   readonly appliesWhen?: (draft: ReferralDraft) => boolean;
+  /**
+   * How to tell whether THIS question has been answered, when the shared rule does not fit.
+   *
+   * ⚠️ **IT EXISTS FOR FREE TEXT AND FOR NOTHING ELSE.** Every other question on this form is a
+   * picker, so "unanswered" is the `UNANSWERED_VALUE` sentinel and `isUnanswered` is right. A
+   * typed box has no sentinel: the empty state IS `""`, because a referrer who has written
+   * nothing has left it empty, not set it to a magic string.
+   *
+   * ⚠️ **AND `isUnanswered` COULD NOT SIMPLY BE WIDENED TO TREAT `""` AS UNANSWERED.** That was
+   * the obvious change and it would have REVERSED A RECORDED DECISION: `UNANSWERED_VALUE`'s own
+   * doc comment states that an origin site of `""` "remains an ANSWER — an invalid one the
+   * reducer is left to refuse", and a test proves the reducer refuses it. Widening the shared
+   * predicate would have made that value unanswered instead, Send would go inert on it, and the
+   * dispatch that test asserts would never happen. A per-field rule leaves that decision standing.
+   */
+  readonly unanswered?: (value: ReferralDraft[keyof ReferralDraft]) => boolean;
 }[] = [
   { key: "ageBand", name: "Age band" },
   { key: "sex", name: "Sex" },
@@ -390,6 +443,20 @@ const REQUIRED_FIELDS: readonly {
   { key: "secureBedNeeded", name: "Secure bed needed" },
   { key: "involuntaryBedNeeded", name: "Involuntary bed needed" },
   { key: "transportNeeded", name: "Transport needed" },
+  /*
+   * ⚠️ THE WRITTEN HISTORY IS NOT IN THIS LIST, AND ITS ABSENCE IS THE OWNER'S RULING RATHER THAN
+   * AN OVERSIGHT. 2026-09-05: ONE story box, OPTIONAL.
+   *
+   * `historyWhyNow` was here and was required, from the day the boxes landed until that ruling.
+   * `FD-13` had said one optional field since 2026-08-30 and the built form had diverged from it;
+   * the ruling settles it in FD-13's favour. **Putting `history` back into this list would make
+   * the story an outstanding question that blocks the Send**, which is the form the owner has now
+   * twice declined.
+   *
+   * ⚠️ **A referrer with nothing written down should not be made to invent something to get a
+   * referral out of the door**, and a Send blocked at 3am is answered by typing one character —
+   * which is worse than a blank box, because it looks like an account and is not.
+   */
   // FD-21, last because it is the question every answer above it informs: the picker shows what
   // each destination looks like for THIS request, so a clinician chooses knowing it.
   { key: "destinationKinds", name: "Destination" },
@@ -420,11 +487,101 @@ const REQUIRED_FIELDS: readonly {
  */
 export const REQUIRED_FIELD_NAMES: readonly string[] = REQUIRED_FIELDS.map((field) => field.name);
 
+/**
+ * HOW MANY OF THIS DRAFT'S APPLICABLE QUESTIONS ARE ANSWERED.
+ *
+ * ⚠️ DERIVED FROM `REQUIRED_FIELDS`, THE SAME LIST `unansweredFieldNames` WALKS, and filtered by
+ * the same `appliesWhen` predicate. The count in the rail and the list under the Send button are
+ * therefore two readings of one source and cannot disagree — a total typed as a literal here
+ * would be a second surface answering the same question, which is this project's most reliable
+ * defect. It also means the denominator moves correctly when a conditional question applies.
+ */
+export function answeredProgress(draft: ReferralDraft): { answered: number; applicable: number } {
+  const applicable = REQUIRED_FIELDS.filter((field) => field.appliesWhen?.(draft) ?? true);
+  const outstanding = applicable.filter((field) => fieldIsUnanswered(field, draft));
+  return { answered: applicable.length - outstanding.length, applicable: applicable.length };
+}
+
+/**
+ * WHAT THIS REFERRAL WILL RECORD, one row per applicable question, in the order it is asked.
+ *
+ * ⚠️ IT PRINTS THE RECORDED VALUE, NOT A PRETTIER RENDERING OF IT. The rail's whole claim is that
+ * it shows what will be written down, so a friendlier label than the stored value would make it a
+ * different claim. An unanswered question says so IN WORDS — never a blank, never a dash — because
+ * the absence is the fact being reported.
+ *
+ * ⚠️ **THE WRITTEN HISTORY IS THE ONE EXCLUSION, AND IT IS NOT AN OVERSIGHT.** The filter below
+ * keeps it out even though it is no longer in `REQUIRED_FIELDS` at all — belt and braces, because
+ * the day somebody makes the story required again is the day the rail would start printing the
+ * referrer's prose back at them — in a narrow column, inevitably
+ * truncated by the layout rather than by a decision. **A truncated preview of free text implies
+ * something read it**, which is the single claim this screen must never make about the one field
+ * nothing checks. The rail reports its length and how many sections carry something, and that
+ * block is rendered separately.
+ */
+export function referralSummaryRows(draft: ReferralDraft): { label: string; value: string; answered: boolean }[] {
+  const historyKeys = new Set<string>(HISTORY_FIELDS.map((field) => field.key));
+  return REQUIRED_FIELDS.filter((field) => (field.appliesWhen?.(draft) ?? true) && !historyKeys.has(field.key)).map(
+    (field) => {
+      const value = draft[field.key];
+      const answered = !fieldIsUnanswered(field, draft);
+      const shown = Array.isArray(value) ? value.join(", ") : String(value);
+      return { label: field.name, value: answered ? shown : "Not answered yet", answered };
+    },
+  );
+}
+
+/**
+ * THE HISTORY BOXES, IN THE ORDER THEY ARE ASKED. One array, read by the section, by the
+ * over-limit check and by the rail's section count, so those three cannot come to disagree about
+ * how many boxes there are or what they are called.
+ *
+ * The limits come from `REFERRAL_HISTORY_LIMITS` in the model rather than being restated here —
+ * the reducer refuses against that same constant, so a limit shown on screen and a limit enforced
+ * by the engine are one number, not two that happen to match today.
+ */
+export const HISTORY_FIELDS: readonly {
+  readonly key: ReferralHistoryField;
+  readonly label: string;
+  readonly hint: string;
+  readonly required: boolean;
+}[] = [
+  {
+    key: "history",
+    label: "History",
+    hint:
+      "What has happened and what has changed to make this a referral today; relevant history, " +
+      "current treatment and what has already been tried; and anything the receiving team should " +
+      "know before meeting this person. As much or as little as you have.",
+    required: false,
+  },
+];
+
+/**
+ * The history boxes that are over their limit.
+ *
+ * ⚠️ **OVER-LIMIT BLOCKS THE SEND; IT NEVER TRIMS THE TEXT.** The textareas carry NO `maxLength`
+ * on purpose. `maxLength` stops the keystroke, so a referrer pasting a long account watches the
+ * end of it vanish with no message — a silent truncation performed by the browser, which is
+ * exactly what `Referral.history` forbids the reducer from doing. Letting the text exceed
+ * the limit and refusing to send is the visible version of the same rule.
+ */
+export function overLimitHistoryFields(draft: ReferralDraft): string[] {
+  return HISTORY_FIELDS.filter((field) => draft[field.key].length > REFERRAL_HISTORY_LIMITS[field.key]).map(
+    (field) => field.label,
+  );
+}
+
+/** How many history sections carry something. Reported, never used to judge the referral. */
+export function writtenHistoryCount(draft: ReferralDraft): number {
+  return HISTORY_FIELDS.filter((field) => draft[field.key].trim() !== "").length;
+}
+
 /** The questions THIS draft is still waiting on: applicable, and unanswered. Both halves matter —
  *  naming a question that does not apply is as misleading as hiding one that does. */
 function unansweredFieldNames(draft: ReferralDraft): string[] {
   return REQUIRED_FIELDS.filter((field) => field.appliesWhen?.(draft) ?? true)
-    .filter((field) => isUnanswered(draft[field.key]))
+    .filter((field) => fieldIsUnanswered(field, draft))
     .map((field) => field.name);
 }
 
@@ -492,6 +649,26 @@ function answeredDraft(draft: ReferralDraft): AnsweredDraft | undefined {
     return undefined;
   }
   if (secureBedNeeded === UNANSWERED_VALUE || involuntaryBedNeeded === UNANSWERED_VALUE) return undefined;
+  /*
+   * ⚠️ NO CHECK ON THE WRITTEN HISTORY HERE, AND THE LINE THAT WAS HERE IS WORTH REMEMBERING.
+   *
+   * `if (draft.historyWhyNow.trim() === "") return undefined;` sat at this point, because making
+   * the story required in `REQUIRED_FIELDS` had named it correctly in the outstanding-questions
+   * SENTENCE and done nothing at all to Send — this function keeps its own list. The form said
+   * "Not yet answered: … Why now" directly beneath a fully available Send, and pressing it
+   * dispatched a referral the reducer then refused.
+   *
+   * **The owner's 2026-09-05 ruling — one story box, OPTIONAL — removes the requirement, so all
+   * three places that decided "blank" now agree by having nothing to decide.** The reducer's
+   * blank-refusal went in the same change.
+   *
+   * ⚠️ **THE DEFECT THAT LINE FIXED IS STILL LIVE FOR THE NEXT REQUIRED QUESTION.** Two surfaces
+   * answer "may this send?" — `REQUIRED_FIELDS` for the sentence, this function for the button —
+   * and they are separate lists. Adding a required question to one and not the other reproduces
+   * it exactly. The catcher is `will not send, and says so, while <question> alone is unanswered`,
+   * generated per question from `REQUIRED_QUESTIONS`, so a question added to that list produces
+   * its own proof; a question added only here does not.
+   */
   // Owner ruling 2026-08-30 ("Take all recommendations"). The narrowing is what stops the
   // sentinel escaping: `transportNeeded` was read straight off `draft` here and passed through
   // untouched, which is exactly how a value nobody chose used to reach `RECEIVE_REFERRAL`.
@@ -566,21 +743,51 @@ function initialDraft(): ReferralDraft {
     // was the last control on this form still sending an answer nobody chose — an untouched form
     // asserted "no transport needed", and a ward reads that and plans around it.
     transportNeeded: UNANSWERED_VALUE,
+    // ⚠️ EMPTY STRINGS, NOT THE SENTINEL, AND NOT PLACEHOLDER PROSE. These are the only fields on
+    // this draft a person types into, so their empty state has to be the empty state of a text
+    // box. Seeding them with an example — "e.g. seen at home this morning…" — would put words
+    // nobody wrote one keystroke away from being sent as somebody's clinical history.
+    history: "",
   };
 }
 
 /**
  * The referral intake form. Phone-first: a police or ambulance officer standing in someone's
  * living room, or a community nurse between visits, is this screen's primary user, not someone
- * at a desk (`referrals.module.css`'s own top comment). Every field is a picker or a toggle —
- * there is no free-text input anywhere on this screen, and there never should be; a field that
- * seems to need one is a finding to report, not a control to add here.
+ * at a desk (`referrals.module.css`'s own top comment).
+ *
+ * ⚠️ **EVERY STRUCTURED QUESTION IS A PICKER OR A TOGGLE, AND THE WRITTEN HISTORY IS NOT.**
+ *
+ * Until 2026-09-05 this paragraph read: *"there is no free-text input anywhere on this screen, and
+ * there never should be; a field that seems to need one is a finding to report, not a control to
+ * add here."* The owner then instructed that a referrer must be able to write the patient's story,
+ * and this screen now has a textarea for it (`HISTORY_FIELDS`). It had THREE until the owner's
+ * ruling of 2026-09-05 — one story box, optional — which settled `FD-13` in its original favour.
+ *
+ * 🔴 **THAT OLD SENTENCE SURVIVED THE COMMIT THAT FALSIFIED IT, AND IT WAS WORSE THAN THE BANNER
+ * THAT DID THE SAME.** The banner told a clinician something untrue. This told the NEXT BUILDER
+ * that adding a free-text control was forbidden and that noticing the need for one was a defect to
+ * file — an instruction contradicting a shipped feature, eight lines above the feature, in the file
+ * that implements it. Someone reaching for a fourth field would have believed it.
+ *
+ * It survived because the fix searched the RENDERED TEXT for the false claim and not the file. The
+ * rule is that the sentence describing what the software records is inside the diff that changes
+ * it, and **a docstring is that sentence too.** Caught by Ward Lead, not by me and not by any test.
+ *
+ * **The rule that actually holds now:** free text exists in exactly the fields of
+ * `HISTORY_FIELDS` — one, today — and nowhere else. A second is a decision, not an implementation — two guards
+ * (`ward-referral-screens.dom.test.tsx`, `ward-referral-destinations.dom.test.tsx`) assert the
+ * boundary by identity, so adding one goes red until somebody changes them on purpose. Every
+ * question that is NOT the history stays a picker or a toggle, and that half is unchanged.
  *
  * Every picker carries a real accessible NAME (review finding I4). Each field used to be a
  * `<fieldset>` with a `<legend>`, which names the fieldset's own `group` role and NOT the
  * `<select>` inside it — so all six controls announced as unnamed combo boxes on the one screen
- * a police or ambulance officer fills in on a phone (spec D12), carrying the five permitted facts
- * about a person. They are now `<label htmlFor>` + `<select id>`, which is what the house pattern
+ * a police or ambulance officer fills in on a phone (spec D12), carrying the permitted facts about
+ * a person. (That clause said "the FIVE permitted facts" until 2026-09-05. It was already wrong
+ * before the history landed — `suburb` was added after it was written and made it six — and the
+ * count is now gone rather than corrected, for the same reason it is gone from the banner: a
+ * hand-typed total beside a growing field set goes stale on the next field.) They are now `<label htmlFor>` + `<select id>`, which is what the house pattern
  * already does: `ed-screen.tsx`'s own referral form wraps each `<select>` in a `<label>`, and
  * `referral-match.tsx`'s decline picker uses this exact `.fieldLegend` label shape. No CSS
  * changed — `.fieldCard` and `.fieldLegend` are class selectors, so they style a `<div>` and a
@@ -750,7 +957,16 @@ export function ReferralIntakeForm() {
   // Phase R2.1. The outstanding questions, recomputed on every render from the draft itself
   // rather than tracked in a second piece of state that could disagree with it.
   const outstanding = unansweredFieldNames(draft);
-  const answered = answeredDraft(draft);
+  const progress = answeredProgress(draft);
+  const summaryRows = referralSummaryRows(draft);
+  const answeredFields = answeredDraft(draft);
+  // ⚠️ A SECOND REASON THE SEND CAN BE UNAVAILABLE, AND IT IS NOT AN UNANSWERED QUESTION.
+  // `answeredDraft` asks whether every question has an answer; an over-length history has one and
+  // it is too long. Kept as its own condition rather than folded into `outstanding`, because the
+  // reason a clinician is shown has to be the reason that is true: "Not yet answered: Why now" in
+  // front of a box with 1,600 characters in it would be a false statement about their own screen.
+  const overLimit = overLimitHistoryFields(draft);
+  const answered = overLimit.length === 0 ? answeredFields : undefined;
   // Shown whenever the pair is chosen, not only once every other question has an answer: the
   // clinician needs to know the combination is the problem while they are still on the picker,
   // not after they have filled in the rest of the form for a referral that can never send.
@@ -843,6 +1059,11 @@ export function ReferralIntakeForm() {
       urgency: answered.urgency,
       originSiteCode: answered.originSiteCode,
       transportNeeded: answered.transportNeeded,
+      // ⚠️ STRAIGHT FROM THE DRAFT, UNTRIMMED. The reducer stores these byte for byte and refuses
+      // an over-length or blank-required value rather than shortening it, so there is nothing for
+      // this screen to tidy on the way out — and a `.trim()` here would be the form silently
+      // editing somebody's clinical account before sending it.
+      history: draft.history,
     });
     setCheckToken((token) => token + 1);
   }
@@ -864,10 +1085,40 @@ export function ReferralIntakeForm() {
       <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-referral-intake-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
+          {/*
+           * ⚠️ REWRITTEN 2026-09-05, IN THE SAME CHANGE THAT MADE THE OLD WORDING FALSE.
+           *
+           * It used to end: "Never a name, never free text, and never a figure from the Mental
+           * Health Act." That was true of a form with no free-text control, and this form now has
+           * three. It also still said "only the FIVE permitted facts" — already stale before
+           * today, because `suburb` was added after that sentence was written and nobody
+           * re-derived the count.
+           *
+           * 🔴 NOTHING CAUGHT EITHER OF THEM. Not one of the 15,081 tests in this repository
+           * asserts what this paragraph claims; the only guard over it
+           * (`ward-governance-enumerations.dom.test.tsx`) checked that the denials were PRESENT,
+           * which is satisfied just as well by a denial that has become a lie. It was found by
+           * opening the page. Numbers in this project are checked; promises are not.
+           *
+           * ⚠️ THE COUNT IS GONE RATHER THAN CORRECTED. A hand-typed total in a sentence beside a
+           * growing field set goes stale again on the next field — which is exactly how "five"
+           * survived becoming six. The closed set is enforced by `REQUIRED_FIELDS` and by
+           * `ALLOWED_REFERRAL_FIELDS`, not by arithmetic in a paragraph.
+           *
+           * ⚠️ AND IT NOW SAYS WHICH HALF IS ENFORCED. The structured questions still cannot hold
+           * a name — that is a property of their types. The history plainly can. A sentence that
+           * blurs the two is worse than no sentence, because it is believed.
+           */}
           <p>
-            This form is <strong>not a medical device</strong>. It records only the five permitted facts about the
-            person referred, plus the request itself &mdash; never a name, never free text, and never a figure from the
-            Mental Health Act.
+            This form is <strong>not a medical device</strong>. It records a small set of structured facts about the
+            person referred, the request itself, the written history you type below, and &mdash; when the referral was
+            raised from a person&apos;s record &mdash; a pointer to that record: an id and nothing else.
+          </p>
+          <p>
+            <strong>The written history is free text.</strong> It is stored and sent exactly as you type it, so anything
+            you put in it &mdash; including a name &mdash; becomes part of the referral, and nothing checks it. The
+            structured questions cannot hold a name, and no field on this form holds a figure from the Mental Health
+            Act.
           </p>
         </div>
 
@@ -886,115 +1137,117 @@ export function ReferralIntakeForm() {
           </p>
         </header>
 
-        <form className={styles.form} onSubmit={handleSubmit} data-testid="ward-referral-intake-form">
-          <div className={styles.fieldCard}>
-            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-ageBand">
-              Age band
-            </label>
-            <select
-              id="ward-referral-intake-ageBand"
-              data-testid="ward-referral-intake-ageBand"
-              className={styles.select}
-              value={draft.ageBand}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  ageBand: event.target.value as Cohort | typeof UNANSWERED_VALUE,
-                }))
-              }
-            >
-              {/* The unanswered state is a real leading option rather than a select with no
+        <div className={styles.intakeLayout}>
+          <div className={styles.intakeMain}>
+            <form className={styles.form} onSubmit={handleSubmit} data-testid="ward-referral-intake-form">
+              <div className={styles.fieldCard}>
+                <label className={styles.fieldLegend} htmlFor="ward-referral-intake-ageBand">
+                  Age band
+                </label>
+                <select
+                  id="ward-referral-intake-ageBand"
+                  data-testid="ward-referral-intake-ageBand"
+                  className={styles.select}
+                  value={draft.ageBand}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      ageBand: event.target.value as Cohort | typeof UNANSWERED_VALUE,
+                    }))
+                  }
+                >
+                  {/* The unanswered state is a real leading option rather than a select with no
                   option selected, so a clinician on a phone sees a prompt instead of a blank
                   control — and so the state a screen reader announces is the state the form is
                   actually in. Its presence and its position are pinned by the suite. */}
-              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
-              {AGE_BAND_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+                  <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+                  {AGE_BAND_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div className={styles.fieldCard}>
-            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-sex">
-              Sex
-            </label>
-            <select
-              id="ward-referral-intake-sex"
-              data-testid="ward-referral-intake-sex"
-              className={styles.select}
-              value={draft.sex}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, sex: event.target.value as Sex | typeof UNANSWERED_VALUE }))
-              }
-            >
-              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
-              {SEX_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className={styles.fieldCard}>
+                <label className={styles.fieldLegend} htmlFor="ward-referral-intake-sex">
+                  Sex
+                </label>
+                <select
+                  id="ward-referral-intake-sex"
+                  data-testid="ward-referral-intake-sex"
+                  className={styles.select}
+                  value={draft.sex}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, sex: event.target.value as Sex | typeof UNANSWERED_VALUE }))
+                  }
+                >
+                  <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+                  {SEX_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div className={styles.fieldCard}>
-            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-homeRegion">
-              Home region
-            </label>
-            <select
-              id="ward-referral-intake-homeRegion"
-              data-testid="ward-referral-intake-homeRegion"
-              className={styles.select}
-              value={draft.homeRegion}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  homeRegion: event.target.value as HomeRegion | typeof UNANSWERED_VALUE,
-                }))
-              }
-            >
-              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
-              {HOME_REGION_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className={styles.fieldCard}>
+                <label className={styles.fieldLegend} htmlFor="ward-referral-intake-homeRegion">
+                  Home region
+                </label>
+                <select
+                  id="ward-referral-intake-homeRegion"
+                  data-testid="ward-referral-intake-homeRegion"
+                  className={styles.select}
+                  value={draft.homeRegion}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      homeRegion: event.target.value as HomeRegion | typeof UNANSWERED_VALUE,
+                    }))
+                  }
+                >
+                  <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+                  {HOME_REGION_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          {/*
-           * The suburb, and the sentence beside it that says what becomes of the answer.
-           *
-           * ⚠️ **THIS NOTE HAS BEEN FALSE ONCE ALREADY, IN THE OTHER DIRECTION.** Until
-           * 2026-08-30 `Referral` carried `homeRegion` and nothing finer, so the answer was read
-           * for the destination picker below and then dropped — and the note said so, because a
-           * control that quietly discards its answer is the "pretends to record" pattern the
-           * destination spec refuses in as many words. `Referral.suburb` exists now (`CM-4`), so
-           * that sentence became a FALSE REASSURANCE about what the record holds: worse than a
-           * missing one, because a clinician who read it would believe the answer went nowhere.
-           *
-           * The note therefore says the opposite, and `tests/ward-referral-suburb-pin.test.ts`
-           * pins it against `Referral.suburb`'s continued existence, so removing the field turns
-           * this sentence red rather than quietly false a second time.
-           *
-           * ⚠️ **A SUBURB IS NOT AN ADDRESS (`PD-3`).** No street, number or postcode belongs
-           * beside this picker, however natural it feels: `address` is UNRULED and the guard stays
-           * closed on it. A ruling permitting a suburb is not a ruling permitting the category.
-           */}
-          <div className={styles.fieldCard}>
-            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-suburb">
-              Suburb
-            </label>
-            <select
-              id="ward-referral-intake-suburb"
-              data-testid="ward-referral-intake-suburb"
-              className={styles.select}
-              value={draft.suburb}
-              onChange={(event) => setDraft((current) => ({ ...current, suburb: event.target.value }))}
-            >
-              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
               {/*
+               * The suburb, and the sentence beside it that says what becomes of the answer.
+               *
+               * ⚠️ **THIS NOTE HAS BEEN FALSE ONCE ALREADY, IN THE OTHER DIRECTION.** Until
+               * 2026-08-30 `Referral` carried `homeRegion` and nothing finer, so the answer was read
+               * for the destination picker below and then dropped — and the note said so, because a
+               * control that quietly discards its answer is the "pretends to record" pattern the
+               * destination spec refuses in as many words. `Referral.suburb` exists now (`CM-4`), so
+               * that sentence became a FALSE REASSURANCE about what the record holds: worse than a
+               * missing one, because a clinician who read it would believe the answer went nowhere.
+               *
+               * The note therefore says the opposite, and `tests/ward-referral-suburb-pin.test.ts`
+               * pins it against `Referral.suburb`'s continued existence, so removing the field turns
+               * this sentence red rather than quietly false a second time.
+               *
+               * ⚠️ **A SUBURB IS NOT AN ADDRESS (`PD-3`).** No street, number or postcode belongs
+               * beside this picker, however natural it feels: `address` is UNRULED and the guard stays
+               * closed on it. A ruling permitting a suburb is not a ruling permitting the category.
+               */}
+              <div className={styles.fieldCard}>
+                <label className={styles.fieldLegend} htmlFor="ward-referral-intake-suburb">
+                  Suburb
+                </label>
+                <select
+                  id="ward-referral-intake-suburb"
+                  data-testid="ward-referral-intake-suburb"
+                  className={styles.select}
+                  value={draft.suburb}
+                  onChange={(event) => setDraft((current) => ({ ...current, suburb: event.target.value }))}
+                >
+                  <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+                  {/*
                 ⚠️ THE HONEST ANSWER, OFFERED FIRST AMONG THE REAL ONES.
                 Without it a patient of no fixed abode cannot be referred, and the way past a
                 required picker with no true option is to choose a plausible nearby suburb — which
@@ -1003,426 +1256,626 @@ export function ReferralIntakeForm() {
                 two is a clinical question on the owner's queue, and a second member appears here
                 automatically rather than needing this list edited again.
               */}
-              {SUBURB_UNKNOWN_REASONS.map((reason) => (
-                <option key={reason} value={reason}>
-                  {suburbUnknownLabels[reason]}
-                </option>
-              ))}
-              {SUBURB_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            <p className={styles.fieldNote} data-testid="ward-referral-intake-suburb-note">
-              Recorded on the referral, and used here to read the catchment for each destination below. If it is not
-              known, the list has an answer for that — the referral can still be sent.
-            </p>
-          </div>
+                  {SUBURB_UNKNOWN_REASONS.map((reason) => (
+                    <option key={reason} value={reason}>
+                      {suburbUnknownLabels[reason]}
+                    </option>
+                  ))}
+                  {SUBURB_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <p className={styles.fieldNote} data-testid="ward-referral-intake-suburb-note">
+                  Recorded on the referral, and used here to read the catchment for each destination below. If it is not
+                  known, the list has an answer for that — the referral can still be sent.
+                </p>
+              </div>
 
-          <div className={styles.fieldCard}>
-            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-source">
-              Referral source
-            </label>
-            <select
-              id="ward-referral-intake-source"
-              data-testid="ward-referral-intake-source"
-              className={styles.select}
-              value={draft.source}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  source: event.target.value as ReferralSource | typeof UNANSWERED_VALUE,
-                }))
-              }
-            >
-              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
-              {SOURCE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {SOURCE_LABELS[option] ?? option}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className={styles.fieldCard}>
+                <label className={styles.fieldLegend} htmlFor="ward-referral-intake-source">
+                  Referral source
+                </label>
+                <select
+                  id="ward-referral-intake-source"
+                  data-testid="ward-referral-intake-source"
+                  className={styles.select}
+                  value={draft.source}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      source: event.target.value as ReferralSource | typeof UNANSWERED_VALUE,
+                    }))
+                  }
+                >
+                  <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+                  {SOURCE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {SOURCE_LABELS[option] ?? option}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div className={styles.fieldCard}>
-            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-urgency">
-              Urgency
-            </label>
-            <select
-              id="ward-referral-intake-urgency"
-              data-testid="ward-referral-intake-urgency"
-              className={styles.select}
-              value={draft.urgency}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  urgency:
-                    event.target.value === UNANSWERED_VALUE
-                      ? UNANSWERED_VALUE
-                      : (Number(event.target.value) as UrgencyLevel),
-                }))
-              }
-            >
-              {/* The option TEXT carries the tier's direction; the option VALUE stays the bare
+              <div className={styles.fieldCard}>
+                <label className={styles.fieldLegend} htmlFor="ward-referral-intake-urgency">
+                  Urgency
+                </label>
+                <select
+                  id="ward-referral-intake-urgency"
+                  data-testid="ward-referral-intake-urgency"
+                  className={styles.select}
+                  value={draft.urgency}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      urgency:
+                        event.target.value === UNANSWERED_VALUE
+                          ? UNANSWERED_VALUE
+                          : (Number(event.target.value) as UrgencyLevel),
+                    }))
+                  }
+                >
+                  {/* The option TEXT carries the tier's direction; the option VALUE stays the bare
                   tier, so `Referral["urgency"]` and every test reading option values are
                   unchanged. Phase 7 Task 8: this select used to render "1", "2", "3" while the
                   referral board rendered "Tier 2 · urgent" for the very same field — and this is
                   the one screen where a human, possibly a police officer on a phone, CHOOSES the
                   value rather than reading it back. */}
-              {/* R2.1: the tier no longer arrives pre-chosen. `Number("not-answered")` is NaN, so
+                  {/* R2.1: the tier no longer arrives pre-chosen. `Number("not-answered")` is NaN, so
                   the sentinel is carried through the change handler above as itself rather than
                   being coerced into a number nothing would recognise. */}
-              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
-              {URGENCY_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {urgencyTierLabel(option)}
-                </option>
-              ))}
-            </select>
-          </div>
+                  <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+                  {URGENCY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {urgencyTierLabel(option)}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div className={styles.fieldCard}>
-            <label className={styles.fieldLegend} htmlFor="ward-referral-intake-originSiteCode">
-              Origin site
-            </label>
-            <select
-              id="ward-referral-intake-originSiteCode"
-              data-testid="ward-referral-intake-originSiteCode"
-              className={styles.select}
-              value={draft.originSiteCode}
-              onChange={(event) => setDraft((current) => ({ ...current, originSiteCode: event.target.value }))}
-            >
-              {/* See `UNANSWERED_VALUE`'s own comment: this picker is exactly why the sentinel is
+              <div className={styles.fieldCard}>
+                <label className={styles.fieldLegend} htmlFor="ward-referral-intake-originSiteCode">
+                  Origin site
+                </label>
+                <select
+                  id="ward-referral-intake-originSiteCode"
+                  data-testid="ward-referral-intake-originSiteCode"
+                  className={styles.select}
+                  value={draft.originSiteCode}
+                  onChange={(event) => setDraft((current) => ({ ...current, originSiteCode: event.target.value }))}
+                >
+                  {/* See `UNANSWERED_VALUE`'s own comment: this picker is exactly why the sentinel is
                   not `""`. An origin site of `""` stays a (bad) ANSWER the reducer refuses, which
                   is the only refusal path this screen has any proof of. */}
-              <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
-              {wardSites.map((site) => (
-                <option key={site.code} value={site.code}>
-                  {site.name} ({site.code})
-                </option>
-              ))}
-            </select>
+                  <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+                  {wardSites.map((site) => (
+                    <option key={site.code} value={site.code}>
+                      {site.name} ({site.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/*
+               * Phase R2.1. These two used to be checkboxes, and an untouched checkbox is not a
+               * question left open — it is a definite clinical "no" that nobody chose. They are now
+               * yes/no groups with neither answer selected until a clinician picks one.
+               *
+               * A radio pair rather than a third and fourth `<select>`, for two reasons. Clinically it
+               * is the cheaper control: one tap answers it where a picker costs two, and this form has
+               * to stay quicker to complete than what it replaces or the wards will not adopt it.
+               * Structurally it keeps the form at six comboboxes, which is what the accessible-name
+               * test counts — the FIELD SET has not grown, only the shape of two controls already here.
+               *
+               * The legends carry the wording rule unchanged: the requirement attaches to the REQUEST
+               * ("needs a bed that can hold someone involuntarily"), never to the person ("is
+               * involuntary"). That is a clinical rule with its own assertion, not incidental
+               * phrasing, so it is carried over verbatim rather than reworded for the new shape.
+               */}
+              <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-secureBedNeeded">
+                <legend className={styles.fieldLegend}>Needs a secure bed</legend>
+                <div className={styles.choiceRow}>
+                  <label className={styles.choiceOption}>
+                    <input
+                      type="radio"
+                      name="ward-referral-intake-secureBedNeeded"
+                      data-testid="ward-referral-intake-secureBedNeeded-yes"
+                      checked={draft.secureBedNeeded === true}
+                      onChange={() => setDraft((current) => ({ ...current, secureBedNeeded: true }))}
+                    />
+                    Yes
+                  </label>
+                  <label className={styles.choiceOption}>
+                    <input
+                      type="radio"
+                      name="ward-referral-intake-secureBedNeeded"
+                      data-testid="ward-referral-intake-secureBedNeeded-no"
+                      checked={draft.secureBedNeeded === false}
+                      onChange={() => setDraft((current) => ({ ...current, secureBedNeeded: false }))}
+                    />
+                    No
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-involuntaryBedNeeded">
+                <legend className={styles.fieldLegend}>Needs a bed that can hold someone involuntarily</legend>
+                <div className={styles.choiceRow}>
+                  <label className={styles.choiceOption}>
+                    <input
+                      type="radio"
+                      name="ward-referral-intake-involuntaryBedNeeded"
+                      data-testid="ward-referral-intake-involuntaryBedNeeded-yes"
+                      checked={draft.involuntaryBedNeeded === true}
+                      onChange={() => setDraft((current) => ({ ...current, involuntaryBedNeeded: true }))}
+                    />
+                    Yes
+                  </label>
+                  <label className={styles.choiceOption}>
+                    <input
+                      type="radio"
+                      name="ward-referral-intake-involuntaryBedNeeded"
+                      data-testid="ward-referral-intake-involuntaryBedNeeded-no"
+                      checked={draft.involuntaryBedNeeded === false}
+                      onChange={() => setDraft((current) => ({ ...current, involuntaryBedNeeded: false }))}
+                    />
+                    No
+                  </label>
+                </div>
+              </fieldset>
+
+              {/*
+               * Owner ruling 2026-08-30: **"Take all recommendations"** — including that transport
+               * should start unanswered.
+               *
+               * This was a checkbox until that ruling, and an untouched checkbox is not an open
+               * question: it sent `false`, which a ward reads as the definite statement that this
+               * request needs no transport and plans around. It is now the same yes/no group as the
+               * two need questions above — the same `.choiceCard` fieldset, the same radio pair, the
+               * same "neither answer selected until a clinician picks one" — because a control with
+               * two states cannot express three, and the third state is the whole point.
+               *
+               * The legend is unchanged from the old checkbox's label. It already described the
+               * REQUEST rather than the person, which is why this field needed no rewording when the
+               * two above did.
+               */}
+              {/*
+               * "Needs transport", not "Transport needed", and the change is one word of wording with
+               * a reason. `REQUIRED_FIELDS` calls this question "Transport needed", so the old legend
+               * put the identical phrase on a blank form twice — once as the question and once as its
+               * name in the outstanding-questions note underneath. This file already held the rule
+               * that fixes it: the two need questions above are named by SHORT FIELD NAMES in that
+               * note precisely so their on-screen wording is not repeated inside it. The legend now
+               * reads in the same shape as the two it sits beside ("Needs a secure bed", "Needs a bed
+               * that can hold someone involuntarily"), which makes the trio consistent and leaves the
+               * phrase on screen once. The meaning is untouched: it described the REQUEST before and
+               * it describes the request now.
+               */}
+              <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-transportNeeded">
+                <legend className={styles.fieldLegend}>Needs transport</legend>
+                <div className={styles.choiceRow}>
+                  <label className={styles.choiceOption}>
+                    <input
+                      type="radio"
+                      name="ward-referral-intake-transportNeeded"
+                      data-testid="ward-referral-intake-transportNeeded-yes"
+                      checked={draft.transportNeeded === true}
+                      onChange={() => setDraft((current) => ({ ...current, transportNeeded: true }))}
+                    />
+                    Yes
+                  </label>
+                  <label className={styles.choiceOption}>
+                    <input
+                      type="radio"
+                      name="ward-referral-intake-transportNeeded"
+                      data-testid="ward-referral-intake-transportNeeded-no"
+                      checked={draft.transportNeeded === false}
+                      onChange={() => setDraft((current) => ({ ...current, transportNeeded: false }))}
+                    />
+                    No
+                  </label>
+                </div>
+              </fieldset>
+
+              {/*
+               * WHERE TO REFER — several destinations chosen in ONE act (FD-21), up to the cap.
+               *
+               * Checkboxes rather than a multi-select, and one per kind rather than a list a clinician
+               * adds to: a repeated kind is then unreachable rather than merely unlikely, which matters
+               * because the reducer REFUSES a repeat rather than de-duplicating it.
+               *
+               * **NOTHING HERE IS REMOVED, DISABLED OR RANKED.** An option the catchment table cannot
+               * place is greyed (`data-outside-catchment`) and stays fully operable — the owner's rule
+               * is that choosing one is allowed, being a deliberate step the clinician takes. A ward
+               * with no free bed is offered exactly like any other, because a ward with no bed today is
+               * still the right place to ask. And the order is catchment then name, never anything
+               * derived from the person: nothing on this screen ranks a patient.
+               *
+               * Each option's facts are announced with its control through `aria-describedby`, so what
+               * a sighted clinician reads beside the box is what a screen-reader user hears with it.
+               */}
+              {/*
+               * ══ THE WRITTEN HISTORY ══════════════════════════════════════════════════════
+               * Owner instruction, 2026-09-05. The only free text on this form.
+               *
+               * ⚠️ **PLACED IMMEDIATELY BEFORE THE DESTINATIONS, AND THE ORDER IS THE SAFEGUARD.**
+               * The moment after a referrer finishes writing the account is the moment they choose
+               * who receives it, so the fan-out warning lands while the text is still in mind. Put
+               * this after the destinations and the warning arrives about something already
+               * decided.
+               *
+               * ⚠️ **THREE BOUNDED BOXES, NOT ONE UNBOUNDED ONE.** A single large box suggests no
+               * shape, so everything goes in it — the family's names, the address, the whole
+               * chart. Three questions shape what is written without making this a clinical form.
+               *
+               * ⚠️ **NO `maxLength`.** See `overLimitHistoryFields`: the browser stopping a
+               * keystroke is a silent truncation, and silent truncation of a risk note is the
+               * worst thing this form could do.
+               */}
+              {/* ⚠️ `-history-section`, NOT `-history`. The single box's own control is
+                  `ward-referral-intake-history` (every control on this form is
+                  `ward-referral-intake-${key}`), and while there were THREE boxes this
+                  fieldset could hold the bare name without colliding with any of them.
+                  Collapsing to one box made the section and its only control claim the same
+                  id — caught immediately by the uniqueness assertion in
+                  `ward-referral-screens.dom.test.tsx`, whose comment records that a duplicate
+                  testid is a guaranteed strict-mode failure in the browser suite. */}
+              <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-history-section">
+                <legend className={styles.fieldLegend}>The history &mdash; written by you, sent word for word</legend>
+
+                <p className={styles.historyWarning} data-testid="ward-referral-intake-history-warning">
+                  <strong>This is the only part of the referral that is free text.</strong> It is stored and sent
+                  exactly as written, to every destination you choose below. Nothing on this screen reads it, checks it,
+                  or takes it out again. Other people mentioned here &mdash; family, a neighbour, a witness &mdash; are
+                  recorded too, and they have not agreed to that. Write what the receiving team needs to act on, and no
+                  more.
+                </p>
+
+                {HISTORY_FIELDS.map((field) => {
+                  const value = draft[field.key];
+                  const limit = REFERRAL_HISTORY_LIMITS[field.key];
+                  const over = value.length > limit;
+                  const hintId = `ward-referral-intake-${field.key}-hint`;
+                  const meterId = `ward-referral-intake-${field.key}-meter`;
+                  return (
+                    <div className={styles.historyField} key={field.key}>
+                      <label className={styles.historyLabel} htmlFor={`ward-referral-intake-${field.key}`}>
+                        {field.label}{" "}
+                        <span className={styles.historyRequirement}>{field.required ? "Required" : "Optional"}</span>
+                      </label>
+                      <p className={styles.historyHint} id={hintId}>
+                        {field.hint}
+                      </p>
+                      <textarea
+                        id={`ward-referral-intake-${field.key}`}
+                        data-testid={`ward-referral-intake-${field.key}`}
+                        className={styles.historyBox}
+                        // Both the hint and the counter are announced with the control: the counter
+                        // is where "too long, and nothing was cut" is said, and a referrer who
+                        // cannot see it needs it at the same moment a sighted one does.
+                        aria-describedby={`${hintId} ${meterId}`}
+                        data-over-limit={over ? "true" : undefined}
+                        value={value}
+                        onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))}
+                        rows={5}
+                      />
+                      <p className={styles.historyMeter} id={meterId} data-tone={over ? "over" : undefined}>
+                        {/* The count is the LENGTH OF WHAT IS THERE, never a remaining allowance:
+                            a negative "remaining" figure reads as an overdraft rather than as a
+                            refusal, and this state is a refusal. */}
+                        {value.length} / {limit} characters
+                        {over ? " — too long to send, and nothing has been cut" : null}
+                        {!over && field.required && value.trim() === "" ? " — still to write" : null}
+                      </p>
+                    </div>
+                  );
+                })}
+              </fieldset>
+
+              <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-destinations">
+                <legend className={styles.fieldLegend}>
+                  Where to refer &mdash; choose up to {PARALLEL_REFERRAL_CAP}, in one act
+                </legend>
+                <ul className={styles.destinationList}>
+                  {options.map((option) => (
+                    <li
+                      key={option.kind}
+                      className={styles.destinationOption}
+                      data-testid={`ward-referral-intake-destination-option-${option.kind}`}
+                      data-outside-catchment={option.catchment.outsideTheTable ? "true" : undefined}
+                    >
+                      <label className={styles.destinationName}>
+                        <input
+                          type="checkbox"
+                          data-testid={`ward-referral-intake-destination-${option.kind}`}
+                          checked={draft.destinationKinds.includes(option.kind)}
+                          aria-describedby={`ward-referral-intake-destination-facts-${option.kind}`}
+                          onChange={() => toggleDestination(option.kind)}
+                        />
+                        {option.label}
+                      </label>
+                      <div id={`ward-referral-intake-destination-facts-${option.kind}`}>
+                        <p className={styles.destinationNote}>{option.catchment.sentence}</p>
+                        {option.suggested ? (
+                          <p className={styles.destinationNote}>
+                            Suggested by the catchment table. Nothing is chosen for you.
+                          </p>
+                        ) : null}
+                        <ul className={styles.destinationFacts}>
+                          {option.figures.map((figure) => (
+                            <li key={figure} className={styles.destinationFact}>
+                              {figure}
+                            </li>
+                          ))}
+                          {option.reasons.map((reason) => (
+                            <li key={reason} className={styles.destinationFact}>
+                              {reason}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </fieldset>
+
+              {/*
+               * WHICH emergency department — asked only once one is chosen, because until then it is a
+               * question with nothing to attach to.
+               *
+               * ⚠️ **THE LEADING OPTION IS A PROMPT, NOT A DEPARTMENT**, exactly like every other picker
+               * on this form. A first-department default would be the single most dangerous default on
+               * this screen: `RECEIVE_REFERRAL` membership-checks the source, home region, age band,
+               * urgency and origin site, and checks `edId` against **nothing at all** — so a department
+               * nobody chose does not bounce, it queues, at a real hospital, looking like an answer.
+               *
+               * Derived from `allEmergencyDepartments()`, never hand-listed. That is the same defect
+               * class as `ed-screen.tsx`'s hand-written `COHORT_OPTIONS`, which silently omitted
+               * `"Youth"` and could never have failed to compile when the union widened.
+               */}
+              {draft.destinationKinds.includes("emergency_department") ? (
+                <div className={styles.fieldCard}>
+                  <label className={styles.fieldLegend} htmlFor="ward-referral-intake-edId">
+                    Which emergency department
+                  </label>
+                  <select
+                    id="ward-referral-intake-edId"
+                    data-testid="ward-referral-intake-edId"
+                    className={styles.select}
+                    value={draft.edId}
+                    onChange={(event) => setDraft((current) => ({ ...current, edId: event.target.value }))}
+                  >
+                    <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+                    {allEmergencyDepartments().map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              {/*
+               * WHICH community team — asked only once a community destination is chosen, for the same
+               * reason as the department above it.
+               *
+               * ⚠️ **THE CATCHMENT TABLE SUGGESTS; IT DOES NOT PRE-SELECT.** `destinationOptions` already
+               * tells the clinician, in words, which team the source table places this suburb with, and
+               * that sentence keeps its `contested` and `unreviewed` markers rather than collapsing to a
+               * winner. Turning that sentence into a pre-ticked value would put the guess back into the
+               * record — which is precisely the region-derived membership the owner's 2026-08-31 ruling
+               * removed. The clinician reads the suggestion and answers; the answer is what is stored.
+               *
+               * Derived from `communityTeamOptions()`, never hand-listed, for the same defect class the
+               * department picker names.
+               */}
+              {draft.destinationKinds.includes("community_team") ? (
+                <div className={styles.fieldCard}>
+                  <label className={styles.fieldLegend} htmlFor="ward-referral-intake-teamName">
+                    Which community team
+                  </label>
+                  <select
+                    id="ward-referral-intake-teamName"
+                    data-testid="ward-referral-intake-teamName"
+                    className={styles.select}
+                    value={draft.teamName}
+                    onChange={(event) => setDraft((current) => ({ ...current, teamName: event.target.value }))}
+                  >
+                    <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
+                    {communityTeamOptions().map((team) => (
+                      <option key={team} value={team}>
+                        {team}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              {lastRejection ? (
+                <p className={styles.rejection} data-testid="ward-referral-intake-rejection" role="alert">
+                  Referral not sent: {lastRejection.reason}
+                </p>
+              ) : null}
+
+              {confirmed ? (
+                <p className={styles.confirmation} data-testid="ward-referral-intake-confirmation">
+                  Referral sent. It is now queued for a coordinator to review.
+                </p>
+              ) : null}
+
+              {/*
+               * Phase R2.1. Send is UNAVAILABLE, with the outstanding questions named, until every
+               * one of them has an answer.
+               *
+               * `aria-disabled="true"` plus an inert handler, never the native `disabled`
+               * (`docs/wiring-conventions.md`): the native attribute removes the tab stop, so a
+               * keyboard or screen-reader user could never land on the control and the reason
+               * `aria-describedby` points at would never be announced. The two attributes together
+               * are the shape `require-button-wiring` fails, because the native one wins on focus and
+               * the aria one then buys nothing.
+               *
+               * The note renders BELOW the button and disappears as the last question is answered, so
+               * the control never moves out from under a thumb that is already reaching for it.
+               */}
+              <button
+                type="submit"
+                className={styles.submit}
+                data-testid="ward-referral-intake-submit"
+                aria-disabled={answered ? undefined : "true"}
+                aria-describedby={
+                  answered ? undefined : refusedCombination ? REFUSED_COMBINATION_ID : UNAVAILABLE_REASON_ID
+                }
+                onClick={ignoreUnavailableActivation}
+              >
+                Send referral
+              </button>
+
+              {refusedCombination ? (
+                <p
+                  className={styles.unavailableReason}
+                  id={REFUSED_COMBINATION_ID}
+                  data-testid="ward-referral-intake-refused-combination"
+                  role="alert"
+                >
+                  A psychiatric bed and a community team cannot be asked for on the same referral. Send them as two
+                  referrals.
+                </p>
+              ) : null}
+
+              {answered || refusedCombination ? null : overLimit.length > 0 ? (
+                /*
+                 * ⚠️ THE OVER-LIMIT REASON, WHICH IS A DIFFERENT SENTENCE FROM THE UNANSWERED ONE.
+                 * It carries the same id, because it does the same job for `aria-describedby` —
+                 * one reason is announced with the button at any moment, and only one can be true.
+                 * It says the text is too long and that nothing has been cut, because the fear a
+                 * referrer has at this moment is that the end of what they wrote is already gone.
+                 */
+                <p
+                  className={styles.unavailableReason}
+                  id={UNAVAILABLE_REASON_ID}
+                  data-testid="ward-referral-intake-unavailable"
+                  role="alert"
+                >
+                  Too long to send: {overLimit.join(", ")}. Nothing has been cut &mdash; shorten it here and every word
+                  you keep is sent.
+                </p>
+              ) : (
+                <p
+                  className={styles.unavailableReason}
+                  id={UNAVAILABLE_REASON_ID}
+                  data-testid="ward-referral-intake-unavailable"
+                >
+                  Not yet answered: {outstanding.join(", ")}. Send stays unavailable until each has an answer.
+                </p>
+              )}
+            </form>
           </div>
 
           {/*
-           * Phase R2.1. These two used to be checkboxes, and an untouched checkbox is not a
-           * question left open — it is a definite clinical "no" that nobody chose. They are now
-           * yes/no groups with neither answer selected until a clinician picks one.
+           * THE CONTEXT RAIL. It reports and it never proposes.
            *
-           * A radio pair rather than a third and fourth `<select>`, for two reasons. Clinically it
-           * is the cheaper control: one tap answers it where a picker costs two, and this form has
-           * to stay quicker to complete than what it replaces or the wards will not adopt it.
-           * Structurally it keeps the form at six comboboxes, which is what the accessible-name
-           * test counts — the FIELD SET has not grown, only the shape of two controls already here.
+           * ⚠️ IT DELIBERATELY DOES NOT REPEAT THE OUTSTANDING-QUESTIONS LIST. That list lives
+           * under the Send button by an explicit earlier decision — it disappears as the last
+           * question is answered, so the control never moves out from under a thumb already
+           * reaching for it. The rail carries the COUNT, which is a different statement from the
+           * list and is derived from the same `REQUIRED_FIELDS` source, so the two cannot drift.
            *
-           * The legends carry the wording rule unchanged: the requirement attaches to the REQUEST
-           * ("needs a bed that can hold someone involuntarily"), never to the person ("is
-           * involuntary"). That is a clinical rule with its own assertion, not incidental
-           * phrasing, so it is carried over verbatim rather than reworded for the new shape.
+           * ⚠️ NOTHING HERE IS A SUGGESTION. Each destination's own catchment and figures stay
+           * beside the checkbox they describe, where `aria-describedby` points at them and where a
+           * screen-reader user meets them while choosing. Moving them here would have separated a
+           * control from its own explanation and broken that pairing.
            */}
-          <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-secureBedNeeded">
-            <legend className={styles.fieldLegend}>Needs a secure bed</legend>
-            <div className={styles.choiceRow}>
-              <label className={styles.choiceOption}>
-                <input
-                  type="radio"
-                  name="ward-referral-intake-secureBedNeeded"
-                  data-testid="ward-referral-intake-secureBedNeeded-yes"
-                  checked={draft.secureBedNeeded === true}
-                  onChange={() => setDraft((current) => ({ ...current, secureBedNeeded: true }))}
-                />
-                Yes
-              </label>
-              <label className={styles.choiceOption}>
-                <input
-                  type="radio"
-                  name="ward-referral-intake-secureBedNeeded"
-                  data-testid="ward-referral-intake-secureBedNeeded-no"
-                  checked={draft.secureBedNeeded === false}
-                  onChange={() => setDraft((current) => ({ ...current, secureBedNeeded: false }))}
-                />
-                No
-              </label>
-            </div>
-          </fieldset>
-
-          <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-involuntaryBedNeeded">
-            <legend className={styles.fieldLegend}>Needs a bed that can hold someone involuntarily</legend>
-            <div className={styles.choiceRow}>
-              <label className={styles.choiceOption}>
-                <input
-                  type="radio"
-                  name="ward-referral-intake-involuntaryBedNeeded"
-                  data-testid="ward-referral-intake-involuntaryBedNeeded-yes"
-                  checked={draft.involuntaryBedNeeded === true}
-                  onChange={() => setDraft((current) => ({ ...current, involuntaryBedNeeded: true }))}
-                />
-                Yes
-              </label>
-              <label className={styles.choiceOption}>
-                <input
-                  type="radio"
-                  name="ward-referral-intake-involuntaryBedNeeded"
-                  data-testid="ward-referral-intake-involuntaryBedNeeded-no"
-                  checked={draft.involuntaryBedNeeded === false}
-                  onChange={() => setDraft((current) => ({ ...current, involuntaryBedNeeded: false }))}
-                />
-                No
-              </label>
-            </div>
-          </fieldset>
-
-          {/*
-           * Owner ruling 2026-08-30: **"Take all recommendations"** — including that transport
-           * should start unanswered.
-           *
-           * This was a checkbox until that ruling, and an untouched checkbox is not an open
-           * question: it sent `false`, which a ward reads as the definite statement that this
-           * request needs no transport and plans around. It is now the same yes/no group as the
-           * two need questions above — the same `.choiceCard` fieldset, the same radio pair, the
-           * same "neither answer selected until a clinician picks one" — because a control with
-           * two states cannot express three, and the third state is the whole point.
-           *
-           * The legend is unchanged from the old checkbox's label. It already described the
-           * REQUEST rather than the person, which is why this field needed no rewording when the
-           * two above did.
-           */}
-          {/*
-           * "Needs transport", not "Transport needed", and the change is one word of wording with
-           * a reason. `REQUIRED_FIELDS` calls this question "Transport needed", so the old legend
-           * put the identical phrase on a blank form twice — once as the question and once as its
-           * name in the outstanding-questions note underneath. This file already held the rule
-           * that fixes it: the two need questions above are named by SHORT FIELD NAMES in that
-           * note precisely so their on-screen wording is not repeated inside it. The legend now
-           * reads in the same shape as the two it sits beside ("Needs a secure bed", "Needs a bed
-           * that can hold someone involuntarily"), which makes the trio consistent and leaves the
-           * phrase on screen once. The meaning is untouched: it described the REQUEST before and
-           * it describes the request now.
-           */}
-          <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-transportNeeded">
-            <legend className={styles.fieldLegend}>Needs transport</legend>
-            <div className={styles.choiceRow}>
-              <label className={styles.choiceOption}>
-                <input
-                  type="radio"
-                  name="ward-referral-intake-transportNeeded"
-                  data-testid="ward-referral-intake-transportNeeded-yes"
-                  checked={draft.transportNeeded === true}
-                  onChange={() => setDraft((current) => ({ ...current, transportNeeded: true }))}
-                />
-                Yes
-              </label>
-              <label className={styles.choiceOption}>
-                <input
-                  type="radio"
-                  name="ward-referral-intake-transportNeeded"
-                  data-testid="ward-referral-intake-transportNeeded-no"
-                  checked={draft.transportNeeded === false}
-                  onChange={() => setDraft((current) => ({ ...current, transportNeeded: false }))}
-                />
-                No
-              </label>
-            </div>
-          </fieldset>
-
-          {/*
-           * WHERE TO REFER — several destinations chosen in ONE act (FD-21), up to the cap.
-           *
-           * Checkboxes rather than a multi-select, and one per kind rather than a list a clinician
-           * adds to: a repeated kind is then unreachable rather than merely unlikely, which matters
-           * because the reducer REFUSES a repeat rather than de-duplicating it.
-           *
-           * **NOTHING HERE IS REMOVED, DISABLED OR RANKED.** An option the catchment table cannot
-           * place is greyed (`data-outside-catchment`) and stays fully operable — the owner's rule
-           * is that choosing one is allowed, being a deliberate step the clinician takes. A ward
-           * with no free bed is offered exactly like any other, because a ward with no bed today is
-           * still the right place to ask. And the order is catchment then name, never anything
-           * derived from the person: nothing on this screen ranks a patient.
-           *
-           * Each option's facts are announced with its control through `aria-describedby`, so what
-           * a sighted clinician reads beside the box is what a screen-reader user hears with it.
-           */}
-          <fieldset className={styles.choiceCard} data-testid="ward-referral-intake-destinations">
-            <legend className={styles.fieldLegend}>
-              Where to refer &mdash; choose up to {PARALLEL_REFERRAL_CAP}, in one act
-            </legend>
-            <ul className={styles.destinationList}>
-              {options.map((option) => (
-                <li
-                  key={option.kind}
-                  className={styles.destinationOption}
-                  data-testid={`ward-referral-intake-destination-option-${option.kind}`}
-                  data-outside-catchment={option.catchment.outsideTheTable ? "true" : undefined}
-                >
-                  <label className={styles.destinationName}>
-                    <input
-                      type="checkbox"
-                      data-testid={`ward-referral-intake-destination-${option.kind}`}
-                      checked={draft.destinationKinds.includes(option.kind)}
-                      aria-describedby={`ward-referral-intake-destination-facts-${option.kind}`}
-                      onChange={() => toggleDestination(option.kind)}
-                    />
-                    {option.label}
-                  </label>
-                  <div id={`ward-referral-intake-destination-facts-${option.kind}`}>
-                    <p className={styles.destinationNote}>{option.catchment.sentence}</p>
-                    {option.suggested ? (
-                      <p className={styles.destinationNote}>
-                        Suggested by the catchment table. Nothing is chosen for you.
-                      </p>
-                    ) : null}
-                    <ul className={styles.destinationFacts}>
-                      {option.figures.map((figure) => (
-                        <li key={figure} className={styles.destinationFact}>
-                          {figure}
-                        </li>
-                      ))}
-                      {option.reasons.map((reason) => (
-                        <li key={reason} className={styles.destinationFact}>
-                          {reason}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </fieldset>
-
-          {/*
-           * WHICH emergency department — asked only once one is chosen, because until then it is a
-           * question with nothing to attach to.
-           *
-           * ⚠️ **THE LEADING OPTION IS A PROMPT, NOT A DEPARTMENT**, exactly like every other picker
-           * on this form. A first-department default would be the single most dangerous default on
-           * this screen: `RECEIVE_REFERRAL` membership-checks the source, home region, age band,
-           * urgency and origin site, and checks `edId` against **nothing at all** — so a department
-           * nobody chose does not bounce, it queues, at a real hospital, looking like an answer.
-           *
-           * Derived from `allEmergencyDepartments()`, never hand-listed. That is the same defect
-           * class as `ed-screen.tsx`'s hand-written `COHORT_OPTIONS`, which silently omitted
-           * `"Youth"` and could never have failed to compile when the union widened.
-           */}
-          {draft.destinationKinds.includes("emergency_department") ? (
-            <div className={styles.fieldCard}>
-              <label className={styles.fieldLegend} htmlFor="ward-referral-intake-edId">
-                Which emergency department
-              </label>
-              <select
-                id="ward-referral-intake-edId"
-                data-testid="ward-referral-intake-edId"
-                className={styles.select}
-                value={draft.edId}
-                onChange={(event) => setDraft((current) => ({ ...current, edId: event.target.value }))}
-              >
-                <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
-                {allEmergencyDepartments().map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-
-          {/*
-           * WHICH community team — asked only once a community destination is chosen, for the same
-           * reason as the department above it.
-           *
-           * ⚠️ **THE CATCHMENT TABLE SUGGESTS; IT DOES NOT PRE-SELECT.** `destinationOptions` already
-           * tells the clinician, in words, which team the source table places this suburb with, and
-           * that sentence keeps its `contested` and `unreviewed` markers rather than collapsing to a
-           * winner. Turning that sentence into a pre-ticked value would put the guess back into the
-           * record — which is precisely the region-derived membership the owner's 2026-08-31 ruling
-           * removed. The clinician reads the suggestion and answers; the answer is what is stored.
-           *
-           * Derived from `communityTeamOptions()`, never hand-listed, for the same defect class the
-           * department picker names.
-           */}
-          {draft.destinationKinds.includes("community_team") ? (
-            <div className={styles.fieldCard}>
-              <label className={styles.fieldLegend} htmlFor="ward-referral-intake-teamName">
-                Which community team
-              </label>
-              <select
-                id="ward-referral-intake-teamName"
-                data-testid="ward-referral-intake-teamName"
-                className={styles.select}
-                value={draft.teamName}
-                onChange={(event) => setDraft((current) => ({ ...current, teamName: event.target.value }))}
-              >
-                <option value={UNANSWERED_VALUE}>{UNANSWERED_OPTION_LABEL}</option>
-                {communityTeamOptions().map((team) => (
-                  <option key={team} value={team}>
-                    {team}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-
-          {lastRejection ? (
-            <p className={styles.rejection} data-testid="ward-referral-intake-rejection" role="alert">
-              Referral not sent: {lastRejection.reason}
-            </p>
-          ) : null}
-
-          {confirmed ? (
-            <p className={styles.confirmation} data-testid="ward-referral-intake-confirmation">
-              Referral sent. It is now queued for a coordinator to review.
-            </p>
-          ) : null}
-
-          {/*
-           * Phase R2.1. Send is UNAVAILABLE, with the outstanding questions named, until every
-           * one of them has an answer.
-           *
-           * `aria-disabled="true"` plus an inert handler, never the native `disabled`
-           * (`docs/wiring-conventions.md`): the native attribute removes the tab stop, so a
-           * keyboard or screen-reader user could never land on the control and the reason
-           * `aria-describedby` points at would never be announced. The two attributes together
-           * are the shape `require-button-wiring` fails, because the native one wins on focus and
-           * the aria one then buys nothing.
-           *
-           * The note renders BELOW the button and disappears as the last question is answered, so
-           * the control never moves out from under a thumb that is already reaching for it.
-           */}
-          <button
-            type="submit"
-            className={styles.submit}
-            data-testid="ward-referral-intake-submit"
-            aria-disabled={answered ? undefined : "true"}
-            aria-describedby={
-              answered ? undefined : refusedCombination ? REFUSED_COMBINATION_ID : UNAVAILABLE_REASON_ID
-            }
-            onClick={ignoreUnavailableActivation}
+          <aside
+            className={styles.intakeAside}
+            aria-label="This referral so far"
+            data-testid="ward-referral-intake-aside"
           >
-            Send referral
-          </button>
+            <section className={styles.asideCard} data-testid="ward-referral-intake-progress">
+              <h2 className={styles.asideCardTitle}>Progress</h2>
+              <div className={styles.asideCardBody}>
+                <span className={styles.progressValue}>
+                  {progress.answered} of {progress.applicable}
+                </span>
+                <span className={styles.progressLabel}>
+                  {progress.answered === progress.applicable
+                    ? "Every question that applies has an answer."
+                    : "questions answered. Send stays unavailable until each one has an answer."}
+                </span>
+              </div>
+            </section>
 
-          {refusedCombination ? (
-            <p
-              className={styles.unavailableReason}
-              id={REFUSED_COMBINATION_ID}
-              data-testid="ward-referral-intake-refused-combination"
-              role="alert"
-            >
-              A psychiatric bed and a community team cannot be asked for on the same referral. Send them as two
-              referrals.
-            </p>
-          ) : null}
+            <section className={styles.asideCard} data-testid="ward-referral-intake-summary">
+              <h2 className={styles.asideCardTitle}>What this referral will record</h2>
+              <div className={styles.asideCardBody}>
+                <dl className={styles.summaryList}>
+                  {summaryRows.map((row) => (
+                    <div className={styles.summaryRow} key={row.label}>
+                      <dt className={styles.summaryTerm}>{row.label}</dt>
+                      <dd className={row.answered ? styles.summaryValue : styles.summaryValueMissing}>{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
 
-          {answered || refusedCombination ? null : (
-            <p
-              className={styles.unavailableReason}
-              id={UNAVAILABLE_REASON_ID}
-              data-testid="ward-referral-intake-unavailable"
-            >
-              Not yet answered: {outstanding.join(", ")}. Send stays unavailable until each has an answer.
-            </p>
-          )}
-        </form>
+                {/*
+                 * ⚠️ THE HISTORY IS REPORTED HERE, AND DELIBERATELY NOT PREVIEWED.
+                 * See `referralSummaryRows` for why the text itself never appears in this column.
+                 * What is useful to a referrer at this moment is how much they have written and
+                 * where it is going — both facts about the referral, neither a judgement of it.
+                 */}
+                <div className={styles.historySummary} data-testid="ward-referral-intake-history-summary">
+                  <span className={styles.historySummaryTerm}>Written history</span>
+                  <span className={styles.historySummaryValue}>
+                    {/* ⚠️ NOT "1 of 1 sections". With a single box that phrasing is noise dressed
+                        as progress, and with the box OPTIONAL it is worse — it reads as an
+                        outstanding question when a blank is a complete answer. So: the length when
+                        there is something, and words when there is not. The count of boxes still
+                        comes from `HISTORY_FIELDS`, so a second one restores a section figure
+                        rather than needing this rewritten. */}
+                    {HISTORY_FIELDS.length > 1 ? (
+                      <>
+                        {writtenHistoryCount(draft)} of {HISTORY_FIELDS.length} sections &middot;{" "}
+                        {HISTORY_FIELDS.reduce((total, field) => total + draft[field.key].length, 0)} characters
+                      </>
+                    ) : writtenHistoryCount(draft) === 0 ? (
+                      "Nothing written — that is a complete answer"
+                    ) : (
+                      `${HISTORY_FIELDS.reduce((total, field) => total + draft[field.key].length, 0)} characters`
+                    )}
+                  </span>
+                  <span className={styles.historySummaryNote}>
+                    Sent word for word to every destination chosen. Not shown here on purpose: a preview would suggest
+                    something had checked it.
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <section className={styles.asideCard} data-testid="ward-referral-intake-what-happens">
+              <h2 className={styles.asideCardTitle}>What sending does</h2>
+              <div className={styles.asideCardBody}>
+                <p className={styles.asideNote}>
+                  Sending records the request and queues it for a coordinator. It places nobody: a coordinator decides
+                  every placement, one at a time. Nothing on this page chooses a destination for you.
+                </p>
+                {/*
+                 * ⚠️ THIS PARAGRAPH IS WHERE THE REMOVED HEADER BANNER WENT (v6, owner request
+                 * 2026-09-05). The banner carried "not a medical device"; taking it off the top of
+                 * the page was a presentation decision and deleting the statement would not have
+                 * been. It is a relocation, and `mockup-referral-intake-v6.html` rule 12 exists to
+                 * stop the next removal quietly becoming a deletion.
+                 */}
+                <p className={styles.asideNote} data-testid="ward-referral-intake-device-statement">
+                  <strong>This form is not a medical device.</strong> It records a request and a written account of it.
+                  It does not assess, score, rank or diagnose, and no field on it holds a figure from the Mental Health
+                  Act. The structured questions cannot hold a name; <strong>the written history can</strong>, because it
+                  is sent exactly as you typed it.
+                </p>
+              </div>
+            </section>
+          </aside>
+        </div>
       </main>
     </div>
   );

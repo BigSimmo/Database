@@ -15,14 +15,14 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 607
-- Distinct ref cells: 387
-- Distinct reviewed heads: 590
+- Records: 606
+- Distinct ref cells: 386
+- Distinct reviewed heads: 589
 - Date range: `2026-08-12` to `2026-09-04`
 
 Records per date, newest first:
 
-- `2026-09-04` — 4 records
+- `2026-09-04` — 3 records
 - `2026-09-03` — 12 records
 - `2026-09-02` — 16 records
 - `2026-09-01` — 5 records
@@ -54,7 +54,6 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | --- | --- | --- | --- | --- |
 | 2026-09-04 | claude/smart-test-selection-q4rt7m | prlanded | merged (#2553) — browser-gate planner (npm run plan:browser), arbiter… | [062e844f](branch-review-records/062e844f787018a9ccdf98bca24e4206614b7403a7e3896b73876b228f885005.record.md) |
 | 2026-09-04 | claude/sources-mode-redesign-73uxmc | prlanded | PR #2593 merged as 0f85b91 (true merge, not squash). Verified by conte… | [2eda1b1f](branch-review-records/2eda1b1f3be7656d04189b1da4434bf497c2cb52408d3f88b451597531b2f3bc.record.md) |
-| 2026-09-04 | claude/psychsift-modes-architecture-378ktx | prlanded | Merged clean via squash (PR #2614). Content diff between the squash co… | [971e2ece](branch-review-records/971e2ece5c225bde1c07b353b9a13c70784f23ae6b02d1ea8397882fff0f85cf.record.md) |
 | 2026-09-04 | claude/answer-page-handover-c2qlwy | prlanded | merged (#2541) — 'Report a problem' opens as a Sheet; Codex P2 (sheet… | [b5ca5f1c](branch-review-records/b5ca5f1c00340e7acbc8e643d9cb1250ebfaf72a516175a6a96d06a517ee3f47.record.md) |
 | 2026-09-03 | claude/audit-fix-p1 (PR #2580) | Run PR sweep: CI fix + threads + drift | Before: mergeable_state blocked, 1 unresolved review thread (codex M22… | [05d026fe](branch-review-records/05d026fe646f677e39436ddceb09504fcdedcda3d1b0c75c914fc4bde2fb3b01.record.md) |
 | 2026-09-03 | claude/token-layer-collapse-itskb0 (PR #2577) | Run PR sweep: merge origin/main drift + Codex review threads | before: mergeable_state dirty (real conflict in playwright.config.ts s… | [20984d0f](branch-review-records/20984d0ff09095aeac675096ff3a1fd0610bb26a73bf25fdfa355b3d1fe64535.record.md) |

@@ -28,6 +28,7 @@ import { movementById } from "@/components/ward-management/ward-movements";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * ⚠️ **THE WORD, ON THE SCREEN — NOT THE IDENTIFIER.**
  *
@@ -279,6 +280,7 @@ describe("the community hub says a bed is PULLED for somebody who has not arrive
       urgency: 2,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     });
     const referral = state.referrals.slice(before)[0];
     expect(referral, "the reducer refused the fixture referral").toBeTruthy();
@@ -325,17 +327,32 @@ function PullReleaser({ movementId }: { movementId: string }) {
 }
 
 describe("the coordinator's mode workspaces say pull", () => {
-  it("labels an expired reservation 'Bed pull expired' with 'Reconfirm or release bed pull' as its action", () => {
-    render(
-      <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardModeWorkspace mode="exceptions" />
-      </WardFlowProvider>,
-    );
-    const view = screen.getByTestId("ward-exceptions-view");
-    expect(view.textContent ?? "").toContain("Bed pull expired");
-    expect(view.textContent ?? "").toContain("Reconfirm or release bed pull");
-    expect(view.textContent ?? "").not.toContain("Bed hold expired");
-  });
+  /*
+   * 🔴 **RETIRED 2026-09-05, DELIBERATELY, AND RECORDED IN `diff-integrity.json` — NOT DELETED
+   * QUIETLY.** This case rendered `<WardModeWorkspace mode="exceptions" />`. MERGE 01 folded the
+   * exceptions inbox into `DelaysScreen` and turned `/mockups/ward-flow/exceptions` into a
+   * redirect, so it asserted two strings on a screen no coordinator can open.
+   *
+   * **Its two halves ended in different places, and only one of them survived the fold.**
+   *
+   * 1. `"Bed pull expired"` — the vocabulary rule itself. **Already carried onto the live screen**
+   *    in `43c56d6c5`: `ward-delays-screen.dom.test.tsx` now pins it against `DelaysScreen`, with
+   *    the positive claim doubling as an anti-vacuity floor and a control proving the mutation
+   *    fails that one test by name. Re-asserting it here would be a second copy of a pin that
+   *    already exists, which is worse than not having it — two guards over one fact drift apart
+   *    and the weaker one teaches people the stronger one is redundant.
+   *
+   * 2. `"Reconfirm or release bed pull"` — the ACTION the old inbox offered about a lapsed
+   *    reservation. `DelaysScreen` offers no per-item action at all, by design: its own footer
+   *    reads *"Nothing on this screen decides anything."* So there is no control here whose wording
+   *    could be wrong, and asserting the ABSENCE of one would fight the next redesign rather than
+   *    guard a clinical fact.
+   *
+   * ⚠️ **THAT SECOND HALF IS A PRODUCT OBSERVATION, NOT A TEST PROBLEM, AND IT IS FLAGGED RATHER
+   * THAN DECIDED.** The old inbox told a coordinator what to do about a lapsed pull; the screen
+   * that replaced it names the delay and stops. Whether that capability should return is an owner
+   * question — recorded for Ward Lead, not resolved here by choosing an assertion.
+   */
 
   it("labels a released reservation 'Pull released' in the governance change audit", () => {
     render(
@@ -356,19 +373,46 @@ describe("the coordinator's mode workspaces say pull", () => {
     expect(after.textContent ?? "").not.toContain("Hold released");
   });
 
+  /*
+   * 🔴 **RE-POINTED FROM `mode="queue"` TO `mode="governance"` ON 2026-09-05 — and the substitution
+   * is honest because the surface under test never belonged to the queue at all.**
+   *
+   * `roleFocusCopy` is rendered by `RoleFocus`, and `RoleFocus` sits in `WardModeWorkspace`'s own
+   * shell above `ModeBody` — so every mode renders it, including `governance` and `network`, the
+   * two modes that still have routes. The role selector this drives (`ModeHeader`) is in that same
+   * shell. The queue was only ever the mode this test happened to name; MERGE 01 made it a
+   * redirect, and `governance` shows the identical chrome from a route a coordinator can open.
+   *
+   * ⚠️ **ONE ASSERTION WAS DROPPED, AND NOT BECAUSE IT WAS INCONVENIENT.** This case also required
+   * `"Accept and pull bed"`. That string is `roleTaskLabel.ward` (`ward-derivations.ts`), and its
+   * ONLY consumer in the repository is `DecisionPanel` — which `QueueView` alone renders, so it is
+   * unreachable along with the queue. Asserting it here would have been the very thing this whole
+   * exercise exists to stop: a green statement about text no coordinator can see.
+   *
+   * **The clinical property behind it is not lost, and that was checked rather than assumed.** The
+   * ward's own pull control is guarded in this same file by *"offers 'Pull a bed' on a movement
+   * that is accepted and still awaiting one"*, against the live `WardScreen` — the screen where
+   * `ACCEPT_IN_PRINCIPLE` and `PULL_PATIENT` are actually dispatched, as
+   * `ward-management-modes.tsx`'s own comment on `roleTaskLabel` says.
+   */
   it("names the coordinator's own focus as pulls, and the ward's as time-limited pulls", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardModeWorkspace mode="queue" />
+        <WardModeWorkspace mode="governance" />
       </WardFlowProvider>,
     );
 
-    expect(document.body.textContent ?? "").toContain("pulls and owned exceptions");
+    const focus = screen.getByText(/Statewide coordination focus/u).closest("section") as HTMLElement;
+    expect(focus.textContent ?? "").toContain("pulls and owned exceptions");
+    expect(focus.textContent ?? "", "the coordinator's focus calls a bed reservation a hold").not.toContain("holds");
 
     fireEvent.change(screen.getByLabelText("Current role"), { target: { value: "ward" } });
-    const asWard = document.body.textContent ?? "";
-    expect(asWard).toContain("time-limited pulls");
-    expect(asWard).toContain("Accept and pull bed");
+
+    const wardFocus = screen.getByText(/Ward capacity focus/u).closest("section") as HTMLElement;
+    expect(wardFocus.textContent ?? "").toContain("time-limited pulls");
+    expect(wardFocus.textContent ?? "", "the ward's focus calls a bed reservation a hold").not.toContain(
+      "time-limited holds",
+    );
   });
 });
 

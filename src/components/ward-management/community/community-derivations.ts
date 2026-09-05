@@ -196,6 +196,25 @@ export type CommunityHubLists = {
    *
    * A SUBSET of `currentlyAdmitted`, filtered from that same array, so the two can never describe
    * different populations.
+   *
+   * 🔴 **AND THAT SUBSET RELATION IS THE TRAP, NAMED HERE BECAUSE IT HAS NOW BEEN SPRUNG TWICE IN
+   * ONE DAY IN TWO DIFFERENT FILES.** A figure computed over CURRENT cases, rendered as an absence
+   * over ALL cases, states something false about the cases it never looked at:
+   *
+   *   this file      "No ward has written down a discharge date for anybody referred to this team"
+   *                  — over a figure that can only see people in a bed, on a team whose only member
+   *                  had left, WITH a date, revised once, set by a named role.
+   *   compare screen "none written down" for `dischargeDateOutcomes`, whose `consideredCount` is
+   *                  `met + missed` and counts only DECIDED outcomes — so a ward with twenty dates
+   *                  written and nobody yet discharged was told none had been written.
+   *
+   * **Both were repaired by scoping the SENTENCE to what the figure measures, never by widening the
+   * figure.** Widening is the tempting fix and it is the wrong one: these subsets are deliberate,
+   * and the defect was always in the claim rather than in the derivation.
+   *
+   * ⚠️ **THE SHAPE TO WATCH FOR, SINCE NO TEST CAN SEE IT:** an empty-state sentence whose subject
+   * is broader than the array it renders beside. Both instances passed every gate, because a
+   * sentence and the array above it are not compared by anything.
    */
   expectedBack: Admission[];
   /**
@@ -303,4 +322,69 @@ export function admissionsWithNoCommunityTeam(
   return admissions.filter(
     (admission) => !COMMUNITY_TEAM_PAGES.some((team) => admissionBelongsToTeam(admission, team, referrals)),
   );
+}
+
+/**
+ * Whether a team's empty list means "we looked and found nobody" or "we cannot look at all".
+ *
+ * 🔴 **THE DEFECT THIS EXISTS FOR: EVERY TEAM PAGE STATED A MEASURED ABSENCE OVER A JOIN THAT
+ * CANNOT RESOLVE.** "Nobody referred to this team is currently in a bed" reads as a fact about the
+ * service. It was, for essentially every one of the teams, a fact about a broken link:
+ * `admissionBelongsToTeam` needs `Admission.referralId` to FIND a referral, the only writer of that
+ * field in the reducer sets it to `null` (`ward-flow-reducer.ts`, inside `PULL_PATIENT`), and the
+ * seed manufactures the rest by `AD-###` -> `RF-###` substitution against thirteen real referrals.
+ * Exactly one admission joins for real. **So three of the four lists on a team page could never
+ * become non-empty, and each said so in the words of a measurement.**
+ *
+ * ⚠️ **THIS IS RULING E2 ONE LEVEL UP, AND THAT IS WHY IT IS A DERIVATION RATHER THAN A SENTENCE.**
+ * E2 says a `number | null` measure renders as a stated absence in words, never `0` and never a
+ * dash, because "no ward declined" and "declines cannot be counted" look identical once both are
+ * dashes. **A list has the same two meanings and the same collapse:** "nobody is in a bed" and "we
+ * cannot tell who is in a bed" must not read alike either.
+ *
+ * ⚠️ **AND IT IS COMPUTED PER TEAM RATHER THAN WRITTEN DOWN, WHICH IS THE HALF THAT SURVIVES THE
+ * FIX.** A hardcoded "this cannot be computed" is true today and becomes a FALSE GAP the day
+ * somebody writes the link — the exact mirror of today's false answer, and nothing would announce
+ * it. Computed, the sentence disappears on its own. Inner City Clinic, whose one member joins for
+ * real, still shows that member today.
+ *
+ * ⚠️ **A NULL `referralId` IS NOT A BROKEN JOIN AND MUST NOT BE COUNTED AS ONE.** Somebody admitted
+ * with no referral at all is a person the model can describe: they were never referred anywhere, so
+ * no team page is missing them and the existing unattributable figure already covers them. **The
+ * broken case is a `referralId` that IS set and resolves to nothing** — a record that claims a link
+ * it does not have. Conflating the two would inflate the gap with people who are not in it.
+ */
+export type CommunityMembershipResolution =
+  /** The join resolved and this team has members. */
+  | { readonly state: "members" }
+  /** The join resolved for every admission and none named this team. An absence, measured. */
+  | { readonly state: "measured-empty" }
+  /**
+   * The join cannot resolve for some admissions, so this team's emptiness is not a measurement.
+   * `unresolvable` is how many admissions carry a `referralId` pointing at no referral in state.
+   */
+  | { readonly state: "not-computable"; readonly unresolvable: number };
+
+/** Admissions whose `referralId` is set and resolves to no referral the hub was handed. */
+export function admissionsWithUnresolvableReferral(
+  admissions: readonly Admission[],
+  referrals: readonly Referral[],
+): Admission[] {
+  return admissions.filter(
+    (admission) => admission.referralId !== null && !referrals.some((referral) => referral.id === admission.referralId),
+  );
+}
+
+export function communityMembershipResolution(
+  admissions: readonly Admission[],
+  team: CommunityTeam,
+  referrals: readonly Referral[],
+): CommunityMembershipResolution {
+  const ours = admissions.filter((admission) => admissionBelongsToTeam(admission, team, referrals));
+  if (ours.length > 0) return { state: "members" };
+  const unresolvable = admissionsWithUnresolvableReferral(admissions, referrals).length;
+  // Ordering matters: a team with members is never "not computable" ABOUT THOSE MEMBERS, even while
+  // other records are broken. The unresolvable set is a statement about what this page cannot see,
+  // and it is only load-bearing where the page would otherwise assert an absence of people.
+  return unresolvable > 0 ? { state: "not-computable", unresolvable } : { state: "measured-empty" };
 }

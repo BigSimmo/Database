@@ -26,6 +26,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
@@ -36,7 +37,6 @@ import {
   finalizeTherapyReview,
   publicReviewerAttributionProblem,
 } from "./lib/therapy-review-contract.mjs";
-import { createPrompt } from "./lib/confirm.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE_PATH = join(ROOT, THERAPY_GENERATED_PATHS.source);
@@ -424,12 +424,12 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     errorOutput,
     "PRIVACY: reviewedBy is public. Do not enter contact, registration, provider, staff, or account ids.",
   );
-  const prompt = createPrompt({ input, output });
+  const readline = createInterface({ input, output });
   try {
     const result = await conductTherapyReview({
       record: records[recordIndex],
       reviewedBy: args.reviewedBy,
-      ask: prompt.ask,
+      ask: (question) => readline.question(question),
       output,
       commit: async (reviewed) => {
         const nextRecords = records.map((record, index) => (index === recordIndex ? reviewed : record));
@@ -442,7 +442,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
     }
     return 0;
   } finally {
-    prompt.close();
+    readline.close();
   }
 }
 

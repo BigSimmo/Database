@@ -1,0 +1,1743 @@
+<!doctype html>
+<html lang="en-AU" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CMHT team hub — redesign v1</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    />
+    <style>
+      /* Tokens: the second edition of the Ward Flow board language, copied from
+     design-language.css so this file opens standalone like its siblings.
+     If that file changes, this block must be re-copied from it. */
+      :root {
+        color-scheme: light;
+
+        --ground: #f1f4f8;
+        --surface: #ffffff;
+        --surface-2: #f7f9fc;
+        --sunken: #eef2f7;
+
+        --ink: #0d1421;
+        --ink-2: #33415a;
+        --muted: #55637a;
+        --faint: #5e6c84;
+
+        --rule: #e4e9f0;
+        --rule-2: #cfd7e3;
+
+        --accent: #1d6fb8;
+        --accent-strong: #185c99;
+        --accent-wash: #eff5fc;
+        --accent-contrast: #ffffff;
+
+        --good: #0c6b41;
+        --good-wash: #f2fbf6;
+        --signal: #8a4d05;
+        --signal-wash: #fffaf2;
+        --crit: #a3190f;
+        --crit-wash: #fdf5f4;
+        --cool: #0f6b73;
+        --cool-wash: #f1fafb;
+
+        --shadow-1: 0 1px 2px rgb(13 20 33 / 0.05);
+        --shadow-2: 0 1px 3px rgb(13 20 33 / 0.07), 0 6px 16px -8px rgb(13 20 33 / 0.1);
+        --shadow-3: 0 12px 36px -14px rgb(13 20 33 / 0.3), 0 2px 8px rgb(13 20 33 / 0.08);
+
+        --r-sm: 5px;
+        --r: 8px;
+        --r-lg: 12px;
+        --tap: 3rem;
+
+        --sp-1: 0.25rem;
+        --sp-2: 0.5rem;
+        --sp-3: 0.75rem;
+        --sp-4: 1rem;
+        --sp-5: 1.5rem;
+        --sp-6: 2rem;
+        --sp-7: 3rem;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          color-scheme: dark;
+          --ground: #0a0e15;
+          --surface: #131924;
+          --surface-2: #1a2130;
+          --sunken: #0f141d;
+          --ink: #e8edf5;
+          --ink-2: #c3cdda;
+          --muted: #98a5b8;
+          --faint: #8593a7;
+          --rule: #232c3a;
+          --rule-2: #354152;
+          --accent: #6ea8e0;
+          --accent-strong: #8dbdea;
+          --accent-wash: #132132;
+          --accent-contrast: #0a0e15;
+          --good: #4ec38d;
+          --good-wash: #0f2119;
+          --signal: #e0a63f;
+          --signal-wash: #241c0e;
+          --crit: #f0755c;
+          --crit-wash: #26130f;
+          --cool: #4fb3bd;
+          --cool-wash: #0d2124;
+          --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+          --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+          --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+        }
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --ground: #0a0e15;
+        --surface: #131924;
+        --surface-2: #1a2130;
+        --sunken: #0f141d;
+        --ink: #e8edf5;
+        --ink-2: #c3cdda;
+        --muted: #98a5b8;
+        --faint: #8593a7;
+        --rule: #232c3a;
+        --rule-2: #354152;
+        --accent: #6ea8e0;
+        --accent-strong: #8dbdea;
+        --accent-wash: #132132;
+        --accent-contrast: #0a0e15;
+        --good: #4ec38d;
+        --good-wash: #0f2119;
+        --signal: #e0a63f;
+        --signal-wash: #241c0e;
+        --crit: #f0755c;
+        --crit-wash: #26130f;
+        --cool: #4fb3bd;
+        --cool-wash: #0d2124;
+        --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+        --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+        --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+      }
+
+      /* ═══════════════════════════════════════════════════════════════════
+     COMMUNITY TEAM HUB — redesign v1, 2026-09-05.
+
+     A sibling of the ward hub and the ED hub, tailored to what a community
+     team actually needs, in the order it needs it:
+
+       1. WHO IS WAITING ON US.  The one question the old page never asked.
+          A community team's own work starts with referrals addressed to it
+          and not yet answered — that is what goes at the top.
+       2. WHO IS IN A BED.       Ours, where, how long, and when the ward
+          expects them back.
+       3. WHO HAS COME HOME.     Discharged into the area, with the honest
+          caveat that this is not a follow-up list.
+
+     WHAT CHANGED FROM THE OLD PAGE:
+       · The old page opened with four paragraphs of caveat before a reader
+         reached a single fact. The caveats are all still here, every one of
+         them, but they are gathered into one panel ("What this page cannot
+         tell you") and attached to the list each one qualifies.
+       · Sections were ordered Discharged / Admitted / Referrals we made /
+         Expected back — an order that put a list the page cannot complete
+         above the team's own queue.
+       · No figure was above the fold. Five now are.
+
+     WHAT THIS PAGE STILL WILL NOT DO:
+       · It never prints a calendar date. Every date in the prototype is
+         invented, so it states elapsed time only.
+       · It never implies a follow-up list. Whether follow-up was arranged
+         is not readable, and the page says so beside the list it affects.
+     ═══════════════════════════════════════════════════════════════════ */
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font-family:
+          "Archivo",
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      .num,
+      .figure {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+      }
+      .skip {
+        position: absolute;
+        left: -999px;
+        background: var(--accent);
+        color: var(--accent-contrast);
+        padding: var(--sp-2) var(--sp-4);
+        border-radius: var(--r);
+        z-index: 90;
+      }
+      .skip:focus {
+        left: var(--sp-4);
+        top: var(--sp-2);
+      }
+
+      /* ── application bar ────────────────────────────────────────────── */
+      .appbar {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-4);
+        padding: 0 var(--sp-5);
+        min-height: 3.25rem;
+        background: var(--surface);
+        border-bottom: 1px solid var(--rule);
+        box-shadow: var(--shadow-1);
+      }
+      .mark {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+      .mark .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .appbar .spacer {
+        flex: 1;
+      }
+      .appbar-right {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+      }
+      .liveness {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .liveness .pip {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--good);
+      }
+
+      /* team switcher — the ward hub's pattern, with 65 destinations behind it */
+      .switcher {
+        position: relative;
+      }
+      .switcher > summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        padding: 0.3rem var(--sp-3);
+        border-radius: var(--r);
+        border: 1px solid var(--rule-2);
+        background: var(--surface-2);
+      }
+      .switcher > summary::-webkit-details-marker {
+        display: none;
+      }
+      .switcher > summary:hover {
+        border-color: var(--accent);
+      }
+      .sw-id {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.15;
+      }
+      .sw-eyebrow {
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .sw-name {
+        font-weight: 650;
+        font-size: 0.9375rem;
+      }
+      .sw-chev {
+        color: var(--muted);
+        transition: transform 140ms;
+      }
+      .switcher[open] .sw-chev {
+        transform: rotate(180deg);
+      }
+      .sw-panel {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        z-index: 50;
+        width: 20rem;
+        max-width: 82vw;
+        background: var(--surface);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-lg);
+        box-shadow: var(--shadow-3);
+        overflow: hidden;
+      }
+      .sw-search {
+        padding: var(--sp-3);
+        border-bottom: 1px solid var(--rule);
+      }
+      .sw-search input {
+        width: 100%;
+        font: inherit;
+        padding: 0.45rem var(--sp-3);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r);
+        background: var(--surface-2);
+      }
+      .sw-scroll {
+        max-height: 15rem;
+        overflow-y: auto;
+        padding: var(--sp-2) 0;
+      }
+      .sw-item {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        padding: 0.4rem var(--sp-3);
+        text-decoration: none;
+        color: var(--ink);
+        font-size: 0.875rem;
+      }
+      .sw-item:hover {
+        background: var(--accent-wash);
+        color: var(--accent-strong);
+      }
+      .sw-item[aria-current="true"] {
+        font-weight: 700;
+        background: var(--accent-wash);
+      }
+      .sw-foot {
+        margin: 0;
+        padding: var(--sp-3);
+        border-top: 1px solid var(--rule);
+        font-size: 0.75rem;
+        color: var(--muted);
+        background: var(--surface-2);
+      }
+
+      /* ── shell ──────────────────────────────────────────────────────── */
+      .shell {
+        max-width: 82rem;
+        margin: 0 auto;
+        padding: var(--sp-5) var(--sp-5) var(--sp-7);
+      }
+      .prototype {
+        margin: 0 0 var(--sp-4);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+
+      .masthead {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-4);
+        align-items: flex-end;
+        margin-bottom: var(--sp-3);
+      }
+      .identity {
+        min-width: 0;
+      }
+      .eyebrow {
+        margin: 0 0 var(--sp-1);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--accent-strong);
+      }
+      h1 {
+        margin: 0 0 var(--sp-2);
+        font-size: 1.9375rem;
+        line-height: 1.12;
+        letter-spacing: -0.022em;
+      }
+      .covers {
+        margin: 0;
+        color: var(--ink-2);
+        max-width: 62ch;
+      }
+
+      .govbar {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: baseline;
+        margin: var(--sp-4) 0 var(--sp-5);
+        padding: var(--sp-3) var(--sp-4);
+        background: var(--signal-wash);
+        border: 1px solid var(--rule-2);
+        border-left: 3px solid var(--signal);
+        border-radius: var(--r);
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+      }
+      .govbar .badge {
+        flex: none;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--signal);
+      }
+      .govbar p {
+        margin: 0;
+      }
+
+      /* ── KPI strip ──────────────────────────────────────────────────── */
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+        gap: var(--sp-3);
+        margin: 0 0 var(--sp-5);
+      }
+      .kpi {
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: var(--r-lg);
+        padding: var(--sp-3) var(--sp-4);
+        box-shadow: var(--shadow-1);
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+      }
+      .kpi dt {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .kpi dd {
+        margin: 0;
+      }
+      .kpi .figure {
+        font-size: 1.75rem;
+        font-weight: 700;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+      }
+      .kpi .unit {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--muted);
+        margin-inline-start: 0.1rem;
+      }
+      .kpi .caption {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--faint);
+      }
+      .kpi[data-tone="signal"] {
+        border-color: var(--signal);
+      }
+      .kpi[data-tone="signal"] .figure {
+        color: var(--signal);
+      }
+      .kpi[data-tone="good"] .figure {
+        color: var(--good);
+      }
+      .kpi[data-tone="cool"] .figure {
+        color: var(--cool);
+      }
+      .kpi[data-tone="crit"] {
+        border-color: var(--crit);
+      }
+      .kpi[data-tone="crit"] .figure {
+        color: var(--crit);
+      }
+      .panel[data-tone="crit"] {
+        border-color: var(--crit);
+      }
+      .panel[data-tone="crit"] > header {
+        background: var(--crit-wash);
+        border-bottom-color: var(--crit);
+      }
+
+      /* ── grid ───────────────────────────────────────────────────────── */
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--sp-4);
+        align-items: start;
+      }
+      @media (min-width: 64rem) {
+        .grid {
+          grid-template-columns: minmax(0, 1fr) 21rem;
+        }
+      }
+
+      /* ── panel ──────────────────────────────────────────────────────── */
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: var(--r-lg);
+        box-shadow: var(--shadow-1);
+        margin-bottom: var(--sp-4);
+        overflow: hidden;
+      }
+      .panel > header {
+        display: flex;
+        align-items: baseline;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+        padding: var(--sp-3) var(--sp-4);
+        background: var(--surface-2);
+        border-bottom: 1px solid var(--rule);
+      }
+      .panel-title {
+        margin: 0;
+        font-size: 0.9375rem;
+        font-weight: 700;
+        letter-spacing: -0.008em;
+      }
+      .panel > header .n {
+        margin-inline-start: auto;
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .blurb {
+        margin: 0;
+        padding: var(--sp-3) var(--sp-4) 0;
+        font-size: 0.8125rem;
+        color: var(--muted);
+        max-width: 78ch;
+      }
+      .panel-body {
+        padding: var(--sp-3) var(--sp-4) var(--sp-4);
+      }
+      .panel-foot {
+        margin: 0;
+        padding: var(--sp-3) var(--sp-4);
+        border-top: 1px solid var(--rule);
+        background: var(--surface-2);
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .panel[data-tone="signal"] {
+        border-color: var(--signal);
+      }
+      .panel[data-tone="signal"] > header {
+        background: var(--signal-wash);
+        border-bottom-color: var(--signal);
+      }
+
+      /* ── chips ──────────────────────────────────────────────────────── */
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.015em;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        border: 1px solid var(--rule-2);
+        background: var(--surface-2);
+        color: var(--ink-2);
+        white-space: nowrap;
+      }
+      .chip[data-level="urgent"] {
+        border-color: var(--crit);
+        color: var(--crit);
+        background: var(--crit-wash);
+      }
+      .chip[data-level="waiting"] {
+        border-color: var(--signal);
+        color: var(--signal);
+        background: var(--signal-wash);
+      }
+      .chip[data-level="settled"] {
+        border-color: var(--good);
+        color: var(--good);
+        background: var(--good-wash);
+      }
+      .chip[data-level="cool"] {
+        border-color: var(--cool);
+        color: var(--cool);
+        background: var(--cool-wash);
+      }
+
+      /* ── referral queue rows ────────────────────────────────────────── */
+      .queue {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-2);
+      }
+      .queue > li {
+        border: 1px solid var(--rule);
+        border-radius: var(--r);
+        padding: var(--sp-3);
+        display: grid;
+        gap: var(--sp-2);
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+      }
+      .queue > li[data-level="urgent"] {
+        border-inline-start: 3px solid var(--crit);
+        background: var(--crit-wash);
+      }
+      .queue .line {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+      }
+      .queue .rid {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-weight: 700;
+        font-size: 0.8125rem;
+      }
+      .queue .attrs {
+        grid-column: 1 / -1;
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+      }
+      .queue .attrs b {
+        font-weight: 650;
+      }
+      .queue .attrs .sep {
+        color: var(--rule-2);
+        margin: 0 0.4rem;
+      }
+      .queue .acts {
+        display: flex;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .btn {
+        font: inherit;
+        font-size: 0.8125rem;
+        font-weight: 650;
+        padding: 0.4rem 0.8rem;
+        border-radius: var(--r);
+        border: 1px solid var(--rule-2);
+        background: var(--surface);
+        color: var(--ink-2);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        border-color: var(--accent);
+        color: var(--accent-strong);
+      }
+      .btn--primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-contrast);
+      }
+      .btn--primary:hover {
+        background: var(--accent-strong);
+        border-color: var(--accent-strong);
+        color: var(--accent-contrast);
+      }
+
+      /* ── tables ─────────────────────────────────────────────────────── */
+      .table-wrap {
+        overflow-x: auto;
+      }
+      .dtable {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        min-width: 34rem;
+      }
+      .dtable caption {
+        caption-side: top;
+        text-align: left;
+        padding-bottom: var(--sp-2);
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: var(--ink-2);
+      }
+      .dtable th,
+      .dtable td {
+        text-align: left;
+        padding: 0.55rem var(--sp-2);
+        border-bottom: 1px solid var(--rule);
+        vertical-align: top;
+      }
+      .dtable thead th {
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--faint);
+        border-bottom: 1px solid var(--rule-2);
+        white-space: nowrap;
+      }
+      .dtable tbody tr:last-child th,
+      .dtable tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      .dtable tbody th {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-weight: 700;
+        font-size: 0.8125rem;
+        white-space: nowrap;
+      }
+      .dtable td.n {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .dtable tbody tr[data-level="signal"] {
+        box-shadow: inset 3px 0 0 var(--signal);
+      }
+      .dtable tbody tr:hover {
+        background: var(--surface-2);
+      }
+
+      /* ── people list (discharged into the area) ─────────────────────── */
+      .people {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      .people li {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .people li:last-child {
+        border-bottom: 0;
+      }
+      .people .rid {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-weight: 700;
+        font-size: 0.8125rem;
+      }
+      .people .from {
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+      }
+      .people .when {
+        margin-inline-start: auto;
+        font-size: 0.8125rem;
+        color: var(--muted);
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+      }
+
+      /* ── attention list ─────────────────────────────────────────────── */
+      .attention {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-3);
+      }
+      .attention li {
+        border-inline-start: 3px solid var(--signal);
+        padding-inline-start: var(--sp-3);
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+      }
+      .attention .who {
+        display: block;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-weight: 700;
+        font-size: 0.75rem;
+        color: var(--ink);
+      }
+
+      /* ── stated absence ─────────────────────────────────────────────── */
+      .absent {
+        margin: 0;
+        padding: var(--sp-3);
+        background: var(--sunken);
+        border: 1px dashed var(--rule-2);
+        border-radius: var(--r);
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+      }
+      .absent + .absent {
+        margin-top: var(--sp-2);
+      }
+
+      /* ── "cannot tell you" panel ────────────────────────────────────── */
+      .limits {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-3);
+      }
+      .limits > li {
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+      }
+      .limits .head {
+        display: block;
+        font-weight: 700;
+        color: var(--ink);
+        margin-bottom: 0.15rem;
+      }
+
+      /* ── facts list ─────────────────────────────────────────────────── */
+      .facts {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-2);
+        font-size: 0.8125rem;
+      }
+      .facts li {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: baseline;
+      }
+      .facts .k {
+        color: var(--muted);
+        flex: 1;
+      }
+      .facts .v {
+        font-weight: 650;
+        text-align: right;
+      }
+
+      .links {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .links a {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-2);
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--rule);
+        text-decoration: none;
+        color: var(--ink);
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+      .links li:last-child a {
+        border-bottom: 0;
+      }
+      .links a:hover {
+        color: var(--accent-strong);
+      }
+      .links .arrow {
+        color: var(--faint);
+      }
+
+      /* ── footnote ───────────────────────────────────────────────────── */
+      .footnote {
+        margin-top: var(--sp-6);
+        padding-top: var(--sp-4);
+        border-top: 1px solid var(--rule-2);
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .footnote h2 {
+        margin: var(--sp-4) 0 var(--sp-2);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .footnote h2:first-child {
+        margin-top: 0;
+      }
+      .footnote ul {
+        margin: 0;
+        padding-inline-start: 1.1rem;
+        max-width: 95ch;
+      }
+      .footnote li {
+        margin-bottom: 0.3rem;
+      }
+
+      @media (max-width: 48rem) {
+        .shell {
+          padding: var(--sp-4) var(--sp-3) var(--sp-6);
+        }
+        h1 {
+          font-size: 1.5rem;
+        }
+        .queue > li {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .queue .acts {
+          justify-content: flex-start;
+        }
+        .btn {
+          min-height: var(--tap);
+        }
+      }
+
+      /* Hit areas for a thumb. Every control keeps its typographic size and grows
+     its BOX, matching the pattern in mockup-ward-home-v4.html. */
+      @media (pointer: coarse), (max-width: 40rem) {
+        .btn,
+        .sw-item,
+        .switcher > summary,
+        .links a {
+          min-height: var(--tap);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+
+      /* ─── forced colours: every token collapses to a system colour, so
+       anything whose only edge was a wash needs a drawn border instead. ──── */
+      @media (forced-colors: active) {
+        :root {
+          --ground: Canvas;
+          --surface: Canvas;
+          --surface-2: Canvas;
+          --sunken: Canvas;
+          --ink: CanvasText;
+          --ink-2: CanvasText;
+          --muted: CanvasText;
+          --faint: CanvasText;
+          --rule: CanvasText;
+          --rule-2: CanvasText;
+          --accent: LinkText;
+          --accent-strong: LinkText;
+          --accent-wash: Canvas;
+          --accent-contrast: Canvas;
+          --good: CanvasText;
+          --good-wash: Canvas;
+          --signal: CanvasText;
+          --signal-wash: Canvas;
+          --crit: CanvasText;
+          --crit-wash: Canvas;
+          --cool: CanvasText;
+          --cool-wash: Canvas;
+          --shadow-1: none;
+          --shadow-2: none;
+          --shadow-3: none;
+        }
+        .chip,
+        .kpi,
+        .panel,
+        .btn,
+        .absent,
+        .sw-panel,
+        .switcher > summary {
+          border: 1px solid CanvasText;
+        }
+        .btn--primary {
+          border-width: 2px;
+        }
+        .queue > li[data-level="urgent"],
+        .attention li {
+          border-inline-start-width: 4px;
+          border-inline-start-color: CanvasText;
+        }
+        .dtable tbody tr[data-level="signal"] {
+          box-shadow: none;
+          border-left: 3px solid CanvasText;
+        }
+      }
+
+      /* ─── print: the same incident this repository already had once — a
+       hoisted background lost its print reset and every route would have
+       printed black. Every token takes its light-theme value, on :root AND
+       on both dark stamps, so a dark-mode reader's printer never receives
+       light ink on a dark background it just dropped. ──────────────────── */
+      @media print {
+        :root,
+        :root[data-theme="dark"],
+        :root:not([data-theme="light"]) {
+          --ground: #ffffff;
+          --surface: #ffffff;
+          --surface-2: #ffffff;
+          --sunken: #ffffff;
+          --ink: #000000;
+          --ink-2: #1a1a1a;
+          --muted: #333333;
+          --faint: #444444;
+          --rule: #999999;
+          --rule-2: #666666;
+          --accent: #1d6fb8;
+          --accent-strong: #185c99;
+          --accent-wash: #eff5fc;
+          --accent-contrast: #ffffff;
+          --good: #0c6b41;
+          --good-wash: #f2fbf6;
+          --signal: #8a4d05;
+          --signal-wash: #fffaf2;
+          --crit: #a3190f;
+          --crit-wash: #fdf5f4;
+          --cool: #0f6b73;
+          --cool-wash: #f1fafb;
+          --shadow-1: none;
+          --shadow-2: none;
+          --shadow-3: none;
+        }
+        body {
+          background: #ffffff;
+        }
+        .appbar {
+          position: static;
+        }
+        .panel,
+        .kpi {
+          box-shadow: none;
+          break-inside: avoid;
+        }
+        .table-wrap {
+          overflow-x: visible;
+        }
+        .dtable thead {
+          display: table-header-group;
+        }
+        .dtable tr {
+          break-inside: avoid;
+        }
+        .btn,
+        .switcher,
+        .skip {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#queue">Skip to the referrals waiting for an answer</a>
+
+    <div class="appbar">
+      <span class="mark"><span class="dot" aria-hidden="true"></span>Ward Flow</span>
+
+      <details class="switcher">
+        <summary>
+          <span class="sw-id">
+            <span class="sw-eyebrow">Community team</span>
+            <span class="sw-name">Inner City Clinic</span>
+          </span>
+          <span class="chip" data-level="waiting">4 waiting</span>
+          <svg
+            class="sw-chev"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </summary>
+        <div class="sw-panel">
+          <div class="sw-search">
+            <input type="search" placeholder="Search 65 teams…" aria-label="Search community teams" />
+          </div>
+          <div class="sw-scroll">
+            <a class="sw-item" href="#">ICC</a>
+            <a class="sw-item" href="#">Inner City</a>
+            <a class="sw-item" href="#">Inner City (central)</a>
+            <a class="sw-item" href="#" aria-current="true">Inner City Clinic</a>
+            <a class="sw-item" href="#">Joondalup</a>
+            <a class="sw-item" href="#">Kimberley</a>
+            <a class="sw-item" href="#">Kimberley HS</a>
+          </div>
+          <p class="sw-foot">
+            <b>Two kinds of thing in this list, and they carry different authority.</b> <em>Kimberley</em> and
+            <em>Kimberley HS</em> <b>read alike</b> &mdash; a spelling comparison says so, and nothing merges them.
+            <em>ICC</em>, <em>Inner City</em>, <em>Inner City (central)</em> and this clinic are <b>one service</b>,
+            because a person who knows the services said so on 2026-09-05 &mdash; 21 suburbs, one team.
+            <b>No spelling rule found that and none ever could</b>; an abbreviation is not a misspelling. Names still
+            read alike where nobody has ruled, and
+            <b>an unmarked name remains no guarantee that a team appears only once</b>.
+          </p>
+        </div>
+      </details>
+
+      <span class="spacer"></span>
+      <span class="appbar-right">
+        <span class="liveness"><span class="pip" aria-hidden="true"></span>Live &middot; refreshed a moment ago</span>
+        <a class="btn btn--primary" href="#queue">Answer 4 referrals &rarr;</a>
+      </span>
+    </div>
+
+    <main class="shell" role="main">
+      <p class="prototype">
+        Synthetic prototype &middot; No real patient data &middot; Every invented figure listed at the foot
+      </p>
+
+      <!-- ⚠️ SUPERSEDED WHERE THE FIGURES AND THE NAME RULE ARE CONCERNED. Approved by Ward Lead,
+       2026-09-05. Every number on this page is hand-written and declared at the foot; the built
+       page derives all of them from live state. And the sibling names quoted in the team switcher
+       come from the gateway prototype's own rule, not from `communityNameCollisions()`, which is
+       what the build uses and which groups a different set. -->
+      <div class="govbar" style="border-left-color: var(--crit); background: var(--crit-wash)">
+        <span class="badge" style="color: var(--crit)">Superseded</span>
+        <p>
+          <b
+            >The layout and the wording on this page are what was approved. The figures and the name-matching are not
+            what the software does.</b
+          >
+          Every number here is hand-written; the built page derives each one from live state. The sibling names in the
+          team switcher come from this prototype&rsquo;s own rule, where the build calls the shared
+          <code>communityNameCollisions()</code>.
+          <b>Read this file for the design and the copy, never for a figure or for which names read alike.</b>
+        </p>
+      </div>
+
+      <div class="masthead">
+        <div class="identity">
+          <p class="eyebrow">Community mental health team</p>
+          <h1>Inner City Clinic</h1>
+          <p class="covers">
+            Everyone this page can match to this team, and where each person now sits in the bed-flow circle. This is
+            your team&rsquo;s page &mdash; never another team&rsquo;s, and never where else somebody may also have been
+            referred. <b>It is not a complete list</b>, and the rail says why.
+          </p>
+        </div>
+      </div>
+
+      <div class="govbar">
+        <span class="badge">Synthetic prototype</span>
+        <p>
+          This hub is <b>not a medical device</b>. Every patient, bed and date in it is invented, and nothing here has
+          been checked against a real service.
+        </p>
+      </div>
+
+      <dl class="kpis">
+        <div class="kpi" data-tone="signal">
+          <dt>Waiting for your answer</dt>
+          <dd><span class="figure">4</span><span class="caption">referrals addressed to this team</span></dd>
+        </div>
+        <div class="kpi" data-tone="signal">
+          <dt>Longest wait</dt>
+          <dd>
+            <span class="figure">2</span><span class="unit">d</span> <span class="figure">4</span
+            ><span class="unit">h</span><span class="caption">RF-104 &middot; since it was raised</span>
+          </dd>
+        </div>
+        <div class="kpi">
+          <dt>Ours, in a bed or holding one</dt>
+          <dd><span class="figure">6</span><span class="caption">5 in the bed &middot; 1 bed pulled</span></dd>
+        </div>
+        <div class="kpi" data-tone="cool">
+          <dt>Expected back</dt>
+          <dd><span class="figure">2</span><span class="caption">1 within 3 days &middot; 1 plan passed</span></dd>
+        </div>
+        <div class="kpi" data-tone="crit">
+          <dt>Admitted while with us</dt>
+          <dd>
+            <span class="figure">3</span><span class="unit">of 6</span
+            ><span class="caption">already accepted when the bed began</span>
+          </dd>
+        </div>
+        <div class="kpi">
+          <dt>Discharged into the area</dt>
+          <dd><span class="figure">3</span><span class="caption">recorded as discharged to the community</span></dd>
+        </div>
+      </dl>
+
+      <div class="grid">
+        <!-- ═══ main column ═══════════════════════════════════════════ -->
+        <div>
+          <section class="panel" data-tone="signal" id="queue" tabindex="-1">
+            <header>
+              <h2 class="panel-title">Waiting for your answer</h2>
+              <span class="chip" data-level="waiting">4 referrals</span>
+              <span class="n">longest first</span>
+            </header>
+            <p class="blurb">
+              Referrals that name Inner City Clinic as a destination and have not yet been accepted or declined.
+              Declining is a recorded answer, not a refusal to engage &mdash; the person stays visible to everyone else
+              who is looking.
+            </p>
+            <div class="panel-body">
+              <ul class="queue">
+                <li data-level="urgent">
+                  <span class="line">
+                    <span class="rid">RF-104</span>
+                    <span class="chip">Waiting 2d 4h</span>
+                    <span class="chip" data-level="urgent">Urgent</span>
+                  </span>
+                  <span class="acts">
+                    <button class="btn btn--primary" type="button">Accept</button>
+                    <button class="btn" type="button">Decline&hellip;</button>
+                  </span>
+                  <span class="attrs">
+                    <b>Adult</b><span class="sep">&middot;</span>raised by Royal Perth Hospital Emergency
+                    Department<span class="sep">&middot;</span>home region <b>Inner city</b
+                    ><span class="sep">&middot;</span>transport needed
+                  </span>
+                </li>
+
+                <li>
+                  <span class="line">
+                    <span class="rid">RF-112</span>
+                    <span class="chip">Waiting 1d 6h</span>
+                    <span class="chip">Routine</span>
+                  </span>
+                  <span class="acts">
+                    <button class="btn btn--primary" type="button">Accept</button>
+                    <button class="btn" type="button">Decline&hellip;</button>
+                  </span>
+                  <span class="attrs">
+                    <b>Adult</b><span class="sep">&middot;</span>raised by a general practice<span class="sep"
+                      >&middot;</span
+                    >home region <b>Inner city</b><span class="sep">&middot;</span>no transport recorded
+                  </span>
+                </li>
+
+                <li>
+                  <span class="line">
+                    <span class="rid">RF-118</span>
+                    <span class="chip">Waiting 19h</span>
+                    <span class="chip">Routine</span>
+                  </span>
+                  <span class="acts">
+                    <button class="btn btn--primary" type="button">Accept</button>
+                    <button class="btn" type="button">Decline&hellip;</button>
+                  </span>
+                  <span class="attrs">
+                    <b>Older adult</b><span class="sep">&middot;</span>raised by Ward 4B, Fiona Stanley Hospital<span
+                      class="sep"
+                      >&middot;</span
+                    >home region <b>Inner city</b><span class="sep">&middot;</span>no transport recorded
+                  </span>
+                </li>
+
+                <li data-level="urgent">
+                  <span class="line">
+                    <span class="rid">RF-121</span>
+                    <span class="chip">Waiting 3h</span>
+                    <span class="chip" data-level="urgent">Urgent</span>
+                  </span>
+                  <span class="acts">
+                    <button class="btn btn--primary" type="button">Accept</button>
+                    <button class="btn" type="button">Decline&hellip;</button>
+                  </span>
+                  <span class="attrs">
+                    <b>Adult</b><span class="sep">&middot;</span>raised by a community service<span class="sep"
+                      >&middot;</span
+                    >home region <b>Inner city</b><span class="sep">&middot;</span>transport needed
+                  </span>
+                </li>
+              </ul>
+            </div>
+            <p class="panel-foot">
+              Declining is a recorded answer, not a refusal to engage:
+              <b>it removes the person from nobody else&rsquo;s view</b>, and no rule on this page can stop a
+              coordinator overriding the answer. It does take them off this queue, which is the only list on this page
+              that can hold them &mdash; a build would need an &ldquo;answered&rdquo; section before this page could
+              show a declined referral at all.
+            </p>
+          </section>
+
+          <!-- ═══════════════════════════════════════════════════════════════
+           ADMITTED WHILE ALREADY WITH THIS TEAM.
+
+           Owner's request, 2026-09-05. What the model actually supports:
+             · `ReferralAddressing.state === "accepted"` — this team said yes.
+             · `ReferralAddressing.decidedAt` — WHEN it said yes.
+             · `Admission.arrivedAt` — when the bed began.
+           So "accepted by this team BEFORE the bed began" is a real derivation,
+           and so is the gap between the two.
+
+           ⚠️ WHAT IT CANNOT SUPPORT, AND WHY THE HEADING IS WORDED AS IT IS.
+           NOTHING IN THE MODEL RECORDS A TEAM CLOSING SOMEBODY. There is no
+           team-side discharge, no episode end, no closure on the addressing —
+           checked in ward-model.ts, not assumed. So the page cannot say a
+           person was STILL with this team on the day they were admitted; it
+           can only say this team had accepted them and nothing records that
+           ending. Calling this section "currently active with the team" would
+           assert a fact no field holds, and a clinician reading it would
+           reasonably believe somebody was under active care who may have been
+           closed months earlier.
+           ═══════════════════════════════════════════════════════════════ -->
+          <section class="panel" data-tone="crit" id="admitted-while-with-us">
+            <header>
+              <h2 class="panel-title">Admitted while already with this team</h2>
+              <span class="chip" data-level="urgent">3 of 6</span>
+              <span class="n">longest with the team first</span>
+            </header>
+            <p class="blurb">
+              People this team had already accepted before their bed began. The fourth column is how long they had been
+              with this team when they were admitted &mdash; a person admitted three weeks after the team took them on
+              is a different picture from one admitted after four months.
+            </p>
+            <div class="panel-body">
+              <div class="table-wrap">
+                <table class="dtable">
+                  <thead>
+                    <tr>
+                      <th scope="col">Admission</th>
+                      <th scope="col">Unit</th>
+                      <th scope="col">In a bed for</th>
+                      <th scope="col">With us before the bed began</th>
+                      <th scope="col">With us altogether</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">AD-2255</th>
+                      <td>Ward 2, Royal Perth Hospital</td>
+                      <td class="n">41 days</td>
+                      <td class="n">118 days</td>
+                      <td class="n">159 days</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2274</th>
+                      <td>Ward 4B, Fiona Stanley Hospital</td>
+                      <td class="n">26 days</td>
+                      <td class="n">62 days</td>
+                      <td class="n">88 days</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2291</th>
+                      <td>Ward 4B, Fiona Stanley Hospital</td>
+                      <td class="n">12 days</td>
+                      <td class="n">23 days</td>
+                      <td class="n">35 days</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="absent" style="margin-top: var(--sp-3)">
+                <b>The other three did not come to this team first.</b> AD-2266 and AD-2310 were referred here
+                <em>during</em> the admission they are still in, and AD-2302 has a bed pulled and has not yet arrived.
+                They are a different group and are deliberately not counted above &mdash; a referral made from the ward
+                is the ward reaching out, not a person relapsing under this team&rsquo;s care.
+              </p>
+            </div>
+            <p class="panel-foot">
+              <b
+                >This says &ldquo;we had accepted them&rdquo;, not &ldquo;they were still with us&rdquo;, and the
+                difference matters.</b
+              >
+              Nothing in this prototype records a community team closing somebody &mdash; there is no team discharge, no
+              episode end and no closing date anywhere on the record. So this list is everyone this team accepted before
+              their bed began and whose care nothing records as having ended. Somebody the team closed a year ago would
+              still appear here, and this page has no way to know. Read it as a prompt to check the team&rsquo;s own
+              notes, never as a statement that these three were under active care on the day they were admitted.
+            </p>
+          </section>
+
+          <section class="panel" id="admitted">
+            <header>
+              <h2 class="panel-title">Ours, in a bed or holding one</h2>
+              <span class="n">6 people &middot; 4 units</span>
+            </header>
+            <p class="blurb">
+              Everyone whose admission points at a referral naming this team. A bed that is <em>pulled</em> is held for
+              somebody who has not yet arrived.
+            </p>
+            <div class="panel-body">
+              <div class="table-wrap">
+                <table class="dtable" aria-describedby="admitted-note">
+                  <caption>
+                    Admissions matched to Inner City Clinic, currently in a bed or holding one
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Admission</th>
+                      <th scope="col">Unit</th>
+                      <th scope="col">In the bed</th>
+                      <th scope="col">Days there</th>
+                      <th scope="col">Came to us</th>
+                      <th scope="col">Ward expects them back</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">AD-2255</th>
+                      <td>Ward 2, Royal Perth Hospital</td>
+                      <td><span class="chip" data-level="settled">In the bed</span></td>
+                      <td class="n">41</td>
+                      <td><span class="chip" data-level="urgent">Before this bed</span></td>
+                      <td><span class="chip">Plan passed 2 days ago</span></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2274</th>
+                      <td>Ward 4B, Fiona Stanley Hospital</td>
+                      <td><span class="chip" data-level="settled">In the bed</span></td>
+                      <td class="n">26</td>
+                      <td><span class="chip" data-level="urgent">Before this bed</span></td>
+                      <td>No date recorded</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2266</th>
+                      <td>Bentley Adult</td>
+                      <td><span class="chip" data-level="settled">In the bed</span></td>
+                      <td class="n">18</td>
+                      <td>During this bed</td>
+                      <td>No date recorded</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2291</th>
+                      <td>Ward 4B, Fiona Stanley Hospital</td>
+                      <td><span class="chip" data-level="settled">In the bed</span></td>
+                      <td class="n">12</td>
+                      <td><span class="chip" data-level="urgent">Before this bed</span></td>
+                      <td><span class="chip">In 3 days</span></td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2310</th>
+                      <td>Ward 4B, Fiona Stanley Hospital</td>
+                      <td><span class="chip" data-level="settled">In the bed</span></td>
+                      <td class="n">4</td>
+                      <td>During this bed</td>
+                      <td>No date recorded</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">AD-2302</th>
+                      <td>Alma Street, Fremantle</td>
+                      <td><span class="chip" data-level="waiting">A bed is pulled &mdash; not yet arrived</span></td>
+                      <td>Not yet arrived</td>
+                      <td>During this bed</td>
+                      <td>No date recorded</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="absent" id="admitted-note" style="margin-top: var(--sp-3)">
+                Elapsed time only, never a date. Every date in this prototype is invented, so a calendar day here would
+                be a synthetic one and nothing this team could act on.
+              </p>
+            </div>
+          </section>
+
+          <section class="panel" id="home">
+            <header>
+              <h2 class="panel-title">Discharged into the area</h2>
+              <span class="n">3 people &middot; every one on record, not a recent window</span>
+            </header>
+            <p class="blurb">People referred to this team whose admission ended in a discharge to the community.</p>
+            <!-- ⚠️ ABOVE THE LIST, DELIBERATELY. The real screen records this placement as a decision:
+             the caveat must sit where it cannot be read past on the way to an empty list. An
+             earlier draft of this mockup put it in the panel foot, below the rows, which reverses
+             that decision silently — and below a SHORT list is exactly where it is never reached. -->
+            <p class="absent" style="margin: var(--sp-3) var(--sp-4) 0">
+              <b>This is not a follow-up list.</b> Whether follow-up has been arranged is recorded on the admission, and
+              nothing in this prototype reads it. So this is everyone recorded as referred to this team and discharged
+              to the community &mdash; <b>not</b> everyone who is missing follow-up. An empty list here would mean
+              nobody referred to this team has a recorded discharge to the community. It would not mean everybody is
+              being followed up, and it must never be read that way.
+            </p>
+            <div class="panel-body">
+              <ul class="people">
+                <li>
+                  <span class="rid">AD-2240</span>
+                  <span class="from">left Ward 4B, Fiona Stanley Hospital</span>
+                  <span class="when">2 days ago</span>
+                </li>
+                <li>
+                  <span class="rid">AD-2231</span>
+                  <span class="from">left Ward 2, Royal Perth Hospital</span>
+                  <span class="when">6 days ago</span>
+                </li>
+                <li>
+                  <span class="rid">AD-2218</span>
+                  <span class="from">left Alma Street, Fremantle</span>
+                  <span class="when">11 days ago</span>
+                </li>
+              </ul>
+            </div>
+            <p class="panel-foot">
+              Every person on record, not a recent window &mdash; this list has no time filter, so nothing here is
+              hidden for being old.
+            </p>
+          </section>
+
+          <section class="panel" id="other">
+            <header>
+              <h2 class="panel-title">Left the ward another way</h2>
+              <span class="n">2 people</span>
+            </header>
+            <div class="panel-body">
+              <p class="absent">
+                Two people referred to this team ended an admission that is
+                <b>not recorded as a discharge to the community</b>. The record says only how the admission ended
+                &mdash; <b>Transferred to a general hospital</b>, and <b>Left against advice</b>, in the
+                vocabulary&rsquo;s own words. <b>Neither record says where the person went next</b>, and reading either
+                as &ldquo;came home&rdquo; or as &ldquo;did not come home&rdquo; would be an invention in one direction
+                or the other.
+              </p>
+            </div>
+          </section>
+        </div>
+
+        <!-- ═══ rail ═════════════════════════════════════════════════ -->
+        <aside class="rail">
+          <section class="panel" data-tone="signal">
+            <header><h2 class="panel-title">Worth your attention</h2></header>
+            <div class="panel-body">
+              <ul class="attention">
+                <li>
+                  <span class="who">RF-104</span>Waiting 2 days 4 hours, marked urgent, and needs transport arranged
+                  before anyone can move. It is the oldest unanswered referral this team holds.
+                </li>
+                <li>
+                  <span class="who">AD-2291</span>Admitted 23 days after this team accepted them &mdash; the shortest
+                  gap of the three admitted while already with us, and the one worth looking at first.
+                </li>
+                <li>
+                  <span class="who">AD-2255</span>Forty-one days in a bed at Royal Perth, and the ward&rsquo;s own
+                  expected-back date passed two days ago without being revised.
+                </li>
+                <li>
+                  <span class="who">84 admissions</span>Could not be matched to any community team at all. They are on
+                  no team&rsquo;s page anywhere &mdash; not this one, and not another.
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header><h2 class="panel-title">What this page cannot tell you</h2></header>
+            <div class="panel-body">
+              <ul class="limits">
+                <li>
+                  <span class="head">Whether this list is complete</span>
+                  A person appears here only if their admission points at a referral this page can find.
+                  <b>An admission whose referral cannot be found is missing from every list here</b>, exactly as if
+                  there were no referral at all, and is counted in the 84 above rather than shown.
+                </li>
+                <li>
+                  <span class="head">Whether somebody is still with this team</span>
+                  Nothing records a team closing a person &mdash; no team discharge, no episode end, no closing date. So
+                  &ldquo;admitted while already with this team&rdquo; means
+                  <em>this team had accepted them and nothing records that ending</em>, which is not the same statement
+                  and must not be read as one.
+                </li>
+                <li>
+                  <span class="head">Whether anyone is being followed up</span>
+                  The field exists and some admissions carry a value, but no screen reads it and nothing here can set
+                  one.
+                </li>
+                <li>
+                  <span class="head">Which referrals this team raised</span>
+                  A referral records that its source was a community service, but the source side carries no team name
+                  &mdash; so nothing says which team raised one. Referrals addressed <em>to</em> this team are
+                  different: they carry the name, which is how everyone above is on this page. No list is shown until it
+                  is the real one.
+                </li>
+                <li>
+                  <span class="head">Everyone in this area</span>
+                  A person appears here only because a referral <em>named</em> this team. Anyone whose referral asked
+                  only for a bed or an emergency department, and anyone admitted with no referral at all, is on no
+                  team&rsquo;s page anywhere. Expect that to be most of the ward &mdash; naming a community team is
+                  something a referrer does rarely and deliberately. Where a person lives is not read at all.
+                </li>
+                <li>
+                  <span class="head">Any date</span>
+                  Every date in this prototype is invented, so the page states how long ago or how long until, never the
+                  day itself.
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header><h2 class="panel-title">This team</h2></header>
+            <div class="panel-body">
+              <ul class="facts">
+                <li><span class="k">Name recorded as</span><span class="v">Inner City Clinic</span></li>
+                <li><span class="k">Suburbs naming it</span><span class="v num">1</span></li>
+                <li>
+                  <span class="k">Entries that read alike</span
+                  ><span class="v num">2</span
+                  ><!-- Kimberley/Kimberley HS style spelling collisions only. The four Inner City spellings are one
+                 service by the owner's ruling, which is a different row and a different authority. -->
+                </li>
+                <li><span class="k">Hours, contacts, staffing</span><span class="v">Not held</span></li>
+              </ul>
+              <p class="absent" style="margin-top: var(--sp-3)">
+                <b>One suburb names this clinic &mdash; Noranda, and no other.</b> That is the real figure, read from
+                the catchment table, and it is the strongest thing on this page about how thin the source is: a clinic
+                named by a single suburb is a one-off entry in a document, not evidence of a service. This team name
+                comes from that one source document &mdash; a follow-up clinic named by the S2015 catchment table, which
+                is what a referral in this prototype can name. It is not a roster of Western Australian community
+                services, no team has agreed to be represented here, and nothing on this page reflects who actually
+                provides community care.
+              </p>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header><h2 class="panel-title">Go to</h2></header>
+            <div class="panel-body">
+              <ul class="links">
+                <li>
+                  <a href="./mockup-community-gateway-v1.html"
+                    >All 65 community teams<span class="arrow">&rarr;</span></a
+                  >
+                </li>
+                <li>
+                  <a href="./mockup-community-gateway-v1.html"
+                    >Compare the names that read alike<span class="arrow">&rarr;</span></a
+                  >
+                </li>
+                <li>
+                  <a href="#">Raise a referral<span class="arrow">&rarr;</span></a>
+                </li>
+                <li>
+                  <a href="#">The bed board<span class="arrow">&rarr;</span></a>
+                </li>
+              </ul>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <div class="footnote">
+        <h2>What is real, taken from the repository</h2>
+        <ul>
+          <li>
+            <b>The team name, and that it is one of four spellings of one service.</b> &ldquo;Inner City Clinic&rdquo;
+            is a follow-up clinic named by the S2015 catchment table, reproduced exactly. On 2026-09-05 the owner ruled
+            that it, <em>Inner City</em>, <em>ICC</em> and <em>Inner City (central)</em> are the same team &mdash; 21
+            suburbs. <b>That is a person&rsquo;s decision on record, not a similarity the software worked out</b>, and
+            the two are deliberately kept apart so a reader can tell them apart.
+          </li>
+          <li>
+            <b>Every fact this page refuses to state.</b> The follow-up field being unreadable, referrals-raised-by
+            being unattributable, association coming from the team written on the referral rather than from where
+            somebody lives, and dates being withheld &mdash; all four are the real behaviour of the current model,
+            quoted from the page they already appear on.
+          </li>
+          <li>
+            <b>The bed states.</b> &ldquo;In the bed&rdquo; and &ldquo;a bed is pulled &mdash; not yet arrived&rdquo;
+            are the model&rsquo;s own two occupied states.
+          </li>
+          <li>
+            <b>That &ldquo;admitted while already with this team&rdquo; can be derived at all.</b> A destination records
+            that this team <em>accepted</em> and when it decided, and an admission records when the bed began, so
+            &ldquo;accepted before the bed began&rdquo; and the gap between the two are both real.
+            <b>That a team closing somebody is NOT recorded is equally real</b> &mdash; checked in the model, not
+            assumed &mdash; which is why the heading says what this team accepted rather than who is still with it.
+          </li>
+          <li>
+            <b>That a decline is a recorded answer and not a lock-out</b>, and that a coordinator can override any
+            answer on this page.
+          </li>
+        </ul>
+
+        <h2>What is invented</h2>
+        <ul>
+          <li>
+            <b>Every referral</b> &mdash; RF-104, RF-112, RF-118, RF-121 &mdash; with its waiting time, urgency, age
+            band, source and transport need.
+          </li>
+          <li>
+            <b>Every admission</b> &mdash; AD-2218, AD-2231, AD-2240, AD-2255, AD-2266, AD-2274, AD-2291, AD-2302,
+            AD-2310 &mdash; with its unit, bed state, length of stay and expected-back wording.
+          </li>
+          <li><b>All six figures in the header strip</b>, and the count in &ldquo;left the ward another way&rdquo;.</li>
+          <li>
+            <b>Which three of the six were admitted while already with this team</b>, the &ldquo;3 of 6&rdquo; split,
+            and the three gaps between acceptance and admission &mdash; <b>118</b>, <b>62</b> and <b>23</b> days, with
+            the totals <b>159</b>, <b>88</b> and <b>35</b> that follow from them. The derivation is real; these
+            particular people and numbers are not.
+          </li>
+          <li><b>The 84 unmatched admissions.</b> The method behind it is real; the number is not.</li>
+          <li>
+            ⚠️ <b>An earlier draft said nine suburbs name this clinic. One does &mdash; Noranda.</b> A review computed
+            it; the catchment table has exactly one matching row. The invented figure was properly declared as invented
+            and still made the page weaker, because it hid the very thing the page is arguing:
+            <b>a clinic named by a single suburb is visibly a one-off entry in a document.</b> The real figure now
+            stands in the panel above, and it is not invented.
+          </li>
+          <li>
+            <b>Every elapsed time on the page:</b> 3h, 19h, 1d 6h, 2d 4h, 2 days, 3 days, 6 days, 11 days, and the day
+            counts 4, 12, 18, 26 and 41.
+          </li>
+          <li><b>&ldquo;Live &middot; refreshed a moment ago&rdquo;</b> in the bar. Nothing here is live.</li>
+        </ul>
+
+        <h2>What this edition changes, and why</h2>
+        <ul>
+          <li>
+            <b>The team&rsquo;s own queue is now first and above the fold.</b> The old page never asked who was waiting
+            on this team &mdash; the one question a community team opens a page to answer &mdash; and opened instead
+            with people already discharged.
+          </li>
+          <li>
+            <b>The caveats are gathered, not scattered.</b> Four advisory paragraphs used to sit between the heading and
+            the first fact. The ones that qualify a specific list now sit under that list, and the rest are in one rail
+            panel a reader can consult rather than wade through.
+            <b>An earlier draft of this line claimed every sentence survived, and a review found three that had not</b>
+            &mdash; the incomplete-list caveat, the ward&rsquo;s-own-plan sentence, and the other-departures sentence,
+            which had been replaced by a version that stated where two people went when the record does not say. All
+            three are restored above. <b>A claim to have lost nothing is exactly the claim nobody re-checks</b>, which
+            is why it is written here as a caught defect rather than quietly repaired.
+          </li>
+          <li>
+            <b>A new section the old page had no equivalent of: who was admitted while this team already had them.</b>
+            It is the team&rsquo;s own relapse signal, it is derivable from the acceptance time and the bed&rsquo;s
+            start, and it sits above the general admitted list because it is the smaller and louder group. It is worded
+            as what this team <em>accepted</em>, never as who is still with it, because no field records a team closing
+            anybody.
+          </li>
+          <li>
+            <b>A team switcher, because there are 65 names</b>, and it separates the two things a reader must not
+            confuse: entries that <em>read alike</em> by spelling and are not merged, and entries a
+            <b>person has ruled are one service</b>. ⚠️
+            <b>This copy said the opposite until the ruling landed</b> &mdash; it cited <em>ICC</em> as the example of a
+            name the check misses, which stopped being true the moment somebody decided it. <b>Nothing went red.</b> The
+            pin on ICC passes either way, by design, because the alias table is deliberately unreachable from the
+            spelling rule. A peer told me; no gate could.
+          </li>
+          <li>
+            <b>Nothing was added that the record cannot support.</b> No caseload, no staffing, no contact details, no
+            map, no outcome &mdash; each of those would have been invented rather than read.
+          </li>
+        </ul>
+      </div>
+    </main>
+  </body>
+</html>

@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { formatInstantWithDay, splitDuration, type Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { WardTable } from "@/components/ward-management/ward-table/ward-table";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import type { Referral, Unit } from "@/components/ward-management/ward-model";
 import { WARD_REFERRAL_INTAKE_HREF } from "@/components/ward-management/ward-nav";
@@ -264,9 +265,8 @@ export function ReferralBoard() {
         <div className={styles.governanceBanner} data-testid="ward-referral-board-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
-            This board is <strong>not a medical device</strong>. It never allocates, never ranks units by suitability,
-            and never suggests which bed is best &mdash; every unit is listed in the network&apos;s own fixed order, and
-            a coordinator decides.
+            This board is <strong>not a medical device</strong>. Every unit is listed in the network&apos;s own fixed
+            order. It places nobody: a coordinator decides every placement, one at a time, and records it here.
           </p>
         </div>
 
@@ -280,7 +280,19 @@ export function ReferralBoard() {
            * rather than by a duplicate nobody can see.
            */}
           <h1 className={styles.pageTitle}>Referral board</h1>
-          <p className={styles.pageSubtitle}>Queued referrals first, then recently decided.</p>
+          {/*
+           * ⚠️ THE ORDERING IS CORRECT AND LOOKS WRONG, WHICH IS WHY IT IS EXPLAINED RATHER THAN
+           * CHANGED. `referralQueueOrder` sorts `urgency` then `raisedAt`, so the longest-waiting
+           * referral on the whole board can sit at the BOTTOM of the queue whenever a more urgent
+           * tier is above it. A coordinator reading a prominent wait clock on every row and finding
+           * the biggest number last has every reason to think the board is broken. Owner ruling,
+           * 2026-09-06: say why; do not reorder.
+           */}
+          <p className={styles.pageSubtitle} data-testid="ward-referral-board-order-note">
+            Queued referrals first, then recently decided. Inside the queue the most urgent tier comes first, and the
+            longest wait comes first within each tier — so somebody who has waited longer can sit below somebody more
+            urgent.
+          </p>
           {/*
            * Task 6. The intake form's ONLY entry point, and deliberately so: it is an action taken
            * from this queue rather than a section of the app, which is the reason recorded against
@@ -323,8 +335,14 @@ function QueuedSection({
   selectedId: string | undefined;
   onSelect: (referralId: string) => void;
 }) {
+  /*
+   * `.sectionLive` alongside `.section`: the queued list is the work and the decided list below it
+   * is the record, and until this pass the two sat in identically-styled panels — same fill, same
+   * border, same weight — so nothing on the page said which one a coordinator is meant to be
+   * reading. One elevated surface on the screen, and it is this one.
+   */
   return (
-    <section className={styles.section} data-testid="ward-referral-board-queued">
+    <section className={`${styles.section} ${styles.sectionLive}`} data-testid="ward-referral-board-queued">
       <h2 className={styles.sectionHeading}>Queued ({queued.length})</h2>
       {queued.length === 0 ? (
         <p className={styles.emptyNote} data-testid="ward-referral-board-queued-empty">
@@ -332,13 +350,16 @@ function QueuedSection({
         </p>
       ) : (
         <>
-          <div className={styles.tableScroll} data-testid="ward-referral-board-queued-table">
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">Referral</th>
-                  <th scope="col">Tier</th>
-                  {/* M5 note is on the card below. M9: the cell holds an ELAPSED duration
+          <WardTable
+            className={styles.table}
+            wrapperClassName={styles.tableScroll}
+            testId="ward-referral-board-queued-table"
+          >
+            <thead>
+              <tr>
+                <th scope="col">Referral</th>
+                <th scope="col">Tier</th>
+                {/* M5 note is on the card below. M9: the cell holds an ELAPSED duration
                       ("40m waiting"), not a clock time — "Waiting since" promised "09:10". The
                       elapsed form is the more useful one on a queue, so the header moves to
                       match the cell rather than the cell moving to match the header.
@@ -348,68 +369,78 @@ function QueuedSection({
                       under a header asserting somebody is still waiting. The header now names what
                       BOTH forms measure FROM, and each cell says for itself whether it is still
                       running. */}
-                  <th scope="col">Since referral</th>
-                  <th scope="col">Age band</th>
-                  <th scope="col">Sex</th>
-                  <th scope="col">Home region</th>
-                </tr>
-              </thead>
-              <tbody>
-                {queued.map((referral) => {
-                  /*
-                   * Owner ruling, 2026-09-01: "a refusal shows on the board as soon as it is
-                   * given" — `referralState()` reads "queued" while ANY destination is still
-                   * undecided, so a referral two services have already refused sat here showing
-                   * NOTHING until the last one answered. `refusalLines()` is reused as-is (never
-                   * a second filter, never `cancelledAddressings`): a queued referral can never
-                   * hold a `cancelled` destination — that only happens as a side effect of an
-                   * acceptance, which makes `referralState()` non-queued — so this stays closed
-                   * to the cancelled/refused mix-up the decided section had to guard against.
-                   */
-                  const refusals = refusalLines(referral);
-                  return (
-                    <tr
-                      key={referral.id}
-                      className={referral.id === selectedId ? styles.selectedRow : undefined}
-                      data-testid={`ward-referral-board-row-${referral.id}`}
-                    >
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.rowSelectButton}
-                          data-testid={`ward-referral-board-select-${referral.id}`}
-                          aria-pressed={referral.id === selectedId}
-                          onClick={() => onSelect(referral.id)}
-                        >
-                          {referral.id}
-                        </button>
-                        {/* Sibling of the button, never inside it: a `<button>` accepts phrasing
+                <th scope="col">Since referral</th>
+                <th scope="col">Age band</th>
+                <th scope="col">Sex</th>
+                <th scope="col">Home region</th>
+              </tr>
+            </thead>
+            <tbody>
+              {queued.map((referral) => {
+                /*
+                 * Owner ruling, 2026-09-01: "a refusal shows on the board as soon as it is
+                 * given" — `referralState()` reads "queued" while ANY destination is still
+                 * undecided, so a referral two services have already refused sat here showing
+                 * NOTHING until the last one answered. `refusalLines()` is reused as-is (never
+                 * a second filter, never `cancelledAddressings`): a queued referral can never
+                 * hold a `cancelled` destination — that only happens as a side effect of an
+                 * acceptance, which makes `referralState()` non-queued — so this stays closed
+                 * to the cancelled/refused mix-up the decided section had to guard against.
+                 */
+                const refusals = refusalLines(referral);
+                return (
+                  <tr
+                    key={referral.id}
+                    className={referral.id === selectedId ? styles.selectedRow : undefined}
+                    data-testid={`ward-referral-board-row-${referral.id}`}
+                  >
+                    <td>
+                      <button
+                        type="button"
+                        className={styles.rowSelectButton}
+                        data-testid={`ward-referral-board-select-${referral.id}`}
+                        aria-pressed={referral.id === selectedId}
+                        onClick={() => onSelect(referral.id)}
+                      >
+                        {referral.id}
+                      </button>
+                      {/* Sibling of the button, never inside it: a `<button>` accepts phrasing
                             content only (M5), and this cell's select button carries no test of
                             its own for that yet — the queued card's does. Rendered only when
                             there is a refusal to show, so a referral with no answers yet looks
                             exactly as this cell always has. */}
-                        {refusals.length > 0 ? (
-                          <span
-                            className={styles.outcomeDetailRefusals}
-                            data-testid={`ward-referral-board-refusals-${referral.id}`}
-                          >
-                            {`${QUEUED_REFUSED_LEAD} — ${refusals.join(" · ")}`}
-                          </span>
-                        ) : null}
-                      </td>
-                      <td>{urgencyTierLabel(referral.urgency)}</td>
-                      <td className={styles.waitBadge} data-testid={`ward-referral-board-wait-${referral.id}`}>
-                        {referralWaitLine(referral, now)}
-                      </td>
-                      <td>{referral.ageBand}</td>
-                      <td>{referralSexCell(referral)}</td>
-                      <td>{referral.homeRegion}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      {refusals.length > 0 ? (
+                        <span
+                          className={styles.outcomeDetailRefusals}
+                          data-testid={`ward-referral-board-refusals-${referral.id}`}
+                        >
+                          {`${QUEUED_REFUSED_LEAD} — ${refusals.join(" · ")}`}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className={styles.tierCell}>{urgencyTierLabel(referral.urgency)}</td>
+                    {/* ⚠️ THE BADGE IS AN INNER `<span>`, AND IT USED TO BE THE `<td>` ITSELF.
+                          `.waitBadge` sets `display: inline-block`, which on a `<td>` takes the
+                          element OUT of the table's box model: the browser wraps it in an
+                          anonymous cell, so the badge stops sizing to its column and the row's
+                          bottom rule stops crossing it. Measured on the board at 1440px before
+                          the fix — column header 199px against an 88px cell, and a 31px badge
+                          floating in a 61px row with a short rule under it. Every other consumer
+                          of `.waitBadge` is a `<span>` or a `<p>`, where `inline-block` is right;
+                          the `<td>` was the one place it was wrong, which is why nothing else
+                          showed it. The test id stays on the CELL — it identifies the cell, and
+                          `toHaveTextContent` reads through to the span. */}
+                    <td className={styles.waitCell} data-testid={`ward-referral-board-wait-${referral.id}`}>
+                      <span className={styles.waitBadge}>{referralWaitLine(referral, now)}</span>
+                    </td>
+                    <td>{referral.ageBand}</td>
+                    <td>{referralSexCell(referral)}</td>
+                    <td>{referral.homeRegion}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </WardTable>
 
           <ul className={styles.cardList} data-testid="ward-referral-board-queued-cards">
             {queued.map((referral) => {
@@ -482,43 +513,45 @@ function DecidedSection({ decided, units, now }: { decided: Referral[]; units: U
         </p>
       ) : (
         <>
-          <div className={styles.tableScroll} data-testid="ward-referral-board-decided-table">
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th scope="col">Referral</th>
-                  <th scope="col">Outcome</th>
-                  {/* Review finding I3: the accepting unit, or the decline reason — the record's
+          <WardTable
+            className={styles.table}
+            wrapperClassName={styles.tableScroll}
+            testId="ward-referral-board-decided-table"
+          >
+            <thead>
+              <tr>
+                <th scope="col">Referral</th>
+                <th scope="col">Outcome</th>
+                {/* Review finding I3: the accepting unit, or the decline reason — the record's
                       own detail, not merely the word for it. */}
-                  <th scope="col">Detail</th>
-                  <th scope="col">Waited</th>
-                  <th scope="col">Decided</th>
+                <th scope="col">Detail</th>
+                <th scope="col">Waited</th>
+                <th scope="col">Decided</th>
+              </tr>
+            </thead>
+            <tbody>
+              {decided.map((referral) => (
+                <tr key={referral.id} data-testid={`ward-referral-board-decided-row-${referral.id}`}>
+                  <td>{referral.id}</td>
+                  <td>{outcomeLabel(referral)}</td>
+                  <td data-testid={`ward-referral-board-decided-detail-${referral.id}`}>
+                    <OutcomeDetail
+                      referral={referral}
+                      units={units}
+                      refusalsTestId={`ward-referral-board-decided-refusals-${referral.id}`}
+                      cancelledTestId={`ward-referral-board-decided-cancelled-${referral.id}`}
+                    />
+                  </td>
+                  <td>{decidedWaitLabel(referral)}</td>
+                  <td>
+                    {referralDecidedAt(referral) !== undefined
+                      ? formatInstantWithDay(referralDecidedAt(referral)!, now)
+                      : "Not recorded"}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {decided.map((referral) => (
-                  <tr key={referral.id} data-testid={`ward-referral-board-decided-row-${referral.id}`}>
-                    <td>{referral.id}</td>
-                    <td>{outcomeLabel(referral)}</td>
-                    <td data-testid={`ward-referral-board-decided-detail-${referral.id}`}>
-                      <OutcomeDetail
-                        referral={referral}
-                        units={units}
-                        refusalsTestId={`ward-referral-board-decided-refusals-${referral.id}`}
-                        cancelledTestId={`ward-referral-board-decided-cancelled-${referral.id}`}
-                      />
-                    </td>
-                    <td>{decidedWaitLabel(referral)}</td>
-                    <td>
-                      {referralDecidedAt(referral) !== undefined
-                        ? formatInstantWithDay(referralDecidedAt(referral)!, now)
-                        : "Not recorded"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </WardTable>
 
           <ul className={styles.cardList} data-testid="ward-referral-board-decided-cards">
             {decided.map((referral) => (

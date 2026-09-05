@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { remainingSpeciallingCapacity, type Admission } from "../src/components/ward-management/ward-admissions";
 import { capacityBreakdown } from "../src/components/ward-management/ward-bed-availability";
+import { unitHasLockedBeds } from "../src/components/ward-management/ward-bed-designation";
 import { OVERRIDE_REASONS } from "../src/components/ward-management/ward-change-reasons";
 import { unitCapacity } from "../src/components/ward-management/ward-derivations";
 import { eligibility } from "../src/components/ward-management/ward-eligibility";
@@ -151,12 +152,13 @@ function bench(): WardFlowState {
   // Security is matched too, though only cohort was wrong: a secure ward can lawfully hold an
   // open-status patient, so this is coherence rather than necessity, and it costs nothing —
   // the seed holds several adult/secure movements.
+  const unitSecurityWord = unitHasLockedBeds(unit) ? "Secure" : "Open";
   const sources = seeded.movements.filter(
-    (candidate) => candidate.cohort === unit.cohort && candidate.security === unit.security,
+    (candidate) => candidate.cohort === unit.cohort && candidate.security === unitSecurityWord,
   );
   if (sources.length < 3) {
     throw new Error(
-      `the seed no longer holds three ${unit.security} ${unit.cohort} movements to rewrite ` +
+      `the seed no longer holds three ${unitSecurityWord} ${unit.cohort} movements to rewrite ` +
         `(found ${sources.length}) — this file must not fall back to a clinically wrong placement`,
     );
   }
@@ -193,7 +195,7 @@ function cohortMismatchBench(): WardFlowState {
   // unrelated to cohort — mismatching it too would leave two failing gates instead of one, and
   // Test 1 below exists precisely to catch that).
   const mismatched = seeded.movements.find(
-    (candidate) => candidate.cohort !== unit.cohort && (candidate.security === "Open" || unit.security === "Secure"),
+    (candidate) => candidate.cohort !== unit.cohort && (candidate.security === "Open" || unitHasLockedBeds(unit)),
   );
   if (!mismatched) {
     throw new Error(

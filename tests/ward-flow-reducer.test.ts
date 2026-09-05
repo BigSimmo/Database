@@ -1064,8 +1064,27 @@ describe("arrival capacity floor", () => {
     const final = walkToArrival(raised, thirdId);
 
     expect(movement(final, thirdId).stage).not.toBe("arrived");
-    expect(final.rejections.some((rejection) => rejection.reason.includes("no_bed"))).toBe(true);
     const after = final.units.find((unit) => unit.id === "rph-adult-secure")!;
+    /*
+     * ⚠️ **THE WHOLE SENTENCE, AND THE EVENT IT CAME FROM — because `"no_bed"` alone does not
+     * identify this refusal.** `"no_bed"` is also a member of `DECLINE_REASONS`, so the earlier
+     * `reason.includes("no_bed")` form passed on ANY rejection whose text merely mentioned it,
+     * including a ward declining for want of a bed — a different event, from a different guard,
+     * consistent with this arrival having succeeded.
+     *
+     * Proved by mutation rather than asserted: rewriting the refusal at
+     * `ward-flow-reducer.ts:1626` to `ward declined (no_bed)` leaves the loose form GREEN and
+     * takes this form red. That is what the tightening buys, and it is why `attempted` is checked
+     * too — the message could be reproduced by another guard, the message *from the arrival event*
+     * could not.
+     */
+    expect(
+      final.rejections.some(
+        (rejection) =>
+          rejection.attempted === "PATIENT_ARRIVED" &&
+          rejection.reason === `no physically empty bed remains at ${after.name} (no_bed)`,
+      ),
+    ).toBe(true);
     expect(after.empty.value).toBe(0);
   });
 });

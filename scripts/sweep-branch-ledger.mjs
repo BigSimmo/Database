@@ -10,10 +10,7 @@
  * patch content. Branches already recorded in docs/branch-review-ledger.md are noted
  * so a follow-up review can skip them.
  *
- * Flags: --fetch (contact origin and refresh every remote head; off by default, because a
- *        report-only tool must not reach GitHub without the operator asking — see the
- *        "API and provider confirmation boundary" in AGENTS.md), --json (machine-readable
- *        output). `--no-fetch` is accepted for compatibility and is the default.
+ * Flags: --no-fetch (skip the network fetch), --json (machine-readable output).
  */
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -230,21 +227,9 @@ export function branchCoverageRefusal(configOutput, wildcardFetchCompleted) {
     "Fix: git remote set-branches origin '*'",
     "     git fetch --prune origin",
     "Then re-run and confirm `git config --get-all remote.origin.fetch` maps",
-    "refs/heads/* → refs/remotes/origin/* with no ^ exclusions — or pass --fetch and",
+    "refs/heads/* → refs/remotes/origin/* with no ^ exclusions — or drop --no-fetch and",
     "let the sweep fetch the wildcard itself, which overrides a configured exclusion.",
   ].join("\n");
-}
-
-/** The exact network command the sweep runs when, and only when, `--fetch` is passed. */
-export const SWEEP_FETCH_COMMAND = "git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'";
-
-/**
- * Network is opt-in: a report-only sweep contacts origin only when the operator passes
- * `--fetch`. `--no-fetch` remains accepted (it was the old opt-out) and means the same as
- * the default; an explicit `--no-fetch` beside `--fetch` wins, since it is the safer reading.
- */
-export function sweepFetchRequested(argv) {
-  return argv.includes("--fetch") && !argv.includes("--no-fetch");
 }
 
 function main() {
@@ -267,12 +252,7 @@ function main() {
   }
 
   let wildcardFetchCompleted = false;
-  if (!sweepFetchRequested(process.argv)) {
-    console.error(
-      `sweep-branch-ledger: reporting from the local remote-tracking refs (no network). ` +
-        `To refresh them first, re-run with --fetch, which runs: ${SWEEP_FETCH_COMMAND}`,
-    );
-  } else {
+  if (!process.argv.includes("--no-fetch")) {
     try {
       // Explicit wildcard refspec, not the configured one: a --depth 1 / --single-branch clone
       // pins remote.origin.fetch to one branch, and unshallowing does not widen it. Passing the

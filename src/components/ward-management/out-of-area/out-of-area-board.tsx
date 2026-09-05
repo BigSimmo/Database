@@ -10,6 +10,7 @@ import {
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { outOfAreaLedger, type OutOfAreaEntry } from "@/components/ward-management/ward-referrals";
+import { WardTable } from "@/components/ward-management/ward-table/ward-table";
 
 import styles from "./out-of-area.module.css";
 
@@ -120,19 +121,29 @@ export function OutOfAreaBoard({ admissions }: { admissions?: Admission[] }) {
         </p>
 
         {/*
-         * Imported whole from `ward-distance.ts`, never retyped, and rendered before the entries
-         * rather than beneath them. The threshold is this prototype's own invention, and the
-         * sentence saying so has to be met before the number is.
+         * The two governance notices, in ONE frame rather than one frame each — see
+         * `.noticeGroup` in the stylesheet for why (two pixel-identical amber boxes in a row read
+         * as one repeated element, and the eye skips the second). Nothing about the sentences
+         * changes: same words, same order, same place, full text, never collapsed.
+         *
+         * Both are imported whole from `ward-distance.ts` and never retyped, and both are
+         * rendered BEFORE the entries rather than beneath them: the threshold is this prototype's
+         * own invention and the sentence saying so has to be met before the number is, and bands
+         * are shown on every row below, so the sentence that says the travel times are invented
+         * belongs on this screen too.
+         *
+         * The wrapper carries no test id of its own. The two paragraphs keep theirs, which is
+         * where every existing assertion looks, and adding a third id for a frame would invite a
+         * test to assert against the grouping rather than against the sentences.
          */}
-        <p className={styles.notice} data-testid="ward-out-of-area-threshold-notice">
-          {INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE}
-        </p>
-
-        {/* Bands are shown on every row below, so the sentence that says the travel times are
-            invented belongs on this screen too. Also imported, also whole. */}
-        <p className={styles.notice} data-testid="ward-out-of-area-synthetic-notice">
-          {SYNTHETIC_TRAVEL_TIMES_NOTICE}
-        </p>
+        <div className={styles.noticeGroup}>
+          <p className={styles.notice} data-testid="ward-out-of-area-threshold-notice">
+            {INVENTED_OUT_OF_AREA_THRESHOLD_NOTICE}
+          </p>
+          <p className={styles.notice} data-testid="ward-out-of-area-synthetic-notice">
+            {SYNTHETIC_TRAVEL_TIMES_NOTICE}
+          </p>
+        </div>
 
         {/*
          * What this list is, in the screen's own words, and it says only what is true.
@@ -144,13 +155,23 @@ export function OutOfAreaBoard({ admissions }: { admissions?: Admission[] }) {
          *
          * What IS true is narrower, and is stated here instead: the list is seeded, no event in
          * this prototype adds to it or removes from it, and it is not a live count of anything.
+         *
+         * ⚠️ **"THE SECOND FIGURE ABOVE", AND IT READ "BELOW" FROM THE DAY IT WAS WRITTEN.** The
+         * counts paragraph has always rendered before this one — `git show 74253c367:<this file>`
+         * shows `.counts` at line 105 and `.provenance` at 142 in the very commit that introduced
+         * the sentence — so this was never drift, it was wrong on arrival and nobody reading the
+         * page ever chased the pointer. A direction word is the one part of a governance sentence
+         * that no proofread catches, because it is correct as English and wrong only against the
+         * layout. `tests/ward-out-of-area-figure-direction.dom.test.tsx` now checks the word
+         * against the rendered DOM order rather than pinning the word itself, so moving either
+         * paragraph fails loudly instead of silently making the sentence true again by accident.
          */}
         <p className={styles.provenance} data-testid="ward-out-of-area-provenance">
           This is not a live statewide count. Everyone here starts from this prototype&apos;s own seeded records.
           Somebody who has left their bed is not on this list, and neither is anybody who has not yet arrived. Nothing
           on these screens takes anyone off it. A patient who ARRIVES during this session is added straight away,
           because arrival records a person in a bed — but the emergency-department pathway records no home region, and a
-          distance from an unknown home is not a distance, so they raise the second figure below rather than joining the
+          distance from an unknown home is not a distance, so they raise the second figure above rather than joining the
           list of people far from home.
         </p>
 
@@ -162,29 +183,27 @@ export function OutOfAreaBoard({ admissions }: { admissions?: Admission[] }) {
             </p>
           ) : (
             <>
-              <div className={styles.tableScroll} data-testid="ward-out-of-area-table">
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th scope="col">Home region</th>
-                      <th scope="col">Unit</th>
-                      <th scope="col">Travel time</th>
-                      <th scope="col">Since arrival</th>
+              <WardTable className={styles.table} wrapperClassName={styles.tableScroll} testId="ward-out-of-area-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Home region</th>
+                    <th scope="col">Unit</th>
+                    <th scope="col">Travel time</th>
+                    <th scope="col">Since arrival</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* The ledger's own order, unsorted and untruncated. See this file's header. */}
+                  {entries.map((entry) => (
+                    <tr key={entry.admission.id} data-testid={`ward-out-of-area-row-${entry.admission.id}`}>
+                      <td>{entry.admission.homeRegion}</td>
+                      <td>{entry.unit.name}</td>
+                      <td>{TRAVEL_BAND_LABELS[entry.band]}</td>
+                      <td>{sinceArrivalLabel(entry, now)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {/* The ledger's own order, unsorted and untruncated. See this file's header. */}
-                    {entries.map((entry) => (
-                      <tr key={entry.admission.id} data-testid={`ward-out-of-area-row-${entry.admission.id}`}>
-                        <td>{entry.admission.homeRegion}</td>
-                        <td>{entry.unit.name}</td>
-                        <td>{TRAVEL_BAND_LABELS[entry.band]}</td>
-                        <td>{sinceArrivalLabel(entry, now)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </WardTable>
 
               {/* The phone view. Each card is keyed, because below 40rem this list is the ONLY
                   thing a coordinator sees — the table above is `display: none` there — and a row

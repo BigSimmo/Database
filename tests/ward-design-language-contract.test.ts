@@ -347,8 +347,10 @@ describe("the ground is not merely painted — it has to be visible", () => {
    * to RESTORE THE MISSING CSS, not to put the row back. Putting the row back is also green, and
    * wrong.
    */
-  const COVERING_THE_GROUND = [
-    "statistics/statistics.module.css",
+  /* ⚠️ ANNOTATED BECAUSE IT IS EMPTY. With rows in it the type was inferred; at zero rows
+     TypeScript infers `any[]` and `noImplicitAny` fails — and vitest runs no tsc, so the suite
+     stayed green through it. The annotation is what lets this list reach zero at all. */
+  const COVERING_THE_GROUND: string[] = [
     // ⚠️ THREE SCREENS ONCE SAT HERE AND ALL THREE ARE NOW GONE FROM THIS LIST — that is the
     // pin working, not the pin rotting. `tracker/live-tracker.module.css`,
     // `ward-management-modes.module.css` and `ward-management.module.css` each had their root
@@ -380,6 +382,13 @@ describe("the ground is not merely painted — it has to be visible", () => {
     "ward-shell.module.css",
     "ward-sidebar.module.css",
     "ward-tokens.module.css",
+    // ⚠️ ADDED 2026-09-05, second-edition visual pass on QueueView/ExceptionsView/GovernanceView.
+    // Same shape as `ward-panel.module.css` above: its first declared rule is `.panel`, a
+    // component class that legitimately paints `--ward-canvas` on top of the ground `WardGround`
+    // already paints at the layout — not a page root. The file has no `.screen`/`.modeShell`
+    // equivalent at all; every class in it is scoped to a panel, a table cell, a chip or a list
+    // inside one of the three views ward-management-modes.tsx still owns.
+    "ward-modes-second-edition.module.css",
   ]);
 
   /**

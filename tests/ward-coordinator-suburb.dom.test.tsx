@@ -7,6 +7,7 @@ import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * OWNER RULING, 2026-09-02: a coordinator may see the suburb a referred patient is from —
  * `PD-3` permits a suburb precisely because it names a service area, never a dwelling. This suite
@@ -56,6 +57,7 @@ function SeedReferredMovement() {
       urgency: 2,
       originSiteCode: TEST_ORIGIN_SITE_CODE,
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     });
     dispatch({
       type: "RAISE_REFERRAL",

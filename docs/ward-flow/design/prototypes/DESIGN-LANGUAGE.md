@@ -5,10 +5,46 @@ Ward Flow surface, not only the seven screens being redesigned. Around 22 routes
 bespoke pages would drift apart within a week, so the language lives in one place and is copied,
 never re-invented.
 
-**Canonical source:** `community-home.html` in this same directory. Its `<style>` block IS the
-language. Copy it **verbatim** into your mockup and then add only the rules your screen needs,
-below a comment saying which screen they belong to. Do not edit the copied block. Do not
-re-derive a colour, a font size, or a spacing step.
+## 🔴 THERE ARE TWO EDITIONS. READ THIS BEFORE YOU COPY ANYTHING.
+
+**This section said `community-home.html` was THE canonical source, full stop, and it went on
+saying it while a second edition was extended twice on 2026-09-05.** Two builders measured their
+screens against the first edition because this line sent them there, and each reported the same two
+phantom gaps — a missing tap-target token and a missing accent family — **both of which the second
+edition has.** One of them withdrew a proposal it need never have made.
+
+⚠️ **That is this project's own rule turned on this document: the sentence naming a canonical source
+belongs inside the diff that changes which source is canonical.** Ward Lead extended the second
+edition twice and did not fix this line either time. Found by Ward Builder Three, 2026-09-05.
+
+| If you are building…                                                                 | copy the style block from | it is          |
+| ------------------------------------------------------------------------------------ | ------------------------- | -------------- |
+| **the ward home, the bed board, or any of the nine screens commissioned 2026-09-05** | `design-language.html`    | second edition |
+| anything else, or a change to one of the ten older mockups                           | `community-home.html`     | first edition  |
+
+**The second edition is carried by `design-language.html` (the source),
+`mockup-ward-home-v4.html`, `mockup-ward-home-v3.html` and `mockup-ward-board-v3.html`.**
+
+⚠️ **No character count is quoted here on purpose.** I typed one into this paragraph and then
+extended the block in the same commit, making my own figure stale before it was committed — which is
+the third time in one night a figure in this repository outlived what it measured. **Derive it:**
+`README.md` in this directory carries the command, and the answer changes every time the block does.
+
+Byte
+identity across those four is guarded by `tests/ward-design-language-canonical.test.ts`, which names
+its carriers — add a file there or the guard will not look at it. `mockup-ward-entry.html` carries
+NEITHER block and never has.
+
+⚠️ **NEITHER EDITION IS A SOURCE OF COLOUR FOR APP CODE.** The mockups are design INTENT. Real
+components resolve colour through `ward-tokens.module.css`, which resolves through ckb-v2 — because
+`local/no-hardcoded-hex` is an `error` and the two palettes differ in all but one role. The mapping
+is by ROLE and a value match against those numbers finds nothing:
+[`../second-edition-to-ckb-v2-role-map.md`](../second-edition-to-ckb-v2-role-map.md).
+
+**Copy the block for your edition verbatim** into your mockup and then add only the rules your
+screen needs, below a comment saying which screen they belong to. Do not edit the copied block. Do
+not re-derive a colour, a font size, or a spacing step. **To change a block, edit its source and
+re-cut every carrier from it; never hand-patch a copy.**
 
 ---
 

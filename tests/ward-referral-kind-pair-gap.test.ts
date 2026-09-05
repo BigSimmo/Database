@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * ⚠️ THIS TEST PINS A GAP. IT DOES NOT ASSERT CORRECT BEHAVIOUR — READ BEFORE TOUCHING IT.
  *
@@ -88,6 +89,7 @@ describe("RECEIVE_REFERRAL — GAP: the reducer does not reject {psychiatric_war
       urgency: 2,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     });
 
     // The gap: no rejection is raised for the forbidden combination. Once the refusal is

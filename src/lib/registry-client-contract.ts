@@ -136,30 +136,14 @@ function verification(value: unknown): boolean {
   const candidate = object(value);
   return Boolean(
     candidate &&
-    hasOnlyKnownKeys(candidate, [
-      "locallyVerified",
-      "confidence",
-      "notes",
-      "availabilityStatus",
-      "lastVerifiedAt",
-      "nextReviewAt",
-      "reviewer",
-      "riskLevel",
-      "unresolvedIssues",
-    ]) &&
+    hasOnlyKnownKeys(candidate, ["locallyVerified", "confidence", "notes"]) &&
     (candidate.locallyVerified === undefined ||
       candidate.locallyVerified === null ||
       typeof candidate.locallyVerified === "boolean") &&
     (candidate.confidence === undefined ||
       candidate.confidence === null ||
       oneOf(candidate.confidence, confidenceLevels)) &&
-    optionalStringList(candidate.notes) &&
-    optionalNullableString(candidate.availabilityStatus) &&
-    optionalNullableString(candidate.lastVerifiedAt) &&
-    optionalNullableString(candidate.nextReviewAt) &&
-    optionalNullableString(candidate.reviewer) &&
-    optionalNullableString(candidate.riskLevel) &&
-    optionalStringList(candidate.unresolvedIssues),
+    optionalStringList(candidate.notes),
   );
 }
 
@@ -167,14 +151,13 @@ function source(value: unknown): boolean {
   const candidate = object(value);
   return Boolean(
     candidate &&
-    hasOnlyKnownKeys(candidate, ["label", "status", "url", "published", "reviewed", "notes", "allUrls"]) &&
+    hasOnlyKnownKeys(candidate, ["label", "status", "url", "published", "reviewed", "notes"]) &&
     optionalNullableString(candidate.label) &&
     optionalNullableString(candidate.status) &&
     optionalNullableString(candidate.url) &&
     optionalNullableString(candidate.published) &&
     optionalNullableString(candidate.reviewed) &&
-    optionalStringList(candidate.notes) &&
-    optionalStringList(candidate.allUrls),
+    optionalStringList(candidate.notes),
   );
 }
 

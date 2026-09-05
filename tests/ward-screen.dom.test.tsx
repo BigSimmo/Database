@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Mirrors tests/ward-restriction-notice.test.ts's sibling dom suites (mode-nav.dom.test.tsx,
 // ward-flow-clock-consistency.dom.test.tsx, ward-flow-queue-selection.dom.test.tsx):
@@ -14,6 +15,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+import { unitHasLockedBeds } from "@/components/ward-management/ward-bed-designation";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 import { bedReleases, movementById } from "@/components/ward-management/ward-movements";
@@ -89,7 +91,8 @@ describe("ward screen restriction notice", () => {
     // would either false-positive or silently stop covering the case it exists for.
     expect(WF_301?.legalStatus).toBe("Voluntary");
     expect(WF_301?.security).toBe("Secure");
-    expect(RPH_ADULT_SECURE?.security).toBe("Secure");
+    expect(RPH_ADULT_SECURE).toBeDefined();
+    expect(unitHasLockedBeds(RPH_ADULT_SECURE!)).toBe(true);
   });
 
   it("renders the sharper voluntary-on-locked notice once this ward genuinely holds that referral", () => {
@@ -112,7 +115,7 @@ describe("ward screen restriction notice", () => {
     expect(incoming).toBeInTheDocument();
 
     const notice = screen.getByTestId("ward-restriction-notice-WF-301");
-    expect(notice).toHaveTextContent("Voluntary patient on a locked ward — review legal status before admission");
+    expectSays(notice.textContent ?? "", "the locked-ward legal-status warning", ["voluntary", "locked", "legal"]);
     // The sharper level, distinguished by its own data attribute — never wording alone.
     expect(notice).toHaveAttribute("data-level", "voluntary_on_locked");
   });
@@ -403,7 +406,10 @@ describe("ward screen bed release controls", () => {
       </WardFlowProvider>,
     );
 
-    expect(screen.getByTestId("ward-leave-bed-list")).toHaveTextContent("No bed currently on leave");
+    expectSays(screen.getByTestId("ward-leave-bed-list").textContent ?? "", "the on-leave list's empty state", [
+      "no bed",
+      "none",
+    ]);
     expect(screen.getByTestId("ward-leave-bed-form")).toHaveTextContent("0 beds currently on leave at SCGH Adult Open");
 
     fireEvent.click(screen.getByTestId("ward-leave-bed-usable"));
@@ -418,7 +424,10 @@ describe("ward screen bed release controls", () => {
 
     fireEvent.click(within(list).getByRole("button", { name: "Ended" }));
 
-    expect(screen.getByTestId("ward-leave-bed-list")).toHaveTextContent("No bed currently on leave");
+    expectSays(screen.getByTestId("ward-leave-bed-list").textContent ?? "", "the on-leave list's empty state", [
+      "no bed",
+      "none",
+    ]);
     expect(screen.getByTestId("ward-leave-bed-form")).toHaveTextContent("0 beds currently on leave at SCGH Adult Open");
   });
 });

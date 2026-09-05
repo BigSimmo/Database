@@ -1,13 +1,11 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { EscalationBoardPage } from "@/components/ward-management/escalation/escalation-board";
-
-export const metadata: Metadata = {
-  title: "Escalation board — Ward Flow",
-  description:
-    "Synthetic prototype: one place showing every Ward Flow patient whose placement has gone wrong. Records and shows only — it suggests nothing.",
-};
-
-export default function WardEscalationPage() {
-  return <EscalationBoardPage />;
+/**
+ * MERGE 01 (owner-approved 2026-09-05) folded the priority queue, the exceptions inbox and the
+ * escalation board into one screen — `DelaysScreen` — that answers one question: why is this
+ * person still waiting? See that screen's own doc comment for the merge's reasoning. This route
+ * stays as a bookmark/deep-link backstop so an existing link to the escalation board does not 404.
+ */
+export default function WardEscalationRedirect() {
+  redirect("/mockups/ward-flow/delays");
 }

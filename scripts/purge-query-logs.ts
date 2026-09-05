@@ -44,7 +44,7 @@ function parseArgs(argv: string[]): PurgeArgs {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const supabase = await loadAdminClient();
-  const ownerId = await findOwnerIdByEmail(supabase, args.ownerEmail!, { purpose: "running evals" });
+  const ownerId = await findOwnerIdByEmail(supabase, args.ownerEmail!);
   const before = new Date(Date.now() - args.olderThanDays * 24 * 60 * 60 * 1000).toISOString();
   const countQuery = supabase
     .from("rag_queries")

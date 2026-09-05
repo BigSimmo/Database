@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "7145490ebed1fc1d2b0f09626f0c975b01adb367",
-    "committed_at": "2026-09-05T18:00:33+08:00"
+    "sha": "6752103a629c9813ef9a9fe67f8645978cfc7fe0",
+    "committed_at": "2026-09-06T00:10:14+08:00"
   },
   "routes": {
     "modes": [
@@ -901,6 +901,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/ward-flow/delays",
+        "file": "src/app/mockups/ward-flow/delays/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/discharges",
         "file": "src/app/mockups/ward-flow/discharges/page.tsx",
         "area": "mockup"
@@ -911,16 +916,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/escalation",
-        "file": "src/app/mockups/ward-flow/escalation/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/exceptions",
-        "file": "src/app/mockups/ward-flow/exceptions/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/ward-flow/governance",
         "file": "src/app/mockups/ward-flow/governance/page.tsx",
         "area": "mockup"
@@ -928,11 +923,6 @@
       {
         "path": "/mockups/ward-flow/handover",
         "file": "src/app/mockups/ward-flow/handover/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/morning",
-        "file": "src/app/mockups/ward-flow/morning/page.tsx",
         "area": "mockup"
       },
       {
@@ -963,11 +953,6 @@
       {
         "path": "/mockups/ward-flow/people/new",
         "file": "src/app/mockups/ward-flow/people/new/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/queue",
-        "file": "src/app/mockups/ward-flow/queue/page.tsx",
         "area": "mockup"
       },
       {
@@ -1008,11 +993,6 @@
       {
         "path": "/mockups/ward-flow/statistics/ward/[unitId]",
         "file": "src/app/mockups/ward-flow/statistics/ward/[unitId]/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/transport",
-        "file": "src/app/mockups/ward-flow/transport/page.tsx",
         "area": "mockup"
       },
       {
@@ -1293,6 +1273,31 @@
         "target": "/mockups/ward-flow/network"
       },
       {
+        "path": "/mockups/ward-flow/escalation",
+        "file": "src/app/mockups/ward-flow/escalation/page.tsx",
+        "target": "/mockups/ward-flow/delays"
+      },
+      {
+        "path": "/mockups/ward-flow/exceptions",
+        "file": "src/app/mockups/ward-flow/exceptions/page.tsx",
+        "target": "/mockups/ward-flow/delays"
+      },
+      {
+        "path": "/mockups/ward-flow/morning",
+        "file": "src/app/mockups/ward-flow/morning/page.tsx",
+        "target": "/mockups/ward-flow/capacity"
+      },
+      {
+        "path": "/mockups/ward-flow/queue",
+        "file": "src/app/mockups/ward-flow/queue/page.tsx",
+        "target": "/mockups/ward-flow/delays"
+      },
+      {
+        "path": "/mockups/ward-flow/transport",
+        "file": "src/app/mockups/ward-flow/transport/page.tsx",
+        "target": "/mockups/ward-flow/movements"
+      },
+      {
         "path": "/on-call",
         "file": "src/app/(search-app)/on-call/page.tsx",
         "target": "/?mode=on-call"
@@ -1569,10 +1574,10 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 219,
+      "pages": 215,
       "product_pages": 74,
-      "mockup_pages": 145,
-      "redirects": 21,
+      "mockup_pages": 141,
+      "redirects": 26,
       "api": 63
     }
   },
@@ -3909,7 +3914,17 @@
         "catalogued": false
       },
       {
+        "path": "docs/superpowers/plans/2026-09-04-ward-expected-free-time.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-09-04-ward-flow-design-foundation.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-mixed-locked-open-beds.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -3950,6 +3965,16 @@
       },
       {
         "path": "docs/superpowers/plans/2026-09-04-ward-flow-screens-transport-and-statistics.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-05-ward-flow-merges-1-3.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-05-ward-screens-second-edition.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -4340,6 +4365,16 @@
       },
       {
         "path": "docs/superpowers/specs/2026-09-04-ward-flow-design-language-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-04-ward-flow-direction-and-delays-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-05-ward-flow-merges-1-3-design-lock.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -4909,12 +4944,32 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/bed-figure-wording-census-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/bed-states-options.md",
         "section": "ward-flow",
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/brief-contention-model-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/browser-failure-triage-2026-09-02.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/builder-one-branch-red-delta-2026-09-05.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/builder-one-handback-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -4934,7 +4989,17 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/commit-provenance-2026-09-05.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/community-origin-scope.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/community-redesign-handover-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5019,6 +5084,26 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/design/FRONT-DOOR-BOARDS-BUILD-PLAN.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/FRONT-DOOR-BOARDS-DECISION.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/FRONT-DOOR-BOARDS-FIELD-SURVEY.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/patient-page-second-edition-spec.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/design/prototypes/DESIGN-LANGUAGE.md",
         "section": "ward-flow",
         "catalogued": false
@@ -5029,7 +5114,27 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/design/referral-intake-implementation-plan.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/referral-intake-v6-and-build-plan.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/referrals-and-out-of-area-derivation-2026-09-05.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/design/screen-adoption-playbook.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/second-edition-to-ckb-v2-role-map.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5104,6 +5209,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/matching-engine-design-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/merge-hazards-config-divergence-2026-09-02.md",
         "section": "ward-flow",
         "catalogued": false
@@ -5125,6 +5235,11 @@
       },
       {
         "path": "docs/ward-flow/mutation-findings-2026-09-03.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/NEW-CHAT-PROMPTS-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5159,7 +5274,17 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/owner-decision-pending-device-copy-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/owner-decisions-2026-09-03-patient-link-and-legal-status.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/owner-decisions-to-settle-2026-09-04.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5214,12 +5339,22 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/owner-rulings-2026-09-04-decision-batch.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/owner-rulings-2026-09-04.md",
         "section": "ward-flow",
         "catalogued": false
       },
       {
         "path": "docs/ward-flow/owner-wording-page-2026-09-02.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/owner-working-instructions-2026-09-04.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5245,6 +5380,11 @@
       },
       {
         "path": "docs/ward-flow/README.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/redesign-brittleness-audit-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5330,6 +5470,11 @@
       },
       {
         "path": "docs/ward-flow/rescued/ward-builder-three/wf-build3-006-triage-progress.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/reword-arm-audit-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5674,6 +5819,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/session-handover-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/stale-claims.md",
         "section": "ward-flow",
         "catalogued": false
@@ -5685,6 +5835,11 @@
       },
       {
         "path": "docs/ward-flow/START-LOCAL-CHAT.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/statistics-primitive-reconciliation.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5789,7 +5944,47 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/verifier-builder-two-decision-review-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-cross-branch-review-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-dayzero-assessment-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/verifier-findings-2026-09-03.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-governance-sweep-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-governance-sweep-prereg-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-matching-design-s6-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-rule-provenance-audit-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-ward-lead-clinical-fixes-2026-09-04.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5814,12 +6009,27 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/ward-builder-two-session-record-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/WARD-LEAD-HANDOVER-2026-09-05.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/wf-build3-004-dom-test-sweep.md",
         "section": "ward-flow",
         "catalogued": false
       },
       {
         "path": "docs/ward-flow/wf-build3-005-ts-test-sweep.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/what-goes-red-when-you-redesign-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5938,9 +6148,9 @@
       }
     ],
     "counts": {
-      "documents": 858,
+      "documents": 899,
       "catalogued": 590,
-      "uncatalogued": 268,
+      "uncatalogued": 309,
       "sections": 22
     }
   },
@@ -6120,6 +6330,14 @@
         "scope": "CI/merge conflict closeout + Bugbot triage",
         "outcome": "RESOLVED merge conflict with origin/main (7ae4eb49 per-option prefetchModeHome). Dropped superseded bulk prefetchModeHomes; menu-open warms only highlighted option; focus/pointer scanning retained. CodeRabbit duplicate/malformed ledger threads dispositioned (main-owned). No open cursor[bot] Bugbot product defects.",
         "checks": "merge-tree clean; focused vitest 12/12; ledger restored from main + appends; no provider checks."
+      },
+      {
+        "date": "2026-09-04",
+        "ref": "ward-flow/publish-2026-09-04",
+        "head": "0157ad2d69bce07df7cc140deec9d66c4ad032bd",
+        "scope": "prlanded",
+        "outcome": "MERGED and verified by content. PR #2597 squash-merged 2026-09-04T09:13:02Z. Two-dot tree diff between the squash commit and the PR branch tip (6612c0e06) is EMPTY, so everything published landed. Four commits were pushed AFTER auto-merge was armed at 07:24Z — the classic orphan race — and all four are present: the git-identity fixture fix, the unused-import lint fix, and the two review-fix commits, each confirmed by searching for its distinctive content on origin/main rather than by ancestry, which a squash makes meaningless. The local integration line (c02dd21c2) differs from merged main by exactly ONE file, the 124 MB recovery bundle that GitHub's 100 MB limit refused and for whose sake this was published as a single commit. No orphans. NOT CLEANED UP: no worktree removed, no branch deleted, no remote branch deleted — cleanup was not requested and empty content proof does not authorize it. Five Codex review threads replied to and resolved; required_review_thread_resolution was what actually blocked the merge after CI went green.",
+        "checks": "verify:cheap exit 0 (all 48 gates) on the published tree; lint exit 0; tsc exit 0; full unit suite 1121 files / 14839 passed / 2 expected fail / 77 skipped; CI on the merged head 19 pass, 0 fail, 10 skipping. NOT RUN: Playwright browser journeys (verify:ui, verify:phone-chrome) and every provider-backed check. CI failed three times before landing, each for a different reason and each diagnosed rather than retried: PR policy (three governance boxes I had left unverified, then verified rather than ticked); a test fixture that scavenged a branch head absent from a single-branch CI checkout; and my own replacement for it calling git commit-tree on a runner with no git identity (fatal: empty ident name), reproduced locally with GIT_CONFIG_GLOBAL=/dev/null before fixing."
       },
       {
         "date": "2026-08-17",

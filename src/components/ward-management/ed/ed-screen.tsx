@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { designationSummary } from "@/components/ward-management/ward-bed-designation";
+import { bedsPendingPreparation } from "@/components/ward-management/ward-bed-availability";
 import {
   elapsedLabel,
   stageCopy,
@@ -607,10 +609,33 @@ function outstandingItem(movement: Movement): OutstandingItem {
   };
 }
 
-/** Whether `formedAt` genuinely predates `openedAt` — the only condition under which the legal
- * clock and the department clock diverge (spec §3). */
+/**
+ * Whether a form was made before this patient reached the department — the condition under which
+ * the legal clock is dated from the form rather than from arrival.
+ *
+ * ⚠️ **`<=`, NOT `<`, AND THE BOUNDARY IS AN OWNER RULING RATHER THAN AN ACCIDENT.** 2026-09-05: a
+ * form recorded at the very same minute as arrival IS community formed. He was asked precisely
+ * because the elapsed figure is identical either way — both references are the same instant — **so
+ * the only thing this comparison changes at the boundary is which authority the screen names**, and
+ * *"since opened"* over a patient who has a form implies no form was made, which would be untrue.
+ * `<` was what somebody typed; nobody had chosen it. `WF-013` in the fixture is the case that
+ * discriminates the two, and `tests/ward-ed-legal-clock.dom.test.tsx` pins it.
+ *
+ * ⚠️ **THIS IS DELIBERATELY NOT `formedAt !== undefined` ALONE, WHICH IS THE LITERAL READING OF THE
+ * RULING AND WOULD BREAK AN INVARIANT.** A `formedAt` strictly AFTER `openedAt` would make
+ * `legalClockReference` LATER than `openedAt` — the thing that function's own comment claims cannot
+ * happen and that the test above now asserts. Nothing in the model forbids such a record, so the
+ * comparison, not the data, is what holds the invariant.
+ *
+ * ⚠️ **A form dated after arrival is therefore treated as not-community-formed, and that is a
+ * PLACEHOLDER, not a decision.** It is an incoherent record, and this module has ruled on that
+ * shape once already: `emptyBedMinutes` refuses to clamp a negative gap to zero, because
+ * *"this record cannot be true"* must not quietly become *"a plausible figure nobody would query"*.
+ * Labelling such a movement *"since opened"* is the same conversion in a different costume. Raised
+ * with Ward Lead 2026-09-05 as a separate question; no fixture reaches it today.
+ */
 function isCommunityFormed(movement: Movement): boolean {
-  return movement.formedAt !== undefined && movement.formedAt < movement.openedAt;
+  return movement.formedAt !== undefined && movement.formedAt <= movement.openedAt;
 }
 
 /** The legal clock's own reference instant: `formedAt` where that is earlier than `openedAt`,
@@ -2295,12 +2320,42 @@ export function EdScreen({ edId }: EdScreenProps) {
                     .filter((unit) => siteByCode(unit.siteCode)?.service === service)
                     .map((unit) => {
                       const capacity = unitCapacity(unit, bedReleases);
+                      /*
+                       * 🔴 **THE CLEANING COUNT SITS BESIDE THE FIGURE, AND THE FIGURE DOES NOT MOVE.**
+                       * Owner ruling 2026-09-05, ported here from the capacity screen on 2026-09-06.
+                       *
+                       * "Ready" counts beds the application itself refuses to admit a patient into —
+                       * `ward-flow-reducer.ts` rejects `PULL_PATIENT` with *"every free bed at X is
+                       * still being made ready"*. A reader of this table forms a belief about how many
+                       * beds a ward has free, and that belief is exactly what the ruling protects.
+                       *
+                       * ⚠️ **THIS TABLE IS READ-ONLY AND THAT IS NOT A REASON TO OMIT IT.** Nothing
+                       * here can be actioned, but the number is still read and still acted on
+                       * elsewhere; a figure that overstates availability does its damage wherever it is
+                       * believed, not only where it is clicked.
+                       *
+                       * ⚠️ **`bedsPendingPreparation` IS THE REDUCER'S OWN HELPER — the same function
+                       * whose result gates the refusal.** It is called rather than re-derived so this
+                       * screen and that refusal cannot disagree about which beds are still being made
+                       * ready. A second computation of the same idea is how two screens come apart.
+                       */
+                      const pendingPreparation = bedsPendingPreparation(unit.id, bedReleases);
                       return (
                         <tr key={unit.id}>
                           <th scope="row">{unit.name}</th>
                           <td>{unit.cohort}</td>
-                          <td>{unit.security}</td>
-                          <td>{capacity.available}</td>
+                          <td>{designationSummary(unit)}</td>
+                          <td data-testid={`ward-ed-capacity-ready-${unit.id}`}>
+                            {capacity.available}
+                            {pendingPreparation > 0 ? (
+                              <small
+                                className={styles.beingMadeReady}
+                                data-testid={`ward-ed-capacity-pending-${unit.id}`}
+                              >
+                                {pendingPreparation} still being made ready
+                              </small>
+                            ) : null}
+                          </td>
                           <td>{unit.beds}</td>
                         </tr>
                       );

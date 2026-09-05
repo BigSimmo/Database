@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Same reason as the sibling dom suites (ward-ed-screen.dom.test.tsx, ward-screen.dom.test.tsx):
 // `ClinicalRail` renders next/link anchors and this suite never checks routing, so a plain <a>
@@ -42,6 +43,7 @@ import {
 } from "@/components/ward-management/ward-referrals";
 import { allEmergencyDepartments, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * THE ED PSYCHIATRY HUB — the inbox, the outbox, and the producer that makes an ED destination
  * possible at all.
@@ -169,6 +171,7 @@ function RaiseSelfAddressedReferral({ edId }: { edId: string }) {
           urgency: 2,
           originSiteCode: "RPH",
           transportNeeded: false,
+          ...FIXTURE_HISTORY,
         })
       }
     >
@@ -320,6 +323,7 @@ function RaiseWardAndReviewThenAcceptWardHarness({ edId }: { edId: string }) {
             urgency: 2,
             originSiteCode: "RPH",
             transportNeeded: false,
+            ...FIXTURE_HISTORY,
           })
         }
       >
@@ -387,6 +391,11 @@ function answerEverythingButTheDepartment() {
   chooseNeed("secureBedNeeded", "no");
   chooseNeed("involuntaryBedNeeded", "no");
   chooseNeed("transportNeeded", "no");
+  // 2026-09-05: the written history's required half. Without it Send stays unavailable and every
+  // test below fails on the department question for a reason that has nothing to do with it.
+  fireEvent.change(screen.getByTestId("ward-referral-intake-history"), {
+    target: { value: "Brought in by ambulance and needs a psychiatric opinion in the department." },
+  });
   fireEvent.click(screen.getByTestId("ward-referral-intake-destination-emergency_department"));
 }
 
@@ -418,6 +427,7 @@ function raiseEdReferral(
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
   });
   expect(state.rejections, `the reducer refused a ${purpose} referral to ${edId}`).toEqual([]);
   expect(state.referrals.length, "RECEIVE_REFERRAL created no referral").toBe(before + 1);
@@ -442,6 +452,7 @@ function raiseAll(entries: readonly { edId: string; purpose: ReferralPurpose }[]
       urgency: 2,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     });
     expect(state.rejections, `the reducer refused ${entry.purpose} → ${entry.edId}`).toEqual([]);
     expect(state.referrals.length, "RECEIVE_REFERRAL created no referral").toBe(before + 1);
@@ -765,7 +776,23 @@ describe("the hub's two lists", () => {
       /\b\d+\s*[hmd]\b/,
     );
     expect(text, 'the outbox renders a "time since" figure').not.toMatch(/\bago\b/i);
-    expect(text).toContain("Acceptance time not recorded");
+
+    /*
+     * 🔴 **THIS READ THE WHOLE LIST UNTIL 2026-09-05, WHICH MADE IT UNABLE TO FAIL.** Five rows each
+     * carry "Acceptance time not recorded", so one concatenated string satisfied the assertion while
+     * four of the five rows could lose the line entirely. A guard over a list has to be a guard over
+     * its members: the container's text is the union, and a union cannot say "each".
+     *
+     * Asserted per row instead. Every row on this list is required to state the absence because the
+     * two assertions above already forbid the alternative — no elapsed figure and no "ago" anywhere
+     * in this outbox — so a row that says neither is rendering nothing at all where the board states
+     * a fact it does not hold. If a future fixture gives a movement a real `acceptedAt`, the elapsed
+     * figure it renders trips the ban above before it reaches here; the two are consistent rather
+     * than a second rule to satisfy.
+     */
+    for (const [index, row] of within(outbox).getAllByRole("listitem").entries()) {
+      expectSays(row, `the acceptance-time absence line on outbox row ${index + 1}`, ["not recorded", "acceptance"]);
+    }
 
     // And the referral vocabulary never leaks across onto a movement row.
     expect(text.toLowerCase(), "a referral clock term reached a movement row").not.toContain("since referral");
@@ -984,7 +1011,7 @@ describe("the inbox's decline control", () => {
     // The reducer's own words, not a message this screen invented — and they name the scope guard
     // that makes the ED's new permission narrow rather than merely wider.
     expect(alert.textContent).toContain("Decline not recorded:");
-    expect(alert.textContent).toContain("may only answer emergency department destinations");
+    expectSays(alert.textContent, "the destination-scope note", ["emergency department", "only"]);
 
     // ⚠️ **THE ASSERTION THE WHOLE TEST EXISTS FOR.** Weakening the row guard from
     // `declineRejection?.referralId === referral.id` to `declineRejection !== undefined` renders
@@ -1138,6 +1165,7 @@ describe("the ED psychiatry answered selector", () => {
         urgency: 2,
         originSiteCode: "RPH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
       });
       expect(state.rejections, `RECEIVE_REFERRAL refused ${purpose} -> ${edId}`).toEqual([]);
       expect(state.referrals.length, "RECEIVE_REFERRAL created no referral").toBe(before + 1);
@@ -1615,12 +1643,7 @@ describe("the ED referral board never invents a time since referral", () => {
     );
 
     for (const row of rows) {
-      expect(
-        row.textContent,
-        "a referral with no recorded moment shows a wait time anyway — which can only have come " +
-          "from another clock, so the board answers a question nobody asked and reads as though " +
-          "somebody had recorded it",
-      ).toContain("referral time not recorded");
+      expectSays(row.textContent, "the referral-time absence line", ["not recorded", "referral"]);
       expect(
         row.textContent,
         "the board claims a time since referral for a movement whose referral moment was never " + "recorded",

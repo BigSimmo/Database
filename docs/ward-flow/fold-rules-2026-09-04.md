@@ -120,6 +120,48 @@ coverage of three other files —
 **Nothing in the diff of `ward-shared.module.css` says any of that**, which is what a reviewer of
 that file cannot see.
 
+### ⚠️ CORRECTION, `f73c65972` — the central reset covers IN-FLOW content, not "every ward route"
+
+**WITHDRAWN**, and kept visible because the correction is worth less than the failure:
+
+> ~~"The central reset does not cover twenty stylesheets. It covers EVERY ward route. So every
+> per-file print block is redundant."~~ — Ward Builder One, and it was one tidy-up away from
+> breaking the phone drawer.
+
+**REPLACED BY:** the chain — `layout.tsx` wraps every route in `<WardGround>` → `.shell` →
+`composes wardTokens` → `.wardTokens *` — reaches every element of every ward route's **in-flow**
+content. **Portalled content is not a DOM descendant of the shell and is not covered.**
+
+`ward-management-navigation.tsx` renders the phone drawer through `<Sheet>`, which renders through
+`OverlayPortal`. So `.drawerBody` and everything inside it leaves the shell's subtree.
+
+🔴 **`ward-sidebar.module.css`'s three-root print block is LOAD-BEARING, NOT BELT-AND-BRACES.**
+`.drawerBody, .drawerBody *` is the only thing covering the portalled drawer. **Do not tidy it as
+redundant** on the strength of the withdrawn sentence above.
+
+**The portal surface is now pinned two-sided** (`cacabf378`, `tests/ward-shell-print-ancestor.test.ts`):
+a ward file that renders through a portal without being listed goes red **with the repair spelled
+out** — give the portalled content its own reset, then list it; never remove the portal — and a
+listed file that stops portalling must be removed so the list cannot rot.
+
+**How the wrong answer was reached, which is the transferable part: two sound instruments, each
+answering a narrower question than the one asked, neither announcing it.**
+
+    grep createPortal in ward-management/    scoped to a DIRECTORY; the portal is two files away
+    import-graph reachability, 1473 files    answers REACHABILITY; the question was CONTAINMENT
+
+**A portal breaks containment without breaking reachability**, so no import graph can ever settle a
+containment question — a property of the instrument, not a gap in the run. Name the relation you
+need before choosing the tool: _reachable from_, _imported by_, _rendered inside_ and _a DOM
+descendant of_ are four different questions, and a tool answers whichever it implements, instantly.
+
+⚠️ **AND THE STYLESHEET'S OWN COMMENT SAID SO.** _"`.drawerBody` in particular renders through a
+portal, outside the shell's DOM subtree."_ True, precise, load-bearing — and read as stale, because
+this document had spent a night cataloguing true comments applied one step too wide. **That is the
+over-correction the pattern invites, and it belongs here as its own failure rather than as a slip.**
+The nearest usable rule, narrower than a rule: **a comment asserting a STRUCTURAL fact is cheap to
+test and should be tested rather than judged.** This one was testable and neither session tested it.
+
 ### Mutations the resolver must pass, in order of strength
 
 1. Delete `ed-home`'s **root** `composes` at line 14 only → must go RED, even though the file still
@@ -312,3 +354,17 @@ specific, most clinically grounded sentence in the suite is the most believable 
 available: it names a token, a declaration order and a cascade outcome, so a reader acts on it
 rather than checking it. The person who caught it is the person who wrote it, and they said they
 would have believed it.
+
+### ⚠️ CORRECTION, `f73c65972` — the author of this rule then broke it, four commits later
+
+**`51ba98e9c`'s own doc comment claimed `.wardTokens *` "matches every element of every ward route".
+It matches every element of every ward route's IN-FLOW content.** A mechanism clause, false on the
+day it was written, sitting directly above eleven assertions that were and remain correct.
+
+**So the rule survives its author and is stronger for it.** The instinct that produced the refusal —
+_preserve the hard-won wording_ — is the same instinct that produced the false sentence: both come
+from writing confidently about a mechanism you have just understood. **Understanding it is what
+makes the sentence fluent; it is not what makes it true tomorrow.**
+
+**It was not caught by re-reading.** It was caught by continuing to measure after the conclusion had
+already been reported — which is the only method that has worked on any layer of this defect.

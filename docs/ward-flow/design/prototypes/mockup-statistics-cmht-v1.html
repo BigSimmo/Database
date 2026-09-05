@@ -1,0 +1,2300 @@
+<title>Community Team Statistics — Armadale CMHT</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+/>
+
+<style>
+  /* ═══════════════════════════════════════════════════════════════════════
+       WARD FLOW — "Board" language, second edition.
+
+       This is a PROPOSED EVOLUTION of the canonical block in community-home.html,
+       written to the owner's brief of 2026-09-04: keep the system as inspiration,
+       lift the craft. If it is approved, the canonical block should be replaced
+       from this file — the language must stay in one place, and two editions
+       living side by side is the drift the first edition warned about.
+
+       WHAT IS KEPT, because it is clinical rather than cosmetic:
+         · State is a WORD first. Colour only ever reinforces a word already there.
+         · Contrast floor 4.5:1, computed rather than judged. Every pairing below
+           was measured against every surface it can sit on.
+         · Figures are JetBrains Mono and tabular. Anything comparable lines up.
+         · Absence is stated, never blank.
+         · Every invented figure is listed at the foot of the page.
+
+       WHAT CHANGED:
+         · A real accent. The first edition had no brand hue at all, only alarm
+           colours, so nothing on the page could be calm and important at once.
+           The accent is PsychSift's own primary, which is what ties the two
+           products together.
+         · Crisp white surfaces. The owner's standing note: no cream. Panels are
+           #ffffff and state is carried by an edge, a word and a colour — not by
+           tinting a large surface.
+         · Softer geometry. 3px corners read as a spreadsheet; 8px reads as an
+           application, without becoming a consumer app.
+         · Real elevation, used sparingly: raised for what floats, flat for what
+           sits on the page.
+         · A sticky application bar carrying identity, the ward switcher and the
+           one action you always want.
+       ═══════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    color-scheme: light;
+
+    --ground: #f1f4f8;
+    --surface: #ffffff;
+    --surface-2: #f7f9fc;
+    --sunken: #eef2f7;
+
+    --ink: #0d1421;
+    --ink-2: #33415a;
+    --muted: #55637a;
+    /* 4.81:1 on the ground, 5.31:1 on white, 5.04:1 on the tinted panel head —
+         computed, not judged. The first edition's faint failed at 3.08:1 and the
+         whole quiet layer of the page went with it. */
+    --faint: #5e6c84;
+
+    --rule: #e4e9f0;
+    --rule-2: #cfd7e3;
+
+    --accent: #1d6fb8;
+    --accent-strong: #185c99;
+    --accent-wash: #eff5fc;
+    --accent-contrast: #ffffff;
+
+    --good: #0c6b41;
+    --good-wash: #f2fbf6;
+    --signal: #8a4d05;
+    --signal-wash: #fffaf2;
+    --crit: #a3190f;
+    --crit-wash: #fdf5f4;
+    --cool: #0f6b73;
+    --cool-wash: #f1fafb;
+
+    --shadow-1: 0 1px 2px rgb(13 20 33 / 0.05);
+    --shadow-2: 0 1px 3px rgb(13 20 33 / 0.07), 0 6px 16px -8px rgb(13 20 33 / 0.1);
+    --shadow-3: 0 12px 36px -14px rgb(13 20 33 / 0.3), 0 2px 8px rgb(13 20 33 / 0.08);
+
+    --r-sm: 5px;
+    --r: 8px;
+    --r-lg: 12px;
+
+    /* The production tap floor, taken from the app's own --spacing-tap (3rem)
+         rather than picked here. globals.css says of it: "Never reduce below it."
+         A dense clinical board earns tighter controls with a mouse; a thumb does
+         not, so the floor is applied at pointer:coarse and phone widths only. */
+    --tap: 3rem;
+
+    /* Controls and typed text read one step above surrounding prose — this is the
+         text a clinician reads back to check what they wrote, and 14px is mean for
+         it. 1rem also matches the 16px floor globals.css already forces on
+         controls below 640px to stop iOS zooming the viewport on focus, so the
+         size does not change across that breakpoint.
+
+         Ward Builder Three proposed this at 0.9375rem and then corrected its own
+         value to 1rem for the reason above — the first value was already being
+         overridden on every phone, so the control text changed size across 640px
+         for no stated reason. Taken from what the app enforces, not picked. */
+    --t-input: 1rem;
+
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0a0e15;
+      --surface: #131924;
+      --surface-2: #1a2130;
+      --sunken: #0f141d;
+      --ink: #e8edf5;
+      --ink-2: #c3cdda;
+      --muted: #98a5b8;
+      --faint: #8593a7;
+      --rule: #232c3a;
+      --rule-2: #354152;
+      --accent: #6ea8e0;
+      --accent-strong: #8dbdea;
+      --accent-wash: #132132;
+      --accent-contrast: #0a0e15;
+      --good: #4ec38d;
+      --good-wash: #0f2119;
+      --signal: #e0a63f;
+      --signal-wash: #241c0e;
+      --crit: #f0755c;
+      --crit-wash: #26130f;
+      --cool: #4fb3bd;
+      --cool-wash: #0d2124;
+      --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+      --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+      --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0a0e15;
+    --surface: #131924;
+    --surface-2: #1a2130;
+    --sunken: #0f141d;
+    --ink: #e8edf5;
+    --ink-2: #c3cdda;
+    --muted: #98a5b8;
+    --faint: #8593a7;
+    --rule: #232c3a;
+    --rule-2: #354152;
+    --accent: #6ea8e0;
+    --accent-strong: #8dbdea;
+    --accent-wash: #132132;
+    --accent-contrast: #0a0e15;
+    --good: #4ec38d;
+    --good-wash: #0f2119;
+    --signal: #e0a63f;
+    --signal-wash: #241c0e;
+    --crit: #f0755c;
+    --crit-wash: #26130f;
+    --cool: #4fb3bd;
+    --cool-wash: #0d2124;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+    --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+  }
+
+  /* ─── base ────────────────────────────────────────────────────────────── */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family:
+      "Archivo",
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  p,
+  dl,
+  dd,
+  dt,
+  ul,
+  ol,
+  figure {
+    margin: 0;
+  }
+  ul,
+  ol {
+    padding: 0;
+    list-style: none;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+  }
+  .skip {
+    position: absolute;
+    left: var(--sp-2);
+    top: var(--sp-2);
+    z-index: 100;
+    padding: 0.5rem 0.85rem;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    border-radius: var(--r-sm);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+    transform: translateY(-200%);
+  }
+  .skip:focus {
+    transform: none;
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .num,
+  .figure,
+  .mono {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  /* ─── application bar ─────────────────────────────────────────────────── */
+  .appbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-2) var(--sp-4);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 0.8125rem;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .mark .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: none;
+  }
+  .appbar .spacer {
+    flex: 1 1 2rem;
+  }
+  .appbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+
+  /* ─── THE WARD SWITCHER ────────────────────────────────────────────────
+       The owner asked for this specifically. It replaces a bare <select>, which
+       could not show a ward's designation or how many beds it has ready, sorted
+       23 unrelated names into one flat alphabetical list, and gave no way to
+       search. The network is 23 wards across 15 hospitals with beds — a list
+       that looks fine at nine becomes unusable at that size. */
+  .switcher {
+    position: relative;
+  }
+  .switcher > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: 0.35rem 0.6rem 0.35rem 0.7rem;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
+    transition:
+      border-color 0.12s ease,
+      box-shadow 0.12s ease;
+  }
+  .switcher > summary::-webkit-details-marker {
+    display: none;
+  }
+  .switcher > summary:hover {
+    border-color: var(--rule-2);
+    box-shadow: var(--shadow-2);
+  }
+  .switcher[open] > summary {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-wash);
+  }
+  .sw-id {
+    display: grid;
+    gap: 0.05rem;
+    min-width: 0;
+  }
+  .sw-eyebrow {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--faint);
+    line-height: 1.4;
+  }
+  .sw-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .sw-chev {
+    flex: none;
+    color: var(--muted);
+    transition: transform 0.12s ease;
+  }
+  .switcher[open] .sw-chev {
+    transform: rotate(180deg);
+  }
+  .sw-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    z-index: 60;
+    width: min(25rem, calc(100vw - 2rem));
+    background: var(--surface);
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-3);
+    overflow: hidden;
+  }
+  .sw-search {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface-2);
+  }
+  .sw-count {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    white-space: nowrap;
+  }
+  .sw-scroll {
+    scrollbar-width: thin;
+  }
+  .sw-search input {
+    flex: 1;
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--ink);
+    min-width: 0;
+  }
+  .sw-scroll {
+    max-height: 24rem;
+    overflow-y: auto;
+    padding: var(--sp-2) 0;
+  }
+  .sw-group {
+    padding: var(--sp-3) var(--sp-3) var(--sp-1);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .sw-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.1rem var(--sp-3);
+    padding: 0.45rem var(--sp-3);
+    margin: 0 var(--sp-2);
+    border-radius: var(--r-sm);
+    border-left: 3px solid transparent;
+    text-decoration: none;
+  }
+  .sw-item:hover {
+    background: var(--surface-2);
+  }
+  .sw-item[aria-current="true"] {
+    background: var(--accent-wash);
+    border-left-color: var(--accent);
+  }
+  .sw-item-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .sw-item-meta {
+    grid-column: 1;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .sw-item-n {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    text-align: right;
+    font-size: 0.6875rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .sw-item-n b {
+    display: block;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+  .sw-item-n[data-none="true"] b {
+    color: var(--faint);
+  }
+  .sw-here {
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    margin-left: 0.4rem;
+  }
+  .sw-foot {
+    padding: var(--sp-3);
+    border-top: 1px solid var(--rule);
+    background: var(--surface-2);
+    font-size: 0.6875rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ─── page frame ──────────────────────────────────────────────────────── */
+  .shell {
+    max-width: 108rem;
+    margin: 0 auto;
+    padding: var(--sp-4) var(--sp-4) var(--sp-7);
+  }
+  .prototype {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.6rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: var(--sp-3);
+  }
+
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: var(--sp-4);
+  }
+  .masthead h1 {
+    font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.125rem);
+    font-weight: 700;
+    letter-spacing: -0.028em;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+  .eyebrow {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: var(--sp-3);
+  }
+  .fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 100px;
+    padding: 0.2rem 0.6rem;
+  }
+  .fact b {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+  .fact[data-tone="accent"] {
+    color: var(--accent-strong);
+    border-color: color-mix(in oklab, var(--accent) 35%, transparent);
+    background: var(--accent-wash);
+  }
+  .liveness {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--muted);
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  .pip {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+
+  .scope {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--r);
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--muted);
+    margin-bottom: var(--sp-4);
+  }
+  .scope strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ─── figures strip ───────────────────────────────────────────────────── */
+  /* Five figures do not wrap tidily on an auto-fit grid — at most widths one
+     tile is left alone on its own row, which reads as a dropped tile rather
+     than as a second row. Explicit steps instead: two, then three (5 = 3 + 2,
+     no orphan), then all five. A lone final tile on the two-column step spans
+     the full width, so it reads as deliberate. */
+  .kpis {
+    display: grid;
+    gap: var(--sp-3);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: var(--sp-3);
+  }
+  .kpis > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  @media (min-width: 48rem) {
+    .kpis {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .kpis > :last-child:nth-child(odd) {
+      grid-column: auto;
+    }
+  }
+  @media (min-width: 75rem) {
+    .kpis {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+  /* --- figure tile --------------------------------------------------------
+     THE COLOURED TOP BAR IS GONE, at the owner's instruction on 2026-09-05:
+     "removing the colour scheme top for the square components and modernising
+     them". It was a 3px rule across the top of every tile, tinted per tone.
+
+     IT COST NOTHING INFORMATIONAL, AND THAT IS WHY IT COULD GO. The tone was
+     already carried twice over - by the tile's own label ("Referrals awaiting
+     your answer") and by the figure's colour. The bar was a third statement of
+     a fact stated twice, and five tiles in a row each wearing a different
+     coloured cap is what made the strip read as decoration rather than data.
+
+     BUT IT MEANS THE FIGURE COLOUR IS NOW THE ONLY COLOUR SIGNAL, so the
+     language's own rule does more work than it did: a tile's meaning must be in
+     its LABEL, and colour may only reinforce it. A tile whose tone is the only
+     thing distinguishing it from its neighbour is now a defect rather than a
+     weak design - there is nothing left to fall back on.
+
+     Modernised with it: one uniform hairline edge instead of a heavy cap, more
+     room around the figure, and a three-row grid so a two-line label cannot
+     shove the figure off the baseline its neighbours sit on. */
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-1);
+    padding: var(--sp-4);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 0.15rem;
+  }
+  .kpi dt {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .kpi dd .figure {
+    font-size: 1.875rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+  .kpi .caption {
+    font-size: 0.6875rem;
+    color: var(--faint);
+  }
+  /* Tone is the FIGURE only now. No edge, no cap, no tinted surface. */
+  .kpi[data-tone="good"] dd .figure {
+    color: var(--good);
+  }
+  .kpi[data-tone="signal"] dd .figure {
+    color: var(--signal);
+  }
+  .kpi[data-tone="crit"] dd .figure {
+    color: var(--crit);
+  }
+  .kpi[data-tone="accent"] dd .figure {
+    color: var(--accent-strong);
+  }
+
+  /* A movement indicator for the dashboard screens. IT CARRIES A WORD, NOT ONLY
+     AN ARROW - "up 3 on yesterday" survives a reader with no colour perception
+     and a greyscale printout; a red triangle does not. And it never says
+     "worse": whether a rising figure is bad is a clinical judgement this
+     software does not make, which is why every direction is the same ink. */
+  .kpi-delta {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+  .kpi-delta .n {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-delta[data-dir="flat"] {
+    color: var(--faint);
+  }
+
+  /* --- data table ---------------------------------------------------------
+     Added 2026-09-05 for the owner's "modular tabular layout". The second
+     edition had NO table primitive at all - measured at zero occurrences of any
+     table class - so every screen needing one was about to invent one, and nine
+     screens inventing a table is nine tables.
+
+     THE WRAPPER SCROLLS, NEVER THE PAGE. A wide table that widens the body is
+     the defect this exists to prevent: it drags every other column on the
+     screen sideways, and on a phone it makes the whole page swipe.
+
+     NO ZEBRA STRIPING, DELIBERATELY. Alternating fills read as meaning on a
+     screen where every other fill does mean something, and they are the first
+     thing a printer drops - so the row you were reading changes identity
+     between the screen and the paper. One hairline rule per row instead. */
+  .table-wrap {
+    overflow-x: auto;
+    border-top: 1px solid var(--rule);
+  }
+  .dtable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+  }
+  .dtable caption {
+    text-align: left;
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.6875rem;
+    color: var(--faint);
+    line-height: 1.5;
+  }
+  .dtable th,
+  .dtable td {
+    padding: 0.5rem var(--sp-4);
+    text-align: left;
+    vertical-align: baseline;
+    border-bottom: 1px solid var(--rule);
+  }
+  .dtable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface-2);
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.085em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--rule-2);
+  }
+  .dtable tbody th {
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .dtable td {
+    color: var(--ink-2);
+  }
+  /* Anything a reader compares down a column lines up, and sits right-aligned
+     so the digits form one edge. */
+  .dtable .n,
+  .dtable th.n {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .dtable tbody tr:last-child th,
+  .dtable tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .dtable tbody tr:hover th,
+  .dtable tbody tr:hover td {
+    background: var(--surface-2);
+  }
+  /* A flagged row carries a word in one of its own cells; this only reinforces
+     it. Never the sole carrier of the flag. */
+  .dtable tbody tr[data-level="urgent"] th {
+    box-shadow: inset 3px 0 0 var(--crit);
+  }
+  .dtable tbody tr[data-level="stalled"] th {
+    box-shadow: inset 3px 0 0 var(--signal);
+  }
+  .dtable tbody tr[data-level="ok"] th {
+    box-shadow: inset 3px 0 0 var(--good);
+  }
+  /* A totals row is a different KIND of row, not a heavier one. */
+  .dtable tfoot th,
+  .dtable tfoot td {
+    border-top: 2px solid var(--rule-2);
+    border-bottom: 0;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--surface-2);
+  }
+
+  /* ─── body grid ───────────────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    gap: var(--sp-3);
+    align-items: start;
+  }
+  .col {
+    display: grid;
+    gap: var(--sp-3);
+    min-width: 0;
+  }
+  @media (min-width: 62rem) {
+    .grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+  @media (min-width: 90rem) {
+    .grid {
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 21rem;
+    }
+  }
+
+  /* ─── panel ───────────────────────────────────────────────────────────── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--r);
+    box-shadow: var(--shadow-1);
+    overflow: hidden;
+  }
+  .panel > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
+  }
+  .panel-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .n {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .head-act {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+  .blurb {
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .panel-body {
+    padding: var(--sp-4);
+    display: grid;
+    gap: var(--sp-3);
+  }
+  .panel-foot {
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--rule);
+    background: var(--surface-2);
+    font-size: 0.6875rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .panel-foot strong {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  /* ─── controls. Nothing on this page stretches. ───────────────────────── */
+  .btn {
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.75rem;
+    cursor: pointer;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--ink);
+    white-space: nowrap;
+    width: auto;
+    justify-self: start;
+    text-decoration: none;
+    transition:
+      background 0.12s ease,
+      border-color 0.12s ease;
+  }
+  .btn:hover {
+    background: var(--surface-2);
+    border-color: var(--rule-2);
+  }
+  .btn--primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-contrast);
+  }
+  .btn--primary:hover {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+  }
+  .btn--quiet {
+    border-color: transparent;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .btn--quiet:hover {
+    background: var(--sunken);
+    color: var(--ink);
+  }
+  .field {
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--ink);
+    min-width: 0;
+  }
+  .field--num {
+    width: 3.5rem;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    font-weight: 700;
+  }
+  .field-label {
+    display: block;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 0.25rem;
+  }
+  .inline-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: flex-end;
+  }
+
+  /* Hit areas. Every control keeps its typographic size and grows its BOX, so
+       nothing about the layout changes on a desktop and nothing is too small for
+       a thumb on a ward round. */
+  @media (pointer: coarse), (max-width: 40rem) {
+    .btn,
+    .filter,
+    .field,
+    .switcher > summary,
+    .sw-item {
+      min-height: var(--tap);
+    }
+    .btn,
+    .filter {
+      padding-inline: var(--sp-3);
+    }
+    .seg a {
+      display: inline-flex;
+      align-items: center;
+      min-height: calc(var(--tap) - 0.5rem);
+    }
+  }
+
+  /* ─── chips ───────────────────────────────────────────────────────────── */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--r-sm);
+    border: 1px solid transparent;
+    color: var(--muted);
+    border-color: var(--rule-2);
+  }
+  .chip[data-level="urgent"] {
+    color: var(--crit);
+    border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+    background: var(--crit-wash);
+  }
+  .chip[data-level="stalled"] {
+    color: var(--signal);
+    border-color: color-mix(in oklab, var(--signal) 42%, transparent);
+    background: var(--signal-wash);
+  }
+  .chip[data-level="accepted"] {
+    color: var(--good);
+    border-color: color-mix(in oklab, var(--good) 40%, transparent);
+    background: var(--good-wash);
+  }
+  .chip[data-level="planned"] {
+    color: var(--cool);
+    border-color: color-mix(in oklab, var(--cool) 40%, transparent);
+    background: var(--cool-wash);
+  }
+  .chip[data-level="accent"] {
+    color: var(--accent-strong);
+    border-color: color-mix(in oklab, var(--accent) 38%, transparent);
+    background: var(--accent-wash);
+  }
+
+  /* ─── occupancy bar ───────────────────────────────────────────────────── */
+  .occ {
+    padding: var(--sp-4) var(--sp-4) var(--sp-3);
+    display: grid;
+    gap: var(--sp-2);
+  }
+  .occ-bar {
+    display: flex;
+    height: 0.6rem;
+    border-radius: 100px;
+    overflow: hidden;
+    background: var(--sunken);
+  }
+  .occ-bar span {
+    display: block;
+  }
+  .occ-bar span[data-bed="ready"] {
+    background: var(--good);
+  }
+  .occ-bar span[data-bed="held"] {
+    background: var(--signal);
+  }
+  .occ-bar span[data-bed="blocked"] {
+    background: var(--crit);
+  }
+  .occ-bar span[data-bed="occupied"] {
+    background: var(--rule-2);
+  }
+  .occ-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem var(--sp-4);
+  }
+  .occ-key li {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .occ-key .sw {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 2px;
+    flex: none;
+    align-self: center;
+  }
+  .occ-key .sw[data-bed="ready"] {
+    background: var(--good);
+  }
+  .occ-key .sw[data-bed="held"] {
+    background: var(--signal);
+  }
+  .occ-key .sw[data-bed="blocked"] {
+    background: var(--crit);
+  }
+  .occ-key .sw[data-bed="occupied"] {
+    background: var(--rule-2);
+  }
+  .occ-key .sw[data-bed="leave"] {
+    background: var(--cool);
+  }
+  .occ-key b {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .occ-key .zero {
+    color: var(--faint);
+    font-family: inherit;
+    font-weight: 500;
+  }
+
+  /* ─── THE BED MAP ─────────────────────────────────────────────────────── */
+  .bedgroup {
+    border-top: 1px solid var(--rule);
+  }
+  .bedgroup > h3 {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-4) 0;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .bedgroup > h3 .sub {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--muted);
+  }
+  .beds {
+    display: grid;
+    gap: var(--sp-2);
+    grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  }
+  .bed {
+    display: grid;
+    gap: 0.1rem;
+    align-content: start;
+    padding: 0.5rem 0.55rem;
+    min-height: 4.5rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--rule-2);
+    border-radius: var(--r-sm);
+    text-decoration: none;
+    color: inherit;
+    transition:
+      border-color 0.12s ease,
+      box-shadow 0.12s ease,
+      transform 0.12s ease;
+  }
+  .bed:hover {
+    border-color: var(--rule-2);
+    box-shadow: var(--shadow-2);
+    transform: translateY(-1px);
+  }
+  .bed .bn {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--faint);
+    letter-spacing: 0.06em;
+  }
+  .bed .state {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+    line-height: 1.25;
+  }
+  .bed .note {
+    font-size: 0.6875rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+  .bed .stay {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+  .bed .stay span {
+    font-family: "Archivo", sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--muted);
+    margin-left: 0.15rem;
+  }
+  .bed[data-bed="ready"] {
+    border-left-color: var(--good);
+    background: var(--good-wash);
+    border-color: color-mix(in oklab, var(--good) 22%, var(--rule));
+  }
+  .bed[data-bed="ready"] .state {
+    color: var(--good);
+  }
+  .bed[data-bed="held"] {
+    border-left-color: var(--signal);
+  }
+  .bed[data-bed="held"] .state {
+    color: var(--signal);
+  }
+  .bed[data-bed="blocked"] {
+    border-left-color: var(--crit);
+  }
+  .bed[data-bed="blocked"] .state {
+    color: var(--crit);
+  }
+  .bed[data-bed="occupied"] .state {
+    color: var(--faint);
+  }
+  .bed[data-bed="leave"] {
+    border-left-color: var(--cool);
+  }
+  .bed[data-bed="leave"] .state {
+    color: var(--cool);
+  }
+  .bed .flagword {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--signal);
+  }
+
+  /* ─── the three daily questions ───────────────────────────────────────── */
+  .ask {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--sp-2) var(--sp-3);
+    align-items: start;
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--rule);
+  }
+  .ask:last-child {
+    border-bottom: 0;
+  }
+  .ask[data-answered="yes"] {
+    background: var(--surface-2);
+  }
+  .ask-q {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+    justify-items: start;
+  }
+  .ask-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.35;
+  }
+  .ask-when {
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .ask-value {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+    text-align: right;
+  }
+  .ask-controls {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .ask-controls .grow {
+    flex: 1 1 8rem;
+  }
+  .answer {
+    font-size: 0.75rem;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-sm);
+    padding: 0.3rem 0.5rem;
+  }
+
+  /* ─── stacked record rows ─────────────────────────────────────────────── */
+  .stack > li {
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    gap: 0.35rem;
+  }
+  .stack > li:last-child {
+    border-bottom: 0;
+  }
+  .line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    align-items: center;
+  }
+  .rid {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+  .attrs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.5rem;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .attrs b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .attrs .sep {
+    color: var(--rule-2);
+  }
+  .acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin-top: 0.15rem;
+  }
+  .note-box {
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    padding: 0.4rem 0.55rem;
+    border-radius: var(--r-sm);
+    border: 1px solid color-mix(in oklab, var(--crit) 35%, transparent);
+    background: var(--crit-wash);
+    color: var(--crit);
+    font-weight: 500;
+  }
+  .note-box[data-level="soft"] {
+    border-color: color-mix(in oklab, var(--signal) 40%, transparent);
+    background: var(--signal-wash);
+    color: var(--signal);
+  }
+  .note-box[data-level="ok"] {
+    border-color: color-mix(in oklab, var(--good) 35%, transparent);
+    background: var(--good-wash);
+    color: var(--good);
+  }
+
+  /* ─── attention list ──────────────────────────────────────────────────── */
+  .attention > li {
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: var(--muted);
+    border-left: 3px solid var(--signal);
+  }
+  .attention > li:last-child {
+    border-bottom: 0;
+  }
+  .attention .who {
+    display: block;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+    margin-bottom: 0.1rem;
+  }
+
+  /* ─── empty states ────────────────────────────────────────────────────── */
+  .absent {
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  /* ─── band ────────────────────────────────────────────────────────────── */
+  .band {
+    display: grid;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  }
+
+  /* ─── footnote ────────────────────────────────────────────────────────── */
+  .footnote {
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--rule-2);
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+  .footnote h2 {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin: var(--sp-4) 0 var(--sp-2);
+  }
+  .footnote h2:first-child {
+    margin-top: 0;
+  }
+  .footnote li {
+    padding-left: 1rem;
+    position: relative;
+    margin-bottom: 0.3rem;
+  }
+  .footnote li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--rule-2);
+  }
+  .footnote b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .footnote code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.6875rem;
+    background: var(--sunken);
+    border-radius: 3px;
+    padding: 0.05rem 0.25rem;
+  }
+
+  /* ─── high contrast ───────────────────────────────────────────────────
+       ⚠️ THE FIRST EDITION HAD NO forced-colors HANDLING ANYWHERE IN THE SHARED
+       LAYER — not in the language block, and not in ward-tokens, ward-panel,
+       ward-chip or ward-figure. A screen that adopted the layer and deleted its
+       own override was not inheriting a replacement, it was losing high-contrast
+       borders outright, and no test in this repository renders under forced
+       colours, so nothing said so.
+
+       Every token is re-pointed to a system colour, which deliberately COLLAPSES
+       the semantic hues into one. That is the mode working as intended, and it
+       is survivable here only because rule 2 holds: every state already carries
+       its own word, so nothing is lost when the colour goes. The one element
+       that carries meaning in colour alone is the occupancy bar, which is why it
+       is marked role="img" with a label and repeated as a worded key beneath. */
+  @media (forced-colors: active) {
+    :root {
+      --ground: Canvas;
+      --surface: Canvas;
+      --surface-2: Canvas;
+      --sunken: Canvas;
+      --ink: CanvasText;
+      --ink-2: CanvasText;
+      --muted: CanvasText;
+      --faint: CanvasText;
+      --rule: CanvasText;
+      --rule-2: CanvasText;
+      --accent: LinkText;
+      --accent-strong: LinkText;
+      --accent-wash: Canvas;
+      --accent-contrast: Canvas;
+      --good: CanvasText;
+      --good-wash: Canvas;
+      --signal: CanvasText;
+      --signal-wash: Canvas;
+      --crit: CanvasText;
+      --crit-wash: Canvas;
+      --cool: CanvasText;
+      --cool-wash: Canvas;
+      --shadow-1: none;
+      --shadow-2: none;
+      --shadow-3: none;
+    }
+    /* Anything whose only edge was a wash now needs a drawn one, or it merges
+         into the page the moment the fill is dropped. */
+    .chip,
+    .bed,
+    .kpi,
+    .panel,
+    .fact,
+    .btn,
+    .field,
+    .filter,
+    .note-box,
+    .answer {
+      border: 1px solid CanvasText;
+    }
+    .btn--primary,
+    .filter[aria-pressed="true"] {
+      border-width: 2px;
+    }
+    .bed {
+      border-left-width: 4px;
+    }
+    /* The kpi tone cap is gone (see the figure-tile block), so there is no
+       border-width left to thicken here. Under forced colours a toned tile and
+       a plain one are now identical, which is correct: the label is the signal
+       and colour was only ever reinforcing it. */
+    .dtable thead th,
+    .dtable tfoot th,
+    .dtable tfoot td {
+      border-bottom: 1px solid CanvasText;
+      border-top: 1px solid CanvasText;
+    }
+    /* An inset box-shadow is dropped outright under forced colours, so a
+       flagged row would lose its only mark. */
+    .dtable tbody tr[data-level] th {
+      border-left: 4px solid CanvasText;
+    }
+    .occ-bar span,
+    .occ-key .sw {
+      forced-color-adjust: none;
+    }
+  }
+
+  /* ─── print: the board is printed and taped up, so it must not come out
+       as white text on a colour the printer drops. ────────────────────────── */
+  @media print {
+    /* Forced to a light palette by hand rather than left to the theme: a ward
+       prints this board and tapes it up, and a viewer in dark mode would
+       otherwise send white text to a printer that drops the background behind it.
+       Re-pointed on BOTH :root and the dark stamp, because a print block that
+       only sets :root loses to :root[data-theme="dark"] on specificity — the
+       stamped viewer is exactly the one who needs this and would not get it.
+
+       ⚠️ AND ON :root:not([data-theme="light"]), WHICH IS THE ONE THAT MATTERS
+       MOST AND WAS MISSING UNTIL 2026-09-05. The paragraph above had the right
+       argument and stopped one selector short. The dark palette is written to
+       `:root:not([data-theme="light"])` — also 0,2,0, and earlier in this file —
+       so it beat the `:root` above for any root carrying NO data-theme at all.
+       That root is not an edge case: it is every dark-mode reader who has never
+       touched the theme control, which is the default. For them the whole dark
+       palette reached the paper — `--ink` stayed #e8edf5 and went onto white
+       paper the moment the printer dropped the backgrounds, which is precisely
+       the outcome this block exists to prevent. Half a fix, and the half that
+       was missing was the majority case.
+
+       Measured in a browser, with all three outcomes written down before the
+       run: unstamped root took the dark value, `data-theme="dark"` and
+       `data-theme="light"` both took the print value. A control token proved the
+       later rules were being read at all — the first attempt at that probe
+       returned a clean, wrong answer from a zero-width viewport where no media
+       query matched, which is indistinguishable from a real result.
+
+       THE SECOND HALF: this rule used to re-point thirteen neutral tokens and
+       none of the twelve state colours, so those kept their dark values for
+       EVERY dark-mode reader, stamped or not — `--good-wash` is #0f2119, and a
+       green note box printed as near-black. All twelve now take their
+       light-theme value, which is the conservative fix: it changes nothing at
+       all for a reader already in light mode, and gives the dark reader the
+       same page. The rule is now checkable in one sentence — FOR PRINT, EVERY
+       TOKEN TAKES ITS LIGHT-THEME VALUE. */
+    :root,
+    :root[data-theme="dark"],
+    :root:not([data-theme="light"]) {
+      --ground: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #ffffff;
+      --sunken: #ffffff;
+      --ink: #000000;
+      --ink-2: #1a1a1a;
+      --muted: #333333;
+      --faint: #444444;
+      --rule: #999999;
+      --rule-2: #666666;
+      --accent: #1d6fb8;
+      --accent-strong: #185c99;
+      --accent-wash: #eff5fc;
+      --accent-contrast: #ffffff;
+      --good: #0c6b41;
+      --good-wash: #f2fbf6;
+      --signal: #8a4d05;
+      --signal-wash: #fffaf2;
+      --crit: #a3190f;
+      --crit-wash: #fdf5f4;
+      --cool: #0f6b73;
+      --cool-wash: #f1fafb;
+      --shadow-1: none;
+      --shadow-2: none;
+      --shadow-3: none;
+    }
+    body {
+      background: #ffffff;
+    }
+    .appbar {
+      position: static;
+      backdrop-filter: none;
+    }
+    .panel,
+    .kpi,
+    .bed {
+      box-shadow: none;
+      break-inside: avoid;
+    }
+    /* A table that scrolls on screen must not be cropped on paper, and a header
+       repeated on every page is what makes a multi-page table readable at all. */
+    .table-wrap {
+      overflow-x: visible;
+    }
+    .dtable thead {
+      display: table-header-group;
+    }
+    .dtable tr {
+      break-inside: avoid;
+    }
+    /* Controls do nothing on paper, and a filter bar printed as eight grey
+       lozenges reads as data rather than as a control. */
+    .btn,
+    .switcher,
+    .toolbar,
+    .skip,
+    .seg {
+      display: none;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+       COMMUNITY TEAM STATISTICS ONLY — everything above is the canonical block, byte for byte.
+     Verified, not asserted: lines 10–1598 of design-language.html were extracted
+     directly with `sed -n '10,1598p' design-language.html` and diffed identical
+     against this file's own copy before this file was written — the same
+     block mockup-statistics-ward-v1.html carries.
+
+     This is the ward statistics screen's sibling for a single community mental
+     health team, so it borrows that screen's own page-specific primitives where
+     the shape is genuinely the same thing, and gives one new name where it is not:
+
+       · .dist-bar / .dist-key — a stacked distribution bar in the shape of the
+         canonical .occ-bar and of mockup-statistics-ward-v1.html's own .los-bar,
+         reused twice on this page (how long a case has been open; how many days
+         to first contact) rather than duplicated, because both are "one cohort,
+         four bands, add back to the total" and neither is a bed-state or a
+         length-of-stay in a bed — the ward file's own name would be the wrong
+         word here.
+       · .chart-wrap / .chart-svg / .chart-caption — the 7-day contacts line,
+         built the same way as the ward file's 30-day occupancy line: an inline
+         SVG with a role="img" label AND a written caption stating the same
+         numbers in words, so colour is never the only carrier of the reading.
+       · .stat-line — the same compact "N of M" fact the ward file defines, used
+         here for the hospital-discharge panel's two ratios.
+       · A page-scoped override of .grid's 90rem step, for the same reason the
+         ward file gives one: this page has two content rails, not three, and
+         the canonical three-column step would leave a standing gap in the third
+         column at exactly 1440px.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  @media (min-width: 90rem) {
+    .grid {
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    }
+  }
+
+  /* ─── small spacing utilities, so the same nudge isn't retyped inline ───
+     Each value below repeats verbatim at more than one call site on this
+     page (and on mockup-statistics-ward-v1.html, its sibling), so it earns a
+     name instead of a second or third inline copy. */
+  .bar-pad {
+    padding: 0 var(--sp-4) var(--sp-4);
+  }
+  .kpis-2up {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0 var(--sp-4) var(--sp-3);
+  }
+  .kpis-1up {
+    grid-template-columns: 1fr;
+    margin: 0 var(--sp-4) var(--sp-3);
+  }
+  .kpis-inset {
+    margin: 0 var(--sp-4) var(--sp-4);
+  }
+  .gov-p {
+    margin-bottom: var(--sp-2);
+  }
+
+  /* ─── inline charts ───────────────────────────────────────────────────── */
+  .chart-wrap {
+    padding: var(--sp-4);
+  }
+  .chart-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .chart-axis-label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 8px;
+    fill: var(--faint);
+  }
+  .chart-caption {
+    margin-top: var(--sp-2);
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .chart-caption b {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+    font-weight: 700;
+  }
+
+  /* ─── a four-band distribution bar, reused for two different cohorts ─────
+     Built to the same shape as the canonical .occ-bar deliberately, so a reader
+     who has already learned that pattern on the ward statistics screen reads
+     this one at a glance. Tones are borrowed in the order the design language
+     already assigns them meaning (cool → shortest/earliest band, good → the
+     comfortable middle, signal → "look here", crit → the band that most needs
+     a clinician's attention) rather than invented fresh. */
+  .dist-bar {
+    display: flex;
+    height: 0.6rem;
+    border-radius: 100px;
+    overflow: hidden;
+    background: var(--sunken);
+  }
+  .dist-bar span {
+    display: block;
+  }
+  .dist-bar span[data-band="a"] {
+    background: var(--cool);
+  }
+  .dist-bar span[data-band="b"] {
+    background: var(--good);
+  }
+  .dist-bar span[data-band="c"] {
+    background: var(--signal);
+  }
+  .dist-bar span[data-band="d"] {
+    background: var(--crit);
+  }
+  .dist-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem var(--sp-4);
+    margin-top: var(--sp-2);
+  }
+  .dist-key li {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+  .dist-key .sw {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 2px;
+    flex: none;
+    align-self: center;
+  }
+  .dist-key .sw[data-band="a"] {
+    background: var(--cool);
+  }
+  .dist-key .sw[data-band="b"] {
+    background: var(--good);
+  }
+  .dist-key .sw[data-band="c"] {
+    background: var(--signal);
+  }
+  .dist-key .sw[data-band="d"] {
+    background: var(--crit);
+  }
+  .dist-key b {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  /* ─── a compact ratio fact, short of a full .kpi tile ─────────────────── */
+  .stat-line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--rule);
+  }
+  .stat-line:last-child {
+    border-bottom: 0;
+  }
+  .stat-line .figure {
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .stat-line .label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* ─── forced colours, for what this screen adds ────────────────────────
+     The distribution bar fills segments with colour alone, exactly the pattern
+     the canonical .occ-bar already carries a rule for — reuse it verbatim. The
+     contacts line chart is a stroked path with no fill region that depends on
+     hue to be visible, so it needs nothing here. */
+  @media (forced-colors: active) {
+    .dist-bar span,
+    .dist-key .sw {
+      forced-color-adjust: none;
+    }
+  }
+
+  /* ─── print, for what this screen adds ──────────────────────────────── */
+  @media print {
+    .panel {
+      break-inside: avoid;
+    }
+  }
+</style>
+<a class="skip" href="#stats">Skip to the figures</a>
+
+<div class="appbar">
+  <span class="mark"><span class="dot" aria-hidden="true"></span>Ward Flow</span>
+  <a class="btn btn--quiet" href="#" aria-label="Back to the Armadale Community Mental Health Team home"
+    ><span aria-hidden="true">&larr;</span> Armadale CMHT</a
+  >
+  <span class="spacer"></span>
+  <span class="appbar-right">
+    <span class="liveness"><span class="pip" aria-hidden="true"></span>Live &middot; confirmed 14:20</span>
+    <a class="btn" href="#">Open the caseload list</a>
+  </span>
+</div>
+
+<div class="shell" role="main">
+  <p class="prototype">
+    <span>Synthetic prototype</span><span aria-hidden="true">&middot;</span><span>No real patient data</span
+    ><span aria-hidden="true">&middot;</span><span>Every invented figure listed at the foot</span>
+  </p>
+
+  <header class="masthead">
+    <div>
+      <span class="eyebrow">Community team statistics</span>
+      <h1>Armadale Community Mental Health Team</h1>
+      <p class="teamsub">
+        <b>East Metropolitan Health Service</b> &middot; covers 7 suburbs &mdash; Armadale, Kelmscott, Seville Grove,
+        Mount Nasura, Wungong, Harrisdale and Piara Waters &mdash; a fixed-term view of this team&rsquo;s own numbers,
+        not a comparison against any other team.
+      </p>
+      <div class="facts">
+        <span class="fact" data-tone="accent"><b>142</b> people currently open to the team</span>
+        <span class="fact">Reporting window: this month so far &middot; snapshot figures as at <b>14:20</b> today</span>
+      </div>
+    </div>
+  </header>
+
+  <p class="scope">
+    <strong>This is Armadale Community Mental Health Team&rsquo;s own statistics page.</strong> Every count below
+    belongs to this team and to this month unless stated otherwise &mdash; never a network-wide figure and never another
+    team&rsquo;s. It is a read-only view: nothing here opens a case, accepts a referral, or books a contact.
+    <strong>Every figure on this page is invented for this prototype</strong> &mdash; see &ldquo;What is invented&rdquo;
+    at the foot before reading any number as real.
+  </p>
+
+  <div class="grid">
+    <div class="col">
+      <!-- ══════════ CASELOAD ══════════ -->
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Caseload</h2>
+          <span class="n">Open today, and this month&rsquo;s movement</span>
+        </header>
+        <p class="blurb">
+          Every case currently open to this team, and how long each one has been open. This is a snapshot of who is open
+          today &mdash; it is not a discharge measure, and a long-open case is not, by itself, evidence that anything
+          has gone wrong.
+        </p>
+        <dl class="kpis" id="stats">
+          <div class="kpi" data-tone="accent">
+            <dt>Total open cases</dt>
+            <dd><span class="figure num">142</span></dd>
+            <span class="caption">Currently open to this team, across the suburbs it covers</span>
+          </div>
+          <div class="kpi" data-tone="good">
+            <dt>New cases opened</dt>
+            <dd><span class="figure num">19</span></dd>
+            <span class="caption">This month &mdash; from accepted referrals, right</span>
+          </div>
+          <div class="kpi">
+            <dt>Cases closed</dt>
+            <dd><span class="figure num">16</span></dd>
+            <span class="caption">This month</span>
+          </div>
+          <div class="kpi">
+            <dt>Net change</dt>
+            <dd><span class="figure num">+3</span></dd>
+            <span class="caption">19 opened minus 16 closed, this month</span>
+          </div>
+        </dl>
+        <div class="bar-pad">
+          <div
+            class="dist-bar"
+            role="img"
+            aria-label="Of the 142 people currently open to the team: 38 have been open under three months, 51 for three months to a year, 39 for one to three years, and 14 for over three years."
+          >
+            <span data-band="a" style="width: 26.8%"></span><span data-band="b" style="width: 35.9%"></span
+            ><span data-band="c" style="width: 27.5%"></span><span data-band="d" style="width: 9.9%"></span>
+          </div>
+          <ul class="dist-key">
+            <li><span class="sw" data-band="a" aria-hidden="true"></span>Under 3 months <b>38</b> &middot; 27%</li>
+            <li>
+              <span class="sw" data-band="b" aria-hidden="true"></span>3 months&ndash;1 year <b>51</b> &middot; 36%
+            </li>
+            <li><span class="sw" data-band="c" aria-hidden="true"></span>1&ndash;3 years <b>39</b> &middot; 27%</li>
+            <li><span class="sw" data-band="d" aria-hidden="true"></span>Over 3 years <b>14</b> &middot; 10%</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ══════════ REFERRALS INTO THE TEAM ══════════ -->
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Referrals into the team</h2>
+          <span class="n">This month</span>
+        </header>
+        <dl class="kpis kpis-inset">
+          <div class="kpi">
+            <dt>Received</dt>
+            <dd><span class="figure num">28</span></dd>
+            <span class="caption">All sources, this month</span>
+          </div>
+          <div class="kpi" data-tone="good">
+            <dt>Accepted</dt>
+            <dd><span class="figure num">19</span></dd>
+            <span class="caption">Also counted in this month&rsquo;s 19 new cases opened</span>
+          </div>
+          <div class="kpi">
+            <dt>Declined</dt>
+            <dd><span class="figure num">5</span></dd>
+            <span class="caption">Refusal recorded, never silent</span>
+          </div>
+          <div class="kpi" data-tone="signal">
+            <dt>Still open</dt>
+            <dd><span class="figure num">4</span></dd>
+            <span class="caption">Awaiting this team&rsquo;s answer</span>
+          </div>
+          <div class="kpi" data-tone="accent">
+            <dt>Acceptance rate</dt>
+            <dd><span class="figure num">68%</span></dd>
+            <span class="caption">19 of 28 &mdash; not a target, a description</span>
+          </div>
+        </dl>
+        <div class="table-wrap">
+          <table class="dtable">
+            <caption>
+              Why the 5 declined referrals were declined, this month.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Reason recorded</th>
+                <th scope="col" class="n">Referrals</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-level="stalled">
+                <th scope="row">Outside the team&rsquo;s catchment area</th>
+                <td class="n">2</td>
+              </tr>
+              <tr>
+                <th scope="row">Assessed as needing inpatient care, not community follow-up</th>
+                <td class="n">1</td>
+              </tr>
+              <tr>
+                <th scope="row">Client declined the referral, or could not be contacted</th>
+                <td class="n">1</td>
+              </tr>
+              <tr>
+                <th scope="row">Already open to another community team</th>
+                <td class="n">1</td>
+              </tr>
+              <tr>
+                <th scope="row">Withdrawn by the referrer before assessment</th>
+                <td class="n">0</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Total declined</th>
+                <td class="n">5</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <p class="panel-foot">
+          <strong>The last row&rsquo;s count is <span class="num">0</span>, and that is a real, measured count</strong>
+          &mdash; no referral was withdrawn by its referrer before assessment this month, not &ldquo;not yet
+          recorded.&rdquo; It renders as the digit it is rather than a dash, because a measured zero and a figure this
+          page cannot measure must never look the same.
+        </p>
+      </section>
+
+      <!-- ══════════ WHERE REFERRALS CAME FROM ══════════ -->
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Where referrals came from</h2>
+          <span class="n">This month</span>
+        </header>
+        <div class="table-wrap">
+          <table class="dtable">
+            <caption>
+              All 28 referrals received this month, by source.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Source</th>
+                <th scope="col" class="n">Referrals</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Ward discharge</th>
+                <td class="n">9</td>
+              </tr>
+              <tr>
+                <th scope="row">Emergency department</th>
+                <td class="n">7</td>
+              </tr>
+              <tr>
+                <th scope="row">GP</th>
+                <td class="n">8</td>
+              </tr>
+              <tr>
+                <th scope="row">Self or family</th>
+                <td class="n">3</td>
+              </tr>
+              <tr>
+                <th scope="row">Another community team</th>
+                <td class="n">1</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Total received</th>
+                <td class="n">28</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <p class="panel-foot">
+          The <b>9</b> ward-discharge referrals here are the same <b>9</b> people counted as &ldquo;Discharged to this
+          team&rsquo;s care,&rdquo; right &mdash; every one of them was accepted.
+        </p>
+      </section>
+    </div>
+
+    <div class="col">
+      <!-- ══════════ DISCHARGES FROM HOSPITAL ══════════ -->
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Discharges from hospital into this team&rsquo;s care</h2>
+          <span class="n">This month</span>
+        </header>
+        <div class="stat-line">
+          <span class="figure num">9</span>
+          <span class="label"
+            >people were discharged from a hospital bed directly into this team&rsquo;s care this month &mdash; the same
+            9 ward-discharge referrals, left, all of them accepted</span
+          >
+        </div>
+        <div class="stat-line">
+          <span class="figure num">7</span>
+          <span class="label">of those 9 had a first contact recorded within 7 days of discharge (78%)</span>
+        </div>
+        <p class="panel-foot">
+          <strong>Not tracked, stated rather than guessed:</strong> this team does not yet record which of its own
+          clinicians made a first contact, so first contact cannot be split by discipline on this page.
+        </p>
+      </section>
+
+      <!-- ══════════ TIME TO FIRST CONTACT ══════════ -->
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Time to first contact</h2>
+          <span class="n">19 new cases opened this month</span>
+        </header>
+        <p class="blurb">
+          <strong>Read the shape of this before the average.</strong> One figure below is a single number standing in
+          for 19 very different waits; the bar under it is those same 19 cases, grouped, and is the more honest answer
+          to &ldquo;how long before someone is first seen.&rdquo;
+        </p>
+        <dl class="kpis kpis-2up">
+          <div class="kpi">
+            <dt>Average</dt>
+            <dd><span class="figure num">5.5</span></dd>
+            <span class="caption">days from acceptance to first contact &mdash; pulled upward by one long wait</span>
+          </div>
+          <div class="kpi">
+            <dt>Median</dt>
+            <dd><span class="figure num">4</span></dd>
+            <span class="caption">days &mdash; the middle case of the 19</span>
+          </div>
+        </dl>
+        <div class="bar-pad">
+          <div
+            class="dist-bar"
+            role="img"
+            aria-label="Of the 19 new cases opened this month: 6 had first contact within 2 days, 9 at 3 to 7 days, 3 at 8 to 14 days, 1 over 14 days."
+          >
+            <span data-band="a" style="width: 31.6%"></span><span data-band="b" style="width: 47.4%"></span
+            ><span data-band="c" style="width: 15.8%"></span><span data-band="d" style="width: 5.3%"></span>
+          </div>
+          <ul class="dist-key">
+            <li><span class="sw" data-band="a" aria-hidden="true"></span>Within 2 days <b>6</b> &middot; 32%</li>
+            <li><span class="sw" data-band="b" aria-hidden="true"></span>3&ndash;7 days <b>9</b> &middot; 47%</li>
+            <li><span class="sw" data-band="c" aria-hidden="true"></span>8&ndash;14 days <b>3</b> &middot; 16%</li>
+            <li><span class="sw" data-band="d" aria-hidden="true"></span>Over 14 days <b>1</b> &middot; 5%</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ══════════ CONTACTS ══════════ -->
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">Contacts</h2>
+          <span class="n">This month, and the last 7 days</span>
+        </header>
+        <dl class="kpis kpis-2up">
+          <div class="kpi" data-tone="accent">
+            <dt>Total contacts</dt>
+            <dd><span class="figure num">316</span></dd>
+            <span class="caption">This month, all types</span>
+          </div>
+          <div class="kpi">
+            <dt>Face-to-face</dt>
+            <dd><span class="figure num">189</span></dd>
+            <span class="caption">Of the 316 this month</span>
+          </div>
+          <div class="kpi">
+            <dt>Telephone</dt>
+            <dd><span class="figure num">98</span></dd>
+            <span class="caption">Of the 316 this month</span>
+          </div>
+          <div class="kpi">
+            <dt>Did not attend</dt>
+            <dd><span class="figure num">29</span></dd>
+            <span class="caption">Of the 316 this month &mdash; a booked contact that did not happen</span>
+          </div>
+        </dl>
+        <div class="chart-wrap">
+          <svg
+            class="chart-svg"
+            viewBox="0 0 300 130"
+            role="img"
+            aria-label="Contacts each day for the last 7 days: 12, 9, 14, 10, 8, 13, 11 today. Total 77 for the week, ranging from 8 to 14 a day."
+          >
+            <line x1="28" y1="14" x2="280" y2="14" stroke="var(--rule)" stroke-width="1" />
+            <line x1="28" y1="59" x2="280" y2="59" stroke="var(--rule)" stroke-width="1" />
+            <line x1="28" y1="104" x2="280" y2="104" stroke="var(--rule-2)" stroke-width="1" />
+            <text x="4" y="17" class="chart-axis-label">14</text>
+            <text x="4" y="62" class="chart-axis-label">11</text>
+            <text x="4" y="107" class="chart-axis-label">8</text>
+            <text x="28" y="122" class="chart-axis-label">7 days ago</text>
+            <text x="280" y="122" class="chart-axis-label" text-anchor="end">Today</text>
+            <path
+              d="M 28,44 L 70,89 L 112,14 L 154,74 L 196,104 L 238,29 L 280,59 L 280,104 L 28,104 Z"
+              fill="var(--accent-wash)"
+              stroke="none"
+            />
+            <path
+              d="M 28,44 L 70,89 L 112,14 L 154,74 L 196,104 L 238,29 L 280,59"
+              fill="none"
+              stroke="var(--accent-strong)"
+              stroke-width="2"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
+            <circle cx="280" cy="59" r="3.5" fill="var(--accent-strong)" />
+          </svg>
+          <p class="chart-caption">
+            Last 7 days: <b>12</b>, <b>9</b>, <b>14</b>, <b>10</b>, <b>8</b>, <b>13</b>, <b>11</b> today &mdash;
+            <b>77</b> contacts in total, an average of <b>11</b> a day.
+          </p>
+        </div>
+      </section>
+
+      <!-- ══════════ PEOPLE CURRENTLY IN A HOSPITAL BED ══════════ -->
+      <section class="panel">
+        <header>
+          <h2 class="panel-title">People currently in a hospital bed</h2>
+          <span class="n">Open to this team</span>
+        </header>
+        <dl class="kpis kpis-1up">
+          <div class="kpi" data-tone="signal">
+            <dt>Open to this team, currently admitted</dt>
+            <dd><span class="figure num">4</span></dd>
+            <span class="caption"
+              >Included within the 142 open above &mdash; being in hospital does not close a community episode</span
+            >
+          </div>
+        </dl>
+        <div class="table-wrap">
+          <table class="dtable">
+            <caption>
+              The 4 people open to this team who are currently in a hospital bed.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Reference</th>
+                <th scope="col">Ward</th>
+                <th scope="col" class="n">Days in that bed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">HB-1</th>
+                <td>SCGH Adult Open</td>
+                <td class="n">6</td>
+              </tr>
+              <tr>
+                <th scope="row">HB-2</th>
+                <td>Fremantle Hospital Mental Health Unit</td>
+                <td class="n">14</td>
+              </tr>
+              <tr>
+                <th scope="row">HB-3</th>
+                <td>Royal Perth Hospital PECC</td>
+                <td class="n">2</td>
+              </tr>
+              <tr>
+                <th scope="row">HB-4</th>
+                <td>Rockingham General Hospital Mental Health Unit</td>
+                <td class="n">21</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ══════════ GOVERNANCE ══════════ -->
+  <div class="footnote">
+    <h2>What is invented</h2>
+    <ul>
+      <li>
+        This team&rsquo;s name, the health service it sits under, and the seven suburbs listed &mdash; Armadale is not
+        one of the seventeen community team names already drawn on <code>mockup-community-hub-v3.html</code>
+        (Midland, Bunbury, Joondalup and the rest), chosen deliberately so this page invents its own identity rather
+        than reusing, and possibly contradicting, a team whose own suburb count and figures already appear elsewhere.
+      </li>
+      <li>
+        Every operational figure on this page &mdash; the 142 open cases and their four duration bands, this
+        month&rsquo;s new and closed cases, all referral counts and decline reasons, the referral-source table, the
+        hospital-discharge figures, the time-to-first-contact average, median and four-band distribution, every contact
+        count and the 7 daily figures behind the sparkline, and the four hospital-bed references and their day counts.
+      </li>
+      <li>
+        This team&rsquo;s current time, &ldquo;confirmed 14:20,&rdquo; and the reporting window, &ldquo;this month so
+        far.&rdquo;
+      </li>
+    </ul>
+
+    <h2>How the numbers agree with each other</h2>
+    <ul>
+      <li>
+        <b>142</b> people currently open to the team = <b>38</b> open under 3 months + <b>51</b> at 3 months&ndash;1
+        year + <b>39</b> at 1&ndash;3 years + <b>14</b> over 3 years.
+      </li>
+      <li>
+        <b>19</b> new cases opened this month minus <b>16</b> cases closed this month = a net change of <b>+3</b>.
+      </li>
+      <li>
+        <b>28</b> referrals received this month = <b>19</b> accepted + <b>5</b> declined + <b>4</b> still open. The
+        <b>19</b> accepted are the same 19 counted in this month&rsquo;s <b>19</b> new cases opened.
+      </li>
+      <li>
+        The <b>5</b> declined referrals = <b>2</b> outside the catchment area + <b>1</b> assessed as needing inpatient
+        care + <b>1</b> client declined or uncontactable + <b>1</b> already open to another team + <b>0</b> withdrawn by
+        the referrer.
+      </li>
+      <li>
+        The <b>28</b> referrals received, by source, = <b>9</b> ward discharge + <b>7</b> emergency department +
+        <b>8</b> GP + <b>3</b> self or family + <b>1</b> another community team.
+      </li>
+      <li>
+        <b>9</b> people discharged from hospital into this team&rsquo;s care this month is the same <b>9</b>
+        ward-discharge referrals above, and every one of the 9 was accepted.
+      </li>
+      <li>
+        The 19 new cases opened this month, by days to first contact, = <b>6</b> within 2 days + <b>9</b> at 3&ndash;7
+        days + <b>3</b> at 8&ndash;14 days + <b>1</b> over 14 days.
+      </li>
+      <li>
+        <b>316</b> contacts this month = <b>189</b> face-to-face + <b>98</b> telephone + <b>29</b> did not attend.
+      </li>
+      <li>
+        The sparkline&rsquo;s 7 daily contact counts &mdash; <b>12</b>, <b>9</b>, <b>14</b>, <b>10</b>, <b>8</b>,
+        <b>13</b> and <b>11</b> today &mdash; sum to the <b>77</b> stated in its caption, an exact average of
+        <b>11</b> a day.
+      </li>
+      <li>Acceptance rate <b>68%</b> is 19 &divide; 28, rounded to the nearest whole per cent.</li>
+    </ul>
+
+    <h2>What this page does not know</h2>
+    <p class="gov-p">
+      This team does not yet record which clinician discipline made a given contact or a first contact &mdash; whether a
+      psychiatrist, a mental health nurse, a social worker or another allied health clinician saw someone &mdash; so
+      neither contacts nor first-contact timing can be broken down that way on this page. That is different from a zero:
+      a zero here means the count was taken and came back none; this means the count was never possible to take.
+    </p>
+
+    <h2>Not a duty roster, and not a performance target</h2>
+    <ul>
+      <li>
+        The time-to-first-contact figures describe what happened, not what should happen. No target wait is drawn on
+        this page, and a shorter median next month is not, by itself, evidence that anything changed for the better.
+      </li>
+      <li>
+        A zero anywhere on this page is a real, measured zero unless a caption beside it says the figure could not be
+        taken. It is never used to mean &ldquo;not tracked.&rdquo;
+      </li>
+    </ul>
+  </div>
+</div>

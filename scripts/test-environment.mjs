@@ -51,54 +51,12 @@ const offlineSentryControlFlags = Object.freeze({
   SENTRY_TRACES_SAMPLE_RATE: "0",
 });
 
-// The caring-contact database suites (`vitest.config.mts` project `caring-contacts-db`)
-// are collected whenever this variable is non-empty, and their `beforeAll` drops and
-// recreates the `caring_contacts` schema on whatever host it names. A developer who
-// exported it for `npm run caring-contacts:db:test` must not turn a later plain
-// `npm run test` into a destructive database run, so the offline environment blanks
-// it unless the explicit runner (`caring-contacts/run-db-tests.mjs`) opted in — and
-// even then only a loopback host is accepted.
-export const CARING_CONTACTS_DATABASE_URL_KEY = "CARING_CONTACTS_DATABASE_URL";
-export const CARING_CONTACTS_DB_TESTS_OPT_IN = "CARING_CONTACTS_DB_TESTS";
-
-const LOOPBACK_HOSTNAMES = new Set(["localhost", "::1", "[::1]"]);
-
-/**
- * Why the caring-contact database URL may not be used, or null when its host is loopback.
- * Only 127.0.0.0/8, ::1 and `localhost` qualify; a service name, LAN address or hosted
- * Postgres is refused so the schema drop can never reach a shared database.
- *
- * @param {string | undefined} url
- * @returns {string | null}
- */
-export function caringContactsDatabaseHostProblem(url) {
-  let hostname = "";
-  try {
-    hostname = new URL(String(url ?? "").trim()).hostname.toLowerCase();
-  } catch {
-    return `${CARING_CONTACTS_DATABASE_URL_KEY} is not a parseable URL; the caring-contact database suites only run against a loopback host such as 127.0.0.1.`;
-  }
-  const loopback = LOOPBACK_HOSTNAMES.has(hostname) || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname);
-  if (loopback) return null;
-  return (
-    `${CARING_CONTACTS_DATABASE_URL_KEY} names host "${hostname || "(none)"}", which is not a loopback address. ` +
-    "The caring-contact database suites drop and recreate the caring_contacts schema, so they only run " +
-    "against a disposable local Postgres on 127.0.0.1, ::1 or localhost — never a shared, staging or hosted database."
-  );
-}
-
 /**
  * @param {Record<string, string | undefined>} source
  * @param {Record<string, string | undefined>} overrides
  */
 export function offlineTestEnvironment(source = process.env, overrides = {}) {
   const environment = { ...source };
-  if (environment[CARING_CONTACTS_DB_TESTS_OPT_IN] === "1") {
-    const problem = caringContactsDatabaseHostProblem(environment[CARING_CONTACTS_DATABASE_URL_KEY]);
-    if (problem) throw new Error(problem);
-  } else {
-    environment[CARING_CONTACTS_DATABASE_URL_KEY] = "";
-  }
   // Explicit values both scrub inherited secrets and prevent Next/Vite from
   // repopulating the same names from a repository-local env file. URL-shaped
   // settings use inert loopback values so the runtime env schema still parses.

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Same reason as every sibling dom suite (ward-screen.dom.test.tsx, ward-ed-screen.dom.test.tsx,
 // ward-flow-clock-consistency.dom.test.tsx): `ClinicalRail` renders next/link anchors and this
@@ -160,7 +161,7 @@ describe("HandoverPage", () => {
 
     const link = screen.getByRole("link", { name: "morning bed state" });
     expect(link).toHaveAttribute("href", "/mockups/ward-flow/morning");
-    expect(link.closest("p")).toHaveTextContent("what can I fill right now, across the network?");
+    expectSays(link.closest("p")?.textContent ?? "", "the handover framing question", ["fill right now"]);
   });
 
   describe("renders the explicit empty note for every section, given an empty snapshot", () => {
@@ -173,7 +174,7 @@ describe("HandoverPage", () => {
     };
 
     it("longest waits", () => {
-      render(<LongestWaitsSection snapshot={emptySnapshot} />);
+      render(<LongestWaitsSection snapshot={emptySnapshot} units={[]} />);
       expect(screen.getByTestId("ward-handover-longest-waits-empty")).toHaveTextContent("None");
       expect(screen.queryByRole("table")).not.toBeInTheDocument();
     });

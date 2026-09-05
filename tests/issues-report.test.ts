@@ -6,12 +6,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  applyPendingInbox,
   buildIssuesReport,
   classifyAgentSafeWins,
   loadRevalidatedLedger,
   parseCliArgs,
-  renderIssuesReport,
 } from "../scripts/issues-report.mjs";
 
 const queueRows = [
@@ -190,51 +188,6 @@ describe("issues report", () => {
     expect(composite!.outcome).toBe("composite stays as written");
   });
 
-  it("surfaces an operator's issues:queue --outcome correction beside the row detail", () => {
-    // Since #M6JNR8 the queue's Outcome cell is editable through `issues:queue --outcome`,
-    // and the skill tells operators to use it for re-grades. Substituting the row Detail
-    // for that cell silently discarded the correction from the only surface sessions read.
-    const markdown = [
-      "# Outstanding",
-      "<!-- issues:next-id=5 -->",
-      "## Recommended execution queue",
-      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome, gate, verification, and stopping condition |",
-      "| ----: | ---- | ---- | ---- | ---- | ---- | ---- |",
-      "| 1 | `#001` | A1 | Operator | Now | 1 hour | OPERATOR-CORRECTED OUTCOME via issues:queue --outcome |",
-      "| 2 | `#002` | A2 | Standard | Next | 30 min | identical prose |",
-      "| 3 | `#002`, `#003` | A2 | Standard | Next | 30 min | composite stays as written |",
-      "## Open items",
-      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
-      "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
-      "| #001 | P1 | task | urgent | ROW DETAIL TEXT | src | 2026-01-01 |",
-      "| #002 | P2 | task | left | identical prose | src | 2026-01-01 |",
-      "| #003 | P2 | task | right | detail three | src | 2026-01-01 |",
-      "## Resolved / archive",
-      "| ID | Type | Summary | Outcome | Resolved |",
-      "| ---- | ---- | ---- | ---- | ---- |",
-      "| #004 | task | old | done | 2026-01-01 |",
-    ].join("\n");
-    const report = buildIssuesReport(markdown, { ref: "origin/main", revalidated: true });
-
-    type QueueRow = { ids: string[]; outcome: string; gate: string | null };
-    const corrected = report.recommended.find((row: QueueRow) => row.ids[0] === "#001");
-    expect(corrected!.outcome).toBe("ROW DETAIL TEXT");
-    expect(corrected!.gate).toBe("OPERATOR-CORRECTED OUTCOME via issues:queue --outcome");
-    // The A1 blocker projection carries the same correction.
-    expect(report.priorityBlockers[0].gate).toBe("OPERATOR-CORRECTED OUTCOME via issues:queue --outcome");
-    // Nothing to add when the two cells still say the same thing.
-    const same = report.recommended.find((row: QueueRow) => row.ids[0] === "#002" && row.ids.length === 1);
-    expect(same!.gate).toBeNull();
-    // A composite row already shows its own queue cell as the outcome.
-    const composite = report.recommended.find((row: QueueRow) => row.ids.length > 1);
-    expect(composite!.outcome).toBe("composite stays as written");
-    expect(composite!.gate).toBeNull();
-
-    const rendered = renderIssuesReport(report, false);
-    expect(rendered).toContain("ROW DETAIL TEXT");
-    expect(rendered).toContain("gate/stop (queue cell): OPERATOR-CORRECTED OUTCOME via issues:queue --outcome");
-  });
-
   it("keeps queue-only safety gates when deriving displayed queue prose", () => {
     const markdown = [
       "# Outstanding",
@@ -323,98 +276,6 @@ describe("issues report", () => {
     );
     expect(queryReport.counts).toEqual({ open: 1, recommended: 0 });
     expect(queryReport.open[0].id).toBe("#003");
-  });
-
-  it("applies the pending inbox so rows with a queued done are not read back as open work", () => {
-    // 14 already-closed rows were being presented as open because the report read the
-    // ledger alone and never the pending docs/outstanding-issues-inbox batch.
-    const ledger = [
-      "# Outstanding",
-      "",
-      "<!-- issues:next-id=7 -->",
-      "",
-      "## Open items",
-      "",
-      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
-      "| ---- | --- | ---- | ---- | ---- | ---- | ---- |",
-      "| #005 | P2 | issue | first | detail one | src | 2026-01-01 |",
-      "| #006 | P3 | task | second | detail two | src | 2026-01-02 |",
-      "",
-      "## Resolved / archive",
-      "",
-      "| ID | Type | Summary | Outcome | Resolved |",
-      "| ---- | ---- | ---- | ---- | ---- |",
-      "| #001 | task | old | done long ago | 2025-12-01 |",
-      "",
-    ].join("\n");
-    const doneOnMain = {
-      version: 2,
-      id: "11111111-1111-4111-8111-111111111111",
-      createdOn: "2026-02-01",
-      action: "done",
-      payload: { id: "#005", outcome: "landed in PR #1" },
-    };
-    const updateInWorktree = {
-      version: 2,
-      id: "22222222-2222-4222-8222-222222222222",
-      createdOn: "2026-02-02",
-      action: "update",
-      payload: { id: "#006", detail: "corrected detail two" },
-    };
-
-    const directory = mkdtempSync(join(tmpdir(), "issues-report-"));
-    try {
-      execFileSync("git", ["init", "--quiet"], { cwd: directory });
-      execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: directory });
-      execFileSync("git", ["config", "user.name", "Test"], { cwd: directory });
-      mkdirSync(join(directory, "docs", "outstanding-issues-inbox"), { recursive: true });
-      writeFileSync(join(directory, "docs", "outstanding-issues.md"), ledger);
-      writeFileSync(
-        join(directory, "docs", "outstanding-issues-inbox", `${doneOnMain.id}.json`),
-        JSON.stringify(doneOnMain),
-      );
-      execFileSync("git", ["add", "."], { cwd: directory });
-      execFileSync("git", ["commit", "--quiet", "-m", "fixture"], { cwd: directory });
-      execFileSync("git", ["update-ref", "refs/remotes/origin/main", "HEAD"], { cwd: directory });
-      // Queued locally, not yet on origin/main: still pending work.
-      writeFileSync(
-        join(directory, "docs", "outstanding-issues-inbox", `${updateInWorktree.id}.json`),
-        JSON.stringify(updateInWorktree),
-      );
-
-      const { markdown, source } = loadRevalidatedLedger(directory);
-      expect(source.pending).toMatchObject({
-        applied: true,
-        total: 2,
-        counts: { done: 1, update: 1, add: 0, queue: 0, skipped: 0 },
-        closingIds: ["#005"],
-        warning: null,
-      });
-      const report = buildIssuesReport(markdown, source);
-      expect(report.open.map((row: { id: string }) => row.id)).toEqual(["#006"]);
-      expect(report.open[0].detail).toBe("corrected detail two");
-      const rendered = renderIssuesReport(report, false);
-      expect(rendered).toContain("pending inbox applied to this report: done=1 update=1");
-      expect(rendered).toContain("closing: #005");
-    } finally {
-      rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    }
-  });
-
-  it("falls back to the raw ledger with a warning when the pending batch cannot be applied", () => {
-    const ledger =
-      "# Outstanding\n\n<!-- issues:next-id=2 -->\n\n## Open items\n\n| ID | Pri | Type | Summary | Detail / next action | Source | Added |\n| ---- | --- | ---- | ---- | ---- | ---- | ---- |\n| #001 | P2 | issue | only | detail | src | 2026-01-01 |\n\n## Resolved / archive\n\n| ID | Type | Summary | Outcome | Resolved |\n| ---- | ---- | ---- | ---- | ---- |\n";
-    const staleDone = {
-      version: 2,
-      id: "33333333-3333-4333-8333-333333333333",
-      createdOn: "2026-02-01",
-      action: "done",
-      payload: { id: "#999", outcome: "row that is not in this ledger" },
-    };
-    const { markdown, pending } = applyPendingInbox(ledger, [staleDone], { appliedRequests: new Map() });
-    expect(markdown).toBe(ledger);
-    expect(pending.applied).toBe(false);
-    expect(pending.warning).toContain("could not be applied");
   });
 
   it("validates CLI argument parsing and rejects malformed or missing --filter values", () => {

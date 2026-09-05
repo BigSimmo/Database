@@ -1,0 +1,3322 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ward Flow ED Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+/>
+<style>
+  /* ═══ src/app/ckb-v2-tokens.css — inlined verbatim, the repository's design system ═══ */
+  /* PsychSift v2 token layer — globally active, class-scoped for rollback.
+ *
+ * Source of truth: THIS FILE (`src/app/ckb-v2-tokens.css`), ranked #2 under
+ * AGENTS.md per docs/design-system/SPEC.md. Committed tests are #3. The design
+ * project (08d6f126…) mirrors this reconciled copy — a divergent design export
+ * is not authoritative (DECISIONS C1 / TOKENS.md).
+ *
+ * Structural half (space, type, radius, elevation, density, icons, motion) and
+ * shell colours are both class-scoped here. Production mounts `ckb-v2` on the
+ * root html element; literal subtree mounts remain valid for isolated proof and
+ * rollback. The compatibility values stay in `:root` and are not a second copy
+ * of this canonical layer.
+ *
+ * Rules the values encode, which call sites must honour:
+ *   - One filled `--command` button per surface. Navy is app chrome only.
+ *   - `--text-soft` / `--decoration-soft` are ~3.2:1 on white — decoration only
+ *     (dots, dividers, glyphs). Label and caption TEXT uses `--text-muted`;
+ *     placeholders use `--text-placeholder` (both ≥4.5:1).
+ *   - Borders own the edge, shadows own the lift - never both on one element.
+ *     Borderless floating surfaces (menus, toasts, tooltips, sheets) take
+ *     `--ring-hairline` for their edge.
+ *   - No raw pixels in component markup: use the semantic space tokens.
+ */
+  /* Repeat the scope class deliberately. This file is imported before the live
+   compatibility tokens in globals.css; a single class ties :root specificity
+   and therefore loses by source order. The repeated class keeps both root and
+   reversible subtree mounts scoped while making the canonical v2 values win. */
+  .ckb-v2.ckb-v2 {
+    /* Space - 4px base, one scale */
+    --space-0: 0;
+    --space-1: 0.25rem; /* 4 */
+    --space-2: 0.5rem; /* 8 */
+    --space-3: 0.75rem; /* 12 */
+    --space-4: 1rem; /* 16 */
+    --space-5: 1.25rem; /* 20 */
+    --space-6: 1.5rem; /* 24 */
+    --space-7: 2rem; /* 32 */
+    --space-8: 2.5rem; /* 40 */
+    --space-9: 3rem; /* 48 */
+    --space-10: 4rem; /* 64 */
+    --space-11: 6rem; /* 96 */
+
+    /* Semantic spacing - the only values layout should reference */
+    --gap-tight: var(--space-2); /* icon/label, chip rows */
+    --gap-inline: var(--space-3); /* sibling controls */
+    --gap-stack: var(--space-4); /* stacked items in a group */
+    --gap-block: var(--space-6); /* between blocks inside a panel */
+    --gap-section: var(--space-7); /* between page sections */
+    --pad-chip-x: var(--space-3);
+    --pad-control-x: var(--space-4);
+    --pad-cta-x: var(--space-5);
+    --pad-card: var(--space-5); /* source cards, dose rows */
+    --pad-panel: var(--space-6); /* answer card, panels */
+    --pad-strip: var(--space-3) var(--space-6); /* footers, quiet strips */
+    --page-gutter: var(--space-6);
+    --page-max: 1080px;
+    --measure: 68ch; /* prose measure - never wider */
+    --header-h: 4rem; /* 64 */
+
+    /* Responsive breakpoint tokens - standard named scale (Task #336) */
+    --bp-phone: 640px;
+    --bp-tablet: 768px;
+    --bp-desktop: 1024px;
+
+    /* Type - 7 size steps. xs–xl are size-only; shared leading is
+   * `--leading-prose`. Hero is the only step with dedicated companions
+   * (`--text-hero--line-height`, `--text-hero-tr`).
+   *
+   * TWO SCALES ARE LIVE AT ONCE, and this block is the one that wins. Because
+   * `ckb-v2` is mounted on <html>, every step below overrides both Tailwind's
+   * default of the same name and the `@theme` block in globals.css. Note in
+   * particular that `--text-sm` here is 13px, not Tailwind's 14px, so the plain
+   * `text-sm` utility renders 13px app-wide.
+   *
+   * The `@theme` block carries the same pixel values under a second set of
+   * names. Neither file referenced the other, which is how the overlap went
+   * unnoticed; the mapping is recorded here rather than resolved by aliasing,
+   * because pointing this file at `@theme` would invert the documented
+   * source-of-truth order (this file ranks above the compat layer):
+   *
+   *     --text-xs   0.75rem   = Tailwind default --text-xs
+   *     --text-sm   0.8125rem = @theme --text-sm-minus
+   *     --text-body 0.9375rem = @theme --text-base-minus
+   *     --text-md   1.0625rem = @theme --text-lg-minus
+   *     --text-lg   1.25rem   = Tailwind default --text-xl
+   *     --text-xl   1.5rem    = Tailwind default --text-2xl
+   *
+   * Do not reintroduce per-step `-lh` / `-tr` orphans for xs–xl. Wiring those
+   * would be type-scale adoption, not a companion-token restore. */
+    --text-xs: 0.75rem;
+    --text-sm: 0.8125rem;
+    --text-body: 0.9375rem;
+    --text-md: 1.0625rem;
+    --text-lg: 1.25rem;
+    --text-xl: 1.5rem;
+    --text-hero: clamp(1.75rem, 1.2rem + 2vw, 2.25rem);
+    --text-hero--line-height: 1.12;
+    --text-hero-tr: -0.022em;
+
+    --leading-prose: 1.65;
+    --tracking-eyebrow: 0.08em;
+    --nums: tabular-nums; /* font-variant-numeric: var(--nums) on all data */
+
+    /* Weights - one job each (Geist is variable, so 650 is real) */
+    --font-weight-body: 400;
+    --font-weight-label: 500;
+    --font-weight-heading: 600;
+    --font-weight-value: 650;
+
+    /* Radius - one step per surface role */
+    --radius-sm: 0.375rem; /* 6 - chips, pills, dots */
+    --radius-md: 0.625rem; /* 10 - controls, inputs, buttons */
+    --radius-lg: 0.75rem; /* 12 - cards, table cards, popovers */
+    --radius-xl: 1rem; /* 16 - panels, answer card */
+    --radius-2xl: 1.25rem; /* 20 - sheets, dialogs */
+
+    /* Icons - four sizes, paired with the type steps */
+    --icon-xs: 0.75rem; /* 12 - inside chips */
+    --icon-sm: 0.875rem; /* 14 - inline with 13-15px text */
+    --icon-md: 1rem; /* 16 - controls */
+    --icon-lg: 1.25rem; /* 20 - empty states, tiles */
+
+    /* Density - tap target is not row height */
+    /* Pure alias of the @theme knob (C2). The value lives in globals.css because
+     that is where the *-tap utilities are generated; declaring it here would
+     either lose a same-specificity tie (design-side :root copy) or win inside
+     opted-in subtrees and split the app 44/48. Never set independently. */
+    --tap-min: var(--spacing-tap); /* interactive only */
+    --chip-height: 1.75rem; /* 28 - static chips */
+    --row-comfortable: 2.75rem;
+    --row-compact: 2.25rem;
+    --cell-pad-comfortable: var(--space-3);
+    --cell-pad-compact: var(--space-2);
+
+    /* Accent rules */
+    --rule-w: 3px;
+    --rule-accent: inset var(--rule-w) 0 0 var(--clinical-accent);
+    --rule-warning: inset var(--rule-w) 0 0 var(--warning);
+
+    /* Evidence gutter - one fixed column owning both the connector line and the
+     dot, centred on the same axis. The bleed is derived from the row padding so
+     a density switch keeps the line continuous. */
+    --gutter-col: 1.25rem; /* 20 - column width */
+    --gutter-dot: 0.5rem; /* 8 - dot diameter, identical for every state */
+    --gutter-line-w: 1px;
+
+    /* Quantity - the unit is demoted, never uppercased. Slight positive tracking
+     because a 13px sans unit beside a mono numeral otherwise reads cramped. */
+    --quantity-unit-tracking: 0.01em;
+    --quantity-unit-gap: 0.15em;
+
+    /* Evidence spine - the answer's left evidence rule (docs/design-system/SPEC.md
+     §7, §10). C1 note: the design-side token file proved unrecoverable (design
+     project 08d6f126 was last updated 2026-07-13; the 31 July copy was never
+     written to it), so these family names are authored repo-side, derived from
+     existing roles rather than reconstructed from prose. */
+    --spine-w: var(--rule-w);
+    --spine-current: var(--clinical-accent);
+    --spine-stale: var(--warning);
+
+    /* Status mark - codifies StatusMark's previously-inline geometry. The
+     confidence-meter family is deliberately absent: no call site exists yet
+     (no new token without a call site). */
+    --status-mark-size: var(--gutter-dot);
+    --status-mark-stroke: 1.5px;
+
+    /* Dashed edge - drop targets and "nothing here yet" boundaries. A distinct
+     token so a dropzone stops borrowing --border-strong, which means emphasis. */
+    --border-dashed: #c3cedd;
+
+    /* Stacking rungs. The prose ladder in globals.css was unenforceable and had
+     drifted into two notations (`z-80` and `z-[80]`) for one rung. Elevation and
+     stacking are the same decision, so each rung names its --eN partner. */
+    --z-base: 0; /*      flush, in-flow                        */
+    --z-raised: 10; /*   sticky headers, badges, count bubbles  - pairs with --e1 */
+    --z-chrome: 60; /*   app chrome, mode menus                 - pairs with --e2 */
+    --z-overlay: 80; /*  viewer + table fullscreen              - pairs with --e3 */
+    --z-popover: 95; /*  popovers that must beat an overlay     - pairs with --e3 */
+    --z-modal: 100; /*   the Sheet layer, skip link             - pairs with --e4 */
+    --z-toast: 110; /*   outcome announcements beat the modal   - pairs with --e4 */
+
+    /* Motion — aligned to live globals.css SoT (Wave 4: --duration-slow 240ms,
+     not the prior 260ms dual-SoT). Expanded ladder matches observed literals. */
+    --duration-instant: 100ms;
+    --duration-fast: 120ms;
+    --duration-quick: 150ms;
+    --duration-base: 180ms;
+    --duration-moderate: 200ms;
+    --duration-slow: 240ms;
+    --duration-deliberate: 300ms;
+    /* Two general curves. Phone-chrome hide/reveal are separate (see globals).
+     Enter/exit uses the soft/standard curve; only a control that should feel
+     physical (toggle thumb, sheet drag) uses the spring/physical curve. */
+    --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-physical: cubic-bezier(0.34, 1.3, 0.64, 1);
+    /* Non-colliding name: Tailwind v4 owns --ease-out (see globals.css). */
+    --ease-out-keyword: cubic-bezier(0, 0, 0.58, 1);
+    --ease-chrome-hide: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-chrome-reveal: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* `:not([data-motion="full"])` keeps this in step with the in-app Motion
+   preference, which can opt back in to animation over the OS setting. */
+  @media (prefers-reduced-motion: reduce) {
+    html:not([data-motion="full"]) .ckb-v2.ckb-v2 {
+      --duration-instant: 0ms;
+      --duration-fast: 0ms;
+      --duration-quick: 0ms;
+      --duration-base: 0ms;
+      --duration-moderate: 0ms;
+      --duration-slow: 0ms;
+      --duration-deliberate: 0ms;
+    }
+  }
+
+  /* Crisp white light shell (#10, #24). Command stays graphite, matching the
+   live compatibility layer and docs/redesign/permanent-colour-direction.md —
+   command (CTA) and clinical-accent (evidence/selected/send) are deliberately
+   different roles; a blue command briefly shipped here and collapsed that
+   distinction (reverted per design-system review, 2026-08-05).
+   Light is the default on .ckb-v2 itself - never :not(.dark), which matched a
+   subtree inside html.dark and overrode the inherited dark values (DS-01). */
+  .ckb-v2.ckb-v2 {
+    --background: #ffffff;
+    --surface: #ffffff;
+    --surface-chrome: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-lux: #ffffff;
+
+    /* The only non-white surfaces - both whispers */
+    --surface-subtle: #fbfcfd; /* table headers, zebra rows */
+    --surface-wash: #f8fafc; /* footers, quiet strips */
+    --surface-inset: #f4f7fa; /* recessed wells, inputs */
+    --surface-highlight: rgb(255 255 255 / 70%);
+    --clinical-chat-table-header: #fbfcfd;
+    --clinical-chat-document: #f8fafc;
+
+    --border: #e6ebf2;
+    --border-strong: #d3dbe5;
+    /* Solid, not 55% alpha: alpha computed LIGHTER than --border, so panels had
+     weaker edges than the cards nested inside them (#43). */
+    --border-lux: #dde4ee;
+
+    --text-heading: #0a1220;
+    --text: #1b2533;
+    --text-muted: #55627a;
+    /* Placeholder is still text (expected format in clinical data entry) — must
+     clear 4.5:1. Same ink as muted until a distinct placeholder step is needed. */
+    --text-placeholder: #55627a;
+    /* 3.07:1 on white. Decoration only - dots, dividers, disabled glyphs, rules.
+     Never a text node. `--decoration-soft` is the name that should have shipped:
+     `--text-soft` reads like a text tier and has now been misused in three
+     separate places, including inside the document prohibiting the misuse. Both
+     names resolve to the same value during the deprecation window. */
+    --text-soft: #8894a6;
+    --decoration-soft: #8894a6;
+    --disabled: #9aa5b5;
+
+    --command: #111827;
+    --command-hover: #0b1220;
+    --command-active: #080b0f;
+    --command-contrast: #ffffff;
+    --danger-solid: #a3190f;
+    --danger-solid-hover: #85140d;
+    --danger-solid-active: #6f120c;
+    --danger-solid-contrast: #ffffff;
+
+    --clinical-accent-soft: #f2f8fe;
+    --clinical-accent-border: #cfe2f6;
+    --primary-soft: #f2f8fe;
+
+    /* Category / identity chip tones — canonical under v2 so Chip CATEGORY does
+     not silently lose its palette if the globals.css compatibility layer is
+     trimmed. Values match the live :root compatibility set. */
+    --type-document: #3a5a94;
+    --type-document-soft: #f0f4fa;
+    --type-document-border: #d3dfef;
+    --type-table: #2f6b57;
+    --type-table-soft: #eef5f2;
+    --type-table-border: #cfe3da;
+    --type-search: #4a5568;
+    --type-search-soft: #f4f5f7;
+    --type-search-border: #dfe2e8;
+    --type-source: #634f8f;
+    --type-source-soft: #f4f1fa;
+    --type-source-border: #ded6ee;
+    --type-service: #2b6474;
+    --type-service-soft: #eaf4f7;
+    --type-service-border: #c4dfe7;
+    --type-form: #7d5a2c;
+    --type-form-soft: #f8f4ec;
+    --type-form-border: #e8dbc4;
+    --tone-purple: #634f8f;
+    --tone-purple-soft: #f4f1fa;
+    --tone-purple-border: #ded6ee;
+    --tone-indigo: #43508f;
+    --tone-indigo-soft: #f0f2fa;
+    --tone-indigo-border: #d6dcef;
+    --tone-rose: #8a4a7d;
+    --tone-rose-soft: #f9f0f6;
+    --tone-rose-border: #eed6e6;
+    --tone-slate: #4a5568;
+    --tone-slate-soft: #f4f5f7;
+    --tone-slate-border: #dfe2e8;
+
+    --ring-hairline: 0 0 0 1px rgb(13 40 71 / 7%);
+    --e0: none;
+    --e1: 0 1px 2px rgb(13 40 71 / 5%);
+    --e2: 0 1px 2px rgb(13 40 71 / 4%), 0 8px 16px -8px rgb(13 40 71 / 9%);
+    --e3: 0 2px 4px rgb(13 40 71 / 4%), 0 16px 28px -12px rgb(13 40 71 / 11%);
+    --e4: 0 4px 8px rgb(13 40 71 / 5%), 0 32px 56px -20px rgb(13 40 71 / 15%);
+    /* Recessed wells (C1). A true inset, not a 1px ring - the ring is why inputs
+     looked outlined twice (#40). The DS bevel --shadow-inset is inherited from
+     globals.css and no longer overridden here: the override stripped the bevel
+     highlight from ~40 consuming surfaces. */
+    --shadow-well: inset 0 1px 2px rgb(13 40 71 / 4%);
+    --glow-primary: 0 0 0 1px var(--clinical-accent), 0 8px 20px -6px rgb(29 111 184 / 22%);
+    --glow-soft: 0 0 0 1px rgb(29 111 184 / 24%), 0 4px 12px -4px rgb(29 111 184 / 14%);
+
+    --overlay-backdrop: rgb(13 40 71 / 32%);
+  }
+
+  /* Dark ramp (#8, #19): four surfaces >=4 L* apart, lighter as they rise.
+   Both forms: production puts .dark on documentElement (ancestor form). */
+  .dark .ckb-v2.ckb-v2,
+  .ckb-v2.dark.ckb-v2 {
+    --background: #0b0e11;
+    --surface: #12161a;
+    --surface-chrome: #0e1216;
+    --surface-subtle: #1c2126; /* aliased UP - "subtle" must lift, not sink */
+    --surface-wash: #161a1e;
+    --surface-raised: #1c2126;
+    --surface-inset: #0a0c0e;
+    --surface-lux: #262c32;
+    --surface-highlight: rgb(255 255 255 / 6%);
+    --clinical-chat-table-header: #1c2126;
+    /* Declared here so it resolves against the v2 dark inset. Without this, the
+     subtree inherits the live .dark layer's already-substituted value - custom
+     properties inherit computed values, so the live var(--surface-inset)
+     reference cannot re-resolve against the v2 ramp. */
+    --clinical-chat-document: var(--surface-inset);
+
+    --border: #333a41;
+    --border-strong: #47505a;
+    --border-lux: #3a424a;
+
+    /* Required since the cascade port: the light block now matches inside dark
+     subtrees too, so every light-declared role must be re-declared here or it
+     resolves to light ink on dark surfaces. Values mirror the live .dark layer
+     these previously fell through to. */
+    --text-heading: #fbfcfd;
+    --text: #f4f6f8;
+    --disabled: #626c7a;
+    --text-muted: #a8b2bd;
+    --text-placeholder: #a8b2bd;
+    --text-soft: #7d8792;
+    --decoration-soft: #7d8792;
+    --border-dashed: #454e57;
+
+    --command: #f5f7f7;
+    --command-hover: #e6e9e8;
+    --command-active: #cbd1d8;
+    --command-contrast: #0a0c0e;
+    --danger-solid: #b42318;
+    --danger-solid-hover: #d92d20;
+    --danger-solid-active: #912018;
+    --danger-solid-contrast: #ffffff;
+
+    --clinical-accent-soft: #123556;
+    --clinical-accent-border: #235a7d;
+    --primary-soft: #123556;
+    --glow-primary: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 45%, transparent), 0 8px 24px rgb(0 0 0 / 45%);
+    --glow-soft: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 32%, transparent), 0 6px 16px rgb(0 0 0 / 42%);
+    --overlay-backdrop: rgb(0 0 0 / 72%);
+
+    /* Category / identity chip tones — dark ramp (mirrors live .dark layer). */
+    --type-document: #9db6dc;
+    --type-document-soft: #1a2438;
+    --type-document-border: #2b3d5e;
+    --type-table: #93c7b3;
+    --type-table-soft: #152820;
+    --type-table-border: #2a4d3d;
+    --type-search: #c3c9d4;
+    --type-search-soft: #1e222a;
+    --type-search-border: #3a4150;
+    --type-source: #bdb0da;
+    --type-source-soft: #241f33;
+    --type-source-border: #3c3352;
+    --type-service: #96c6d4;
+    --type-service-soft: #16262c;
+    --type-service-border: #2b4650;
+    --type-form: #d6bd8a;
+    --type-form-soft: #2b2317;
+    --type-form-border: #4d4028;
+    --tone-purple: #b0a0d8;
+    --tone-purple-soft: #2a2540;
+    --tone-purple-border: #3d3557;
+    --tone-indigo: #9aa5dd;
+    --tone-indigo-soft: #232842;
+    --tone-indigo-border: #343b5a;
+    --tone-rose: #d99cc8;
+    --tone-rose-soft: #3a2434;
+    --tone-rose-border: #52344a;
+    --tone-slate: #9aa4b4;
+    --tone-slate-soft: #22262d;
+    --tone-slate-border: #333a44;
+
+    --ring-hairline: 0 0 0 1px rgb(255 255 255 / 9%);
+    --e0: none;
+    --e1: inset 0 1px 0 rgb(255 255 255 / 4%), 0 1px 2px rgb(0 0 0 / 40%);
+    --e2: inset 0 1px 0 rgb(255 255 255 / 5%), 0 8px 18px -8px rgb(0 0 0 / 48%);
+    --e3: inset 0 1px 0 rgb(255 255 255 / 6%), 0 16px 30px -12px rgb(0 0 0 / 56%);
+    --e4: inset 0 1px 0 rgb(255 255 255 / 7%), 0 32px 56px -20px rgb(0 0 0 / 64%);
+    --shadow-well: inset 0 1px 2px rgb(0 0 0 / 40%);
+  }
+
+  /* Forced colours - the third theme (C4, DS-02). All three selectors retain the
+   repeated v2 scope so this canonical mapping outranks the later compatibility
+   forced-colour block at both the root and reversible subtree mounts. Elevation
+   flattens to none; roles map to system colours.
+
+   Do not trim this selector group to a single `.ckb-v2.ckb-v2`. The two dark
+   selectors are what let this block match the specificity of the dark rules it
+   has to beat; without them a forced-colours user in dark mode silently keeps
+   the dark palette instead of system colours, with nothing failing to say so.
+   The contract test pins the group - keep it pinned. */
+  @media (forced-colors: active) {
+    .ckb-v2.ckb-v2,
+    .dark .ckb-v2.ckb-v2,
+    .ckb-v2.dark.ckb-v2 {
+      --background: Canvas;
+      --surface: Canvas;
+      --surface-chrome: Canvas;
+      --surface-subtle: Canvas;
+      --surface-wash: Canvas;
+      --surface-raised: Canvas;
+      --surface-inset: Canvas;
+      --surface-lux: Canvas;
+      --surface-highlight: transparent;
+      --clinical-chat-table-header: Canvas;
+      --clinical-chat-document: Canvas;
+      --border: CanvasText;
+      --border-strong: CanvasText;
+      --border-lux: CanvasText;
+      --border-dashed: CanvasText;
+      --text-heading: CanvasText;
+      --text: CanvasText;
+      --text-muted: CanvasText;
+      --text-placeholder: CanvasText;
+      --text-soft: GrayText;
+      --decoration-soft: GrayText;
+      --disabled: GrayText;
+      /* Match the live HCM lesson (globals.css): Chromium paints a Canvas
+       backplate behind glyph runs, so command fills use the native button
+       pairing — not LinkText/Canvas, which blanks labels and swallows icons. */
+      --command: ButtonFace;
+      --command-hover: ButtonFace;
+      --command-active: ButtonFace;
+      --command-contrast: ButtonText;
+      --clinical-accent: LinkText;
+      --clinical-accent-soft: Canvas;
+      --clinical-accent-border: CanvasText;
+      --clinical-accent-contrast: ButtonText;
+      --primary-soft: Canvas;
+      --success: CanvasText;
+      --warning: CanvasText;
+      --danger: Mark;
+      --danger-solid: Mark;
+      --danger-solid-hover: Mark;
+      --danger-solid-active: Mark;
+      --danger-solid-contrast: MarkText;
+      --type-document: CanvasText;
+      --type-document-soft: Canvas;
+      --type-document-border: ButtonBorder;
+      --type-table: CanvasText;
+      --type-table-soft: Canvas;
+      --type-table-border: ButtonBorder;
+      --type-search: CanvasText;
+      --type-search-soft: Canvas;
+      --type-search-border: ButtonBorder;
+      --type-source: CanvasText;
+      --type-source-soft: Canvas;
+      --type-source-border: ButtonBorder;
+      --type-service: CanvasText;
+      --type-service-soft: Canvas;
+      --type-service-border: ButtonBorder;
+      --type-form: CanvasText;
+      --type-form-soft: Canvas;
+      --type-form-border: ButtonBorder;
+      --tone-purple: CanvasText;
+      --tone-purple-soft: Canvas;
+      --tone-purple-border: ButtonBorder;
+      --tone-indigo: CanvasText;
+      --tone-indigo-soft: Canvas;
+      --tone-indigo-border: ButtonBorder;
+      --tone-rose: CanvasText;
+      --tone-rose-soft: Canvas;
+      --tone-rose-border: ButtonBorder;
+      --tone-slate: CanvasText;
+      --tone-slate-soft: Canvas;
+      --tone-slate-border: ButtonBorder;
+      --focus: Highlight;
+      --ring-hairline: 0 0 0 1px CanvasText;
+      --e0: none;
+      --e1: none;
+      --e2: none;
+      --e3: none;
+      --e4: none;
+      --shadow-well: none;
+      --glow-primary: none;
+      --glow-soft: none;
+      /* Transparent, not Canvas: forced-colours users rely on borders for layer
+       separation, and an opaque backdrop would hide the context behind a modal. */
+      --overlay-backdrop: transparent;
+      --rule-accent: inset var(--rule-w) 0 0 LinkText;
+      --rule-warning: inset var(--rule-w) 0 0 CanvasText;
+      --spine-current: LinkText;
+      --spine-stale: CanvasText;
+    }
+  }
+
+  /* ===== Artifact theme mapping =====
+   The token file above scopes its dark palette to a `.dark` class the app toggles itself.
+   An artifact has three theme states instead — explicit dark, explicit light, and the
+   default un-stamped state where only prefers-color-scheme separates them — so the SAME
+   declarations are re-emitted here under all three. No value is changed. */
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .ckb-v2 {
+      --background: #0b0e11;
+      --surface: #12161a;
+      --surface-chrome: #0e1216;
+      --surface-subtle: #1c2126; /* aliased UP - "subtle" must lift, not sink */
+      --surface-wash: #161a1e;
+      --surface-raised: #1c2126;
+      --surface-inset: #0a0c0e;
+      --surface-lux: #262c32;
+      --surface-highlight: rgb(255 255 255 / 6%);
+      --clinical-chat-table-header: #1c2126;
+      /* Declared here so it resolves against the v2 dark inset. Without this, the
+     subtree inherits the live .dark layer's already-substituted value - custom
+     properties inherit computed values, so the live var(--surface-inset)
+     reference cannot re-resolve against the v2 ramp. */
+      --clinical-chat-document: var(--surface-inset);
+
+      --border: #333a41;
+      --border-strong: #47505a;
+      --border-lux: #3a424a;
+
+      /* Required since the cascade port: the light block now matches inside dark
+     subtrees too, so every light-declared role must be re-declared here or it
+     resolves to light ink on dark surfaces. Values mirror the live .dark layer
+     these previously fell through to. */
+      --text-heading: #fbfcfd;
+      --text: #f4f6f8;
+      --disabled: #626c7a;
+      --text-muted: #a8b2bd;
+      --text-placeholder: #a8b2bd;
+      --text-soft: #7d8792;
+      --decoration-soft: #7d8792;
+      --border-dashed: #454e57;
+
+      --command: #f5f7f7;
+      --command-hover: #e6e9e8;
+      --command-active: #cbd1d8;
+      --command-contrast: #0a0c0e;
+      --danger-solid: #b42318;
+      --danger-solid-hover: #d92d20;
+      --danger-solid-active: #912018;
+      --danger-solid-contrast: #ffffff;
+
+      --clinical-accent-soft: #123556;
+      --clinical-accent-border: #235a7d;
+      --primary-soft: #123556;
+      --glow-primary:
+        0 0 0 1px color-mix(in srgb, var(--clinical-accent) 45%, transparent), 0 8px 24px rgb(0 0 0 / 45%);
+      --glow-soft: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 32%, transparent), 0 6px 16px rgb(0 0 0 / 42%);
+      --overlay-backdrop: rgb(0 0 0 / 72%);
+
+      /* Category / identity chip tones — dark ramp (mirrors live .dark layer). */
+      --type-document: #9db6dc;
+      --type-document-soft: #1a2438;
+      --type-document-border: #2b3d5e;
+      --type-table: #93c7b3;
+      --type-table-soft: #152820;
+      --type-table-border: #2a4d3d;
+      --type-search: #c3c9d4;
+      --type-search-soft: #1e222a;
+      --type-search-border: #3a4150;
+      --type-source: #bdb0da;
+      --type-source-soft: #241f33;
+      --type-source-border: #3c3352;
+      --type-service: #96c6d4;
+      --type-service-soft: #16262c;
+      --type-service-border: #2b4650;
+      --type-form: #d6bd8a;
+      --type-form-soft: #2b2317;
+      --type-form-border: #4d4028;
+      --tone-purple: #b0a0d8;
+      --tone-purple-soft: #2a2540;
+      --tone-purple-border: #3d3557;
+      --tone-indigo: #9aa5dd;
+      --tone-indigo-soft: #232842;
+      --tone-indigo-border: #343b5a;
+      --tone-rose: #d99cc8;
+      --tone-rose-soft: #3a2434;
+      --tone-rose-border: #52344a;
+      --tone-slate: #9aa4b4;
+      --tone-slate-soft: #22262d;
+      --tone-slate-border: #333a44;
+
+      --ring-hairline: 0 0 0 1px rgb(255 255 255 / 9%);
+      --e0: none;
+      --e1: inset 0 1px 0 rgb(255 255 255 / 4%), 0 1px 2px rgb(0 0 0 / 40%);
+      --e2: inset 0 1px 0 rgb(255 255 255 / 5%), 0 8px 18px -8px rgb(0 0 0 / 48%);
+      --e3: inset 0 1px 0 rgb(255 255 255 / 6%), 0 16px 30px -12px rgb(0 0 0 / 56%);
+      --e4: inset 0 1px 0 rgb(255 255 255 / 7%), 0 32px 56px -20px rgb(0 0 0 / 64%);
+      --shadow-well: inset 0 1px 2px rgb(0 0 0 / 40%);
+    }
+  }
+
+  :root[data-theme="dark"] .ckb-v2 {
+    --background: #0b0e11;
+    --surface: #12161a;
+    --surface-chrome: #0e1216;
+    --surface-subtle: #1c2126; /* aliased UP - "subtle" must lift, not sink */
+    --surface-wash: #161a1e;
+    --surface-raised: #1c2126;
+    --surface-inset: #0a0c0e;
+    --surface-lux: #262c32;
+    --surface-highlight: rgb(255 255 255 / 6%);
+    --clinical-chat-table-header: #1c2126;
+    /* Declared here so it resolves against the v2 dark inset. Without this, the
+     subtree inherits the live .dark layer's already-substituted value - custom
+     properties inherit computed values, so the live var(--surface-inset)
+     reference cannot re-resolve against the v2 ramp. */
+    --clinical-chat-document: var(--surface-inset);
+
+    --border: #333a41;
+    --border-strong: #47505a;
+    --border-lux: #3a424a;
+
+    /* Required since the cascade port: the light block now matches inside dark
+     subtrees too, so every light-declared role must be re-declared here or it
+     resolves to light ink on dark surfaces. Values mirror the live .dark layer
+     these previously fell through to. */
+    --text-heading: #fbfcfd;
+    --text: #f4f6f8;
+    --disabled: #626c7a;
+    --text-muted: #a8b2bd;
+    --text-placeholder: #a8b2bd;
+    --text-soft: #7d8792;
+    --decoration-soft: #7d8792;
+    --border-dashed: #454e57;
+
+    --command: #f5f7f7;
+    --command-hover: #e6e9e8;
+    --command-active: #cbd1d8;
+    --command-contrast: #0a0c0e;
+    --danger-solid: #b42318;
+    --danger-solid-hover: #d92d20;
+    --danger-solid-active: #912018;
+    --danger-solid-contrast: #ffffff;
+
+    --clinical-accent-soft: #123556;
+    --clinical-accent-border: #235a7d;
+    --primary-soft: #123556;
+    --glow-primary: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 45%, transparent), 0 8px 24px rgb(0 0 0 / 45%);
+    --glow-soft: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 32%, transparent), 0 6px 16px rgb(0 0 0 / 42%);
+    --overlay-backdrop: rgb(0 0 0 / 72%);
+
+    /* Category / identity chip tones — dark ramp (mirrors live .dark layer). */
+    --type-document: #9db6dc;
+    --type-document-soft: #1a2438;
+    --type-document-border: #2b3d5e;
+    --type-table: #93c7b3;
+    --type-table-soft: #152820;
+    --type-table-border: #2a4d3d;
+    --type-search: #c3c9d4;
+    --type-search-soft: #1e222a;
+    --type-search-border: #3a4150;
+    --type-source: #bdb0da;
+    --type-source-soft: #241f33;
+    --type-source-border: #3c3352;
+    --type-service: #96c6d4;
+    --type-service-soft: #16262c;
+    --type-service-border: #2b4650;
+    --type-form: #d6bd8a;
+    --type-form-soft: #2b2317;
+    --type-form-border: #4d4028;
+    --tone-purple: #b0a0d8;
+    --tone-purple-soft: #2a2540;
+    --tone-purple-border: #3d3557;
+    --tone-indigo: #9aa5dd;
+    --tone-indigo-soft: #232842;
+    --tone-indigo-border: #343b5a;
+    --tone-rose: #d99cc8;
+    --tone-rose-soft: #3a2434;
+    --tone-rose-border: #52344a;
+    --tone-slate: #9aa4b4;
+    --tone-slate-soft: #22262d;
+    --tone-slate-border: #333a44;
+
+    --ring-hairline: 0 0 0 1px rgb(255 255 255 / 9%);
+    --e0: none;
+    --e1: inset 0 1px 0 rgb(255 255 255 / 4%), 0 1px 2px rgb(0 0 0 / 40%);
+    --e2: inset 0 1px 0 rgb(255 255 255 / 5%), 0 8px 18px -8px rgb(0 0 0 / 48%);
+    --e3: inset 0 1px 0 rgb(255 255 255 / 6%), 0 16px 30px -12px rgb(0 0 0 / 56%);
+    --e4: inset 0 1px 0 rgb(255 255 255 / 7%), 0 32px 56px -20px rgb(0 0 0 / 64%);
+    --shadow-well: inset 0 1px 2px rgb(0 0 0 / 40%);
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════════
+   WARD FLOW — THE ED HUB
+   One emergency department at a time: the referrals coming in to it, the moves owed
+   out of it, and the decisions those leave outstanding. The switcher at the top moves
+   between departments, not between kinds of board.
+
+   ⚠️ THE FILENAME STILL SAYS front-doors. Owner, 2026-09-05: "You are designing Ward ED
+   Hub Screen. So drop that tab." The ward patient board went to Ward Lead with the ward
+   screens it belongs beside; the community panel was lifted out to its own hub. The file
+   name is kept so the published artifact keeps its URL and its history — renaming it would
+   strand every citation of it in the decision record and the build plan.
+
+   Colour, radius, spacing and type steps come from the token block above
+   (src/app/ckb-v2-tokens.css, inlined verbatim). Nothing below invents a colour.
+   One module shape is used for every block on the page.
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--surface-wash);
+  }
+  .ckb-v2 {
+    min-height: 100vh;
+    background: var(--surface-wash);
+    color: var(--text);
+    font-family:
+      "Archivo",
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+    font-size: var(--text-body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  [hidden] {
+    display: none !important;
+  }
+  :focus-visible {
+    outline: 2px solid var(--text-heading);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  /* ── Top bar ──────────────────────────────────────────────────────────────── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: grid;
+    align-items: center;
+    gap: 1.5rem;
+    grid-template-columns: auto 1fr auto;
+    padding: 0.75rem 2rem;
+    background: var(--surface-chrome);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+  .brand .mark {
+    display: inline-grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--radius-sm);
+    background: var(--text-heading);
+    color: var(--surface);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .brand .name {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--text-heading);
+    white-space: nowrap;
+  }
+  .brand .where {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .brand .sep {
+    color: var(--border-strong);
+  }
+
+  .seg {
+    display: flex;
+    gap: 0.125rem;
+    padding: 0.1875rem;
+    background: var(--surface-inset);
+    border-radius: 999px;
+    justify-self: center;
+  }
+  .seg button {
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    border-radius: 999px;
+    padding: 0.5rem 1rem;
+    min-height: 2.5rem;
+    white-space: nowrap;
+  }
+  .seg button[aria-pressed="true"] {
+    background: var(--surface);
+    color: var(--text-heading);
+    font-weight: 600;
+  }
+
+  .bar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  /* The department strip. Its own row inside the hub, scrollable rather than wrapping:
+   a switcher that reflows to two lines stops being a single glanceable row. */
+  .deptwrap {
+    max-width: 88rem;
+    margin: 0 auto;
+    padding: 1.25rem 2rem 0;
+  }
+  @media (max-width: 48rem) {
+    .deptwrap {
+      padding: 1rem 1rem 0;
+    }
+  }
+  .deptbar {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    overflow-x: auto;
+    padding-bottom: 0.125rem;
+  }
+  .deptbar-label {
+    flex: none;
+    margin-right: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .deptbar button {
+    flex: none;
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+  }
+  .deptbar button:hover {
+    background: var(--surface-inset);
+    color: var(--text-heading);
+  }
+  .deptbar button[aria-pressed="true"] {
+    background: var(--text-heading);
+    border-color: var(--text-heading);
+    color: var(--surface);
+  }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.75rem;
+    min-height: 2.5rem;
+    background: var(--surface-inset);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+  }
+  .search input {
+    font: inherit;
+    font-size: var(--text-sm);
+    border: 0;
+    background: none;
+    color: var(--text);
+    width: 9rem;
+    outline: 0;
+  }
+  .search input::placeholder {
+    color: var(--text-placeholder);
+  }
+  .asat {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .asat b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  @media (max-width: 68rem) {
+    .topbar {
+      grid-template-columns: 1fr auto;
+    }
+    .bar-right {
+      display: none;
+    }
+  }
+
+  .page {
+    max-width: 88rem;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+    display: grid;
+    gap: 1.25rem;
+  }
+  @media (max-width: 48rem) {
+    .page {
+      padding: 1.25rem 1rem 3rem;
+    }
+    .topbar {
+      padding: 0.625rem 1rem;
+    }
+  }
+
+  /* ── Module — one shape for every block ───────────────────────────────────── */
+  .module {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+  }
+  .module > header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.8125rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .module > header h2 {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--text-heading);
+  }
+  .module > header .n {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+  }
+  .module > header .spacer {
+    flex: 1;
+  }
+  .module > header .hint {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+  }
+  .way {
+    display: inline-grid;
+    place-items: center;
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 999px;
+    background: var(--surface-inset);
+    color: var(--text-heading);
+    font-size: 0.75rem;
+  }
+
+  /* ── Masthead row: identity + the timer ───────────────────────────────────── */
+  .top-row {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 64rem) {
+    .top-row {
+      grid-template-columns: minmax(0, 1fr) 21rem;
+    }
+  }
+  .identity {
+    padding: 1.375rem 1.5rem;
+  }
+  .kicker {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  h1 {
+    margin: 0.5rem 0 0;
+    max-width: 26ch;
+    text-wrap: balance;
+    font-size: clamp(1.375rem, 1.05rem + 1.05vw, 1.75rem);
+    line-height: 1.16;
+    letter-spacing: -0.022em;
+    font-weight: 700;
+    color: var(--text-heading);
+  }
+  /* The paragraph keeps its 17px. The heading came down to meet it, rather than the text
+   being shrunk to sit under a display face — the sentence under the heading is the part
+   carrying what is actually wrong on the board. */
+  .standfirst {
+    margin: 0.625rem 0 1rem;
+    font-size: var(--text-md);
+    line-height: 1.5;
+    color: var(--text-muted);
+    max-width: 64ch;
+  }
+  .standfirst b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    background: var(--surface-inset);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .tag b {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--text-heading);
+  }
+
+  /* The timer: 24 hour segments, one per hour, so the target is countable not just coloured. */
+  .timer {
+    padding: 1.25rem;
+    display: grid;
+    gap: 0.6875rem;
+    align-content: start;
+  }
+  .timer .label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  /* ⚠️ RED HERE MEANS THE TARGET HAS BEEN PASSED, AND NOTHING ELSE. Before this the figure
+   was unconditionally `--danger-solid` on all three boards, while only the ward board was
+   actually over: the ED sat 10h 36m inside a 24h target and the community team 1d 22h
+   inside a 7 day window, both drawn in the colour reserved for a breach. A page that says
+   "over" in red when it is not over spends the one alarm it has. */
+  .timer .big {
+    font-size: 1.875rem;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-weight: 700;
+    color: var(--text-heading);
+  }
+  /* Deliberately NOT red. See the fill rule below — at 30px this figure was 2.76:1 in
+   dark, and a 30px figure is exactly the thing somebody reads from across a room. */
+  .hours {
+    display: flex;
+    gap: 2px;
+  }
+  .hours i {
+    flex: 1;
+    height: 1.25rem;
+    border-radius: 2px;
+    background: var(--surface-inset);
+  }
+  .hours i[data-on="true"] {
+    background: var(--text-heading);
+  }
+  .hours i[data-breach="true"] {
+    background: var(--danger-solid);
+  }
+  .timer .legend {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.625rem;
+    color: var(--text-muted);
+  }
+  .timer .legend b {
+    background: var(--danger-solid);
+    color: var(--danger-solid-contrast);
+    font-weight: 700;
+    padding: 0.0625rem 0.3125rem;
+    border-radius: var(--radius-sm);
+  }
+  /* `.legend b` is the ONLY place the over/under is stated, so it may not be the only place
+   the breach is SAID — the strip's red blocks and this bold both carry it, and the words
+   "over" / "left" are inside the element itself. Colour reinforces a word already present. */
+
+  /* Who the figure belongs to. It was 11px muted under a 44px number, so the page shouted a
+   duration and whispered the only thing that makes it actionable. The person is now the
+   subject of this module and the duration is its attribute. */
+  .timer .who {
+    display: block;
+    margin-top: 0.125rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+  }
+  .timer .who .nm {
+    display: block;
+    font-size: var(--text-md);
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+  .timer .who:hover .nm {
+    text-decoration: underline;
+  }
+  .timer .who .sub {
+    display: block;
+    margin-top: 0.1875rem;
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+  .timer .who .sub .r {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── Buttons ──────────────────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    min-height: 2.5rem;
+    padding: 0 0.875rem;
+    border-radius: var(--radius-md);
+    white-space: nowrap;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text-heading);
+  }
+  .btn:hover {
+    background: var(--surface-inset);
+  }
+  .btn[data-kind="primary"] {
+    background: var(--text-heading);
+    border-color: var(--text-heading);
+    color: var(--surface);
+  }
+  .btn[data-kind="primary"]:hover {
+    background: var(--text);
+    border-color: var(--text);
+  }
+  .btn[data-kind="quiet"] {
+    border-color: transparent;
+    background: none;
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: 0 0.5rem;
+  }
+  .btn[data-kind="quiet"]:hover {
+    color: var(--text-heading);
+    background: var(--surface-inset);
+  }
+
+  /* ── Decisions ────────────────────────────────────────────────────────────── */
+  .queue {
+    display: grid;
+    gap: 0;
+  }
+  .decision {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    grid-template-columns: 1fr;
+  }
+  .decision + .decision {
+    border-top: 1px solid var(--border);
+  }
+  @media (min-width: 60rem) {
+    .decision {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 1.5rem;
+    }
+  }
+  .decision .body {
+    min-width: 0;
+  }
+  .decision .meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.3125rem;
+  }
+  .decision .ref {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+  .decision .age {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .decision .age b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .decision[data-first="true"] .age b {
+    color: var(--text);
+  }
+  .decision p {
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    color: var(--text);
+  }
+  .decision .acts {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .decision[data-first="true"] {
+    box-shadow: inset 3px 0 0 var(--danger-solid);
+  }
+  /* The red rule says "do this one first". Without these words it says it to nobody who cannot
+   see red — and on the ward board it also contradicted the only number in the row, because the
+   first decision had the SMALLEST elapsed time. The word carries the reason; the colour agrees. */
+
+  /* ═════════════════════════════════════════════════════════════════════════════
+   ⚠️ RED IS A FILL IN THIS DESIGN AND NEVER A TEXT COLOUR — and that is forced by
+   the token layer rather than chosen for looks.
+
+   ckb-v2 offers no danger TEXT role. Every danger token it has is a solid-fill role
+   with a white partner: `--danger-solid` + `--danger-solid-contrast`. Computed on
+   2026-09-05 from this file's own token blocks, against the surface each element
+   actually sits on:
+
+       --danger-solid as TEXT on the dark surface   2.76:1   under the 4.5 floor
+       the next best danger token in the palette    3.76:1   and it is a HOVER role
+       --danger-solid as a FILL, white on it        7.77:1 light   6.57:1 dark
+
+   Seven rules painted red text before this. All seven passed in light and all seven
+   failed in dark, which is why looking at the page on one machine never found it.
+
+   ⚠️ THE MISSING TOKEN IS REPORTED, NOT INVENTED. Rule 1 of the design language is
+   that a colour the token layer does not have is a finding, and the finding is that
+   ckb-v2 has no danger text role that clears 4.5:1 on its own dark surface.
+
+   Fills are unaffected by the text floor, so the strip's breached hour blocks, the
+   first decision's inset rule, the unreviewed dot and the urgent track all keep
+   their red exactly as they were.
+   The three alarms below repeat four declarations rather than sharing a class. That is
+   deliberate: an earlier draft of this pass DID add a shared `.alarm` class, and nothing
+   ever wore it — the styles were written straight onto the three real selectors and the
+   class sat there reading like a system. Machinery that cannot change an outcome looks
+   like a safeguard and is not one, so it is gone rather than retrofitted.
+   ═════════════════════════════════════════════════════════════════════════════ */
+  .first-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    padding: 0.1875rem 0.4375rem;
+    border-radius: var(--radius-sm);
+    background: var(--danger-solid);
+    color: var(--danger-solid-contrast);
+  }
+  .flag {
+    display: inline-block;
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.0625rem 0.375rem;
+    border-radius: var(--radius-sm);
+    background: var(--danger-solid);
+    color: var(--danger-solid-contrast);
+  }
+
+  /* ── Tables ───────────────────────────────────────────────────────────────── */
+  .scroll {
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
+    white-space: nowrap;
+    padding: 0.625rem 1rem;
+    background: var(--surface-subtle);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  tbody td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--text-sm);
+    vertical-align: top;
+  }
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  tbody tr:hover {
+    background: var(--surface-subtle);
+  }
+
+  /* Primary board */
+  .board table {
+    min-width: 72rem;
+  }
+  .board .umrn {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .board .who .nm {
+    font-size: var(--text-body);
+    font-weight: 600;
+    color: var(--text-heading);
+    white-space: nowrap;
+  }
+  .board .who .dob {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .board .bed {
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .board .bed .unit {
+    display: block;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+  }
+  .board .story,
+  .board .plan {
+    color: var(--text-muted);
+    line-height: 1.45;
+    max-width: 26ch;
+  }
+  .board .plan {
+    color: var(--text);
+  }
+  .board td.narrow {
+    width: 1%;
+  }
+
+  .form-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.625rem;
+    border-radius: 999px;
+    background: var(--surface-inset);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-heading);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-family: inherit;
+    min-height: 1.75rem;
+    white-space: nowrap;
+  }
+  .form-pill[data-none="true"] {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .form-pill .caret {
+    color: var(--text-soft);
+    font-size: 0.625rem;
+  }
+
+  .review {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .review::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--text-soft);
+  }
+  .review[data-seen="true"] {
+    color: var(--text);
+  }
+  .review[data-seen="true"]::before {
+    background: var(--text-heading);
+  }
+  .review[data-seen="false"] {
+    color: var(--text-heading);
+    font-weight: 600;
+  }
+  .review[data-seen="false"]::before {
+    background: var(--danger-solid);
+  }
+
+  .refs {
+    display: flex;
+    gap: 0.375rem;
+    white-space: nowrap;
+  }
+  .refs span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1875rem 0.4375rem;
+    border-radius: var(--radius-sm);
+    background: var(--surface-inset);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+  .refs span[data-none="true"] {
+    background: none;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  /* Flow (coming in / going out) — kept, on its own axis per group */
+  .flow {
+    display: grid;
+    gap: 1.5rem;
+  }
+  @media (min-width: 78rem) {
+    .flow {
+      grid-template-columns: 1fr 1fr;
+      align-items: start;
+    }
+  }
+  .lane {
+    padding: 1rem 1.25rem 1.25rem;
+    display: grid;
+    gap: 0.25rem;
+  }
+  .axis {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr 5.5rem;
+    gap: 1rem;
+    align-items: center;
+  }
+  .ticks {
+    position: relative;
+    height: 0.875rem;
+  }
+  .ticks span {
+    position: absolute;
+    top: 0;
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    transform: translateX(-50%);
+  }
+  .ticks span:first-child {
+    transform: none;
+  }
+  .ticks span:last-child {
+    transform: translateX(-100%);
+  }
+  .person {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr 5.5rem;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.625rem 0;
+    border-top: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+  }
+  .person:hover {
+    background: var(--surface-subtle);
+  }
+  .person .ref {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+  }
+  .person .nm {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+  .person .sub {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .track {
+    position: relative;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    margin-top: 0.375rem;
+  }
+  .track::before {
+    content: "";
+    position: absolute;
+    inset: 50% 0 auto;
+    height: 1px;
+    background: var(--border);
+    transform: translateY(-50%);
+  }
+  .track .fill {
+    position: relative;
+    height: 0.4375rem;
+    border-radius: 999px;
+    background: var(--text-soft);
+    min-width: 0.4375rem;
+  }
+  .person[data-urgent="true"] .track .fill {
+    background: var(--danger-solid);
+  }
+  .person .el {
+    text-align: right;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text);
+  }
+  .person[data-urgent="true"] .el {
+    color: var(--text-heading);
+  }
+  .person .el small {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.5625rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  /* Work done */
+  .done {
+    display: grid;
+    gap: 0;
+  }
+  .done .row {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: baseline;
+    padding: 0.75rem 1.25rem;
+  }
+  .done .row + .row {
+    border-top: 1px solid var(--border);
+  }
+  .done .ago {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .done .what {
+    font-size: var(--text-sm);
+    color: var(--text);
+  }
+  .done .what b {
+    color: var(--text-heading);
+    font-weight: 600;
+  }
+  .done .by {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .absence {
+    margin: 0;
+    padding: 1.25rem;
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--text-muted);
+  }
+  .absence b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  /* An absence that is WAITING ON A DECISION and one that is waiting on a build are different
+   things to a reader, and only the second is somebody's next task. */
+  .unblock {
+    margin: 0;
+    padding: 0 1.25rem 1.25rem;
+    max-width: 78ch;
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--text-muted);
+  }
+  .unblock b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .unblock i {
+    font-style: italic;
+    color: var(--text);
+  }
+
+  .foot {
+    display: grid;
+    gap: 1.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    padding-top: 0.5rem;
+  }
+  .foot h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .foot p {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    max-width: 44ch;
+  }
+  .foot code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.6875rem;
+    color: var(--text);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .btn,
+    .person,
+    tbody tr,
+    .seg button {
+      transition:
+        background-color 130ms ease,
+        color 130ms ease;
+    }
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════════
+   Working behaviour — filters, sorting, the form control, stated absence.
+   Everything below styles something the page can actually do.
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+  /* ── Filter toolbar ───────────────────────────────────────────────────────── */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+  }
+  .chip:hover {
+    background: var(--surface-inset);
+    color: var(--text-heading);
+  }
+  .chip .c {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .chip[aria-pressed="true"] {
+    background: var(--text-heading);
+    border-color: var(--text-heading);
+    color: var(--surface);
+    font-weight: 600;
+  }
+  .chip[aria-pressed="true"] .c {
+    color: var(--surface);
+    opacity: 0.72;
+  }
+
+  /* ── Sortable headers ─────────────────────────────────────────────────────── */
+  thead th {
+    padding: 0;
+  }
+  thead th:not(:has(.sort)) {
+    padding: 0.625rem 1rem;
+  }
+  .sort {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    width: 100%;
+    font: inherit;
+    cursor: pointer;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    padding: 0.625rem 1rem;
+    text-align: left;
+  }
+  .sort:hover {
+    color: var(--text-heading);
+  }
+  .sort .ar::after {
+    content: "\2195";
+    opacity: 0.45;
+    font-size: 0.75rem;
+    letter-spacing: 0;
+  }
+  th[aria-sort="ascending"] .sort,
+  th[aria-sort="descending"] .sort {
+    color: var(--text-heading);
+  }
+  th[aria-sort="ascending"] .ar::after {
+    content: "\2191";
+    opacity: 1;
+  }
+  th[aria-sort="descending"] .ar::after {
+    content: "\2193";
+    opacity: 1;
+  }
+
+  /* ── The form control ─────────────────────────────────────────────────────── */
+  .form-field {
+    position: relative;
+  }
+  .form-menu {
+    position: absolute;
+    z-index: 10;
+    top: calc(100% + 0.375rem);
+    left: 0;
+    min-width: 9.5rem;
+    margin: 0;
+    padding: 0.3125rem;
+    list-style: none;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--ring-hairline), var(--e3);
+  }
+  .form-menu li {
+    display: block;
+  }
+  .form-menu li.sep {
+    margin-top: 0.3125rem;
+    padding-top: 0.3125rem;
+    border-top: 1px solid var(--border);
+  }
+  .form-menu button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    font: inherit;
+    font-size: var(--text-sm);
+    cursor: pointer;
+    min-height: 2.25rem;
+    padding: 0 0.5rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text);
+    text-align: left;
+  }
+  .form-menu button:hover {
+    background: var(--surface-inset);
+  }
+  .form-menu .tick {
+    width: 0.875rem;
+    font-size: 0.75rem;
+    color: transparent;
+  }
+  .form-menu [aria-selected="true"] button {
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+  .form-menu [aria-selected="true"] .tick {
+    color: var(--text-heading);
+  }
+
+  /* ── Rows are links, because every row is somewhere you would go next ─────── */
+  .board .who .nm {
+    color: var(--text-heading);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .board .who .nm:hover {
+    border-bottom-color: var(--border-strong);
+  }
+  tr[hidden] {
+    display: none;
+  }
+
+  /* ── Stated absence, never a blank ────────────────────────────────────────── */
+  .nothing {
+    margin: 0;
+    padding: 1.375rem 1.25rem;
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--text-muted);
+  }
+  .nothing b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .lane-empty {
+    padding: 1.25rem 0 0.25rem;
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════════
+   FORCED COLOURS — Windows high contrast and friends.
+
+   The token layer above already re-points every colour role this page uses, and
+   that is NOT sufficient. All five `--surface*` roles map to `Canvas`, so any
+   distinction this design drew with a FILL ALONE collapses to Canvas-on-Canvas
+   and disappears — while text and edges keep working, which is exactly why it
+   is invisible to anyone checking by looking at an ordinary screen.
+
+   The worst of them was the timer. Its empty hour blocks are `--surface-inset`
+   on a `--surface` module: both Canvas, so the unelapsed part of the target
+   vanished and the blocks could no longer be counted. Counting them is the
+   entire reason the timer is blocks rather than a bar.
+
+   System colour keywords are the correct vocabulary inside this block and are
+   what the token file itself uses; the "tokens only, no raw hex" rule is kept.
+   ═════════════════════════════════════════════════════════════════════════════ */
+  @media (forced-colors: active) {
+    /* The timer must stay countable: every block keeps an edge, filled or not. */
+    .hours i {
+      border: 1px solid CanvasText;
+    }
+
+    /* Shadows are not a reliable edge here, and the design language's own rule is
+     that borders own the edge anyway. Without this the menu floats invisibly. */
+    .form-menu {
+      border: 1px solid CanvasText;
+    }
+
+    /* Which board you are on was carried by a fill. Weight alone is not enough, and 1px
+     reads as an ordinary edge once every edge on the page is CanvasText. */
+    .seg button[aria-pressed="true"] {
+      outline: 2px solid CanvasText;
+      outline-offset: -2px;
+    }
+
+    /* Pills whose shape carried the grouping. `none` stays a bare word — it is
+     text, not a pill, and giving it a border would make an absence look like a value. */
+    .tag,
+    .refs span:not([data-none]),
+    .way,
+    .search {
+      border: 1px solid CanvasText;
+    }
+
+    /* A filled button and an outlined one are the same Canvas here; the fill was
+     the only thing saying "this is the action". Give the primary a heavier edge. */
+    .btn[data-kind="primary"] {
+      outline: 2px solid CanvasText;
+      outline-offset: -2px;
+    }
+
+    /* The "do this first" marker was a box-shadow, and shadows are dropped here —
+     so the one mark distinguishing the urgent decision from the other two simply
+     went. Re-drawn as a real border, and WIDER than any other edge on the page:
+     width survives a palette that maps every tone to the same keyword, colour
+     does not. The padding compensates so the text does not shift. */
+    .decision[data-first="true"] {
+      border-left: 4px solid Mark;
+      padding-left: calc(1.25rem - 4px);
+    }
+  }
+</style>
+
+<div class="ckb-v2">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">WF</span>
+      <span class="name">Ward Flow</span>
+      <span class="sep" aria-hidden="true">/</span>
+      <span class="where">Perth metropolitan &mdash; synthetic data</span>
+    </div>
+    <!-- WHICH SCREEN. Two now, and the labels say what is inside them: the tab that used
+         to sit here read "Ward board" over a patient handover board, and on 2026-09-05 that
+         mismatch cost the board itself when "drop that tab" was taken at its word. -->
+    <div class="seg" role="tablist" aria-label="Choose a screen">
+      <button
+        type="button"
+        role="tab"
+        data-screen="ed"
+        aria-controls="panel-ed"
+        aria-pressed="true"
+        aria-selected="true"
+      >
+        ED hub
+      </button>
+      <button
+        type="button"
+        role="tab"
+        data-screen="handover"
+        aria-controls="panel-handover"
+        aria-pressed="false"
+        aria-selected="false"
+      >
+        Patient handover board
+      </button>
+    </div>
+    <div class="bar-right">
+      <label class="search">
+        <span aria-hidden="true">&#9906;</span>
+        <input type="search" placeholder="UMRN, name or ref" aria-label="Search by UMRN, name or reference" />
+      </label>
+      <span class="asat">as at <b class="mono">11:42</b></span>
+    </div>
+  </header>
+
+  <main class="page" id="panel-handover" aria-label="Patient handover board" hidden>
+    <div class="top-row">
+      <section class="module identity">
+        <span class="kicker">Patient handover board</span>
+        <h1>Four wards, eight people</h1>
+        <p class="standfirst">
+          A <b>Form 4C lapses at 18:00</b>, one person has had <b>nothing recorded for 26 hours</b>, and one is on the
+          board with <b>no bed at all</b>. Everything below is a record somebody wrote &mdash; a blank means nothing was
+          written, never that nothing happened.
+        </p>
+        <div class="chips">
+          <span class="tag"><b>8</b> on the board</span>
+          <span class="tag"><b>4</b> reviewed today</span>
+          <span class="tag"><b>5</b> under a form</span>
+          <span class="tag"><b>1</b> without a bed</span>
+        </div>
+      </section>
+      <section class="module timer" data-breach="true">
+        <span class="label">Longest without a review</span>
+        <span class="big mono">26h</span>
+        <div class="hours" role="img" aria-label="26h of 24 hour target elapsed">
+          <i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i
+          ><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i
+          ><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i
+          ><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i
+          ><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i
+          ><i data-on="true" data-breach="true"></i><i data-on="true" data-breach="true"></i>
+        </div>
+        <div class="legend">
+          <span>0</span><span>24h target &middot; <b>2h over</b></span>
+        </div>
+        <a class="who" href="#">
+          <span class="nm">Priya Oquinn</span>
+          <span class="sub"><span class="r mono">UM100006</span> &middot; nothing recorded since admission</span>
+        </a>
+      </section>
+    </div>
+
+    <section class="module">
+      <header>
+        <h2>Needs a decision</h2>
+        <span class="n mono">3</span><span class="spacer"></span
+        ><span class="hint">nothing here is waiting on another team</span>
+      </header>
+      <div class="queue">
+        <div class="decision" data-first="true">
+          <div class="body">
+            <div class="meta">
+              <span class="ref mono">UM100005</span><span class="age">outstanding <b>3h 10m</b></span
+              ><span class="first-flag">Do this first &mdash; a legal form lapses at 18:00</span>
+            </div>
+            <p>
+              The Form 4C on Roshan O&rsquo;Quinn expires at 18:00. After that he is here without a legal basis, and
+              nobody is told automatically.
+            </p>
+          </div>
+          <div class="acts">
+            <a class="btn" data-kind="primary" href="#">Renew or discharge the form</a
+            ><a class="btn" data-kind="quiet" href="#">Open record</a
+            ><a class="btn" data-kind="quiet" href="#">Assign</a><a class="btn" data-kind="quiet" href="#">Snooze 1h</a>
+          </div>
+        </div>
+        <div class="decision">
+          <div class="body">
+            <div class="meta">
+              <span class="ref mono">UM100006</span><span class="age">outstanding <b>26h</b></span>
+            </div>
+            <p>
+              Priya Oquinn was admitted overnight and no story, review or plan has been recorded. The board can only
+              show what somebody wrote down.
+            </p>
+          </div>
+          <div class="acts">
+            <a class="btn" data-kind="primary" href="#">Record the first review</a
+            ><a class="btn" data-kind="quiet" href="#">Open record</a
+            ><a class="btn" data-kind="quiet" href="#">Assign</a>
+          </div>
+        </div>
+        <div class="decision">
+          <div class="body">
+            <div class="meta">
+              <span class="ref mono">UM100008</span><span class="age">outstanding <b>13h 24m</b></span>
+            </div>
+            <p>
+              Kwame Vandersloot is on this board with no bed and no request raised. Nothing is waiting on another team
+              &mdash; this one is.
+            </p>
+          </div>
+          <div class="acts">
+            <a class="btn" data-kind="primary" href="#">Request a bed</a
+            ><a class="btn" data-kind="quiet" href="#">Open record</a
+            ><a class="btn" data-kind="quiet" href="#">Assign</a>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="module board">
+      <header>
+        <h2>Patient board</h2>
+        <span class="n mono"><span data-count="board">8</span></span
+        ><span class="spacer"></span
+        ><span class="hint"
+          >form options: 1A &middot; 3B &middot; 3D &middot; 4A &middot; 4C &middot; press a form to change it</span
+        >
+      </header>
+      <div class="toolbar" role="group" aria-label="Filter the board">
+        <button type="button" class="chip" data-filter="all" aria-pressed="true">
+          Everyone<span class="c mono">8</span></button
+        ><button type="button" class="chip" data-filter="unreviewed" aria-pressed="false">
+          Not reviewed today<span class="c mono">4</span></button
+        ><button type="button" class="chip" data-filter="form" aria-pressed="false">
+          Under a form<span class="c mono">5</span></button
+        ><button type="button" class="chip" data-filter="nobed" aria-pressed="false">
+          Without a bed<span class="c mono">1</span>
+        </button>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th aria-sort="none">
+                <button type="button" class="sort" data-sort="umrn">
+                  UMRN<span class="ar" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th aria-sort="none">
+                <button type="button" class="sort" data-sort="name">
+                  Patient<span class="ar" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th aria-sort="none">
+                <button type="button" class="sort" data-sort="bed">
+                  Bed<span class="ar" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th>Form</th>
+              <th>Story &mdash; presenting complaint</th>
+              <th aria-sort="none">
+                <button type="button" class="sort" data-sort="review">
+                  Review<span class="ar" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th>Plan</th>
+              <th>Referrals</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-flags="unreviewed form hasbed refs" data-find="um100002 marcus hallowin">
+              <td class="umrn mono narrow">UM100002</td>
+              <td class="who narrow">
+                <a class="nm" href="#">Marcus Hallowin</a><span class="dob">1961 &middot; 64y</span>
+              </td>
+              <td class="bed narrow">Bed 4<span class="unit">RPH Adult Secure</span></td>
+              <td class="narrow">
+                <div class="form-field">
+                  <button
+                    class="form-pill"
+                    type="button"
+                    id="fp0"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-label="Legal form: 3B. Change"
+                  >
+                    3B<span class="caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <ul class="form-menu" role="listbox" aria-labelledby="fp0" hidden>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="1A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>1A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="true">
+                      <button type="button" data-code="3B">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3B
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3D">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3D
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4C">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4C
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false" class="sep">
+                      <button type="button" data-code="">
+                        <span class="tick" aria-hidden="true">&#10003;</span>No form
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+              <td class="story">
+                Third admission this year. Brought in by police after a week not sleeping; believes the neighbours are
+                broadcasting his thoughts.
+              </td>
+              <td class="narrow"><span class="review" data-seen="false">Not seen today</span></td>
+              <td class="plan">Olanzapine review at the 4pm round.</td>
+              <td class="narrow">
+                <span class="refs"><span>&darr;&nbsp;1 in</span><span>&uarr;&nbsp;2 out</span></span>
+              </td>
+            </tr>
+            <tr data-flags="reviewed noform hasbed refs" data-find="um100001 talia halloway">
+              <td class="umrn mono narrow">UM100001</td>
+              <td class="who narrow">
+                <a class="nm" href="#">Talia Halloway</a><span class="dob">1988 &middot; 38y</span>
+              </td>
+              <td class="bed narrow">Bed 7<span class="unit">RPH Adult Secure</span></td>
+              <td class="narrow">
+                <div class="form-field">
+                  <button
+                    class="form-pill"
+                    data-none="true"
+                    type="button"
+                    id="fp1"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-label="Legal form: none recorded. Change"
+                  >
+                    &mdash;<span class="caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <ul class="form-menu" role="listbox" aria-labelledby="fp1" hidden>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="1A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>1A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3B">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3B
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3D">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3D
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4C">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4C
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="true" class="sep">
+                      <button type="button" data-code="">
+                        <span class="tick" aria-hidden="true">&#10003;</span>No form
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+              <td class="story">
+                Presented herself after two weeks of low mood and one night of self-harm thoughts. No prior admission.
+              </td>
+              <td class="narrow"><span class="review" data-seen="true">Seen 08:40 &middot; Dr Ferreira</span></td>
+              <td class="plan">For discharge tomorrow if the overnight is settled. Midland to pick up.</td>
+              <td class="narrow">
+                <span class="refs"><span>&darr;&nbsp;1 in</span><span>&uarr;&nbsp;1 out</span></span>
+              </td>
+            </tr>
+            <tr data-flags="reviewed form hasbed refs" data-find="um100007 feodora blennerhast">
+              <td class="umrn mono narrow">UM100007</td>
+              <td class="who narrow">
+                <a class="nm" href="#">Feodora Blennerhast</a><span class="dob">1949 &middot; 76y</span>
+              </td>
+              <td class="bed narrow">Bed 2<span class="unit">BTY Older Adult</span></td>
+              <td class="narrow">
+                <div class="form-field">
+                  <button
+                    class="form-pill"
+                    type="button"
+                    id="fp2"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-label="Legal form: 1A. Change"
+                  >
+                    1A<span class="caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <ul class="form-menu" role="listbox" aria-labelledby="fp2" hidden>
+                    <li role="option" aria-selected="true">
+                      <button type="button" data-code="1A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>1A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3B">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3B
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3D">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3D
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4C">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4C
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false" class="sep">
+                      <button type="button" data-code="">
+                        <span class="tick" aria-hidden="true">&#10003;</span>No form
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+              <td class="story">
+                Found at home confused and not eating. Delirium not yet excluded &mdash; bloods and a scan are
+                outstanding.
+              </td>
+              <td class="narrow"><span class="review" data-seen="true">Seen 07:15 &middot; Dr Ng</span></td>
+              <td class="plan">Cannot be assessed until the medical cause is settled. Chase the scan.</td>
+              <td class="narrow">
+                <span class="refs"><span>&darr;&nbsp;1 in</span><span>&uarr;&nbsp;1 out</span></span>
+              </td>
+            </tr>
+            <tr data-flags="reviewed noform hasbed refs" data-find="um100003 ines marrowby">
+              <td class="umrn mono narrow">UM100003</td>
+              <td class="who narrow">
+                <a class="nm" href="#">Ines Marrowby</a><span class="dob">1995 &middot; 31y</span>
+              </td>
+              <td class="bed narrow">Bed 11<span class="unit">SJGM Adult Open</span></td>
+              <td class="narrow">
+                <div class="form-field">
+                  <button
+                    class="form-pill"
+                    data-none="true"
+                    type="button"
+                    id="fp3"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-label="Legal form: none recorded. Change"
+                  >
+                    &mdash;<span class="caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <ul class="form-menu" role="listbox" aria-labelledby="fp3" hidden>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="1A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>1A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3B">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3B
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3D">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3D
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4C">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4C
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="true" class="sep">
+                      <button type="button" data-code="">
+                        <span class="tick" aria-hidden="true">&#10003;</span>No form
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+              <td class="story">
+                Admitted voluntarily after a relapse of an eating disorder. Weight stable for four days.
+              </td>
+              <td class="narrow"><span class="review" data-seen="true">Seen 09:05 &middot; Dr Ferreira</span></td>
+              <td class="plan">Meal plan continues. Family meeting Thursday.</td>
+              <td class="narrow">
+                <span class="refs"><span data-none="true">none in</span><span>&uarr;&nbsp;1 out</span></span>
+              </td>
+            </tr>
+            <tr data-flags="unreviewed form hasbed refs" data-find="um100005 roshan o'quinn">
+              <td class="umrn mono narrow">UM100005</td>
+              <td class="who narrow">
+                <a class="nm" href="#">Roshan O'Quinn</a><span class="dob">1974 &middot; 52y</span>
+              </td>
+              <td class="bed narrow">Bed 6<span class="unit">RPH Adult Secure</span></td>
+              <td class="narrow">
+                <div class="form-field">
+                  <button
+                    class="form-pill"
+                    type="button"
+                    id="fp4"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-label="Legal form: 3B &middot; 4C. Change"
+                  >
+                    3B &middot; 4C<span class="caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <ul class="form-menu" role="listbox" aria-labelledby="fp4" hidden>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="1A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>1A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="true">
+                      <button type="button" data-code="3B">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3B
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3D">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3D
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="true">
+                      <button type="button" data-code="4C">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4C
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false" class="sep">
+                      <button type="button" data-code="">
+                        <span class="tick" aria-hidden="true">&#10003;</span>No form
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+              <td class="story">
+                Transferred from a regional service under a Form 4C. Six days of escalating agitation before transfer.
+              </td>
+              <td class="narrow"><span class="review" data-seen="false">Not seen today</span></td>
+              <td class="plan">Form 4C expires today &mdash; a decision is needed before 18:00.</td>
+              <td class="narrow">
+                <span class="refs"><span>&darr;&nbsp;2 in</span><span>&uarr;&nbsp;1 out</span></span>
+              </td>
+            </tr>
+            <tr data-flags="reviewed noform hasbed norefs" data-find="um100004 devan marrowbee">
+              <td class="umrn mono narrow">UM100004</td>
+              <td class="who narrow">
+                <a class="nm" href="#">Devan Marrowbee</a><span class="dob">1990 &middot; 36y</span>
+              </td>
+              <td class="bed narrow">Bed 9<span class="unit">SJGM Adult Open</span></td>
+              <td class="narrow">
+                <div class="form-field">
+                  <button
+                    class="form-pill"
+                    data-none="true"
+                    type="button"
+                    id="fp5"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-label="Legal form: none recorded. Change"
+                  >
+                    &mdash;<span class="caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <ul class="form-menu" role="listbox" aria-labelledby="fp5" hidden>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="1A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>1A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3B">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3B
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3D">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3D
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4C">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4C
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="true" class="sep">
+                      <button type="button" data-code="">
+                        <span class="tick" aria-hidden="true">&#10003;</span>No form
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+              <td class="story">Second week. Admitted after stopping medication; settled since day three.</td>
+              <td class="narrow"><span class="review" data-seen="true">Seen 10:20 &middot; Dr Ng</span></td>
+              <td class="plan">Discharge planning. No date written down yet.</td>
+              <td class="narrow">
+                <span class="refs"><span data-none="true">none in</span><span data-none="true">none out</span></span>
+              </td>
+            </tr>
+            <tr data-flags="unreviewed form hasbed refs" data-find="um100006 priya oquinn">
+              <td class="umrn mono narrow">UM100006</td>
+              <td class="who narrow">
+                <a class="nm" href="#">Priya Oquinn</a><span class="dob">1983 &middot; 43y</span>
+              </td>
+              <td class="bed narrow">Bed 3<span class="unit">RPH Older Adult</span></td>
+              <td class="narrow">
+                <div class="form-field">
+                  <button
+                    class="form-pill"
+                    type="button"
+                    id="fp6"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-label="Legal form: 3D. Change"
+                  >
+                    3D<span class="caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <ul class="form-menu" role="listbox" aria-labelledby="fp6" hidden>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="1A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>1A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3B">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3B
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="true">
+                      <button type="button" data-code="3D">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3D
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4C">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4C
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false" class="sep">
+                      <button type="button" data-code="">
+                        <span class="tick" aria-hidden="true">&#10003;</span>No form
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+              <td class="story">
+                Admitted from the emergency department overnight. Story not yet taken &mdash; nothing has been recorded.
+              </td>
+              <td class="narrow"><span class="review" data-seen="false">Not seen today</span></td>
+              <td class="plan">Nothing recorded. This is the first entry on this record.</td>
+              <td class="narrow">
+                <span class="refs"><span>&darr;&nbsp;1 in</span><span data-none="true">none out</span></span>
+              </td>
+            </tr>
+            <tr data-flags="unreviewed form nobed refs" data-find="um100008 kwame vandersloot">
+              <td class="umrn mono narrow">UM100008</td>
+              <td class="who narrow">
+                <a class="nm" href="#">Kwame Vandersloot</a><span class="dob">1957 &middot; 69y</span>
+              </td>
+              <td class="bed narrow">&mdash;<span class="unit">Awaiting a bed</span></td>
+              <td class="narrow">
+                <div class="form-field">
+                  <button
+                    class="form-pill"
+                    type="button"
+                    id="fp7"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-label="Legal form: 4A. Change"
+                  >
+                    4A<span class="caret" aria-hidden="true">&#9662;</span>
+                  </button>
+                  <ul class="form-menu" role="listbox" aria-labelledby="fp7" hidden>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="1A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>1A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3B">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3B
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="3D">
+                        <span class="tick" aria-hidden="true">&#10003;</span>3D
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="true">
+                      <button type="button" data-code="4A">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4A
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false">
+                      <button type="button" data-code="4C">
+                        <span class="tick" aria-hidden="true">&#10003;</span>4C
+                      </button>
+                    </li>
+                    <li role="option" aria-selected="false" class="sep">
+                      <button type="button" data-code="">
+                        <span class="tick" aria-hidden="true">&#10003;</span>No form
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </td>
+              <td class="story">In the emergency department under a Form 4A. No ward has accepted him.</td>
+              <td class="narrow"><span class="review" data-seen="false">Not seen today</span></td>
+              <td class="plan">A bed must be requested. Nothing is waiting on another team.</td>
+              <td class="narrow">
+                <span class="refs"><span data-none="true">none in</span><span>&uarr;&nbsp;1 out</span></span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="nothing" hidden>
+          No one on this board matches that.
+          <b>An empty result means the filter excluded everyone &mdash; not that the ward is empty.</b>
+        </p>
+      </div>
+    </section>
+    <div class="flow">
+      <section class="module">
+        <header>
+          <span class="way" aria-hidden="true">&darr;</span>
+          <h2>Coming in</h2>
+          <span class="n mono">2</span>
+        </header>
+        <div class="lane">
+          <div class="axis">
+            <span></span>
+            <div class="ticks">
+              <span style="left: 0%">0</span><span style="left: 25%">6h</span><span style="left: 50%">12h</span
+              ><span style="left: 75%">18h</span><span style="left: 100%">24h</span>
+            </div>
+            <span></span>
+          </div>
+          <a class="person" href="#">
+            <span class="ref mono">RF-009</span>
+            <span
+              ><span class="nm">Perth Metropolitan &mdash; ED</span
+              ><span class="sub">Adult &middot; for psychiatric review</span>
+              <span class="track"><span class="fill" style="width: 3%"></span></span
+            ></span>
+            <span class="el mono">35m<small>since referral</small></span>
+          </a>
+          <a class="person" href="#">
+            <span class="ref mono">WF-003</span>
+            <span
+              ><span class="nm">RPH Adult Secure &mdash; accepted</span
+              ><span class="sub">Adult &middot; secure &middot; Form 3B</span>
+              <span class="track"><span class="fill" style="width: 18%"></span></span
+            ></span>
+            <span class="el mono">4h 20m<small>awaiting bed</small></span>
+          </a>
+          <p class="nothing lane-empty" hidden>
+            Nobody here matches that search.
+            <b>An empty lane means the search excluded everyone, not that the lane is clear.</b>
+          </p>
+        </div>
+      </section>
+      <section class="module">
+        <header>
+          <span class="way" aria-hidden="true">&uarr;</span>
+          <h2>Going out</h2>
+          <span class="n mono">2</span>
+        </header>
+        <div class="lane">
+          <div class="axis">
+            <span></span>
+            <div class="ticks">
+              <span style="left: 0%">0</span><span style="left: 25%">6h</span><span style="left: 50%">12h</span
+              ><span style="left: 75%">18h</span><span style="left: 100%">24h</span>
+            </div>
+            <span></span>
+          </div>
+          <a class="person" data-urgent="true" href="#">
+            <span class="ref mono">UM100008</span>
+            <span
+              ><span class="nm">Kwame Vandersloot</span><span class="sub">In the ED &middot; no bed requested</span
+              ><span class="flag">No bed has been requested</span>
+              <span class="track"><span class="fill" style="width: 56%"></span></span
+            ></span>
+            <span class="el mono">13h 24m<small>no destination</small></span>
+          </a>
+          <a class="person" href="#">
+            <span class="ref mono">UM100001</span>
+            <span
+              ><span class="nm">Talia Halloway</span><span class="sub">Home tomorrow &middot; Midland picking up</span>
+              <span class="track"><span class="fill" style="width: 21%"></span></span
+            ></span>
+            <span class="el mono">1d<small>to discharge</small></span>
+          </a>
+          <p class="nothing lane-empty" hidden>
+            Nobody here matches that search.
+            <b>An empty lane means the search excluded everyone, not that the lane is clear.</b>
+          </p>
+        </div>
+      </section>
+    </div>
+    <section class="module">
+      <header>
+        <h2>Seen in the last 24 hours</h2>
+        <span class="n mono">6</span><span class="spacer"></span
+        ><span class="hint">what this team recorded, not everything it did</span>
+      </header>
+      <div class="done">
+        <div class="row">
+          <span class="ago mono">1h ago</span
+          ><span class="what"><b>Devan Marrowbee</b> reviewed &mdash; settled, discharge planning continues</span
+          ><span class="by">Dr Ng</span>
+        </div>
+        <div class="row">
+          <span class="ago mono">2h ago</span
+          ><span class="what"><b>Ines Marrowby</b> reviewed &mdash; weight stable, meal plan unchanged</span
+          ><span class="by">Dr Ferreira</span>
+        </div>
+        <div class="row">
+          <span class="ago mono">3h ago</span
+          ><span class="what"><b>Talia Halloway</b> reviewed &mdash; for discharge tomorrow</span
+          ><span class="by">Dr Ferreira</span>
+        </div>
+        <div class="row">
+          <span class="ago mono">4h ago</span
+          ><span class="what"><b>Feodora Blennerhast</b> reviewed &mdash; scan still outstanding</span
+          ><span class="by">Dr Ng</span>
+        </div>
+        <div class="row">
+          <span class="ago mono">9h ago</span
+          ><span class="what"><b>Roshan O&rsquo;Quinn</b> arrived under a Form 4C from a regional service</span
+          ><span class="by">Transport</span>
+        </div>
+        <div class="row">
+          <span class="ago mono">14h ago</span
+          ><span class="what"><b>Feodora Blennerhast</b> &mdash; scan requested, still outstanding</span
+          ><span class="by">Dr Ng</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="foot">
+      <section>
+        <h3>Every name here is invented</h3>
+        <p>
+          The eight people, their stories, plans and reviews are synthetic. The UMRNs come from the prototype&rsquo;s
+          own seed data (<code>ward-patients-seed.ts</code>) and the form codes are the real Western Australian ones the
+          model offers: 1A &middot; 3B &middot; 3D &middot; 4A &middot; 4C.
+        </p>
+      </section>
+      <section>
+        <h3>A blank is a blank, not a zero</h3>
+        <p>
+          &ldquo;Not seen today&rdquo; means no review was recorded. It never means the person was not seen. This board
+          is a record of what was written down and must never be read as a record of care.
+        </p>
+      </section>
+      <section>
+        <h3>Why durations and not dates</h3>
+        <p>
+          The prototype&rsquo;s day zero reads the real clock, so a printed date would drift while a duration does not.
+          Nothing on this page will silently go stale.
+        </p>
+      </section>
+    </div>
+  </main>
+  <!-- ⚠️ OUTSIDE the panel on purpose. It began INSIDE `#panel-ed`, and choosing any of
+         the seven undrawn departments hid that panel and took the switcher with it — a dead
+         end with no way back to Royal Perth, on the one control whose whole job is moving
+         between departments. It belongs to the SCREEN, not to one of the screen’s two states. -->
+  <div class="deptwrap" id="deptwrap">
+    <!-- ⚠️ EIGHT REAL DEPARTMENTS, read from `ward-sites.ts` on 2026-09-05, not typed from
+         memory. It sits INSIDE the hub rather than in the top bar because it is the hub's
+         own question — the top bar chooses a screen, this chooses which department that
+         screen is about, and stacking both in one bar made two different questions look
+         like one control. Codes, because eight fit on a line where eight hospital names do
+         not, and the full name is the heading immediately below. -->
+    <nav class="deptbar" aria-label="Choose an emergency department">
+      <span class="deptbar-label">Department</span>
+      <button type="button" data-ed="rph-ed" data-name="Royal Perth Hospital" aria-pressed="true">RPH</button>
+      <button type="button" data-ed="scgh-ed" data-name="Sir Charles Gairdner Hospital" aria-pressed="false">
+        SCGH
+      </button>
+      <button type="button" data-ed="fsh-ed" data-name="Fiona Stanley Hospital" aria-pressed="false">FSH</button>
+      <button type="button" data-ed="arm-ed" data-name="Armadale Hospital" aria-pressed="false">ARM</button>
+      <button type="button" data-ed="sjgm-ed" data-name="St John of God Midland" aria-pressed="false">SJGM</button>
+      <button type="button" data-ed="rgh-ed" data-name="Rockingham General Hospital" aria-pressed="false">RGH</button>
+      <button type="button" data-ed="jhc-ed" data-name="Joondalup Health Campus" aria-pressed="false">JHC</button>
+      <button type="button" data-ed="peel-ed" data-name="Peel Health Campus" aria-pressed="false">PEEL</button>
+    </nav>
+  </div>
+  <main class="page" id="panel-ed" role="tabpanel" aria-label="Emergency department">
+    <div class="top-row">
+      <section class="module identity">
+        <span class="kicker">Emergency department</span>
+        <h1>Royal Perth Hospital</h1>
+        <p class="standfirst">
+          <b>Four</b> people on this department&rsquo;s list &mdash; three still here, one in transit. One referral is
+          waiting on this team, and three of the four are owed a move out.
+        </p>
+        <div class="chips">
+          <span class="tag"><b>3</b> still here</span>
+          <span class="tag"><b>1</b> in transit</span>
+          <span class="tag"><b>1</b> referral unanswered</span>
+          <span class="tag"><b>3</b> owed a move</span>
+          <span class="tag"><b>1</b> no bed requested</span>
+        </div>
+      </section>
+      <section class="module timer">
+        <span class="label">Longest here</span>
+        <span class="big mono">13h 24m</span>
+        <div class="hours" role="img" aria-label="13h 24m of 24 hour target elapsed">
+          <i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i
+          ><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i
+          ><i data-on="true"></i><i data-on="true"></i><i data-on="true"></i><i></i><i></i><i></i><i></i><i></i><i></i
+          ><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <div class="legend"><span>0</span><span>24h departmental target &middot; 10h 36m left</span></div>
+        <a class="who" href="#">
+          <span class="nm">No bed has been requested</span>
+          <span class="sub"><span class="r mono">WF-312</span> &middot; longest wait in the department</span>
+        </a>
+      </section>
+    </div>
+
+    <section class="module">
+      <header>
+        <h2>Needs a decision</h2>
+        <span class="n mono">3</span><span class="spacer"></span
+        ><span class="hint">nothing here is waiting on another team</span>
+      </header>
+      <div class="queue">
+        <div class="decision" data-first="true">
+          <div class="body">
+            <div class="meta">
+              <span class="ref mono">WF-312</span><span class="age">outstanding <b>13h 24m</b></span
+              ><span class="first-flag">Do this first &mdash; longest here, and nothing has been asked of anyone</span>
+            </div>
+            <p>Thirteen hours here and no bed requested. Nothing is waiting on another team &mdash; this one is.</p>
+          </div>
+          <div class="acts">
+            <a class="btn" data-kind="primary" href="#">Raise a referral</a
+            ><a class="btn" data-kind="quiet" href="#">Open record</a
+            ><a class="btn" data-kind="quiet" href="#">Assign</a><a class="btn" data-kind="quiet" href="#">Snooze 1h</a>
+          </div>
+        </div>
+        <div class="decision">
+          <div class="body">
+            <div class="meta">
+              <span class="ref mono">RF-009</span><span class="age">outstanding <b>35m</b></span>
+            </div>
+            <p>Not medically cleared. Psychiatry cannot answer until somebody records that decision either way.</p>
+          </div>
+          <div class="acts">
+            <a class="btn" data-kind="primary" href="#">Record medical clearance</a
+            ><a class="btn" data-kind="quiet" href="#">Open record</a
+            ><a class="btn" data-kind="quiet" href="#">Assign</a>
+          </div>
+        </div>
+        <div class="decision">
+          <div class="body">
+            <div class="meta">
+              <span class="ref mono">WF-304</span><span class="age">outstanding <b>8h 28m</b></span>
+            </div>
+            <p>A bed is held and no transport is booked. The handover cannot be marked ready until it is.</p>
+          </div>
+          <div class="acts">
+            <a class="btn" data-kind="primary" href="#">Book transport</a
+            ><a class="btn" data-kind="quiet" href="#">Open record</a
+            ><a class="btn" data-kind="quiet" href="#">Assign</a>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="flow">
+      <section class="module">
+        <header>
+          <span class="way" aria-hidden="true">&darr;</span>
+          <h2>Coming in</h2>
+          <span class="n mono">1</span>
+        </header>
+        <div class="lane">
+          <div class="axis">
+            <span></span>
+            <div class="ticks">
+              <span style="left: 0%">0</span><span style="left: 25%">6h</span><span style="left: 50%">12h</span
+              ><span style="left: 75%">18h</span><span style="left: 100%">24h</span>
+            </div>
+            <span></span>
+          </div>
+          <a class="person" data-urgent="true" href="#">
+            <span class="ref mono">RF-009</span>
+            <span
+              ><span class="nm">Perth Metropolitan</span><span class="sub">Adult &middot; 4h 05m in the department</span
+              ><span class="flag">Needs an answer from this team</span>
+              <span class="track"><span class="fill" style="width: 3%"></span></span
+            ></span>
+            <span class="el mono">35m<small>since referral</small></span>
+          </a>
+          <p class="nothing lane-empty" hidden>
+            Nobody here matches that search.
+            <b>An empty lane means the search excluded everyone, not that the lane is clear.</b>
+          </p>
+        </div>
+      </section>
+      <section class="module">
+        <header>
+          <span class="way" aria-hidden="true">&uarr;</span>
+          <h2>Going out</h2>
+          <span class="n mono">4</span>
+        </header>
+        <div class="lane">
+          <div class="axis">
+            <span></span>
+            <div class="ticks">
+              <span style="left: 0%">0</span><span style="left: 25%">6h</span><span style="left: 50%">12h</span
+              ><span style="left: 75%">18h</span><span style="left: 100%">24h</span>
+            </div>
+            <span></span>
+          </div>
+          <a class="person" data-urgent="true" href="#">
+            <span class="ref mono">WF-312</span>
+            <span
+              ><span class="nm">No destination yet</span
+              ><span class="sub">Tier 1 &middot; older adult &middot; for examination</span
+              ><span class="flag">No bed has been requested</span>
+              <span class="track"><span class="fill" style="width: 56%"></span></span
+            ></span>
+            <span class="el mono">13h 24m<small>in department</small></span>
+          </a>
+          <a class="person" href="#">
+            <span class="ref mono">WF-304</span>
+            <span
+              ><span class="nm">BTY Older Adult</span
+              ><span class="sub">Tier 2 &middot; bed pulled &middot; no transport</span>
+              <span class="track"><span class="fill" style="width: 35%"></span></span
+            ></span>
+            <span class="el mono">8h 28m<small>owed a move</small></span>
+          </a>
+          <a class="person" href="#">
+            <span class="ref mono">WF-003</span>
+            <span
+              ><span class="nm">RPH Adult Secure</span
+              ><span class="sub">Tier 1 &middot; involuntary &middot; Form 3B</span>
+              <span class="track"><span class="fill" style="width: 18%"></span></span
+            ></span>
+            <span class="el mono">4h 20m<small>owed a move</small></span>
+          </a>
+          <a class="person" href="#">
+            <span class="ref mono">WF-320</span>
+            <span
+              ><span class="nm">FSH Older Adult</span><span class="sub">Tier 3 &middot; in transit</span>
+              <span class="track"><span class="fill" style="width: 2%"></span></span
+            ></span>
+            <span class="el mono">&mdash;<small>moving</small></span>
+          </a>
+          <p class="nothing lane-empty" hidden>
+            Nobody here matches that search.
+            <b>An empty lane means the search excluded everyone, not that the lane is clear.</b>
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <section class="module">
+      <header>
+        <h2>Answered</h2>
+        <span class="n mono">0</span>
+      </header>
+      <p class="absence">
+        Nothing addressed to psychiatry here has been answered yet.
+        <b>An empty list means no decision has been recorded &mdash; not that no referral arrived.</b> The one above is
+        still with this team.
+      </p>
+    </section>
+    <section class="module">
+      <header>
+        <h2>Seen in the last 24 hours</h2>
+        <span class="n mono">4</span><span class="spacer"></span
+        ><span class="hint">what this team recorded, not everything it did</span>
+      </header>
+      <div class="done">
+        <div class="row">
+          <span class="ago mono">40m ago</span
+          ><span class="what"><b>WF-320</b> handed over and left for FSH Older Adult &mdash; in transit now</span
+          ><span class="by">Transport</span>
+        </div>
+        <div class="row">
+          <span class="ago mono">6h ago</span><span class="what"><b>WF-003</b> accepted by RPH Adult Secure</span
+          ><span class="by">Bed manager</span>
+        </div>
+        <div class="row">
+          <span class="ago mono">8h ago</span><span class="what"><b>WF-304</b> bed pulled at BTY Older Adult</span
+          ><span class="by">Bed manager</span>
+        </div>
+        <div class="row">
+          <span class="ago mono">13h ago</span><span class="what"><b>WF-312</b> arrived and was triaged</span
+          ><span class="by">ED triage</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="foot">
+      <section>
+        <h3>What is real</h3>
+        <p>
+          Every identifier, wait, tier, destination and state was read off the running prototype at
+          <code>/mockups/ward-flow/ed/rph-ed</code> on 2026-09-04. Department and ward names come from
+          <code>ward-sites.ts</code>.
+        </p>
+      </section>
+      <section>
+        <h3>What is invented</h3>
+        <p>
+          The layout, the bar lengths as a proportion of the 24-hour target, the named actions and everything in the
+          last-24-hours list. The underlying figures are the screen&rsquo;s own.
+        </p>
+      </section>
+      <section>
+        <h3>Two different clocks</h3>
+        <p>
+          Coming in is measured from the referral; going out from when the move became owed. They are drawn on separate
+          axes and never ranked against one another, because they are not the same quantity.
+        </p>
+      </section>
+    </div>
+  </main>
+  <main class="page" id="panel-undrawn" aria-label="Emergency department" hidden>
+    <div class="top-row">
+      <section class="module identity">
+        <span class="kicker">Emergency department</span>
+        <h1 data-undrawn-name>&mdash;</h1>
+        <p class="standfirst">
+          This department is real and is in the model. <b>Its board has not been drawn in this prototype</b> &mdash;
+          only Royal Perth is populated.
+        </p>
+      </section>
+    </div>
+    <section class="module">
+      <header><h2>Why this is empty</h2></header>
+      <p class="absence">
+        <b>Nothing is missing from the record. Nothing has been drawn.</b> Royal Perth&rsquo;s board was read off the
+        running prototype. The other seven would have to be invented, and a prototype that invents seven
+        departments&rsquo; waits, decisions and outstanding times is one somebody will eventually read as a measurement.
+      </p>
+      <p class="unblock">
+        <b>The switch itself is the thing to judge here</b>, not the contents: whether one press is the right way to
+        move between departments, and whether the code alone is enough to know where you have landed once the page has
+        changed underneath you.
+      </p>
+    </section>
+  </main>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+    var $ = function (s, r) {
+      return (r || document).querySelector(s);
+    };
+    var $$ = function (s, r) {
+      return Array.prototype.slice.call((r || document).querySelectorAll(s));
+    };
+    var search = $(".search input");
+
+    /* ── Two switchers, one render ─────────────────────────────────── */
+    /* WHICH SCREEN and WHICH DEPARTMENT are different questions and they interact:
+     the department only decides anything while the ED hub is the screen being
+     shown. One render function owns visibility so the two controls can never
+     disagree about what is on the page — two independent `hidden` writers is
+     exactly how a screen ends up showing nothing, or two things at once. */
+    var screens = $$("[data-screen]");
+    var depts = $$("[data-ed]");
+    var undrawnName = $("[data-undrawn-name]");
+
+    /* ⚠️ AN ALLOWLIST OF WHAT IS DRAWN, never a guess from the markup. Keying off
+     "does a panel with this id exist" would show Royal Perth’s populated board
+     under another hospital’s name the moment an id was mistyped — the one failure
+     here that would be actively dangerous rather than merely empty. */
+    var DRAWN = { "rph-ed": true };
+
+    var screenNow = "ed";
+    var deptNow = "rph-ed";
+
+    function render() {
+      var onEd = screenNow === "ed";
+      var deptDrawn = DRAWN[deptNow] === true;
+      $("#panel-ed").hidden = !(onEd && deptDrawn);
+      $("#panel-undrawn").hidden = !(onEd && !deptDrawn);
+      $("#panel-handover").hidden = onEd;
+      $("#deptwrap").hidden = !onEd;
+      screens.forEach(function (b) {
+        var on = b.dataset.screen === screenNow;
+        b.setAttribute("aria-pressed", String(on));
+        b.setAttribute("aria-selected", String(on));
+        b.tabIndex = on ? 0 : -1;
+      });
+      depts.forEach(function (b) {
+        var on = b.dataset.ed === deptNow;
+        b.setAttribute("aria-pressed", String(on));
+        b.tabIndex = on ? 0 : -1;
+      });
+      if (undrawnName) {
+        var chosen = depts.filter(function (b) {
+          return b.dataset.ed === deptNow;
+        })[0];
+        if (chosen) undrawnName.textContent = chosen.dataset.name;
+      }
+      applyAll();
+    }
+
+    function roving(list, onPick) {
+      list.forEach(function (b, i) {
+        b.addEventListener("click", function () {
+          onPick(b);
+          render();
+          window.scrollTo({ top: 0 });
+        });
+        b.addEventListener("keydown", function (e) {
+          var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+          if (!d) return;
+          e.preventDefault();
+          var n = list[(i + d + list.length) % list.length];
+          onPick(n);
+          render();
+          n.focus();
+        });
+      });
+    }
+    roving(screens, function (b) {
+      screenNow = b.dataset.screen;
+    });
+    roving(depts, function (b) {
+      deptNow = b.dataset.ed;
+    });
+
+    var query = function () {
+      return ((search && search.value) || "").trim().toLowerCase();
+    };
+
+    /* ── The patient board: filter, search, sort ──────────────────────────── */
+    var table = $(".board table");
+    var body = table && $("tbody", table);
+    var rows = table ? $$("tbody tr", table) : [];
+    var chips = $$(".chip");
+    var empty = $(".nothing");
+    var counter = $('[data-count="board"]');
+    var filter = "all";
+
+    /* Chip counts are recomputed from the rows themselves, never held as a
+     literal — a form changed on the board would otherwise leave the count
+     beside "Under a form" quietly wrong, and nothing would say so. */
+    function recount() {
+      chips.forEach(function (c) {
+        var k = c.dataset.filter;
+        var n =
+          k === "all"
+            ? rows.length
+            : rows.filter(function (r) {
+                return r.dataset.flags.split(" ").indexOf(k) > -1;
+              }).length;
+        $(".c", c).textContent = String(n);
+      });
+    }
+
+    function applyBoard() {
+      if (!table) return;
+      var q = query(),
+        shown = 0;
+      rows.forEach(function (r) {
+        var byFlag = filter === "all" || r.dataset.flags.split(" ").indexOf(filter) > -1;
+        var on = byFlag && (!q || r.dataset.find.indexOf(q) > -1);
+        r.hidden = !on;
+        if (on) shown++;
+      });
+      if (counter) counter.textContent = String(shown);
+      if (empty) empty.hidden = shown > 0;
+    }
+
+    /* The same search also narrows the coming-in / going-out lanes, so the box
+     in the top bar means the same thing on every board rather than doing
+     nothing on two of the three. */
+    function applyLanes() {
+      var q = query();
+      $$(".module").forEach(function (m) {
+        var people = $$(".person", m);
+        if (!people.length) return;
+        var shown = 0;
+        people.forEach(function (p) {
+          var on = !q || p.textContent.toLowerCase().indexOf(q) > -1;
+          p.hidden = !on;
+          if (on) shown++;
+        });
+        var n = $("header .n", m);
+        if (n) n.textContent = String(shown);
+        var gap = $(".lane-empty", m);
+        if (gap) gap.hidden = shown > 0;
+      });
+    }
+
+    function applyAll() {
+      applyBoard();
+      applyLanes();
+    }
+
+    chips.forEach(function (c) {
+      c.addEventListener("click", function () {
+        filter = c.dataset.filter;
+        chips.forEach(function (o) {
+          o.setAttribute("aria-pressed", String(o === c));
+        });
+        applyBoard();
+      });
+    });
+    if (search) search.addEventListener("input", applyAll);
+
+    /* Sorting reads the key off the cell the column actually shows, so a re-sort
+     can never disagree with what is on screen. */
+    var keyOf = {
+      umrn: function (r) {
+        return r.cells[0].textContent.trim();
+      },
+      name: function (r) {
+        return r.cells[1].textContent.trim().toLowerCase();
+      },
+      bed: function (r) {
+        return r.cells[2].textContent.trim();
+      },
+      review: function (r) {
+        // Not reviewed sorts first ascending: that is the order somebody scanning wants.
+        var el = $(".review", r);
+        return (el.dataset.seen === "true" ? "1" : "0") + el.textContent.trim();
+      },
+    };
+    $$(".sort").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var th = btn.closest("th");
+        var dir = th.getAttribute("aria-sort") === "ascending" ? "descending" : "ascending";
+        $$("thead th", table).forEach(function (o) {
+          o.setAttribute("aria-sort", "none");
+        });
+        th.setAttribute("aria-sort", dir);
+        var k = keyOf[btn.dataset.sort];
+        rows
+          .slice()
+          .sort(function (a, b) {
+            var x = k(a),
+              y = k(b);
+            var r = x < y ? -1 : x > y ? 1 : 0;
+            return dir === "ascending" ? r : -r;
+          })
+          .forEach(function (r) {
+            body.appendChild(r);
+          });
+      });
+    });
+
+    /* ── The form control ─────────────────────────────────────────────────── */
+    function closeMenus(except) {
+      $$(".form-menu").forEach(function (m) {
+        if (m === except) return;
+        m.hidden = true;
+        m.previousElementSibling.setAttribute("aria-expanded", "false");
+      });
+    }
+    $$(".form-pill").forEach(function (pill) {
+      var menu = pill.nextElementSibling;
+      pill.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var open = menu.hidden;
+        closeMenus(menu);
+        menu.hidden = !open;
+        pill.setAttribute("aria-expanded", String(open));
+      });
+      menu.addEventListener("click", function (e) {
+        e.stopPropagation();
+      });
+      $$("button", menu).forEach(function (opt) {
+        opt.addEventListener("click", function () {
+          var code = opt.dataset.code;
+          $$("li", menu).forEach(function (li) {
+            li.setAttribute("aria-selected", String($("button", li).dataset.code === code));
+          });
+          pill.firstChild.nodeValue = code || "—";
+          pill.setAttribute("data-none", code ? "false" : "true");
+          pill.setAttribute("aria-label", "Legal form: " + (code || "none recorded") + ". Change");
+          var row = pill.closest("tr");
+          if (row) {
+            row.dataset.flags = row.dataset.flags.replace(
+              /(^|\s)(no)?form(\s|$)/,
+              "$1" + (code ? "form" : "noform") + "$3",
+            );
+          }
+          menu.hidden = true;
+          pill.setAttribute("aria-expanded", "false");
+          pill.focus();
+          recount();
+          applyBoard();
+        });
+      });
+    });
+    document.addEventListener("click", function () {
+      closeMenus(null);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeMenus(null);
+    });
+
+    recount();
+    render();
+  })();
+</script>

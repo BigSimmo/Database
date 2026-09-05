@@ -29,8 +29,20 @@ export const MORNING_HANDOVER_MINUTES = 8 * 60; // 08:00
  * never a bucket of its own — see `CapacityBreakdown.blockedToday` — so no level may add it to
  * them or subtract it from them.
  */
+/*
+ * ⚠️ **"Ready" — OWNER RULING, 2026-09-04: ONE WORD FOR ONE NUMBER.** This figure is
+ * `min(allocatable, empty)`, the beds a coordinator can actually put somebody in, and it was called
+ * seven different things across the product: "Available now", "free", "you can fill today", "Now",
+ * "Ready", and two longer phrasings. It is now called `Ready` everywhere.
+ *
+ * ⚠️ **RENAMED BY ARITHMETIC, NEVER BY WORD.** Several sites said "available" or "free" about a
+ * DIFFERENT quantity — raw `allocatable`, or raw `empty` — and relabelling one of those would put
+ * one number's name on another number, which is the defect the ruling exists to end. The
+ * classification of every rendered bed figure by its computed expression is what this rename
+ * followed.
+ */
 export const CAPACITY_FIGURE_LABELS = {
-  availableNow: "Available now",
+  availableNow: "Ready",
   confirmedToday: "Confirmed today",
   expectedToday: "Expected today",
   blockedToday: BED_RELEASE_BLOCKED_FIGURE_LABEL,
