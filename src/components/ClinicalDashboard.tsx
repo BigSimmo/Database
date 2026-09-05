@@ -1515,11 +1515,16 @@ function ClinicalDashboardContent({
     };
   }, []);
 
+  // The URL sync reads the current mode to tell a stale UI-change flag from a
+  // genuine one, without the mode becoming one of its dependencies.
+  const searchModeRef = useRef(searchMode);
+  searchModeRef.current = searchMode;
   useHomeModeSeed({
     pathname,
     searchParams,
     lastAppMode,
     setSearchMode,
+    searchModeRef,
     setQuery,
     setQueryMode,
     setScopeFilters,
@@ -3287,6 +3292,7 @@ function ClinicalDashboardContent({
         onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
         onOpenSearch={openSidebarSearch}
+        onSelectMode={selectSearchMode}
         showAccountLibrary={favouritesAccessible}
       />
       <PhoneFooterLayerFrame
@@ -4101,6 +4107,7 @@ function ClinicalDashboardContent({
           onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
           onOpenSearch={openSidebarSearch}
+          onSelectMode={selectSearchMode}
           showAccountLibrary={favouritesAccessible}
         />
       </PhoneFooterLayerFrame>
