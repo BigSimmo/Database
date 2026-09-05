@@ -1302,6 +1302,15 @@ export const SCOPE_EXEMPTIONS = [
  */
 export const DERIVED_QUERY_INVENTORY = [
   {
+    file: "src/app/api/eval-cases/route.ts",
+    table: "document_chunks",
+    fn: "ownedChunkIdSet",
+    queries: 1,
+    proof: PROOF_KINDS.PARENT_DOCUMENT_VERIFIED,
+    reason:
+      'Audit L23. The capture body supplies candidate chunk ids, so this read is deliberately unscoped: it looks up only `id,document_id` for the ids the caller named. Nothing is returned from it directly. The parent documents are then read in the same function with `.eq("owner_id", args.ownerId)`, and the returned Set keeps only chunk ids whose document appears in that owner-scoped result — so a chunk the caller does not own can never leave this helper. Rejected ids are counted and reported, matching the existing malformed-id tally.',
+  },
+  {
     file: "src/app/api/clinical-quality/route.ts",
     table: "source_review_events",
     fn: "loadClinicalQualitySnapshot",

@@ -13,6 +13,7 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { cardInteractive, cardPadding } from "@/components/card-recipes";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
@@ -108,7 +109,7 @@ function OnCallSearchResultRow({ entry, now }: { entry: OnCallEntry; now: Date }
  * sheet, never a native `<select>`.
  */
 export function OnCallSearchPage({ initialQuery = "", now: nowProp }: { initialQuery?: string; now?: Date }) {
-  const { entries, loading, isOffline, signedOut } = useOnCallEntries();
+  const { entries, loading, isOffline } = useOnCallEntries();
   // Read the clock once per mount, not once per render: freshness must not
   // change between two renders of the same result list, and a bare
   // `new Date()` in the render body is a new value on every pass.
@@ -119,8 +120,8 @@ export function OnCallSearchPage({ initialQuery = "", now: nowProp }: { initialQ
   const [filterOpen, setFilterOpen] = useState(false);
   const filterPanelId = useId();
 
-  const status = onCallSearchStatus({ loading, isOffline, signedOut, entryCount: entries.length });
-  const faulted = status === "error" || status === "unauthorized";
+  const status = onCallSearchStatus({ loading, isOffline, entryCount: entries.length });
+  const faulted = status === "error";
 
   const ranked = useMemo(() => rankOnCallEntries(entries, initialQuery), [entries, initialQuery]);
   const sectionFiltered = useMemo(
@@ -181,12 +182,8 @@ export function OnCallSearchPage({ initialQuery = "", now: nowProp }: { initialQ
           matchCount={displayed.length}
           status={status}
           headingLevel={1}
-          faultTitle={status === "unauthorized" ? "Sign in to search" : "On Call could not be loaded"}
-          faultBody={
-            status === "unauthorized"
-              ? "Your session has expired. Sign in again to search your on-call information."
-              : "This device has no offline copy of your on-call entries to search. Reconnect and try again."
-          }
+          faultTitle="On Call could not be loaded"
+          faultBody="This device has no offline copy of the on-call entries to search. Reconnect and try again."
           sortValue={sortValue}
           onSortChange={setSortValue}
           mobileControlsPlacement="inline"
@@ -275,6 +272,8 @@ export function OnCallSearchPage({ initialQuery = "", now: nowProp }: { initialQ
             />
           )
         ) : null}
+
+        <UniversalSearchAlsoMatches modeId="on-call" query={initialQuery} />
       </main>
     </div>
   );

@@ -156,27 +156,32 @@ describe("onCallEntryDetailChips", () => {
 
 describe("onCallSearchStatus", () => {
   it("is loading while the initial fetch has not settled", () => {
-    expect(onCallSearchStatus({ loading: true, isOffline: false, signedOut: false, entryCount: 0 })).toBe("loading");
+    expect(onCallSearchStatus({ loading: true, isOffline: false, entryCount: 0 })).toBe("loading");
   });
 
-  it("is unauthorized when signed out", () => {
-    expect(onCallSearchStatus({ loading: false, isOffline: false, signedOut: true, entryCount: 0 })).toBe(
-      "unauthorized",
-    );
+  // Signed out is an ordinary state for this mode: On Call entries are readable by any
+  // visitor, so a signed-out search runs against the shared set rather than faulting. An
+  // empty result here is a truthful "0 matches", not "sign in to search".
+  it("is ready when signed out with shared entries to search", () => {
+    expect(onCallSearchStatus({ loading: false, isOffline: false, entryCount: 4 })).toBe("ready");
+  });
+
+  it("is ready, not faulted, when signed out and the shared set happens to be empty", () => {
+    expect(onCallSearchStatus({ loading: false, isOffline: false, entryCount: 0 })).toBe("ready");
   });
 
   // The single most important behaviour on the page: offline with nothing
   // cached to search over is a faulted search, not a truthful "0 matches".
   it("is an error when offline with nothing cached to search over", () => {
-    expect(onCallSearchStatus({ loading: false, isOffline: true, signedOut: false, entryCount: 0 })).toBe("error");
+    expect(onCallSearchStatus({ loading: false, isOffline: true, entryCount: 0 })).toBe("error");
   });
 
   it("stays ready when offline but a cached, searchable set of entries exists", () => {
-    expect(onCallSearchStatus({ loading: false, isOffline: true, signedOut: false, entryCount: 3 })).toBe("ready");
+    expect(onCallSearchStatus({ loading: false, isOffline: true, entryCount: 3 })).toBe("ready");
   });
 
-  it("is ready once loaded, online, and signed in", () => {
-    expect(onCallSearchStatus({ loading: false, isOffline: false, signedOut: false, entryCount: 5 })).toBe("ready");
+  it("is ready once loaded and online", () => {
+    expect(onCallSearchStatus({ loading: false, isOffline: false, entryCount: 5 })).toBe("ready");
   });
 });
 

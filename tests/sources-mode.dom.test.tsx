@@ -15,6 +15,11 @@ import {
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { SOURCE_RATING_WEIGHTS, type ClinicalSourceCatalogueEntry } from "@/lib/sources/catalogue-types";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 const loadCatalogueMock = vi.hoisted(() => vi.fn());
 const routerReplace = vi.hoisted(() => vi.fn());
 const routerPush = vi.hoisted(() => vi.fn());

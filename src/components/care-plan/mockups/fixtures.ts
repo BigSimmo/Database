@@ -250,6 +250,13 @@ export const syntheticCmhtContacts = [
  * and procedure. Nothing in this repository ages `verifiedOn`, so that document is the
  * only thing that says when these are next due to be checked -- update it in the same
  * change as any correction here.
+ * Each `sourceUrl` below is the page used for that check: three cite East
+ * Metropolitan Health Service pages and `000` cites Triple Zero. Re-verify each
+ * number and its availability window against its own `sourceUrl`, then move the
+ * `verifiedOn` date only for the entries actually re-checked. These strings render
+ * on the printed Personal Safety Plan and Patient Plan, which is the one place the
+ * prototype's "everything is synthetic" framing does not protect the reader - a dead
+ * or redirected crisis number would print as guidance.
  */
 export const publicCrisisContacts = [
   {

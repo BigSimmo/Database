@@ -77,12 +77,30 @@ describe("reindex pipeline queue state", () => {
         committedGeneration: "generation-a",
       }),
     ).toBe(true);
+    // Audit L11: fail CLOSED when the document carries no committed generation,
+    // exactly like the SQL predicate. `is_committed_document_generation` compares
+    // `row_generation = document_generation`; with a NULL document generation that
+    // yields NULL, so search_document_chunks excludes the row. The TS predicate
+    // used to return true here, which let the document viewer interleave staged,
+    // uncommitted rows with the live ones during the first atomic reindex of a
+    // legacy (never-stamped) document — duplicate evidence on screen that search
+    // would never return.
     expect(
       isCommittedGenerationMetadata({
         rowMetadata: { index_generation_id: "legacy-generation" },
         committedGeneration: null,
       }),
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      isCommittedGenerationMetadata({
+        rowMetadata: { index_generation_id: "legacy-generation" },
+        committedGeneration: undefined,
+      }),
+    ).toBe(false);
+    // A row with no generation of its own stays visible either way: the SQL's
+    // `row_generation is null` arm is unconditional.
+    expect(isCommittedGenerationMetadata({ rowMetadata: {}, committedGeneration: null })).toBe(true);
+    expect(isCommittedGenerationMetadata({ rowMetadata: undefined, committedGeneration: null })).toBe(true);
   });
 
   it("identifies image rows that still need typed generation columns populated", () => {

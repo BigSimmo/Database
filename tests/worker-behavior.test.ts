@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { enrichmentRepairDecision, ingestionFailureDecision } from "../worker/behavior";
+import { sourceSegment } from "./helpers/source-contract";
+import { enrichmentRepairDecision, ingestionFailureDecision, visionImageRejectionSkipReason } from "../worker/behavior";
 
 describe("ingestion worker behavior", () => {
   it("retries transient failures while preserving a previously indexed document", () => {
@@ -71,5 +72,74 @@ describe("ingestion worker behavior", () => {
         optionalIssueCount: 0,
       }),
     ).toMatchObject({ repairRequired: false, enrichmentStatus: "completed" });
+  });
+});
+
+describe("vision per-image error isolation (L12)", () => {
+  class ProviderError extends Error {
+    details: { code: string };
+    constructor(message: string, code: string) {
+      super(message);
+      this.name = "PublicApiError";
+      this.details = { code };
+    }
+  }
+
+  it("isolates a non-retryable provider rejection as a skip reason for that image", () => {
+    expect(
+      visionImageRejectionSkipReason(
+        new ProviderError(
+          "OpenAI rejected the request. Check the model, schema, and input configuration.",
+          "openai_invalid_request",
+        ),
+      ),
+    ).toBe("vision provider rejected this image (openai_invalid_request)");
+
+    expect(
+      visionImageRejectionSkipReason(
+        new ProviderError("OpenAI could not complete the response because it was filtered.", "openai_content_filtered"),
+      ),
+    ).toBe("vision provider rejected this image (openai_content_filtered)");
+
+    expect(visionImageRejectionSkipReason(new Error("You uploaded an unsupported image. Please retry."))).toBe(
+      "vision provider rejected this image (unsupported or unreadable image data)",
+    );
+  });
+
+  it("never leaks the provider's raw message into the recorded skip reason", () => {
+    const reason = visionImageRejectionSkipReason(
+      new ProviderError("invalid image: sk-secret-looking-token in payload", "openai_invalid_request"),
+    );
+    expect(reason).not.toBeNull();
+    expect(reason).not.toContain("sk-secret-looking-token");
+  });
+
+  it("propagates transient and unknown failures so the document still retries", () => {
+    // A rate limit or timeout must NOT be swallowed as a per-image skip: silently
+    // dropping every image during an outage is worse than failing the job.
+    expect(visionImageRejectionSkipReason(new Error("OpenAI is rate limited. Retry in a moment."))).toBeNull();
+    expect(visionImageRejectionSkipReason(new Error("fetch failed"))).toBeNull();
+    expect(visionImageRejectionSkipReason(new Error("ETIMEDOUT"))).toBeNull();
+    expect(
+      visionImageRejectionSkipReason(new ProviderError("OpenAI service error. Retry shortly.", "openai_service_error")),
+    ).toBeNull();
+    expect(visionImageRejectionSkipReason(new Error("something else went wrong"))).toBeNull();
+    expect(visionImageRejectionSkipReason(null)).toBeNull();
+  });
+
+  it("routes the worker's per-task vision call through the isolation guard", async () => {
+    const source = String(
+      await import("node:fs/promises").then((fs) => fs.readFile(new URL("../worker/main.ts", import.meta.url), "utf8")),
+    );
+    const window = sourceSegment(
+      source,
+      "classification = await classifyAndCaptionImageFromBase64({",
+      "return { task, classification",
+      {
+        label: "worker per-task vision call",
+      },
+    );
+    expect(window).toContain("visionImageRejectionSkipReason(");
+    expect(window).toContain("visionRejectedClassification(");
   });
 });
