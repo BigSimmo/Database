@@ -3,9 +3,11 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { clearAccountScopedBrowserStorage } from "@/lib/account-scoped-browser-state";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearOnCallEntryCache } from "@/lib/on-call/entry-cache-keys";
+import { clearPatientProfile } from "@/lib/patient-profile-storage";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
 import { clearSignedUrlCache } from "@/lib/signed-url-cache";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
@@ -39,6 +41,35 @@ export const AUTH_EMAIL_STORAGE_KEY = "clinical.dashboard.lastAuthEmail";
 const AUTH_CALLBACK_PATH = "/auth/callback";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Account-transition boundary: sign-out, session expiry, and a change of the
+ * signed-in user in the same tab. On a shared workstation the next person must
+ * not inherit the previous person's clinical context, so every identity-bound
+ * or patient-specific browser store is cleared here, in one place — adding a
+ * store means adding it to this list, not to one of the three call sites.
+ *
+ * Deliberately NOT the initial signed-out boot path: that must keep the guest
+ * answer-thread snapshot (see `initializeSession`).
+ */
+function clearAccountScopedBrowserState() {
+  clearPersistedAnswerThread();
+  clearRecentQueries();
+  clearSignedUrlCache();
+  // Patient physiology + medication list behind the prescribing alerts (audit M4).
+  clearPatientProfile();
+  // On Call entries are the owner's own ward numbers, escalation contacts and
+  // personal lines (added on main while this branch was open). A shared ward
+  // computer switches accounts without ever signing out, so without this the
+  // previous user's private entries render for the next one.
+  clearOnCallEntryCache();
+  // Component-owned stores this lib module may not import (tests/lib-layering):
+  // the unscoped favourites pins / last-opened keys (audit L2) and the Caring
+  // Contacts plan draft, a patient's name and mobile from stage 3 on (audit L6).
+  // The raw keys are removed here, synchronously, whether or not those modules
+  // are loaded in this page; the stores drop their caches on the event it fires.
+  clearAccountScopedBrowserStorage();
+}
 let browserSupabaseClient: SupabaseClient | null | undefined;
 let browserSupabaseClientConfig: string | null = null;
 
@@ -178,6 +209,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Tracks the user id last published into context so onAuthStateChange can
   // clear identity-bound caches *before* setSession on account switch.
   const publishedUserIdRef = useRef<string | null>(null);
+  // Whether `initializeSession` has decided the initial state yet. Until it has,
+  // `publishedUserIdRef` is still null even in a signed-in tab, so a boot-time
+  // SIGNED_IN replay would read as null -> user, i.e. an account switch. See the
+  // guard in onAuthStateChange below.
+  const initialSessionPublishedRef = useRef(false);
   const [authEpoch, setAuthEpoch] = useState(0);
 
   const invalidateAuthRequests = useCallback(() => {
@@ -205,6 +241,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const [userResult, sessionResult] = await Promise.all([client.auth.getUser(), client.auth.getSession()]);
         if (!active) return;
         if (shouldFailInitialAuthVerification(userResult.error)) {
+          // Nothing is published, so `publishedUserIdRef` stays null and a later
+          // SIGNED_IN still clears — the conservative pre-existing behaviour for
+          // a boot that could not be verified.
+          initialSessionPublishedRef.current = true;
           setSession(null);
           setStatus("error");
           setNotice(null);
@@ -221,6 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           verificationUnavailable,
         });
         publishedUserIdRef.current = resolved.session?.user?.id ?? null;
+        initialSessionPublishedRef.current = true;
         setSession(resolved.session);
         setStatus(resolved.status);
         if (resolved.status === "authenticated") {
@@ -240,6 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         if (!active) return;
+        initialSessionPublishedRef.current = true;
         setStatus("error");
         setError("Session could not be loaded.");
       }
@@ -262,16 +304,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // effects run before the parent fingerprint effect; without this, an
       // account-switch SIGNED_IN can let mounted signed-image hooks re-paint
       // the previous user's still-cached URL via requestAnimationFrame.
-      if (publishedUserIdRef.current !== nextUserId) {
-        clearPersistedAnswerThread();
-        clearRecentQueries();
-        clearSignedUrlCache();
-        // On Call entries are the owner's own ward numbers, escalation contacts
-        // and personal lines. A shared ward computer switches accounts without
-        // ever signing out, and the sign-out path below is the only other place
-        // this cache is cleared — so without this, the previous user's private
-        // entries render for the next one.
-        clearOnCallEntryCache();
+      //
+      // A PAGE RELOAD IS NOT AN ACCOUNT TRANSITION. auth-js emits SIGNED_IN for
+      // a valid *stored* session while recovering it during boot
+      // (`_recoverAndRefresh`), and `initialize()` flushes that queued event to
+      // subscribers as soon as `initializePromise` settles — before this
+      // provider's own `getUser()` round-trip returns, so `publishedUserIdRef`
+      // is still null and the event would read as null -> user. Clearing there
+      // destroys exactly the stores whose contract is to survive a refresh (the
+      // Caring Contacts draft, the patient profile, the favourites keys), and
+      // whether it happened at all depended on when React registered this
+      // listener, so the loss was intermittent. Wait until `initializeSession`
+      // has published the initial state before treating a difference as a
+      // switch; sign-out and expiry null the ref themselves, so a later sign-in
+      // as a different user still clears.
+      if (initialSessionPublishedRef.current && publishedUserIdRef.current !== nextUserId) {
+        clearAccountScopedBrowserState();
       }
       publishedUserIdRef.current = nextUserId;
       setSession(nextSession);
@@ -393,10 +441,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError("Sign out failed. Please try again.");
       return;
     }
-    clearPersistedAnswerThread();
-    clearRecentQueries();
-    clearSignedUrlCache();
-    clearOnCallEntryCache();
+    clearAccountScopedBrowserState();
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("signed_out");
@@ -406,10 +451,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const markSessionExpired = useCallback(() => {
     invalidateAuthRequests();
-    clearPersistedAnswerThread();
-    clearRecentQueries();
-    clearSignedUrlCache();
-    clearOnCallEntryCache();
+    // Also wipes an in-progress patient context when a transient refresh
+    // failure is reported as expiry — accepted: a stale profile surviving to the
+    // next sign-in is the worse failure on a shared workstation.
+    clearAccountScopedBrowserState();
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("expired");
