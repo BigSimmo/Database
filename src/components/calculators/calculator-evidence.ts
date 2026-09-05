@@ -32,3 +32,22 @@ export function evidenceSourcesFor(sourceIds: string[]): CalculatorEvidenceSourc
     return source ? [source] : [];
   });
 }
+
+/**
+ * The registry carries one `internal_governance_record` (the calculator
+ * clinical-safety release decision) attached to every instrument's
+ * `sourceIds`. It records provenance, not clinical evidence, so a clinical
+ * surface must not present it in the same "Sources:" line as a validation
+ * study. Callers render `clinical` as sources and `governance` under its own
+ * label, keeping the link.
+ */
+export function partitionEvidenceSources(sourceIds: string[]): {
+  clinical: CalculatorEvidenceSource[];
+  governance: CalculatorEvidenceSource[];
+} {
+  const sources = evidenceSourcesFor(sourceIds);
+  return {
+    clinical: sources.filter((source) => source.type !== "internal_governance_record"),
+    governance: sources.filter((source) => source.type === "internal_governance_record"),
+  };
+}
