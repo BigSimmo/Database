@@ -34,6 +34,11 @@ import { SharedHomeEmptyState } from "@/components/clinical-dashboard/answer-sta
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 function completeAnswers(calc: CalculatorFixture): AnswerMap {
   return Object.fromEntries(calc.items.map((item) => [item.id, 0]));
 }

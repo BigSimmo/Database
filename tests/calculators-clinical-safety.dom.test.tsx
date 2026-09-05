@@ -21,6 +21,11 @@ import { NextActionsPanel, ScorePanel } from "@/components/calculators/search-de
 import { CopyResultButton, deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
 import { sharedHomePresentation } from "@/lib/ui-copy";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 function fixture(id: string): CalculatorFixture {
   const found = allCalculatorFixtures.find((calculator) => calculator.id === id);
   if (!found) throw new Error(`Missing calculator fixture: ${id}`);

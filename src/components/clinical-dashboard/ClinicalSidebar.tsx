@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type RefObject } from "react";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -40,6 +40,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { useSidebarPins, pinnableSidebarModeIds } from "@/components/clinical-dashboard/use-sidebar-pins";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import type { ThemePreference } from "@/lib/theme";
@@ -127,6 +128,32 @@ const sidebarModeItems = [
 
 function sidebarModeItem(modeId: AppModeId) {
   return sidebarModeItems.find((item) => item.id === modeId);
+}
+
+/**
+ * Sidebar shortcuts render as real links so middle-click, modified clicks and
+ * "open in new tab" keep working, but a plain left click on a shared-home entry
+ * (`/?mode=<id>`) is handed to `onSelectMode` instead of the router. That is the
+ * same in-place switch the mode pill uses: on the shared home it rewrites the
+ * URL with no server round trip, and elsewhere it sets the mode itself before
+ * navigating. Routing the sidebar through a plain Next navigation meant every
+ * click waited on an RSC fetch of `/` before anything changed, and the mode only
+ * followed once the URL sync noticed — which a stale UI-change flag could skip
+ * entirely, leaving the address bar on one mode and the page on another.
+ * Standalone destinations (`/tools`, `/favourites`) keep ordinary link behaviour.
+ */
+function selectModeFromLinkClick(
+  event: MouseEvent<HTMLAnchorElement>,
+  item: { id: AppModeId; href: string },
+  onSelectMode: ((mode: AppModeId) => void) | undefined,
+) {
+  if (!onSelectMode || !isDashboardModeHref(item.href)) return false;
+  if (event.defaultPrevented || event.button !== 0) return false;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+  if (event.currentTarget.target && event.currentTarget.target !== "_self") return false;
+  event.preventDefault();
+  onSelectMode(item.id);
+  return true;
 }
 
 // Display-free base so callers can compose `grid` / `hidden lg:grid` without
@@ -297,6 +324,7 @@ function SidebarModesEditorSheet({
   onTogglePinnedMode,
   onMovePinnedMode,
   onNavigate,
+  onSelectMode,
   onPrefetchApplications,
   returnFocusRef,
 }: {
@@ -307,6 +335,7 @@ function SidebarModesEditorSheet({
   onTogglePinnedMode: (modeId: AppModeId) => void;
   onMovePinnedMode: (modeId: AppModeId, direction: -1 | 1) => void;
   onNavigate?: () => void;
+  onSelectMode?: (mode: AppModeId) => void;
   onPrefetchApplications?: () => void;
   returnFocusRef: RefObject<HTMLElement | null>;
 }) {
@@ -378,7 +407,8 @@ function SidebarModesEditorSheet({
                 prefetch={mode.id === "tools" ? true : undefined}
                 onFocus={mode.id === "tools" ? onPrefetchApplications : undefined}
                 onPointerEnter={mode.id === "tools" ? onPrefetchApplications : undefined}
-                onClick={() => {
+                onClick={(event) => {
+                  selectModeFromLinkClick(event, mode, onSelectMode);
                   closeEditor();
                   onNavigate?.();
                 }}
@@ -624,6 +654,7 @@ export function ClinicalSidebarContent({
   showHeader = true,
   onCollapsedChange,
   onNavigate,
+  onSelectMode,
   onOpenSearch,
 }: {
   recentQueries: string[];
@@ -641,6 +672,11 @@ export function ClinicalSidebarContent({
   showHeader?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   onNavigate?: () => void;
+  /**
+   * In-place mode switch for shared-home shortcuts (`/?mode=<id>`); see
+   * `selectModeFromLinkClick`. Without it every shortcut is a plain link.
+   */
+  onSelectMode?: (mode: AppModeId) => void;
   onOpenSearch: () => void;
 }) {
   const [showAllRecent, setShowAllRecent] = useState(false);
@@ -798,7 +834,10 @@ export function ClinicalSidebarContent({
                   prefetch={item.id === "tools" ? true : undefined}
                   onFocus={item.id === "tools" ? onPrefetchApplications : undefined}
                   onPointerEnter={item.id === "tools" ? onPrefetchApplications : undefined}
-                  onClick={onNavigate}
+                  onClick={(event) => {
+                    selectModeFromLinkClick(event, item, onSelectMode);
+                    onNavigate?.();
+                  }}
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     sidebarItem,
@@ -926,6 +965,7 @@ export function ClinicalSidebarContent({
         onTogglePinnedMode={togglePinnedMode}
         onMovePinnedMode={movePinnedMode}
         onNavigate={onNavigate}
+        onSelectMode={onSelectMode}
         onPrefetchApplications={onPrefetchApplications}
         returnFocusRef={modeEditorReturnFocusRef}
       />
@@ -946,6 +986,7 @@ function ClinicalCollapsedRail({
   onPrefetchSettings,
   onPrefetchAccount,
   onPrefetchApplications,
+  onSelectMode,
 }: {
   /** Tablet-only rail: hide from lg up when the expanded sidebar takes over. */
   hiddenOnDesktop: boolean;
@@ -960,6 +1001,7 @@ function ClinicalCollapsedRail({
   onPrefetchSettings?: () => void;
   onPrefetchAccount?: () => void;
   onPrefetchApplications: () => void;
+  onSelectMode?: (mode: AppModeId) => void;
 }) {
   const accountLabel = accountProfileLabel(identity);
   const [modeEditorOpen, setModeEditorOpen] = useState(false);
@@ -1055,6 +1097,7 @@ function ClinicalCollapsedRail({
                 prefetch={item.id === "tools" ? true : undefined}
                 onFocus={item.id === "tools" ? onPrefetchApplications : undefined}
                 onPointerEnter={item.id === "tools" ? onPrefetchApplications : undefined}
+                onClick={(event) => selectModeFromLinkClick(event, item, onSelectMode)}
                 className={cn(collapsedSidebarButton, active && collapsedSidebarActiveButton)}
                 aria-label={item.label}
                 title={item.label}
@@ -1131,6 +1174,7 @@ function ClinicalCollapsedRail({
         pinnedModeIds={pinnedModeIds}
         onTogglePinnedMode={togglePinnedMode}
         onMovePinnedMode={movePinnedMode}
+        onSelectMode={onSelectMode}
         onPrefetchApplications={onPrefetchApplications}
         returnFocusRef={modeEditorReturnFocusRef}
       />
@@ -1154,6 +1198,7 @@ export function ClinicalDesktopSidebar({
   onPrefetchAccount,
   onPrefetchApplications,
   onOpenSearch,
+  onSelectMode,
 }: {
   collapsed: boolean;
   collapseLocked?: boolean;
@@ -1170,6 +1215,7 @@ export function ClinicalDesktopSidebar({
   onPrefetchAccount?: () => void;
   onPrefetchApplications: () => void;
   onOpenSearch: () => void;
+  onSelectMode?: (mode: AppModeId) => void;
 }) {
   return (
     <>
@@ -1188,6 +1234,7 @@ export function ClinicalDesktopSidebar({
         onPrefetchSettings={onPrefetchSettings}
         onPrefetchAccount={onPrefetchAccount}
         onPrefetchApplications={onPrefetchApplications}
+        onSelectMode={onSelectMode}
       />
       {!collapsed ? (
         <aside
@@ -1209,6 +1256,7 @@ export function ClinicalDesktopSidebar({
             onPrefetchAccount={onPrefetchAccount}
             onPrefetchApplications={onPrefetchApplications}
             onOpenSearch={onOpenSearch}
+            onSelectMode={onSelectMode}
           />
         </aside>
       ) : null}
@@ -1231,6 +1279,7 @@ export function ClinicalMobileSidebar({
   onPrefetchAccount,
   onPrefetchApplications,
   onOpenSearch,
+  onSelectMode,
   hiddenFrom = "md",
 }: {
   open: boolean;
@@ -1247,6 +1296,7 @@ export function ClinicalMobileSidebar({
   onPrefetchAccount?: () => void;
   onPrefetchApplications: () => void;
   onOpenSearch: () => void;
+  onSelectMode?: (mode: AppModeId) => void;
   /** Breakpoint the drawer disappears at; workflow routes keep it until lg. */
   hiddenFrom?: "md" | "lg";
 }) {
@@ -1290,6 +1340,7 @@ export function ClinicalMobileSidebar({
         onPrefetchAccount={onPrefetchAccount}
         onPrefetchApplications={onPrefetchApplications}
         onOpenSearch={onOpenSearch}
+        onSelectMode={onSelectMode}
         onNavigate={() => onOpenChange(false)}
       />
     </Sheet>

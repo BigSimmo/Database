@@ -8,6 +8,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SpecifiersHomePage } from "@/components/specifiers/specifiers-home-page";
 import { searchSpecifierCatalog } from "@/lib/specifiers-search-index";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(window.location.search),
 }));

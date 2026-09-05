@@ -177,10 +177,19 @@ export function useOnCallEntries(): OnCallEntriesState {
         setIsOffline(false);
         setSignedOut(parsedResponse.data.signedOut);
         setFetched(entries);
-        // Never write a signed-out (always-empty) response over a good cache:
-        // a session expiring mid-shift must not erase numbers that were
-        // readable a moment earlier.
-        if (!parsedResponse.data.signedOut) {
+        // A signed-out response is cacheable now that it carries the shared entries rather
+        // than an empty list (owner decision, 2026-09-04), so the old "skip when signedOut"
+        // guard would throw away good data.
+        //
+        // Its underlying reason still stands, restated against what actually matters: an
+        // EMPTY response must not erase a non-empty cache. That is what protected a shift
+        // when a session expired, and it now also covers the server returning nothing for
+        // any other reason. Deliberate clearing has its own path (`clearOnCallEntryCache`,
+        // called on sign-out and account switch), so nothing depends on an empty fetch to
+        // do it. A session expiring still drops the owner's own `is_personal` entries on the
+        // next non-empty fetch, which is correct — those are the one thing a signed-out
+        // caller is not shown.
+        if (entries.length > 0 || readCachedOnCallEntries() === null) {
           cacheOnCallEntries(entries);
         }
       } catch {
