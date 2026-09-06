@@ -210,78 +210,111 @@ test.describe("@mockup Transport officer screen", () => {
   });
 });
 
-test.describe("@mockup Live tracker", () => {
+/**
+ * MERGE 03 (owner-approved 2026-09-05) folded the coordinator's live transport tracker into
+ * `MovementsScreen`, and `/mockups/ward-flow/transport` became a redirect. These three tests kept
+ * navigating to that route and waiting for `ward-live-tracker`, an id nothing renders any more —
+ * so they failed on `main` from the moment the merge landed, and would have gone on failing
+ * whatever else changed.
+ *
+ * They are re-pointed rather than deleted because the facts they pin did not go anywhere:
+ * `MovementsScreen`'s own doc comment records that `LiveTracker` "WAS THE ONLY SURFACE IN THE APP
+ * THAT EVER RENDERED THE TRANSPORT FACTS BELOW" and that all of them were carried onto its
+ * transport panel. The figures survive the move unchanged — the same 8 legs out of the same 43
+ * open movements, leaving the same 35 with no vehicle booked.
+ *
+ * Scoped by the panel's accessible name rather than by a new test id: `WardPanel` already names
+ * every panel via `aria-label`, so this needs no hook added to a screen for a test's benefit.
+ */
+test.describe("@mockup Movements — transport panel", () => {
   test.describe.configure({ timeout: 45_000 });
 
+  /** The panel `LiveTracker`'s rows moved into. Named, not id'd — see the block comment above. */
+  function transportPanel(page: Page) {
+    return page.getByRole("region", { name: "Who is being carried" });
+  }
+
   /**
-   * Task 10 brief, Step 1 — appended verbatim. On its own this only proves that the two legs
-   * ("Accepted", "Collected") the seed fixture happens to contain today render correctly; the
-   * task-10 preflight's LATE ADDITION section flags that a passing version of this exact
-   * assertion cannot tell a tracker that renders all five legs correctly apart from one that
-   * renders only the legs the fixture happens to contain. `tests/tracker-derivations.test.ts`
-   * (node environment) closes that gap by unit-testing the tracker's own leg/stamp helper across
-   * all five legs plus cancelled plus absence, none of which the seed fixture currently exercises
-   * end to end. The next test in this file strengthens the browser-level assertion further, by
-   * pinning the exact row count instead of `> 0`.
+   * Task 10 brief, Step 1 — appended verbatim. On its own this only proves that the legs the seed
+   * fixture happens to contain today render correctly; the task-10 preflight's LATE ADDITION
+   * section flags that a passing version of this exact assertion cannot tell a screen that renders
+   * all the legs correctly apart from one that renders only the legs the fixture happens to
+   * contain. `tests/tracker-derivations.test.ts` (node environment) closes that gap by unit-testing
+   * the leg/stamp helper across every leg plus cancelled plus absence, none of which the seed
+   * fixture currently exercises end to end. The next test in this file strengthens the
+   * browser-level assertion further, by pinning the exact row count instead of `> 0`.
+   *
+   * The leg words are `LEG_STATE_LABEL` (movements-screen.tsx), not the old tracker's: MERGE 03
+   * renamed "Accepted" to "Booked" on screen and dropped "Requested" from the state union
+   * entirely (`MovementLegState` excludes it). Asserting the retired words would pin a vocabulary
+   * the product no longer speaks.
    */
   test("tracks every vehicle by leg and by how long since the last stamp", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1024 });
-    await page.goto("/mockups/ward-flow/transport", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
+    await page.goto("/mockups/ward-flow/movements", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-movements-page")).toBeVisible({ timeout: 15_000 });
 
-    const rows = page.locator('[data-testid^="ward-tracker-row-"]');
+    const rows = transportPanel(page).locator('li[data-ward-primitive="record-row"]');
     expect(await rows.count()).toBeGreaterThan(0);
 
     // Every row names its leg and its age, and no row claims a leg it has not reached.
     for (const row of await rows.all()) {
-      await expect(row).toContainText(/Requested|Accepted|En route|Collected|Arrived/);
-      await expect(row).toContainText(/ago|since/i);
+      await expect(row).toContainText(/Booked|En route|Collected|Arrived|Cancelled/);
+      await expect(row).toContainText(/since booked/i);
     }
   });
 
   /**
-   * Re-measured directly against this branch's fixture (see the task report, not the earlier
-   * preflight numbers — those predate a fixture fix that gave six "en route" jobs a
-   * `collectedAt`): 41 open movements, 8 of which carry a transport job. Pinning the row count
-   * at exactly 8 (never `> 0`) catches a filter regression that silently widens or narrows which
-   * movements count as "a vehicle" — the brief's own wording is "no row may claim a leg it has
-   * not reached", and a screen that also renders the 33 transport-less movements would either
-   * fabricate a leg for them or need a sixth, non-leg cell that this exact-count assertion would
-   * catch drifting either way. The governance banner states the excluded count in real text
-   * instead — that is the "explicit absence" the Global Constraint asks for on this screen.
+   * Re-measured directly against this branch's fixture: 43 open movements, 8 of which carry a
+   * transport job. Pinning the row count at exactly 8 (never `> 0`) catches a filter regression
+   * that silently widens or narrows which movements count as "a vehicle" — the brief's own wording
+   * is "no row may claim a leg it has not reached", and a screen that also rendered the 35
+   * transport-less movements would either fabricate a leg for them or need a sixth, non-leg cell
+   * that this exact-count assertion would catch drifting either way. The panel states the excluded
+   * count in real text instead — that is the "explicit absence" the Global Constraint asks for.
+   *
+   * `MovementsScreen` scopes the panel to OPEN movements only, the same scope `LiveTracker` used
+   * (its own comment says so explicitly), which is why both figures carry over unchanged.
    */
   test("lists exactly the movements that carry a transport job, and states the rest explicitly", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1024 });
-    await page.goto("/mockups/ward-flow/transport", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
+    await page.goto("/mockups/ward-flow/movements", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-movements-page")).toBeVisible({ timeout: 15_000 });
 
-    await expect(page.locator('[data-testid^="ward-tracker-row-"]')).toHaveCount(8);
-    await expect(page.getByTestId("ward-tracker-governance")).toContainText(/35 of 43/);
+    const panel = transportPanel(page);
+    await expect(panel.locator('li[data-ward-primitive="record-row"]')).toHaveCount(8);
+    // "35 of 43 open movements have no transport leg booked yet" — the panel's own footer. The
+    // heading beside it reads "8 of 43 open moves", so this pattern is the excluded count
+    // specifically and cannot be satisfied by the included one.
+    await expect(panel).toContainText(/35 of 43/);
   });
 
   /**
-   * Deferred item 1, same pattern as the two screens above. The tracker's operating structure is
-   * its row list and the governance banner that states the excluded movements; both must still
-   * be there in each mode. The leg badges deliberately are not asserted on here — their visual
-   * distinction is a separate, separately tested concern (deferred item 3), and this test makes
-   * no claim about how anything looks.
+   * Deferred item 1, same pattern as the two screens above. The panel's operating structure is its
+   * row list and the sentence stating the excluded movements; both must still be there in each
+   * mode. The leg badges deliberately are not asserted on here — their visual distinction is a
+   * separate, separately tested concern (deferred item 3), and this test makes no claim about how
+   * anything looks.
    */
   test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.emulateMedia({ colorScheme: "dark" });
-    await page.goto("/mockups/ward-flow/transport", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
+    await page.goto("/mockups/ward-flow/movements", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-movements-page")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
-    await expect(page.getByTestId("ward-tracker-governance")).toBeVisible();
-    await expect(page.getByTestId("ward-tracker-list")).toBeVisible();
+
+    const panel = transportPanel(page);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('ul[data-ward-primitive="record-list"]')).toBeVisible();
+    await expect(panel).toContainText(/35 of 43/);
 
     await page.emulateMedia({ forcedColors: "active" });
-    await expect(page.getByTestId("ward-tracker-governance")).toBeVisible();
-    await expect(page.getByTestId("ward-tracker-list")).toBeVisible();
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('ul[data-ward-primitive="record-list"]')).toBeVisible();
 
     await page.emulateMedia({ colorScheme: "light", forcedColors: "none", media: "print" });
-    await expect(page.locator('[data-testid="ward-tracker-list"]:visible')).toBeVisible();
-    await expect(page.locator('[data-testid="ward-tracker-governance"]:visible')).toBeVisible();
+    await expect(panel.locator('ul[data-ward-primitive="record-list"]:visible')).toBeVisible();
+    await expect(panel).toContainText(/35 of 43/);
   });
 });
 

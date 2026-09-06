@@ -199,4 +199,52 @@ describe("DiagnosisMapPanel", () => {
 
     expect(wheel.defaultPrevented).toBe(true);
   });
+
+  it("lets the preview select a node and answers the comparison question below the map", async () => {
+    const user = userEvent.setup();
+    renderMap();
+
+    // The preview used to be `role="img"` — a picture with no way in. Its nodes
+    // are controls now, so a phone reader reaches the detail without having to
+    // open the fullscreen dialog first.
+    const preview = screen.getByTestId("diagnosis-map-preview-canvas");
+    expect(preview).toHaveAttribute("role", "group");
+
+    const summary = screen.getByTestId("diagnosis-map-selected-summary");
+    expect(within(summary).getByText("Focus diagnosis")).toBeInTheDocument();
+    expect(within(summary).getByText("Focus clinical hinge.")).toBeInTheDocument();
+
+    await user.click(within(preview).getByTestId("diagnosis-map-node-verified-related"));
+    expect(within(summary).getByText("Verified related diagnosis with a long readable label")).toBeInTheDocument();
+    expect(within(summary).getByText("The verified diagnosis has its own clinical hinge.")).toBeInTheDocument();
+    expect(within(summary).getByRole("link", { name: /^Open Verified related diagnosis/ })).toHaveAttribute(
+      "href",
+      "/differentials/diagnoses/verified-related",
+    );
+
+    // Must-not-miss is the one tier that gets its own band, and only when the
+    // record actually has one.
+    const mustNotMiss = screen.getByTestId("diagnosis-map-must-not-miss");
+    expect(within(mustNotMiss).getByRole("link", { name: "Dangerous related diagnosis" })).toBeInTheDocument();
+    expect(within(mustNotMiss).queryByText("Verified related diagnosis with a long readable label")).toBeNull();
+
+    const comparison = screen.getByTestId("diagnosis-map-comparison");
+    const rows = within(comparison).getAllByTestId("diagnosis-map-comparison-row");
+    expect(rows).toHaveLength(3);
+    // Derived, not invented: the related record's own hinge against this one's.
+    // Regex rather than an exact string because each cell carries a
+    // phone-visible label alongside the value, and `cleanDifferentialItem`
+    // strips the trailing full stop the export leaves on short fragments.
+    expect(within(rows[0]).getByText(/The verified diagnosis has its own clinical hinge/)).toBeInTheDocument();
+    expect(within(rows[0]).getByText(/Focus clinical hinge/)).toBeInTheDocument();
+    expect(rows[0]).toHaveAttribute("aria-current", "true");
+    // No catalogue detail for this one, so the row falls back to the edge note
+    // rather than showing an empty cell.
+    expect(within(rows[1]).getByText(/Relationship-only note/)).toBeInTheDocument();
+    expect(within(rows[1]).queryByRole("link")).toBeNull();
+
+    await user.click(within(rows[2]).getByRole("button", { name: "Show on map" }));
+    expect(within(summary).getByText("Dangerous diagnosis hinge.")).toBeInTheDocument();
+    expect(rows[2]).toHaveAttribute("aria-current", "true");
+  });
 });
