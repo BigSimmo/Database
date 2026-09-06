@@ -1640,6 +1640,48 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("a forms result opens from anywhere in its row, and the Open button still opens it", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
+
+    // Clicking the row itself, not a control inside it. Playwright only allows
+    // this if the point actually hit the row or something inside it, so the
+    // click landing at all is the proof: the row's centre is the tags/match
+    // columns, nowhere near the Open button in the last column.
+    await page.getByTestId("form-search-result-transport-crisis-form").click();
+    await expect(page).toHaveURL(/\/forms\/transport-crisis-form/);
+
+    await page.goBack();
+    await expect(page.getByTestId("form-search-results")).toBeVisible();
+
+    // Widening the row must not have cost the button its own click.
+    await page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order").click();
+    await expect(page).toHaveURL(/\/forms\/transport-crisis-form/);
+  });
+
+  test("a forms result opens on a tablet tap anywhere in its row", async ({ browser, baseURL }) => {
+    // The results table renders from `md` up — a phone shows the mobile cards
+    // instead — so a tablet is the width where a touch user meets this table at
+    // all. Its own context because the desktop projects carry no touch.
+    const context = await browser.newContext({
+      ...(baseURL ? { baseURL } : {}),
+      hasTouch: true,
+      viewport: { width: 1024, height: 768 },
+    });
+    const page = await context.newPage();
+
+    try {
+      await mockAnswerDashboardApi(page);
+      await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
+
+      await page.getByTestId("form-search-result-transport-crisis-form").tap();
+      await expect(page).toHaveURL(/\/forms\/transport-crisis-form/);
+    } finally {
+      await context.close();
+    }
+  });
+
   test("result sorting persists in the URL and restores through browser history", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockAnswerDashboardApi(page);
@@ -2734,9 +2776,31 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
 
     await overviewTab.click();
     await expect(safetySnapshot).toBeVisible();
+
+    // The clinical hinge is the discriminating line every record carries and
+    // used to be reachable only through "Copy after review".
+    await expect(detailPage.getByTestId("differential-clinical-hinge")).toContainText(
+      "Inattention plus altered awareness",
+    );
+
+    // Desktop Overview splits into the review column plus a summary rail. 1280
+    // rather than 1024 so the assertion does not sit exactly on the `lg`
+    // breakpoint, where a classic scrollbar can put the layout on the wrong
+    // side of it.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const overviewRail = detailPage.getByTestId("differential-overview-rail");
+    await expect(overviewRail).toBeVisible();
+    await expect(overviewRail).toContainText("Do now");
+    await expect(overviewRail).toContainText("First-line tests");
+    await expect(overviewRail).toContainText("Source and review");
+    await expectNoPageHorizontalOverflow(page);
+
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
     await page.setViewportSize({ width: 320, height: 700 });
     await expect(safetySnapshot).toBeVisible();
+    // The rail is desktop breathing room; a phone must not get a fourth
+    // summary of the same record stacked under the ones it already has.
+    await expect(overviewRail).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
     const forcedColorsMetricRows = await safetyMetricItems.evaluateAll((items) => {
       return new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size;
@@ -2753,6 +2817,21 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     // ("element(s) not found" for the dialog after a 10s wait) while passing on the head
     // immediately before it, whose only delta was ledger JSON. Same wait every other click in
     // this file already uses.
+    // The map's information layer sits under the preview, where a phone reader
+    // meets it without opening the fullscreen dialog at all.
+    const previewCanvas = visibleByTestId(page, "diagnosis-map-preview-canvas");
+    const selectedSummary = visibleByTestId(page, "diagnosis-map-selected-summary");
+    await expect(selectedSummary).toContainText("Catatonia in mood disorder");
+    const comparison = visibleByTestId(page, "diagnosis-map-comparison");
+    await expect(comparison.getByTestId("diagnosis-map-comparison-row")).toHaveCount(5);
+    await expect(comparison).toContainText("Fever, autonomic instability and a raised CK");
+    await expectNoPageHorizontalOverflow(page);
+
+    const serotoninNode = previewCanvas.getByTestId("diagnosis-map-node-serotonin-toxicity");
+    await waitForReactEventHandler(serotoninNode);
+    await serotoninNode.click();
+    await expect(selectedSummary).toContainText("Serotonin toxicity");
+
     const openMap = visibleByTestId(page, "open-diagnosis-map");
     await waitForReactEventHandler(openMap);
     await openMap.click();

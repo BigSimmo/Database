@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import DeveloperRoutesPage from "@/app/mockups/development/routes/page";
 import { loadRepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-snapshot";
+import { routesCounts } from "@/lib/developer-area/repo-awareness-snapshot-counts";
 
 // PanelPageShell's back control is a ContextualBackLink, which calls
 // next/navigation's useRouter for its history-aware click handler. Outside an
@@ -51,13 +52,13 @@ vi.mock("@/lib/developer-area/repo-awareness-snapshot", async (importOriginal) =
       if (emptyOverride.redirects) {
         snapshot = {
           ...snapshot,
-          routes: { ...snapshot.routes, redirects: [], counts: { ...snapshot.routes.counts, redirects: 0 } },
+          routes: { ...snapshot.routes, redirects: [] },
         };
       }
       if (emptyOverride.api) {
         snapshot = {
           ...snapshot,
-          routes: { ...snapshot.routes, api: [], counts: { ...snapshot.routes.counts, api: 0 } },
+          routes: { ...snapshot.routes, api: [] },
         };
       }
       return snapshot;
@@ -84,32 +85,32 @@ describe("developer routes page", () => {
   it("shows each count as its own readable value", () => {
     render(<DeveloperRoutesPage />);
     expect(screen.getByTestId("developer-routes-count-modes-value")).toHaveTextContent(
-      String(snapshot.routes.counts.modes),
+      String(routesCounts(snapshot.routes).modes),
     );
     expect(screen.getByTestId("developer-routes-count-product-value")).toHaveTextContent(
-      String(snapshot.routes.counts.product_pages),
+      String(routesCounts(snapshot.routes).product_pages),
     );
     expect(screen.getByTestId("developer-routes-count-mockup-value")).toHaveTextContent(
-      String(snapshot.routes.counts.mockup_pages),
+      String(routesCounts(snapshot.routes).mockup_pages),
     );
     expect(screen.getByTestId("developer-routes-count-api-value")).toHaveTextContent(
-      String(snapshot.routes.counts.api),
+      String(routesCounts(snapshot.routes).api),
     );
   });
 
   it("lists every mode with a link to its home", () => {
     render(<DeveloperRoutesPage />);
     const modes = within(screen.getByTestId("developer-routes-modes")).getAllByRole("listitem");
-    expect(modes).toHaveLength(snapshot.routes.counts.modes);
+    expect(modes).toHaveLength(routesCounts(snapshot.routes).modes);
   });
 
   it("lists every product page and every mockup page, adding up to the counts", () => {
     render(<DeveloperRoutesPage />);
     expect(within(screen.getByTestId("developer-routes-pages-product")).getAllByRole("listitem")).toHaveLength(
-      snapshot.routes.counts.product_pages,
+      routesCounts(snapshot.routes).product_pages,
     );
     expect(within(screen.getByTestId("developer-routes-pages-mockup")).getAllByRole("listitem")).toHaveLength(
-      snapshot.routes.counts.mockup_pages,
+      routesCounts(snapshot.routes).mockup_pages,
     );
   });
 
@@ -127,8 +128,8 @@ describe("developer routes page", () => {
   it("says in words when a group is empty rather than rendering a blank list", () => {
     render(<DeveloperRoutesPage />);
     for (const [testId, count] of [
-      ["developer-routes-redirects", snapshot.routes.counts.redirects],
-      ["developer-routes-api", snapshot.routes.counts.api],
+      ["developer-routes-redirects", routesCounts(snapshot.routes).redirects],
+      ["developer-routes-api", routesCounts(snapshot.routes).api],
     ] as const) {
       const region = screen.getByTestId(testId);
       if (count === 0) expect(region).toHaveTextContent(/None/i);
@@ -182,7 +183,7 @@ describe("developer routes page", () => {
 
   it("says in words when there are no redirects at all — the branch the live snapshot's 16 redirects never take", () => {
     // `tests/developer-routes-page.dom.test.tsx`'s existing count-driven
-    // assertion always finds `snapshot.routes.counts.redirects > 0` against
+    // assertion always finds `routesCounts(snapshot.routes).redirects > 0` against
     // the real committed snapshot, so it always takes the list branch and has
     // never actually rendered these words. This fixture forces the zero
     // branch so the copy itself is proven, not just the list branch's length.

@@ -341,7 +341,7 @@ test.describe("previously uncovered production routes", () => {
         const copy = element.querySelector<HTMLElement>("[data-therapy-result-copy]")!.getBoundingClientRect();
         const evidence = element.querySelector<HTMLElement>("[data-therapy-result-evidence]")!.getBoundingClientRect();
         const actions = element.querySelector<HTMLElement>("[data-therapy-result-actions]")!;
-        const buttons = [...actions.querySelectorAll<HTMLButtonElement>("button")].map((button) => {
+        const buttons = [...actions.querySelectorAll<HTMLElement>("button, a")].map((button) => {
           const buttonBounds = button.getBoundingClientRect();
           return {
             left: buttonBounds.left,
@@ -386,7 +386,7 @@ test.describe("previously uncovered production routes", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    const compare = card.locator("[data-therapy-result-actions] button").nth(1);
+    const compare = card.locator("[data-therapy-result-actions] > a, [data-therapy-result-actions] > button").nth(1);
     await expect(compare).toHaveAccessibleName("Add to compare");
     await compare.focus();
     const focusStyle = await compare.evaluate((element) => {
@@ -402,7 +402,7 @@ test.describe("previously uncovered production routes", () => {
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await expectNoHorizontalOverflow(page);
-    await expect(card.locator("[data-therapy-result-actions] button")).toHaveCount(3);
+    await expect(card.locator("[data-therapy-result-actions] button, [data-therapy-result-actions] a")).toHaveCount(3);
 
     // Adding deliberately keeps the reader where they are. The set moves into
     // the URL (so it is still shareable and survives a reload) and into the tray

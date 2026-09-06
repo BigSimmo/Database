@@ -6,7 +6,6 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
 import { OnCallContactsSection } from "@/components/on-call/on-call-contacts-section";
@@ -30,10 +29,8 @@ import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
 import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
 
 /**
- * Generic, non-owner-specific framing for each section. Shown regardless of
- * sign-in state — this is the "generic section name" half of the signed-out
- * contract (docs/superpowers/specs/2026-09-04-on-call-mode-design.md §2), never
- * the owner's own entries.
+ * Generic, non-owner-specific framing for each section. Shown to every reader,
+ * signed in or not, above the section's entries.
  */
 const ON_CALL_SECTION_DESCRIPTIONS: Record<OnCallSection, string> = {
   contacts:
@@ -55,15 +52,6 @@ const ON_CALL_ADD_NOUN: Record<OnCallSection, string> = {
   orientation: "manual",
   education: "session",
   logistics: "note",
-};
-
-const ON_CALL_SIGNED_OUT_BODY: Record<OnCallSection, string> = {
-  contacts: "Sign in to see your on-call contacts.",
-  playbook: "Sign in to see your escalation playbook.",
-  referrals: "Sign in to see your referral list.",
-  orientation: "Sign in to see your orientation manuals.",
-  education: "Sign in to see your teaching calendar.",
-  logistics: "Sign in to see your logistics notes.",
 };
 
 /**
@@ -197,10 +185,16 @@ function OnCallSectionSwitcher({ current }: { current: OnCallSection }) {
  * therefore unreachable. Adding a seventh section means adding one arm to
  * `renderSectionList` and one entry to the editor's field map, and nothing
  * else.
+ *
+ * Reading needs no account. `fetchSharedOnCallEntries` has served every
+ * non-personal entry to anonymous callers since the 2026-09-04 owner decision,
+ * so the page renders the same list for a visitor as for the owner, minus the
+ * owner's own personal entries, which the shared read never returns. What an
+ * account still buys is writing: the add, edit and verify controls below are
+ * the only things gated on `isAuthenticated`, because their routes require one.
  */
 export function OnCallSectionPage({ section }: { section: OnCallSection }) {
   const { isAuthenticated } = useAccountData();
-  const [signInOpen, setSignInOpen] = useState(false);
   const [editorState, setEditorState] = useState<{ open: boolean; entry: OnCallEntry | null }>({
     open: false,
     entry: null,
@@ -227,10 +221,13 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
     cacheOnCallEntries(entries.filter((existing) => existing.id !== id));
   }
 
+  // Reading is open to any visitor; writing is not. Each list component drops
+  // its own edit and verify affordances when these are undefined, so a
+  // signed-out reader is offered nothing the API would answer with a 401.
   const listProps = {
     entries: sectionEntries,
-    onEditEntry: (entry: OnCallEntry) => setEditorState({ open: true, entry }),
-    onVerified: upsertCachedEntry,
+    onEditEntry: isAuthenticated ? (entry: OnCallEntry) => setEditorState({ open: true, entry }) : undefined,
+    onVerified: isAuthenticated ? upsertCachedEntry : undefined,
   };
 
   /**
@@ -242,7 +239,12 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
   function renderSectionList() {
     switch (section) {
       case "contacts":
-        return <OnCallContactsSection {...listProps} onAddEntry={() => setEditorState({ open: true, entry: null })} />;
+        return (
+          <OnCallContactsSection
+            {...listProps}
+            onAddEntry={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
+          />
+        );
       case "playbook":
         return <OnCallPlaybookSection {...listProps} documents={linkedDocuments} />;
       case "referrals":
@@ -298,43 +300,22 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
               </Button>
             ) : null}
           </div>
-          {isAuthenticated ? (
-            <>
-              {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
-              {loading && sectionEntries.length === 0 ? (
-                // Nothing cached and the first fetch still running. An empty
-                // state here would assert the owner has no entries before
-                // anything has been read.
-                <EmptyState
-                  icon={Icon}
-                  title={`Loading your ${title.toLowerCase()}`}
-                  body="Fetching the entries you have saved."
-                  testId={`on-call-${section}-loading`}
-                />
-              ) : (
-                renderSectionList()
-              )}
-            </>
-          ) : (
+          {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
+          {loading && sectionEntries.length === 0 ? (
+            // Nothing cached and the first fetch still running. An empty state
+            // here would assert the section holds nothing before anything has
+            // been read.
             <EmptyState
               icon={Icon}
-              title={title}
-              body={ON_CALL_SIGNED_OUT_BODY[section]}
-              actions={
-                <button
-                  type="button"
-                  onClick={() => setSignInOpen(true)}
-                  className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
-                >
-                  Sign in
-                </button>
-              }
-              testId={`on-call-${section}-signed-out`}
+              title={`Loading ${title.toLowerCase()}`}
+              body="Fetching the entries saved to this section."
+              testId={`on-call-${section}-loading`}
             />
+          ) : (
+            renderSectionList()
           )}
         </section>
       </InformationPageShell>
-      <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
       {/* One editor for every section: its field map is already keyed by
           section, so there is nothing per-section to add here. */}
       <OnCallEntryEditor

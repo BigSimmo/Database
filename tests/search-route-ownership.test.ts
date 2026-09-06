@@ -44,7 +44,11 @@ describe("shared-search route ownership", () => {
   });
 
   it("keeps the Sources catalogue route-owned before and after submission", () => {
-    expect(isStandaloneModeHomePath("/sources")).toBe(true);
+    // `/sources` joined the consolidated modes when its four-card home was folded
+    // into the shared one, so it renders nothing and cannot own a hero composer.
+    // It stays always-standalone, because that is a prefix match covering
+    // `/sources/search` and the rest of the namespace.
+    expect(isStandaloneModeHomePath("/sources")).toBe(false);
     expect(isAlwaysStandaloneShellPath("/sources")).toBe(true);
     expect(shouldRenderClinicalDashboard({ hasSubmittedSearch: false, mode: "sources", pathname: "/sources" })).toBe(
       false,
@@ -75,11 +79,16 @@ describe("shared-search route ownership", () => {
   });
 
   it("classifies standalone mode homes from pathname alone", () => {
-    // Documents joined the consolidated modes and no longer owns a standalone home.
-    for (const pathname of ["/favourites", "/tools", "/medications", "/sources"]) {
+    // Favourites and Tools are the last two: every other mode's bare path redirects.
+    for (const pathname of ["/favourites", "/tools"]) {
       expect(isStandaloneModeHomePath(pathname)).toBe(true);
     }
+    // Documents, Sources and Medications all joined the redirecting modes. A path
+    // that 307s never renders, so it can never own a hero composer — listing one
+    // here could not take effect, only mislead.
     expect(isStandaloneModeHomePath("/documents")).toBe(false);
+    expect(isStandaloneModeHomePath("/sources")).toBe(false);
+    expect(isStandaloneModeHomePath("/medications")).toBe(false);
     expect(isStandaloneModeHomePath("/")).toBe(false);
     expect(isStandaloneModeHomePath("/services/crisis")).toBe(false);
     expect(isStandaloneModeHomePath("/dsm/search")).toBe(false);
@@ -349,6 +358,22 @@ describe("shared-search route ownership", () => {
     expect(dictionaryCatalogueSource).not.toContain(
       "data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]",
     );
+    // The catalogue is a RESULT view. It owns the slot ELEMENT only so the
+    // composer lands under its mode nav, but the id and the reserve class must
+    // stay the page ones: `placement` is derived from which slot id the shell
+    // passes, and the home slot is what made this catalogue render the hero
+    // ticker, Prompts rail and privacy line after PR #2639 gated them.
+    expect(dictionaryCatalogueSource).toContain("id={desktopPageComposerSlotId}");
+    expect(dictionaryCatalogueSource).toContain("desktop-page-composer-slot");
+    expect(dictionaryCatalogueSource).not.toContain("modeHomeDesktopComposerSlotId");
+    expect(dictionaryCatalogueSource).not.toContain("mode-home-composer-slot");
+    // Exactly one element carries the page slot id: the shell suppresses its own
+    // copy on this route, and the shell no longer hands the catalogue the home slot.
+    expect(shellSource).toContain("shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue ? (");
+    expect(shellSource).toContain(
+      "desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}",
+    );
+    expect(shellSource).not.toContain("isStandaloneModeHome || isDictionaryCatalogue ? modeHomeDesktopComposerSlotId");
     expect(dictionaryCatalogueSource).not.toContain("Clinical terms");
     expect(dictionaryCatalogueSource).not.toContain("Clinical dictionary");
 
@@ -382,9 +407,24 @@ describe("shared-search route ownership", () => {
 
     expect(tabletBand).toContain("@media (min-width: 640px) and (max-width: 1279.98px)");
     expect(tabletBand).toContain("--spacing-mode-home-composer-wide: 10rem");
-    expect(tabletBand).toContain(".smart-search-prompt-row .answer-suggestion-chips-scroll");
-    expect(tabletBand).toContain("flex-wrap: nowrap");
-    expect(tabletBand).toContain("overflow-x: auto");
+
+    // The one-line rail is NOT part of the bounded band. It was, until
+    // 2026-09-06, which left the rail free to wrap above 1280px — Specifiers was
+    // the one mode whose prompts overflowed there, and its home stood 39px
+    // taller than every other. The rule now applies at every width from 640px
+    // up, and the band keeps only the reserve token it is actually about.
+    const railStart = globalsSource.indexOf("/* BEGIN mode-home prompt rail one-line */");
+    const railEnd = globalsSource.indexOf("/* END mode-home prompt rail one-line */");
+    expect(railStart).toBeGreaterThanOrEqual(0);
+    expect(railEnd).toBeGreaterThan(railStart);
+    const railBlock = globalsSource.slice(railStart, railEnd);
+
+    expect(railBlock).toContain("@media (min-width: 640px) {");
+    expect(railBlock).not.toContain("max-width: 1279.98px");
+    expect(railBlock).toContain(".smart-search-prompt-row .answer-suggestion-chips-scroll");
+    expect(railBlock).toContain("flex-wrap: nowrap");
+    expect(railBlock).toContain("overflow-x: auto");
+    expect(tabletBand).not.toContain(".smart-search-prompt-row");
 
     // The reserve remains conditional on a pending or filled portal host, so a
     // hidden composer still owns zero height rather than a permanent tablet gap.

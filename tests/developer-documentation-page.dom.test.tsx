@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import DeveloperDocumentationPage from "@/app/mockups/development/documentation/page";
 import { loadRepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-snapshot";
+import { documentationCounts } from "@/lib/developer-area/repo-awareness-snapshot-counts";
 
 // PanelPageShell's back control is a ContextualBackLink, which calls
 // next/navigation's useRouter for its history-aware click handler. Outside an
@@ -62,12 +63,9 @@ vi.mock("@/lib/developer-area/repo-awareness-snapshot", async (importOriginal) =
           ...snapshot,
           documentation: {
             ...snapshot.documentation,
+            // No counts to keep in step since v3: `documentationCounts` reads
+            // the list this override just rewrote, so the totals follow it.
             documents: snapshot.documentation.documents.map((document) => ({ ...document, catalogued: true })),
-            counts: {
-              ...snapshot.documentation.counts,
-              catalogued: snapshot.documentation.counts.documents,
-              uncatalogued: 0,
-            },
           },
         };
       }
@@ -103,7 +101,7 @@ describe("developer documentation page", () => {
 
   it("shows each count as its own readable value", () => {
     render(<DeveloperDocumentationPage />);
-    const { counts } = snapshot.documentation;
+    const counts = documentationCounts(snapshot.documentation);
     expect(screen.getByTestId("developer-documentation-count-documents-value")).toHaveTextContent(
       String(counts.documents),
     );
@@ -115,7 +113,7 @@ describe("developer documentation page", () => {
   it("leads with the documents missing from the index, because that is the actionable list", () => {
     render(<DeveloperDocumentationPage />);
     const region = screen.getByTestId("developer-documentation-uncatalogued");
-    const { uncatalogued } = snapshot.documentation.counts;
+    const { uncatalogued } = documentationCounts(snapshot.documentation);
     if (uncatalogued === 0) expect(region).toHaveTextContent(/Every document.*index/i);
     else expect(within(region).getAllByRole("listitem")).toHaveLength(uncatalogued);
   });
@@ -123,7 +121,7 @@ describe("developer documentation page", () => {
   it("lists every document under its section, so the sections add up to the total", () => {
     render(<DeveloperDocumentationPage />);
     const rendered = within(screen.getByTestId("developer-documentation-sections")).getAllByRole("listitem");
-    expect(rendered).toHaveLength(snapshot.documentation.counts.documents);
+    expect(rendered).toHaveLength(documentationCounts(snapshot.documentation).documents);
   });
 
   it("marks each document as indexed or not, rather than leaving the reader to guess", () => {
@@ -148,9 +146,11 @@ describe("developer documentation page", () => {
     expect(within(region).getByTestId(`developer-documentation-document-${target.path}`)).toBeInTheDocument();
     // Still counted: the sections still add up to the full document total even
     // though one document sits under a heading the summary never listed.
-    expect(within(region).getAllByRole("listitem")).toHaveLength(overridden.documentation.counts.documents);
+    expect(within(region).getAllByRole("listitem")).toHaveLength(
+      documentationCounts(overridden.documentation).documents,
+    );
     expect(screen.getByTestId("developer-documentation-count-sections-value")).toHaveTextContent(
-      String(overridden.documentation.counts.sections + 1),
+      String(documentationCounts(overridden.documentation).sections + 1),
     );
     // Rendered under its own heading, named as it stands.
     expect(screen.getByRole("heading", { name: new RegExp("an-unrecognised-section") })).toBeInTheDocument();
