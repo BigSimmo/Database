@@ -114,7 +114,11 @@ function TriggerFace({ open, density }: { open: boolean; density: Density }) {
       </span>
       <span className={cn(eyebrowText, "shrink-0 text-[color:var(--text-heading)]")}>Also matches</span>
       <span className="h-px min-w-3 flex-1 bg-[color:var(--border)]" aria-hidden />
-      <span className="shrink-0 text-2xs font-medium tabular-nums text-[color:var(--text-muted)]" aria-hidden>
+      {/* Not aria-hidden. Production hides this because a visually hidden
+          role="status" node announces the count properly; this study has no such
+          node, so hiding it would leave the closed control with no count at all
+          for a screen reader — the one thing the study says it must state. */}
+      <span className="shrink-0 text-2xs font-medium tabular-nums text-[color:var(--text-muted)]">
         {MATCH_COUNT} related modes
       </span>
       <span
@@ -149,6 +153,7 @@ function ChipTrigger({ open, onToggle, density }: { open: boolean; onToggle: () 
     >
       <Layers className="size-icon-sm shrink-0" aria-hidden />
       <span>Also matches</span>
+      <span className="sr-only">{MATCH_COUNT} related modes</span>
       <span
         aria-hidden
         className={cn(
