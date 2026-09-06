@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
-import { ChevronDown, Image as ImageIcon, Layers, Table2 } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import type { RefObject } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, Image as ImageIcon, Layers, Table2 } from "lucide-react";
 
 import { cn, sourceCapsule, sourceCapsuleCountBadge, sourceCapsuleHit, textMuted } from "@/components/ui-primitives";
 import { logSourceOpen } from "@/components/clinical-dashboard/source-actions";
@@ -40,6 +41,14 @@ import {
  *   marks use and a number here that no mark can reach would be a false promise.
  * - Only this container scrolls sideways. The page body must never scroll
  *   horizontally.
+ * - **The scrollbar is hidden, so a mouse needs the chevrons.** A finger swipes
+ *   this rail and a trackpad swipes it, but a plain desktop mouse has no
+ *   horizontal gesture, and every card past the right fade was unreachable
+ *   without shift + wheel. `RailPagingControl` is that missing gesture: mouse
+ *   only, one end at a time, and gone entirely when the cards already fit. Do
+ *   not restore a visible scrollbar here instead — the cross-mode "Also in your
+ *   library" rail is the surface that carries `polished-scroll`, and these two
+ *   deliberately differ.
  * - The `compactCitations` preference collapses the rail to one chip, but the
  *   zero-source case stays worded in every mode — compact must never hide a
  *   missing-source signal.
@@ -61,6 +70,10 @@ export function AnswerSourceRail({
 }) {
   const [expanded, setExpanded] = useState(false);
   const rowListId = useId();
+  const scroller = useRef<HTMLDivElement>(null);
+  // Declared before the zero-source early return below, because hook order has to
+  // be identical on every render.
+  const edges = useRailEdges(scroller);
   const display = sourceCapsuleDisplay({ sourceCount: sources.length, compact });
 
   if (!sources.length) {
@@ -129,8 +142,9 @@ export function AnswerSourceRail({
           answer renders as prose and not as a bullet list. The source-capsule
           preview used the same idiom for the same reason. */}
       {collapsed ? null : (
-        <div className={cn("relative min-w-0", compact && "mt-2")}>
+        <div data-testid="answer-source-rail-scroller" className={cn("group/rail relative min-w-0", compact && "mt-2")}>
           <div
+            ref={scroller}
             id={rowListId}
             role="list"
             aria-label="Cited documents"
@@ -154,14 +168,140 @@ export function AnswerSourceRail({
             ))}
           </div>
           {/* Tells the eye there is more to the right without adding a control.
-              Inert so it can never swallow a tap on the last card. */}
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-[color:var(--surface-raised)] to-transparent"
-          />
+              Inert so it can never swallow a tap on the last card. Both fades are
+              conditional: a rail whose cards already fit shows no edge treatment at
+              all, and a fade with nothing behind it is a false promise of more. */}
+          {edges.right ? (
+            <span
+              aria-hidden="true"
+              data-testid="answer-source-rail-fade-right"
+              className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-[color:var(--surface-raised)] to-transparent"
+            />
+          ) : null}
+          {edges.left ? (
+            <span
+              aria-hidden="true"
+              data-testid="answer-source-rail-fade-left"
+              className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-[color:var(--surface-raised)] to-transparent"
+            />
+          ) : null}
+          <RailPagingControl direction="left" visible={edges.left} scroller={scroller} />
+          <RailPagingControl direction="right" visible={edges.right} scroller={scroller} />
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Which ends of the rail still have cards behind them.
+ *
+ * The rail hides its scrollbar, which is right for a finger and for a trackpad
+ * and leaves a plain desktop mouse with no gesture at all: before this, every
+ * card past the right fade was drawn and then unreachable unless the reader
+ * happened to know about shift + wheel. Both ends are measured rather than
+ * assumed so the affordance can disappear completely when the cards already fit
+ * — an arrow with nothing behind it is the same false promise as a fade with
+ * nothing behind it.
+ *
+ * `ResizeObserver` is feature-detected rather than assumed: jsdom does not
+ * implement it, and the rail renders in several DOM tests that must not throw.
+ * The scroll listener alone still keeps the state honest there.
+ */
+function useRailEdges(ref: RefObject<HTMLDivElement | null>) {
+  const [edges, setEdges] = useState({ left: false, right: false });
+
+  const sync = useCallback(() => {
+    const element = ref.current;
+    if (!element) return;
+    const max = element.scrollWidth - element.clientWidth;
+    // A 1 px tolerance: sub-pixel layout rounding otherwise leaves a rail scrolled
+    // fully right reporting a fraction of a pixel still to go, and the arrow never
+    // stands down.
+    setEdges((current) => {
+      const next = { left: element.scrollLeft > 1, right: element.scrollLeft < max - 1 };
+      return current.left === next.left && current.right === next.right ? current : next;
+    });
+  }, [ref]);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    sync();
+    element.addEventListener("scroll", sync, { passive: true });
+    // The cards arrive asynchronously (titles, status), so the rail's own width and
+    // its children's are both worth watching: a rail that starts fitting and then
+    // overflows must grow the affordance without a resize event.
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(sync) : null;
+    if (observer) {
+      observer.observe(element);
+      for (const child of Array.from(element.children)) observer.observe(child);
+    }
+    return () => {
+      element.removeEventListener("scroll", sync);
+      observer?.disconnect();
+    };
+  }, [ref, sync]);
+
+  return edges;
+}
+
+/**
+ * One end's paging control: a mouse-only affordance for the scroll a mouse cannot
+ * otherwise perform.
+ *
+ * Three properties are deliberate rather than incidental:
+ *
+ * - **Mouse only.** `pointer-fine:` keeps it off every touch device, where the
+ *   swipe already works and a 32 px control would be an undersized tap target
+ *   next to `min-h-12` cards.
+ * - **Out of the tab order.** Tab already walks the cards themselves and the
+ *   browser scrolls each focused card into view, so a focusable button here would
+ *   add two empty stops that reach nothing new. It is `aria-hidden` for the same
+ *   reason: it duplicates navigation assistive technology already has.
+ * - **Instant under reduced motion.** Smooth scrolling is the animation this
+ *   control performs, so it is the animation `prefers-reduced-motion` has to turn
+ *   off.
+ */
+function RailPagingControl({
+  direction,
+  visible,
+  scroller,
+}: {
+  direction: "left" | "right";
+  visible: boolean;
+  scroller: RefObject<HTMLDivElement | null>;
+}) {
+  if (!visible) return null;
+  const Icon = direction === "left" ? ChevronLeft : ChevronRight;
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-hidden="true"
+      data-testid={`answer-source-rail-page-${direction}`}
+      onClick={() => {
+        const element = scroller.current;
+        if (!element || typeof element.scrollBy !== "function") return;
+        const reduceMotion =
+          typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        element.scrollBy({
+          left: (direction === "left" ? -1 : 1) * Math.max(180, element.clientWidth * 0.8),
+          behavior: reduceMotion ? "auto" : "smooth",
+        });
+      }}
+      className={cn(
+        // Sits ON the fade rather than straddling the card edge: half a button
+        // hanging outside the answer column reads as a clipped element.
+        "absolute top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full pointer-fine:grid",
+        "border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)]",
+        "shadow-[var(--e2)] transition-opacity hover:bg-[color:var(--surface-subtle)] motion-reduce:transition-none",
+        "opacity-0 group-hover/rail:opacity-100 group-focus-within/rail:opacity-100 forced-colors:border",
+        direction === "left" ? "left-1" : "right-1",
+      )}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+    </button>
   );
 }
 

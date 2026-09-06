@@ -2,9 +2,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { useState } from "react";
 
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+
+import { installMatchMediaStub } from "./setup/jsdom.setup";
 
 vi.mock("@/components/clinical-dashboard/signed-image", () => ({
   SignedImage: ({
@@ -570,5 +572,90 @@ describe("source drawer overflow menu", () => {
     await user.click(report);
     expect(onReportSource).not.toHaveBeenCalled();
     expect(report).toHaveTextContent("Confirm: report this page");
+  });
+});
+
+/**
+ * Desktop paging controls.
+ *
+ * The rail hides its scrollbar — correct for a finger and a trackpad, and a dead
+ * end for a plain mouse, which has no horizontal gesture at all. Before the
+ * chevrons every card past the right fade was drawn and then unreachable unless
+ * the reader knew about shift + wheel.
+ *
+ * jsdom lays nothing out, so `scrollWidth` and `clientWidth` are both 0 and the
+ * rail always reports "fits". `overflowBy` fakes the one measurement the hook
+ * actually reads, which keeps these cases about the decision (does an end have
+ * cards behind it?) rather than about layout.
+ */
+function overflowBy(element: HTMLElement, { scrollLeft, scrollWidth, clientWidth }: Record<string, number>) {
+  // All three are defined rather than assigned: jsdom implements no layout, so its
+  // `scrollLeft` setter is a no-op and the value would read back as 0.
+  Object.defineProperty(element, "scrollWidth", { configurable: true, value: scrollWidth });
+  Object.defineProperty(element, "clientWidth", { configurable: true, value: clientWidth });
+  Object.defineProperty(element, "scrollLeft", { configurable: true, value: scrollLeft, writable: true });
+  // The listener sets React state, so the dispatch has to be an act() unit or the
+  // assertion below runs against the pre-update render.
+  act(() => {
+    element.dispatchEvent(new Event("scroll"));
+  });
+}
+
+describe("AnswerSourceRail desktop paging", () => {
+  it("shows no control and no fade while every card already fits", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+
+    expect(screen.queryByTestId("answer-source-rail-page-left")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("answer-source-rail-page-right")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("answer-source-rail-fade-right")).not.toBeInTheDocument();
+  });
+
+  it("offers only the end that still has cards behind it", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 900, clientWidth: 300 });
+    expect(screen.queryByTestId("answer-source-rail-page-left")).not.toBeInTheDocument();
+    expect(screen.getByTestId("answer-source-rail-page-right")).toBeInTheDocument();
+
+    overflowBy(list, { scrollLeft: 300, scrollWidth: 900, clientWidth: 300 });
+    expect(screen.getByTestId("answer-source-rail-page-left")).toBeInTheDocument();
+    expect(screen.getByTestId("answer-source-rail-page-right")).toBeInTheDocument();
+
+    overflowBy(list, { scrollLeft: 600, scrollWidth: 900, clientWidth: 300 });
+    expect(screen.getByTestId("answer-source-rail-page-left")).toBeInTheDocument();
+    expect(screen.queryByTestId("answer-source-rail-page-right")).not.toBeInTheDocument();
+  });
+
+  it("stays out of the tab order, because tabbing already walks the cards themselves", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    overflowBy(screen.getByRole("list", { name: "Cited documents" }), {
+      scrollLeft: 0,
+      scrollWidth: 900,
+      clientWidth: 300,
+    });
+
+    const control = screen.getByTestId("answer-source-rail-page-right");
+    expect(control).toHaveAttribute("tabindex", "-1");
+    expect(control).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("pages by roughly a screen of cards, and drops the animation under reduced motion", async () => {
+    const user = userEvent.setup();
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+    const scrollBy = vi.fn();
+    Object.defineProperty(list, "scrollBy", { configurable: true, value: scrollBy });
+    overflowBy(list, { scrollLeft: 300, scrollWidth: 900, clientWidth: 300 });
+
+    await user.click(screen.getByTestId("answer-source-rail-page-right"));
+    expect(scrollBy).toHaveBeenCalledWith({ left: 240, behavior: "smooth" });
+
+    await user.click(screen.getByTestId("answer-source-rail-page-left"));
+    expect(scrollBy).toHaveBeenLastCalledWith({ left: -240, behavior: "smooth" });
+
+    installMatchMediaStub(true);
+    await user.click(screen.getByTestId("answer-source-rail-page-right"));
+    expect(scrollBy).toHaveBeenLastCalledWith({ left: 240, behavior: "auto" });
   });
 });
