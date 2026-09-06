@@ -375,6 +375,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/therapy-recommend-popup-dossier",
+        "file": "src/app/mockups/therapy-recommend-popup-dossier/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/care-plan/patients/[patientId]/safety-plan",
         "file": "src/app/mockups/care-plan/patients/[patientId]/safety-plan/page.tsx",
         "area": "mockup"
@@ -397,6 +402,11 @@
       {
         "path": "/mockups/caring-contacts/patients/[patientId]",
         "file": "src/app/mockups/caring-contacts/patients/[patientId]/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-live",
+        "file": "src/app/mockups/therapy-scenario-popup-live/page.tsx",
         "area": "mockup"
       },
       {
@@ -508,6 +518,11 @@
         "path": "/reference/colour-coding",
         "file": "src/app/reference/colour-coding/page.tsx",
         "area": "product"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-guided",
+        "file": "src/app/mockups/therapy-scenario-popup-guided/page.tsx",
+        "area": "mockup"
       },
       {
         "path": "/mockups/dictionary-browse-header",
@@ -810,6 +825,11 @@
         "area": "product"
       },
       {
+        "path": "/mockups/therapy-recommend-popup-workbench",
+        "file": "src/app/mockups/therapy-recommend-popup-workbench/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/caring-contacts/patients",
         "file": "src/app/caring-contacts/patients/page.tsx",
         "area": "product"
@@ -977,6 +997,11 @@
       {
         "path": "/mockups/care-plan/patients/[patientId]/presentations",
         "file": "src/app/mockups/care-plan/patients/[patientId]/presentations/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-recommend-popup-triage",
+        "file": "src/app/mockups/therapy-recommend-popup-triage/page.tsx",
         "area": "mockup"
       },
       {
@@ -1162,6 +1187,11 @@
       {
         "path": "/mockups/caring-contacts",
         "file": "src/app/mockups/caring-contacts/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-intake",
+        "file": "src/app/mockups/therapy-scenario-popup-intake/page.tsx",
         "area": "mockup"
       },
       {
@@ -13974,6 +14004,14 @@
         "scope": "docs/rag-improvement S5 follow-ups: HANDOVER S5/S2 rows, COORDINATION §7, 4 inbox requests (docs-only)",
         "outcome": "docs-only; S5 landed; follow-ups queued",
         "checks": "verify:pr-local docs scope"
+      },
+      {
+        "date": "2026-09-06",
+        "ref": "claude/repo-awareness-merge-safe (PR #2687)",
+        "head": "6144ad1444cee5f5b0c699acde4b1a4969f3734d",
+        "scope": "Run PR sweep: main sync",
+        "outcome": "Already fully green (PR required: success; only Advisory UI failing, ignorable per standing policy). No unresolved review threads. Confirmed clean merge via merge-tree simulation, updated branch from main via GitHub API (was behind). No code changes needed.",
+        "checks": "merge-tree simulation against origin/main (clean, no conflicts); GitHub update_pull_request_branch (applied); post-sync check-runs re-read (PR required: success)"
       },
       {
         "date": "2026-08-13",
