@@ -10,7 +10,7 @@ import {
 } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
-import { routesCounts } from "@/lib/developer-area/repo-awareness-snapshot-counts";
+import { routesCounts, sortedByPath } from "@/lib/developer-area/repo-awareness-snapshot-counts";
 
 export const metadata: Metadata = {
   title: "Routes and modes · Developer · PsychSift",
@@ -55,10 +55,15 @@ function RoutePath({ path }: { path: string }) {
 export default function DeveloperRoutesPage() {
   const snapshot = loadRepoAwarenessSnapshot();
   const freshness = resolveRepoFreshness(snapshot, new Date());
-  const { modes, pages, redirects, api } = snapshot.routes;
+  const { modes, pages } = snapshot.routes;
+  const redirects = sortedByPath(snapshot.routes.redirects);
+  const api = sortedByPath(snapshot.routes.api);
   const counts = routesCounts(snapshot.routes);
-  const productPages = pages.filter((page) => page.area === "product");
-  const mockupPages = pages.filter((page) => page.area === "mockup");
+  // Sorted here because the snapshot stores routes dispersed by a hash of their
+  // path, so that two branches adding routes merge cleanly. Alphabetical order
+  // is presentation and belongs to this page.
+  const productPages = sortedByPath(pages.filter((page) => page.area === "product"));
+  const mockupPages = sortedByPath(pages.filter((page) => page.area === "mockup"));
 
   // `page.area` is typed `RouteArea` ("product" | "mockup") only because the
   // generator has never emitted a third value — `loadRepoAwarenessSnapshot`'s
@@ -73,7 +78,7 @@ export default function DeveloperRoutesPage() {
   // `path` (a redirect target and a page, for instance), and an identity-keyed
   // set is exact where a path-keyed one could swallow a second row.
   const recognisedPages = new Set<(typeof pages)[number]>([...productPages, ...mockupPages]);
-  const otherPages = pages.filter((page) => !recognisedPages.has(page));
+  const otherPages = sortedByPath(pages.filter((page) => !recognisedPages.has(page)));
 
   return (
     <PanelPageShell

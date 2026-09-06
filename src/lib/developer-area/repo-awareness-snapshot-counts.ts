@@ -62,3 +62,19 @@ export function documentationCounts(documentation: DocumentationSection): {
 export function testHealthCounts(testHealth: TestHealthSection): { quarantined: number } {
   return { quarantined: testHealth.quarantined.length };
 }
+
+/**
+ * Alphabetical order for DISPLAY.
+ *
+ * The snapshot stores routes and documents dispersed by a hash of their path so
+ * that concurrent additions merge cleanly (see `byDispersedPath` in
+ * `scripts/generate-repo-awareness-snapshot.ts`). Presentation order therefore
+ * has to be applied at render, exactly as `reviewRecordsNewestFirst` does for
+ * review records.
+ *
+ * Copies before sorting: the snapshot is a module-level import shared by every
+ * request, and sorting in place would mutate that shared array.
+ */
+export function sortedByPath<T extends { path: string }>(items: readonly T[]): T[] {
+  return [...items].sort((left, right) => left.path.localeCompare(right.path));
+}

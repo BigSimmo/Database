@@ -41,7 +41,10 @@ const SITE_MAP: SiteMapInput = {
 describe("buildRoutesSection", () => {
   it("separates product pages from mockup pages", () => {
     const section = buildRoutesSection(SITE_MAP);
-    expect(section.pages).toEqual([
+    // Compared order-insensitively: pages are stored dispersed by a hash of the
+    // path, so array position is deliberately not alphabetical. What this test
+    // is about is the area classification, not the ordering.
+    expect([...section.pages].sort((left, right) => left.path.localeCompare(right.path))).toEqual([
       { path: "/dsm", file: "src/app/(search-app)/dsm/page.tsx", area: "product" },
       { path: "/mockups/development", file: "src/app/mockups/development/page.tsx", area: "mockup" },
     ]);
@@ -75,15 +78,45 @@ describe("buildRoutesSection", () => {
     });
   });
 
-  it("sorts every array by path so filesystem ordering cannot make the gate fire", () => {
+  it("orders every array from its content, so filesystem ordering cannot make the gate fire", () => {
+    // The guarantee is DETERMINISM, not alphabetisation: whatever order the
+    // site map arrives in, the snapshot must come out the same, or the
+    // staleness gate flaps on an unchanged repository. Asserting a fixed
+    // alphabetical list also asserted the ordering strategy, which since v3 is
+    // dispersal by path hash. Comparing shuffled input against unshuffled input
+    // tests the property itself and survives a future change of strategy.
     const shuffled: SiteMapInput = {
       ...SITE_MAP,
       pageRoutes: [...SITE_MAP.pageRoutes].reverse(),
       apiRoutes: [{ route: "/api/zeta", file: "z.ts" }, ...SITE_MAP.apiRoutes],
     };
-    const section = buildRoutesSection(shuffled);
-    expect(section.pages.map((page) => page.path)).toEqual(["/dsm", "/mockups/development"]);
-    expect(section.api.map((route) => route.path)).toEqual(["/api/answer", "/api/zeta"]);
+    const unshuffled: SiteMapInput = {
+      ...SITE_MAP,
+      apiRoutes: [...SITE_MAP.apiRoutes, { route: "/api/zeta", file: "z.ts" }],
+    };
+    const fromShuffled = buildRoutesSection(shuffled);
+    const fromUnshuffled = buildRoutesSection(unshuffled);
+    expect(fromShuffled.pages).toEqual(fromUnshuffled.pages);
+    expect(fromShuffled.api).toEqual(fromUnshuffled.api);
+    // And the content is all there, whatever the order.
+    expect(fromShuffled.pages.map((page) => page.path).sort()).toEqual(["/dsm", "/mockups/development"]);
+    expect(fromShuffled.api.map((route) => route.path).sort()).toEqual(["/api/answer", "/api/zeta"]);
+  });
+
+  it("disperses alphabetically adjacent routes, so two branches adding one do not collide", () => {
+    // The property v3 exists for, on the shape that actually caused it: PR #2674
+    // conflicted because /mockups/source-rail-desktop-scroll and
+    // /mockups/specifier-record-directions both sort under /mockups/s and were
+    // therefore inserted on the same lines by two branches.
+    const adjacent = ["/mockups/sim-alpha", "/mockups/sim-alpha-two", "/mockups/sim-alpha-three"];
+    const section = buildRoutesSection({
+      ...SITE_MAP,
+      pageRoutes: [...SITE_MAP.pageRoutes, ...adjacent.map((route) => ({ route, file: `src/app${route}/page.tsx` }))],
+    });
+    const positions = adjacent.map((route) => section.pages.findIndex((page) => page.path === route));
+    expect(positions.every((index) => index >= 0)).toBe(true);
+    // Alphabetically these three are consecutive; dispersed they must not be.
+    expect(Math.max(...positions) - Math.min(...positions)).toBeGreaterThan(positions.length - 1);
   });
 });
 
@@ -216,9 +249,12 @@ describe("buildDocumentationSection", () => {
     expect(documentationCounts(section)).toEqual({ documents: 5, catalogued: 3, uncatalogued: 2, sections: 3 });
   });
 
-  it("sorts documents by path so listing order cannot make the gate fire", () => {
-    const section = buildDocumentationSection([...DOC_PATHS].reverse(), README);
-    expect(section.documents.map((document) => document.path)).toEqual([...DOC_PATHS].sort());
+  it("orders documents from their content, so listing order cannot make the gate fire", () => {
+    // Determinism, not alphabetisation — see the routes test of the same shape.
+    const fromReversed = buildDocumentationSection([...DOC_PATHS].reverse(), README);
+    const fromForward = buildDocumentationSection([...DOC_PATHS], README);
+    expect(fromReversed.documents).toEqual(fromForward.documents);
+    expect(fromReversed.documents.map((document) => document.path).sort()).toEqual([...DOC_PATHS].sort());
   });
 });
 

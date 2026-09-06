@@ -1,4 +1,5 @@
 import { execFileSync, type ExecFileSyncOptionsWithStringEncoding } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -37,8 +38,39 @@ export type SiteMapInput = {
 // (`pages`, `redirects`, `api`) carries one — so a repeated regeneration on an
 // unchanged repository can never reorder two entries and fail the staleness
 // gate.
-function byPath<T extends { path: string; file: string }>(left: T, right: T) {
-  return left.path.localeCompare(right.path) || left.file.localeCompare(right.file);
+/**
+ * A DISPERSING order, not a presentational one — the same device
+ * `buildReviewStateSection` applies to `review_state.records`, applied here for
+ * the same measured reason.
+ *
+ * Sorted by path, two routes added on two branches land next to each other
+ * whenever their paths sort next to each other, and adjacent insertions are a
+ * hard conflict in the committed snapshot. That is not hypothetical and not
+ * rare: `/mockups/source-rail-desktop-scroll` and
+ * `/mockups/specifier-record-directions` both sort under `/mockups/s`, and PR
+ * #2674 conflicted on exactly that pair. A conflict here sets
+ * `mergeable_state=dirty`, which suppresses `refs/pull/<n>/merge` and leaves
+ * the check list empty rather than red.
+ *
+ * A SHA-1 of the path is uniformly distributed, so two additions land hundreds
+ * of lines apart and git's three-way merge resolves both hunks untouched.
+ * Alphabetical order is presentation and belongs to the page, which sorts
+ * before rendering.
+ *
+ * The hash is a total order in practice but not by construction, so `path` and
+ * `file` still break ties: two entries colliding on a SHA-1 prefix must not
+ * reorder between runs and flap the staleness gate.
+ */
+function dispersalKey(value: string): string {
+  return createHash("sha1").update(value).digest("hex");
+}
+
+function byDispersedPath<T extends { path: string; file: string }>(left: T, right: T) {
+  return (
+    dispersalKey(left.path).localeCompare(dispersalKey(right.path)) ||
+    left.path.localeCompare(right.path) ||
+    left.file.localeCompare(right.file)
+  );
 }
 
 export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData()): RoutesSection {
@@ -54,13 +86,13 @@ export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData())
       file: route.file,
       area: (route.route.startsWith("/mockups") ? "mockup" : "product") as RouteArea,
     }))
-    .sort(byPath);
+    .sort(byDispersedPath);
 
   const redirects = siteMap.redirects
     .map((redirect) => ({ path: redirect.route, file: redirect.file, target: redirect.target }))
-    .sort(byPath);
+    .sort(byDispersedPath);
 
-  const api = siteMap.apiRoutes.map((route) => ({ path: route.route, file: route.file })).sort(byPath);
+  const api = siteMap.apiRoutes.map((route) => ({ path: route.route, file: route.file })).sort(byDispersedPath);
 
   const modes = appModeDefinitions
     .map((mode) => ({
@@ -216,11 +248,13 @@ function catalogueTargets(readmeMarkdown: string): Set<string> {
 export function buildDocumentationSection(docPaths: readonly string[], readmeMarkdown: string): DocumentationSection {
   const catalogued = catalogueTargets(readmeMarkdown);
 
-  // `path` alone is already a total order here: `docPaths` comes from
-  // `git ls-files`, which cannot list the same repo path twice, so no two
-  // entries can compare equal and no tiebreaker is needed.
+  // Dispersed by a hash of the path, for the reason on `byDispersedPath` above:
+  // two branches each adding a document under the same directory would
+  // otherwise insert on the same lines. `path` breaks ties, and it is already a
+  // total order here — `docPaths` comes from `git ls-files`, which cannot list
+  // the same repo path twice — so the order is deterministic across platforms.
   const documents = [...docPaths]
-    .sort((left, right) => left.localeCompare(right))
+    .sort((left, right) => dispersalKey(left).localeCompare(dispersalKey(right)) || left.localeCompare(right))
     .map((repoPath) => ({
       path: repoPath,
       section: documentSection(repoPath),
