@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5046104e-b505-4faa-b488-b4121a1cf56a",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#Q4Y7TR",
+    "outcome": "Superseded by #RP00FZ storage-cleanup tracking",
+    "baseRowFingerprint": "fe0aee463c7c2a50e3343ca0e5159098d2e8506996b6691cad274478991f4528"
+  }
+}

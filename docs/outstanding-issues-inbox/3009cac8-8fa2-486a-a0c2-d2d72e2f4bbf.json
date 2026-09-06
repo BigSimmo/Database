@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3009cac8-8fa2-486a-a0c2-d2d72e2f4bbf",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#AGBNBV",
+    "outcome": "Added --dry-run support to ledger-inbox add",
+    "baseRowFingerprint": "37f5c0bd00daf7f6f5592c38f09d12f04103b8564e168df70c43b6a123b58d0a"
+  }
+}

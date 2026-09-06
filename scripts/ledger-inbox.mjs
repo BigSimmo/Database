@@ -12,12 +12,13 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { addIssue, resolveIssue, updateIssue, updateQueueRow } from "./outstanding-issues.mjs";
+import { addIssue, findRow, resolveIssue, updateIssue, updateQueueRow } from "./outstanding-issues.mjs";
 import {
   ISSUES_PATH,
   checkIssues,
   issueRowFingerprint,
   isValidIssueRowFingerprint,
+  parseIssues,
   queueRowFingerprint,
 } from "./check-outstanding-issues.mjs";
 import {
@@ -145,6 +146,16 @@ export function applyRequest(markdown, request) {
       );
     }
   }
+  if (["done", "update"].includes(request.action)) {
+    const id = request.payload?.id;
+    if (typeof id === "string") {
+      const parsed = parseIssues(markdown);
+      const row = findRow(parsed, id);
+      if (row?.table === "archive") {
+        return markdown;
+      }
+    }
+  }
   if ((request.action === "done" || request.action === "update") && request.payload?.baseRowFingerprint) {
     const id = request.payload.id;
     const fingerprint = issueRowFingerprint(markdown, id);
@@ -161,7 +172,8 @@ export function applyRequest(markdown, request) {
     const durableId = request.payload.issueUlid ?? issueUlidFromRequest(request.createdOn, request.id);
     return addIssue(markdown, request.payload, { ...options, issueUlid: durableId });
   }
-  if (request.action === "done") return resolveIssue(markdown, request.payload.id, request.payload.outcome, options);
+  if (request.action === "done")
+    return resolveIssue(markdown, request.payload.id, request.payload.outcome, { ...options, idempotent: true });
   if (request.action === "queue") return updateQueueRow(markdown, request.payload.id, request.payload);
   return updateIssue(markdown, request.payload.id, request.payload);
 }
@@ -717,6 +729,18 @@ function createRequest(action, argv) {
   if (["done", "update"].includes(action) && typeof payload.id === "string") {
     const currentFingerprint = issueRowFingerprint(readOutstandingIssues(), payload.id);
     if (currentFingerprint === null) {
+      if (action === "done") {
+        const parsed = parseIssues(readOutstandingIssues());
+        const row = findRow(parsed, payload.id);
+        if (row?.table === "archive") {
+          if (argv.includes("--dry-run")) {
+            console.log(`[dry-run] ${payload.id} is already archived in ${ISSUES_PATH}; no-op.`);
+            return;
+          }
+          console.warn(`ledger request skipped: ${payload.id} is already archived in ${ISSUES_PATH}`);
+          return;
+        }
+      }
       throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
     }
     payload.baseRowFingerprint = currentFingerprint;
@@ -734,6 +758,11 @@ function createRequest(action, argv) {
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
   const relative = requestPath(request.id);
+  if (argv.includes("--dry-run")) {
+    console.log(JSON.stringify(request, null, 2));
+    console.log(`[dry-run] Planned ${action} request for ${relative} (no file written).`);
+    return;
+  }
   const target = path.join(ROOT, relative);
   mkdirSync(path.dirname(target), { recursive: true });
   writeFileSync(target, `${JSON.stringify(request, null, 2)}\n`, { encoding: "utf8", flag: "wx" });

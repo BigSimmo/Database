@@ -179,9 +179,10 @@ describe("outstanding-issues writer", () => {
     expect(() => updateIssue(ledger, "#006", {})).toThrow(/at least one/);
   });
 
-  it("refuses to archive a row twice", () => {
+  it("refuses to archive a row twice by default, but permits it with idempotent: true (#686WHW)", () => {
     const once = resolveIssue(ledger, "#005", "first", { date: "2026-03-03" });
     expect(() => resolveIssue(once, "#005", "again")).toThrow(/already archived/);
+    expect(resolveIssue(once, "#005", "again", { idempotent: true })).toBe(once);
   });
 
   it("collapses newlines so a row stays one line", () => {
