@@ -3277,7 +3277,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     // Two signposted actions per card: search inside the mode, and open the
     // record itself. The open control shares the title link's destination and
     // telemetry, so it must not collide with the title's accessible name.
-    const medicationOpen = strip.getByRole("link", { name: "Open Clozapine" });
+    // `exact`: the rail also carries "Open Clozapine-specific adverse effects",
+    // and a substring name matches both.
+    const medicationOpen = strip.getByRole("link", { name: "Open Clozapine", exact: true });
     await expect(medicationOpen).toBeVisible();
     await expect(medicationOpen).toHaveAttribute("href", /./);
     await expect(strip.getByText("SGA / TRS", { exact: true }).filter({ visible: true })).toBeVisible();
