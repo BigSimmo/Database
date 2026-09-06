@@ -94,8 +94,13 @@ export function CompareCatalogPicker({
 
   return (
     <div className="grid gap-3">
+      {/* The heading stays in the tree for structure and for anything pointing at
+          `titleId`, but it is not drawn: every caller wraps this picker in
+          `ComparePickerShell`, which already prints the same title above it — on
+          desktop as the panel heading, on a phone as the sheet's. Two identical
+          headings, one under the other, read as a rendering fault. */}
       {title ? (
-        <h2 id={titleId} className="text-sm font-extrabold text-[color:var(--text-heading)]">
+        <h2 id={titleId} className="sr-only">
           {title}
         </h2>
       ) : null}

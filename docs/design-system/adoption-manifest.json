@@ -2073,11 +2073,16 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/ui/citation.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
       ],
-      "productImportFiles": ["src/components/ui/dose-line.tsx", "src/components/ui/retrieval-state-banner.tsx"],
+      "productImportFiles": [
+        "src/components/therapy-compass/screens/compare-screen.tsx",
+        "src/components/ui/dose-line.tsx",
+        "src/components/ui/retrieval-state-banner.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
