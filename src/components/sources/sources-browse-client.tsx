@@ -30,6 +30,7 @@ import {
 } from "@/lib/sources/browse-facets";
 import type { SourceGeographyScope, SourceQualityBand } from "@/lib/sources/catalogue-types";
 import { formatCatalogueMonth } from "@/lib/sources/catalogue-view";
+import { SOURCE_BAND_LABELS } from "@/lib/sources/rating-method";
 
 /**
  * Topics and Publishers, on the chrome the Catalogue already uses.
@@ -67,14 +68,6 @@ const jurisdictionOrder: readonly SourceGeographyScope[] = [
   "international",
   "unknown",
 ];
-
-const bandLabels: Record<SourceQualityBand, string> = {
-  A: "A · Preferred",
-  B: "B · Strong",
-  C: "C · Supplementary",
-  D: "D · Review required",
-  excluded: "Excluded",
-};
 
 /** The band said as a quantity rather than as a letter, for the meter's text. */
 const bandNouns: Record<SourceQualityBand, string> = {
@@ -374,7 +367,7 @@ export function SourcesBrowseClient({
       label: "Quality band",
       description: "Kept when at least one source under the heading carries the band.",
       selected: new Set(selected.band),
-      options: facetOptions("band", presentBands, (band) => bandLabels[band as SourceQualityBand]),
+      options: facetOptions("band", presentBands, (band) => SOURCE_BAND_LABELS[band as SourceQualityBand]),
       onToggle: (value) => toggleFacet("band", value),
     }),
     resultFilterFacetGroup({
@@ -401,7 +394,11 @@ export function SourcesBrowseClient({
       label: "Jurisdiction",
       format: (value: string) => jurisdictionLabels[value as SourceGeographyScope] ?? value,
     },
-    { key: "band", label: "Quality band", format: (value: string) => bandLabels[value as SourceQualityBand] ?? value },
+    {
+      key: "band",
+      label: "Quality band",
+      format: (value: string) => SOURCE_BAND_LABELS[value as SourceQualityBand] ?? value,
+    },
     { key: "usedBy", label: "Used in", format: (value: string) => appModeDefinition(value as AppModeId).label },
   ] as const;
 
