@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redirect";
+import { isInformationPage } from "@/lib/information-pages";
 
 import {
   isAlwaysStandaloneShellPath,
@@ -476,13 +477,21 @@ describe("shared-search route ownership", () => {
     expect(ask).not.toContain("submitSmartSearch");
   });
 
-  it("does not treat catalogue search docks as tool-detail footer-search pages", () => {
+  it("does not treat catalogue search docks as information pages", () => {
     const shellSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
       "utf8",
     );
-    expect(shellSource).toContain("isToolDetailWithFooterSearch");
+    // The shell suppresses the composer on every information page with no
+    // per-mode exception, so the submitted docks must stay outside that set:
+    // `isSlugDetail` excludes the reserved `search` suffix, which is what keeps
+    // a submitted search refinable.
+    expect(isInformationPage("/services/search")).toBe(false);
+    expect(isInformationPage("/forms/search")).toBe(false);
+    expect(isInformationPage("/services/13yarn")).toBe(true);
     expect(shellSource).toContain('from "@/lib/information-pages"');
+    // A hand-rolled slug test in the shell is how that shared classification
+    // would silently diverge from the predicate above.
     expect(shellSource).not.toMatch(/pathname\.startsWith\("\/services\/"\) && pathname !== "\/services"/);
   });
 

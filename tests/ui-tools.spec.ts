@@ -1440,12 +1440,10 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
         compactBottomSearch: true,
         ribbonQuery: "13YARN",
       },
-      {
-        path: "/services/13yarn",
-        modeButton: "Mode Services",
-        compactBottomSearch: true,
-        ribbonQuery: undefined,
-      },
+      // `/services/13yarn` was listed here while record pages still carried a
+      // composer. It is an information page, not a search route, and now owns
+      // none — its contract is proved at all six widths by "13YARN service
+      // detail is usable at ..." below. Every entry left is a submitted search.
       {
         path: "/forms?q=transport&focus=1&run=1",
         modeButton: "Mode Forms",
@@ -1682,7 +1680,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("form detail pages keep the shared forms search wired to form results", async ({ page }) => {
+  test("form detail pages render inside the shell with no search composer", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
@@ -1694,15 +1692,31 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       timeout: 30_000,
     });
 
-    // Structural coverage — runs on every browser, WebKit included: the form
-    // detail page renders inside the shared shell with the Forms-mode composer
-    // present and no stale results.
+    // Structural coverage — runs on every browser, WebKit included: the record
+    // sits inside the shared shell, keeps the mode chip, and carries no stale
+    // results. As an information page it owns no composer, so neither the
+    // Forms-mode search field nor the shared input is present.
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible({ timeout: 20_000 });
     await expect(formDetail.getByRole("heading", { level: 1, name: "Transport order" })).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
-    const formsSearchInput = page.locator('input[placeholder="Search forms..."]:visible').first();
-    await expect(formsSearchInput).toBeVisible();
+    await expect(page.locator('input[placeholder="Search forms..."]')).toHaveCount(0);
+    await expect(page.getByTestId("global-search-input")).toHaveCount(0);
+    await expect(page.locator("form.answer-footer-search-dock, form.answer-footer-search-edge")).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+  });
 
+  test("the forms home composer searches the register and links back to the record", async ({ page }) => {
+    // This journey used to start on the form record, which carried a composer.
+    // Information pages no longer do, so it starts one route earlier on the
+    // mode home — the surface that actually owns the Forms composer now.
+    // `/forms` is a consolidated bare path that redirects here, so go straight
+    // to the shared home and skip the redirect hop.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/?mode=forms");
+
+    const formsSearchInput = page.locator('input[placeholder="Search forms..."]:visible').first();
+    await expect(formsSearchInput).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Loading your forms registry...")).toBeHidden({ timeout: 30_000 });
     const formsSearchButton = page.getByRole("button", { name: "Search forms" });
     await formsSearchInput.fill("transport forms");
@@ -1730,7 +1744,8 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       timeout: 30_000,
     });
     await expect(formDetail.getByTestId("form-decision-context-mobile")).toBeVisible();
-    await expect(page.locator('[data-testid="global-search-input"]:visible')).toHaveCount(1);
+    // Information page: no phone dock either, so the record reads to the edge.
+    await expect(page.locator('[data-testid="global-search-input"]:visible')).toHaveCount(0);
 
     // Decision context now stacks below the priority facts and source snapshot
     // on phones — the primary form content reads first.
@@ -2994,9 +3009,12 @@ test.describe("PsychSift service detail page", () => {
       await expect(servicePage.getByRole("button", { name: /copy/i })).toHaveCount(0);
       await page.keyboard.press("Escape");
       await expect(actions).toBeHidden();
-      await expect(page.getByTestId("global-search-input")).toHaveCount(1);
-      await expect(page.getByTestId("global-search-input")).toBeVisible();
-      await expect(servicePage.locator('[data-testid="global-search-input"]')).toHaveCount(0);
+      // Information pages carry no search composer at any breakpoint: not the
+      // shell chrome above the record, not the phone bottom dock, and nothing
+      // page-local either. This loop runs at all six widths, which is the
+      // phone/tablet/desktop proof.
+      await expect(page.getByTestId("global-search-input")).toHaveCount(0);
+      await expect(page.locator("form.answer-footer-search-dock, form.answer-footer-search-edge")).toHaveCount(0);
       await expect(servicePage.getByPlaceholder(/Search services/i)).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     });
@@ -3017,7 +3035,13 @@ test.describe("PsychSift service detail page", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("long mobile service details clear the bottom search dock at the scroll endpoint", async ({ page }) => {
+  test("long mobile service details paint to the viewport edge with no bottom search dock", async ({ page }) => {
+    // The record page is an information page, so the shell mounts no phone dock
+    // and the reserve collapses to the idle content pad. This used to prove the
+    // opposite (footer clears a visible dock); the end-of-page hazard it guards
+    // is the same one, now expressed against the composer-free contract: the
+    // last line of the record must be fully on screen at the scroll endpoint,
+    // with no leftover dock-sized blank band under it.
     await mockAnswerDashboardApi(page);
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services/city-east-community-mental-health-service");
@@ -3027,22 +3051,17 @@ test.describe("PsychSift service detail page", () => {
     const servicePage = page.getByTestId("mobile-composer-reserve-pad").getByTestId("service-detail-page");
     const footer = servicePage.getByText("Information accuracy may vary. Confirm locally before use.");
     const mainContent = page.locator("#main-content");
-    const dock = page.locator("form.answer-footer-search-dock, form.answer-footer-search-edge").first();
-    const dockInput = visibleGlobalSearchInput(page).first();
     await expect(servicePage).toBeVisible();
-    await expect(dock).toBeVisible();
-    // Keep the dock focused so hide-on-scroll cannot collapse --mobile-composer-reserve
-    // while we measure end-of-page clearance under a still-visible composer.
-    await dockInput.focus();
-    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-    // The compact dock reserve is 5.5rem (88px) plus any safe-area inset.
-    await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThanOrEqual(80);
+    await expect(page.locator("form.answer-footer-search-dock, form.answer-footer-search-edge")).toHaveCount(0);
+    await expect(page.getByTestId("global-search-input")).toHaveCount(0);
+    // mobileComposerIdleReserve is 2rem (32px) with no safe-area inset added,
+    // because no composer chrome is visible to consume one.
+    await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeLessThanOrEqual(32);
     // Document scrolling can change the settled range after the first endpoint
     // jump (reserve/layout commit). Re-issue scroll-to-end while asserting so
     // the position converges instead of polling a stale scrollTop (~67px left).
     await expect(async () => {
       await scrollPrimarySurface(page, "end");
-      await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
       const geometry = await readPrimaryScrollGeometry(page);
       expect(geometry.owner).toBe("document");
       expect(geometry.maxScrollTop - geometry.scrollTop).toBeLessThanOrEqual(1);
@@ -3051,32 +3070,31 @@ test.describe("PsychSift service detail page", () => {
 
     const clearance = await footer.evaluate((element) => {
       const mainElement = document.querySelector<HTMLElement>("#main-content");
-      const dockElement = document.querySelector<HTMLElement>(
-        "form.answer-footer-search-dock, form.answer-footer-search-edge",
-      );
       const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
-      if (!mainElement || !dockElement) return null;
+      if (!mainElement) return null;
       const mainStyle = window.getComputedStyle(mainElement);
       const pad = mainElement.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
       return {
         footerBottom: element.getBoundingClientRect().bottom,
-        dockTop: dockElement.getBoundingClientRect().top,
-        dockHeight: dockElement.getBoundingClientRect().height,
+        viewportHeight: window.innerHeight,
         reservePx: pad
           ? Number.parseFloat(window.getComputedStyle(pad).paddingBottom)
           : Number.parseFloat(mainStyle.paddingBottom),
         reserve: mainStyle.getPropertyValue("--mobile-composer-reserve").trim(),
         serviceBottom: servicePage?.getBoundingClientRect().bottom ?? null,
         serviceHeight: servicePage?.getBoundingClientRect().height ?? null,
-        scrollHidden: dockElement.getAttribute("data-scroll-hidden"),
       };
     });
 
     expect(scrollGeometry.owner).toBe("document");
     expect(clearance, JSON.stringify({ clearance, scrollGeometry })).not.toBeNull();
-    expect(clearance!.reservePx, JSON.stringify({ clearance, scrollGeometry })).toBeGreaterThanOrEqual(80);
+    expect(clearance!.reservePx, JSON.stringify({ clearance, scrollGeometry })).toBeLessThanOrEqual(32);
+    // Fully on screen, and not floated above the fold by an oversized reserve.
     expect(clearance!.footerBottom, JSON.stringify({ clearance, scrollGeometry })).toBeLessThanOrEqual(
-      clearance!.dockTop - 8,
+      clearance!.viewportHeight,
+    );
+    expect(clearance!.footerBottom, JSON.stringify({ clearance, scrollGeometry })).toBeGreaterThan(
+      clearance!.viewportHeight - 120,
     );
   });
 

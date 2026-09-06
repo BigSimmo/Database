@@ -101,7 +101,7 @@ const inactiveClinicalAskShellBindings = {
 } as ClinicalAskShellBindings;
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { isInformationPage, isToolDetailWithFooterSearch } from "@/lib/information-pages";
+import { isInformationPage } from "@/lib/information-pages";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import {
   desktopPageComposerSlotId,
@@ -493,11 +493,17 @@ function GlobalStandaloneSearchShellBody({
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const isInfoPage = isInformationPage(pathname);
+  // Information pages are read surfaces: the record has already been found, so a
+  // composer there is chrome you cannot use without leaving the page. No mode is
+  // an exception and no breakpoint is — the phone dock, the tablet/desktop page
+  // slot and the reserve all follow this one flag. Services, Forms and
+  // Medication record pages used to opt back in through
+  // `isToolDetailWithFooterSearch`; that exception is gone. Catalogue result
+  // docks (`/services/search`, `/forms/search`) keep their composer because
+  // `isSlugDetail` excludes the reserved `search` suffix, not because of any
+  // route named here.
   const shouldShowSearchComposer =
-    searchComposerVisible &&
-    pathname !== "/tools" &&
-    !isDifferentialPresentationWorkflow &&
-    (!isInfoPage || isToolDetailWithFooterSearch(pathname));
+    searchComposerVisible && pathname !== "/tools" && !isDifferentialPresentationWorkflow && !isInfoPage;
   // `/tools` owns its catalogue controls rather than a shared composer. Keep
   // the sidebar's cross-guide search usable by returning to Answer first.
   const openSidebarSearch = pathname === "/tools" ? () => startNewAnswerChat() : () => focusComposerInput(inputRef);
