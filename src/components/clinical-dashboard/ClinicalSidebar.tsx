@@ -231,22 +231,28 @@ const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border
  * the inset as its own, so the ground runs to the physical top of the display:
  * the only boundary left is the edge of the screen, which cannot read as a line.
  *
- * The other end is deliberately the opposite. The falloff runs almost to the
- * bottom edge (`transparent 96%` against a `105%` radius), so the wash is still
- * live where the `border-b` cuts it and the divider reads as the gradient's
- * terminus. An earlier revision completed the falloff early so the band would
- * dissolve into the menu; over a band that now also carries the notch inset,
- * that left its lower third on bare surface — a header that had run out of
- * colour rather than one that ends. A gradient may stop against a rule. It may
- * not stop against nothing, which is the seam this comment exists about.
+ * The other end is deliberately the opposite, and the two ends together are the
+ * whole contract: **no stop inside the box may reach `transparent`.** The wash
+ * opens at full strength on the top edge and its last stop is still 24% of the
+ * token at the ellipse's far edge, so every row of pixels in the band carries
+ * colour and the `border-b` is what ends it. Two earlier revisions failed here
+ * in the same way from opposite directions — one completed the falloff early so
+ * the band would dissolve into the menu, the next landed zero exactly on the
+ * bottom edge — and both read on a phone as a header that had run out of colour
+ * rather than one that stops. A gradient may stop against a rule. It may not
+ * stop against nothing.
  *
- * Two consequences worth keeping in mind before editing either end. The wash now
- * sits behind the system status bar, so its strongest point is diluted by the
- * first stop rather than landing at full strength under the clock — do not
- * collapse those two stops back into one. And the reach (`105%` tall, clear at
- * `96%`) has to survive the notch inset: the mark sits at roughly 70% of the
- * band's height on a device with a notch, so a shorter falloff would leave the
- * lockup on bare surface.
+ * The reach (`130% 160%` from `0% 0%`) is the pre-2026-09-06 coverage restored:
+ * a wash that spreads over the whole band rather than pooling behind the mark.
+ * A tighter ellipse is not a safe edit here, because the band is now roughly
+ * twice its original height — it carries the notch inset too, and the lockup
+ * sits at about 70% of that height, so anything shorter strands the mark on
+ * bare surface.
+ *
+ * The top edge is at full strength on purpose, and that is a reversal: an
+ * earlier revision diluted the first stop to keep the wash off the system
+ * status bar. The owner asked twice for more colour up there, which is the
+ * decision that governs — do not reintroduce the dilution as a tidy-up.
  *
  * For the same reason the band carries no `--shadow-inset` bevel: that is an
  * inset 1px top highlight, i.e. a straight line drawn along an edge this ground
@@ -260,7 +266,7 @@ const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border
  * dialog in the app uses that header, and the case for a compact brand header
  * is specific to a navigation drawer that is already showing its own contents. */
 const brandHeaderGround =
-  "bg-[radial-gradient(95%_105%_at_4%_0%,color-mix(in_oklab,var(--brand-band-wash)_55%,transparent)_0%,var(--brand-band-wash)_16%,transparent_96%),linear-gradient(180deg,var(--surface-lux)_0%,var(--surface-raised)_100%)]";
+  "bg-[radial-gradient(130%_160%_at_0%_0%,var(--brand-band-wash)_0%,color-mix(in_oklab,var(--brand-band-wash)_46%,transparent)_62%,color-mix(in_oklab,var(--brand-band-wash)_24%,transparent)_100%),linear-gradient(180deg,var(--surface-lux)_0%,var(--surface-raised)_100%)]";
 /* Wordmark and strapline as one type pair, so the drawer and the sidebar cannot
  * drift into two different settings of the same two lines.
  *
