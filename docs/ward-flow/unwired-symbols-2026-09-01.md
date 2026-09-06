@@ -171,6 +171,61 @@ and which were carried. That is exactly the failure this audit exists to record 
 healthy by every automated measure — so an unchecked claim appended here is the same defect in the
 same file, one level up. **Verify before appending, and mark what was measured.**
 
+## Dead-export register, 2026-09-04 — verified list for a single owner decision
+
+Commissioned so the owner decides once rather than three times. **No deletions made; nothing here is
+proposed for deletion by this document.** Detector run over 1431 files with two controls of
+DIFFERENT SHAPES (see the correction below for why that matters).
+
+| Symbol          | Defined            | Rendered           | Status                                                                                    |
+| --------------- | ------------------ | ------------------ | ----------------------------------------------------------------------------------------- |
+| `NoHandoverYet` | `morning-page.tsx` | **nowhere**        | **UNWIRED** — no call site anywhere in `src`                                              |
+| `ViewControl`   | `morning-page.tsx` | **nowhere**        | **UNWIRED** — see the name collision below                                                |
+| `ViewButton`    | `morning-page.tsx` | `morning-page.tsx` | **UNREACHABLE TRANSITIVELY** — it IS called, twice, by `ViewControl`, which nothing calls |
+
+⚠️ **"Unwired" and "unreachable transitively" are different findings and need different checks.**
+`ViewButton` has real call sites; a search for them returns hits and reads healthy. It is dead only
+because its caller is. **A grep answers the first question and cannot answer the second**, and the
+second is the one that silently becomes wrong the moment anything upstream is re-wired.
+
+⚠️ **NAME COLLISION.** `ViewControl` resolves to TWO unrelated definitions — `morning-page.tsx` and
+`search-band-directions-mockups.tsx` — and only the second is rendered. A count of references
+therefore reports the morning one as used. **One name, two files, no relationship.**
+
+### The print asymmetry, which is the part that changes what a re-wirer must do
+
+    re-wire the fixed/live toggle (ViewControl/ViewButton)  ->  ZERO unreset declarations reach a
+        printable DOM. `.viewControl` carries `display: none !important` inside `@media print`, and
+        `PrintViewMeta` exists specifically to survive that hiding.
+
+    re-wire NoHandoverYet                                   ->  TWO do. `noHandoverTitle` and
+        `noHandoverButton` sit outside `.viewControl` and have no such protection.
+
+**Four of the six associated classes are protected by a real mechanism, not by being dead.**
+
+### ⚠️ A CORRECTION TO THIS DOCUMENT'S OWN EARLIER CLAIM
+
+An earlier report from this session stated that `WardSidebarContent` **imports `WardDemoControls`
+and `WardRoleSwitcher` and renders neither** — a dead import. **That was wrong.** It renders both.
+
+**The claim came from a detector whose escape sequences had been eaten by the shell**, so its JSX
+matcher was silently inert. **It reported "rendered nowhere" for every symbol it was given,
+including ones I had read with my own eyes minutes earlier**, and the shape of that output —
+plausible, uniform, confidently negative — is indistinguishable from a real finding.
+
+**The replacement detector then failed a second time, in the same direction, WITH A PASSING
+CONTROL.** It matched `"<Name "`, `"<Name/"` and `"<Name>"` only, so it missed every element written
+across multiple lines — and `ViewButton` is written that way. **The control passed because
+`ClinicalRail` happens to be written `<ClinicalRail />` on one line.**
+
+> **A control that proves the method can FIND something does not prove it finds EVERYTHING, and
+> choosing a conveniently-shaped control is how that gap survives.** The fix was two controls of
+> deliberately different shapes — one single-line, one multi-line — and only the second version
+> passes both.
+
+**Both failures were false NEGATIVES**, which is the direction that reports work as absent, deletes
+confidence rather than creating it, and produces no error at all.
+
 ## Stated limits
 
 - Only symbols with four or fewer outside references were manually checked for prose-versus-code. A

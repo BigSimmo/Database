@@ -51,14 +51,27 @@ describe("Ward Flow synthetic prototype", () => {
 
   it("maps every Ward Flow view to a distinct reachable route", () => {
     const hrefs = wardModeHrefs();
+    // MERGE 01 (2026-09-05): the fold at e31c9c462 combined "Priority queue" and "Exceptions"
+    // into one view. It keeps the id `queue`, but its label is now "Delays" and it points at
+    // `/mockups/ward-flow/delays`, so the original eight routes became seven — the old `/queue`
+    // and `/exceptions` destinations are gone and `/delays` replaces both.
+    //
+    // ⚠️ MERGE 03 (2026-09-05) then took `/mockups/ward-flow/transport` out of the nav, folding the
+    // transport tracker into Movements — the same patients at two points of one journey. Seven
+    // becomes SIX. The route file still exists and now `redirect()`s to `/movements`, so the
+    // `existsSync` check below would have passed on it forever: a page.tsx is not a view, and this
+    // list is about VIEWS. That is why the entry had to go rather than be left as harmless.
+    //
+    // This assertion was RED on the integration line until 2026-09-05 and nobody saw it, because
+    // the ward suite was being run from hand-picked file lists and no list included this file.
+    // `tests/ward-route-component-binding.test.ts` records `transport` as a redirect; this one
+    // still described it as a mode. Two registries, one truth, and only one of them updated.
     expect(hrefs).toEqual([
       "/mockups/ward-flow",
       "/mockups/ward-flow/network",
-      "/mockups/ward-flow/queue",
+      "/mockups/ward-flow/delays",
       "/mockups/ward-flow/capacity",
       "/mockups/ward-flow/movements",
-      "/mockups/ward-flow/exceptions",
-      "/mockups/ward-flow/transport",
       "/mockups/ward-flow/governance",
     ]);
     expect(new Set(hrefs).size).toBe(hrefs.length);

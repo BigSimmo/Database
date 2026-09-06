@@ -6,8 +6,9 @@ import type { WardFlowState } from "../src/components/ward-management/ward-flow-
 import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import type { MovementStage } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
-import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
+import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sites";
 import { eligibleCandidatesAmong, isOpen } from "../src/components/ward-management/ward-derivations";
+import { requiresAuthorisedDestination } from "../src/components/ward-management/ward-eligibility";
 
 const NOW = NOW_ANCHOR;
 const MOVEMENT_ID = "WF-001";
@@ -471,6 +472,51 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     }
     // 6 accepted_awaiting_bed + 7 pulled + 2 handover_ready + 6 moving + 6 arrived = 27 today.
     expect(matched).toBe(27);
+  });
+
+  /**
+   * ⚠️ **THE FIXTURE ITSELF MUST NOT STATE AN UNLAWFUL PLACEMENT, AND UNTIL 2026-09-05 NOTHING
+   * SAID SO.** `routineMovements` picks a generated destination by cohort and security and had
+   * never looked at `authorised`; it merely happened not to land on either of the network's two
+   * unauthorised units. When `be5327210` changed the destination pool's size and order, WF-318 —
+   * referred for psychiatric examination, so requiring an authorised destination — landed on
+   * `sjgs-adult-open`, which is private and not authorised under the Mental Health Act.
+   *
+   * The only thing that noticed was `buildActionInbox` reporting the patient as an exception, and
+   * the test that caught THAT was counting four of the inbox's five categories, so it read as the
+   * derivation being broken rather than the data. **A guard on the derivation cannot substitute
+   * for a guard on the fixture**: the inbox's category count now includes this category, and it
+   * would stay green if the generator regressed, because it counts what the fixture contains
+   * rather than what the fixture is allowed to contain.
+   *
+   * This is not a synthetic-data tidiness rule. A detained patient recorded as accepted at a ward
+   * that cannot lawfully hold them is a clinical falsehood on every screen that renders the
+   * fixture.
+   */
+  it("never accepts a movement at a unit that cannot lawfully hold it", () => {
+    const units = allUnits();
+    let examined = 0;
+    for (const movement of wardMovements) {
+      if (movement.acceptedUnitId === undefined) continue;
+      if (!requiresAuthorisedDestination(movement.legalStatus)) continue;
+      const unit = units.find((candidate) => candidate.id === movement.acceptedUnitId);
+      if (unit === undefined) continue;
+      examined += 1;
+      expect(
+        unit.authorised,
+        `${movement.id} is "${movement.legalStatus}" and is accepted at ${unit.id}, which is not ` +
+          `authorised under the Mental Health Act — no destination generator or fixture author may ` +
+          `produce this, whatever bed is free there`,
+      ).toBe(true);
+    }
+    // ⚠️ Floor the POPULATION, never the violation count — a loop that examined nothing passes an
+    // all-clear that means nothing. Measured 2026-09-05: 14 movements are examined here. The
+    // floor is set well below that so an ordinary fixture edit does not trip it, while a change
+    // that stops this loop finding detained-and-accepted movements at all still goes red.
+    expect(
+      examined,
+      "no accepted movement requires an authorised destination — this test proved nothing",
+    ).toBeGreaterThan(8);
   });
 
   it("never leaves a 'pulled' movement without the bed hold its stage implies", () => {

@@ -44,12 +44,39 @@ export type DischargeDateOutcomes = {
 
 export type WardStatistics = {
   unitId: string;
-  /** `arrivedAt` -> `leftAt` (or `now`, for someone still in the bed), averaged in whole days. */
+  /**
+   * `arrivedAt` -> `leftAt` (or `now`, for someone still in the bed), averaged and **rounded here
+   * to ONE DECIMAL PLACE**.
+   *
+   * 🔴 THIS ROUNDS AT THE DERIVATION BECAUSE, UNTIL 2026-09-06, ONE FIGURE HAD THREE TREATMENTS.
+   * This comment said "averaged in whole days"; nothing rounded; `statistics-compare-screen.tsx`
+   * applied `.toFixed(1)`; and `statistics-ward-screen.tsx` rendered it raw, so **every ward page
+   * published `44.33680555555556 days`** — fourteen decimal places of apparent precision on a
+   * clinical figure derived from invented data. Found by opening the page; no test saw it, because
+   * the suite asks whether the value renders and whether a null is ever shown as a zero. Both are
+   * the right questions. Precision is a third one and nobody was asking it.
+   *
+   * ⚠️ "IN WHOLE DAYS" WAS AMBIGUOUS AND I AM NOT CLAIMING TO KNOW WHICH IT MEANT — it reads as
+   * either "rounded to integers" or "expressed in days rather than hours". That ambiguity is why
+   * the wording is now explicit rather than corrected: a contract a reader can take two ways is a
+   * contract no implementation can violate.
+   *
+   * One decimal rather than integers because the compare screen had already chosen it, a reader has
+   * already seen it, and a tenth of a day is about two and a half hours — real resolution on a stay
+   * measured in weeks. Rounding HERE rather than at each render is what stops the third treatment
+   * coming back.
+   */
   averageLengthOfStayDays: number | null;
   /**
    * `pulledAt` -> `arrivedAt`, averaged in minutes — the transport delay, measured. A number
    * nobody currently has: the bed is already gone at the pull, so this is time nobody occupies
    * anything, spent between two clocks the admission record keeps separately on purpose.
+   *
+   * ⚠️ **ROUNDED TO WHOLE MINUTES HERE, AND IT WAS NOT BEFORE.** This one rendered a tidy "300
+   * minutes" and looked untouched by the defect above — **by fixture accident only.** Nothing
+   * rounded it either; the seed happened to divide. A single changed admission would have printed
+   * `300.41666666666663 minutes` on the same screen, and the fix that only chased the visible
+   * fourteen-decimal figure would have left it there.
    */
   averageEmptyBedMinutes: number | null;
   dischargeDateOutcomes: DischargeDateOutcomes;
@@ -78,6 +105,22 @@ function average(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   const total = values.reduce((sum, value) => sum + value, 0);
   return total / values.length;
+}
+
+/**
+ * Round a published average to a stated number of decimal places, preserving `null`.
+ *
+ * ⚠️ **`null` PASSES STRAIGHT THROUGH, AND THAT IS THE WHOLE REASON THIS TAKES `number | null`
+ * RATHER THAN `number`.** This module's central rule is that a null is worded and a nought is
+ * counted, and they must never share a rendering — `ward-statistics-ward-nulls.dom.test.tsx`
+ * fails on a digit inside any nullable measure. A rounding helper that coerced `null` to `0`
+ * would convert "there was nothing to average" into "the average is zero" **silently, inside a
+ * tidy-up commit**, which is precisely the confusion the type distinction exists to prevent.
+ */
+function roundTo(value: number | null, places: number): number | null {
+  if (value === null) return null;
+  const factor = 10 ** places;
+  return Math.round(value * factor) / factor;
 }
 
 /**
@@ -159,12 +202,12 @@ export function wardStatistics(unitId: string, admissions: Admission[], now: Ins
     .map((admission) => lengthOfStayMinutes(admission, now))
     .filter((value): value is number => value !== null);
   const averageStayMinutes = average(stayMinutes);
-  const averageLengthOfStayDays = averageStayMinutes === null ? null : averageStayMinutes / MINUTES_PER_DAY;
+  const averageLengthOfStayDays = averageStayMinutes === null ? null : roundTo(averageStayMinutes / MINUTES_PER_DAY, 1);
 
   const emptyMinutes = forThisUnit
     .map((admission) => emptyBedMinutes(admission))
     .filter((value): value is number => value !== null);
-  const averageEmptyBedMinutes = average(emptyMinutes);
+  const averageEmptyBedMinutes = roundTo(average(emptyMinutes), 0);
 
   let met = 0;
   let missed = 0;
