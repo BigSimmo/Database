@@ -4,6 +4,7 @@ import { CountTile, META_CLASS, PanelSection } from "@/components/developer-area
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { QuarantineList } from "@/components/developer-area/hub/quarantine-list";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
+import { testHealthCounts } from "@/lib/developer-area/repo-awareness-snapshot-counts";
 
 export const metadata: Metadata = {
   title: "Test health · Developer · PsychSift",
@@ -14,7 +15,8 @@ export default function DeveloperTestHealthPage() {
   const snapshot = loadRepoAwarenessSnapshot();
   const now = new Date();
   const freshness = resolveRepoFreshness(snapshot, now);
-  const { quarantined, note, counts } = snapshot.test_health;
+  const { quarantined, note } = snapshot.test_health;
+  const counts = testHealthCounts(snapshot.test_health);
 
   return (
     <PanelPageShell
