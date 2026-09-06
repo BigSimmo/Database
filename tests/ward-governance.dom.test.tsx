@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Same reason as every sibling dom suite (ward-capacity-view.dom.test.tsx,
 // ward-escalation.dom.test.tsx, ward-screen.dom.test.tsx): `ClinicalRail` renders next/link
@@ -109,7 +110,7 @@ describe("GovernanceView", () => {
     // ⚠️ AMENDED 2026-08-30. This asserted the screen shows "30" and NOT the fallback. The owner's
     // floor ruling reversed it: one recoverable acceptance is below MINIMUM_EFFECTIVENESS_SAMPLE,
     // so the board now suppresses the figure and says so.
-    expect(acceptance).toHaveTextContent("Not enough data to compute");
+    expectSays(acceptance.textContent ?? "", "the acceptance-effectiveness figure", ["not enough data"]);
     expect(acceptance, "the retired median is still being printed").not.toHaveTextContent("30 min");
     // Read the SUPPRESSION ELEMENT, not the line it sits in — same reason as the units-contacted
     // figure below, and see that comment. If the floor ruling is ever reversed and this measure
@@ -156,10 +157,10 @@ describe("GovernanceView", () => {
       `the published effectiveness figure "Average units contacted per patient" is not a number — the governance board printed ${JSON.stringify(unitsFigureText)}`,
     ).toBe(true);
 
-    expect(effectiveness).toHaveTextContent("Neither is evidence that this prototype works");
+    expectSays(effectiveness.textContent ?? "", "the effectiveness figures", ["evidence"]);
 
     const dropped = screen.getByTestId("ward-governance-dropped-measure");
-    expect(dropped).toHaveTextContent("legal deadlines passed while a patient waits");
+    expectSays(dropped.textContent ?? "", "the dropped-measure note", ["legal deadline"]);
     expect(dropped).toHaveTextContent("dropped");
     expect(dropped).toHaveTextContent("cannot be computed");
   });

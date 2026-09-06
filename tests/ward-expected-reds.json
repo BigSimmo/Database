@@ -1,0 +1,28 @@
+{
+  "$schema": "./ward-expected-reds.schema.md",
+  "$why": [
+    "THE EXPECTED-RED MANIFEST. Every ward test file that is SUPPOSED to be failing, with the reason",
+    "and whose question it is. Checked by scripts/check-ward-expected-reds.mjs, which fails on an",
+    "unexpected red AND on an entry that has stopped failing.",
+    "",
+    "It exists because 'one deliberate red, any second red is a real failure' degrades silently. That",
+    "convention was true for months and broke twice on 2026-09-06 inside one hour: once when a fix sat",
+    "unfolded and the line genuinely carried two reds, and once when a red was retired under CI",
+    "pressure using a builder's open position quoted as if it were the owner's ruling. Nobody was",
+    "misled by the first, but only because four sessions were talking to each other constantly, which",
+    "is not a control.",
+    "",
+    "THE PROPERTY THAT MATTERS MOST IS THE THIRD ONE, and it is the one an it.fails tripwire",
+    "structurally cannot give: an entry that STOPS failing fails this gate. A red is retired by a",
+    "person removing its entry and saying why, never by a suite quietly going green.",
+    "",
+    "Each entry: file, kind, failing (how many of its tests are expected red), reason, owner, retiredWhen.",
+    "The 'failing' count is what makes file-level keying safe: a SECOND red appearing inside an",
+    "already-listed file would otherwise hide inside an entry somebody already approved."
+  ],
+  "kinds": {
+    "owner-question": "The red is holding an UNANSWERED QUESTION visible — one only the owner can settle. Retiring it answers the question by default. Nobody may clear one of these to make a build green.",
+    "backlog": "The red is work we owe: a test pointed at something that moved, a guard whose subject was renamed. It is ours to clear, and clearing it is the fix rather than an answer to anything."
+  },
+  "expected": []
+}

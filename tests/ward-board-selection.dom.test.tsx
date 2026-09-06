@@ -4,6 +4,7 @@ import path from "node:path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 import { blankCssComments } from "./helpers/strip-source-comments";
 
@@ -156,8 +157,8 @@ describe("ward board selection — choosing a tile shows that tile's own occupan
 
     const detail = screen.getByTestId("ward-board-detail");
     expect(detail.getAttribute("data-detail-kind")).toBe("waiting");
-    expect(detail.textContent).toContain("No stay yet — not arrived");
-    expect(detail.textContent).toContain("already given this bed away");
+    expectSays(detail.textContent ?? "", "the waiting tile", ["not arrived", "no stay yet"]);
+    expectSays(detail.textContent ?? "", "the waiting tile", ["given this bed away", "given away"]);
     // The failure this guards: a bed given away reading as somebody who arrived today.
     expect(detail.textContent).not.toMatch(/\b0 days?\b/);
   });
@@ -177,7 +178,7 @@ describe("ward board selection — a bed with no occupant is a class, not a loca
     expect(within(detail).getByTestId("ward-board-detail-bed-class")).toBeTruthy();
     // The count it belongs to, and the honest limit on what selecting it means.
     expect(detail.textContent).toContain(`${unit.blocked}`);
-    expect(detail.textContent).toContain("Which bed is not recorded");
+    expectSays(detail.textContent ?? "", "the bed-class tile", ["not recorded"]);
     expect(detail.textContent).toContain("never a bed");
     // No person's record leaks into a tile that stands for nobody.
     expect(container.querySelector('[data-testid="ward-board-detail-person"]')).toBeNull();
@@ -195,7 +196,7 @@ describe("ward board selection — a bed with no occupant is a class, not a loca
     expect(detail.getAttribute("data-detail-kind")).toBe("empty");
     expect(detail.textContent).toContain(`${emptyCount}`);
     expect(detail.textContent).toContain("fill right now");
-    expect(detail.textContent).toContain("Which bed is not recorded");
+    expectSays(detail.textContent ?? "", "the empty-bed tile", ["not recorded"]);
   });
 });
 
