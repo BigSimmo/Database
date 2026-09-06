@@ -61,7 +61,7 @@ function SlotInk({
         <Icon
           aria-hidden="true"
           className={cn(
-            "size-icon-md shrink-0",
+            "mode-nav__icon size-icon-md shrink-0",
             state === "on"
               ? "text-[color:var(--clinical-accent)]"
               : state === "trail"
@@ -205,6 +205,7 @@ export function ModeNav({
             aria-expanded={open}
             className={cn(
               "flex min-h-12 w-full items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 text-left text-sm-minus font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-lift)]",
+              "transition-colors motion-reduce:transition-none hover:border-[color:var(--border-strong)]",
               focusRing,
             )}
           >
@@ -240,7 +241,14 @@ export function ModeNav({
                 <Link
                   href={item.href}
                   aria-current={isActive ? "page" : undefined}
-                  className={cn("flex h-full w-full items-center justify-center rounded-lg no-underline", focusRing)}
+                  className={cn(
+                    "flex h-full w-full items-center justify-center rounded-lg no-underline transition-colors motion-reduce:transition-none",
+                    // Pointer-only. On touch a hover fill sticks after a tap
+                    // until the next one, so it reads as a second active state
+                    // beside the real one. Same guard as `in-page-section-rail`.
+                    !isActive && "sm:hover:bg-[color:var(--surface-subtle)]",
+                    focusRing,
+                  )}
                 >
                   <SlotInk
                     icon={item.icon}
@@ -263,7 +271,10 @@ export function ModeNav({
                 onClick={openSheet}
                 aria-haspopup="dialog"
                 aria-expanded={open}
-                className={cn("flex h-full w-full items-center justify-center rounded-lg", focusRing)}
+                className={cn(
+                  "flex h-full w-full items-center justify-center rounded-lg transition-colors motion-reduce:transition-none sm:hover:bg-[color:var(--surface-subtle)]",
+                  focusRing,
+                )}
               >
                 <SlotInk label="More" state="off" trailing />
                 {/* Composed into the accessible name rather than set as an

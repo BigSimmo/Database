@@ -3795,6 +3795,42 @@ td,
   display: none;
 }
 
+/* Words first; the icons once the container can pay for them.
+   ------------------------------------------------------------------------
+   The icon is `aria-hidden` decoration. The LABEL is the contract —
+   `ModeNavItem.label` is never abbreviated, a slot shows its real word or it
+   folds into More. So when width is short the decoration goes and the word
+   stays, which is the same trade the More slot has always made.
+
+   The glyph (`size-icon-md`, 1rem) plus the ink's `gap-2` is 24px of a slot
+   whose shortest label is ~40px: about a third of a short slot, and the only
+   lever this bar has that costs no information. The slot's `px-3` is NOT
+   available — it is half of `--mode-nav-ink-offset`, which is what lands the
+   first tab's ink on the header's content edge, and a container query cannot
+   compensate for it on the rail because the rail is this container's PARENT.
+
+   Active state survives the icon: the ink is `--text-heading` and the 2px
+   accent rule sits under it. Nothing that says "you are here" was in the glyph.
+
+   Scoped to `extended` deliberately. It is the only profile whose destinations
+   do not fit a phone wearing their icons; the other three were calibrated with
+   icons and keep them, so no other mode's bar moves. */
+.mode-nav[data-density-profile="extended"] .mode-nav__icon {
+  display: none;
+}
+
+/* Pointer-only hover, and colour only. Never the rule: the density spec counts
+   PAINTED `.mode-nav__rule` elements and asserts exactly one, so a hovered rule
+   would make "which page am I on" depend on where the mouse came to rest. Kept
+   in CSS rather than as a utility because the ink's colour is set by an
+   arbitrary class on the element itself, and a descendant selector wins that
+   without an `!important`. */
+@media (hover: hover) and (pointer: fine) {
+  .mode-nav__slot:hover .mode-nav__ink {
+    color: var(--text);
+  }
+}
+
 /* Which page you are on, when its own slot is not on screen.
    ------------------------------------------------------------------------
    `data-active-from` is the band at which the current page's slot appears, or
@@ -3900,6 +3936,56 @@ td,
   .mode-nav[data-density-profile="compact-four"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
     background-color: transparent;
   }
+
+  /* `extended` shares this threshold rather than declaring a duplicate of it.
+     Without its icons a fourth Therapy slot costs ~80px, so the same 23rem that
+     carries Specifiers' fourth label carries this one. Retuning this block
+     retunes BOTH profiles — check the density spec's Therapy rows too. */
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="4"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="3"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
+}
+
+/* All five Therapy destinations, still without icons. Five wordmarks plus the
+   bar's own padding measure ~394px; 28rem (448px) keeps the ~1.14 font-metric
+   headroom the other profiles' top bands ship with. More is hidden here, so
+   the active page always owns its own slot and its own rule. */
+@container mode-nav (min-width: 28rem) {
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="5"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="4"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__rule {
+    background-color: transparent;
+  }
 }
 
 @container mode-nav (min-width: 31rem) {
@@ -3924,47 +4010,13 @@ td,
   }
 }
 
-@container mode-nav (min-width: 33rem) {
-  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="4"] {
-    display: flex;
-  }
-
-  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="3"] {
-    display: none;
-  }
-
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
-    display: none;
-  }
-
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
-    color: var(--text-muted);
-  }
-
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
-    background-color: transparent;
-  }
-}
-
+/* The icons come back. Five slots wearing them measure ~514px, and 42rem
+   (672px) is the number this profile's top band already carried for exactly
+   that content — reused rather than re-derived. Below this the bar is words
+   only; see the note on `.mode-nav__icon` above. */
 @container mode-nav (min-width: 42rem) {
-  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="5"] {
-    display: flex;
-  }
-
-  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="4"] {
-    display: none;
-  }
-
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
-    display: none;
-  }
-
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__ink {
-    color: var(--text-muted);
-  }
-
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__rule {
-    background-color: transparent;
+  .mode-nav[data-density-profile="extended"] .mode-nav__icon {
+    display: block;
   }
 }
 
