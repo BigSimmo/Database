@@ -74,8 +74,8 @@ export type DisclosureProps = {
  * carried horizontal padding only, so a wrapped preview sat hard against the top and
  * bottom borders, and the panel's own `px-3` put the expanded body to the LEFT of the
  * label it belonged to. `items-start` keeps the tile and chevron on the first line of a
- * wrapped row instead of floating them mid-paragraph, and `content-center` balances a
- * single-line row inside the 48px tap floor without disturbing a wrapped one.
+ * wrapped row instead of floating them mid-paragraph, and `py-2.5` around a 28px
+ * first-line band lands a single-line row exactly on the 48px tap floor.
  *
  * The collapsed preview clamps to two lines. Letting it wrap freely made the row a
  * duplicate of the panel — on a wide viewport the whole value was already on screen, so
@@ -199,7 +199,11 @@ export function Disclosure({
           {/* Meta and chevron share one cell. As separate columns an `auto` track
               with no meta still collected the column gap, so rows without meta
               drew a phantom 12px gutter beside the chevron. */}
-          <span className="flex h-disclosure-icon shrink-0 items-center gap-2 self-start">
+          {/* The first-line band as a FLOOR, not a fixed height. A `meta` that is
+              exactly 28px (metadataPillDensity.standard, which the on-call rows use)
+              centres on the label line; a taller one grows the cluster instead of
+              overflowing it. */}
+          <span className="flex min-h-disclosure-icon shrink-0 items-center gap-2 self-start">
             {meta ? <span className="nums text-xs text-[color:var(--text-muted)]">{meta}</span> : null}
             <ChevronRight
               aria-hidden="true"
