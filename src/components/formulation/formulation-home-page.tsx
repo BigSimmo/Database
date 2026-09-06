@@ -31,6 +31,7 @@ import {
   searchFormulationMechanisms,
 } from "@/lib/formulation";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
 
 function presetHref(query: string) {
@@ -268,7 +269,13 @@ function FormulationResults({ query }: { query: string }) {
                     <h2 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
                       <Link
                         href={`/formulation/${mechanism.id}`}
-                        className="transition hover:text-[color:var(--clinical-accent)] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none"
+                        className={cn(
+                          "transition hover:text-[color:var(--clinical-accent)] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
+                          // The whole card opens the mechanism. The title carries it
+                          // because its text names the result; both actions on the
+                          // title row stay separate controls on top of it.
+                          stretchedRowLinkClass,
+                        )}
                       >
                         {mechanism.name}
                       </Link>
@@ -300,7 +307,7 @@ function FormulationResults({ query }: { query: string }) {
                   <Link
                     href={`/formulation/builder?mechanism=${mechanism.id}`}
                     aria-label={`Use ${mechanism.name} in formulation`}
-                    className="inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:flex-none"
+                    className="relative z-10 inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:flex-none"
                   >
                     <ListChecks className="h-4 w-4 shrink-0" aria-hidden />
                     Use
@@ -308,7 +315,7 @@ function FormulationResults({ query }: { query: string }) {
                   <Link
                     href={`/formulation/${mechanism.id}`}
                     aria-label={`Open ${mechanism.name}`}
-                    className="inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:flex-none sm:px-5"
+                    className="relative z-10 inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:flex-none sm:px-5"
                   >
                     Open
                     <ArrowRight

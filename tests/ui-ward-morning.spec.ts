@@ -8,7 +8,38 @@ import { expect, test, type Page } from "playwright/test";
  * on real controls, asserting against the shared `WardFlowProvider` state the same way every
  * other Ward Flow journey does.
  *
- * ⚠️ THIS FILE COVERS MUCH LESS THAN IT ONCE DID, AND THE LOSS IS DELIBERATE — 2026-09-02.
+ * 🔴 **BOTH TESTS BELOW ARE `test.skip` AS OF 2026-09-06, MERGE 02 — READ THIS BEFORE TOUCHING
+ * EITHER OF THEM, ESPECIALLY BEFORE "FIXING" THEM TO NAVIGATE SOMEWHERE ELSE.**
+ *
+ * MERGE 02 (owner-approved 2026-09-05) folded the morning bed-state board into `CapacityScreen`.
+ * `/mockups/ward-flow/morning` is now a redirect stub to `/mockups/ward-flow/capacity`, kept only
+ * so an existing bookmark does not 404 — it is not a destination in its own right (`ward-nav.ts`).
+ * `MorningPage` itself is UNMOUNTED: nothing routes to it, so `gotoMorning`'s
+ * `getByTestId("ward-morning-page")` wait never resolves, and both tests below fail on that first
+ * `expect` with a 15-second timeout — that is the Advisory CI failure this file was pointed at.
+ *
+ * **`morning-page.tsx`'s own doc comment is explicit and current, and it overrides the general
+ * instruction to retarget a stale spec at wherever its content moved:** *"Do not delete, do not
+ * 'fix' the tests to point at CapacityScreen, and do not quietly re-mount it."* `CapacityScreen`
+ * does not, in fact, render this page's headline, its per-site/unit figure grid, or its print
+ * layout at all — there is nothing on it these two tests could honestly retarget to, only a
+ * differently-shaped board answering a related question. Spec D9 (the morning board and the shift
+ * handover linking to each other) is explicitly left open for the owner to rule on. Skipping is
+ * the choice that does not pre-empt that ruling in either direction: it neither deletes this file's
+ * description of what the page does, nor invents new behaviour on `CapacityScreen` to paper over
+ * the gap, nor silently re-mounts `MorningPage` on a route nobody asked to restore it to.
+ *
+ * The underlying component is not uncovered by this skip: `tests/ward-morning-page.dom.test.tsx`
+ * (all 20 cases) and `tests/ward-morning-print.test.ts` still render and assert against
+ * `MorningPage` directly, at the component level, with no route in between — see `morning-page.tsx`'s
+ * own comment on why those still pass. What is lost by this skip is only the browser-level proof
+ * that a *reachable page* behaves this way, because there is currently no reachable page that does.
+ *
+ * Un-skip these only once the owner's ruling on D9 lands and either restores a route to
+ * `MorningPage` or explicitly repoints this coverage — do not guess which on your own.
+ *
+ * ⚠️ THIS FILE COVERED MUCH LESS THAN IT ONCE DID EVEN BEFORE THAT, AND THE EARLIER LOSS WAS
+ * DELIBERATE TOO — 2026-09-02.
  *
  * As written, this journey drove the guided tour beat by beat and read the board's own figures
  * back at each beat, and it drove the fixed/live view toggle. Neither control is on the page any
@@ -33,8 +64,16 @@ import { expect, test, type Page } from "playwright/test";
  *
  * `gotoMorning` still emulates `prefers-reduced-motion: reduce`. Its original reason is gone (it
  * made the tour advance by a real "Next" button instead of 12-second timers), but both remaining
- * tests are honest under it and it is the safer default, so it stays.
+ * tests are honest under it and it is the safer default, so it stays — for whenever these are
+ * un-skipped.
  */
+
+const MORNING_SKIP_REASON =
+  "MERGE 02 unmounted MorningPage (owner-approved 2026-09-05); /mockups/ward-flow/morning now only " +
+  "redirects to /mockups/ward-flow/capacity, which does not render this page's content. " +
+  "morning-page.tsx's own doc comment forbids retargeting this spec at CapacityScreen or re-mounting " +
+  "MorningPage pending the owner's ruling on spec D9. Component-level coverage continues in " +
+  "tests/ward-morning-page.dom.test.tsx and tests/ward-morning-print.test.ts.";
 
 async function gotoMorning(page: Page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -53,6 +92,7 @@ test.describe("@mockup Ward morning bed state — page render, rail navigation a
   // was removed, why, and what it leaves uncovered. A test whose name outlives its work is the
   // next reader's stale finding, so the name goes when the work goes.
   test("the morning page renders its headline, and the rail navigates away and back", async ({ page }) => {
+    test.skip(true, MORNING_SKIP_REASON);
     await page.setViewportSize({ width: 1440, height: 1024 });
     await gotoMorning(page);
 
@@ -103,6 +143,7 @@ test.describe("@mockup Ward morning bed state — print output states its view a
   test.describe.configure({ timeout: 60_000 });
 
   test("print states when the sheet was printed, and the real PDF is exactly one A4 page", async ({ page }) => {
+    test.skip(true, MORNING_SKIP_REASON);
     await page.setViewportSize({ width: 1024, height: 1400 });
     await gotoMorning(page);
 
