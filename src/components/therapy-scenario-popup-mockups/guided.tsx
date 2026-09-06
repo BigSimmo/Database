@@ -94,6 +94,9 @@ function useScenario() {
 
 type Scenario = ReturnType<typeof useScenario>;
 
+/** One class per step, in step order. Length must match STEPS. */
+const PROGRESS_WIDTHS = ["w-1/6", "w-2/6", "w-3/6", "w-4/6", "w-5/6", "w-full"];
+
 function StepRail({ step, onStep, phone = false }: { step: StepId; onStep: (next: StepId) => void; phone?: boolean }) {
   const index = STEPS.findIndex((item) => item.id === step);
   return (
@@ -132,12 +135,12 @@ function StepRail({ step, onStep, phone = false }: { step: StepId; onStep: (next
           );
         })}
       </div>
-      {/* Progress is drawn rather than described: five short steps, not a long form. */}
+      {/* Progress is drawn rather than described: six short steps, not a long form.
+          The fill is a discrete class per step rather than an inline width, because
+          the step count is fixed and every fraction lands on a Tailwind sixth —
+          which keeps this off the inline-style drift ratchet. */}
       <div aria-hidden="true" className="h-0.5 w-full bg-[color:var(--surface-subtle)]">
-        <div
-          className="h-0.5 bg-[color:var(--clinical-accent)] transition-[width]"
-          style={{ width: `${((index + 1) / STEPS.length) * 100}%` }}
-        />
+        <div className={cn("h-0.5 bg-[color:var(--clinical-accent)] transition-all", PROGRESS_WIDTHS[index])} />
       </div>
     </div>
   );
