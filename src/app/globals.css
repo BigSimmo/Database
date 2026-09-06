@@ -194,6 +194,16 @@
   --spacing-icon-lg: 1.25rem; /* 20px — header / primary controls */
   --spacing-icon-xl: 1.5rem; /* 24px — hero / composer emphasis */
 
+  /* Leading tile in a Disclosure row. A container tile, not a glyph, so per the
+     note above it deliberately sits off the icon scale — the glyph inside it is
+     `size-icon-sm`. It is a token rather than a literal because THREE places must
+     agree on it or the component's alignment silently breaks: the trigger's grid
+     column, the panel's grid column, and the tile itself. That agreement is what
+     puts the label, the collapsed preview and the expanded body on one left edge;
+     before it, the panel was `px-3` while the label sat behind a chevron and a
+     tile, so opening a row moved its copy sideways. */
+  --spacing-disclosure-icon: 1.75rem; /* 28px */
+
   /* Active-filter count bubble on the search band. 17px is deliberately off
      both the 4px grid and the icon scale above: it is a text-bearing box sized
      to its own --text-2xs numeral plus the tinted ring, not a glyph, so
