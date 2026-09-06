@@ -6070,6 +6070,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/source-acquisition-protocol.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-report.md",
         "section": "caring-contacts",
         "catalogued": true
@@ -24558,6 +24563,14 @@
         "scope": "hydration fix + merge-readiness",
         "outcome": "Fixed P1 UI regression: phone `matchMedia` in `useState` caused React #418 hydration pageerrors on DSM/specifier/differential phone journeys in Production UI. Gate now SSR-safe (`useState(false)`), syncs after mount, and refreshes from live matchMedia on Mode open. Merged `#940` header inset.",
         "checks": "Local: route-coverage 3/3 previously failing; Mode smoke 3/3; audit-navigation + focused header/sheet Vitest green. Hosted: awaiting exact-head Production UI/PR required. No OpenAI/live Supabase writes."
+      },
+      {
+        "date": "2026-09-06",
+        "ref": "claude/friendly-fermi-2cesis (PR #2664)",
+        "head": "ddcc215eac6a7946b61f62834bdd0554918792c7",
+        "scope": "Run PR sweep: CI flake + drift",
+        "outcome": "Required-checks aggregate failed solely on Lighthouse budget: a desktop homepage LCP regression (+203ms, +25.9%) flagged on a PR whose diff is pure data/docs/governance-script (source-acquisition register, a check script, and documentation) with zero UI/component/route changes. Judged as CI-runner noise unrelated to this diff rather than a real regression, since nothing in the change path can move client render timing. No local fix made; synced origin/main in via GitHub (branch was cleanly behind, no conflict), which reruns Lighthouse fresh. No review threads.",
+        "checks": "reviewed job log for job 101473608383 confirming diff scope is unrelated to the regressed page; no provider-backed checks run"
       },
       {
         "date": "2026-07-13",
