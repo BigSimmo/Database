@@ -53,7 +53,15 @@ const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRul
       pattern: /\b(?:involuntary admission|detain|detention|compulsory admission)\b/i,
       terms: ["involuntary", "admission", "detention", "assessment"],
     },
-    { pattern: /\b(?:move|moving)\b/i, terms: ["transfer", "transport", "movement"] },
+    {
+      // Bare "move"/"moving" fired on ordinary phrasing ("moving forward with the
+      // assessment") while missing the inflections a real query uses ("moved the
+      // patient"). Require the transfer sense: an explicit transfer/transport verb,
+      // or a movement verb carrying a person or a destination.
+      pattern:
+        /\b(?:transfers?|transferred|transferring|transports?|transported|transporting|mov(?:e|es|ed|ing)\s+(?:an?\s+|the\s+|this\s+)?(?:patient|consumer|person|inpatient|them|him|her)|mov(?:e|es|ed|ing)\s+(?:to|between|from|out\s+of)\s+(?:an?other\s+|a\s+different\s+|the\s+)?(?:hospital|wards?|units?|facility|facilities|authorised\s+hospital))\b/i,
+      terms: ["transfer", "transport", "movement"],
+    },
     { pattern: /\b(?:extend(?:s|ed|ing)?|extension|continue detention)\b/i, terms: ["extension", "detention"] },
     { pattern: /\b(?:revoke|revocation|cancel an order)\b/i, terms: ["revocation", "order"] },
   ],
@@ -69,7 +77,13 @@ const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRul
     { pattern: /\b(?:what if|constant worry|keeps worrying)\b/i, terms: ["worry"] },
     { pattern: /\b(?:not perfect|must be perfect|a failure)\b/i, terms: ["perfectionism"] },
     { pattern: /\b(?:not really there|disconnected|outside myself)\b/i, terms: ["dissociation"] },
-    { pattern: /\b(?:avoid|avoiding|stays away from)\b/i, terms: ["avoidance"] },
+    {
+      // The bare imperative "avoid" is the reader asking for advice ("how do I avoid
+      // a relapse"), not the avoidance mechanism. The inflected forms carry the
+      // clinical sense, and "avoids" was previously missed altogether.
+      pattern: /\b(?:avoids|avoided|avoiding|avoidance|avoidant|(?:stays?|staying|keeps?|kept)\s+away\s+from)\b/i,
+      terms: ["avoidance"],
+    },
   ],
   dsm: [
     { pattern: /\b(?:low mood|feeling low)\b/i, terms: ["depressive", "depression"] },
@@ -90,7 +104,14 @@ const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRul
     { pattern: /\b(?:young person|young people|teen(?:ager)?s?)\b/i, terms: ["youth", "child", "adolescent"] },
     { pattern: /\b(?:constant worry|worrying|anxiety symptoms?)\b/i, terms: ["anxiety", "worry"] },
     { pattern: /\b(?:low mood|feeling low)\b/i, terms: ["depression", "behavioural activation"] },
-    { pattern: /\b(?:couple|relationship problems?)\b/i, terms: ["couples", "relationship"] },
+    {
+      // Bare "couple" matched the quantifier ("a couple of options") and, because of
+      // the trailing word boundary, missed the plural "couples therapy" the rule
+      // exists for. Match the plural, or the singular only in a therapy context.
+      pattern:
+        /\b(?:couples|couple\s+(?:therapy|counselling|counseling|work|session|sessions)|relationship\s+(?:problems?|difficulties|issues))\b/i,
+      terms: ["couples", "relationship"],
+    },
     { pattern: /\b(?:emotion regulation|intense emotions?)\b/i, terms: ["dbt", "dialectical behaviour therapy"] },
   ],
   prescribing: [
