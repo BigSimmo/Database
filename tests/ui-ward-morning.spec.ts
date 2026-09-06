@@ -1,62 +1,106 @@
+import { PDFParse } from "pdf-parse";
 import { expect, test, type Page } from "playwright/test";
 
 /**
- * MERGE 02 (owner-approved 2026-09-05,
- * `docs/superpowers/specs/2026-09-05-ward-flow-merges-1-3-design-lock.md` §2) folded the morning
- * bed-state board into `CapacityScreen` and turned `/mockups/ward-flow/morning` into a redirect
- * (see that route's own doc comment in `src/app/mockups/ward-flow/morning/page.tsx`). The rail's
- * "Morning bed state" entry was removed at the same time — `ward-nav.ts` records the route as
- * `WARD_NAV_INTENTIONALLY_UNLISTED`, "a deliberate redirect to /capacity, not a destination in
- * its own right" — so nothing in the running app can reach `MorningPage` any more: it is real,
- * unmounted code, not deleted code.
+ * Task 5 (Phase 6). One journey covering the morning bed-state page
+ * (`MorningPage`/`MorningTour` in `src/components/ward-management/morning/`), modelled on
+ * `tests/ui-ward-discharges.spec.ts`'s shape: a single `page.goto()` at the top, then real clicks
+ * on real controls, asserting against the shared `WardFlowProvider` state the same way every
+ * other Ward Flow journey does.
  *
- * ⚠️ THIS FILE COVERED THE MORNING PAGE'S OWN RENDER, RAIL RETURN AND PRINT OUTPUT, AND MOST OF
- * THAT SUBJECT IS NOW UNREACHABLE, NOT MERELY RENAMED. The redirect is a real HTTP redirect
- * (`next/navigation`'s `redirect()`), so `page.goto("/mockups/ward-flow/morning")` always lands on
- * `CapacityScreen` — there is no way for a Playwright journey to mount `MorningPage` at all any
- * more, whatever testid it looks for. Two different things happened to the two tests this file
- * used to carry, and they are recorded separately because they are not the same kind of change:
+ * 🔴 **BOTH TESTS BELOW ARE `test.skip` AS OF 2026-09-06, MERGE 02 — READ THIS BEFORE TOUCHING
+ * EITHER OF THEM, ESPECIALLY BEFORE "FIXING" THEM TO NAVIGATE SOMEWHERE ELSE.**
  *
- *   - The RENDER-AND-RAIL test is RETARGETED, not retired: the redirect itself, and the rail
- *     handing back to the same URL, are real current behaviour of the merged route, so this test
- *     now proves those instead of proving a headline and a link label that no longer exist.
- *   - The PRINT test is RETIRED. `CapacityScreen` carries no print media rule and no per-site
- *     print testid at all (`capacity.module.css` has none) — MERGE 02 did not carry the morning
- *     page's "printed sheet states its own instant, one A4 page" contract forward, and inventing
- *     print assertions for a screen that renders no print output would be fabricating coverage
- *     rather than describing it. `MorningPage`'s own print behaviour is still guarded at the
- *     component level by `tests/ward-morning-page.dom.test.tsx` (rendered directly, not via a
- *     route — the doc comment at the top of `morning-page.tsx` names it as still passing all 20
- *     cases) and its CSS text by `tests/ward-morning-print.test.ts`, so the underlying contract is
- *     not unguarded if the tour and the printed sheet are ever un-paused and re-routed — only the
- *     real-Chromium, real-PDF proof this browser test gave is lost, and it is recorded as a
- *     reviewed reduction in `diff-integrity.json` rather than silently dropped.
+ * MERGE 02 (owner-approved 2026-09-05) folded the morning bed-state board into `CapacityScreen`.
+ * `/mockups/ward-flow/morning` is now a redirect stub to `/mockups/ward-flow/capacity`, kept only
+ * so an existing bookmark does not 404 — it is not a destination in its own right (`ward-nav.ts`).
+ * `MorningPage` itself is UNMOUNTED: nothing routes to it, so `gotoMorning`'s
+ * `getByTestId("ward-morning-page")` wait never resolves, and both tests below fail on that first
+ * `expect` with a 15-second timeout — that is the Advisory CI failure this file was pointed at.
+ *
+ * **`morning-page.tsx`'s own doc comment is explicit and current, and it overrides the general
+ * instruction to retarget a stale spec at wherever its content moved:** *"Do not delete, do not
+ * 'fix' the tests to point at CapacityScreen, and do not quietly re-mount it."* `CapacityScreen`
+ * does not, in fact, render this page's headline, its per-site/unit figure grid, or its print
+ * layout at all — there is nothing on it these two tests could honestly retarget to, only a
+ * differently-shaped board answering a related question. Spec D9 (the morning board and the shift
+ * handover linking to each other) is explicitly left open for the owner to rule on. Skipping is
+ * the choice that does not pre-empt that ruling in either direction: it neither deletes this file's
+ * description of what the page does, nor invents new behaviour on `CapacityScreen` to paper over
+ * the gap, nor silently re-mounts `MorningPage` on a route nobody asked to restore it to.
+ *
+ * The underlying component is not uncovered by this skip: `tests/ward-morning-page.dom.test.tsx`
+ * (all 20 cases) and `tests/ward-morning-print.test.ts` still render and assert against
+ * `MorningPage` directly, at the component level, with no route in between — see `morning-page.tsx`'s
+ * own comment on why those still pass. What is lost by this skip is only the browser-level proof
+ * that a *reachable page* behaves this way, because there is currently no reachable page that does.
+ *
+ * Un-skip these only once the owner's ruling on D9 lands and either restores a route to
+ * `MorningPage` or explicitly repoints this coverage — do not guess which on your own.
+ *
+ * ⚠️ THIS FILE COVERED MUCH LESS THAN IT ONCE DID EVEN BEFORE THAT, AND THE EARLIER LOSS WAS
+ * DELIBERATE TOO — 2026-09-02.
+ *
+ * As written, this journey drove the guided tour beat by beat and read the board's own figures
+ * back at each beat, and it drove the fixed/live view toggle. Neither control is on the page any
+ * more, so every one of those assertions was passing against nothing:
+ *
+ *   - The TOUR is unmounted by owner decision (`morning-page.tsx`'s own comment: "THE GUIDED TOUR
+ *     IS PAUSED, NOT REMOVED — owner instruction 2026-08-30"). `MorningTour`, its beats and its
+ *     unit tests all still exist. It comes back. That is why the assertions below were *removed
+ *     from this journey* rather than rewritten: they described real behaviour of a component that
+ *     is not currently rendered here, and whoever un-pauses the tour should know they once existed
+ *     and what they proved. `tests/ward-morning-tour-paused.dom.test.tsx` is the guard that the
+ *     paused tour emits nothing, and it is the thing someone must deliberately remove to un-pause.
+ *   - The fixed/live TOGGLE (`ViewControl`) is still exported by `morning-page.tsx` but `MorningBody`
+ *     no longer renders it, so `ward-morning-view-fixed` / `-live` match no element.
+ *
+ * ⚠️ WHAT THIS LEAVES UNCOVERED, named so it is a known hole and not a silent one: NOTHING in this
+ * file now reads a single morning figure. `confirmedToday` and `expectedToday` — and the
+ * service/site/unit `data-testid` level-prefix scheme that stops those five keys colliding across
+ * three levels — have no browser assertion at all. They had exactly one, here, and it depended on
+ * the tour to move them. Restoring that coverage needs a driver that changes the board without the
+ * tour; it is not restored by un-pausing the tour, because a paused tour is a decision, not a bug.
+ *
+ * `gotoMorning` still emulates `prefers-reduced-motion: reduce`. Its original reason is gone (it
+ * made the tour advance by a real "Next" button instead of 12-second timers), but both remaining
+ * tests are honest under it and it is the safer default, so it stays — for whenever these are
+ * un-skipped.
  */
 
+const MORNING_SKIP_REASON =
+  "MERGE 02 unmounted MorningPage (owner-approved 2026-09-05); /mockups/ward-flow/morning now only " +
+  "redirects to /mockups/ward-flow/capacity, which does not render this page's content. " +
+  "morning-page.tsx's own doc comment forbids retargeting this spec at CapacityScreen or re-mounting " +
+  "MorningPage pending the owner's ruling on spec D9. Component-level coverage continues in " +
+  "tests/ward-morning-page.dom.test.tsx and tests/ward-morning-print.test.ts.";
+
 async function gotoMorning(page: Page) {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/mockups/ward-flow/morning", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("ward-capacity-page")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("ward-morning-page")).toBeVisible({ timeout: 15_000 });
   await page.waitForLoadState("networkidle");
 }
 
-test.describe("@mockup Ward morning bed state — the retired route redirects, and the rail returns to it", () => {
+test.describe("@mockup Ward morning bed state — page render, rail navigation and printing", () => {
   test.describe.configure({ timeout: 60_000 });
 
-  // ⚠️ RENAMED 2026-09-06, following this file's own precedent from 2026-09-02: a test whose name
-  // describes work it no longer does is the next reader's stale finding. This proves the redirect
-  // fires and lands on the real Capacity page, then that the rail can leave and come back to the
-  // same URL — the two facts that survive of "the morning page renders its headline, and the rail
-  // navigates away and back" now that the headline it read is gone with the page that carried it.
-  test("the retired /morning route redirects to Capacity, and the rail navigates away and back", async ({ page }) => {
+  // ⚠️ RENAMED 2026-09-02, and the rename is the point. This was "the fixed page states its
+  // instant, the live toggle is distinguishable, the tour changes the board by beat 4, Stop halts
+  // it mid-tour, and navigating away mid-tour clears fabricated state" — a name describing five
+  // behaviours, four of which this test no longer touches at all. See this file's header for what
+  // was removed, why, and what it leaves uncovered. A test whose name outlives its work is the
+  // next reader's stale finding, so the name goes when the work goes.
+  test("the morning page renders its headline, and the rail navigates away and back", async ({ page }) => {
+    test.skip(true, MORNING_SKIP_REASON);
     await page.setViewportSize({ width: 1440, height: 1024 });
     await gotoMorning(page);
 
-    // The merged screen's own headline (`capacity-screen.tsx`, `<h1>Capacity</h1>`) — what
-    // survives of "the page renders its headline" is that the redirect's destination actually
-    // renders one, rather than landing on a blank or erroring route.
-    await expect(page.getByRole("heading", { name: "Capacity", level: 1 })).toBeVisible();
+    // The page's own headline section (`morning-page.tsx`, `data-testid="ward-morning-headline"`).
+    // This is what survives of "the fixed page renders": the page mounts and puts its headline up.
+    await expect(page.getByTestId("ward-morning-headline")).toBeVisible();
 
-    // The rail's real `<Link>`s — `ClinicalRail` is rendered by `CapacityScreen` itself, so it
+    // The rail's real `<Link>`s — `ClinicalRail` is rendered by `morning-page.tsx` itself, so it
     // mounts and unmounts with the page. Never `page.goto()` here: a full navigation would remount
     // `WardFlowProvider` and reseed shared state, which would make a client-side routing failure
     // indistinguishable from a pass.
@@ -68,18 +112,82 @@ test.describe("@mockup Ward morning bed state — the retired route redirects, a
     await expect(page.getByTestId("ward-delays-page")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
 
-    // MERGE 02 (2026-09-05): the rail's "Morning bed state" entry is gone with the page it led
-    // to. The one rail entry that returns to this merged screen is "Capacity" — the same link
-    // `tests/ui-ward-discharges.spec.ts` uses to reach it from the ward side.
-    await page.getByRole("link", { name: "Capacity", exact: true }).click();
-    await expect(page.getByTestId("ward-capacity-page")).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("link", { name: "Morning bed state", exact: true }).click();
+    await expect(page.getByTestId("ward-morning-page")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
 
     // The third click is not a repeat of the first. `ClinicalRail` was unmounted by the navigation
     // away and mounted fresh by the navigation back, so this exercises a newly-mounted rail after
     // a client-side return — a different condition from the first click, which was on the rail
     // that came with the server-rendered page.
+    //
+    // MERGE 01 (2026-09-05): same rename as above — the link is "Delays" now, and it lands on
+    // `ward-delays-page`, not the retired `ward-queue-view`.
     await page.getByRole("link", { name: "Delays", exact: true }).click();
     await expect(page.getByTestId("ward-delays-page")).toBeVisible({ timeout: 15_000 });
+  });
+});
+
+/**
+ * Phase 6 Task 6 fix pass (C2, C3, I4 — see the task's own blocker list). The print behaviour
+ * this page ships is a genuine RENDERING contract, not something a CSS-source-text check can
+ * verify: `tests/ward-morning-print.test.ts` reads `morning.module.css` as a string, which can
+ * see whether a rule EXISTS but not whether the sheet a browser actually produces states its own
+ * view/instant or fits one page. Both facts below come from a real Chromium print render —
+ * `page.emulateMedia({ media: "print" })` for the label/note visibility, `page.pdf({format:
+ * "A4"})` measured with `pdf-parse` for the page count — the same instruments used to find these
+ * three defects in the first place (see the CSS's own doc comments on each fix for the measured
+ * "before" numbers: 0×0 elements, zero `\d\d:\d\d` matches, and `/Count 5`).
+ */
+test.describe("@mockup Ward morning bed state — print output states its view and fits one page", () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test("print states when the sheet was printed, and the real PDF is exactly one A4 page", async ({ page }) => {
+    test.skip(true, MORNING_SKIP_REASON);
+    await page.setViewportSize({ width: 1024, height: 1400 });
+    await gotoMorning(page);
+
+    // --- C2, REWRITTEN 2026-09-02. THERE IS ONE VIEW NOW, NOT TWO. The owner removed the
+    // fixed/live toggle on 2026-08-30 — "There is no point of a stale handover. Remove it and
+    // make the print out live from whatever time" — so every assertion here that drove the
+    // toggle, or read a label naming which of two views produced the sheet, was exercising a
+    // feature that no longer exists. `ViewControl` survives as an exported component that
+    // nothing renders: the toggle is unreachable, not merely restyled.
+    //
+    // ⚠️ THE LABEL ITSELF IS NOT DEAD AND ITS WORDING WAS NOT AN OPEN QUESTION. `PrintViewMeta`
+    // still renders it, and the owner's replacement is already implemented, with the reasoning
+    // written above it in morning-page.tsx: a sheet with no time on it is the one nobody can
+    // tell is old, so it states the moment it was actually printed. These assertions are READ
+    // FROM THAT SOURCE rather than invented, which is why no coverage is lost with the toggle.
+    const printLabel = page.getByTestId("ward-morning-print-view-label");
+    await expect(printLabel).toHaveText(/^This sheet: printed \d{2}:\d{2}\.$/);
+
+    // --- C2: under real print media the label and its note are the visible statement of what
+    // this sheet is — a rendered visibility fact `emulateMedia` can prove and a CSS-source-text
+    // check cannot. ---
+    await page.emulateMedia({ media: "print" });
+    await expect(printLabel).toBeVisible();
+    await expect(page.getByTestId("ward-morning-print-view-note")).toContainText(
+      "a printed sheet is a moment, not a monitor",
+    );
+
+    // --- I4, rendered: Joondalup and Peel (real no-unit fixture sites) state "Never confirmed"
+    // and "No units recorded" but print no five-zero figure grid, while a real site with units
+    // (Royal Perth) still prints its grid. ---
+    const jhc = page.getByTestId("ward-morning-site-JHC");
+    await expect(jhc.getByTestId("ward-morning-figure-site-JHC-availableNow")).toHaveCount(0);
+    await expect(jhc.getByText("No units recorded")).toBeVisible();
+    const rph = page.getByTestId("ward-morning-site-RPH");
+    await expect(rph.getByTestId("ward-morning-figure-site-RPH-availableNow")).toBeVisible();
+
+    // --- C3: the real PDF Chromium produces for this page is exactly one A4 page. Measured
+    // before this fix pass: `/Count 5`. `page.pdf()` only works against Chromium (this project's
+    // Playwright project), matching the `--project=chromium-mockups` this spec already runs
+    // under. ---
+    const pdfBuffer = await page.pdf({ format: "A4" });
+    const parser = new PDFParse({ data: pdfBuffer });
+    const parsed = await parser.getText();
+    await parser.destroy();
+    expect(parsed.pages.length, "the printed sheet must fit on exactly one A4 page").toBe(1);
   });
 });
