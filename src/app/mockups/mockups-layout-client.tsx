@@ -58,6 +58,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Owns the also-matches panel as the subject; shared composer chrome would
   // sit on top of a study about results-card identity.
   const isAlsoMatchesAccentMockup = pathname === "/mockups/also-matches-accents";
+  // The closed-state study draws its own results band and meta row inside every
+  // device frame, because the whole question is what sits between the composer
+  // and the results. Shared chrome would read as a second real composer above it.
+  const isAlsoMatchesClosedMockup = pathname === "/mockups/also-matches-closed";
   // Every direction in this study draws its own top bar, transcript and
   // composer inside phone/desktop frames — the reference system under review
   // sits directly between them, so shared chrome would read as a second real
@@ -189,6 +193,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
+        !isAlsoMatchesClosedMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
         !isAnswerLoadingRedesignMockup &&
@@ -221,6 +226,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
+        !isAlsoMatchesClosedMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
         !isAnswerLoadingRedesignMockup &&
