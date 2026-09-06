@@ -158,6 +158,7 @@ is no join.
   read `:750ff`; the symbol is at line 753, and the `ff` suffix is not something `check:docs-links`
   can resolve. **An approximate citation is not a smaller version of an exact one — it is one the
   checker cannot follow**, which is the same failure as citing a file that is not there.
+
 - **(ii) Producer:** N/A - nothing to assign to.
 - **(iii) Consumer:** N/A - nothing reads it.
 - **(iv) Verdict: NOT IN MODEL AT ALL.**
