@@ -168,6 +168,24 @@ function formRequiredLabel(transport: TransportJob): string {
  * job" selector instead, which lives outside whichever card is currently active and so never
  * inflates that job's own button count.
  */
+/**
+ * THE JOBS THIS PHONE SCREEN SHOWS, and the predicate its governance sentence describes.
+ *
+ * Exported so a test can drive it. The sentence above the list claims to show "every transport job
+ * not yet arrived on an open movement" — three conditions, and until 2026-09-04 the sentence named
+ * only two of them while this predicate enforced all three. A job on a CLOSED movement dropped off
+ * with no explanation, and the word "every" was in bold.
+ *
+ * ⚠️ THE FILTER WAS RIGHT AND THE SENTENCE WAS NOT UPDATED WHEN IT LANDED. That is the opposite
+ * direction from the failure this project keeps finding: usually a change reaches the comments and
+ * stops before the code. Here it reached the code and never touched the sentence at all.
+ */
+export function isOfficerJob(movement: Movement): boolean {
+  return (
+    movement.transport !== undefined && movement.transport.arrivedAt === undefined && movement.closure === undefined
+  );
+}
+
 export function OfficerScreen() {
   const { movements, units, now, dispatch, rejections } = useWardFlow();
 
@@ -192,10 +210,7 @@ export function OfficerScreen() {
    * have I not yet delivered" and must keep showing a job until its own arrival stamp lands. The
    * two agree on closure and differ on stage, on purpose. Do not "fix" the asymmetry.
    */
-  const jobs = movements.filter(
-    (movement) =>
-      movement.transport !== undefined && movement.transport.arrivedAt === undefined && movement.closure === undefined,
-  );
+  const jobs = movements.filter(isOfficerJob);
 
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   // Defaults to the first job in the live list when nothing is selected yet, or when a
@@ -222,7 +237,8 @@ export function OfficerScreen() {
           <p>
             No officer identity exists in this model &mdash; a transport job records an organisation such as &ldquo;St
             John WA&rdquo;, never a person. This screen therefore shows <strong>every</strong> transport job not yet
-            arrived, not a filtered list of &ldquo;your&rdquo; jobs.
+            arrived on an open movement, not a filtered list of &ldquo;your&rdquo; jobs. A job whose movement has been
+            closed drops off, because the journey it belonged to has ended.
           </p>
         </div>
 

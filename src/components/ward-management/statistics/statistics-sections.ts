@@ -88,7 +88,19 @@ export const STATISTICS_SECTIONS: readonly StatisticsSection[] = [
   {
     id: "compare",
     label: "Ward and ED comparisons",
-    description: "The same measure set beside every ward and emergency department, so differences can be seen.",
+    /*
+     * ⚠️ THIS PROMISED ONE MEASURE SET AND THE SOFTWARE CANNOT HOLD ONE. A ward measure is about
+     * BEDS — length of stay, empty-bed minutes, discharge dates — and an emergency department in
+     * this model has no beds, no capacity and no occupancy, so half of that grid could only ever
+     * be blank. `statistics-ed-screen.tsx` says it plainly: a ward and an emergency department
+     * are not one list with a flag.
+     *
+     * Changed rather than queued, under the owner's standing rule that a sentence describing what
+     * the software does is inside the diff that makes it false. The scope did not shrink: both are
+     * still compared, each against its own kind.
+     */
+    description:
+      "Every ward beside the other wards, and every emergency department beside the other departments — each on the measures its own records can carry.",
     href: STATISTICS_COMPARE_HREF,
   },
   {

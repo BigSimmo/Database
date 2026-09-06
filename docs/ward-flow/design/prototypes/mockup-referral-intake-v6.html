@@ -1,0 +1,2558 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Raise a referral — locked design (v6)</title>
+
+    <!--
+      ══════════════════════════════════════════════════════════════════════════════════════
+      LOCKED DESIGN, v6 — the design of record. Mockup only; nothing here is wired.
+
+      v6 is a PRESENTATION pass over v5. Every state, sentence and rule from v5 survives.
+      Nothing that was asserted is now unasserted — that was the test this pass had to meet,
+      and the appendix is how it is checked: if a state stopped being drawable, it went too far.
+
+      ── THE HEADER BANNER IS GONE, AND ITS CONTENT IS NOT ───────────────────────────────
+      v5 opened with a slab of amber carrying "Synthetic prototype", "not a medical device"
+      and the free-text warning. The owner asked for it to go. Deleting a clinical statement
+      to make a page prettier is not a trade this project makes, so it MOVED:
+
+        · "Synthetic prototype"    → a small permanent tag in the top strip
+        · the free-text warning    → the history step, immediately above the boxes it is about
+        · "not a medical device"   → the consequences panel in the rail, and the page footer
+
+      ── THE MATURITY PASS, WHICH IS SUBTRACTION ────────────────────────────────────────
+      v5 said everything with a device: chips, badges, pills, uppercase micro-labels, dashed
+      borders, washes, left-edge accent bars, three shadow tokens, progress bars and boxed
+      figures, most of them within one screen of each other. Each was defensible alone.
+      Together they read as a dashboard demo rather than a clinical form. Four rules:
+
+        1. UPPERCASE IS FOR DATA LABELS ONLY. It survives on the <dt>s in the patient box and
+           the rail, where it helps a value be scanned, and nowhere else. Chips, field states
+           and section labels are sentence case now.
+        2. SPACE BEFORE BORDERS. Related things group by proximity; a rule only where two
+           things would otherwise touch. v5 boxed a box inside a card.
+        3. ONE ELEVATION. Cards sit at one height on the ground.
+        4. COLOUR IS RARER, SO IT IS LOUDER. Meanings unchanged. The neutral state now carries
+           no colour at all.
+
+      ── THE TOP STRIP, REBUILT ─────────────────────────────────────────────────────────
+      v5's was a logo, a breadcrumb, and a filled blue pill repeating the name shown 80px
+      below it. v6: one quiet row — a real back control, the page's own context, and the
+      person as a restrained tag that earns its place only once the anchor scrolls away.
+
+      ── THE PATIENT BOX, REBUILT ───────────────────────────────────────────────────────
+      v5's facts were a wrapping flex row, so the columns landed differently at every width
+      and nothing aligned with anything. v6 uses a real grid: labels align, values align, and
+      an absent value still occupies its column and says so in words.
+      ══════════════════════════════════════════════════════════════════════════════════════
+    -->
+    <style>
+      /* ═══ TOKENS ═══════════════════════════════════════════════════════════════════════
+         One accent. Three semantic tones. Everything else neutral.
+         Defined here on bare :root, redefined only in the two dark blocks. */
+      :root {
+        color-scheme: light;
+
+        --ground: #eff2f6;
+        --surface: #ffffff;
+        --surface-2: #f6f8fb;
+        --sunken: #e8edf3;
+
+        --ink: #0d1420;
+        --ink-2: #334054;
+        --muted: #5a6880;
+        --faint: #808da2;
+
+        --rule: #e6eaf0;
+        --rule-2: #d2dae5;
+        --rule-3: #b3bfd0;
+
+        --accent: #1a6ab5;
+        --accent-strong: #14588f;
+        --accent-wash: #eff5fc;
+        --accent-edge: #bcd7ef;
+        --on-accent: #ffffff;
+
+        --good: #0a6a3f;
+        --good-wash: #eff8f3;
+        --good-edge: #aeddc6;
+        --warn: #8a4d05;
+        --warn-wash: #fdf7ef;
+        --warn-edge: #e9cfa6;
+        --crit: #a01a10;
+        --crit-wash: #fdf3f2;
+        --crit-edge: #efbdb8;
+
+        /* ONE elevation. v5 had three tokens doing overlapping jobs. `--lift` is for the
+           two things that genuinely float: the top strip and the send bar. */
+        --shadow: 0 1px 2px rgb(13 20 32 / 0.05), 0 6px 16px -10px rgb(13 20 32 / 0.16);
+        --lift: 0 -1px 0 var(--rule), 0 -12px 30px -18px rgb(13 20 32 / 0.3);
+
+        --r-xs: 5px;
+        --r-sm: 8px;
+        --r: 12px;
+        --r-lg: 16px;
+        --r-pill: 100px;
+
+        --sp-1: 0.25rem;
+        --sp-2: 0.5rem;
+        --sp-3: 0.75rem;
+        --sp-4: 1rem;
+        --sp-5: 1.5rem;
+        --sp-6: 2rem;
+        --sp-7: 3rem;
+
+        --tap: 3rem; /* 48px — production minimum, never reduced to 44 */
+        --spine: 1.75rem;
+        --rail: 22rem;
+        --bar: 3.5rem; /* top strip height, and what sticky offsets are built on */
+
+        --t-micro: 0.6875rem;
+        --t-small: 0.8125rem;
+        --t-body: 0.875rem;
+        --t-input: 0.9375rem;
+        --t-lead: 1rem;
+        --t-fig: 1.375rem;
+        --t-name: 1.5rem;
+
+        --ease: cubic-bezier(0.2, 0, 0, 1);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          color-scheme: dark;
+          --ground: #090d14;
+          --surface: #131926;
+          --surface-2: #1a2130;
+          --sunken: #0e131b;
+          --ink: #e9eef6;
+          --ink-2: #c4cedc;
+          --muted: #98a5b8;
+          --faint: #808da2;
+          --rule: #232c3c;
+          --rule-2: #334054;
+          --rule-3: #4c5c74;
+          --accent: #4d9de0;
+          --accent-strong: #7cb9ea;
+          --accent-wash: #12243a;
+          --accent-edge: #2c4e74;
+          --on-accent: #06121f;
+          --good: #52c48c;
+          --good-wash: #0e2419;
+          --good-edge: #23543c;
+          --warn: #d9a441;
+          --warn-wash: #241c0c;
+          --warn-edge: #574326;
+          --crit: #ef7c72;
+          --crit-wash: #2a1210;
+          --crit-edge: #6b2f2a;
+          --shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 6px 16px -10px rgb(0 0 0 / 0.75);
+          --lift: 0 -1px 0 var(--rule), 0 -12px 30px -18px rgb(0 0 0 / 0.9);
+        }
+      }
+
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --ground: #090d14;
+        --surface: #131926;
+        --surface-2: #1a2130;
+        --sunken: #0e131b;
+        --ink: #e9eef6;
+        --ink-2: #c4cedc;
+        --muted: #98a5b8;
+        --faint: #808da2;
+        --rule: #232c3c;
+        --rule-2: #334054;
+        --rule-3: #4c5c74;
+        --accent: #4d9de0;
+        --accent-strong: #7cb9ea;
+        --accent-wash: #12243a;
+        --accent-edge: #2c4e74;
+        --on-accent: #06121f;
+        --good: #52c48c;
+        --good-wash: #0e2419;
+        --good-edge: #23543c;
+        --warn: #d9a441;
+        --warn-wash: #241c0c;
+        --warn-edge: #574326;
+        --crit: #ef7c72;
+        --crit-wash: #2a1210;
+        --crit-edge: #6b2f2a;
+        --shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 6px 16px -10px rgb(0 0 0 / 0.75);
+        --lift: 0 -1px 0 var(--rule), 0 -12px 30px -18px rgb(0 0 0 / 0.9);
+      }
+
+      /* ═══ BASE ═══════════════════════════════════════════════════════════════════════ */
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font-family:
+          "Archivo",
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        font-size: var(--t-body);
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      .n,
+      .fig,
+      .umrn,
+      .count {
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+      }
+      a {
+        color: var(--accent-strong);
+        text-underline-offset: 0.2em;
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: var(--r-xs);
+      }
+      h1,
+      h2,
+      h3,
+      h4 {
+        margin: 0;
+      }
+
+      /* The ONE surviving uppercase treatment: data labels, where it helps a value scan. */
+      .dlabel {
+        font-size: var(--t-micro);
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+
+      .skip {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        z-index: 200;
+        padding: var(--sp-3) var(--sp-4);
+        border-radius: 0 0 var(--r-sm) 0;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-weight: 650;
+        text-decoration: none;
+      }
+      .skip:focus {
+        left: 0;
+      }
+
+      /* ═══ TOP STRIP ═══════════════════════════════════════════════════════════════════
+         Rebuilt in v6. One row, one rule beneath it, no fill. A real back control on the
+         left; the person on the right as a restrained tag rather than a filled blue pill
+         repeating a name shown 80px below it. */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 80;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        min-height: var(--bar);
+        padding: 0 var(--sp-4);
+        background: color-mix(in srgb, var(--surface) 90%, transparent);
+        backdrop-filter: saturate(1.4) blur(14px);
+        border-bottom: 1px solid var(--rule);
+      }
+      .back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        min-height: 2.25rem;
+        padding: 0 var(--sp-2) 0 0.35rem;
+        margin-left: -0.35rem;
+        border-radius: var(--r-sm);
+        color: var(--ink-2);
+        font-size: var(--t-small);
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .back:hover {
+        background: var(--surface-2);
+      }
+      .back .arw {
+        font-size: 1rem;
+        line-height: 1;
+        color: var(--faint);
+      }
+      .topbar .sep {
+        width: 1px;
+        height: 1.1rem;
+        background: var(--rule-2);
+        flex: none;
+      }
+      .topbar .here {
+        font-size: var(--t-small);
+        font-weight: 650;
+        color: var(--ink);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .topbar .spacer {
+        margin-left: auto;
+      }
+
+      /* Permanent, quiet, and the new home of one third of the removed banner. */
+      .protochip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.25rem 0.55rem;
+        border-radius: var(--r-pill);
+        border: 1px solid var(--rule-2);
+        background: var(--surface-2);
+        color: var(--muted);
+        font-size: var(--t-micro);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .protochip i {
+        width: 0.4rem;
+        height: 0.4rem;
+        border-radius: var(--r-pill);
+        background: var(--warn);
+        flex: none;
+      }
+
+      /* ⚠️ EVERY CHILD OF THE STRIP MUST BE ABLE TO SHRINK OR THE STRIP OVERFLOWS.
+         Measured at 375px: back + prototype chip + person tag came to 392px and the tag ran
+         17px off the right edge. A flex item's default `min-width: auto` refuses to shrink
+         below its content, so `white-space: nowrap` on a long name is an overflow waiting for
+         a narrow screen. The name truncates instead — it is repeated in full in the patient
+         box directly below, so nothing is lost by clipping it here. */
+      .whotag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.25rem;
+        padding: 0 0.6rem;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--ink);
+        font-size: var(--t-small);
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .whotag:hover {
+        border-color: var(--rule-3);
+        background: var(--surface-2);
+      }
+      .whotag .nm {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+      }
+      .whotag .umrn {
+        font-size: var(--t-micro);
+        color: var(--faint);
+        font-weight: 500;
+        flex: none;
+      }
+      .whotag .arw {
+        color: var(--faint);
+        flex: none;
+      }
+      .topbar .back,
+      .topbar .protochip {
+        flex: none;
+      }
+
+      @media (max-width: 40rem) {
+        .topbar {
+          gap: var(--sp-2);
+          padding: 0 var(--sp-3);
+        }
+        .topbar .here,
+        .topbar .sep {
+          display: none;
+        }
+        .whotag .umrn {
+          display: none;
+        }
+      }
+
+      .shell {
+        max-width: 104rem;
+        margin: 0 auto;
+        padding: var(--sp-5) var(--sp-4) var(--sp-7);
+      }
+
+      /* ═══ MASTHEAD ════════════════════════════════════════════════════════════════════ */
+      .masthead {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-5);
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: var(--sp-5);
+      }
+      h1 {
+        font-size: clamp(1.625rem, 1.15rem + 1.7vw, 2.25rem);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+      }
+      .lede {
+        margin: var(--sp-2) 0 0;
+        color: var(--muted);
+        max-width: 54ch;
+      }
+
+      /* Progress only. No border-grid, no shouting keys — three quiet readings. */
+      .stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-5);
+        align-items: flex-end;
+      }
+      .stat {
+        display: grid;
+        gap: 0.15rem;
+        min-width: 5.5rem;
+      }
+      .stat .k {
+        font-size: var(--t-small);
+        color: var(--muted);
+      }
+      .stat .fig {
+        font-size: var(--t-fig);
+        font-weight: 700;
+        line-height: 1.1;
+        letter-spacing: -0.03em;
+      }
+      .stat .of {
+        font-size: var(--t-small);
+        font-weight: 500;
+        color: var(--faint);
+      }
+      .stat[data-tone="warn"] .fig {
+        color: var(--warn);
+      }
+      .stat .bar {
+        height: 0.25rem;
+        width: 100%;
+        min-width: 5.5rem;
+        border-radius: var(--r-pill);
+        background: var(--sunken);
+        overflow: hidden;
+        margin-top: 0.3rem;
+      }
+      .stat .bar > i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+        border-radius: inherit;
+      }
+
+      /* ═══ PATIENT BOX ═════════════════════════════════════════════════════════════════
+         Rebuilt in v6. v5's facts were a wrapping flex row, so columns landed differently
+         at every width and nothing aligned with anything. A real grid instead: labels align,
+         values align, and an ABSENT value still holds its column and says so in words. */
+      .anchor {
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-lg);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .anchor-top {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-4);
+        align-items: flex-start;
+        padding: var(--sp-5);
+      }
+      .avatar {
+        flex: none;
+        width: 3.25rem;
+        height: 3.25rem;
+        border-radius: var(--r);
+        display: grid;
+        place-items: center;
+        background: var(--accent-wash);
+        color: var(--accent-strong);
+        border: 1px solid var(--accent-edge);
+        font-weight: 700;
+        font-size: 1.0625rem;
+        letter-spacing: 0.01em;
+      }
+      .who {
+        flex: 1 1 20rem;
+        min-width: 0;
+      }
+      .who h2 {
+        font-size: var(--t-name);
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.15;
+      }
+      .who .sub {
+        margin-top: 0.15rem;
+        font-size: var(--t-small);
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .who .sub .umrn {
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      .who .sub .dotsep {
+        color: var(--rule-3);
+      }
+
+      .anchor-acts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-2);
+        align-items: center;
+      }
+
+      /* The real grid. auto-fit means the columns re-flow without the facts re-ordering. */
+      .facts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+        gap: var(--sp-4) var(--sp-5);
+        margin: 0;
+        padding: var(--sp-4) var(--sp-5);
+        border-top: 1px solid var(--rule);
+      }
+      .fact {
+        display: grid;
+        gap: 0.15rem;
+        min-width: 0;
+      }
+      .fact dd {
+        margin: 0;
+        font-size: var(--t-small);
+        font-weight: 600;
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+      .fact dd.absent {
+        font-weight: 500;
+        color: var(--muted);
+      }
+
+      .anchor-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--sp-2) var(--sp-3);
+        padding: var(--sp-3) var(--sp-5);
+        border-top: 1px solid var(--rule);
+        background: var(--surface-2);
+        font-size: var(--t-small);
+        color: var(--muted);
+      }
+      .anchor-foot p {
+        margin: 0;
+        max-width: 80ch;
+      }
+      .anchor-foot b {
+        color: var(--ink-2);
+        font-weight: 650;
+      }
+      .pointer {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.2rem 0.5rem;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-xs);
+        background: var(--surface);
+        color: var(--ink-2);
+        font-size: var(--t-micro);
+      }
+      .pointer .key {
+        color: var(--faint);
+      }
+
+      /* ═══ CHIPS — sentence case now, not small caps ═══════════════════════════════════ */
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        white-space: nowrap;
+        padding: 0.22rem 0.55rem;
+        border-radius: var(--r-pill);
+        border: 1px solid var(--rule-2);
+        background: var(--surface);
+        color: var(--muted);
+        font-size: var(--t-micro);
+        font-weight: 600;
+      }
+      .chip .dot {
+        width: 0.4rem;
+        height: 0.4rem;
+        border-radius: var(--r-pill);
+        background: currentColor;
+        flex: none;
+      }
+      .chip[data-tone="good"] {
+        color: var(--good);
+        border-color: var(--good-edge);
+        background: var(--good-wash);
+      }
+      .chip[data-tone="warn"] {
+        color: var(--warn);
+        border-color: var(--warn-edge);
+        background: var(--warn-wash);
+      }
+      .chip[data-tone="crit"] {
+        color: var(--crit);
+        border-color: var(--crit-edge);
+        background: var(--crit-wash);
+      }
+      .chip[data-tone="accent"] {
+        color: var(--accent-strong);
+        border-color: var(--accent-edge);
+        background: var(--accent-wash);
+      }
+      .chip--wrap {
+        white-space: normal;
+        text-align: left;
+      }
+
+      /* ═══ BUTTONS ═════════════════════════════════════════════════════════════════════ */
+      .btn {
+        min-height: var(--tap);
+        padding: 0 var(--sp-4);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+        font-size: var(--t-small);
+        font-weight: 650;
+        text-decoration: none;
+        cursor: default;
+        transition:
+          background 130ms var(--ease),
+          border-color 130ms var(--ease);
+      }
+      .btn:hover {
+        border-color: var(--rule-3);
+        background: var(--surface-2);
+      }
+      .btn--primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+      }
+      .btn--primary:hover {
+        background: var(--accent-strong);
+        border-color: var(--accent-strong);
+      }
+      .btn--quiet {
+        background: transparent;
+        border-color: transparent;
+        color: var(--accent-strong);
+      }
+      .btn--quiet:hover {
+        background: var(--accent-wash);
+        border-color: transparent;
+      }
+      .btn--sm {
+        min-height: 2.25rem;
+        padding: 0 var(--sp-3);
+      }
+      .btn[aria-disabled="true"] {
+        background: var(--sunken);
+        border-color: var(--rule-2);
+        color: var(--faint);
+      }
+      .btn[aria-disabled="true"]:hover {
+        background: var(--sunken);
+        border-color: var(--rule-2);
+      }
+
+      /* ═══ WORKSPACE ═══════════════════════════════════════════════════════════════════ */
+      .workspace {
+        display: grid;
+        gap: var(--sp-5);
+        align-items: start;
+        margin-top: var(--sp-5);
+      }
+      @media (min-width: 72rem) {
+        .workspace {
+          grid-template-columns: minmax(0, 1fr) var(--rail);
+        }
+      }
+
+      .steps {
+        display: grid;
+        gap: var(--sp-4);
+        min-width: 0;
+      }
+      .step {
+        position: relative;
+        display: grid;
+        grid-template-columns: var(--spine) minmax(0, 1fr);
+        gap: var(--sp-4);
+        min-width: 0;
+      }
+      .step::before {
+        content: "";
+        position: absolute;
+        left: calc(var(--spine) / 2 - 1px);
+        top: 2rem;
+        bottom: calc(var(--sp-4) * -1);
+        width: 2px;
+        background: var(--rule);
+      }
+      .step:last-of-type::before {
+        display: none;
+      }
+      @media (max-width: 44rem) {
+        .step {
+          --spine: 1.5rem;
+          gap: var(--sp-3);
+        }
+      }
+      .step[data-state="done"]::before {
+        background: var(--good-edge);
+      }
+      .node {
+        position: sticky;
+        top: calc(var(--bar) + 0.5rem);
+        z-index: 2;
+        width: var(--spine);
+        height: var(--spine);
+        border-radius: var(--r-pill);
+        display: grid;
+        place-items: center;
+        align-self: start;
+        border: 1.5px solid var(--rule-2);
+        background: var(--surface);
+        color: var(--muted);
+        font-size: var(--t-micro);
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        box-shadow: 0 0 0 4px var(--ground);
+      }
+      .step[data-state="done"] .node {
+        border-color: var(--good);
+        background: var(--good);
+        color: var(--surface);
+      }
+      .step[data-state="now"] .node {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--on-accent);
+      }
+
+      /* Cards: one elevation, no inner boxing. */
+      .panel {
+        min-width: 0;
+        background: var(--surface);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .panel > header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+        padding: var(--sp-4) var(--sp-4) 0;
+      }
+      .panel > header h3 {
+        font-size: var(--t-lead);
+        font-weight: 650;
+        letter-spacing: -0.015em;
+      }
+      .panel > header .sub {
+        display: block;
+        margin-top: 0.15rem;
+        font-size: var(--t-small);
+        font-weight: 400;
+        color: var(--muted);
+      }
+      .step[data-state="now"] > .panel {
+        border-color: var(--accent-edge);
+      }
+      .body {
+        padding: var(--sp-4);
+        display: grid;
+        gap: var(--sp-5);
+      }
+
+      .grid2 {
+        display: grid;
+        gap: var(--sp-4);
+      }
+      @media (min-width: 44rem) {
+        .grid2 {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      .field {
+        min-width: 0;
+      }
+      .field > .lab {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin-bottom: 0.35rem;
+        font-size: var(--t-small);
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .field > .lab .state {
+        margin-left: auto;
+        font-size: var(--t-micro);
+        font-weight: 600;
+        color: var(--faint);
+      }
+      .field[data-state="outstanding"] .state {
+        color: var(--warn);
+      }
+      select,
+      .fauxselect {
+        width: 100%;
+        min-height: var(--tap);
+        padding: 0 var(--sp-3);
+        display: flex;
+        align-items: center;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+        font-size: var(--t-input);
+      }
+      .field[data-state="outstanding"] .fauxselect {
+        border-color: var(--warn);
+        background: var(--warn-wash);
+        color: var(--muted);
+      }
+      .field[data-state="na"] .fauxselect {
+        background: var(--sunken);
+        color: var(--faint);
+        border-color: var(--rule);
+      }
+      .field[data-state="error"] .fauxselect {
+        border-color: var(--crit);
+        background: var(--crit-wash);
+      }
+      .note {
+        margin: 0.4rem 0 0;
+        font-size: var(--t-micro);
+        color: var(--muted);
+      }
+      .note[data-tone="warn"] {
+        color: var(--warn);
+        font-weight: 600;
+      }
+      .note[data-tone="crit"] {
+        color: var(--crit);
+        font-weight: 600;
+      }
+
+      fieldset {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        min-width: 0;
+      }
+      legend {
+        padding: 0;
+        margin-bottom: 0.35rem;
+        font-size: var(--t-small);
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .yesno {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.4rem;
+      }
+      .opt {
+        min-height: var(--tap);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        font-size: var(--t-input);
+        color: var(--ink-2);
+      }
+      .opt[aria-pressed="true"] {
+        border-color: var(--accent);
+        background: var(--accent-wash);
+        color: var(--accent-strong);
+        font-weight: 650;
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+      fieldset[data-state="outstanding"] .opt {
+        border-color: var(--warn-edge);
+      }
+
+      /* ═══ THE WRITTEN HISTORY ═════════════════════════════════════════════════════════
+         The one part of the form that records something nothing can check. It is never
+         given a green state: green on this screen means checked, and nothing checks this. */
+      .story {
+        display: grid;
+        gap: var(--sp-5);
+      }
+      .story-warn {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: flex-start;
+        padding: var(--sp-3) var(--sp-4);
+        border: 1px solid var(--warn-edge);
+        border-radius: var(--r-sm);
+        background: var(--warn-wash);
+        font-size: var(--t-small);
+        color: var(--ink-2);
+      }
+      .story-warn p {
+        margin: 0;
+        max-width: 78ch;
+      }
+      .story-warn p + p {
+        margin-top: var(--sp-2);
+      }
+      .story-warn b {
+        color: var(--ink);
+        font-weight: 650;
+      }
+      .story-warn .ico {
+        flex: none;
+        width: 1.2rem;
+        height: 1.2rem;
+        border-radius: var(--r-pill);
+        display: grid;
+        place-items: center;
+        background: var(--warn);
+        color: var(--surface);
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+
+      .prose {
+        display: grid;
+        gap: 0.4rem;
+      }
+      .prose > .lab {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        font-size: var(--t-small);
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .prose > .lab .req {
+        font-size: var(--t-micro);
+        font-weight: 600;
+        color: var(--warn);
+      }
+      .prose > .lab .opt-tag {
+        font-size: var(--t-micro);
+        font-weight: 500;
+        color: var(--faint);
+      }
+      .prose > .hint {
+        font-size: var(--t-micro);
+        color: var(--muted);
+        max-width: 82ch;
+      }
+
+      .box-text {
+        width: 100%;
+        min-height: 7.5rem;
+        padding: var(--sp-3);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+        font-size: var(--t-input);
+        line-height: 1.65;
+        resize: vertical;
+        display: block;
+        white-space: pre-wrap;
+      }
+      .box-text[data-state="empty"] {
+        color: var(--faint);
+        background: var(--surface-2);
+      }
+      .box-text[data-state="outstanding"] {
+        border-color: var(--warn);
+        background: var(--warn-wash);
+        color: var(--muted);
+      }
+      .box-text[data-state="over"] {
+        border-color: var(--crit);
+        background: var(--crit-wash);
+      }
+
+      .meter {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+        font-size: var(--t-micro);
+        color: var(--faint);
+      }
+      .meter .count {
+        color: var(--muted);
+      }
+      .meter[data-tone="warn"] .count {
+        color: var(--warn);
+        font-weight: 650;
+      }
+      .meter[data-tone="crit"] .count {
+        color: var(--crit);
+        font-weight: 700;
+      }
+      .meter .track {
+        flex: 0 1 6rem;
+        height: 0.2rem;
+        min-width: 3.5rem;
+        border-radius: var(--r-pill);
+        background: var(--sunken);
+        overflow: hidden;
+      }
+      .meter .track > i {
+        display: block;
+        height: 100%;
+        background: var(--rule-3);
+        border-radius: inherit;
+      }
+      .meter[data-tone="warn"] .track > i {
+        background: var(--warn);
+      }
+      .meter[data-tone="crit"] .track > i {
+        background: var(--crit);
+      }
+
+      /* ═══ DESTINATIONS ════════════════════════════════════════════════════════════════ */
+      .dests {
+        display: grid;
+        gap: var(--sp-3);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        clear: both;
+      }
+      .dest {
+        display: grid;
+        gap: var(--sp-3);
+        padding: var(--sp-4);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r);
+        background: var(--surface);
+        transition:
+          border-color 130ms var(--ease),
+          background 130ms var(--ease);
+      }
+      .dest:hover {
+        border-color: var(--rule-3);
+      }
+      .dest[data-state="chosen"] {
+        border-color: var(--accent);
+        background: var(--accent-wash);
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+      .dest[data-state="refused"] {
+        background: var(--surface-2);
+        border-color: var(--crit-edge);
+      }
+      .dest-head {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+      }
+      .dest-head .name {
+        font-size: var(--t-lead);
+        font-weight: 650;
+        letter-spacing: -0.012em;
+        margin-right: 0.15rem;
+      }
+      .box {
+        flex: none;
+        width: 1.2rem;
+        height: 1.2rem;
+        border: 1.5px solid var(--rule-3);
+        border-radius: var(--r-xs);
+        display: inline-grid;
+        place-items: center;
+        background: var(--surface);
+        color: var(--on-accent);
+        font-size: 0.72rem;
+        font-weight: 700;
+      }
+      .dest[data-state="chosen"] .box {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .why {
+        margin: 0;
+        font-size: var(--t-small);
+        color: var(--muted);
+        max-width: 74ch;
+      }
+      .why b {
+        color: var(--ink-2);
+        font-weight: 650;
+      }
+
+      /* A destination's own question, on its own card, where its description stays attached. */
+      .dest-ask {
+        display: grid;
+        gap: var(--sp-2);
+        padding-top: var(--sp-1);
+      }
+      .dest-ask > .lab {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        font-size: var(--t-small);
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .dest-ask > .lab .state {
+        margin-left: auto;
+        font-size: var(--t-micro);
+        font-weight: 600;
+        color: var(--warn);
+      }
+      .picks {
+        display: grid;
+        gap: 0.4rem;
+        grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+      }
+      .pick {
+        min-height: var(--tap);
+        padding: 0 var(--sp-3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        font-size: var(--t-small);
+        color: var(--ink-2);
+      }
+      .pick[aria-pressed="true"] {
+        border-color: var(--accent);
+        background: var(--accent-wash);
+        color: var(--accent-strong);
+        font-weight: 650;
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+
+      .cap {
+        display: grid;
+        gap: 0.45rem;
+      }
+      .cap-bar {
+        display: flex;
+        height: 0.4rem;
+        border-radius: var(--r-pill);
+        overflow: hidden;
+        background: var(--sunken);
+      }
+      .cap-bar i {
+        display: block;
+        height: 100%;
+      }
+      .cap-key {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.9rem;
+        font-size: var(--t-micro);
+        color: var(--muted);
+      }
+      .cap-key span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+      .cap-key b {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink);
+      }
+      .sw {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 2px;
+        flex: none;
+      }
+      .figs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem 1rem;
+        font-size: var(--t-micro);
+        color: var(--muted);
+      }
+      .figs .f {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.3rem;
+      }
+      .figs .f b {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: var(--t-small);
+        color: var(--ink);
+      }
+
+      .fanout {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: flex-start;
+        padding: var(--sp-3) var(--sp-4);
+        border: 1px solid var(--warn-edge);
+        border-radius: var(--r-sm);
+        background: var(--warn-wash);
+        font-size: var(--t-small);
+        color: var(--ink-2);
+      }
+      .fanout p {
+        margin: 0;
+        max-width: 76ch;
+      }
+      .fanout b {
+        color: var(--ink);
+        font-weight: 650;
+      }
+      .fanout .ico {
+        flex: none;
+        width: 1.2rem;
+        height: 1.2rem;
+        border-radius: var(--r-pill);
+        display: grid;
+        place-items: center;
+        background: var(--warn);
+        color: var(--surface);
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+
+      /* ═══ SEND ════════════════════════════════════════════════════════════════════════ */
+      .send {
+        position: sticky;
+        bottom: 0;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-4);
+        flex-wrap: wrap;
+        margin-top: var(--sp-2);
+        padding: var(--sp-3) var(--sp-4);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r) var(--r) 0 0;
+        background: color-mix(in srgb, var(--surface) 94%, transparent);
+        backdrop-filter: blur(12px);
+        box-shadow: var(--lift);
+      }
+      .send .btn {
+        flex: none;
+      }
+      .send p {
+        margin: 0;
+        font-size: var(--t-small);
+        color: var(--muted);
+        flex: 1 1 16rem;
+        min-width: 0;
+      }
+      .send p b {
+        color: var(--warn);
+        font-weight: 650;
+      }
+
+      /* ═══ RAIL ════════════════════════════════════════════════════════════════════════ */
+      @media (min-width: 72rem) {
+        .rail {
+          position: sticky;
+          top: calc(var(--bar) + 0.5rem);
+          display: grid;
+          gap: var(--sp-4);
+          align-content: start;
+        }
+      }
+      @media (max-width: 71.999rem) {
+        .rail {
+          display: grid;
+          gap: var(--sp-4);
+        }
+      }
+
+      .record {
+        display: grid;
+        margin: 0;
+      }
+      .record > div {
+        display: grid;
+        grid-template-columns: 7.5rem minmax(0, 1fr);
+        gap: var(--sp-3);
+        align-items: baseline;
+        padding: 0.4rem 0;
+      }
+      .record > div + div {
+        border-top: 1px solid var(--rule);
+      }
+      .record dd {
+        margin: 0;
+        font-size: var(--t-small);
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+      .record dd.absent {
+        color: var(--warn);
+      }
+      .record dd .hint {
+        color: var(--faint);
+      }
+      /* The history is reported, never previewed: a truncated preview implies something read it. */
+      .record > div.is-story {
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+        margin-top: var(--sp-2);
+        padding: var(--sp-3);
+        border: 1px solid var(--warn-edge);
+        border-radius: var(--r-sm);
+        background: var(--warn-wash);
+      }
+      .record .story-tag {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: var(--t-micro);
+        font-weight: 650;
+        color: var(--warn);
+      }
+      .record .story-say {
+        font-size: var(--t-micro);
+        color: var(--ink-2);
+      }
+      .record .story-say b {
+        color: var(--ink);
+      }
+
+      .consq {
+        display: grid;
+        gap: var(--sp-3);
+      }
+      .consq p {
+        margin: 0;
+        font-size: var(--t-small);
+        color: var(--muted);
+      }
+      .consq p b {
+        color: var(--ink);
+        font-weight: 650;
+      }
+      /* The second home of the removed banner. */
+      .consq .device {
+        margin-top: var(--sp-1);
+        padding-top: var(--sp-3);
+        border-top: 1px solid var(--rule);
+        font-size: var(--t-micro);
+        color: var(--faint);
+      }
+      .consq .device b {
+        color: var(--ink-2);
+        font-weight: 650;
+      }
+
+      /* ═══ APPENDIX ════════════════════════════════════════════════════════════════════ */
+      .appendix {
+        margin-top: var(--sp-7);
+        border-top: 1px solid var(--rule-2);
+        padding-top: var(--sp-5);
+      }
+      .appendix > h2 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+      }
+      .appendix > .lede {
+        margin-bottom: var(--sp-5);
+      }
+      .spec {
+        display: grid;
+        gap: var(--sp-3);
+        margin-bottom: var(--sp-6);
+      }
+      .spec > h3 {
+        font-size: var(--t-small);
+        font-weight: 700;
+        color: var(--accent-strong);
+      }
+      .spec > .capt {
+        font-size: var(--t-small);
+        color: var(--muted);
+        max-width: 82ch;
+      }
+      .gallery {
+        display: grid;
+        gap: var(--sp-3);
+        grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+      }
+      .demo {
+        border: 1px solid var(--rule);
+        border-radius: var(--r-sm);
+        padding: var(--sp-3);
+        background: var(--surface);
+      }
+      .demo > .t {
+        display: block;
+        margin-bottom: var(--sp-2);
+        font-size: var(--t-micro);
+        font-weight: 650;
+        color: var(--faint);
+      }
+
+      .swatches {
+        display: grid;
+        gap: var(--sp-2);
+        grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      }
+      .tone {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        padding: var(--sp-2) var(--sp-3);
+        border: 1px solid var(--rule);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        font-size: var(--t-small);
+      }
+      .tone .blk {
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: var(--r-xs);
+        flex: none;
+        border: 1px solid var(--rule-2);
+      }
+      .tone .mean {
+        color: var(--muted);
+        font-size: var(--t-micro);
+        display: block;
+      }
+
+      .rules {
+        margin: 0;
+        padding-left: 1.2rem;
+        font-size: var(--t-small);
+        color: var(--muted);
+        display: grid;
+        gap: var(--sp-2);
+        max-width: 88ch;
+      }
+      .rules b {
+        color: var(--ink-2);
+      }
+      .rules li[data-tone="crit"] b {
+        color: var(--crit);
+      }
+
+      .opens {
+        display: grid;
+        gap: var(--sp-2);
+      }
+      .open {
+        display: grid;
+        gap: 0.25rem;
+        padding: var(--sp-3);
+        border: 1px solid var(--rule);
+        border-left: 2px solid var(--rule-3);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        font-size: var(--t-small);
+      }
+      .open .q {
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .open .a {
+        color: var(--muted);
+        max-width: 86ch;
+      }
+      .open .a b {
+        color: var(--ink-2);
+        font-weight: 650;
+      }
+
+      .foot {
+        margin-top: var(--sp-6);
+        padding-top: var(--sp-4);
+        border-top: 1px solid var(--rule-2);
+        font-size: var(--t-micro);
+        color: var(--muted);
+        line-height: 1.7;
+        max-width: 92ch;
+      }
+      .foot b {
+        color: var(--ink-2);
+        font-weight: 650;
+      }
+
+      /* ═══ FORCED COLOURS ══════════════════════════════════════════════════════════════ */
+      @media (forced-colors: active) {
+        .chip,
+        .dest,
+        .panel,
+        .anchor,
+        .box-text,
+        .opt,
+        .pick,
+        .fauxselect,
+        .story-warn,
+        .fanout,
+        .whotag,
+        .protochip {
+          border: 1px solid CanvasText;
+        }
+        .opt[aria-pressed="true"],
+        .pick[aria-pressed="true"],
+        .dest[data-state="chosen"] {
+          outline: 2px solid Highlight;
+          outline-offset: -2px;
+        }
+        .stat .bar > i,
+        .cap-bar i,
+        .meter .track > i {
+          forced-color-adjust: none;
+        }
+      }
+
+      /* ═══ PRINT ═══════════════════════════════════════════════════════════════════════
+         Every state carried by a wash on screen must ALSO be carried by a border or a word,
+         because a mono printer keeps neither the wash nor the colour. */
+      @media print {
+        :root {
+          color-scheme: light;
+        }
+        body {
+          background: #fff;
+          color: #000;
+          font-size: 10.5pt;
+        }
+        .topbar,
+        .skip,
+        .send,
+        .anchor-acts,
+        .appendix {
+          display: none !important;
+        }
+        .shell {
+          max-width: none;
+          padding: 0;
+        }
+        .workspace {
+          display: block;
+        }
+        .rail {
+          margin-top: 1rem;
+          break-inside: avoid;
+        }
+        .step {
+          break-inside: avoid;
+        }
+        .panel,
+        .anchor,
+        .dest,
+        .box-text,
+        .story-warn,
+        .fanout,
+        .demo {
+          box-shadow: none !important;
+          background: #fff !important;
+          color: #000 !important;
+          border: 1px solid #000 !important;
+        }
+        .chip {
+          border: 1px solid #000 !important;
+          background: #fff !important;
+          color: #000 !important;
+        }
+        .box-text {
+          min-height: auto;
+        }
+        .dlabel,
+        .why,
+        .note,
+        .hint,
+        .meter,
+        .consq p,
+        .record dd,
+        .fact dd,
+        .stat .k {
+          color: #000 !important;
+        }
+        a {
+          color: #000 !important;
+          text-decoration: underline;
+        }
+        .node {
+          box-shadow: none !important;
+          border: 1px solid #000 !important;
+          background: #fff !important;
+          color: #000 !important;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <a class="skip" href="#form">Skip to the referral form</a>
+
+    <!-- ═══════════════ TOP STRIP — rebuilt in v6 ═══════════════ -->
+    <header class="topbar">
+      <a class="back" href="#"><span class="arw" aria-hidden="true">&larr;</span> Referrals</a>
+      <span class="sep" aria-hidden="true"></span>
+      <span class="here">Raise a referral</span>
+      <span class="spacer"></span>
+      <span class="protochip"><i aria-hidden="true"></i> Synthetic prototype</span>
+      <a class="whotag" href="#"
+        ><span class="nm">Maya Whitlock</span> <span class="umrn">41 88 207</span>
+        <span class="arw" aria-hidden="true">&rarr;</span></a
+      >
+    </header>
+
+    <main class="shell">
+      <!-- ═══════════════ MASTHEAD ═══════════════ -->
+      <div class="masthead">
+        <div>
+          <h1>Raise a referral</h1>
+          <p class="lede">
+            One form for every source &mdash; community, crisis service, police, ambulance or another hospital.
+          </p>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <span class="k">Answered</span><span class="fig">10<span class="of"> / 12</span></span
+            ><span class="bar"><i style="width: 83%"></i></span>
+          </div>
+          <div class="stat" data-tone="warn"><span class="k">Outstanding</span><span class="fig">2</span></div>
+          <div class="stat" data-tone="warn">
+            <span class="k">History written</span><span class="fig">1<span class="of"> / 3</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════ PATIENT BOX — rebuilt in v6 ═══════════════ -->
+      <section class="anchor" aria-labelledby="anchor-h">
+        <div class="anchor-top">
+          <span class="avatar" aria-hidden="true">MW</span>
+
+          <div class="who">
+            <h2 id="anchor-h">Maya Whitlock</h2>
+            <p class="sub">
+              <span class="umrn">41 88 207</span>
+              <span class="dotsep" aria-hidden="true">&middot;</span>
+              <span>34 years</span>
+              <span class="dotsep" aria-hidden="true">&middot;</span>
+              <span>Known as Maya</span>
+              <span class="chip" data-tone="accent"><i class="dot"></i> Voluntary</span>
+            </p>
+          </div>
+
+          <div class="anchor-acts">
+            <a class="btn btn--sm" href="#">Refer a different person</a>
+            <a class="btn btn--primary btn--sm" href="#">View full profile</a>
+          </div>
+        </div>
+
+        <dl class="facts">
+          <div class="fact">
+            <dt class="dlabel">Date of birth</dt>
+            <dd><span class="n">14 Mar 1991</span></dd>
+          </div>
+          <div class="fact">
+            <dt class="dlabel">Sex</dt>
+            <dd>Female</dd>
+          </div>
+          <div class="fact">
+            <dt class="dlabel">Suburb</dt>
+            <dd>Fremantle</dd>
+          </div>
+          <div class="fact">
+            <dt class="dlabel">Catchment team</dt>
+            <dd>Fremantle Adult CMHS</dd>
+          </div>
+          <div class="fact">
+            <dt class="dlabel">General practitioner</dt>
+            <dd class="absent">Not recorded</dd>
+          </div>
+          <div class="fact">
+            <dt class="dlabel">Further identity facts</dt>
+            <dd><a href="#">Two, on the profile</a></dd>
+          </div>
+        </dl>
+
+        <div class="anchor-foot">
+          <span class="pointer"><span class="key">patient</span> <span class="n">PT-014</span></span>
+          <p>
+            <b>The structured referral carries the pointer above &mdash; an id, and nothing else.</b> Name, date of
+            birth and record number are shown here so you know who you are referring, and none of them is copied into
+            the referral for you. <b>The written history is the exception:</b> whatever you type there is sent as you
+            typed it.
+          </p>
+        </div>
+      </section>
+
+      <!-- ═══════════════ WORKSPACE ═══════════════ -->
+      <div class="workspace" id="form">
+        <div class="steps">
+          <!-- ── step 1 ── -->
+          <section class="step" data-state="done">
+            <span class="node" aria-hidden="true">&#10003;</span>
+            <div class="panel">
+              <header>
+                <h3>
+                  Who the referral is about<span class="sub"
+                    >Structured facts only &mdash; no name, no record number</span
+                  >
+                </h3>
+                <span class="chip" data-tone="good"><i class="dot"></i> Complete</span>
+              </header>
+              <div class="body">
+                <div class="grid2">
+                  <div class="field" data-state="answered">
+                    <span class="lab">Age band <span class="state">Answered</span></span>
+                    <span class="fauxselect">Adult</span>
+                  </div>
+                  <div class="field" data-state="answered">
+                    <span class="lab">Sex <span class="state">Answered</span></span>
+                    <span class="fauxselect">Female</span>
+                  </div>
+                  <div class="field" data-state="answered">
+                    <span class="lab">Home region <span class="state">Answered</span></span>
+                    <span class="fauxselect">South Metropolitan</span>
+                  </div>
+                  <div class="field" data-state="answered">
+                    <span class="lab">Suburb <span class="state">Answered</span></span>
+                    <span class="fauxselect">Fremantle</span>
+                    <p class="note">Read against the catchment table for every destination below.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── step 2 ── -->
+          <section class="step" data-state="done">
+            <span class="node" aria-hidden="true">&#10003;</span>
+            <div class="panel">
+              <header>
+                <h3>What they need<span class="sub">Recorded as given &mdash; nothing here is inferred</span></h3>
+                <span class="chip" data-tone="warn"><i class="dot"></i> 2 outstanding</span>
+              </header>
+              <div class="body">
+                <div class="grid2">
+                  <div class="field" data-state="answered">
+                    <span class="lab">Referral source <span class="state">Answered</span></span>
+                    <span class="fauxselect">Community</span>
+                  </div>
+                  <div class="field" data-state="answered">
+                    <span class="lab">Urgency <span class="state">Answered</span></span>
+                    <span class="fauxselect">2 &mdash; within 24 hours</span>
+                    <p class="note">Recorded from the referrer. Nothing on this screen derives an urgency.</p>
+                  </div>
+                  <div class="field" data-state="outstanding">
+                    <span class="lab">Origin site <span class="state">Outstanding</span></span>
+                    <span class="fauxselect">Choose one</span>
+                    <p class="note" data-tone="warn">Still to answer</p>
+                  </div>
+                </div>
+
+                <div class="grid2">
+                  <fieldset>
+                    <legend>Needs a secure bed</legend>
+                    <div class="yesno"><span class="opt" aria-pressed="true">Yes</span><span class="opt">No</span></div>
+                  </fieldset>
+                  <fieldset>
+                    <legend>Needs a bed that can hold someone involuntarily</legend>
+                    <div class="yesno"><span class="opt">Yes</span><span class="opt" aria-pressed="true">No</span></div>
+                  </fieldset>
+                  <fieldset data-state="outstanding">
+                    <legend>Needs transport</legend>
+                    <div class="yesno"><span class="opt">Yes</span><span class="opt">No</span></div>
+                    <p class="note" data-tone="warn">Still to answer</p>
+                  </fieldset>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── step 3 — the written history ── -->
+          <section class="step" data-state="now">
+            <span class="node" aria-hidden="true">3</span>
+            <div class="panel">
+              <header>
+                <h3>
+                  The history<span class="sub">Written by you, sent word for word &mdash; nothing here is checked</span>
+                </h3>
+                <span class="chip" data-tone="warn"><i class="dot"></i> 1 of 3 written</span>
+              </header>
+              <div class="body">
+                <div class="story">
+                  <div class="story-warn">
+                    <span class="ico" aria-hidden="true">!</span>
+                    <div>
+                      <p>
+                        <b>This is the only part of the referral that is free text.</b> It is stored and sent exactly as
+                        written, to every destination you choose below. Nothing on this screen reads it, checks it, or
+                        takes it out again.
+                      </p>
+                      <p>
+                        Other people mentioned here &mdash; family, a neighbour, a witness &mdash; are recorded too, and
+                        they have not agreed to that. Write what the receiving team needs to act on, and no more.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="prose">
+                    <span class="lab">Why now <span class="req">Required</span></span>
+                    <span class="hint">What has happened, and what has changed to make this a referral today.</span>
+                    <div class="box-text">
+                      Seen at home this morning by the crisis team after her sister called. Three nights without sleep,
+                      describing her flat as &ldquo;being listened to&rdquo;. Has stopped her olanzapine about two weeks
+                      ago &mdash; says it made her feel flat. Agreed to come in voluntarily but is anxious about the
+                      drive.
+                    </div>
+                    <div class="meter">
+                      <span class="count">312 / 1500</span><span class="track"><i style="width: 21%"></i></span
+                      ><span>Sent word for word</span>
+                    </div>
+                  </div>
+
+                  <div class="prose">
+                    <span class="lab">Background <span class="opt-tag">Optional</span></span>
+                    <span class="hint">Relevant history, current treatment, and what has already been tried.</span>
+                    <div class="box-text" data-state="empty">Not written yet</div>
+                    <div class="meter">
+                      <span class="count">0 / 2000</span><span class="track"><i style="width: 0%"></i></span
+                      ><span>The referral can be sent without it</span>
+                    </div>
+                  </div>
+
+                  <div class="prose">
+                    <span class="lab">Risk and safety <span class="opt-tag">Optional</span></span>
+                    <span class="hint"
+                      >Anything the receiving team must know before they meet this person. This is a note to them, not a
+                      risk assessment, and the software does not treat it as one.</span
+                    >
+                    <div class="box-text" data-state="empty">Not written yet</div>
+                    <div class="meter">
+                      <span class="count">0 / 1000</span><span class="track"><i style="width: 0%"></i></span
+                      ><span>Never scored</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── step 4 — where to refer ── -->
+          <section class="step">
+            <span class="node" aria-hidden="true">4</span>
+            <div class="panel">
+              <header>
+                <h3>
+                  Where to refer<span class="sub">Up to three, chosen in one act &mdash; this view ranks nothing</span>
+                </h3>
+                <span class="chip" data-tone="accent"><i class="dot"></i> 2 chosen</span>
+              </header>
+              <div class="body">
+                <ul class="dests">
+                  <li class="dest" data-state="chosen">
+                    <div class="dest-head">
+                      <span class="box" aria-hidden="true">&#10003;</span>
+                      <span class="name">Psychiatric ward</span>
+                      <span class="chip" data-tone="good"><i class="dot"></i> In catchment</span>
+                      <span class="chip">7 units accept</span>
+                    </div>
+                    <p class="why">
+                      Fremantle sits in the South Metropolitan catchment. Units are listed in the network&rsquo;s own
+                      fixed order &mdash; <b>nothing here ranks a ward, and nothing here places anybody</b>.
+                    </p>
+                    <div class="cap">
+                      <div class="cap-bar" role="img" aria-label="Of 20 beds: 3 ready, 2 held, 15 occupied">
+                        <i style="width: 15%; background: var(--good)"></i
+                        ><i style="width: 10%; background: var(--warn)"></i
+                        ><i style="width: 75%; background: var(--rule-2)"></i>
+                      </div>
+                      <div class="cap-key">
+                        <span><i class="sw" style="background: var(--good)"></i> <b>3</b> ready</span>
+                        <span><i class="sw" style="background: var(--warn)"></i> <b>2</b> held</span>
+                        <span><i class="sw" style="background: var(--rule-2)"></i> <b>15</b> occupied</span>
+                      </div>
+                    </div>
+                    <div class="figs">
+                      <span class="f"><b>2</b> referrals waiting</span>
+                      <span class="f"><b>41</b> min median answer</span>
+                      <span class="f">Secure beds <b>available</b></span>
+                    </div>
+                  </li>
+
+                  <li class="dest" data-state="chosen">
+                    <div class="dest-head">
+                      <span class="box" aria-hidden="true">&#10003;</span>
+                      <span class="name">Emergency department</span>
+                      <span class="chip" data-tone="good"><i class="dot"></i> In catchment</span>
+                    </div>
+                    <p class="why">Fiona Stanley Hospital is the catchment emergency department for Fremantle.</p>
+                    <div class="dest-ask">
+                      <span class="lab"
+                        >What is the department being asked for? <span class="state">Outstanding</span></span
+                      >
+                      <div class="picks">
+                        <span class="pick">A bed</span>
+                        <span class="pick">Psychiatric review</span>
+                        <span class="pick">Medical assessment</span>
+                      </div>
+                    </div>
+                    <div class="figs">
+                      <span class="f"><b>4</b> departments accept</span><span class="f"><b>1</b> referral waiting</span>
+                    </div>
+                  </li>
+
+                  <li class="dest" data-state="refused">
+                    <div class="dest-head">
+                      <span class="box" aria-hidden="true"></span>
+                      <span class="name">Community team</span>
+                      <span class="chip" data-tone="warn"><i class="dot"></i> Out of catchment</span>
+                      <span class="chip" data-tone="crit"><i class="dot"></i> Not with a bed request</span>
+                    </div>
+                    <p class="why">
+                      Still offered and still sendable &mdash; asking outside the catchment is legitimate, and this
+                      screen records the choice rather than blocking it. It cannot travel on the same referral as a
+                      psychiatric bed: <b>send those as two</b>. Choosing it here would ask which team.
+                    </p>
+                  </li>
+                </ul>
+
+                <div class="fanout">
+                  <span class="ico" aria-hidden="true">!</span>
+                  <p>
+                    <b>Two destinations are chosen, so the history you wrote above goes to both of them, in full.</b>
+                    There is no way to send a shorter version to one of them. If part of the history is meant for only
+                    one team, send two referrals.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div class="send">
+            <button class="btn btn--primary" type="button" aria-disabled="true">Send referral</button>
+            <p>
+              Not yet answered: <b>Origin site</b>, <b>Needs transport</b>, <b>What the department is asked for</b>. The
+              button stays reachable and focusable so the reason can be read aloud.
+            </p>
+          </div>
+        </div>
+
+        <!-- ── rail ── -->
+        <aside class="rail">
+          <section class="panel">
+            <header>
+              <h3>What this referral will record<span class="sub">Updates as you answer</span></h3>
+            </header>
+            <div class="body" style="gap: var(--sp-3)">
+              <dl class="record">
+                <div>
+                  <dt class="dlabel">Person</dt>
+                  <dd><span class="n">PT-014</span> <span class="hint">&mdash; pointer only</span></dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Age band</dt>
+                  <dd>Adult</dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Sex</dt>
+                  <dd>Female</dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Home region</dt>
+                  <dd>South Metropolitan</dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Suburb</dt>
+                  <dd>Fremantle</dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Source</dt>
+                  <dd>Community</dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Urgency</dt>
+                  <dd>2</dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Origin site</dt>
+                  <dd class="absent">Not answered yet</dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Secure bed</dt>
+                  <dd>Yes</dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Involuntary bed</dt>
+                  <dd>No</dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Transport</dt>
+                  <dd class="absent">Not answered yet</dd>
+                </div>
+                <div>
+                  <dt class="dlabel">Destinations</dt>
+                  <dd>Psychiatric ward, Emergency department</dd>
+                </div>
+
+                <div class="is-story">
+                  <span class="story-tag"><span aria-hidden="true">&#9998;</span> Written history</span>
+                  <span class="story-say"
+                    ><b>1 of 3 sections</b> &middot; <span class="count">312</span> characters &middot; sent word for
+                    word to <b>both</b> destinations.</span
+                  >
+                  <span class="story-say"
+                    >Not shown here on purpose: a preview would suggest something had checked it.</span
+                  >
+                </div>
+              </dl>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header><h3>What sending does</h3></header>
+            <div class="body consq">
+              <p>Sending records the request and puts it in front of a coordinator.</p>
+              <p>It <b>places nobody</b>: a coordinator decides every placement, one at a time.</p>
+              <p>
+                <b>Maya&rsquo;s name is not written into the structured referral</b> &mdash; the receiving team opens
+                her record through the pointer, where access is theirs to have or not.
+                <b>Whatever you typed in the history is sent as written</b>, including a name if you put one there.
+              </p>
+              <p class="device">
+                <b>This form is not a medical device.</b> It records a request and a written account of it. It does not
+                assess, score, rank or diagnose, and no field on it holds a figure from the Mental Health Act.
+              </p>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <!-- ═══════════════ APPENDIX ═══════════════ -->
+      <section class="appendix">
+        <h2>Appendix &mdash; every state, drawn</h2>
+        <p class="lede">
+          This is the part that makes the design lockable. A state not drawn here is a state somebody invents later.
+        </p>
+
+        <div class="spec">
+          <h3>1 &middot; What each colour means</h3>
+          <p class="capt">
+            Colour is never decoration on this screen. If a thing is coloured, the colour is the claim. v6 uses it less
+            often than v5, so it carries further when it appears.
+          </p>
+          <div class="swatches">
+            <div class="tone">
+              <span class="blk" style="background: var(--accent)"></span
+              ><span><b>Accent</b><span class="mean">Chosen by you &middot; the current step</span></span>
+            </div>
+            <div class="tone">
+              <span class="blk" style="background: var(--good)"></span
+              ><span
+                ><b>Green</b><span class="mean">In catchment &middot; answered &middot; a bed ready now</span></span
+              >
+            </div>
+            <div class="tone">
+              <span class="blk" style="background: var(--warn)"></span
+              ><span
+                ><b>Amber</b
+                ><span class="mean"
+                  >Outstanding &middot; out of catchment &middot; a bed held &middot; free text leaving the screen</span
+                ></span
+              >
+            </div>
+            <div class="tone">
+              <span class="blk" style="background: var(--crit)"></span
+              ><span><b>Red</b><span class="mean">Refused combination &middot; over the character limit</span></span>
+            </div>
+            <div class="tone">
+              <span class="blk" style="background: var(--rule-2)"></span
+              ><span
+                ><b>No colour</b
+                ><span class="mean"
+                  >Occupied &middot; not applicable &middot; not recorded &middot; a count of the network</span
+                ></span
+              >
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>2 &middot; The four field states</h3>
+          <p class="capt">Every structured question renders as exactly one of these. There is no fifth.</p>
+          <div class="gallery">
+            <div class="demo">
+              <span class="t">Answered</span>
+              <div class="field" data-state="answered">
+                <span class="lab">Urgency <span class="state">Answered</span></span
+                ><span class="fauxselect">2 &mdash; within 24 hours</span>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Outstanding</span>
+              <div class="field" data-state="outstanding">
+                <span class="lab">Origin site <span class="state">Outstanding</span></span
+                ><span class="fauxselect">Choose one</span>
+                <p class="note" data-tone="warn">Still to answer</p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Not applicable</span>
+              <div class="field" data-state="na">
+                <span class="lab">Receiving team <span class="state">Not applicable</span></span
+                ><span class="fauxselect">Only asked for a community referral</span>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Refused</span>
+              <div class="field" data-state="error">
+                <span class="lab">Destination</span><span class="fauxselect">Ward + community team</span>
+                <p class="note" data-tone="crit">
+                  A bed request and a community referral cannot travel together. Send them as two.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>3 &middot; The written history, in all four of its states</h3>
+          <p class="capt">
+            Free text has its own states because its failure modes are its own. It is never green: green on this screen
+            means something was checked, and nothing checks this.
+          </p>
+          <div class="gallery">
+            <div class="demo">
+              <span class="t">Empty &mdash; optional</span>
+              <div class="prose">
+                <span class="lab">Background <span class="opt-tag">Optional</span></span>
+                <div class="box-text" style="min-height: 4rem" data-state="empty">Not written yet</div>
+                <div class="meter">
+                  <span class="count">0 / 2000</span><span class="track"><i style="width: 0%"></i></span>
+                </div>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Empty &mdash; required, and blocking</span>
+              <div class="prose">
+                <span class="lab">Why now <span class="req">Required</span></span>
+                <div class="box-text" style="min-height: 4rem" data-state="outstanding">
+                  Still to write &mdash; the referral cannot be sent without it
+                </div>
+                <div class="meter" data-tone="warn">
+                  <span class="count">0 / 1500</span><span class="track"><i style="width: 0%"></i></span>
+                </div>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Written</span>
+              <div class="prose">
+                <span class="lab">Why now <span class="req">Required</span></span>
+                <div class="box-text" style="min-height: 4rem">
+                  Seen at home this morning by the crisis team after her sister called. Three nights without
+                  sleep&hellip;
+                </div>
+                <div class="meter">
+                  <span class="count">312 / 1500</span><span class="track"><i style="width: 21%"></i></span
+                  ><span>Sent word for word</span>
+                </div>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Over the limit &mdash; blocking</span>
+              <div class="prose">
+                <span class="lab">Why now <span class="req">Required</span></span>
+                <div class="box-text" style="min-height: 4rem" data-state="over">
+                  &hellip;and the remainder of the account, which now runs past what this field holds.
+                </div>
+                <div class="meter" data-tone="crit">
+                  <span class="count">1614 / 1500</span><span class="track"><i style="width: 100%"></i></span
+                  ><span>114 over &mdash; nothing is truncated for you</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>4 &middot; The patient box, in all three of its states</h3>
+          <p class="capt">
+            The form can be opened three ways, and each is a different truth about who it is for. None may be faked.
+          </p>
+          <div class="gallery">
+            <div class="demo">
+              <span class="t">A &middot; Opened from a person&rsquo;s record</span>
+              <div class="anchor" style="box-shadow: none">
+                <div class="anchor-top" style="padding: var(--sp-3)">
+                  <span class="avatar" aria-hidden="true" style="width: 2.5rem; height: 2.5rem; font-size: 0.875rem"
+                    >MW</span
+                  >
+                  <div class="who">
+                    <h3 style="font-size: var(--t-lead); font-weight: 700">Maya Whitlock</h3>
+                    <p class="sub">
+                      <span class="umrn">41 88 207</span> <span class="dotsep">&middot;</span> <span>34 years</span>
+                    </p>
+                  </div>
+                </div>
+                <div class="anchor-foot" style="padding: var(--sp-2) var(--sp-3)">
+                  <span class="pointer"><span class="key">patient</span> <span class="n">PT-014</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="demo">
+              <span class="t">B &middot; Opened directly &mdash; no person attached</span>
+              <div class="anchor" style="box-shadow: none">
+                <div class="anchor-top" style="padding: var(--sp-3)">
+                  <span
+                    class="avatar"
+                    aria-hidden="true"
+                    style="
+                      width: 2.5rem;
+                      height: 2.5rem;
+                      font-size: 0.875rem;
+                      background: var(--sunken);
+                      color: var(--faint);
+                      border-color: var(--rule-2);
+                    "
+                    >&mdash;</span
+                  >
+                  <div class="who">
+                    <h3 style="font-size: var(--t-lead); font-weight: 700">No person attached</h3>
+                    <p class="sub">This referral will carry no pointer. It can still be sent.</p>
+                  </div>
+                </div>
+                <div class="anchor-foot" style="padding: var(--sp-2) var(--sp-3)">
+                  <a class="btn btn--quiet btn--sm" href="#">Find a person</a>
+                </div>
+              </div>
+            </div>
+
+            <div class="demo">
+              <span class="t">C &middot; The link names somebody unknown</span>
+              <div class="anchor" style="box-shadow: none; border-color: var(--crit-edge)">
+                <div class="anchor-top" style="padding: var(--sp-3)">
+                  <span
+                    class="avatar"
+                    aria-hidden="true"
+                    style="
+                      width: 2.5rem;
+                      height: 2.5rem;
+                      font-size: 0.875rem;
+                      background: var(--crit-wash);
+                      color: var(--crit);
+                      border-color: var(--crit-edge);
+                    "
+                    >!</span
+                  >
+                  <div class="who">
+                    <h3 style="font-size: var(--t-lead); font-weight: 700">This link names nobody we know</h3>
+                    <p class="sub">
+                      It names &ldquo;<span class="n">PT-9999</span>&rdquo;. The form does not open on a guess.
+                    </p>
+                  </div>
+                </div>
+                <div class="anchor-foot" style="padding: var(--sp-2) var(--sp-3)">
+                  <a class="btn btn--quiet btn--sm" href="#">Search for the person</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>5 &middot; The destination card, in all five of its states</h3>
+          <p class="capt">
+            Same information, same order, every time: name &rarr; verdict &rarr; one sentence of reason &rarr; the
+            question it asks, if it asks one &rarr; capacity &rarr; figures. Only the treatment changes.
+          </p>
+          <div class="gallery">
+            <div class="demo">
+              <span class="t">Available</span>
+              <div class="dest">
+                <div class="dest-head">
+                  <span class="box"></span><span class="name">Emergency department</span
+                  ><span class="chip" data-tone="good"><i class="dot"></i> In catchment</span>
+                </div>
+                <p class="why">Fiona Stanley is the catchment department for Fremantle.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Chosen</span>
+              <div class="dest" data-state="chosen">
+                <div class="dest-head">
+                  <span class="box">&#10003;</span><span class="name">Psychiatric ward</span
+                  ><span class="chip" data-tone="good"><i class="dot"></i> In catchment</span>
+                </div>
+                <p class="why">Seven units accept this request.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Chosen, and asking its question</span>
+              <div class="dest" data-state="chosen">
+                <div class="dest-head">
+                  <span class="box">&#10003;</span><span class="name">Community team</span
+                  ><span class="chip" data-tone="good"><i class="dot"></i> In catchment</span>
+                </div>
+                <div class="dest-ask">
+                  <span class="lab">Which team? <span class="state">Outstanding</span></span>
+                  <div class="picks">
+                    <span class="pick">Fremantle Adult</span><span class="pick">Armadale Adult</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Out of catchment &mdash; still sendable</span>
+              <div class="dest">
+                <div class="dest-head">
+                  <span class="box"></span><span class="name">Community team</span
+                  ><span class="chip" data-tone="warn"><i class="dot"></i> Out of catchment</span>
+                </div>
+                <p class="why">
+                  Offered, and sendable. Asking outside the catchment is legitimate; the screen records the choice
+                  rather than blocking it.
+                </p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Refused combination</span>
+              <div class="dest" data-state="refused">
+                <div class="dest-head">
+                  <span class="box"></span><span class="name">Community team</span
+                  ><span class="chip" data-tone="crit"><i class="dot"></i> Not with a bed request</span>
+                </div>
+                <p class="why">Cannot travel on the same referral as a psychiatric bed. <b>Send them as two.</b></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>6 &middot; Send, in all three of its states</h3>
+          <p class="capt">
+            The button never disappears and never moves. Only its reason changes, and the reason sits beside it.
+          </p>
+          <div class="gallery">
+            <div class="demo">
+              <span class="t">Blocked &mdash; questions outstanding</span>
+              <div class="send" style="position: static; box-shadow: none; border-radius: var(--r-sm)">
+                <button class="btn btn--primary" aria-disabled="true" type="button">Send referral</button>
+                <p>Not yet answered: <b>Origin site</b>, <b>Why now</b>.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Ready</span>
+              <div
+                class="send"
+                style="
+                  position: static;
+                  box-shadow: none;
+                  border-radius: var(--r-sm);
+                  border-color: var(--accent-edge);
+                  background: var(--accent-wash);
+                "
+              >
+                <button class="btn btn--primary" type="button">Send referral</button>
+                <p>Every question answered. Two destinations &mdash; the history goes to both.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Sent</span>
+              <div
+                class="send"
+                style="
+                  position: static;
+                  box-shadow: none;
+                  border-radius: var(--r-sm);
+                  border-color: var(--good-edge);
+                  background: var(--good-wash);
+                "
+              >
+                <span class="chip" data-tone="good"><i class="dot"></i> Sent</span>
+                <p>Recorded and waiting for a coordinator. <b>Nobody has been placed.</b></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>7 &middot; Rules the build must not break</h3>
+          <p class="capt">
+            Each of these is here because breaking it has already caused a defect somewhere on this system.
+          </p>
+          <ol class="rules">
+            <li>
+              <b>Tap targets stay at 48&nbsp;px.</b> Not 44. Reducing them to satisfy a generic accessibility rule
+              reintroduces a known test flake.
+            </li>
+            <li>
+              <b>The reason sits beside the Send button, never above it.</b> Reasons appear and disappear as you answer;
+              a reason above the button moves the button out from under a thumb.
+            </li>
+            <li>
+              <b>A figure beside a checkbox stays beside that checkbox</b>, and a destination&rsquo;s question stays on
+              that destination&rsquo;s card. The screen-reader announcement points at it; moving it into a rail silently
+              unhooks the description.
+            </li>
+            <li>
+              <b>Absence is written in words.</b> &ldquo;Not recorded&rdquo;, &ldquo;Not written yet&rdquo;, never a
+              blank, never a dash, never a zero. A blank reads as a value.
+            </li>
+            <li>
+              <b>Nothing on this screen ranks, scores or suggests a destination</b>, and nothing scores the history.
+              Ordering is the network&rsquo;s own fixed order, and the copy says so.
+            </li>
+            <li data-tone="crit">
+              <b>The name never enters the STRUCTURED referral &mdash; and the history is not structured.</b> Say which
+              half is enforced, every time it is said.
+            </li>
+            <li>
+              <b>Every list of options is generated from the one source of truth</b>, never retyped into a sentence.
+              Retyped enumerations produced stale copy three times &mdash; including the sentence on this very screen
+              that counted the permitted facts and was still saying &ldquo;five&rdquo; after a sixth was added.
+            </li>
+            <li data-tone="crit">
+              <b>The rail reports the history; it never previews it.</b> A truncated preview implies something read it.
+            </li>
+            <li data-tone="crit">
+              <b>Free text is never given a green state.</b> Green means checked on this screen, and nothing checks
+              this.
+            </li>
+            <li data-tone="crit">
+              <b>Nothing truncates the history silently.</b> Over the limit is a blocking, visible, counted state.
+            </li>
+            <li data-tone="crit">
+              <b>When more than one destination is chosen, the screen says the history goes to all of them</b>, before
+              the send, not after.
+            </li>
+            <li data-tone="crit">
+              <b>Removing a statement from the screen relocates it; it does not delete it.</b> v6 took the banner off
+              the top of the page at the owner&rsquo;s request. The prototype tag, the free-text warning and the
+              not-a-medical-device sentence all still exist, in three places a reader actually reaches. Check this rule
+              before removing any other sentence for reasons of appearance.
+            </li>
+          </ol>
+        </div>
+
+        <div class="spec">
+          <h3>8 &middot; Open questions the build must settle</h3>
+          <p class="capt">
+            Written down here rather than promised on screen. A screen that guarantees behaviour nobody has built is the
+            defect this project finds most often.
+          </p>
+          <div class="opens">
+            <div class="open">
+              <span class="q">What happens to a half-written history if the page reloads?</span>
+              <span class="a"
+                >Today it is lost &mdash; a reload wipes everything. Tolerable for three checkboxes,
+                <b>not tolerable for four paragraphs of a risk note</b>. Either the draft is held and the screen says
+                so, or the screen warns before leaving. It must not silently do neither.</span
+              >
+            </div>
+            <div class="open">
+              <span class="q"
+                >Can the history be edited after sending, and does the receiving team see that it changed?</span
+              >
+              <span class="a"
+                >Unanswered. If it can be edited, <b>the version the receiving team read must remain recoverable</b>, or
+                two people will be acting on different accounts of the same patient.</span
+              >
+            </div>
+            <div class="open">
+              <span class="q">Who can read the history after it is sent, and for how long?</span>
+              <span class="a"
+                >The structured fields carry no identifying content, so access has been a low-stakes question. The
+                history changes that: it is the first thing on this form that would matter if the wrong person read it.
+                <b>Needs an answer before a real patient, not before it is built.</b></span
+              >
+            </div>
+            <div class="open">
+              <span class="q">Are the three sections the right three, and are the limits right?</span>
+              <span class="a"
+                >Chosen as the smallest set that shapes the writing without becoming a clinical form: <b>why now</b>,
+                <b>background</b>, <b>risk and safety</b>. 1500 / 2000 / 1000 characters are placeholders.
+                <b>Nobody has measured a real referral against them.</b> Both are clinical judgements and belong to the
+                owner.</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <p class="foot">
+        <b>Mockup only</b> &mdash; nothing is wired, and every person, bed count, wait, median and line of history above
+        is invented. <b>This form is not a medical device.</b> The screen is drawn mid-flight on purpose, so answered,
+        outstanding, not-applicable, in-catchment, out-of-catchment, refused, written and unwritten states are all
+        visible at once. The patient box&rsquo;s fields are the ones a person record genuinely holds; where a record
+        does not hold one, it says so in words rather than leaving a gap. Dark mode is defined across the full triple,
+        print and forced-colours rules are defined, and no state on this screen is carried by colour alone.
+      </p>
+    </main>
+  </body>
+</html>
