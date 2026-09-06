@@ -9,20 +9,47 @@ import { usePhoneMedia } from "@/components/compare/use-phone-media";
 import { cn } from "@/components/ui-primitives";
 
 /**
- * Shared A/B/C identity colours for compare surfaces — soft tint, never a solid block or edge strip.
+ * Shared A/B/C/D identity colours for compare surfaces — soft tint, never a solid block or edge strip.
  *
  * Exported because the identity has to survive the trip from a selection tile to
  * wherever that slot shows up again: the formulation results table, and the
  * therapy comparison's column headers. A second local copy of these classes is
  * how a column stops matching the tile it came from.
+ *
+ * Two things decide the palette.
+ *
+ * **B is not another blue.** It was `--info`, which lands within a few degrees of
+ * `--clinical-accent`; at a 24px pip on a pale fill the two were one colour, so
+ * the hue distinguished nothing and the letter was doing all the work alone.
+ * Hue separation matters most between A and B, because every two-slot compare
+ * surface — dictionary, specifiers, formulation — only ever shows those two.
+ *
+ * **The tones are the non-semantic triads**, the same vocabulary `Chip` uses, not
+ * the six-tone status palette. `--danger`, `--warning`, `--success` and `--info`
+ * mean something on these pages — a caution row, a source that needs review — and
+ * a slot letter must not spend them on "this is the one you added second"
+ * (globals.css, category-accent block: a category is not a status).
+ *
+ * Every pairing is at least 5.6:1 in both themes.
  */
+const SLOT_BADGE_TONES = [
+  // A — the product accent, so the first slot reads as the page's own colour.
+  "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+  // B — plum. The furthest non-semantic hue from the accent, for the pair surfaces.
+  "border-[color:var(--tone-rose-border)] bg-[color:var(--tone-rose-soft)] text-[color:var(--tone-rose)]",
+  // C — violet.
+  "border-[color:var(--tone-purple-border)] bg-[color:var(--tone-purple-soft)] text-[color:var(--tone-purple)]",
+  // D — slate, the quietest of the four, for the slot only the four-up therapy
+  // comparison ever fills.
+  "border-[color:var(--tone-slate-border)] bg-[color:var(--tone-slate-soft)] text-[color:var(--tone-slate)]",
+] as const;
+
+const SLOT_BADGE_EMPTY =
+  "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]";
+
 export function compareSlotBadgeClass(index: number, filled = true) {
-  if (!filled)
-    return "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]";
-  if (index === 0)
-    return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
-  if (index === 1) return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
-  return "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]";
+  if (!filled) return SLOT_BADGE_EMPTY;
+  return SLOT_BADGE_TONES[index] ?? SLOT_BADGE_EMPTY;
 }
 
 /**
