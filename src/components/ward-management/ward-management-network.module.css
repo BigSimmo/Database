@@ -1,5 +1,6 @@
 .networkPage {
   composes: descendantKill from "./ward-reduced-motion.module.css";
+  composes: wardTokens from "./ward-tokens.module.css";
   --net-canvas: var(--surface);
   --net-subtle: var(--surface-subtle);
   --net-chrome: var(--surface-chrome);
@@ -11,20 +12,36 @@
   --net-blue: var(--clinical-accent);
   --net-blue-soft: var(--clinical-accent-soft);
   --net-blue-border: var(--clinical-accent-border);
-  --net-good: var(--success-text);
-  --net-good-soft: var(--success-bg);
-  --net-warn: var(--warning-text);
-  --net-warn-soft: var(--warning-bg);
-  --net-danger: var(--danger-text);
-  --net-danger-soft: var(--danger-bg);
-  --net-space-2: 0.125rem;
-  --net-space-4: 0.25rem;
-  --net-space-6: 0.375rem;
-  --net-space-8: 0.5rem;
-  --net-space-10: 0.625rem;
-  --net-space-12: 0.75rem;
-  --net-space-16: 1rem;
-  --net-space-20: 1.25rem;
+  --net-good: var(--ward-success);
+  --net-good-soft: var(--ward-success-soft);
+  --net-warn: var(--ward-warning);
+  --net-warn-soft: var(--ward-warning-soft);
+  --net-danger: var(--ward-danger);
+  --net-danger-soft: var(--ward-danger-soft);
+  --net-space-2: var(--ward-space-2);
+  --net-space-4: var(--ward-space-4);
+  --net-space-6: var(--ward-space-6);
+  --net-space-8: var(--ward-space-8);
+  --net-space-10: var(--ward-space-10);
+  --net-space-12: var(--ward-space-12);
+  --net-space-16: var(--ward-space-16);
+  --net-space-20: var(--ward-space-20);
+  /*
+   * ⚠️ THE LEADINGS AND THE Z STEPS ARE DELIBERATELY NOT ALIASED, AND THE REASON IS THAT THEY LOOK
+   * LIKE THE SPACING LADDER AND ARE NOT.
+   *
+   * The eight `--net-space-*` steps above were byte-identical to `--ward-space-*` and are now
+   * aliases, so the scale lives in one place. These are the opposite case: the NAMES collide and
+   * the VALUES do not.
+   *
+   *     --net-leading-compact 1     vs  --ward-leading-compact 1.1
+   *     --net-leading-tight   1.25  vs  --ward-leading-tight   1.15
+   *     --net-leading-body    1.45  vs  --ward-leading-body    1.4
+   *
+   * Aliasing them would be a silent visual change to three line-heights dressed as a consolidation.
+   * `--net-z-canvas`/`--net-z-node` match `--ward-z-base`/`--ward-z-raised` by value but not by
+   * meaning, so they stay too. **A matching name is not a matching fact.**
+   */
   --net-leading-compact: 1;
   --net-leading-tight: 1.25;
   --net-leading-body: 1.45;

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Admission } from "../src/components/ward-management/ward-admissions";
 import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "../src/components/ward-management/ward-admissions-seed";
+import { unitHasLockedBeds } from "../src/components/ward-management/ward-bed-designation";
 import {
   NOT_RECORDED_LABEL,
   OUT_OF_AREA_BANDS,
@@ -34,6 +35,7 @@ import {
 } from "../src/components/ward-management/ward-referrals";
 import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * Phase 8 Task 3. The same boundary `tests/ward-travel-bands.test.ts` sets for itself applies here
  * and for the same reason: every value in `SYNTHETIC_TRAVEL_BANDS` is invented, sits beside REAL
@@ -79,6 +81,7 @@ function referral(overrides: ReferralOverrides = {}): Referral {
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
     ...rest,
   };
 }
@@ -260,7 +263,7 @@ describe("distance groups the list and never gates it", () => {
     return SEXES.map((sex) => ({
       sex,
       ageBand: candidate.cohort,
-      secureBedNeeded: candidate.security === "Secure",
+      secureBedNeeded: unitHasLockedBeds(candidate),
     }));
   }
 

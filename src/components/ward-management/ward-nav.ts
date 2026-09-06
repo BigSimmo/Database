@@ -16,9 +16,68 @@
  * D8 happen — it says nothing about a route with no link pointing at it at all.
  */
 
-/** The eight coordinator-level views. Ordered as the rail and the panel present them. */
-export type WardMode =
-  "command" | "network" | "queue" | "capacity" | "movements" | "exceptions" | "transport" | "governance";
+/**
+ * The eight coordinator-level mode ids.
+ *
+ * ⚠️ **THIS COMMENT USED TO SAY "the eight coordinator-level views, ordered as the rail and the
+ * panel present them", AND BY 2026-09-05 THAT WAS FALSE IN BOTH HALVES.** MERGE 01 folded the
+ * priority queue and the exceptions inbox into `DelaysScreen`, and MERGE 03 folded the vehicle
+ * tracker into `MovementsScreen`. `WARD_VIEWS` has listed SIX ever since; `exceptions` and
+ * `transport` are presented nowhere and are not views at all. The sentence describing this file's
+ * central fact was left behind by two merges that each updated the array beneath it — which is the
+ * ordinary way a comment goes wrong, and the reason the count below is now DERIVED rather than
+ * written down.
+ *
+ * 🔴 **A RUNTIME LIST, WITH THE TYPE DERIVED FROM IT — not a hand-written union beside a
+ * hand-written array.** A union is erased before any test runs, so nothing could ever walk the
+ * eight ids and check them against the six that are listed; the only enforcement was two total
+ * `Record`s (`WARD_VIEW_ICONS`, `modeCopy`), and a total `Record` proves every id HAS an entry,
+ * never that any entry is READ. Six of `modeCopy`'s eight are read by nothing today. With
+ * `WARD_MODES` as the source, `tests/ward-nav.test.ts` can require every id to be either a listed
+ * view or a recorded exception with a reason — the same two-way property this file already
+ * enforces for routes, which is what stopped D8.
+ *
+ * The order is the rail's order for the six that are listed, with the two retained ids last.
+ */
+export const WARD_MODES = [
+  "command",
+  "network",
+  "queue",
+  "capacity",
+  "movements",
+  "governance",
+  "exceptions",
+  "transport",
+] as const;
+
+export type WardMode = (typeof WARD_MODES)[number];
+
+/**
+ * A mode id that is deliberately NOT a listed view, and why it is still here.
+ *
+ * ⚠️ **"NOT LISTED" IS NOT "DEAD", AND THE DIFFERENCE IS THE WHOLE POINT OF THIS MAP.** Both ids
+ * below are still branched on by `ModeBody` (`ward-management-modes.tsx`) and still rendered by
+ * test files, so deleting either is a decision with consequences elsewhere — not a tidy-up. What
+ * they have lost is a place in the rail.
+ *
+ * ⚠️ **`command` IS NOT IN THIS MAP, AND WAS NEARLY RECORDED AS DEAD.** It is excluded from
+ * `WardModeWorkspace`'s prop type, which reads like absence; measured 2026-09-05 it has two live
+ * consumers — its own `WARD_VIEWS` entry pointing at `/mockups/ward-flow`, and
+ * `coordinator-screen.tsx`, which renders `<ClinicalRail activeMode="command" />` so the Command
+ * screen highlights itself in the rail. It is the most-used mode id in the application. An id that
+ * is absent from ONE consumer is not an unused id, and the two claims look identical from inside
+ * that consumer.
+ */
+export const WARD_MODES_NOT_LISTED: ReadonlyMap<WardMode, string> = new Map([
+  [
+    "exceptions",
+    "MERGE 01 (owner-approved 2026-09-05) folded the exceptions inbox into DelaysScreen — the same waiting patients the priority queue already listed, under a second lens. The id stays because ModeBody still branches on it and ward-pull-vocabulary.dom.test.tsx still renders it; retiring the id is part of answering that test, not a separate tidy-up.",
+  ],
+  [
+    "transport",
+    "MERGE 03 (owner-approved 2026-09-05) folded the live vehicle tracker into MovementsScreen. /mockups/ward-flow/transport still exists as a redirect to /movements, recorded in WARD_NAV_INTENTIONALLY_UNLISTED below. The id stays for the same reason 'exceptions' does.",
+  ],
+] as const);
 
 export type WardViewItem = {
   id: WardMode;
@@ -39,15 +98,29 @@ export type WardViewItem = {
  * labelled links cannot read a rail's icon-only JSX, so leaving the views in JSX would have
  * meant a second hand-maintained list of the same eight destinations — the precise defect this
  * file was created to end.
+ *
+ * ⚠️ SEVEN, NOT EIGHT, as of MERGE 01 (owner-approved 2026-09-05). `queue` and `exceptions` used
+ * to be two separate entries, "Priority queue" and "Exceptions" — the same waiting patients,
+ * listed twice under two different lenses, plus a third list on the escalation board that was
+ * never one of these eight at all. `DelaysScreen` answers what all three were separately trying
+ * to answer ("why is this person still waiting?"), so the `queue` entry now points at `/delays`
+ * and carries the label "Delays"; the `exceptions` entry is gone. The `queue` and `exceptions` ids
+ * themselves are untouched in the `WardMode` type below — see that type's own comment — this is a
+ * change to which destinations get listed, not to what a mode id can be.
+ *
+ * ⚠️ SIX, NOT SEVEN, as of MERGE 03 (owner-approved 2026-09-05). `movements` and `transport`
+ * used to be two separate entries — the six-stage movement board and the live vehicle tracker,
+ * asking "where is everyone right now" two different ways. `MovementsScreen` answers both, so the
+ * `transport` entry is gone; the route still exists as a redirect to `/movements` — see
+ * `WARD_NAV_INTENTIONALLY_UNLISTED` below. The `transport` id itself is untouched in the `WardMode`
+ * type below, for the same reason `queue`/`exceptions` stayed untouched after MERGE 01.
  */
 export const WARD_VIEWS: readonly WardViewItem[] = [
   { id: "command", href: "/mockups/ward-flow", label: "Command" },
   { id: "network", href: "/mockups/ward-flow/network", label: "Network" },
-  { id: "queue", href: "/mockups/ward-flow/queue", label: "Priority queue" },
+  { id: "queue", href: "/mockups/ward-flow/delays", label: "Delays" },
   { id: "capacity", href: "/mockups/ward-flow/capacity", label: "Capacity" },
   { id: "movements", href: "/mockups/ward-flow/movements", label: "Movements" },
-  { id: "exceptions", href: "/mockups/ward-flow/exceptions", label: "Exceptions" },
-  { id: "transport", href: "/mockups/ward-flow/transport", label: "Transport" },
   { id: "governance", href: "/mockups/ward-flow/governance", label: "Governance" },
 ];
 
@@ -183,10 +256,22 @@ export const WARD_NAV: readonly WardNavItem[] = [
     exampleOnly: true,
   },
   { id: "handover", href: "/mockups/ward-flow/handover", label: "Handover", group: "board" },
-  { id: "escalation", href: "/mockups/ward-flow/escalation", label: "Escalation", group: "board" },
+  /* The `escalation` entry was REMOVED here by MERGE 01 (owner-approved 2026-09-05): the
+   * escalation board's list of patients is now shown inside `DelaysScreen`, under its own cause
+   * group, so a separate board entry would be a second listing of the same people. The route
+   * itself still exists as a redirect to `/delays` — see `WARD_NAV_INTENTIONALLY_UNLISTED` below
+   * — and the `escalation` id stays a member of `WardNavId` even though nothing in this array
+   * uses it any more, for the same reason `queue`/`exceptions` stay in `WardMode`: nothing else
+   * in this file depends on removing it, and leaving it costs nothing. */
   { id: "search", href: "/mockups/ward-flow/search", label: "Patient search", group: "board" },
   { id: "discharges", href: "/mockups/ward-flow/discharges", label: "Discharges", group: "board" },
-  { id: "morning", href: "/mockups/ward-flow/morning", label: "Morning bed state", group: "board" },
+  /* The `morning` entry was REMOVED here by MERGE 02 (owner-approved 2026-09-05): the morning bed
+   * state board's figures are now shown inside `CapacityScreen`, so a separate board entry would be
+   * a second listing of the same network/hospital/ward numbers. The route itself still exists as a
+   * redirect to `/capacity` — see `WARD_NAV_INTENTIONALLY_UNLISTED` below — and the `morning` id
+   * stays a member of `WardNavId` even though nothing in this array uses it any more, for the same
+   * reason `escalation` stays in `WardNavId` after MERGE 01: nothing else in this file depends on
+   * removing it, and leaving it costs nothing. */
   { id: "referrals", href: "/mockups/ward-flow/referrals", label: "Referral board", group: "board" },
   /*
    * ⚠️ THIS ENTRY REVERSES A DELIBERATE DESIGN DECISION, BY OWNER RULING ON 2026-09-03:
@@ -268,5 +353,37 @@ export const WARD_NAV_INTENTIONALLY_UNLISTED: ReadonlyMap<string, string> = new 
   [
     "/mockups/ward-flow/statistics/compare",
     "Reached by Link from the statistics hub, for the same reason as /overview above.",
+  ],
+  /* The next three entries were added by MERGE 01 (owner-approved 2026-09-05), which folded the
+   * priority queue, the exceptions inbox and the escalation board into one screen, `DelaysScreen`
+   * at /mockups/ward-flow/delays. Each of the three old routes now redirects there rather than
+   * being deleted, so an existing bookmark or deep link does not 404 — the same reasoning
+   * `/constellation` above already sets for a retired route kept as a redirect stub. */
+  [
+    "/mockups/ward-flow/queue",
+    "A deliberate redirect to /delays (MERGE 01), documented in its own route file (queue/page.tsx) — not a destination in its own right.",
+  ],
+  [
+    "/mockups/ward-flow/exceptions",
+    "A deliberate redirect to /delays (MERGE 01), documented in its own route file (exceptions/page.tsx) — not a destination in its own right.",
+  ],
+  [
+    "/mockups/ward-flow/escalation",
+    "A deliberate redirect to /delays (MERGE 01), documented in its own route file (escalation/page.tsx) — not a destination in its own right.",
+  ],
+  /* MERGE 02 (owner-approved 2026-09-05) folded the morning bed state board into `CapacityScreen`.
+   * The old route now redirects there rather than being deleted, for the same bookmark/deep-link
+   * reason MERGE 01's three entries above already set. */
+  [
+    "/mockups/ward-flow/morning",
+    "A deliberate redirect to /capacity (MERGE 02), documented in its own route file (morning/page.tsx) — not a destination in its own right.",
+  ],
+  /* MERGE 03 (owner-approved 2026-09-05) folded the live vehicle tracker into `MovementsScreen`.
+   * The old route now redirects there rather than being deleted, for the same bookmark/deep-link
+   * reason MERGE 01's and MERGE 02's entries above already set. `/transport/officer` is a separate,
+   * nested route and is unaffected: it stays listed in WARD_NAV under its own `officer` entry. */
+  [
+    "/mockups/ward-flow/transport",
+    "A deliberate redirect to /movements (MERGE 03), documented in its own route file (transport/page.tsx) — not a destination in its own right.",
   ],
 ]);
