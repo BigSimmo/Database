@@ -202,6 +202,7 @@ named directions, cross-linked to each other for comparison, no recorded winner.
 | `warning-consolidation`      | Active study — first pass on consolidating warning lines.                                                                                 |
 | `warning-line`               | Active study — second pass answering a narrower, different brief (words only, no icon/border/tint); not a replacement for the first pass. |
 | `phone-mode-sheet-yes`       | Active study — design review of the shipping phone mode sheet.                                                                            |
+| `source-rail-desktop-scroll` | Active study — three ways to reach the off-screen cited-document cards with a desktop mouse; no recorded winner yet.                      |
 
 Static (non-route) design comps under `public/mockups/mode-page-redesign-2026-07/` are
 already documented below and are not part of this route index.
