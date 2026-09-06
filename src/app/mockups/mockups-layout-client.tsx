@@ -58,6 +58,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Owns the also-matches panel as the subject; shared composer chrome would
   // sit on top of a study about results-card identity.
   const isAlsoMatchesAccentMockup = pathname === "/mockups/also-matches-accents";
+  // The closed-state study draws its own results band and meta row inside every
+  // device frame, because the whole question is what sits between the composer
+  // and the results. Shared chrome would read as a second real composer above it.
+  const isAlsoMatchesClosedMockup = pathname === "/mockups/also-matches-closed";
   // Every direction in this study draws its own top bar, transcript and
   // composer inside phone/desktop frames — the reference system under review
   // sits directly between them, so shared chrome would read as a second real
@@ -165,6 +169,12 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // whole argument of the study. The `favourites-` prefix above already hides
   // the shared composer; the shared header still has to go or it reads as a
   // second real header above nine phone frames that each have their own.
+  // Every direction draws its own record nav bar inside phone and desktop frames,
+  // and the study's whole argument is what occupies the record page beneath that
+  // bar. Shared chrome above the frames would read as a second real header and a
+  // second real search bar over the page under review.
+  const isSpecifierRecordDirectionsMockup = pathname === "/mockups/specifier-record-directions";
+
   const isFavouritesPhonePerfectedMockup = pathname === "/mockups/favourites-phone-perfected";
 
   return (
@@ -204,6 +214,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
+        !isAlsoMatchesClosedMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
         !isAnswerLoadingRedesignMockup &&
@@ -220,7 +231,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup &&
         !isFactsheetsTopicsPhoneMockup &&
-        !isFavouritesPhonePerfectedMockup
+        !isFavouritesPhonePerfectedMockup &&
+        !isSpecifierRecordDirectionsMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -239,6 +251,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
+        !isAlsoMatchesClosedMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
         !isAnswerLoadingRedesignMockup &&
@@ -255,7 +268,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup &&
         !isFactsheetsTopicsPhoneMockup &&
-        !isFavouritesPhonePerfectedMockup
+        !isFavouritesPhonePerfectedMockup &&
+        !isSpecifierRecordDirectionsMockup
       }
     >
       {children}
