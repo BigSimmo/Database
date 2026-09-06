@@ -4,6 +4,7 @@ export const guideTopicIds = [
   "document-scope",
   "answer-anatomy",
   "sources-citations",
+  "source-rating",
   "colour-coding",
   "document-administration",
   "privacy-safe-use",
@@ -152,6 +153,30 @@ export const guideTopics: readonly GuideTopic[] = [
           "Notice current, review-due, outdated, or unverified source-status signals.",
           "Check that the passage supports the claim, not merely the same topic or terminology.",
           "If citations conflict, prefer the applicable primary guidance and resolve the discrepancy outside the generated answer.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "source-rating",
+    title: "How sources are rated",
+    navLabel: "Source rating",
+    summary: "Read the catalogue quality band on a source and know what it does, and does not, tell you.",
+    sections: [
+      {
+        heading: "The band rates the document, not the advice",
+        paragraphs: [
+          "Every catalogue source is scored out of 100 across six dimensions and placed in a quality band. The score measures how well the source works as a reference: how it was assured, who published it, what kind of evidence it declares, how current it is, how far it applies in Australia, and how completely it can be traced.",
+          "It is an organisational rating, not a clinical one. A band A source can still be the wrong guidance for the patient in front of you. Read the band as a statement about provenance, then judge the content yourself.",
+        ],
+      },
+      {
+        heading: "Use the band as a prompt to check",
+        bullets: [
+          "A · Preferred and B · Strong — provenance is sound, so verify the content against the passage as usual.",
+          "C · Supplementary — treat it as supporting material beside a stronger source rather than on its own.",
+          "D · Review required — metadata is missing or identity is uncertain, so confirm the original before relying on it.",
+          "Excluded — a governance rule removed the source; look for the replacement rather than working around it.",
         ],
       },
     ],

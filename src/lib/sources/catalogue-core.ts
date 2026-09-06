@@ -15,6 +15,7 @@ import {
   type SourceLifecycleStatus,
   type SourceUsage,
 } from "@/lib/sources/catalogue-types";
+import { qualityBandForScore } from "@/lib/sources/rating-method";
 import { safeCanonicalSourceUrl } from "@/lib/sources/source-url-policy";
 
 const ACCURACY = { approved: 25, locally_reviewed: 20, unverified: 5, unknown: 0 } as const;
@@ -250,16 +251,10 @@ function rateClinicalSourceWithWarnings(
       ["ambiguous_identity", "unsafe_location", "metadata_conflict"].includes(warning),
   );
   const lifecycleStatus = effectiveLifecycleStatus(input);
-  const band =
-    lifecycleStatus === "excluded"
-      ? "excluded"
-      : materialUncertainty || score < 50
-        ? "D"
-        : score >= 85
-          ? "A"
-          : score >= 70
-            ? "B"
-            : "C";
+  // Exclusion and material uncertainty are decided before any score, exactly as
+  // the published method says. Only a clean score reaches the band table, which
+  // `/sources/method` renders from the same definition — see rating-method.ts.
+  const band = lifecycleStatus === "excluded" ? "excluded" : materialUncertainty ? "D" : qualityBandForScore(score);
 
   return {
     score,
