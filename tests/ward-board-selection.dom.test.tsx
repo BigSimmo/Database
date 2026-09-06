@@ -4,6 +4,9 @@ import path from "node:path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
+
+import { blankCssComments } from "./helpers/strip-source-comments";
 
 import { WardBoard } from "@/components/ward-management/board/ward-board";
 import {
@@ -154,8 +157,8 @@ describe("ward board selection — choosing a tile shows that tile's own occupan
 
     const detail = screen.getByTestId("ward-board-detail");
     expect(detail.getAttribute("data-detail-kind")).toBe("waiting");
-    expect(detail.textContent).toContain("No stay yet — not arrived");
-    expect(detail.textContent).toContain("already given this bed away");
+    expectSays(detail.textContent ?? "", "the waiting tile", ["not arrived", "no stay yet"]);
+    expectSays(detail.textContent ?? "", "the waiting tile", ["given this bed away", "given away"]);
     // The failure this guards: a bed given away reading as somebody who arrived today.
     expect(detail.textContent).not.toMatch(/\b0 days?\b/);
   });
@@ -175,7 +178,7 @@ describe("ward board selection — a bed with no occupant is a class, not a loca
     expect(within(detail).getByTestId("ward-board-detail-bed-class")).toBeTruthy();
     // The count it belongs to, and the honest limit on what selecting it means.
     expect(detail.textContent).toContain(`${unit.blocked}`);
-    expect(detail.textContent).toContain("Which bed is not recorded");
+    expectSays(detail.textContent ?? "", "the bed-class tile", ["not recorded"]);
     expect(detail.textContent).toContain("never a bed");
     // No person's record leaks into a tile that stands for nobody.
     expect(container.querySelector('[data-testid="ward-board-detail-person"]')).toBeNull();
@@ -193,7 +196,7 @@ describe("ward board selection — a bed with no occupant is a class, not a loca
     expect(detail.getAttribute("data-detail-kind")).toBe("empty");
     expect(detail.textContent).toContain(`${emptyCount}`);
     expect(detail.textContent).toContain("fill right now");
-    expect(detail.textContent).toContain("Which bed is not recorded");
+    expectSays(detail.textContent ?? "", "the empty-bed tile", ["not recorded"]);
   });
 });
 
@@ -357,11 +360,19 @@ describe("ward board selection — what it looks like on paper", () => {
    */
   it("carries selection as a weight and never as a fill", () => {
     const css = readFileSync(path.join(process.cwd(), "src/components/ward-management/board/board.module.css"), "utf8");
-    const match = css.match(/\.bedSelected\s*\{([^}]*)\}/);
+    // Presence checks read the COMMENT-STRIPPED stylesheet -- see
+    // tests/ward-guard-comment-blindness.test.ts. Proved by mutation: renaming the real
+    // `.bedSelected` rule away and leaving a decoy comment quoting the original selector and its
+    // `border-width` declaration left both checks below green against the unstripped CSS.
+    const match = blankCssComments(css).match(/\.bedSelected\s*\{([^}]*)\}/);
     expect(match, "board.module.css declares no .bedSelected rule").not.toBeNull();
     const body = match![1]!;
     expect(body).toMatch(/border-width/);
-    expect(body).not.toMatch(/background/);
+    // The negative check reads the RAW (unstripped) rule on purpose: a `.not.toMatch` gets MORE
+    // PERMISSIVE, not less, if comments are stripped first -- it would stop firing on a
+    // `background` declaration that crept in as a comment before it crept in as code.
+    const rawBody = css.match(/\.bedSelected\s*\{([^}]*)\}/)![1]!;
+    expect(rawBody).not.toMatch(/background/);
   });
 
   /**
@@ -373,7 +384,12 @@ describe("ward board selection — what it looks like on paper", () => {
    */
   it("restores the tile buttons for print", () => {
     const css = readFileSync(path.join(process.cwd(), "src/components/ward-management/board/board.module.css"), "utf8");
-    const printBlock = css.slice(css.indexOf("@media print"));
+    // Comment-stripped -- see tests/ward-guard-comment-blindness.test.ts. Every check below is a
+    // presence check, so proved by mutation: renaming the real `.bed` print-restore rule away and
+    // leaving a decoy comment quoting its original selector and declaration left this whole test
+    // green against the unstripped CSS.
+    const codeOnlyCss = blankCssComments(css);
+    const printBlock = codeOnlyCss.slice(codeOnlyCss.indexOf("@media print"));
     expect(printBlock).toContain("display: flex !important");
     // Specifically on the tile class — a restore attached to something else would leave the tiles
     // hidden while this assertion passed on the wrong rule.
@@ -400,16 +416,28 @@ describe("ward board selection — what it looks like on paper", () => {
    */
   it("prints its own ink on a light sheet whatever theme the screen was in", () => {
     const css = readFileSync(path.join(process.cwd(), "src/components/ward-management/board/board.module.css"), "utf8");
-    const printBlock = css.slice(css.indexOf("@media print"));
     // **Anchored to the start of a line and required to end in a semicolon, because the first
     // version of this assertion could not fail.** `/color-scheme:\s*light/` matched the prose in
     // the comment that explains the rule, so deleting the declaration itself left the test green —
-    // proven by mutating it out and watching 15 of 15 still pass. A comment line here begins with
-    // `*`, so a line-anchored declaration cannot be satisfied by one.
+    // proven by mutating it out and watching 15 of 15 still pass. That anchoring assumed every
+    // comment line here begins with `*` (this file's own convention), which is a style habit, not a
+    // guarantee: proved by mutation, an un-conventionally-formatted `/* … */` block whose middle
+    // line was NOT `*`-prefixed and simply read `color-scheme: light;` at the start of its own line
+    // satisfied the line anchor too, with the real declaration renamed away. Comment-stripping the
+    // whole block first (below) closes that regardless of how the comment happens to be formatted --
+    // see tests/ward-guard-comment-blindness.test.ts.
+    //
+    // The third regex had a SECOND, unrelated defect found by the same drill: `[\s\S]*?` has no
+    // right boundary, so it matched straight past `.pastMark`'s own closing `}` into an unrelated
+    // `background: Canvas;` declaration in a different rule further down the print block. Deleting
+    // `.pastMark` entirely still left it green. `[^}]*` (used below) cannot cross a `}`, so the match
+    // is now confined to `.pastMark`'s own rule body.
+    const codeOnlyCss = blankCssComments(css);
+    const printBlock = codeOnlyCss.slice(codeOnlyCss.indexOf("@media print"));
     expect(printBlock).toMatch(/^\s*color-scheme:\s*light;\s*$/m);
     expect(printBlock).toMatch(/^\s*\.unitName,[\s\S]{0,400}?^\s*color:\s*CanvasText;\s*$/m);
     // And the past-date badge carries its own light ground, so it stays readable on the printed
     // occupant list — which keeps a dark panel fill when the screen theme was dark.
-    expect(printBlock).toMatch(/\.pastMark\s*\{[\s\S]*?background:\s*Canvas;/);
+    expect(printBlock).toMatch(/\.pastMark\s*\{[^}]*background:\s*Canvas;/);
   });
 });

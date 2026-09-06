@@ -68,9 +68,11 @@ import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel }
 import {
   extractSafetyFindings,
   formatSafetyFindingLabel,
+  safetyFindingTone,
   sortSafetyFindingsBySeverity,
   type SafetyFinding,
   type SafetyFindingKind,
+  type SafetyFindingTone,
 } from "@/lib/clinical-safety";
 import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import { normalizeExtractedGlyphs, sourceTextForVerbatimQuote } from "@/lib/source-text-sanitizer";
@@ -1023,11 +1025,25 @@ export function ClinicalNotesChecklistPanel({
 function SafetyFindingRowIcon({ kind }: { kind: SafetyFindingKind }) {
   // Sized to the eyebrow beside it rather than to the old icon cell: at h-5 the
   // glyph outweighed the label it now sits next to.
-  if (kind === "contraindication" || kind === "red_flag") {
+  if (safetyFindingTone(kind) === "stop") {
     return <ShieldAlert aria-hidden="true" className="size-icon-xs shrink-0" />;
   }
   return <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0" />;
 }
+
+/**
+ * The accent for a finding's tone.
+ *
+ * `know` is deliberately the muted text colour rather than a status colour:
+ * `docs/design-system/TOKENS.md` reserves `--danger` and `--warning` for
+ * sanctioned urgency, and an answer where routine monitoring is painted amber
+ * is one where the amber has stopped meaning anything.
+ */
+const safetyToneAccent: Record<SafetyFindingTone, string> = {
+  stop: "text-[color:var(--danger)]",
+  act: "text-[color:var(--warning)]",
+  know: "text-[color:var(--text-muted)]",
+};
 
 // Issue 9: governance provenance retained on safety-finding citations lets the safety
 // panel badge sources that are outdated, due for review, or not locally validated —
@@ -1073,13 +1089,25 @@ export function SafetyFindingsListContent({ findings, query }: { findings: Safet
       className="shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
     >
       {sortedFindings.map((finding, index) => {
-        const severe = finding.kind === "contraindication" || finding.kind === "red_flag";
-        const accent = severe ? "text-[color:var(--danger)]" : "text-[color:var(--warning)]";
+        const tone = safetyFindingTone(finding.kind);
+        const accent = safetyToneAccent[tone];
         return (
           <article
             key={`${finding.id}:${finding.href}:${index}`}
             data-testid="safety-finding-row"
-            className="grid gap-1.5 border-b border-[color:var(--border)] px-3 py-3 last:border-b-0"
+            data-tone={tone}
+            // A 2px rule in the finding's own tone, so the list reads as a
+            // gradient from stop to know while sorted by severity. The rule is
+            // never the only carrier of that state — the eyebrow beside it names
+            // the kind in words.
+            className={cn(
+              "grid gap-1.5 border-b border-l-2 border-[color:var(--border)] px-3 py-3 last:border-b-0",
+              tone === "stop"
+                ? "border-l-[color:var(--danger)]"
+                : tone === "act"
+                  ? "border-l-[color:var(--warning)]"
+                  : "border-l-[color:var(--border-strong)]",
+            )}
           >
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <span className={cn("inline-flex min-w-0 items-center gap-1.5", accent)}>

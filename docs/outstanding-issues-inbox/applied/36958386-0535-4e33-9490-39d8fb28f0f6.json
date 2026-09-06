@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "36958386-0535-4e33-9490-39d8fb28f0f6",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Audit remediation leftovers: findings deferred on file ownership or blocked tooling",
+    "detail": "From the 2026-09-02 full-repository audit remediation programme (packages P1-P21, 2026-09-04). Deferred on file ownership, unblocked once P8a (PR #2634) merges: L45 specifiers search-index generator and freshness check; L131 pdfjs-dist and ZIP de-duplication plus the undeclared playwright-core import; the proper @sentry/core devDependency declaration that replaces the knip ignoreDependencies entry added in P3. Blocked on tooling this environment cannot run: L49 docling model revision pin (needs a pip install or a huggingface.co read - the exact command is in PR #2629's body); the drift-manifest regeneration P16 (PR #2628) needs, which requires a Docker image the network policy refuses. Left for an owner decision: L5 fonts and noindex change, which must be applied identically to both public/brand/preview.html and docs/brand/preview.html because tests/developer-hub-panels.test.ts pins byte-identity; L126's public/offline.html brand mark and its CACHE_VERSION bump, owned by no package; the calculators Governance reference link, which points at a github.com blob URL an end user cannot open.",
+    "issueUlid": "01M1PW9PQG4BE39HC59GZ0B8NR"
+  }
+}

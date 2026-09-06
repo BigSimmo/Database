@@ -9,7 +9,11 @@ import {
 import { HOME_REGIONS, type UrgencyLevel } from "@/components/ward-management/ward-model";
 import { referrals } from "@/components/ward-management/ward-movements";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
-import { recentlyDecidedReferrals, referralQueueOrder } from "@/components/ward-management/ward-referrals";
+import {
+  RECENTLY_DECIDED_DISPLAY_LIMIT,
+  recentlyDecidedReferrals,
+  referralQueueOrder,
+} from "@/components/ward-management/ward-referrals";
 import { allUnits, unitById, wardSites } from "@/components/ward-management/ward-sites";
 
 /**
@@ -109,6 +113,21 @@ async function answerEveryIntakeQuestion(
   // suburbOptions(), so an invented value would not be selectable. No assertion in this file
   // depends on WHICH suburb, only that the question is answered.
   await page.getByTestId("ward-referral-intake-suburb").selectOption("Albany");
+  // The TWELFTH question, required since the written-history change (2026-09-05) — and this is the
+  // FOURTH time this helper has been missed, exactly as the note above predicted. Three journeys
+  // in this file and `ui-ward-discharges.spec.ts` went red the moment `historyWhyNow` became
+  // required, and stayed red all day: no routine gate runs a `@mockup` spec, so nothing said so.
+  //
+  // ⚠️ THE REPAIR IS THIS ANSWER, NOT A SOFTENED ASSERTION BELOW — the instruction the previous
+  // two people left here, followed rather than rediscovered. Only `historyWhyNow` is filled:
+  // `historyBackground` and `historyRiskAndSafety` are genuinely optional and answering them here
+  // would hide a future change that made either one required.
+  //
+  // Free text, so any non-blank string serves; the reducer stores it byte for byte and refuses
+  // only a blank one. No assertion in this file depends on WHAT it says.
+  await page
+    .getByTestId("ward-referral-intake-history")
+    .fill("Brought in by family after two days of not sleeping and increasing agitation at home.");
   // Send only becomes available once the last question is answered, so this is both a wait and an
   // assertion: a journey that had missed one would fail here rather than time out on a click.
   await expect(page.getByTestId("ward-referral-intake-submit")).not.toHaveAttribute("aria-disabled", "true");
@@ -158,7 +177,123 @@ const SEEDED_QUEUED = 4;
 // a row and the queued section did not. Updated deliberately here rather than found later —
 // `tests/ward-*` selects only the Vitest files, and these two constants are exactly the kind that
 // has already gone silently false in this file once, for a whole fixture change.
-const SEEDED_DECIDED = 7;
+//
+// NINE since 2026-09-04, not seven. `11c5d2029` (ruling R-2026-09-04-D, the front-door link) added
+// RF-012 and RF-013 as the authored ORIGINS of WF-002 and WF-009, taking the fixture from 11
+// referrals to 13; both are decided, so the decided section gained two rows and the queued section
+// gained none. The measured set is RF-006, RF-007, RF-002, RF-003, RF-004, RF-008, RF-012, RF-013,
+// RF-010 — nine, still under `RECENTLY_DECIDED_DISPLAY_LIMIT` (10), so the board shows all of them.
+//
+// ⚠️ **THE PIN WORKED AND IT IS NOT THE DEFECT — DO NOT "FIX" IT BY DERIVING THIS NUMBER.** When the
+// seed grew, this failed by name, before any journey step ran, saying exactly what had moved. That
+// is what the block below was built to do. Deriving the expectation from `referrals` with the same
+// selector the assertion calls would make it true by construction and absorb the next fixture change
+// in silence — the identical trap the `NETWORK_UNITS` comment refuses two constants down, and a
+// count that can never fail is what this file's own comment above calls the defect.
+//
+// The real failure here was that nothing RAN it: the six Playwright ward journeys sit outside every
+// required gate, so this stood red for five hours after `11c5d2029`. The repair for that is running
+// them, not weakening the pin.
+//
+// ⚠️ Counted from the function's own returned array in the failing run, not from the fixture text.
+//
+// ⚠️ **CORRECTION, 2026-09-04 — an earlier version of this comment claimed a structural count gives
+// TEN against the function's nine, and explained it as a queued referral holding a decided
+// destination beside a pending one. THAT WAS WRONG AND IS WITHDRAWN.** There is no such referral:
+// referrals holding a mix of queued and non-queued destinations number ZERO, independently measured
+// by a reviewer who could not reproduce my figure and said so.
+//
+// **What actually produced the ten: my structural count matched the string `decidedAt` inside a DOC
+// COMMENT.** RF-011's prose explains "`decidedAt` on each ED arm is the moment its movement opened";
+// both its destinations are `queued`. Strip comments first and the structural count is NINE, naming
+// the same nine ids the function returns. **The proxy and the property agree — the proxy was reading
+// the file's explanation of itself.**
+//
+// Two things worth keeping. The habit was still right: taking the number from the function's own
+// returned array is correct whatever a text scan says. And the failure is one I had already avoided
+// once the same night — an extraction of user-facing strings from a console component stripped
+// comments FIRST, precisely because that file quotes its own strings in prose. I knew the technique
+// and did not apply it here.
+/*
+ * 🔴 **2026-09-06: THIS STOPPED BEING ONE NUMBER, AND BUMPING IT WOULD HAVE HIDDEN WHY.** The seed
+ * grew from 9 structurally-decided referrals to 18 — a second family of site-coded ids
+ * (`RF-RGHS-01`, `RF-ARMA-02`, …) alongside the original `RF-0NN` set. All 18 ids are distinct;
+ * this is a real fixture addition, not a duplication, which is the first thing checked because 9 to
+ * 18 is exactly double.
+ *
+ * ⚠️ **AND IN GROWING, THE SEED CROSSED THE BOARD'S DISPLAY CAP.** `recentlyDecidedReferrals`
+ * `.slice(0, RECENTLY_DECIDED_DISPLAY_LIMIT)` at 10 (owner ruling, 2026-09-02), so the two
+ * quantities this file used to conflate are now genuinely different: **18 referrals have been
+ * decided, and the board shows 10.** One constant cannot serve both, and the old single
+ * `SEEDED_DECIDED` was only ever correct because 9 was below the cap.
+ */
+const SEEDED_DECIDED_STRUCTURAL = 18;
+
+/**
+ * What the board actually renders in its heading — `decided.length` on the CAPPED list. Derived
+ * from the limit rather than hardcoded as 10, because the relationship is the point: once the seed
+ * exceeds the cap, the heading shows the cap.
+ *
+ * ⚠️ **NOT true by construction.** It is computed from `RECENTLY_DECIDED_DISPLAY_LIMIT` and
+ * `SEEDED_DECIDED_STRUCTURAL` — a constant and a locally cross-checked count — and shares no code
+ * with `recentlyDecidedReferrals`, which is the function these assertions exist to test. If the cap
+ * changes, this follows; if the SELECTION changes, the assertions still fail.
+ */
+const SEEDED_DECIDED_SHOWN = Math.min(SEEDED_DECIDED_STRUCTURAL, RECENTLY_DECIDED_DISPLAY_LIMIT);
+
+/*
+ * 🔴 IT WENT STALE AGAIN, EXACTLY AS THE COMMENT ABOVE PREDICTED, AND NOTHING CAUGHT IT.
+ *
+ * `11c5d2029` ("feat(ward-flow): rulings C and D", 2026-09-04 04:02) added RF-012 and RF-013 — the
+ * front-door referrals authored as the origins of WF-002 and WF-009 — and did not touch this file.
+ * `git show --stat 11c5d2029 -- tests/ui-ward-referrals.spec.ts` is empty. This spec went red five
+ * hours later, on the first manual run anybody had given it, and every required gate stayed green
+ * throughout: the six `ui-ward-*` journeys execute only under `test:e2e:mockups` and CI's
+ * `continue-on-error` advisory lane, and this branch has never been pushed.
+ *
+ * So the previous comment's diagnosis was right — "a count written where nothing can fail is the
+ * defect, not the number" — and bumping the number a second time would repeat the mistake it names.
+ * The count is now CROSS-CHECKED against the seed below, so the next fixture change fails here with
+ * a message naming the new total instead of failing silently until somebody runs the browser suite.
+ *
+ * ⚠️ Deliberately NOT derived by calling the board's own `recentlyDecidedReferrals`: that is the
+ * function these assertions exist to test, and re-deriving the expected number from it would make
+ * them true by construction — the reason the original author hardcoded, and still correct. The
+ * predicate below is written here, over the raw seed, and shares nothing with the board.
+ */
+const decidedInTheSeed = referrals.filter((referral) =>
+  referral.destinations.some((destination) => destination.state !== "queued"),
+).length;
+if (decidedInTheSeed !== SEEDED_DECIDED_STRUCTURAL) {
+  throw new Error(
+    `SEEDED_DECIDED_STRUCTURAL is ${SEEDED_DECIDED_STRUCTURAL} and the seed now holds ${decidedInTheSeed} ` +
+      `decided referrals. Update the constant AND re-read the THREE assertions that depend on it — the ` +
+      `length check, the board heading, and the post-decision heading — because a fixture change is exactly ` +
+      `what made this stale twice before. ⚠️ And check the cap: the board shows ` +
+      `min(structural, ${RECENTLY_DECIDED_DISPLAY_LIMIT}), so whether the heading MOVES when a referral is ` +
+      `decided depends on which side of ${RECENTLY_DECIDED_DISPLAY_LIMIT} the seed now sits.`,
+  );
+}
+
+/*
+ * ⚠️ THE OTHER SIDE OF THIS MERGE ARGUED AGAINST DERIVING THE NUMBER AT ALL, AND ITS PRINCIPLE IS
+ * KEPT EVEN THOUGH ITS SIDE WAS NOT. Verbatim: "deriving the expectation from `referrals` with the
+ * same selector the assertion calls would make it true by construction and absorb the next fixture
+ * change in silence." **That is correct and it is why the cross-check above is written locally over
+ * the raw seed rather than by calling `recentlyDecidedReferrals`** — the assertion and the guard
+ * share no code, so the guard cannot make the assertion true.
+ *
+ * 🔴 ONE CLAIM FROM THAT SIDE DID NOT SURVIVE MEASUREMENT AND IS RECORDED SO NOBODY RE-DERIVES IT.
+ * It stated that a structural count gives TEN, because "one queued referral holds a decided
+ * destination alongside a pending one". Two independent measurements found no such referral: the
+ * predicate above returns 9, and a separate reviewer reported 9 under every structural definition
+ * it could construct, with zero referrals holding a mix. **If a predicate ever does give ten, this
+ * guard is wrong and the comment above it is the place to say so.**
+ *
+ * And its diagnosis of the real failure is the one worth keeping: the pin WORKED — it failed by
+ * name, before any journey step ran. What failed was that nothing ran it for five hours. The repair
+ * for that is running the journeys, not weakening the pin.
+ */
 
 /** Every unit in the network, and how many of them accept the referral raised above. Both are
  *  hardcoded rather than recomputed from `referralEligibility`: re-deriving the expected number
@@ -284,9 +419,10 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
       referralQueueOrder(referrals).map((referral) => referral.id),
       "fixture assumption: the seed's queued referrals, in the queue's own order",
     ).toEqual([...SEEDED_QUEUED_IDS]);
-    expect(recentlyDecidedReferrals(referrals), "fixture assumption: the seed's decided referrals").toHaveLength(
-      SEEDED_DECIDED,
-    );
+    expect(
+      recentlyDecidedReferrals(referrals),
+      "fixture assumption: the board shows min(decided, the display cap), NOT every decided referral",
+    ).toHaveLength(SEEDED_DECIDED_SHOWN);
     // The referral this journey raises leads the queue on urgency alone, and the assertion that it
     // does (further down) is only meaningful while nothing seeded is as urgent. Checked here so a
     // seed that gained a tier-1 referral fails by name, rather than as an unexplained ordering
@@ -335,7 +471,9 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     // The seed, before anything is raised. Asserted so the counts below are a real change rather
     // than a number that happened to be right.
     await expect(page.getByTestId("ward-referral-board-queued")).toContainText(`Queued (${SEEDED_QUEUED})`);
-    await expect(page.getByTestId("ward-referral-board-decided")).toContainText(`Recently decided (${SEEDED_DECIDED})`);
+    await expect(page.getByTestId("ward-referral-board-decided")).toContainText(
+      `Recently decided (${SEEDED_DECIDED_SHOWN})`,
+    );
     const queuedBefore = await queuedCardIds(page);
     expect(queuedBefore).toHaveLength(SEEDED_QUEUED);
 
@@ -487,8 +625,22 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     // --- The board reflects the decision on the very next render: out of the queue, into
     // recently decided, with the outcome named. ---
     await expect(page.getByTestId("ward-referral-board-queued")).toContainText(`Queued (${SEEDED_QUEUED})`);
+    /*
+     * 🔴 **THIS ASSERTION USED TO READ `SEEDED_DECIDED + 1` AND THAT IS NO LONGER TRUE — the number
+     * does NOT move when a referral is decided.** The seed holds 18 decided referrals and the board
+     * shows the 10 most recent, so accepting one pushes a card in at the top and another off the
+     * bottom: the list changes completely and the COUNT does not.
+     *
+     * ⚠️ **The `+ 1` was not wrong when it was written; it was true only while the seed sat below
+     * the cap, and nothing said so.** Restoring it would go red for the right reason and be
+     * "fixed" by bumping a constant, which is how this file went stale twice before.
+     *
+     * **So the count is no longer the meaningful assertion here — the card's PRESENCE is**, and it
+     * is asserted immediately below. This line is kept, pinned to the capped value, because a
+     * heading that started moving again would mean the cap or the selection had changed.
+     */
     await expect(page.getByTestId("ward-referral-board-decided")).toContainText(
-      `Recently decided (${SEEDED_DECIDED + 1})`,
+      `Recently decided (${SEEDED_DECIDED_SHOWN})`,
     );
     expect(await queuedCardIds(page)).not.toContain(referralId);
     const decidedCard = page.getByTestId(`ward-referral-board-decided-card-${referralId}`);
@@ -780,5 +932,151 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
       clipped,
       "column(s) of the out-of-area table are off the screen at 641px, reachable only by scrolling sideways inside the table",
     ).toEqual([]);
+  });
+
+  /**
+   * A DECLARATION THAT LOSES ON SPECIFICITY IS INERT AND LOOKS EXACTLY LIKE A WORKING ONE.
+   *
+   * `referrals.module.css` gives the queue's Tier cell heading ink so the board agrees with the
+   * match view, where the same fact is bold heading ink one click away. It was written as a bare
+   * `.tierCell` — (0,1,0) — against `ward-table.module.css`'s `.table td { color: var(--text) }`,
+   * a compound descendant selector at (0,1,1). **Specificity is decided before source order, so
+   * the colour never applied**, while the `font-weight` beside it did, because the primitive
+   * declares no weight. Measured on the running board: the Tier cell rendered `rgb(27, 37, 51)`,
+   * byte-identical to the plain cell beside it, under a commit claiming it now matched the match
+   * view's heading ink. Half of that was true.
+   *
+   * ⚠️ **NOTHING ANYWHERE COULD HAVE GONE RED.** The class is applied, the token exists, the
+   * stylesheet reads as though the override works, `vitest` loads no CSS Modules so no DOM test
+   * can evaluate a cascade, and a screenshot of near-black on near-black is a screenshot of the
+   * intended design. Only a browser reading two computed colours can tell.
+   *
+   * ⚠️ **AND IT IS ASSERTED AS A DIFFERENCE, NOT AS A VALUE.** Pinning `rgb(10, 18, 32)` would go
+   * red on any legitimate token change and green on the day both cells are given the same new
+   * colour — which is the defect itself. The property is "the Tier cell is inked differently from
+   * the plain cell in its own row", which is what the design claims and what specificity broke.
+   *
+   * Found because Ward Builder One hit the identical trap on the statistics compare page and
+   * reported it rather than fixing it quietly.
+   */
+  test("the referral board's Tier cell is inked differently from the plain cells in its own row", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/mockups/ward-flow/referrals", { waitUntil: "load" });
+
+    const queued = page.getByTestId("ward-referral-board-queued-table");
+    await expect(queued, "the queued table is not rendered at 1280px").toBeVisible();
+
+    const measured = await queued.evaluate((scroll) => {
+      const table = scroll.querySelector("table");
+      const headers = [...(table?.querySelectorAll("thead th") ?? [])].map((th) => (th.textContent ?? "").trim());
+      const row = table?.querySelector("tbody tr") as HTMLTableRowElement | null;
+      const tierIndex = headers.indexOf("Tier");
+      const plainIndex = headers.indexOf("Age band");
+      const cells = [...(row?.cells ?? [])];
+      const read = (index: number) => {
+        const cell = cells[index];
+        if (!cell) return null;
+        const style = getComputedStyle(cell);
+        return { text: (cell.textContent ?? "").trim(), color: style.color, weight: style.fontWeight };
+      };
+      return { headers, tierIndex, plainIndex, tier: read(tierIndex), plain: read(plainIndex) };
+    });
+
+    /*
+     * The floor first, and it is not decoration: `indexOf` returns -1 for a renamed column, `read`
+     * then returns null, and a comparison of two nulls is equal — so a board that had lost its Tier
+     * column entirely would fail this test with a confusing message rather than a clear one, and a
+     * comparison written less carefully would have PASSED it.
+     */
+    expect(
+      measured.tierIndex,
+      `no \`Tier\` column on the queued board — headers are ${measured.headers.join(", ")}`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      measured.plainIndex,
+      `no \`Age band\` column to compare against — headers are ${measured.headers.join(", ")}`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(measured.tier, "the queued board rendered no first row to measure").not.toBeNull();
+    expect(measured.plain, "the queued board rendered no first row to measure").not.toBeNull();
+    expect(measured.tier?.text.length, "the Tier cell is empty, so its ink says nothing").toBeGreaterThan(0);
+    expect(measured.plain?.text.length, "the comparison cell is empty, so its ink says nothing").toBeGreaterThan(0);
+
+    expect(
+      measured.tier?.color,
+      `the Tier cell is inked ${measured.tier?.color}, the same as the plain cell beside it — its ` +
+        "colour declaration is losing on specificity to `.table td` in the shared primitive and is inert",
+    ).not.toBe(measured.plain?.color);
+    expect(measured.tier?.weight, "the Tier cell is no longer bolder than the plain cell beside it").not.toBe(
+      measured.plain?.weight,
+    );
+  });
+
+  /**
+   * NO COLUMN OF THE REFERRAL BOARD'S TABLES IS OFF THE SCREEN AT ANY WIDTH THE TABLE IS USED AT.
+   *
+   * ⚠️ **THIS WAS A LIVE DEFECT UNTIL 2026-09-05 AND MY OWN DESIGN PASS WALKED PAST IT.** The
+   * board's scroll threshold was 40rem (640px) while the narrowest scroller it is ever shown in is
+   * 499px — at a 641px viewport, the first width above the card/table swap. Measured there before
+   * the fix: `Sex` and `Home region` sat outside the queued table, and `Waited` and `Decided`
+   * outside the decided one. **The decided table's two timing columns are what that section is
+   * for.**
+   *
+   * Every column was in the document at every width, which is why nothing went red — they were
+   * simply never on the screen, and the only way to reach them was to scroll sideways inside a
+   * table that shows no sign of having more (`ward-table.module.css` gives `.tableScroll` nothing
+   * but `overflow-x: auto`). This is out-of-area's Task 10 defect on a different board, and the
+   * sibling assertion in `ui-ward-discharges.spec.ts` is the template this follows, at the same
+   * four widths.
+   *
+   * ⚠️ **AND THE REASON IT SURVIVED A DESIGN PASS IS WORTH MORE THAN THE FIX: I measured 375px and
+   * 1440px and nothing in between.** A scroll threshold does its damage in the band between the
+   * card swap and a desk screen, which is exactly the band neither of those two widths is in.
+   *
+   * The floor first, and it is not decoration: `toEqual([])` on a list of escaping cells passes
+   * against a board rendering no tables at all, which is precisely what this page does below 40rem.
+   */
+  test("no column of the referral board's tables is off the screen at any width the table is used at", async ({
+    page,
+  }) => {
+    for (const width of [641, 700, 760, 820]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/mockups/ward-flow/referrals", { waitUntil: "load" });
+
+      const scrollers = page.locator('[data-testid^="ward-referral-board-"][data-ward-primitive="table"]');
+      expect(
+        await scrollers.count(),
+        `the referral board renders no table at ${width}px, so the containment check below would ` +
+          "pass having measured nothing",
+      ).toBeGreaterThan(0);
+
+      const measured = await scrollers.evaluateAll((nodes) =>
+        nodes.map((scroll) => {
+          const right = scroll.getBoundingClientRect().right;
+          const cells = [...scroll.querySelectorAll("thead th, tbody tr:first-child td")];
+          return {
+            id: scroll.getAttribute("data-testid") ?? "(no testid)",
+            cells: cells.length,
+            clipped: cells
+              .filter((cell) => cell.getBoundingClientRect().right > right + 1)
+              .map(
+                (cell) =>
+                  `${(cell.textContent ?? "").trim()} (right edge ${Math.round(cell.getBoundingClientRect().right)} vs scroller ${Math.round(right)})`,
+              ),
+          };
+        }),
+      );
+
+      for (const table of measured) {
+        expect(
+          table.cells,
+          `${table.id} rendered no header or first-row cell at ${width}px — nothing was measured`,
+        ).toBeGreaterThan(0);
+        expect(
+          table.clipped,
+          `column(s) of ${table.id} are off the screen at ${width}px, reachable only by scrolling ` +
+            "sideways inside a table that shows no sign of having more",
+        ).toEqual([]);
+      }
+    }
   });
 });

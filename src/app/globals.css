@@ -194,6 +194,16 @@
   --spacing-icon-lg: 1.25rem; /* 20px — header / primary controls */
   --spacing-icon-xl: 1.5rem; /* 24px — hero / composer emphasis */
 
+  /* Leading tile in a Disclosure row. A container tile, not a glyph, so per the
+     note above it deliberately sits off the icon scale — the glyph inside it is
+     `size-icon-sm`. It is a token rather than a literal because THREE places must
+     agree on it or the component's alignment silently breaks: the trigger's grid
+     column, the panel's grid column, and the tile itself. That agreement is what
+     puts the label, the collapsed preview and the expanded body on one left edge;
+     before it, the panel was `px-3` while the label sat behind a chevron and a
+     tile, so opening a row moved its copy sideways. */
+  --spacing-disclosure-icon: 1.75rem; /* 28px */
+
   /* Active-filter count bubble on the search band. 17px is deliberately off
      both the 4px grid and the icon scale above: it is a text-bearing box sized
      to its own --text-2xs numeral plus the tinted ring, not a glyph, so
@@ -440,6 +450,21 @@
   --brand-mark: var(--clinical-accent);
   --brand-mark-emphasis: var(--clinical-accent-strong);
   --brand-mark-contrast: var(--clinical-accent-contrast);
+  /* Corner wash behind the brand lockup in the sidebar and phone drawer header.
+     Per-theme rather than an alias, because the two themes need opposite
+     mixes to land on the same *read* — a whisper of brand at the top-left that
+     dissolves before it reaches the close control. In light, --clinical-accent-soft
+     (#eff5fc) is within a hair of the white panel and simply disappears, so the
+     wash is cut from the accent itself at a low percentage. In dark, the soft
+     step is already a deep blue against a near-black panel and carries on its
+     own; cutting from the accent there would put a bright haze over the mark.
+
+     The light cut was raised 13% -> 18% on 2026-09-06: the band it grounds now
+     runs the full height of the drawer header (it paints the notch strip too,
+     so it is spread over roughly twice the area it was mixed for) and at 13%
+     the middle of the band had thinned to near-white. Dark is unchanged — its
+     mix is already near-opaque and gaining nothing from the same lift. */
+  --brand-band-wash: color-mix(in oklab, var(--clinical-accent) 18%, transparent);
   /* Tinted filter-count pill on the results band — quieter than a solid disc. */
   --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 
@@ -487,7 +512,27 @@
   --success-bg: #ecfdf3;
   --success-border: #abefc6;
   --warning-text: #8a4d05;
-  --warning-bg: #fef7ec;
+  /* ⚠️ THE ONLY WARM SURFACE LEFT IN THE PRODUCT, AND IT READ AS CREAM. Was `#fef7ec`.
+   *
+   * v2 modernised every neutral surface to pure white and never touched the four status
+   * backgrounds, so this one kept a warm yellow against white panels. Its three siblings are all
+   * cool — `--info-bg #eff4ff`, `--success-bg #ecfdf3`, `--danger-bg #fef3f2` — so warning was the
+   * outlier by HUE rather than by lightness, which is why it looked dingy rather than merely
+   * different.
+   *
+   * It is the second most-used background in the ward layer: 46 uses across ~20 stylesheets, one
+   * to eight each. Spread that thin it is a genuine warning treatment rather than one large
+   * surface painted wrongly — so the TOKEN moves and no call site does.
+   *
+   * Lifted toward white and de-yellowed. The signal now sits in `--warning-border` and
+   * `--warning-text`, which already carry it, rather than in a large tinted field.
+   *
+   * ⚠️ CHANGE IT HERE AND NOWHERE ELSE. Setting it in `ckb-v2-tokens.css` instead creates a
+   * divergence that `check:design-system-contract` fails — the v2 value would paint and this one
+   * would silently do nothing. That gate caught exactly that on the first attempt at this change.
+   *
+   * Owner request, 2026-09-04: "I want the crisp white... not the cream colour". */
+  --warning-bg: #fffcf6;
   --warning-border: #f5d9a8;
   --danger-text: #a3190f;
   --danger-bg: #fef3f2;
@@ -751,6 +796,8 @@
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #235a7d;
   --clinical-accent-contrast: #082e4d;
+  /* See the light definition: dark takes the soft step, not a cut of the accent. */
+  --brand-band-wash: color-mix(in oklab, var(--clinical-accent-soft) 88%, transparent);
   --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 
   --clinical-chat-sand: #2d2418;
@@ -1065,6 +1112,18 @@ select,
   box-shadow: var(--shadow-inset);
   outline: 1px solid color-mix(in srgb, var(--clinical-accent) 32%, var(--border-strong));
   outline-offset: 0;
+}
+
+/* Same caret contract as `.chat-composer-input` (see the note there), for the
+   standalone field recipe: `fieldControl` is fixed to `h-tap` and sets no
+   leading, so its inputs — the document-scope filter and the other filter and
+   picker search boxes — inherited the 1.5 body leading, a 24px line box around
+   an 18px glyph box at `text-sm`. The caret is drawn off the glyph box, so it
+   rendered taller than the text it sits in. `textarea.field-control` is
+   deliberately excluded: it is genuinely multi-line and wants the inherited
+   prose leading. */
+input.field-control {
+  line-height: normal;
 }
 
 /* Standalone field recipe (`fieldControl`). Tailwind `outline-none` loses to
@@ -2099,6 +2158,30 @@ summary::-webkit-details-marker {
   outline: none;
 }
 
+/* Composer text field. This is the typographic owner for EVERY composer in the
+   app; `.answer-footer-search-input` only re-sizes it per breakpoint.
+
+   `line-height: normal` is load-bearing, not a default worth tidying into a
+   leading token. A single-line control has exactly one line, so leading buys
+   nothing — but the moment its CSS line box stops matching its glyph box, the
+   caret and the text are placed off two different boxes: the engine centres the
+   glyphs on the line box while the caret is drawn from the font's own ascent
+   and descent. Desktop engines paper over the difference; mobile Safari does
+   not, and rendered the caret taller than the text and hanging below it in
+   every search bar (reported 2026-09-04 on iPhone).
+
+   This field was diverging in both directions at once. `.chat-composer-input`
+   set no leading at all, so a standalone composer inherited the 1.5 body
+   leading — a 24px line box around a 21px glyph box. The footer composer then
+   overrode that with the fluid display heading's 1.12 companion, which is
+   TIGHTER than the glyph box: 17.92px against 21px at 16px, and 20.16px against
+   23px at the ≥431px 18px step, so the text overflowed its own line box by ~3px
+   and the negative half-leading pushed the caret low. `normal` makes the two
+   boxes identical, so there is one box for every engine to centre.
+
+   Never give this field a leading token. Heights come from `--spacing-tap` and
+   are unaffected either way, so a leading value here changes nothing except
+   whether the caret lands on the text. */
 .chat-composer-input {
   min-width: 0;
   min-height: var(--spacing-tap);
@@ -2109,6 +2192,7 @@ summary::-webkit-details-marker {
   color: var(--text);
   font-size: 1rem;
   font-weight: 500;
+  line-height: normal;
   outline: none;
 }
 
@@ -2236,8 +2320,12 @@ summary::-webkit-details-marker {
   padding-inline: 0.35rem;
   font-size: 16px;
   font-weight: 560;
-  /* Hero companion on this 16px field is deliberate coupling (DS-P2-12). */
-  line-height: var(--text-hero--line-height);
+  /* Leading deliberately absent — `.chat-composer-input` owns it and must keep
+     owning it. This rule used to re-point it at the hero heading's 1.12
+     companion (DS-P2-12 mapped a raw literal onto the nearest named token; the
+     coupling was never a typographic decision), which is display leading on a
+     16px UI field and left the glyph box overflowing the line box. See the
+     caret note on `.chat-composer-input`. */
   letter-spacing: 0;
 }
 
@@ -2468,7 +2556,7 @@ summary::-webkit-details-marker {
   align-items: stretch;
   gap: 0.375rem;
 }
-.smart-search-rotating-text,
+.search-example-ticker,
 .smart-search-prompt-row {
   display: none;
 }
@@ -2534,7 +2622,7 @@ summary::-webkit-details-marker {
     display: none;
   }
 
-  .smart-search-rotating-text {
+  .search-example-ticker {
     display: flex;
   }
   .smart-search-prompt-row {
@@ -2542,23 +2630,41 @@ summary::-webkit-details-marker {
   }
 }
 
-/* BEGIN tablet mode-home composer geometry */
-/* Across 640-1279px the settled one-line surface is 160px: rotating hint
-   (24px), composer, gaps, and prompt rail. Pre-reserve that exact height in
-   this bounded band. The portal host's pending/non-empty selectors remain the
-   owner, so a hidden composer still reserves zero. At 1280px+ the existing
-   88px default remains deliberately unchanged because measured CLS stays
-   below 0.01. */
-@media (min-width: 640px) and (max-width: 1279.98px) {
-  :root {
-    --spacing-mode-home-composer-wide: 10rem;
-  }
+/* BEGIN mode-home prompt rail one-line */
+/* The mode-home Prompts rail is a single scrolling line at EVERY width from
+   640px up, so all sixteen mode homes render the one composer stack the reserve
+   tokens are sized for.
 
+   From 640px up, `.answer-suggestion-chips-scroll` deliberately relaxes to a
+   wrapping row for the answer-thread follow-up chips. This rule re-imposes the
+   one-line scroller for the mode-home rail only, and until 2026-09-06 it lived
+   inside the 640-1279.98px band below — so above 1280px the rail was free to
+   wrap. Fifteen modes hid that: their three prompts fit the 576px rail on one
+   line. Specifiers did not ("depressed but racing thoughts", "returns every
+   winter", "much better but not fully recovered" total 613px), so its home
+   alone settled at 199px against a 160px stack and an 88px pending reserve.
+   Scope this rule to the band and the wrap comes straight back for whichever
+   mode's prompt copy grows next. */
+@media (min-width: 640px) {
   .smart-search-prompt-row .answer-suggestion-chips-scroll {
     flex-wrap: nowrap;
     overflow-x: auto;
     mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
     -webkit-mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+  }
+}
+/* END mode-home prompt rail one-line */
+
+/* BEGIN tablet mode-home composer geometry */
+/* Across 640-1279px the settled one-line surface is 160px: example ticker
+   line (24px), composer, gaps, and prompt rail. Every mode home renders that
+   same stack. Pre-reserve that exact height in this bounded band. The portal
+   host's pending/non-empty selectors remain the owner, so a hidden composer
+   still reserves zero. At 1280px+ the existing 88px default remains
+   deliberately unchanged because measured CLS stays below 0.01. */
+@media (min-width: 640px) and (max-width: 1279.98px) {
+  :root {
+    --spacing-mode-home-composer-wide: 10rem;
   }
 }
 /* END tablet mode-home composer geometry */
@@ -2582,7 +2688,7 @@ summary::-webkit-details-marker {
 }
 /* END sm+ hero home canvas alignment */
 
-.smart-search-rotating-text {
+.search-example-ticker {
   min-height: 1.5rem;
   align-items: center;
   justify-content: center;
@@ -2594,7 +2700,7 @@ summary::-webkit-details-marker {
   letter-spacing: 0.01em;
 }
 
-.smart-search-rotating-query {
+.search-example-ticker-query {
   color: var(--clinical-accent);
 }
 
@@ -2819,6 +2925,18 @@ summary::-webkit-details-marker {
   .mode-home-composer-slot {
     width: min(100%, clamp(28rem, 50vw, 48rem));
     max-width: calc(100vw - 3rem - var(--safe-area-left) - var(--safe-area-right));
+  }
+
+  /* Result-view page slots (GlobalSearchShell and the dashboard result slot)
+     host the compact pill alone: 80px settled at every sm+ width (py-3 form
+     padding around the 56px pill; no ticker, prompt rail, or privacy line).
+     They share the mode-home token so the pending/filled gating stays one
+     contract, but the mode-home value is sized for the hero stack: 160px in
+     the tablet band left a blank band under every result composer, and 88px
+     at 1280px+ over-reserved too. Override the token on the page slot to the
+     exact height. */
+  .desktop-page-composer-slot {
+    --spacing-mode-home-composer-wide: 5rem;
   }
 
   .universal-top-search-edge {
@@ -4407,24 +4525,21 @@ html[data-motion="reduced"] .answer-progress-dot {
   animation-delay: calc(var(--stagger-index, 0) * var(--stagger-cascade));
 }
 
-/* The answer wait's source rail arrives one card at a time rather than as a single movement.
-   The default `--stagger-cascade` rung is right for a results grid the reader is about to
-   scan, but six cards in 175ms reads as one block appearing. On `--stagger-cascade-wide` the
-   last card lands around 450ms, so each is separately noticeable, and the whole rail is still
-   standing long before generation ends.
+/* The answer wait's source rail arrives one card at a time, and the pacing is NOT here.
 
-   Scoped to this rail deliberately — the shared class also drives the prose skeleton bars
-   immediately above it and the search result grids, which keep the 35ms rung. Declared here,
-   unlayered and adjacent to the rule it overrides, because `.answer-sources-arriving` itself
-   lives in @layer components and a layered rule would lose to this unlayered one whatever its
-   specificity.
+   This used to be a `--stagger-cascade-wide` delay override, because every card mounted at
+   once and only an animation delay could separate them. Six cards then landed inside 450ms —
+   correct to the millisecond, and over before a reader looking at an otherwise still screen
+   registered that anything had happened. The rail is now revealed a card at a time by
+   `useProgressiveReveal` in `answer-status.tsx`, one per `--duration-moderate`, so each card
+   animates on mount with the shared `.stagger-item` rule and no delay of its own. The cards
+   deliberately set no `--stagger-index`: mount timing and an animation delay would compound,
+   and the last card would arrive at twice the intended distance.
 
-   It cannot reintroduce motion when motion is suppressed: both reduced-motion paths below set
-   `animation: none !important` on `.stagger-item`, and that shorthand resets animation-delay
-   to 0s with it, so the cards stay immediately and fully visible. */
-.answer-sources-arriving .stagger-item {
-  animation-delay: calc(var(--stagger-index, 0) * var(--stagger-cascade-wide));
-}
+   The pacing owner moved, not the reduced-motion contract. The hook returns the full count
+   immediately when motion is suppressed, and both reduced-motion paths below independently set
+   `animation: none !important` on `.stagger-item`. Suppressing motion must never withhold
+   content on this surface — that is the rule this rail was built under. */
 
 @media (prefers-reduced-motion: reduce) {
   html:not([data-motion="full"]) .animate-skeleton-shimmer::after,
@@ -4807,23 +4922,43 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
-/* Theme switch micro-interaction (Improvement 2.2) */
+/* Theme switch: snap every surface in one frame (was Improvement 2.2's crossfade).
+
+   This block used to declare, with `!important`, a 200ms colour transition on
+   `html.theme-transitioning` AND `html.theme-transitioning *` AND both
+   pseudo-element tiers - a transition on every node in the document at once.
+   Measured in Chromium 1194 on the settings dialog at 1440x900, switching Light
+   -> Dark: 1226 simultaneously running animations, after which the page went
+   546ms without presenting a frame (requestAnimationFrame samples landed at
+   313ms and 859ms with nothing in between). The one frame that survived that
+   stall was painted half in each theme - a light header band and light sidebar
+   chrome sitting over dark panels, with row headings still at the light-theme
+   ink colour on a dark surface, which is what the switch looked like to a user.
+   The crossfade it was paying for never rendered: sampled colour values had
+   already snapped to their dark end on the first frame after the click.
+
+   Fading only the root was tried and rejected: the ground then interpolated for
+   the full 200ms while every panel above it snapped, so a near-white page
+   background lingered behind dark chrome (body measured rgb(234,235,235) at
+   190ms with the header already dark). A partial fade reads worse than no fade.
+
+   So the class now suppresses transitions instead of adding them. That is what
+   this block's own `prefers-reduced-motion` branch already did for the identical
+   selector - and reduced motion is the one path this bug was never reported
+   from. The branch is gone because it is now the unconditional behaviour, so
+   reduced-motion users see exactly what they saw before. `transition: none`
+   creates no animation objects, so the switch
+   costs two style recalcs instead of 1226 concurrent animations, and every
+   surface flips together in a single frame with no mixed-theme paint.
+
+   Do not reintroduce a transition here. The 2026-08-02 CWV audit (RB-3) saw the
+   universal selector and judged it acceptable because it is user-triggered; that
+   is backwards - being user-triggered is exactly what made it visible. */
 html.theme-transitioning,
 html.theme-transitioning *,
 html.theme-transitioning *:before,
 html.theme-transitioning *:after {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke !important;
-  transition-duration: var(--duration-moderate) !important;
-  transition-timing-function: var(--ease-chrome-hide) !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html.theme-transitioning,
-  html.theme-transitioning *,
-  html.theme-transitioning *:before,
-  html.theme-transitioning *:after {
-    transition: none !important;
-  }
+  transition: none !important;
 }
 
 /* Windows High Contrast / Forced Colors Compatibility (Improvement 2.3).

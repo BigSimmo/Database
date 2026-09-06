@@ -24,17 +24,21 @@ jobs:
     name: Reply with a Claude Code link
     runs-on: ubuntu-24.04
     # Only when a human (never a bot — including this workflow's own reply and
-    # Claude's) mentions @claude, so the backlink never loops or spams automated
-    # comments.
+    # Claude's) who is an owner, member or collaborator mentions @claude, so
+    # the backlink never loops, spams automated comments, or answers accounts
+    # outside the repository's trust boundary (audit L38).
     if: >
       (github.event_name == 'issue_comment' &&
         github.event.comment.user.type != 'Bot' &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
         contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' &&
         github.event.comment.user.type != 'Bot' &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
         contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' &&
         github.event.review.user.type != 'Bot' &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) &&
         github.event.review.body != null &&
         contains(github.event.review.body, '@claude'))
     permissions:

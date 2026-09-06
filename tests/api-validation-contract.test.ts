@@ -705,12 +705,19 @@ describe("API validation contracts", () => {
       inFilters: [{ column: "status", values: ["pending", "processing"] }],
     });
     expect(client.calls[2].range).toBeUndefined();
+    // #L15: the route now also runs a failed-jobs head count, same shape as
+    // the active-jobs count above, so it lands one call later at index 3.
+    expect(client.calls[3]).toMatchObject({
+      table: "ingestion_jobs",
+      filters: expect.arrayContaining([{ column: "status", value: "failed" }]),
+    });
+    expect(client.calls[3].range).toBeUndefined();
 
     expect(batchesResponse.status).toBe(200);
     expect(await payload(batchesResponse)).toMatchObject({
       pagination: { limit: 2, offset: 1, total: 0, nextOffset: 1, hasMore: false },
     });
-    expect(client.calls[3]).toMatchObject({ table: "import_batches", range: { from: 1, to: 2 } });
+    expect(client.calls[4]).toMatchObject({ table: "import_batches", range: { from: 1, to: 2 } });
   });
 
   it("keeps ingestion polling active when an active job is beyond the requested page", async () => {

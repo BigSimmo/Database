@@ -1,4 +1,4 @@
-﻿# Cursor exclusions — hides from semantic index AND AI features (@Files, Chat, Agent).
+# Cursor exclusions — hides from semantic index AND AI features (@Files, Chat, Agent).
 # Prefer .cursorindexingignore for large tracked blobs that should stay @Files-reachable.
 # Cursor also auto-excludes .gitignore entries; this file covers defense-in-depth + tracked noise.
 

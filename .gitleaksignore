@@ -91,3 +91,14 @@ a394d76631c7ea3405037baf58091b1c4c47fa3f:tests/codex-cloud-setup.test.ts:generic
 # introduced it is still read and has to be pinned by its own fingerprint. Rewriting
 # it out of 500+ commits of history would need a force-push, which is worse.
 f69f2f129ac3fd65c7115a9f84b254f1a1d41929:docs/caring-contacts/phase-2b-sdd-archive/task-exit-only-trigger-report.md:generic-api-key:207
+# Reviewed false positive: two Vitest env stubs for the answer-feedback hash secret.
+# The value is a test placeholder that authenticates nothing and reaches no service;
+# `generic-api-key` matched it because a short hexadecimal run sits beside an
+# identifier ending in SECRET. DESCRIBED, NEVER QUOTED, per the line 49 entry above.
+# The tip no longer carries it — both stubs now use this repository's ordinary
+# descriptive placeholder shape, the same one every other test uses for this variable
+# — but a PR run scans every commit in the base..head range, so the commit that
+# introduced it is still read on each run and has to be pinned by its own fingerprint.
+# Rewriting it out of history would need a force-push, which is worse.
+c3bb25828022355cbc27ac3262c285725d5bda0c:tests/env-answer-feedback-warning.test.ts:generic-api-key:49
+c3bb25828022355cbc27ac3262c285725d5bda0c:tests/instrumentation.test.ts:generic-api-key:151

@@ -110,7 +110,7 @@ describe("medication catalog query understanding", () => {
       "monitoring",
     ]);
 
-    expect(matches.map((match) => match.medication.slug)).toContain("warfarin-vka");
+    expect(matches[0]?.medication.slug).toBe("warfarin-vka");
     expect(analysis.corrections).toEqual([]);
     expect(analysis.expansions).toEqual([]);
   });

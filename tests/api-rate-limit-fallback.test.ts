@@ -72,9 +72,11 @@ describe("paid anonymous answer limits", () => {
       bucket: "answer",
     });
 
-    expect(rpc).toHaveBeenCalledTimes(2);
+    // Caller quota, the per-bucket all-anonymous quota, and the aggregate anonymous
+    // generation ceiling that bounds total unauthenticated provider spend.
+    expect(rpc).toHaveBeenCalledTimes(3);
     expect(rpc.mock.calls.map(([, args]) => args.p_subject_key)).toEqual(
-      expect.arrayContaining(["anon:caller", "anon:answer:global"]),
+      expect.arrayContaining(["anon:caller", "anon:answer:global", "anon:generation:aggregate"]),
     );
   });
 
@@ -154,7 +156,13 @@ describe("atomic streamed-summary limits", () => {
     });
 
     expect(decision).toMatchObject({ bucket: null, rateLimit: { limited: false, limit: 12, remaining: 5 } });
-    expect(rpc).toHaveBeenCalledTimes(1);
+    // One atomic call for the caller/global/summary policies, plus the aggregate anonymous
+    // generation ceiling that streamed summaries also draw down.
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledWith(
+      "consume_api_subject_rate_limit",
+      expect.objectContaining({ p_subject_key: "anon:generation:aggregate" }),
+    );
     expect(rpc).toHaveBeenCalledWith("consume_summary_rate_limits_atomic", {
       p_owner_id: null,
       p_subject_key: "anon:caller",

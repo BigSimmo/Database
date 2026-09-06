@@ -336,7 +336,7 @@ manifest remains `baseline: not-committed`, and no Playwright snapshot PNG is an
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | forms              | `FormField` is mounted by `TextField`/`Select`; required labels carry a text marker and optional labels remain unmarked.                                                                                                                                                                      | `tests/ui-v2-form-field.dom.test.tsx`                                                                   |
 | headers/catalogues | Shared mode status notices now delegate to DS `EmptyState`; therapy loading/empty wrappers delegate to `LoadingPanel`/`EmptyState`; differential and favourites chip wrappers delegate to DS `Chip` while retaining their surface-specific density/tone mapping.                              | `tests/design-system-target-evidence.test.ts`, `tests/mode-home-status-notice.dom.test.tsx`             |
-| overlays           | `Sheet` portals to `OverlayRoot`'s modal host by default. Settings, the mobile Clinical Guide sidebar, and the three answer-review sheets use that default; none opts out with `portal={false}`.                                                                                              | `tests/sheet.dom.test.tsx`, `tests/design-system-target-evidence.test.ts`                               |
+| overlays           | `Sheet` portals to `OverlayRoot`'s modal host by default. Settings, the mobile PsychSift sidebar, and the three answer-review sheets use that default; none opts out with `portal={false}`.                                                                                                   | `tests/sheet.dom.test.tsx`, `tests/design-system-target-evidence.test.ts`                               |
 | answer             | The three product copy paths share the payload builder described in §2.6; answer-review overlays retain their existing content, dismissal, and focus-return props while using the portal default.                                                                                             | `tests/answer-copy-payload.test.ts`, `tests/answer-clipboard-product-path.dom.test.tsx`                 |
 | cross-mode links   | `responsive-compact` deliberately mounts a phone chip rail and an `md+` card rail so SSR and hydration agree. CSS makes only one rail visible/in the accessibility tree; selectors and analytics must target the variant rail, while `cross-mode-links-rail` remains the phone-only contract. | `tests/design-system-target-evidence.test.ts`, focused `tests/ui-smoke.spec.ts` CrossModeLinks journeys |
 
@@ -357,12 +357,12 @@ product exclusions; the only route-only dispositions are the documented legacy-r
 surfaces. Shared shell/component roots carry their own explicit `shared-shell` disposition.
 
 Registered public components: 55
-Declared product roots: 90
+Declared product roots: 99
 Roots with a literal `.ckb-v2` opt-in: 1
-Roots inheriting `.ckb-v2` from the global `<html>`: 89
+Roots inheriting `.ckb-v2` from the global `<html>`: 98
 Production surfaces observed under v2: 15/15
 Dynamic `ckb-v2` constructions: 0
-Declared production page routes: 82/82
+Declared production page routes: 91/91
 
 Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.
 The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
@@ -371,7 +371,7 @@ Observed v2 under a compatibility declaration fails closed. A declared v2 shell 
 | Surface                            | Disposition     | Routes | Roots | Declared shell | Observed shell (mount)     | Proof          | Baseline       |
 | ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------------------- | -------------- | -------------- |
 | `root-shell-and-settings`          | shared-shell    |      3 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `catalogues-forms-and-info`        | owned           |     30 |    30 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `catalogues-forms-and-info`        | owned           |     39 |    39 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `differentials`                    | owned           |      7 |     7 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `formulation`                      | owned           |      6 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `specifiers`                       | owned           |      6 |     6 | v2             | v2 (inherited-global-root) | passed         | not-committed  |

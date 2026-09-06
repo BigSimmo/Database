@@ -4,7 +4,16 @@
 a second copy of the detail: each row points at the file that holds the reasoning. Where this file and a
 detailed record disagree, **the detailed record wins** — this one is a summary and can go stale.
 
-Last updated 2026-08-24.
+Last updated 2026-09-02.
+
+> **PHASE 2B HAS ALSO LANDED ON `main`.** Verified 2026-09-02: Phase 2B was squash-merged as
+> `17df388e8` — "feat(caring-contacts): Phase 2B workspace, plan lifecycle, team roster and database
+> (#2451)", 2026-08-29. The four feature branches `phase-2b-HANDOVER.md` told a future session to
+> merge no longer exist on `origin`; that file now carries the same banner and its branch table is
+> historical. Everything from the plan (`docs/superpowers/plans/2026-08-24-caring-contact-phase-2b-screens.md`)
+> through Group 4 and the close-out is in `phase-2b-build-record.md`, Rulings [68]–[161]. Later
+> `main` work has touched the workspace since (for example #2534, Rulings [129A]); **`main` is the
+> source of truth**, and the phase table in §2 is a summary that the build record overrides.
 
 > **PHASE 2A HAS LANDED ON `main`, AND THE FEATURE BRANCH IS RETIRED.** Verified 2026-08-24: the whole
 > of Phase 2A was squash-merged as `e4cbe8d3a` — "Claude/suicide contact mockup b5aaa0 (#2279)",
@@ -40,22 +49,23 @@ experience and clinical sign-off are required before any real use.
 
 ## 2. Programme shape
 
-| Phase | Deliverable                                                                  | State                                 |
-| ----- | ---------------------------------------------------------------------------- | ------------------------------------- |
-| 1     | The rules and the database                                                   | **Complete**, 2026-08-19              |
-| 2A    | Foundations — sealed domain, storage, data path, shell, overlays             | **19 of 19 built**; closing work open |
-| 2B    | The working clinician-facing screens                                         | Not started; needs its own plan       |
-| 3     | Demonstrable — demo clock, synthetic caseload, training mode, record summary | Not started                           |
+| Phase | Deliverable                                                                  | State                                                                                                                                                                                   |
+| ----- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | The rules and the database                                                   | **Complete**, 2026-08-19                                                                                                                                                                |
+| 2A    | Foundations — sealed domain, storage, data path, shell, overlays             | **Complete**, merged 2026-08-23                                                                                                                                                         |
+| 2B    | The working clinician-facing screens                                         | **Complete**, merged 2026-08-29 (#2451)                                                                                                                                                 |
+| 3     | Demonstrable — demo clock, synthetic caseload, training mode, record summary | Partly built inside 2B: the demo seed and the seeded Playwright project (`chromium-caring-contacts-seeded`) exist — build record Rulings [157]–[160]. Not planned as a phase of its own |
 
 ## 3. Session history
 
-| #   | Session             | What it did                                                                                                       | Transcript                                     |
-| --- | ------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| 1   | Phase 1 + early 2A  | Built the sealed domain and database. 13 owner-behalf decisions. Phase 1 gate passed.                             | `D:\Repos\caring-contacts-handoff-2026-08-20\` |
-| 2   | Phase 2A controller | Plan written; Tasks 1-10 and 11a built and reviewed. Rulings 1-31. Died on an account limit mid-fix-round-2.      | same bundle                                    |
-| 3   | Phase 2A recovery   | Verified the abandoned commit, re-reviewed it, Rulings 32-34, survived a worktree deletion, rebuilt and re-proved | `D:\Repos\caring-contacts-handoff-2026-08-21\` |
-| 4   | Phase 2A completion | Task 11b, Tasks 12-19, the final whole-branch review, Rulings 35-66, the copy review, the condensed bar           | build record, Session 4 onward                 |
-| 5   | Phase 2A closing    | Found the phase already merged to `main`; browser gate green; mutation proofs; issues sweep; 2B planning begun    | build record, Session 5                        |
+| #   | Session             | What it did                                                                                                        | Transcript                                     |
+| --- | ------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| 1   | Phase 1 + early 2A  | Built the sealed domain and database. 13 owner-behalf decisions. Phase 1 gate passed.                              | `D:\Repos\caring-contacts-handoff-2026-08-20\` |
+| 2   | Phase 2A controller | Plan written; Tasks 1-10 and 11a built and reviewed. Rulings 1-31. Died on an account limit mid-fix-round-2.       | same bundle                                    |
+| 3   | Phase 2A recovery   | Verified the abandoned commit, re-reviewed it, Rulings 32-34, survived a worktree deletion, rebuilt and re-proved  | `D:\Repos\caring-contacts-handoff-2026-08-21\` |
+| 4   | Phase 2A completion | Task 11b, Tasks 12-19, the final whole-branch review, Rulings 35-66, the copy review, the condensed bar            | build record, Session 4 onward                 |
+| 5   | Phase 2A closing    | Found the phase already merged to `main`; browser gate green; mutation proofs; issues sweep; 2B planning begun     | build record, Session 5                        |
+| 6   | Phase 2B controller | Plan written; Tasks 1–21 and Group 4 built on four branches, merged, gated and closed out as #2451; Rulings 68–161 | `phase-2b-build-record.md`                     |
 
 ## 4. Task status — Phase 2A (19 tasks, 5 groups)
 
@@ -92,7 +102,7 @@ experience and clinical sign-off are required before any real use.
 |      |                                                  | undercount and is corrected)                           |
 | —    | Deferred-findings `/issues` sweep                | **Done 2026-08-24** — 7 request files queued in        |
 |      |                                                  | `docs/outstanding-issues-inbox/`, awaiting reconcile   |
-| —    | Phase 2B plan                                    | **In progress** — no plan existed; being written       |
+| —    | Phase 2B plan                                    | **Done** — written, built and merged; see the banner   |
 
 ## 5. Verification evidence, as recorded
 

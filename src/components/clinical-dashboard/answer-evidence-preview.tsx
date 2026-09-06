@@ -41,9 +41,28 @@ export const visiblePreviewSourceLimit = 6;
  *
  * Each card is a real link to the real page, so a reader who recognises a
  * document can open it without waiting for the answer at all.
+ *
+ * **The cards arrive one at a time, and that pacing is presentation.** Retrieval is a
+ * single call, and the stream contract carries exactly one evidence preview per answer
+ * (`sequence: 0`), so every source in this rail was found in the same instant. What the
+ * pacing buys is a wait that accrues instead of a screen that sits still for several
+ * seconds and then blinks. Nothing here claims live discovery: the status line reads
+ * "N sources found", and N is always the number of cards standing beside it, which is the
+ * one rule the wait's copy is held to.
  */
-export function AnswerEvidencePreview({ preview }: { preview: VerifiedEvidencePreviewUnit }) {
-  const visibleSources = preview.sources.slice(0, visiblePreviewSourceLimit);
+export function AnswerEvidencePreview({
+  preview,
+  revealedCount,
+}: {
+  preview: VerifiedEvidencePreviewUnit;
+  /** How many of the capped sources are on screen right now. The rail does not own this
+   *  number: `AnswerProgress` paces it so the status line and the cards can never disagree
+   *  about how many sources have been found. Omitted, every capped source shows at once,
+   *  which is what a caller with no pacing state (and every reduced-motion reader) gets. */
+  revealedCount?: number;
+}) {
+  const cappedSources = preview.sources.slice(0, visiblePreviewSourceLimit);
+  const visibleSources = cappedSources.slice(0, revealedCount ?? cappedSources.length);
   if (visibleSources.length === 0) return null;
 
   return (
@@ -53,7 +72,7 @@ export function AnswerEvidencePreview({ preview }: { preview: VerifiedEvidencePr
       aria-label={`Sources found so far, ${visibleSources.length}. Not yet numbered — the answer decides the final list.`}
       className="answer-sources-arriving flex gap-1.5 overflow-x-auto pb-1"
     >
-      {visibleSources.map((source, index) => {
+      {visibleSources.map((source) => {
         const title = cleanDisplayTitle(source.title);
         // Freshness, not the section heading. A section heading is orientation a
         // reader gets anyway once the card is opened; whether the document is
@@ -68,7 +87,10 @@ export function AnswerEvidencePreview({ preview }: { preview: VerifiedEvidencePr
             href={sourceResultHref(source)}
             data-testid="answer-evidence-preview-source"
             aria-label={`Open source found so far: ${title}, page ${source.page_number ?? "unknown"}, ${status}`}
-            style={{ "--stagger-index": index } as React.CSSProperties}
+            // No `--stagger-index`: the cascade is carried by mount timing now, not by an
+            // animation delay. Each card animates the moment it appears, so keeping an index
+            // here would delay it a second time and the last card would arrive twice as late
+            // as the pacing intends. The default `var(--stagger-index, 0)` is what we want.
             className={cn(
               "stagger-item inline-flex min-h-12 shrink-0 items-center gap-2 rounded-xl border border-[color:var(--border)]",
               "bg-[color:var(--surface-raised)] px-2.5 text-left transition",

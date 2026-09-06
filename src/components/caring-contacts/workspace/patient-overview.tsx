@@ -21,6 +21,7 @@ import { ListEmptyState } from "./list-empty-state";
 import { ExitOnlyOverlayTrigger } from "./overlays/exit-only-overlay-trigger";
 import type { PlanActionsContext } from "./plan-action-rules";
 import { PlanActions } from "./plan-actions";
+import { workspacePanelPadded } from "./surfaces";
 
 /**
  * One patient's caring-contact episode -- who they are, which plan is running, what has happened
@@ -262,8 +263,7 @@ function BackToPatients() {
   );
 }
 
-const cardClass =
-  "min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4 forced-colors:border-[CanvasText]";
+const cardClass = workspacePanelPadded;
 
 const rowLinkClass =
   "flex min-h-tap min-w-0 flex-col justify-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border-[CanvasText]";
@@ -299,7 +299,9 @@ function PlanChooser({
       <p className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
         {anyName === null ? "Synthetic patient identifier" : "Patient"}
       </p>
-      <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">{anyName ?? patientId}</p>
+      <p className="mt-0.5 break-words text-sm font-semibold text-[color:var(--text-heading)]">
+        {anyName ?? patientId}
+      </p>
       <h2
         id="caring-contacts-plan-chooser-heading"
         className="mt-4 text-base font-semibold text-[color:var(--text-heading)]"
@@ -375,12 +377,12 @@ function EpisodeOverview({
         </p>
         <h2
           id="caring-contacts-patient-heading"
-          className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]"
+          className="mt-0.5 break-words text-sm font-semibold text-[color:var(--text-heading)]"
         >
           {name ?? patientId}
         </h2>
         {name === null ? null : (
-          <p className="mt-0.5 truncate text-xs text-[color:var(--text-muted)]">Synthetic identifier: {patientId}</p>
+          <p className="mt-0.5 break-words text-xs text-[color:var(--text-muted)]">Synthetic identifier: {patientId}</p>
         )}
 
         {/*

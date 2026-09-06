@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "39f1a54f-686c-4e4d-af0d-ad02e8be5e9a",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#1M0J6D",
+    "detail": "INDEPENDENTLY REPRODUCED 2026-09-06 in a Claude Code cloud session, which is a third occurrence and confirms this is environmental rather than intermittent. The checkout arrived as a shallow clone of 187 commits. tests/rag-plan-package-parity.test.ts failed with 'manifest reconciledBase is unavailable locally: f3d1a3cce2c943ad3083425ed9c7c46dbef23087' and npm run check:stale-docs refused outright with 'Refusing to run on a shallow clone'. Three test files reported failing in total. After 'git fetch --deepen=3000' restored full history (5707 commits) the same suite passed with zero failures: 1177 files, 17116 tests. The cost is not the failure but the misreading: the messages name a manifest and a missing commit, so the first reasonable interpretation is a real governance or content problem, and a session that trusts it either chases a non-existent defect or, worse, reports the suite as broken. This strengthens the case for the remedy already tracked as #FP62K4.",
+    "baseRowFingerprint": "04aafb900e0f58b0f267c1316bda958d4c1479732ca94f655856a805b8cd0ee1"
+  }
+}

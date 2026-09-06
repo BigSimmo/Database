@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { parseIssues } from "./check-outstanding-issues.mjs";
 import { issueIdCitations } from "./issue-id.mjs";
+import { applyRequest, planRequestBatch } from "./ledger-inbox.mjs";
 import { splitCells } from "./outstanding-issues.mjs";
 
 const LEDGER_PATH = "docs/outstanding-issues.md";
+const INBOX_DIR = "docs/outstanding-issues-inbox";
+const APPLIED_DIR = `${INBOX_DIR}/applied`;
 
 function git(args, cwd) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -94,22 +97,24 @@ export function buildIssuesReport(markdown, source, options = {}) {
         added: cells[6],
       };
     });
-  // Report each queue row's prose from the cited row's own Detail cell rather
-  // than the queue's Outcome cell. They were independent copies of the same
-  // prose and drifted, and since this report is what /issues reads back, the
-  // drifted copy was the one acted on — the #231 queue cell spent days pointing
-  // at an approach that row had already refuted. The queue cell cannot be
-  // re-corrected in place (no inbox request type reaches it, and
-  // check:ledger-write-discipline rejects a direct edit), so the duplication is
-  // removed at the point of use instead. Order, acuity, capability, when and
-  // estimate stay from the queue, which is the only place they exist.
+  // Report each queue row's prose from the cited row's own Detail cell, and keep the
+  // queue's own Outcome cell beside it as `gate` whenever the two differ. The two cells
+  // were once independent copies of the same prose and drifted; because this report is
+  // what /issues reads back, the drifted copy was the one acted on — the #231 queue cell
+  // spent days pointing at an approach that row had already refuted. Since #M6JNR8 the
+  // queue cell IS correctable in place (`npm run issues:queue -- '#id' --outcome "..."`)
+  // and the issues skill tells operators to use it for re-grades, so dropping the cell
+  // would silently discard those corrections. Detail stays the prose; the queue cell is
+  // shown as the gate/stop condition. Order, acuity, capability, when and estimate stay
+  // from the queue, which is the only place they exist.
   const detailById = new Map(openRows.map((row) => [row.id, row.detail]));
   let derived = queue.map((row) => {
     // A composite ID(s) cell has no single row to speak for it; keep the queue
     // text there rather than arbitrarily picking one of the cited rows.
-    if (row.ids.length !== 1) return row;
+    if (row.ids.length !== 1) return { ...row, gate: null };
     const detail = detailById.get(row.ids[0]);
-    return detail ? { ...row, outcome: detail } : row;
+    if (!detail) return { ...row, gate: null };
+    return { ...row, outcome: detail, gate: row.outcome === detail ? null : row.outcome };
   });
 
   if (options.ward) {
@@ -150,6 +155,112 @@ export function buildIssuesReport(markdown, source, options = {}) {
   };
 }
 
+/** Pending inbox requests recorded at a git ref, read in one `git cat-file --batch` call. */
+function inboxRequestsAtRef(ref, cwd) {
+  const listing = tryGit(["ls-tree", "--name-only", `${ref}:${INBOX_DIR}`], cwd);
+  if (!listing) return [];
+  const names = listing
+    .split(/\r?\n/)
+    .filter((name) => name.endsWith(".json"))
+    .sort();
+  if (names.length === 0) return [];
+  let batch = "";
+  try {
+    batch = execFileSync("git", ["cat-file", "--batch"], {
+      cwd,
+      encoding: "utf8",
+      input: names.map((name) => `${ref}:${INBOX_DIR}/${name}\n`).join(""),
+      stdio: ["pipe", "pipe", "ignore"],
+    });
+  } catch {
+    return [];
+  }
+  const requests = [];
+  let offset = 0;
+  while (offset < batch.length) {
+    const headerEnd = batch.indexOf("\n", offset);
+    if (headerEnd < 0) break;
+    const header = batch.slice(offset, headerEnd).split(" ");
+    offset = headerEnd + 1;
+    if (header[1] !== "blob") continue;
+    const size = Number(header[2]);
+    const body = batch.slice(offset, offset + size);
+    offset += size + 1;
+    try {
+      requests.push(JSON.parse(body));
+    } catch {
+      /* an unparseable request is reconcile's problem to report; skip it here */
+    }
+  }
+  return requests;
+}
+
+/** Pending inbox requests present as files in the worktree. */
+function inboxRequestsInWorktree(cwd, directory = INBOX_DIR) {
+  const absolute = path.resolve(cwd, ...directory.split("/"));
+  if (!existsSync(absolute)) return [];
+  return readdirSync(absolute)
+    .filter((name) => name.endsWith(".json"))
+    .sort()
+    .flatMap((name) => {
+      try {
+        return [JSON.parse(readFileSync(path.join(absolute, name), "utf8"))];
+      } catch {
+        return [];
+      }
+    });
+}
+
+/**
+ * Project the pending inbox onto the ledger the way `issues:reconcile` will, so rows
+ * with a queued `done` are not read back as open work, queued `add`s are visible, and
+ * queued `update`/`queue` corrections are honoured. Fails soft: if the batch cannot be
+ * planned or applied, the raw ledger is returned with a warning rather than a guess.
+ *
+ * @param {string} markdown
+ * @param {Array<object>} requests
+ * @param {{ appliedRequests?: Map<string, object> }} [options]
+ */
+export function applyPendingInbox(markdown, requests, options = {}) {
+  const counts = { add: 0, done: 0, update: 0, queue: 0, skipped: 0 };
+  const pending = { counts, total: requests.length, applied: false, closingIds: [], warning: null };
+  if (requests.length === 0) return { markdown, pending };
+  try {
+    const plan = planRequestBatch(requests, { appliedRequests: options.appliedRequests, warn: () => {} });
+    // Cancellation requests and the requests they cancel are both "skipped".
+    counts.skipped = requests.length - plan.active.length;
+    let next = markdown;
+    for (const request of plan.active) {
+      next = applyRequest(next, request);
+      counts[request.action] += 1;
+      if (request.action === "done") pending.closingIds.push(request.payload.id);
+    }
+    pending.applied = true;
+    return { markdown: next, pending };
+  } catch (error) {
+    pending.warning = `pending inbox (${requests.length} request(s)) could not be applied to this report: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+    return { markdown, pending };
+  }
+}
+
+function pendingInboxRequests(cwd, ref) {
+  const atRef = ref ? inboxRequestsAtRef(ref, cwd) : [];
+  const seen = new Set(atRef.map((request) => request?.id));
+  // A request queued in this worktree but not yet on origin/main is still pending work.
+  const local = inboxRequestsInWorktree(cwd).filter((request) => request?.id && !seen.has(request.id));
+  return [...atRef, ...local];
+}
+
+function appliedRequestsInWorktree(cwd) {
+  return new Map(
+    inboxRequestsInWorktree(cwd, APPLIED_DIR)
+      .filter((request) => request?.id)
+      .map((request) => [request.id, request]),
+  );
+}
+
 export function loadRevalidatedLedger(cwd = process.cwd()) {
   const branch = tryGit(["branch", "--show-current"], cwd) || "(detached)";
   const counts = tryGit(["rev-list", "--left-right", "--count", "origin/main...HEAD"], cwd);
@@ -157,8 +268,11 @@ export function loadRevalidatedLedger(cwd = process.cwd()) {
   const gitPath = LEDGER_PATH.replace(/\\/g, "/");
   const remoteLedger = tryGit(["show", `origin/main:${gitPath}`], cwd);
   if (remoteLedger !== undefined) {
+    const projected = applyPendingInbox(remoteLedger, pendingInboxRequests(cwd, "origin/main"), {
+      appliedRequests: appliedRequestsInWorktree(cwd),
+    });
     return {
-      markdown: remoteLedger,
+      markdown: projected.markdown,
       source: {
         ref: "origin/main (cached)",
         branch,
@@ -167,6 +281,7 @@ export function loadRevalidatedLedger(cwd = process.cwd()) {
         revalidated: false,
         warning:
           "origin/main is a local remote-tracking ref; refresh it explicitly before relying on current remote state",
+        pending: projected.pending,
       },
     };
   }
@@ -177,8 +292,11 @@ export function loadRevalidatedLedger(cwd = process.cwd()) {
   } catch {
     markdown = readFileSync(fileURLToPath(new URL(`../${gitPath}`, import.meta.url)), "utf8");
   }
+  const projected = applyPendingInbox(markdown, pendingInboxRequests(cwd, null), {
+    appliedRequests: appliedRequestsInWorktree(cwd),
+  });
   return {
-    markdown,
+    markdown: projected.markdown,
     source: {
       ref: "worktree",
       branch,
@@ -186,25 +304,44 @@ export function loadRevalidatedLedger(cwd = process.cwd()) {
       ahead,
       revalidated: false,
       warning: "origin/main is unavailable; this report may be stale",
+      pending: projected.pending,
     },
   };
 }
 
-function render(report, winsOnly) {
+export function renderIssuesReport(report, winsOnly) {
   const { source, counts } = report;
-  console.log(
+  const lines = [];
+  lines.push(
     `[issues] source=${source.ref} revalidated=${source.revalidated} branch=${source.branch} behind=${source.behind ?? "unknown"} ahead=${source.ahead ?? "unknown"}`,
   );
-  if (source.warning) console.log(`[issues] WARNING: ${source.warning}`);
+  if (source.warning) lines.push(`[issues] WARNING: ${source.warning}`);
+  if (source.pending) {
+    const { counts, total, applied, closingIds } = source.pending;
+    if (source.pending.warning) lines.push(`[issues] WARNING: ${source.pending.warning}`);
+    else if (total > 0) {
+      const closing = closingIds.length ? ` (closing: ${closingIds.join(", ")})` : "";
+      lines.push(
+        `[issues] pending inbox ${applied ? "applied to this report" : "not applied"}: done=${counts.done} update=${counts.update} add=${counts.add} queue=${counts.queue} skipped (cancellations)=${counts.skipped}${closing} — run npm run issues:reconcile to land them`,
+      );
+    }
+  }
   const rows = winsOnly ? report.agentSafeWins : report.recommended;
-  console.log(`[issues] open=${counts.open} recommended=${counts.recommended} shown=${rows.length}`);
+  lines.push(`[issues] open=${counts.open} recommended=${counts.recommended} shown=${rows.length}`);
   if (winsOnly && report.priorityBlockers.length) {
-    console.log(
+    lines.push(
       `[issues] A1 priority remains ahead of wins: ${report.priorityBlockers.map((row) => row.ids.join(",")).join(" ")}`,
     );
   }
-  for (const row of rows)
-    console.log(`${row.order}. ${row.ids.join(", ")} · ${row.acuity} · ${row.estimate} · ${row.outcome}`);
+  for (const row of rows) {
+    lines.push(`${row.order}. ${row.ids.join(", ")} · ${row.acuity} · ${row.estimate} · ${row.outcome}`);
+    if (row.gate) lines.push(`   gate/stop (queue cell): ${row.gate}`);
+  }
+  return lines.join("\n");
+}
+
+function render(report, winsOnly) {
+  console.log(renderIssuesReport(report, winsOnly));
 }
 
 export function parseCliArgs(argv) {

@@ -49,6 +49,7 @@ const OWNER_SCOPED_API_TABLES = new Set([
   "documents",
   "import_batches",
   "medication_records",
+  "on_call_entries",
   "rag_answer_feedback",
   "rag_queries",
   "rag_query_misses",

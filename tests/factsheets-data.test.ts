@@ -111,7 +111,7 @@ describe("factsheet library", () => {
 
   it("uses natural-language expansion terms without changing the category predicate", () => {
     const expansions = ["generalised anxiety disorder", "worry", "anxiety"];
-    expect(filterFactsheets("worries all the time", undefined, expansions).map((sheet) => sheet.slug)).toContain("gad");
+    expect(filterFactsheets("worries all the time", undefined, expansions).map((sheet) => sheet.slug)[0]).toBe("gad");
     expect(filterFactsheets("worries all the time", "Conditions", expansions).map((sheet) => sheet.slug)).toEqual([
       "gad",
     ]);
@@ -122,6 +122,17 @@ describe("factsheet library", () => {
     const query = "plain information about talking therapy";
     const expansions = smartSearchExpansions("factsheets", query);
     expect(filterFactsheets(query, undefined, expansions).map((sheet) => sheet.slug)).toContain("cbt");
+  });
+
+  it("finds the subject of a natural factsheet question without a curated phrase rule", () => {
+    const query = "What should I know about depression?";
+
+    expect(smartSearchExpansions("factsheets", query)).toEqual([]);
+    expect(filterFactsheets(query).map((sheet) => sheet.slug)[0]).toBe("depression");
+  });
+
+  it("does not invent factsheet matches from question boilerplate alone", () => {
+    expect(filterFactsheets("Can you give me information?")).toEqual([]);
   });
 
   it("places direct factsheet matches ahead of expansion-only matches in catalogue order", () => {

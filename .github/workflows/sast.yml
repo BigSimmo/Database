@@ -27,7 +27,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     container:
-      image: semgrep/semgrep:1.168.0
+      # Same immutable digest as the blocking ingestion gate in ci.yml (the
+      # triage-verified 1.168.0 image, docs/maturity-backlog-workorders.md X4):
+      # a bare tag can be re-pushed upstream, and this job runs third-party
+      # code with read access to the private source tree (audit L36). Bump
+      # both references together.
+      image: semgrep/semgrep:1.168.0@sha256:59fbed6127ea7c5dde3ba6a85142733bb20ea9aaa36120c953904f1539aaf66e
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

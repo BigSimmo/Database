@@ -69,7 +69,7 @@ jobs:
               /^\.github\/(?:actions|workflows)\//,
               /^(?:package|package-lock)\.json$/,
               /^(?:next|playwright|vitest)(?:\..+)?\.config\.[cm]?[jt]s$/,
-              /^(?:Dockerfile|railway\.json|nixpacks\.toml)$/,
+              /^(?:Dockerfile(?:\.worker)?|railway\.(?:app|worker)\.json)$/,
             ];
             const sourcePathPattern = /^(?:src|scripts|supabase|\.github\/(?:actions|workflows))\//;
             const sourceExtensionPattern = /\.(?:[cm]?[jt]sx?|sql|css|scss|json|ya?ml)$/i;

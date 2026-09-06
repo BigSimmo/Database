@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8c2a6e91-3f70-4d55-b1c4-7ae5d9036f28",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The Lighthouse mobile /documents/search cell is bimodal across runners and its two modes straddle the tolerance, so the gate fails intermittently on whichever PR draws a slow runner",
+    "detail": "Observed across four graded runs of PR #2536 on the pinned Chromium (chromium-1234, HeadlessChrome/151), baseline LCP 2282ms with a tolerance of +20% AND +100ms. BREACHED: head 30afc398 measured 2748ms (+466ms, +20.4%) in run 33628667758 attempt 1; head cda377fb measured 2753ms (+471ms, +20.6%) in run 33681754629. PASSED: the attempt-2 re-run of 30afc398 (number not read); head 957a0387 measured 2323ms (+41ms) in run 33684986161, which reported 'Every graded route is within tolerance of the committed baseline.' The gate samples each cell three times and calls a regression at 2 of 3, so it is already noise-tolerant within a run; the split here is BETWEEN runs, which that design does not cover. A 2323 vs 2750 spread on identical browser, identical route and near-identical code is about 18%, and the +20%/+100ms tolerance sits inside that gap, so the same commit can grade either way depending on the runner it lands on. NOT ESTABLISHED: which mode is the true one, whether the slow mode correlates with runner class, concurrent jobs on the host, or the isolated production build's cold start, and whether main alone reproduces it. main was never measured directly; the job is path-scoped and rarely runs on main pushes. WHY IT MATTERS: an intermittent red on a required check trains reviewers to re-run rather than read, and it lands on PRs whose diff cannot reach the failing page \u2014 #2536 changes only medication files, while src/app/(search-app)/documents/search/page.tsx imports one symbol (Metadata from next) and nothing outside medication-named files calls /api/medications. NEXT STEP: characterise the cell before changing anything. Run the dispatch-only 'Refresh Lighthouse baseline' job (workflow_dispatch on ci.yml with refresh_lighthouse_baseline=true) two or three times against main, which measures the same routes on the pinned Chromium and commits nothing, and compare the spread. If the slow mode reproduces on main, attribute it before touching lighthouse-budget.json; if it does not, the fix is in how the cell is measured, not in the baseline. Do not refresh the baseline reactively to clear a red PR.",
+    "source": "PR #2536 Lighthouse runs 33628667758, 33681754629 and 33684986161, 2026-09-02",
+    "issueUlid": "01M1J0K8QW4TXR6ZB9F2N5PD3H"
+  }
+}

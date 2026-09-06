@@ -57,7 +57,7 @@ describe("live sidebar mockup", () => {
     expect(document.documentElement).toHaveClass("dark");
 
     await user.keyboard("{Control>}k{/Control}");
-    const searchDialog = screen.getByRole("dialog", { name: "Search Clinical Guide" });
+    const searchDialog = screen.getByRole("dialog", { name: "Search PsychSift" });
     await waitFor(() =>
       expect(within(searchDialog).getByRole("searchbox", { name: "Search everything" })).toHaveFocus(),
     );

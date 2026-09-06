@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "be032b19-da0f-4c80-a6d0-5aa17bfbc4d4",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#6ETV64",
+    "outcome": "Closed 2026-09-06 as a duplicate of #X9ZHET. Both record that two ward documents send a session onto branches without a status marker; #X9ZHET names them (docs/ward-flow-coordination-rules.md and docs/ward-flow-fold-manifest-2026-08-31.md, pointing at claude/Wardquestions and claude/Ward-design) and establishes both branches are unmerged. Both added 2026-09-02; this row carried no detail.",
+    "baseRowFingerprint": "680d43e44c0af21933c65c4b681fc054812861499430d29e18be33083458ffcc"
+  }
+}

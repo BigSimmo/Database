@@ -23,7 +23,9 @@ import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-l
 import {
   BED_RELEASE_WAITING_ON,
   DECLINE_REASONS,
+  MOVEMENT_STAGES,
   REFERRAL_DECLINE_REASONS,
+  STEP_BACK_REASONS,
   TRANSPORT_PROVIDERS,
   type LegalForm,
   type LegalStatus,
@@ -33,6 +35,7 @@ import { WARD_SCENARIOS } from "../src/components/ward-management/ward-scenarios
 import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 import { literalsIn } from "./helpers/ast-string-literals";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * Guard against a fourth fabrication of a Mental Health Act duration in this prototype.
  *
@@ -248,6 +251,28 @@ const MODEL_CONSTANT_PROVENANCE: Record<string, string> = {
   // quantity of anything: nothing in this codebase does arithmetic on them beyond comparing two
   // tiers to order a queue, and no minute, hour, day or bed count is derived from them.
   URGENCY_LEVELS: "product owner's own tiers, recorded at ward-priority.ts 2026-08-24 — tier labels, not a duration",
+
+  // ⚠️ NOBODY MEASURED THIS, AND THE PROVENANCE LINE SAYS SO RATHER THAN DRESSING IT UP.
+  //
+  // `REFERRAL_HISTORY_LIMITS` was `{ historyWhyNow: 1500, historyBackground: 2000,
+  // historyRiskAndSafety: 1000 }` — three assistant-chosen placeholders — until the owner's ruling
+  // of 2026-09-05 collapsed the three history boxes to ONE optional `history` field. The single
+  // 2000 that remains is NOT a newly authored figure: it is the LARGEST of the three superseded
+  // placeholders, kept rather than re-derived, so a value nobody measured stays exactly as
+  // generous as the most generous of the three it replaced. No real referral was measured against
+  // any of them and no clinician set them. The owner was told they are unmeasured, in those words,
+  // and it is his number to set.
+  //
+  // It is a COUNT OF CHARACTERS IN A TEXT BOX. Not a duration, not a deadline, not a quantity of
+  // anything clinical, and nothing is derived from it beyond refusing to send an over-long field
+  // — see `Referral.history`, which forbids anything at all being derived from the text. This
+  // guard exists because a fabricated statutory figure once reached the model; a character limit
+  // is the opposite kind of number, and saying which kind it is, is the whole job of this line.
+  REFERRAL_HISTORY_LIMITS:
+    "assistant's placeholder, 2026-09-05 — 2000 is the largest of the three superseded per-field " +
+    "placeholders (1500/2000/1000), kept rather than re-derived when the owner's same-day ruling " +
+    "collapsed three history boxes to one; owner told it is unmeasured — a character count in a " +
+    "text box, not a duration",
 };
 
 /**
@@ -433,6 +458,7 @@ const RECEIVE_REFERRAL_CANDIDATE = {
   urgency: 2 as const,
   originSiteCode: "SCGH",
   transportNeeded: false,
+  ...FIXTURE_HISTORY,
 };
 
 /**
@@ -584,6 +610,25 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
       return movementIds.flatMap((movementId) =>
         CANCEL_TRANSPORT_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
       );
+    // Task 5 (ward-flow movement step-track plan, 2026-09-04). Neither event ever touches
+    // `movement.legalForm` — see the reducer's own two cases, whose entire side effect is
+    // `stage`/`stageChanges`/`unwinds` (STEP_BACK_STAGE) or those plus `acceptedUnitId`/
+    // `acceptedAt` (WITHDRAW_ACCEPTANCE) — so this sweep exercises them for the same reason it
+    // exercises every other event: to prove the absence, not to assume it.
+    case "STEP_BACK_STAGE":
+      // One candidate per target stage — the same "one candidate per real domain value"
+      // precedent CHANGE_URGENCY/CHANGE_LEGAL_STATUS above set, crossed with movement ids so the
+      // sweep can find whichever movement is actually at a stage `to` sits strictly before.
+      // `reason` is fixed to the first STEP_BACK_REASON, matching that same precedent: the field
+      // this sweep needs varied is `to`, not the reason.
+      return movementIds.flatMap((movementId) =>
+        MOVEMENT_STAGES.map((to) => ({ type, role, now, movementId, to, reason: STEP_BACK_REASONS[0] })),
+      );
+    case "WITHDRAW_ACCEPTANCE":
+      // One candidate per reason, same precedent as RELEASE_PULL/CANCEL_TRANSPORT above.
+      return movementIds.flatMap((movementId) =>
+        STEP_BACK_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+      );
     case "FLAG_BED_RELEASE":
       // `actingUnitId` mirrors `unitId`, same reasoning as CONFIRM_CAPACITY above. One candidate
       // per waiting-on value crossed with every blocker — the same "one candidate per real
@@ -725,6 +770,17 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
           leavingDestination: destination.id,
         })),
       );
+    case "RECORD_TRANSPORT_NEED":
+      // Both boolean answers per movement, on `RECORD_MEDICAL_CLEARANCE`'s own reasoning above: a
+      // sweep that only ever recorded `needed: true` would leave the "not needed" path untraversed
+      // while reporting the event as covered.
+      return movementIds.flatMap((movementId) =>
+        [true, false].map((needed) => ({ type, role, now, movementId, needed })),
+      );
+    case "RECORD_NO_REFERRAL":
+      // One candidate per movement; the whole payload is a movement id. The reducer writes a fixed
+      // reason and the event's own instant, so there is no caller-supplied value to cross against.
+      return movementIds.map((movementId) => ({ type, role, now, movementId }));
     case "FLAG_MOVEMENT_URGENT":
     case "CLEAR_MOVEMENT_URGENT_FLAG":
       // One candidate per movement. Neither event carries a chosen domain value — the whole payload
@@ -845,6 +901,15 @@ const MOVEMENT_TARGETED_EVENTS: ReadonlySet<WardFlowEvent["type"]> = new Set([
   "CLEAR_MOVEMENT_BLOCKER",
   "FLAG_MOVEMENT_URGENT",
   "CLEAR_MOVEMENT_URGENT_FLAG",
+  // Task 5 (2026-09-04). Both carry `movementId` and act on one named movement, same as
+  // RELEASE_PULL/CANCEL_TRANSPORT above — and, like those two, STEP_BACK_STAGE is excluded from
+  // the round-robin sweep (see that `continue` and its comment) and exercised in the dedicated
+  // per-code block instead. WITHDRAW_ACCEPTANCE stays in the round-robin — its precondition
+  // (`accepted_awaiting_bed`) and effect (reverts to exactly `destination_review`) are as narrow
+  // and bounded as RELEASE_PULL's own, so it does not derail the sweep the way STEP_BACK_STAGE's
+  // near-universal precondition does, and is accepted there naturally.
+  "STEP_BACK_STAGE",
+  "WITHDRAW_ACCEPTANCE",
 ]);
 
 /**
@@ -1035,6 +1100,22 @@ function driveEveryEventAgainst(
       // seedWardFlowState() replaces `state.movements` wholesale either way. Both are exercised on
       // their own below, where the invariant is checked against the resulting state directly.
       if (type === "RESET_SCENARIO" || type === "SET_SCENARIO") continue;
+      // Task 5 (ward-flow movement step-track plan, 2026-09-04). STEP_BACK_STAGE's candidate
+      // generator (above) crosses every movement id with every `MOVEMENT_STAGES` target, and
+      // `applyFirstAccepted` takes the FIRST the reducer accepts — which, for a movement anywhere
+      // past `placement_requested`, is a candidate targeting `placement_requested` itself
+      // (`MOVEMENT_STAGES[0]`, tried first). Left in this round-robin, it resets whichever
+      // code-matching movement it finds all the way back almost every round it is due, starving
+      // the very forward-progression events this sweep exists to reach (TRANSPORT_ACCEPTED and
+      // later, for a Form 3B, measured directly while writing this fix) — the SAME "the round-robin
+      // sweep can never reliably produce this precondition" limitation `RELEASE_PULL`,
+      // `CANCEL_TRANSPORT` and `HANDOVER_READY` already have (see `buildHeldMovementFor`'s own
+      // doc comment), only far more disruptive: those three each require one narrow, late-stage
+      // precondition; this one matches almost any movement at almost any stage. Not in
+      // `MOVEMENT_TARGETED_EVENTS`, so nothing requires it to be counted here — and this file's
+      // own guarantee (neither of Task 5's two events ever touches `movement.legalForm`, see the
+      // reducer's own cases) does not depend on exercising it inside THIS traversal to hold.
+      if (type === "STEP_BACK_STAGE") continue;
       const result = applyFirstAccepted(type, state, now, code);
       if (!result) continue;
       accepted.add(type);
@@ -1213,6 +1294,28 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
       ).toEqual([]);
       accepted.add("RELEASE_PULL");
       offenders.push(...offendingFormsIn(released, `RELEASE_PULL(${code})`));
+
+      // STEP_BACK_STAGE, exercised explicitly per code for the same reason RELEASE_PULL is right
+      // above — see the round-robin's own `continue` for STEP_BACK_STAGE and its comment for why
+      // that sweep can never reach it usefully. `buildHeldMovementFor` gives a movement at
+      // `pulled`, so stepping back to `destination_review` is a genuine backward transition,
+      // proving what this whole file exists to prove: this event, too, never touches
+      // `movement.legalForm`.
+      const forStepBack = buildHeldMovementFor(code, NOW_ANCHOR);
+      const steppedBack = wardFlowReducer(forStepBack.state, {
+        type: "STEP_BACK_STAGE",
+        role: EVENT_ROLE.STEP_BACK_STAGE[0],
+        now: NOW_ANCHOR,
+        movementId: forStepBack.movementId,
+        to: "destination_review",
+        reason: STEP_BACK_REASONS[0],
+      });
+      expect(
+        steppedBack.rejections,
+        `STEP_BACK_STAGE for Form ${code} was refused: ${steppedBack.rejections.at(-1)?.reason}`,
+      ).toEqual([]);
+      accepted.add("STEP_BACK_STAGE");
+      offenders.push(...offendingFormsIn(steppedBack, `STEP_BACK_STAGE(${code})`));
 
       const forCancel = buildHeldMovementFor(code, NOW_ANCHOR);
       // Booking is its own step since 2026-08-31: HANDOVER_READY no longer fabricates a transport

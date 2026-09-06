@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "23299b0c4ae42ad8cd4da40f6b390fd58a5006d5",
-    "committed_at": "2026-09-03T17:44:32+08:00"
+    "sha": "d51b8bba79e73e3b52d0ba831977ac1dc967ca0f",
+    "committed_at": "2026-09-06T08:37:09+00:00"
   },
   "routes": {
     "modes": [
@@ -33,7 +33,7 @@
       {
         "id": "documents",
         "label": "Documents",
-        "home": "/documents",
+        "home": "/?mode=documents",
         "dev_only": false
       },
       {
@@ -67,6 +67,12 @@
         "dev_only": false
       },
       {
+        "id": "on-call",
+        "label": "On Call",
+        "home": "/?mode=on-call",
+        "dev_only": false
+      },
+      {
         "id": "prescribing",
         "label": "Medication",
         "home": "/medications",
@@ -81,7 +87,7 @@
       {
         "id": "sources",
         "label": "Sources",
-        "home": "/sources",
+        "home": "/?mode=sources",
         "dev_only": false
       },
       {
@@ -220,11 +226,6 @@
         "area": "product"
       },
       {
-        "path": "/documents",
-        "file": "src/app/(search-app)/documents/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/documents/[id]",
         "file": "src/app/(search-app)/documents/[id]/page.tsx",
         "area": "product"
@@ -307,11 +308,6 @@
       {
         "path": "/formulation/search",
         "file": "src/app/(search-app)/formulation/search/page.tsx",
-        "area": "product"
-      },
-      {
-        "path": "/medications",
-        "file": "src/app/(search-app)/medications/page.tsx",
         "area": "product"
       },
       {
@@ -795,6 +791,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/source-rail-desktop-scroll",
+        "file": "src/app/mockups/source-rail-desktop-scroll/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/therapy-navigation-context",
         "file": "src/app/mockups/therapy-navigation-context/page.tsx",
         "area": "mockup"
@@ -905,6 +906,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/ward-flow/delays",
+        "file": "src/app/mockups/ward-flow/delays/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/discharges",
         "file": "src/app/mockups/ward-flow/discharges/page.tsx",
         "area": "mockup"
@@ -915,16 +921,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/escalation",
-        "file": "src/app/mockups/ward-flow/escalation/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/exceptions",
-        "file": "src/app/mockups/ward-flow/exceptions/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/ward-flow/governance",
         "file": "src/app/mockups/ward-flow/governance/page.tsx",
         "area": "mockup"
@@ -932,11 +928,6 @@
       {
         "path": "/mockups/ward-flow/handover",
         "file": "src/app/mockups/ward-flow/handover/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/morning",
-        "file": "src/app/mockups/ward-flow/morning/page.tsx",
         "area": "mockup"
       },
       {
@@ -967,11 +958,6 @@
       {
         "path": "/mockups/ward-flow/people/new",
         "file": "src/app/mockups/ward-flow/people/new/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/ward-flow/queue",
-        "file": "src/app/mockups/ward-flow/queue/page.tsx",
         "area": "mockup"
       },
       {
@@ -1015,11 +1001,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/ward-flow/transport",
-        "file": "src/app/mockups/ward-flow/transport/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/ward-flow/transport/officer",
         "file": "src/app/mockups/ward-flow/transport/officer/page.tsx",
         "area": "mockup"
@@ -1045,6 +1026,46 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/card",
+        "file": "src/app/(search-app)/on-call/card/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/contacts",
+        "file": "src/app/(search-app)/on-call/contacts/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/education",
+        "file": "src/app/(search-app)/on-call/education/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/logistics",
+        "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/orientation",
+        "file": "src/app/(search-app)/on-call/orientation/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/playbook",
+        "file": "src/app/(search-app)/on-call/playbook/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/referrals",
+        "file": "src/app/(search-app)/on-call/referrals/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/search",
+        "file": "src/app/(search-app)/on-call/search/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/privacy",
         "file": "src/app/privacy/page.tsx",
         "area": "product"
@@ -1067,11 +1088,6 @@
       {
         "path": "/services/search",
         "file": "src/app/(search-app)/services/search/page.tsx",
-        "area": "product"
-      },
-      {
-        "path": "/sources",
-        "file": "src/app/(search-app)/sources/page.tsx",
         "area": "product"
       },
       {
@@ -1202,6 +1218,11 @@
         "target": "/?mode=differentials"
       },
       {
+        "path": "/documents",
+        "file": "src/app/(search-app)/documents/page.tsx",
+        "target": "/?mode=documents"
+      },
+      {
         "path": "/documents/source",
         "file": "src/app/(search-app)/documents/source/page.tsx",
         "target": "/documents/[id]"
@@ -1232,6 +1253,11 @@
         "target": "/?mode=formulation"
       },
       {
+        "path": "/medications",
+        "file": "src/app/(search-app)/medications/page.tsx",
+        "target": "/?mode=prescribing"
+      },
+      {
         "path": "/mockups/favourites-hub",
         "file": "src/app/mockups/favourites-hub/page.tsx",
         "target": "/favourites"
@@ -1247,9 +1273,44 @@
         "target": "/mockups/ward-flow/network"
       },
       {
+        "path": "/mockups/ward-flow/escalation",
+        "file": "src/app/mockups/ward-flow/escalation/page.tsx",
+        "target": "/mockups/ward-flow/delays"
+      },
+      {
+        "path": "/mockups/ward-flow/exceptions",
+        "file": "src/app/mockups/ward-flow/exceptions/page.tsx",
+        "target": "/mockups/ward-flow/delays"
+      },
+      {
+        "path": "/mockups/ward-flow/morning",
+        "file": "src/app/mockups/ward-flow/morning/page.tsx",
+        "target": "/mockups/ward-flow/capacity"
+      },
+      {
+        "path": "/mockups/ward-flow/queue",
+        "file": "src/app/mockups/ward-flow/queue/page.tsx",
+        "target": "/mockups/ward-flow/delays"
+      },
+      {
+        "path": "/mockups/ward-flow/transport",
+        "file": "src/app/mockups/ward-flow/transport/page.tsx",
+        "target": "/mockups/ward-flow/movements"
+      },
+      {
+        "path": "/on-call",
+        "file": "src/app/(search-app)/on-call/page.tsx",
+        "target": "/?mode=on-call"
+      },
+      {
         "path": "/services",
         "file": "src/app/(search-app)/services/page.tsx",
         "target": "/?mode=services"
+      },
+      {
+        "path": "/sources",
+        "file": "src/app/(search-app)/sources/page.tsx",
+        "target": "/?mode=sources"
       },
       {
         "path": "/specifiers",
@@ -1464,6 +1525,18 @@
         "file": "src/app/api/medications/[slug]/route.ts"
       },
       {
+        "path": "/api/on-call/entries",
+        "file": "src/app/api/on-call/entries/route.ts"
+      },
+      {
+        "path": "/api/on-call/entries/[id]",
+        "file": "src/app/api/on-call/entries/[id]/route.ts"
+      },
+      {
+        "path": "/api/on-call/entries/[id]/verify",
+        "file": "src/app/api/on-call/entries/[id]/verify/route.ts"
+      },
+      {
         "path": "/api/registry/records",
         "file": "src/app/api/registry/records/route.ts"
       },
@@ -1505,12 +1578,12 @@
       }
     ],
     "counts": {
-      "modes": 16,
-      "pages": 213,
-      "product_pages": 68,
-      "mockup_pages": 145,
-      "redirects": 18,
-      "api": 60
+      "modes": 17,
+      "pages": 215,
+      "product_pages": 73,
+      "mockup_pages": 142,
+      "redirects": 27,
+      "api": 63
     }
   },
   "documentation": {
@@ -1518,7 +1591,7 @@
       {
         "path": "docs/adr/0001-use-a-shared-local-first-clinical-ask-orchestrator.md",
         "section": "adr",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents-guide.md",
@@ -1528,92 +1601,92 @@
       {
         "path": "docs/agents/bug-hunter-shortcut.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/claude-hook-scripts.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-cloud-environment.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-dependency-shortcut.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-desktop-worktree-setup.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-github-review.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-productivity-defaults.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-reasoning-effort.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/codex-review-throttling.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/cursor-cloud.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/dead-code-deletion.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/external-skill-precedence.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/pull-request-workflow.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/repository-skills-and-issues.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/test-deletion-guard.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/upload-shortcut.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/verification-gates.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/agents/wiring-and-bundle-budget.md",
         "section": "agents",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/answer-page-redesign-handover.md",
@@ -1628,62 +1701,62 @@
       {
         "path": "docs/app-modes-decision-brief.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/BRANCH_ARCHIVE_20260709.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/branch-cleanup-2026-06-28.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/branch-progress-2026-07-05.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/branch-review-ledger-2026-q3.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/clinical-chat-ui-implementation-plan.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/clinical-chat-ui-phase-checklist.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/cloud-chat-reconciliation-2026-07-22.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/cloud-chat-reconciliation-postmortem-2026-07-23.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/COLOR_REDESIGN_PLAN.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/design-qa-2026-07-15.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/design-qa.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/operator-apply-july8-batch.md",
@@ -1693,22 +1766,22 @@
       {
         "path": "docs/archive/operator-decisions-2026-07-04.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/operator-decisions-2026-07-06.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/phase-3-design-decision-log.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/phase-6-reaudit-2026-06-29.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/project-alignment-cleanup.md",
@@ -1718,57 +1791,57 @@
       {
         "path": "docs/archive/rag-scalability-wip-remediation-2026-07-17.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/rag-scalability-wip-review-handover-2026-07-15.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-0-baseline.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-1-api-validation.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-2-answer-plan.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-3-synthesis-output.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-4-canonical-render-policy.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-5-source-review-ux.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-5.5-retrieval-quality-source-selection.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-phase-5.5b-retrieval-follow-up.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/search-rag-pre-phase-2-diff-classification.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/archive/source-governance-priorities-2026-07-02.md",
@@ -1783,7 +1856,7 @@
       {
         "path": "docs/archive/TOOLS_CONTEXT_FOR_NEW_CHAT.md",
         "section": "archive",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/2026-07-20-repository-maturity.md",
@@ -1828,7 +1901,7 @@
       {
         "path": "docs/audit/gate-consolidation-audit-2026-09-02.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/latency-audit-2026-07-28.md",
@@ -1838,37 +1911,37 @@
       {
         "path": "docs/audit/live-design-interaction-audit-2026-08-06.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/live-drift-forensics-2026-08.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/performance-image-cwv-audit-2026-08-02.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/primary-checkout-reconciliation-2026-07-24.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/repo-audit-2026-07-01.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/repo-wide-review-remediation-plan-2026-07-23.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/repo-wide-review-sweep-2026-07-19.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/scale-readiness-review.md",
@@ -1883,12 +1956,12 @@
       {
         "path": "docs/audit/ux-accessibility-review-2026-07-07.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/audit/worktree-reconciliation-2026-08-23.md",
         "section": "audit",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/auth-connection-cap-runbook.md",
@@ -1923,822 +1996,837 @@
       {
         "path": "docs/care-plan-context.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/accessibility-acceptance.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/claude-build-handover-2026-08-21.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/CLAUDE-START-HERE.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/clinical-language-trace.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/cloud-session.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/complete-work-ledger.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/conversation-transcript-2026-08-21.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
+      },
+      {
+        "path": "docs/care-plan/crisis-lines-verification.md",
+        "section": "care-plan",
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/HANDOFF-2026-08-24-SUPERSEDED.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/HANDOFF-START-HERE.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/implementation-handoff.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/interaction-matrix.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/patient-facing-sheets/README.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/final-fix-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-10-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-11-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-3-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-3-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-4-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-4-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-5-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-5-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-6-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-6-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-7-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-7-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-8-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-8-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-9-brief.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-9-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/reports/task-d1-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/sdd-ledger.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/session-handoff-2026-08-21.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/session-handoff-2026-08-23.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/verification-log-2026-08-21.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/care-plan/verification-report.md",
         "section": "care-plan",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/accessibility-acceptance.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/clinical-language-trace.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/copy-decisions-recommended.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/copy-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
+      },
+      {
+        "path": "docs/caring-contacts/hazard-log.md",
+        "section": "caring-contacts",
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/interaction-matrix.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/linked-prototype-handoff.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
+      },
+      {
+        "path": "docs/caring-contacts/message-review-pack.md",
+        "section": "caring-contacts",
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-1-handoff.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-build-record.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-continuation-prompt.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-handoff.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/00-live-ledger-verbatim.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/condensed-service-bar-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/final-fix-wave-a-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/final-fix-wave-b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-1-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-1-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-10-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-10-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11a-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11a-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-11b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-12-13-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-12-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-13-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-14-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-14-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-15-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-15-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-16-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-16-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-17-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-17-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-18-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-18-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-19-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-19-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-2-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-2-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-3-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-3-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-4-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-4-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-5-7-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-5-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-6-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-7-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-8-9-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-8-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-9-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2a-visual-differences.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-build-record.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-CONTINUATION-PROMPT.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-HANDOVER.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-pr-body.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/group-4-round-1-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/main-catchup-inventory.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/merge-checklist.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/retention-and-anchor-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/STANDING-DISCIPLINE.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-1-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-10-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11a-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-1-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-round-2-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-12-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-13b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-14-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-15-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-16-round-1-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-17-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-18-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-19-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-20-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-21-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-3-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-3-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-6b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-7-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-8-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9b-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-c-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-exit-only-trigger-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-p-round-2-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-privacy-url-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-safety-fixes-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-brief.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-seed-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/whole-branch-review.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/task-seed-timeline-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/task-seed-wireframe-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/verification-report.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/visual-reference-manifest.md",
         "section": "caring-contacts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/chunking-ocr-reindex-lever-finding-2026-07-08.md",
@@ -2748,7 +2836,7 @@
       {
         "path": "docs/ci-operations.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/claude-cloud.md",
@@ -2798,32 +2886,32 @@
       {
         "path": "docs/codex/architecture-maintainability/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex/data-database-safety/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex/documentation-ownership/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex/functional-correctness/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex/performance-reliability/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/codex/tests-quality-gates/README.md",
         "section": "codex",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/comparison-behaviour.md",
@@ -2838,7 +2926,7 @@
       {
         "path": "docs/corpus-health-panel-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/current-clinical-work-brief.md",
@@ -2853,17 +2941,17 @@
       {
         "path": "docs/database-remediation-coordination.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/database-remediation-plan.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/database-remediation-playbook.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/db-maintenance.md",
@@ -2873,7 +2961,7 @@
       {
         "path": "docs/decisions/ccz4hb-review-coverage.md",
         "section": "decisions",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/deploy-corrector-public-titles.md",
@@ -2888,7 +2976,7 @@
       {
         "path": "docs/design-system-contract.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system.md",
@@ -2928,7 +3016,7 @@
       {
         "path": "docs/design-system/HANDOVER-2026-08-07.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/README.md",
@@ -2943,42 +3031,42 @@
       {
         "path": "docs/design-system/sweep-2026-08-29-structure.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-2026-08-29-unenforced-rules.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-2026-08-29-visual.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-duration-display.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-missing-values-round-2.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-missing-values.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-tap-floors-round-2.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-tap-floors.md",
         "section": "design-system",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/design-system/sweep-fix-visible-live-regions.md",
@@ -3008,32 +3096,32 @@
       {
         "path": "docs/evidence/bundle-budget-production-rebaseline-2026-08-18.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/mha-2014-section-summaries-review.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/mobile-root-timing-control-2026-08-26.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/performance-remediation-2026-08-23.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/rag-irrelevant-at-10-disposition.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/evidence/rag-reliability-evidence-2026-07-27.md",
         "section": "evidence",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/factsheets-reading-model-brief.md",
@@ -3043,7 +3131,7 @@
       {
         "path": "docs/filter-contract.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/forward-codify-retrieval-rpcs-workorder.md",
@@ -3103,12 +3191,12 @@
       {
         "path": "docs/medication-interaction-lexicon-review.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/medication-lexicon-review-worklist.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/mockup-retirement-policy.md",
@@ -3148,7 +3236,7 @@
       {
         "path": "docs/operations-runbook.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/operator-apply-performance-latency-remediation.md",
@@ -3163,7 +3251,7 @@
       {
         "path": "docs/operator-supabase-branching-cap.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/outstanding-issues.md",
@@ -3173,7 +3261,7 @@
       {
         "path": "docs/performance.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/phone-chrome-physical-acceptance.md",
@@ -3183,32 +3271,32 @@
       {
         "path": "docs/plans/design-system-live-convergence-plan.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/plans/document-viewer-phase2-unified-chrome.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/plans/document-viewer-phase3-handover.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/plans/document-viewer-redesign-plan.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/plans/edge-ingestion-overhaul-3pr-plan.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/plans/tooling-activation-implementation-plan.md",
         "section": "plans",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/pr-handoff-stop-cross-agent-gap.md",
@@ -3228,7 +3316,7 @@
       {
         "path": "docs/product/clinical-trust-direction.md",
         "section": "product",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/production-readiness-checklist.md",
@@ -3243,65 +3331,70 @@
       {
         "path": "docs/prompts/codex-architecture-maintainability-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-cloud-design-status-semantics.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-cloud-detailed-task.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-cloud-review/1-codex-full-stack-master-review-prompt.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-cloud-review/2-codex-full-stack-master-prompt-review-and-stress-test.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-cloud-review/3-codex-agents-md-companion.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-data-database-safety-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-documentation-ownership-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-functional-correctness-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-performance-reliability-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/codex-tests-quality-gates-ultra-review.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/mode-aware-clinical-ask-codex-cloud-handover.md",
         "section": "prompts",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/prompts/rag-coverage-gate-extraction.md",
+        "section": "prompts",
+        "catalogued": true
+      },
+      {
+        "path": "docs/prompts/sources-mode-extraction.md",
         "section": "prompts",
         "catalogued": false
       },
@@ -3313,27 +3406,27 @@
       {
         "path": "docs/rag-behaviour/behaviour-map.md",
         "section": "rag-behaviour",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-behaviour/README.md",
         "section": "rag-behaviour",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-behaviour/refuted-approaches.md",
         "section": "rag-behaviour",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-behaviour/safeguards.md",
         "section": "rag-behaviour",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-evaluation.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-hybrid-findings-and-todo.md",
@@ -3363,12 +3456,12 @@
       {
         "path": "docs/rag-improvement/gate-b-decision-record-2026-08-18.md",
         "section": "rag-improvement",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-improvement/gate-b-decision-record.md",
         "section": "rag-improvement",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/rag-improvement/HANDOVER.md",
@@ -3388,7 +3481,7 @@
       {
         "path": "docs/README.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/reconciliation-playbook.md",
@@ -3398,82 +3491,82 @@
       {
         "path": "docs/redesign/01-audit.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/02-design-direction.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/03-decision-log.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/04-deferred.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/05-changelog.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/06-verification.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/07-token-adoption-audit.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/08-design-review-prompt.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/09-page-polish-plan.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/09-ui-primitives-recipes.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/clinical-white-aegean-master-implementation-plan.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/crisp-white-colour-system-plan.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/dictionary-reference-spine.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/m2-atomic-reindex-migration-note.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/permanent-colour-direction.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/redesign/premium-colour-system-plan.md",
         "section": "redesign",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/reindex-runbook.md",
@@ -3493,7 +3586,7 @@
       {
         "path": "docs/review-findings-2026-08-02.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/samd-classification-medication-considerations.md",
@@ -3528,7 +3621,7 @@
       {
         "path": "docs/services-mode-governance.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/site-map.md",
@@ -3551,6 +3644,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/staging-shutdown-and-repo-review-handover-2026-09-06.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/staging-tenancy-release-evidence.md",
         "section": "root",
         "catalogued": true
@@ -3563,207 +3661,207 @@
       {
         "path": "docs/superpowers/plans/2026-07-04-public-anonymous-access-rate-limits.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-07-24-webkit-rsc-prefetch-disposition.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-05-editable-pin-menu-mockups.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-14-caring-contact-coordination-rollout.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-14-ward-management-mockups.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-15-caring-contact-design-phase.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-18-ward-flow-model-and-modes.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-18-ward-flow-phase-1-model.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-18-ward-flow-phase-2-coordinator-screen.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-19-caring-contact-domain-and-datastore.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-19-caring-contact-phase-2a-foundations.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-care-plan-implementation.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-adaptive-answer.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-evaluation-rollout.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-ingestion-reindex.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-retrieval-composition.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-20-rag-verified-incremental-delivery.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-developer-hub-phase-1-COMPLETION.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-developer-hub-phase-1-HANDOFF.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-developer-hub-phase-1-WORKLOG.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-developer-hub-phase-1.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-rag-repository-content-sync.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-trusted-admin-document-ingestion.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-22-developer-hub-phase-2-HANDOFF.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-22-developer-hub-phase-2.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-22-mode-aware-clinical-ask-implementation.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-clinical-trust-cockpit.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-favourites-and-reconciliation.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-lighthouse-local-build-reliability.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-outstanding-p2-p3-remediation.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-performance-remediation-current-main.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-platform-contracts-readiness.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-24-caring-contact-phase-2b-screens.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-25-developer-hub-ingestion-panel.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-25-ward-flow-phase-4-specialist-boards.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-25-ward-flow-sandbox-and-design-repair.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-25-ward-flow-standalone-and-nav-repair.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-26-ward-flow-phase-5-bed-availability.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-26-ward-flow-sidebar-house-pattern.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-08-27-ward-flow-phase-6-morning-page.md",
@@ -3798,25 +3896,95 @@
       {
         "path": "docs/superpowers/plans/2026-09-01-calculators-clinical-safety.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-09-01-native-smart-catalogue-search.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-09-01-services-safety-provenance.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-09-01-sources-mode.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/plans/2026-09-02-caring-contact-phase-3-demonstrable.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-on-call-mode.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-expected-free-time.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-design-foundation.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-mixed-locked-open-beds.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-movement-findings-4-to-11.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-movement-step-track.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-navigation-shell.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-screen-ed-hub.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-screens-community-and-ed.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-screens-patient-and-ward.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-screens-referral-and-search.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-04-ward-flow-screens-transport-and-statistics.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-05-ward-flow-merges-1-3.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-05-ward-screens-second-edition.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -3833,287 +4001,287 @@
       {
         "path": "docs/superpowers/rag-upgrade/canonical/approval-matrix.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/connected-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/execution-order.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/sdd-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.cloud.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/START-HERE.local.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/CLOUD-EXECUTION-PROMPT.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/approval-matrix.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/connected-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/execution-order.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-adaptive-answer.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-australian-source-governance.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-evaluation-rollout.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-ingestion-reindex.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-retrieval-composition.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-verified-incremental-delivery.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-21-rag-repository-content-sync.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-21-trusted-admin-document-ingestion.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/sdd-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/specs/2026-08-20-rag-answer-and-australian-sources-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/specs/2026-08-21-trusted-admin-document-ingestion-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/cloud/START-HERE.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/execution-artifacts/rag-answer-quality-and-repository-coverage-v1/README.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/execution-receipts/rag-answer-quality-and-repository-coverage-v1/README.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/LOCAL-CONNECTED-EXECUTION-PROMPT.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/approval-matrix.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/connected-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/execution-order.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-adaptive-answer.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-australian-source-governance.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-evaluation-rollout.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-ingestion-reindex.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-retrieval-composition.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-20-rag-verified-incremental-delivery.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-21-rag-repository-content-sync.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/plans/2026-08-21-trusted-admin-document-ingestion.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/sdd-execution.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/specs/2026-08-20-rag-answer-and-australian-sources-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/specs/2026-08-21-trusted-admin-document-ingestion-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/START-HERE.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-07-02-triage-security-reliability-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-05-editable-pin-menu-mockups-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-14-ward-management-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-15-caring-contact-coordination-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-19-caring-contact-production-build-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-20-care-plan-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-20-rag-answer-and-australian-sources-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-21-developer-hub-phase-1-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-21-mode-aware-clinical-ask-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-21-trusted-admin-document-ingestion-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-22-developer-hub-phase-2-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-23-clinical-operations-programme-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-23-outstanding-p2-p3-remediation-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-25-ward-flow-phase-4-specialist-boards-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md",
@@ -4183,20 +4351,40 @@
       {
         "path": "docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-native-smart-catalogue-search-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-services-safety-provenance-design.md",
         "section": "superpowers",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-sources-mode-design.md",
+        "section": "superpowers",
+        "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-04-on-call-mode-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-04-ward-flow-design-language-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-04-ward-flow-direction-and-delays-design.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/superpowers/specs/2026-09-05-ward-flow-merges-1-3-design-lock.md",
         "section": "superpowers",
         "catalogued": false
       },
@@ -4243,12 +4431,12 @@
       {
         "path": "docs/ward-flow-complete-ledger.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-context.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-coordination-rules.md",
@@ -4358,282 +4546,282 @@
       {
         "path": "docs/ward-flow-phase-2-kickoff.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-ledger.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-rulings.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/clinical-changes-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/concurrent-session-inventory.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/flow-diagram-fix-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/flow-diagram-fix-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/handover-stage-coherence-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/preflight-tasks-9-to-12.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/progress.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/README.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-1-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-1-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-1-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-10-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-10-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-11-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-11-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-12-addendum.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-12-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-12-journey-design.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-2-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-2-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-2-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-3-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-3-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-3-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-4-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-4-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-4-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-5-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-5-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-5-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-fix-round-3-findings.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-re-review-rounds-3-4.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6a-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6a-re-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6a-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6a-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-7-addendum.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-7-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-7-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-8-addendum.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-8-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-8-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-9-brief.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-9-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/transport-leg-helper-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/transport-stage-coherence-report.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/whole-branch-review.md",
         "section": "ward-flow-phase-3-workspace",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-5-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-5-kickoff-prompt.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-6-7-decisions.md",
@@ -4668,12 +4856,12 @@
       {
         "path": "docs/ward-flow-phase-handoff.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-pinned-clock-handover.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-plan.md",
@@ -4718,7 +4906,7 @@
       {
         "path": "docs/ward-flow-roadmap.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-safety-checklist.md",
@@ -4751,6 +4939,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/adoption-fanout-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/allocation-b-corrected-2026-09-02.md",
         "section": "ward-flow",
         "catalogued": false
@@ -4761,12 +4954,32 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/bed-figure-wording-census-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/bed-states-options.md",
         "section": "ward-flow",
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/brief-contention-model-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/browser-failure-triage-2026-09-02.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/builder-one-branch-red-delta-2026-09-05.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/builder-one-handback-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -4786,7 +4999,17 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/commit-provenance-2026-09-05.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/community-origin-scope.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/community-redesign-handover-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -4871,6 +5094,61 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/design/FRONT-DOOR-BOARDS-BUILD-PLAN.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/FRONT-DOOR-BOARDS-DECISION.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/FRONT-DOOR-BOARDS-FIELD-SURVEY.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/patient-page-second-edition-spec.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/prototypes/DESIGN-LANGUAGE.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/prototypes/README.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/referral-intake-implementation-plan.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/referral-intake-v6-and-build-plan.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/referrals-and-out-of-area-derivation-2026-09-05.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/screen-adoption-playbook.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/design/second-edition-to-ckb-v2-role-map.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/engine-gate-implementation-brief.md",
         "section": "ward-flow",
         "catalogued": false
@@ -4906,6 +5184,16 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/fold-rules-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/forced-colors-status-tokens-proposal-2026-09-06.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/handover-assessment-2026-09-02.md",
         "section": "ward-flow",
         "catalogued": false
@@ -4936,6 +5224,16 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/ledger-status-audit-2026-09-06.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/matching-engine-design-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/merge-hazards-config-divergence-2026-09-02.md",
         "section": "ward-flow",
         "catalogued": false
@@ -4951,7 +5249,17 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/movement-workspace-review-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/mutation-findings-2026-09-03.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/NEW-CHAT-PROMPTS-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -4981,7 +5289,22 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/outstanding/ward-lead-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/owner-decision-pending-device-copy-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/owner-decisions-2026-09-03-patient-link-and-legal-status.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/owner-decisions-to-settle-2026-09-04.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5036,7 +5359,37 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/owner-rulings-2026-09-04-decision-batch.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/owner-rulings-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/owner-rulings-2026-09-05.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/owner-wording-page-2026-09-02.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/owner-working-instructions-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/parked-debt-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/parked-referral-join-unreadable-2026-09-06.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5057,6 +5410,11 @@
       },
       {
         "path": "docs/ward-flow/README.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/redesign-brittleness-audit-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5142,6 +5500,11 @@
       },
       {
         "path": "docs/ward-flow/rescued/ward-builder-three/wf-build3-006-triage-progress.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/reword-arm-audit-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5486,6 +5849,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/session-handover-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/stale-claims.md",
         "section": "ward-flow",
         "catalogued": false
@@ -5497,6 +5865,11 @@
       },
       {
         "path": "docs/ward-flow/START-LOCAL-CHAT.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/statistics-primitive-reconciliation.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5601,7 +5974,47 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/verifier-builder-two-decision-review-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-cross-branch-review-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-dayzero-assessment-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/verifier-findings-2026-09-03.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-governance-sweep-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-governance-sweep-prereg-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-matching-design-s6-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-rule-provenance-audit-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/verifier-ward-lead-clinical-fixes-2026-09-04.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5626,12 +6039,27 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/ward-builder-two-session-record-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/WARD-LEAD-HANDOVER-2026-09-05.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/wf-build3-004-dom-test-sweep.md",
         "section": "ward-flow",
         "catalogued": false
       },
       {
         "path": "docs/ward-flow/wf-build3-005-ts-test-sweep.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/what-goes-red-when-you-redesign-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5646,19 +6074,24 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/work-tracker-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-management-context.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-management-decisions.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/ward-management-mode-map.md",
         "section": "root",
-        "catalogued": false
+        "catalogued": true
       },
       {
         "path": "docs/webhooks.md",
@@ -5745,9 +6178,9 @@
       }
     ],
     "counts": {
-      "documents": 832,
-      "catalogued": 115,
-      "uncatalogued": 717,
+      "documents": 904,
+      "catalogued": 591,
+      "uncatalogued": 313,
       "sections": 22
     }
   },
@@ -5929,6 +6362,14 @@
         "checks": "merge-tree clean; focused vitest 12/12; ledger restored from main + appends; no provider checks."
       },
       {
+        "date": "2026-09-04",
+        "ref": "ward-flow/publish-2026-09-04",
+        "head": "0157ad2d69bce07df7cc140deec9d66c4ad032bd",
+        "scope": "prlanded",
+        "outcome": "MERGED and verified by content. PR #2597 squash-merged 2026-09-04T09:13:02Z. Two-dot tree diff between the squash commit and the PR branch tip (6612c0e06) is EMPTY, so everything published landed. Four commits were pushed AFTER auto-merge was armed at 07:24Z — the classic orphan race — and all four are present: the git-identity fixture fix, the unused-import lint fix, and the two review-fix commits, each confirmed by searching for its distinctive content on origin/main rather than by ancestry, which a squash makes meaningless. The local integration line (c02dd21c2) differs from merged main by exactly ONE file, the 124 MB recovery bundle that GitHub's 100 MB limit refused and for whose sake this was published as a single commit. No orphans. NOT CLEANED UP: no worktree removed, no branch deleted, no remote branch deleted — cleanup was not requested and empty content proof does not authorize it. Five Codex review threads replied to and resolved; required_review_thread_resolution was what actually blocked the merge after CI went green.",
+        "checks": "verify:cheap exit 0 (all 48 gates) on the published tree; lint exit 0; tsc exit 0; full unit suite 1121 files / 14839 passed / 2 expected fail / 77 skipped; CI on the merged head 19 pass, 0 fail, 10 skipping. NOT RUN: Playwright browser journeys (verify:ui, verify:phone-chrome) and every provider-backed check. CI failed three times before landing, each for a different reason and each diagnosed rather than retried: PR policy (three governance boxes I had left unverified, then verified rather than ticked); a test fixture that scavenged a branch head absent from a single-branch CI checkout; and my own replacement for it calling git commit-tree on a runner with no git identity (fatal: empty ident name), reproduced locally with GIT_CONFIG_GLOBAL=/dev/null before fixing."
+      },
+      {
         "date": "2026-08-17",
         "ref": "claude/rag-plan-review-guide-vhrls9",
         "head": "0171669b37f4c9c7fb72a7a931b8b326d4eb72a1",
@@ -6023,6 +6464,14 @@
         "scope": "Favourites search-led workspace: retire marketing H1 and library nav, live in-place filter, dashboard band (#164)",
         "outcome": "Shipped; no P0-P2 findings",
         "checks": "verify:pr-local all 10 selected gates passed — unit suite 607 files / 6584 passed, 4 skipped; check:design-system-contract passed with edgeOwnershipConflicts 25 to 24 from the deleted nav module; UI delegated to CI Production UI — chromium-1194 vs pinned 1234 (#255/#312)"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/psychsift-active-sources-design-pyt2p9",
+        "head": "02a631670d590dc850de5a85f41e00332b9832ce",
+        "scope": "prlanded",
+        "outcome": "PR #2584 squash-merged as 02a6316; content diff against branch tip 21318ff is empty, so all three commits landed including the two pushed after auto-merge was armed (review fixes 0b98e5e, browser-spec fix 95aafa2). No orphaned commits.",
+        "checks": "typecheck, lint, whole-tree prettier and the offline unit suite green locally (14387 passed); tests/ui-sources.spec.ts 5/5 passed locally against the project server including the phone-width axe pass; CI green on merge. Three suites (clinical-hazard-controls, privacy-readiness-contract, rag-plan-package-parity) fail identically on a clean tree in this cloud environment for want of origin/main provenance and are unrelated to this change."
       },
       {
         "date": "2026-08-14",
@@ -7225,6 +7674,14 @@
         "checks": "focused production Playwright 1 passed; eslint passed; format passed; diff-check passed"
       },
       {
+        "date": "2026-09-04",
+        "ref": "claude/sources-mode-redesign-73uxmc",
+        "head": "0f85b916d62d48c188fc80da4aceec37d7307d26",
+        "scope": "prlanded",
+        "outcome": "PR #2593 merged as 0f85b91 (true merge, not squash). Verified by content: all seven branch commits are ancestors of origin/main; the eight changed files are byte-identical between branch tip 87b1d5e and main; the whole-tree diff 87b1d5e..0f85b91 is empty, so the merge took the branch tree wholesale and nothing was orphaned by the auto-merge race. Remote branch deleted on merge (0 refs), so no post-merge commit can be stranded. Sources browse redesign: Topics and Publishers moved onto the shared SearchResultsHeaderBand chrome, honour ?q=, and gained filter/empty-state parity with Catalogue. Three Codex P2 findings fixed pre-merge in 666e030 (non-lead/alias members unsearchable; Clear search wiping filters; date-only UTC month shift). One unrelated CI break, tests/ui-smoke.spec.ts setup-status checklist, was caused by main f552a2f and fixed on the branch in 87b1d5e by another session.",
+        "checks": "Post-merge on 0f85b91: sources-browse-facets + sources-mode.dom + source-catalogue-core = 102 passed under TZ=America/Los_Angeles. Pre-merge on the branch: verify:cheap (design-system contract passed, colour-only status indicators 0), ui-sources.spec.ts 7/7 and ui-mode-nav-density.spec.ts 57/57 in Chromium, prettier --check clean. Full verify:ui and verify:pr-local were NOT run locally; left to CI. Three verify:cheap failures (clinical-hazard-controls, privacy-readiness-contract, rag-plan-package-parity) are shallow-clone artefacts that fail identically on base a5c56ce."
+      },
+      {
         "date": "2026-07-30",
         "ref": "codex/chat-frontend-skill-selection-0978",
         "head": "0fa79cd69a7e4374de653a0d92145d6ff569af10",
@@ -8223,6 +8680,14 @@
         "scope": "review-followup",
         "outcome": "One P1 offline-startup defect was confirmed: production instrumentation still required OpenAI after readiness and health accepted explicit offline mode. Fixed the boot guard so only explicit `offline` may omit OpenAI while `auto` and `openai` remain fail-closed.",
         "checks": "GitHub review-thread inspection; focused instrumentation/readiness/health Vitest 21/21; scoped ESLint; Prettier; `git diff --check`. Hosted required checks on the reviewed head were green, including Gitleaks, PR required, unit coverage, build, UI, SAST, Docker images, and migration replay."
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/reindex-reaper (PR #2552)",
+        "head": "1ced8bfbcca33989e44b6cfcbf7ffbdf893e2ac4",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state dirty (real conflict), required checks green (PR required success), 2/2 review threads already resolved. After: merged origin/main (conflict resolved: package.json test:ci-workflows script list — combined both branches' additions), pushed 806c7f29e -> 1ced8bfbc, 0 threads needed action (both already resolved pre-sweep), branch now behind main by 1 unrelated commit (clean, not conflicting).",
+        "checks": "npm run check:github-actions (pass), npm run check:ci-scope (pass), node scripts/run-vitest.mjs run tests/reindex-reaper-workflow.test.ts tests/reindex-reaper-alert.test.ts (16/16 pass), npm run lint (pass, 6790 files), npm run typecheck (pass, 6790 files), npm run format (no changes needed); no provider-backed checks run"
       },
       {
         "date": "2026-08-17",
@@ -10081,6 +10546,14 @@
         "checks": "Hosted PR required aggregate passed; 94/96 advisory UI tests passed with one skipped and one exact-minute assertion failure; local focused rerun initially blocked by coordinator EPERM while queued behind an active exclusive Playwright lease."
       },
       {
+        "date": "2026-09-02",
+        "ref": "claude/mockup-retirement-xw0vmn",
+        "head": "374a5603a86cf5c6e851163fcb96549cbe4f1141",
+        "scope": "prlanded",
+        "outcome": "MERGED as #2543 squash 374a5603; content diff against branch tip 4877a2e4 empty, no orphaned commits. Policy + check:mockups gate + seven mockup retirements (1403 added, 4330 deleted, 34 files). Three Codex P2 findings fixed and threads resolved; adversarial review withdrew two candidates.",
+        "checks": "PR required success; Static PR, Safety, Unit coverage, Build, Production UI 1-3 + critical, Advisory UI, Lighthouse, Container, Caring Contacts DB, Semgrep, Gitleaks, PR policy, PR mergeability all success on 4877a2e4. Local: verify:pr-local 31 gates, failed (none); check:mockups all three modes; check:gate-manifest 40/37. check:dead-code-candidate REFUSES (64/201 bare-name collisions) — reported, not tuned. No provider-backed gate run."
+      },
+      {
         "date": "2026-08-13",
         "ref": "claude/patient-interactions-drug-alerts-3tztvw",
         "head": "378dc1b2c966d7765c086581245b86e4e810bc23",
@@ -10385,6 +10858,14 @@
         "checks": "git diff --check; script syntax; ledger and issue guards"
       },
       {
+        "date": "2026-09-04",
+        "ref": "claude/psychsift-modes-architecture-378ktx",
+        "head": "3abade6d40bd373783753105b8579ccdcf245e57",
+        "scope": "prlanded",
+        "outcome": "Merged clean via squash (PR #2614). Content diff between the squash commit and the branch tip (75eabfd, before GitHub deleted the remote branch) is empty — no orphaned late commits, nothing lost from the auto-merge race.",
+        "checks": "PR policy: success; PR mergeability: success; Build: success; Unit coverage: in progress at last check, no failures observed; Production UI (1/2/3): in progress at last check, no failures observed; Safety and config checks: success; Caring Contacts database: success; GitGuardian/Gitleaks/Semgrep: success; merge confirmed via pull_request_read (state closed, merged true, merged_by BigSimmo, merged_at 2026-09-04T12:57:23Z)."
+      },
+      {
         "date": "2026-07-28",
         "ref": "PR #1290 / `codex/search-performance-correctness-pr`",
         "head": "3acf0ee3b6b1da10d6e0c76d20825d9eb0c76e48",
@@ -10607,6 +11088,14 @@
         "scope": "PR #1607 unblock/fix",
         "outcome": "clean — behind 0, merge-tree clean, 0 unresolved threads, required CI in progress (no code fix)",
         "checks": "merge-tree clean; behind_by 0; Unit/Build/Static/ProdUI in progress; no failing required"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/token-layer-collapse-itskb0 (PR #2577)",
+        "head": "3e4debbf84436c21aac0a4f9d34c3c7ba1fed57c",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: PR required failing (Unit coverage + Production UI (3) red), branch behind main, 2 P2 review threads (already fixed/resolved by prior session at 88de0af9a). Fixed: merged origin/main clean (git merge, no conflicts), fixed tests/playwright-pr-shards.test.ts (#159) by adding ui-token-layer-resolution.spec.ts to scripts/playwright-pr-shards.mjs productionSpecFilePattern + a shard-1 profile entry, which was missing after the spec was wired into playwright.config.ts's pattern but not the byte-for-byte-synced script copy. 0 threads left open (both already resolved pre-sweep, re-verified unresolved-thread count is 0). Production UI (3)'s differentials-compare-queue failure is unrelated to this PR's diff (no touch to tests/ui-tools.spec.ts or differentials code) and not reproduced as a main-branch baseline issue; left for the re-run to confirm as transient rather than 'fixed' with an unrelated code change. After: pushed 3e4debbf8, CI re-running on the merged+fixed head; Unit coverage and Production UI shards in progress at report time.",
+        "checks": "Local: npx vitest run tests/playwright-pr-shards.test.ts tests/playwright-project-isolation.test.ts (23 passed); npx prettier --check scripts/playwright-pr-shards.mjs (pass). No provider-backed checks run."
       },
       {
         "date": "2026-07-30",
@@ -13577,6 +14066,14 @@
         "checks": "git merge-tree (clean), real worktree merge (clean, no conflicts)"
       },
       {
+        "date": "2026-09-03",
+        "ref": "claude/caring-contacts-design-audit-fcay0l (PR #2574)",
+        "head": "62202f899fc0477d8b2b3601bf6e886a01c4871c",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Merged origin/main into a mergeable_state:dirty branch; real conflicts were only in generated files (data/repo-awareness-snapshot.json, docs/scripts-index.md), resolved by regenerating via their own generators, no hand edits. Pushed merge commit 62202f899. Prior CI failure (Unit coverage: pip install PyMuPDF timed out downloading from files.pythonhosted.org) was a hosted network transient unrelated to this PR's code; the merge push retriggers CI fresh. Only 1 review thread exists on the PR and it was already resolved (Codex overflow-hidden clipping finding, fixed in d76bac79c prior to this session) - 0 new threads to work.",
+        "checks": "local: merge-tree write-tree classification (real conflicts, both in generated docs), npm run snapshot:repo-awareness, node scripts/update-docs-inventory.mjs (regenerated clean), pre-commit hook docs sync/index checks (passed on commit). No provider-backed checks run. Hosted CI: fresh run 33802209382 in progress at push time, not yet settled."
+      },
+      {
         "date": "2026-08-04",
         "ref": "codex/v2-design-system-phase3-enforcement",
         "head": "62bb876f3e9e93234a6fe65a1c602d28068fad65",
@@ -13959,6 +14456,14 @@
         "scope": "PR #1490 consolidated final current-main review",
         "outcome": "APPROVE; preserved current-main canonical #151-#153 rows, retained unique #154-#156 findings, folded #1509 style-contract closure, and kept the richer #098 refutation evidence; no remaining P0-P2 findings.",
         "checks": "installed-lock parity PASS; tsc --noEmit PASS; single-file ESLint PASS; issue/ledger/docs/format/diff guards PASS; focused Vitest coordinator-blocked"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/snapshot-conflicts-3w455k (PR #2575)",
+        "head": "666f88d81a91a5d996f666fbfe17f9a46f36a629",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state behind main (stale snapshot said blocked), 0 CI checks reported, 1 unresolved review thread (Codex P2: cancel request targets an already-applied duplicate request, so it is a no-op). After: merged origin/main (1 unrelated docs-ledger commit, clean), queued an additive done request for #TK9GH7 marking it duplicate of #1M0J6D so reconciliation actually drops the row, thread replied to and resolved. No CI checks were reported against this head either before or after (repo's checks job scope did not select for a docs-only inbox change).",
+        "checks": "npm run check:outstanding-issues (pass, both pre- and post-merge), npm run check:ledger-write-discipline (pass, both pre- and post-merge), node scripts/ledger-inbox.mjs check (pass, 33 pending / 944 applied); no provider-backed checks run"
       },
       {
         "date": "2026-07-11",
@@ -14839,6 +15344,14 @@
         "scope": "Cloud connected profile credential boundary",
         "outcome": "No high-confidence issues after least-privilege MCP hardening and portable Git fixture fix",
         "checks": "Cloud static PASS; focused Vitest 15/15; full format PASS; Bash syntax PASS; PR-local dry-run"
+      },
+      {
+        "date": "2026-09-04",
+        "ref": "claude/answer-page-handover-c2qlwy",
+        "head": "6ff656690d71eaef34d4e5a2f521c0424c031680",
+        "scope": "prlanded",
+        "outcome": "merged (#2541) — 'Report a problem' opens as a Sheet; Codex P2 (sheet stayed open over the page-level outcome notice, silent in demo/expired-token paths) fixed and its thread resolved",
+        "checks": "verify:ui 646 passed; test 12058 passed | 1 skipped; lint/typecheck exit 0; focused browser proof tests/ui-smoke.spec.ts 106 passed (4.5m); landed content verified: branch tip 93eddb582 is an ancestor of origin/main and submitFeedbackAndClose is present"
       },
       {
         "date": "2026-08-13",
@@ -17081,6 +17594,14 @@
         "checks": "git merge-tree clean; npm run format; prior tip CI green; no provider-backed checks run"
       },
       {
+        "date": "2026-09-03",
+        "ref": "claude/token-layer-collapse-itskb0 (PR #2577)",
+        "head": "88de0af9af2eb9f454c9c1bb4458ab3885248eb0",
+        "scope": "Run PR sweep: merge origin/main drift + Codex review threads",
+        "outcome": "before: mergeable_state dirty (real conflict in playwright.config.ts spec-pattern regexes vs origin/main), 2 unresolved Codex review threads (P2: isPixelDriftFailure over-matched toHaveScreenshot runtime failures as pixel-drift; token-layer-resolution pin didn't assert full divergence-report coverage), CI unrun. after: merged origin/main (mechanical union-merge of the two regex alternation lists in playwright.config.ts, no other conflicts), fixed both review findings with regression tests, replied to and resolved both threads, formatted and pushed. mergeable_state now blocked (awaiting required checks, no conflict). CI re-running at https://github.com/BigSimmo/Database/actions/runs/33791862823 (head 88de0af9af2eb9f454c9c1bb4458ab3885248eb0).",
+        "checks": "local: node --check plus manual invocation of isPixelDriftFailure cases (matching the added test assertions) and a node script computing divergence-report vs pin coverage (0 uncovered) while the machine-wide focused-test lock was contended; once free, node scripts/run-vitest.mjs run tests/classify-visual-baseline-outcome.test.ts -- 8/8 passed. npx prettier --check on all touched files clean after fixing one formatting violation. No provider-backed checks run. Full CI (lint/typecheck/build/ui-critical etc.) left to GitHub, re-running on push."
+      },
+      {
         "date": "2026-07-28",
         "ref": "fix/audit-remediation-from-main",
         "head": "88deecfb988da030d806b1d8c0a4c8349502a5f8",
@@ -18583,6 +19104,14 @@
         "scope": "Run PR sweep: CI fix + threads + drift",
         "outcome": "Before: CONFLICTING, CI green, 0 threads. After: merged origin/main cleanly (ledger/codebase-index auto-merge); pushed 9c373eb1c. Threads: none. Residual: CI re-running.",
         "checks": "merge origin/main only; no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/issues-followups (PR #2544)",
+        "head": "9c485f59e73e001e35b6e2075a6d933e080aeaa7",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "No CI had run on this head (pending/no checks); branch was behind main with a clean merge-tree, merged origin/main (no conflicts, package.json script additions only, no lockfile change, no npm install needed); both review threads were already resolved from a prior sweep pass, none left open",
+        "checks": "npm run check:outstanding-issues (pass, includes check:outstanding-issues-snapshot), npm run check:ledger-write-discipline (pass), npx prettier --check . (pass, whole tree); no provider-backed checks run"
       },
       {
         "date": "2026-07-24",
@@ -20489,6 +21018,14 @@
         "checks": "current main retains a stronger #079 cleanup instruction; unique review record copied; clean inactive worktree; batch10 bundle verified"
       },
       {
+        "date": "2026-09-03",
+        "ref": "claude/prlanded-2573-ledger (PR #2576)",
+        "head": "b5123679cff7ff07938a58a0b74dcbebf6149932",
+        "scope": "Run PR sweep: drift repair",
+        "outcome": "PR was mergeable_state: dirty (real conflict confined to data/repo-awareness-snapshot.json, confirmed with the merge-tree dry-run helper before touching the branch). Merged origin/main into the branch, resolved the snapshot conflict by regenerating it via its committed generator script (no manual edits), and pushed. No review threads were open (0 unresolved threads); the 4 PR comments were bot noise (CodeRabbit skip notice, Supabase branching-ignored notice, Codex completed-review-no-findings, Cursor Bugbot usage-limit failure) with nothing actionable to reply to. Required CI (PR required, Static PR checks, PR policy) was green pre-push; PR mergeable_state moved from dirty to blocked (clean, awaiting checks on the new head) post-push.",
+        "checks": "merge-tree dry-run confirmed the real conflict was confined to data/repo-awareness-snapshot.json; regenerated the snapshot and ran its check script (in step); ran the branch-review-ledger guard script (passed); pushed the branch with pre-push hooks enabled (succeeded). No provider-backed checks run."
+      },
+      {
         "date": "2026-07-26",
         "ref": "PR #1246 / `codex/standardize-header-and-footer-behavior`",
         "head": "b51ee15e6961d46a14c288f621d25ab30a434c7d",
@@ -21391,6 +21928,14 @@
         "scope": "PR babysit",
         "outcome": "late sync: merged origin/main (#1793/#1794); behind-but-clean; prior tip CI green; no code fixes",
         "checks": "merge-tree clean; format clean; prior tip PR required pass; no provider gates"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/drift-semantics (PR #2550)",
+        "head": "bf52f918e00c93b19b5885055fdde68b1ef9984e",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "before: mergeable_state dirty (real conflict in docs/scripts-index.md + package.json vs origin/main), 1 review thread already resolved, all required CI green on prior head except PR mergeability (blocked by dirty state); after: merged origin/main resolving conflicts (docs/scripts-index.md generated inventory counts, package.json test:ci-workflows script list — both mechanical/generated, unioned both branches' additions), regenerated docs inventory via pre-commit hook, pushed bf3dc8d04->bf52f918e; no unresolved review threads found, none touched; no migration file added, schema.sql untouched",
+        "checks": "node scripts/check-chain-mirror-parity.ts --self-test (pass); vitest tests/chain-mirror-parity.test.ts tests/drift-detection.test.ts (48 passed); npm run check:github-actions (pass); npm run check:gate-manifest (pass); npm run check:ci-scope (pass); npm run check:migration-role (pass); npm run docs:check-inventory / docs:check-scripts / docs:check-links (pass); npm run lint (pass); npm run typecheck (pass); no provider-backed checks run"
       },
       {
         "date": "2026-07-30",
@@ -23161,6 +23706,14 @@
         "checks": "GitHub merged-PR source HEAD matched exactly; no worktree or open PR referenced the ref at deletion."
       },
       {
+        "date": "2026-09-03",
+        "ref": "claude/audit-fix-p1 (PR #2580)",
+        "head": "d452aa87b41ca429d709a792e6d88594741a6b15",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "Before: mergeable_state blocked, 1 unresolved review thread (codex M22 finding: sign-off hash omits sourceDenySlugs), PR policy check failing (stale head), branch 1 commit behind main (clean). After: fixed the M22 gap (catalogueMappingsHash now hashes sourceDenySlugs; new test; regenerated review-sheet hash) commit 1effec45a; fixed a copilot-flagged brittle DOM test assertion (count-agnostic interaction-count match) commit 4c2084b23; merged origin/main twice as it advanced during the sweep, both clean (no conflicts, docs/ledger-only commits) commits 9abd85a4a and (fast-forwarded) d452aa87b — the second merge and a PR-body rewrite fixing the Clinical Governance Preflight checklist wording were pushed by a concurrent session working the same branch, verified via diff to contain no changes to my touched files. 2 of 4 review threads fixed and resolved (M22 hash gap, DOM test brittleness); 2 left open and replied to (duplicate finding across two files: grammar clarity of the sign-off disclaimer sentence) — deferred to the owner as clinician-facing safety-copy wording, consistent with the PR's own owner-decision items, and because this session may not edit the PR title/body where the generated copy's source of truth sits. PR policy check subsequently passed once the concurrent session's PR-body rewrite landed (confirmed via a fresh check run on 9abd85a4a/d452aa87b) — no action needed from this session on that finding. CI on the final head (d452aa87b) was still running (Static PR checks, Unit coverage, Build, Lighthouse) at sweep end; not babysat past the fixes-pushed point per policy.",
+        "checks": "npx vitest run tests/medication-lexicon-report-signoff.test.ts (13/13 passed), npx vitest run tests/medication-low-severity-verdict.dom.test.tsx (2/2 passed), npm run check:medication-lexicon-report (up to date, 37 catalogue terms; WARNING unchanged), npm run check:medication-interactions (up to date, 531 rows), npm run check:diff-integrity (PASS), npx tsc --noEmit -p tsconfig.json (clean), npx eslint on touched files (clean), npx prettier --check on touched files (clean); no provider-backed checks run; npm run test:focused refused (test/config-infra path changed) so narrower vitest runs were used directly instead of the full npm run test suite."
+      },
+      {
         "date": "2026-08-15",
         "ref": "codex/fix-ecg-animation-on-mobile-devices",
         "head": "d4662baa81ba738b2278f624f213db416fde95a5",
@@ -23615,6 +24168,14 @@
         "scope": "issue 148 deletion guard",
         "outcome": "approved: no P0-P2 findings; base comparison is fail-closed in CI and preserves archive moves",
         "checks": "verify:cheap; deletion self-test; unreadable-base proof; CI scope; GitHub Actions pin guard"
+      },
+      {
+        "date": "2026-09-03",
+        "ref": "claude/answer-loading-sources-animation-4obfpq",
+        "head": "da1cc81620afc9db0dc6c9ff71061b3a471a193e",
+        "scope": "answer-preview source governance, evidence rail",
+        "outcome": "P1 governance display-cap defect fixed with a mutation-proven test; P2 invariant/doc drift recorded as a dated design-doc amendment",
+        "checks": "clinical-governance-reviewer; verify:cheap; verify:pr-local; build; eval:rag:offline; eval:rag:adversarial:offline; focused chromium (answer-progress-ui-smoke 8, ui-phone-motion+ui-universal-search 25, ui-smoke 106)"
       },
       {
         "date": "2026-08-21",
@@ -24143,6 +24704,14 @@
         "scope": "CI / Production UI failure — non-answer phone header keeps the in-flow collapse hide",
         "outcome": "FIXED. Single failing Playwright test: `tests/ui-smoke.spec.ts:3780 — non-answer phone header keeps the in-flow collapse hide`. Root cause: RAF debouncing in useHideOnScroll.onScroll coalesces a layout-clamp scroll event with the test's deliberate -24px upward scroll into one RAF evaluation. The hook sees lastMaxOffsetRef stale (pre-collapse visibleMaxOffset V) while the net offset is already V-96 (= newMaxOffset-24). The clamp detection fires (`lastOffset V > newMaxOffset V-72`), incorrectly suppressing the genuine reveal. Fix: added `offset >= maxOffset - revealIntentDistance` guard to the clamp detection in `computeScrollHideUpdate`. Only treat movement as geometry feedback when the net offset is within revealIntentDistance (12 px) of the new bottom edge. Unit test added. PR-required failure is downstream of Production UI only (no independent breakage).",
         "checks": "verify:cheap pass (exit 0); npm run test 20/20 on use-hide-on-scroll.test.ts; Playwright chromium 9/9 scroll-hide smoke tests; Playwright chromium 1/1 target test. No provider-backed checks."
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/full-repo-audit-27fccs",
+        "head": "dfa863e570eb3f9edc3b0b3ba8ae6a32f00d2c4d",
+        "scope": "prlanded",
+        "outcome": "PR #2573 (full repository audit 2026-09-02) squash-merged to main as dfa863e57 by the owner with auto-merge; branch tip 43638a9ed content diff against the squash commit is empty, so every commit landed and nothing was orphaned by the auto-merge race. Audit report, docs/README.md bullet, regenerated repo-awareness snapshot, eleven documentation corrections and the branch review record are all on main.",
+        "checks": "git diff --stat dfa863e57 43638a9ed empty; CI run 33682232558 on head 43638a9ed: Static PR checks, Build, Safety and config checks, Unit coverage, Caring Contacts database, Production UI critical and shards, PR policy, PR mergeability, Semgrep, Gitleaks all success; Codex review completed with no findings; three earlier runs (15146, 15148, 15157) were cancelled by ready-for-review and update-branch re-triggers, not failures."
       },
       {
         "date": "2026-07-30",
@@ -24993,6 +25562,14 @@
         "checks": "focused auth DOM 24/24; targeted Chromium 2/2; lint/typecheck/build/design contracts passed; RAG fixtures 36/36; full Vitest blocked by baseline Windows hook failures; PDF isolated 9/9"
       },
       {
+        "date": "2026-09-04",
+        "ref": "claude/smart-test-selection-q4rt7m",
+        "head": "edf1f0aff7ae90d2ac819739b5226cc155890912",
+        "scope": "prlanded",
+        "outcome": "merged (#2553) — browser-gate planner (npm run plan:browser), arbiter narrowed-gate routing, cloud SessionStart testing-policy hook; three Codex P2s (mockup project routing, draft-PR CI precondition, two-token selector flags) fixed and all threads resolved",
+        "checks": "test 948 files / 12114 passed | 1 skipped; lint/typecheck exit 0; gate-manifest, ci-scope, verification-plan, skills, knip, docs links/scripts/inventory all pass; plan:browser level none for its own files and CI agrees; landed content verified: branch tip 2626ff7a8 is an ancestor of origin/main, planner+hook+arbiter symbols present, hook is 100755"
+      },
+      {
         "date": "2026-07-25",
         "ref": "cursor/pr-babysit-bugbot-agents-6c52 (PR #1167)",
         "head": "ee44812aae9dad1973d8302eba5bfca5000dffb6",
@@ -25463,6 +26040,14 @@
         "scope": "PR #1912 heavy review follow-up: post-scroll active-state repair",
         "outcome": "Exact-head Production UI trace showed the jump selection was reasserted in the same frame as the physical scroll, then overwritten by the scroll spy on its following geometry frame. Delayed the hash-guarded reassertion by one additional animation frame and added a focused ordering regression. The existing popstate guard remains unchanged. A separate builder Start over failure touched no PR-modified source and is left for the replacement exact-head run to classify.",
         "checks": "Production trace: 177 tests passed and the map active state alone reverted after the target scroll; deterministic frame model changed final state from episode-features to course-onset while suppressing stale reassertion after back navigation; TypeScript transpile PASS for hook and focused regression; git diff --check PASS; no manual production or provider-backed gate run."
+      },
+      {
+        "date": "2026-09-05",
+        "ref": "codex/services-canonical-safety-foundation (PR #2609)",
+        "head": "f2c3ea64a05661709f92033c57613185b5bad32b",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "before: PR required FAILURE, BEHIND main, 3 unresolved P1 threads (registry parser rejecting new provenance fields incl. a second self-found gap on allUrls; CAMHS crisis route dropped for unverified-but-active youth crisis; composite MHERL/AOD phone contacts collapsing into one undialable tel: link). after: all 3 fixed with narrow tests, merged origin/main (clean), all threads replied and resolved.",
+        "checks": "npx vitest run tests/services-safety-routing.test.ts tests/registry-client-contract.test.ts (11 passed, each confirmed to fail pre-fix); npm run typecheck (clean, recorded pass); prettier --write (unchanged). No provider-backed checks run."
       },
       {
         "date": "2026-08-18",
@@ -26647,6 +27232,14 @@
         "scope": "User-requested merge conflict resolution",
         "outcome": "Before: CONFLICTING/DIRTY vs main (behind after #1138 search-interactive-perf). After: merged origin/main with ort auto-merge (no conflict markers; ledger + search-perf files landed cleanly); pushed ff31b941. GitHub now MERGEABLE (BLOCKED only on branch-protection/CI).",
         "checks": "merge origin/main only; no provider-backed checks run"
+      },
+      {
+        "date": "2026-09-02",
+        "ref": "claude/ci-test-automation-ndzfou",
+        "head": "ff37de6d39dad9a14dc3aa500fecc1ae45a3d4ef",
+        "scope": "prlanded",
+        "outcome": "merged and verified: squash content identical to branch tip 51bcddba, nothing orphaned",
+        "checks": "prlanded content diff empty (git diff --stat ff37de6d 51bcddba); full CI green on 544bf61d and 51bcddba including the PR required aggregate"
       },
       {
         "date": "2026-08-15",

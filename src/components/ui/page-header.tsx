@@ -122,6 +122,19 @@ export type PageHeaderProps = {
   actions?: ReactNode;
   /** Status chips, counts, or provenance shown under the description. */
   meta?: ReactNode;
+  /**
+   * Chips that belong on the title line itself — urgency, source state, a count.
+   *
+   * `meta` puts its row BELOW the whole title block, which on a wide screen
+   * spends a full row on a single "Urgent" chip while the space beside the
+   * heading sits empty. `inlineMeta` sits next to the `<h1>` and wraps under it
+   * on a phone, so the chip travels with the title it qualifies.
+   *
+   * Kept separate rather than moving `meta`: the existing callers' provenance
+   * rows are several chips long and belong under the description, not beside a
+   * heading they would push into a second line.
+   */
+  inlineMeta?: ReactNode;
   className?: string;
 };
 
@@ -149,6 +162,7 @@ export function PageHeader({
   breadcrumb,
   actions,
   meta,
+  inlineMeta,
   className,
 }: PageHeaderProps) {
   return (
@@ -190,14 +204,16 @@ export function PageHeader({
           ) : null}
           <div className="min-w-0">
             {eyebrow ? <p className={eyebrowText}>{eyebrow}</p> : null}
-            <h1
-              className={cn(
-                "text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl",
-                eyebrow && "mt-1.5",
-              )}
-            >
-              {title}
-            </h1>
+            {/* `items-baseline` would drop a bordered chip below the cap line of a
+                28px heading; `items-center` keeps the chip optically centred on
+                the title's first line, and `flex-wrap` sends it under the title
+                on a narrow screen rather than squeezing the heading. */}
+            <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1.5", eyebrow && "mt-1.5")}>
+              <h1 className="text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
+                {title}
+              </h1>
+              {inlineMeta}
+            </div>
             {description ? (
               <p className={cn("mt-1.5 max-w-[68ch] text-pretty text-sm font-medium leading-6", textMuted)}>
                 {description}

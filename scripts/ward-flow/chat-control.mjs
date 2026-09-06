@@ -26,7 +26,11 @@ import {
 import { homedir, hostname, tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { RECEIPT_FORMAT_VERSION, receiptKey } from "../gate-receipts.mjs";
+// `receiptKey` alone: `validateRunnerReceiptCandidate` still recomputes a receipt key from a
+// receipt's own inputs, and is still exercised directly by the focused test. RECEIPT_FORMAT_VERSION
+// went with the runner-receipt lookup — see assertActivationTreeSignature for why that lookup could
+// not stay answered.
+import { receiptKey } from "../gate-receipts.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(scriptDirectory, "..", "..");
@@ -771,6 +775,18 @@ export function validateSystemState(state, contract) {
     if (JSON.stringify(provided) !== JSON.stringify(requiredEvidence)) {
       fail("steady-state transitionEvidence must name each required receipt exactly once in gate order");
     }
+    /*
+     * ⚠️ BOTH FIELDS, SEPARATELY, AND NEITHER MAY BE NULL. They are checked against the real tree in
+     * `assertActivationTreeSignature`; this only fixes their shape. The pair is deliberately two
+     * values rather than one: a hash that agrees while a count does not means the record does not
+     * describe a single tree, and a check reading only the hash would report the count for show.
+     */
+    if (!SHA256_PATTERN.test(state.activationTreeHash ?? "")) {
+      fail("steady-state mode requires activationTreeHash as 64 lowercase hex characters");
+    }
+    if (!Number.isInteger(state.activationTreeFileCount) || state.activationTreeFileCount <= 0) {
+      fail("steady-state mode requires activationTreeFileCount as a positive integer");
+    }
   } else if (state.activationSnapshot !== null) fail("recovery mode activationSnapshot must be null");
   const updated = new Date(state.updatedAt);
   if (Number.isNaN(updated.getTime())) fail("system state updatedAt must be an ISO timestamp");
@@ -1494,11 +1510,101 @@ function verifiedEvidenceBytes(relative, expectedSha256, ref, label, root = repo
   return { normalized, bytes };
 }
 
+/**
+ * THE INTEGRITY REQUIREMENT IS THE BRANCH. THE PATH IS A CACHE.
+ *
+ * A recorded worktree path is stale by construction. `.claude/worktrees` on this machine was wiped
+ * by an unrelated cleanup session on 2026-08-21, and on 2026-09-04 THREE OF THE FIVE recorded
+ * checkouts pointed at folders that no longer existed. Nothing was lost when that happened: the
+ * refs and objects live in the shared repository, not in the folder, and all five branches still
+ * resolved with every recorded head still on its branch. A branch survived what a path did not,
+ * on this machine, to these exact records.
+ *
+ * `git worktree move` updates git's own pointers, which is why renaming the master worktree from
+ * `ward-seed-link` to `ward-lead` on 2026-09-02 cost nothing — and why a path copied into JSON
+ * could not have followed it.
+ *
+ * So: branch missing, or recorded head not on that branch, is REAL LOSS and must be loud. A branch
+ * that is fine with no worktree mounted is an ordinary state — a handover record legitimately
+ * describes work on a branch nobody currently has checked out. (Ward Lead ruling, 2026-09-04.)
+ *
+ * ⚠️ THE HEAD CHECK IS "IS IT ON THE BRANCH", NOT "DOES THE OBJECT EXIST". Reachability alone is
+ * nearly vacuous: a commit stays in the object store after its branch is deleted, until gc. Being
+ * an ancestor of the branch is the property that actually means the branch still carries the work.
+ * Verified 2026-09-04: all five recorded heads pass the stronger check.
+ *
+ * ⚠️ AND THE REPOSITORY MATTERS. When a checkout is mounted these run inside it, because a fixture
+ * repository has its own branches; when it is not, they run in this repository. Passing the wrong
+ * cwd turns a healthy record into a phantom loss report.
+ */
+function assertRecordedBranchIsIntact(source, sourceId, { cwd } = {}) {
+  const branch = requireString(source.branch, `${sourceId} branch`);
+  const head = requireString(source.head, `${sourceId} head`);
+  if (!SHA_PATTERN.test(head)) fail(`${sourceId} head must be a full commit SHA`);
+  const options = cwd ? { cwd } : {};
+  try {
+    git(["rev-parse", "--verify", `${branch}^{commit}`], options);
+  } catch {
+    fail(`${sourceId} branch ${branch} no longer resolves — the recorded work may be lost`);
+  }
+  try {
+    git(["merge-base", "--is-ancestor", head, branch], options);
+  } catch {
+    fail(`${sourceId} recorded head ${head} is not on ${branch} — the recorded work may be lost`);
+  }
+  return { branch, head };
+}
+
+/**
+ * ⚠️ NEVER "FIX" A RECORDED PATH INSIDE A HANDOVER OR AN EVIDENCE RECEIPT. Those filenames ARE
+ * their own SHA-256 — verified 2026-09-04 by comparing `sha256sum` against the basename of
+ * `docs/ward-flow/control/handovers/a60d51ea7706…handover.json` and of
+ * `docs/ward-flow/control/evidence/current-truth/inventory-5c5d53d2…json`. Editing a value inside
+ * one destroys the identity it exists to provide, and nothing in the filename tells you that.
+ *
+ * `docs/ward-flow/live-state.json` is the editable one. It is also the file this validator reads,
+ * and it already records `branch` and `head` beside every `checkout` — so keying on the branch
+ * needed no data migration at all.
+ */
 export function assertCheckoutMatchesSnapshot(source, status, sourceId) {
   const checkout = path.resolve(requireString(source.checkout, `${sourceId} checkout`));
-  if (!path.isAbsolute(source.checkout) || !existsSync(checkout)) {
-    fail(`${sourceId} checkout must be an existing absolute path`);
+  if (!path.isAbsolute(source.checkout)) {
+    fail(`${sourceId} checkout must be an absolute path`);
   }
+  if (!existsSync(checkout)) {
+    const { branch, head } = assertRecordedBranchIsIntact(source, sourceId);
+    /*
+     * 🔴 AN UNMOUNTED CHECKOUT MAY REPORT "NO WORKTREE"; IT MAY NOT REPORT "CLEAN".
+     *
+     * Returning empty `tracked`/`untrackedPaths` here says the source had no uncommitted work —
+     * a positive claim, made from a directory that does not exist and cannot support it. The
+     * caller then validates dirty artifacts by reading original files out of that same missing
+     * path, so the branch advertised as "unmounted is an ordinary state" silently worked only for
+     * clean snapshots.
+     *
+     * ⚠️ THIS IS ONE WORKTREE DELETION AWAY FROM BEING LIVE, NOT HYPOTHETICAL. `ward-board`
+     * records 139 untracked files and is mounted today; three sibling checkouts under
+     * `.claude/worktrees/` were destroyed by unrelated cleanup on 2026-08-21. The day the fourth
+     * goes, this would have reported 139 files of recorded work as no work at all.
+     *
+     * Committed work is safe either way — the branch and head are verified above, and objects
+     * live in the shared repository rather than in the folder. Uncommitted work is exactly what a
+     * missing folder takes with it, which is why silence here is the wrong answer and a refusal is
+     * the right one.
+     */
+    const recordedTracked = Array.isArray(status?.tracked) ? status.tracked.length : 0;
+    const recordedUntracked = Number(status?.untrackedCount ?? 0);
+    if (recordedTracked > 0 || recordedUntracked > 0) {
+      fail(
+        `${sourceId} checkout is not mounted, but the recorded snapshot carries uncommitted work ` +
+          `(${recordedTracked} tracked, ${recordedUntracked} untracked). Those artifacts can only be ` +
+          `validated from the checkout itself, so this cannot be reported as clean. Re-mount the ` +
+          `worktree for branch ${branch}, or record the artifacts durably and clear the snapshot.`,
+      );
+    }
+    return { checkout, mounted: false, branch, head, tracked: [], untrackedPaths: [] };
+  }
+  assertRecordedBranchIsIntact(source, sourceId, { cwd: checkout });
   const topLevel = git(["rev-parse", "--show-toplevel"], { cwd: checkout }).trim();
   if (localPathIdentity(realpathSync(topLevel)) !== localPathIdentity(realpathSync(checkout))) {
     fail(`${sourceId} checkout does not resolve to the recorded Git worktree root`);
@@ -1534,6 +1640,7 @@ export function assertCheckoutMatchesSnapshot(source, status, sourceId) {
   }
   return {
     checkout,
+    mounted: true,
     branch: actualBranch,
     head: actualHead,
     tracked: actualTracked,
@@ -2133,68 +2240,99 @@ export function validateRunnerReceiptCandidate(candidate, { gate, args, inputHas
 }
 
 /**
- * Every checkout of this repository, so a receipt produced in one can be read from another.
+ * 🔴 THIS REPLACED A CHECK THAT COULD NOT STAY ANSWERED, AND IT ASKS A DELIBERATELY WEAKER QUESTION.
  *
- * ⚠️ **THE RECEIPT ATTESTS A COMMITTED TREE, AND A COMMITTED TREE IS THE SAME IN EVERY WORKTREE.**
- * Reading the store from the CURRENT worktree alone made steady-state validation impossible in any
- * checkout that had not itself run the test at the activation snapshot — which is every fresh one.
- * Found 2026-09-01 while creating a Ward Verifier: its worktree is detached at a LATER commit, so
- * it could never produce a receipt for the snapshot's tree no matter how many times it ran the
- * test. The role that exists to check the work could not be created because of where a cache file
- * happened to live.
+ * The previous version required a receipt PRODUCED BY THE TEST RUNNER whose input hash equalled the
+ * activation tree's signature. The intent was sound — it is the difference between a run and a claim
+ * that there was a run. **But its evidence lived in `node_modules/.cache/database-gate-receipts.json`,
+ * an eight-deep LRU shared by every vitest invocation in the checkout.** Any eight test runs in any
+ * worktree evicted it, and a ward session runs dozens. So the gate was not occasionally red: it was
+ * red in every session, permanently, with brief accidental green windows, and recovery needed a
+ * pristine detached checkout at the activation commit that the next eight runs undid.
  *
- * This does not weaken the gate. The identity being checked is still the exact committed tree, and
- * `validateRunnerReceiptCandidate` still recomputes the receipt key from the receipt's own inputs;
- * all that changes is which directories are searched for an attestation about that tree.
+ * ⚠️ **A GATE SHOULD NOT ASK A QUESTION WHOSE HONEST ANSWER EXPIRES.** It should ask the strongest
+ * question that stays answerable and say plainly which stronger one it is not asking. That sentence
+ * is worth more than the receipt was — Ward Verifier's finding and its wording.
+ *
+ * **THE EARLIER SYMPTOM, KEPT BECAUSE IT IS THE SAME CAUSE AND WAS TREATED AS A DIFFERENT ONE.**
+ * On 2026-09-01 the store was widened to search every worktree, because reading only the current
+ * one made steady-state validation impossible in any checkout that had not itself run the test at
+ * the activation snapshot. It was found while creating a Ward Verifier: that worktree is detached at
+ * a LATER commit, so it could never produce a receipt for the snapshot's tree however many times it
+ * ran the test. **The role that exists to check the work could not be created because of where a
+ * cache file happened to live.** That repair was correct and insufficient — widening WHERE the
+ * evidence is searched for does nothing about evidence with a half-life of eight test runs. Two
+ * symptoms, one cause, four days apart, and the first fix made the second harder to see by making
+ * the gate briefly green.
+ *
+ * WHY THE RECORD LIVES IN `system-state.json` RATHER THAN IN THE RECEIPT, which is where it belongs
+ * and where it cannot go. The three transition receipts are read AT `evidenceRef` — in steady-state,
+ * the frozen `activationSnapshot`. Recording a field in the control-plane receipt therefore means
+ * editing a file inside a commit 1,488 commits back, which is history; and moving the snapshot
+ * forward to a commit that could carry the field is refused by `assertTransitionEvidenceWindow`,
+ * which permits zero source-affecting changes between the receipts' `sourceSha` and the snapshot
+ * (measured: 0 today, 2,176 to HEAD). **Storing a tree's hash inside that same tree is circular in
+ * any case.** So the record goes in the state file, which is outside the hashed history and can be
+ * written now.
+ *
+ * ⚠️ **AND THAT IS WEAKER THAN ITS TWO SIBLINGS, WHICH IS STATED RATHER THAN GLOSSED.**
+ * `recovery-bundle` and `current-truth` pin hashes recorded in receipts frozen in history; this pins
+ * one in a mutable, committed, reviewable file. An editor who changes the snapshot and the hash
+ * together passes. The honest claim is exactly the one in the failure messages below and no larger.
  */
-function gateReceiptStorePaths(root) {
-  const roots = [root];
-  try {
-    const listed = git(["worktree", "list", "--porcelain"], { cwd: root });
-    for (const line of listed.replaceAll("\r", "").split("\n")) {
-      if (line.startsWith("worktree ")) roots.push(line.slice("worktree ".length));
-    }
-  } catch {
-    /* not a worktree list we can read — the current root alone is still a valid place to look */
-  }
-  const seen = new Set();
-  const paths = [];
-  for (const candidate of roots) {
-    const storePath = path.join(candidate, "node_modules", ".cache", "database-gate-receipts.json");
-    const identity = localPathIdentity(storePath);
-    if (seen.has(identity)) continue;
-    seen.add(identity);
-    paths.push(storePath);
-  }
-  return paths;
-}
-
-function assertRunnerProducedFocusedTestReceipt(ref, root = repositoryRoot) {
+export function assertActivationTreeSignature(state, ref, root = repositoryRoot) {
   const signature = committedTreeInputSignature(ref, root);
-  const args = ["run", "tests/ward-flow-chat-control.test.ts"];
-  const storePaths = gateReceiptStorePaths(root).filter((storePath) => existsSync(storePath));
-  if (storePaths.length === 0) {
-    fail("control-plane activation requires the gate runner receipt store; rerun the exact focused test");
-  }
-  for (const storePath of storePaths) {
-    const store = readJson(storePath, "gate runner receipt store");
-    if (store.version !== RECEIPT_FORMAT_VERSION || !isObject(store.gates)) continue;
-    const receipts = requireArray(store.gates.vitest ?? [], "Vitest gate receipts");
-    const receipt = receipts.find((candidate) =>
-      validateRunnerReceiptCandidate(candidate, {
-        gate: "vitest",
-        args,
-        inputHash: signature.hash,
-        fileCount: signature.fileCount,
-      }),
+  const disclosure =
+    " — this check proves the recorded pass was asserted about this exact committed tree and no " +
+    "other. IT DOES NOT PROVE A HUMAN RAN THE COMMAND. The runner-receipt requirement it replaced " +
+    "did not prove that durably either: its evidence lived in an eight-deep LRU shared with every " +
+    "vitest run and was evicted within about eight runs of any session.";
+  /*
+   * ⚠️ EVERY REFUSAL GOES THROUGH HERE, WHICH MAKES TWO THINGS STRUCTURAL RATHER THAN REMEMBERED.
+   *
+   * The disclosure is appended by the helper, so a fourth refusal added later carries it without
+   * anybody knowing it exists — the correct thing is the only thing, rather than a convention a
+   * guard has to police.
+   *
+   * And `cause` is what lets a test tell the branches apart WITHOUT matching prose. The first
+   * version of that test matched each branch's sentence, and a mutation rewording one went red —
+   * a wording pin, written by me minutes after warning three other sessions about wording pins.
+   * A machine-readable cause survives every rewrite and fails only when a refusal genuinely
+   * changes which question it answers.
+   */
+  const refuse = (cause, message) => {
+    try {
+      fail(message + disclosure);
+    } catch (error) {
+      error.activationTreeCause = cause;
+      throw error;
+    }
+  };
+  if (state.activationTreeHash === undefined || state.activationTreeFileCount === undefined) {
+    refuse(
+      "absent",
+      "steady-state system state must record activationTreeHash and activationTreeFileCount for the " +
+        `activation snapshot. The snapshot's signature is ${signature.hash} over ${signature.fileCount} ` +
+        "committed files; record both. An absent record is not agreement",
     );
-    if (receipt) return receipt;
   }
-  fail(
-    "control-plane activation has no runner-produced passing receipt for the exact activation tree in any " +
-      "checkout of this repository; run node scripts/run-vitest.mjs run tests/ward-flow-chat-control.test.ts " +
-      "at that clean commit",
-  );
+  if (state.activationTreeHash !== signature.hash) {
+    refuse(
+      "hash",
+      `activation tree signature does not match the recorded hash: recorded ${state.activationTreeHash}, ` +
+        `computed ${signature.hash} for ${ref}. Either the snapshot moved under the record or the record ` +
+        "was edited",
+    );
+  }
+  if (state.activationTreeFileCount !== signature.fileCount) {
+    refuse(
+      "fileCount",
+      `activation tree file count does not match the recorded count: recorded ${state.activationTreeFileCount}, ` +
+        `computed ${signature.fileCount} for ${ref}. The hash agreeing while the count does not means the ` +
+        "recorded pair does not describe one tree",
+    );
+  }
+  return signature;
 }
 
 export function assertTransitionEvidenceWindow(sourceSha, activationSnapshot, root = repositoryRoot) {
@@ -2334,7 +2472,16 @@ function validateStateRepositoryEvidence(state, root = repositoryRoot) {
       ) {
         fail("control-plane gateEvidence must record the exact validator and focused-test pass");
       }
-      assertRunnerProducedFocusedTestReceipt(evidenceRef, root);
+      /*
+       * ⚠️ STEADY-STATE ONLY, AND SKIPPING IT IN RECOVERY IS THE POINT RATHER THAN AN EXEMPTION.
+       * `evidenceRef` is the frozen `activationSnapshot` in steady-state and the INTEGRATION BRANCH
+       * TIP in recovery. A tree signature over a moving tip changes on every commit, so enforcing it
+       * in recovery would recreate — in a new costume — exactly the defect this replaced: a check
+       * that cannot stay answered. There is no activation to attest while the control plane is being
+       * rebuilt, and a check that certifies nothing is worse than an absent one because it looks like
+       * cover. Recovery is gated by the mode's own rules, not by this.
+       */
+      if (state.mode === "steady-state") assertActivationTreeSignature(state, evidenceRef, root);
     }
   }
   if (state.mode === "steady-state") assertCommonTransitionSourceSha(transitionSourceShas);

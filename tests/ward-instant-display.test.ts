@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { stripSourceComments } from "./helpers/strip-source-comments";
 
 const WARD_DIR = "src/components/ward-management";
 
@@ -104,7 +105,24 @@ describe("nothing renders a bare clock face unless it is entitled to assert toda
       // literal 0x08 backspace byte where a word boundary was intended, so it matched nothing and
       // reported every swept file as unswept. An escape that silently becomes a control character
       // is invisible in every diff and every review.
-      const dayAware = source.split("formatInstantWithDay(").length - 1;
+      //
+      // Comments are stripped FIRST. Proved by mutation on 2026-09-04: with the real call in
+      // escalation-board.tsx removed (a bare `formatInstant`, no day awareness) and replaced by
+      // nothing but a line comment reading `// formatInstantWithDay(`, the un-stripped split count
+      // still hit 1 and this assertion went green with zero real calls in the file. Counting calls
+      // in raw source text still counts a comment quoting the call - stripping first is what makes
+      // "counting calls rather than mentions" true rather than aspirational.
+      //
+      // Known narrow gap, not closed: `stripSourceComments` strips a line comment only when the
+      // line begins with `//` (see that helper's own doc comment), so a TRAILING
+      // `formatInstantWithDay(...) // some note` keeps its call counted correctly, but a bare
+      // trailing `// formatInstantWithDay(` appended after real code on the same line would survive
+      // stripping and could still inflate the count. None of the five swept files do this today;
+      // widening the helper's line-comment rule is out of scope here (it is deliberately narrow to
+      // avoid eating a `//` inside a URL or regex) - flagging the shape rather than closing it.
+      // Narrowed, not closed: a TRAILING `//` comment still survives stripping.
+      // Pinned executably in tests/ward-guard-comment-blindness.test.ts (CHARACTERISATION).
+      const dayAware = stripSourceComments(source).split("formatInstantWithDay(").length - 1;
       expect(
         dayAware,
         `${file} renders history and no longer calls formatInstantWithDay. An entry from another ` +

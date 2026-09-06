@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "9f93baa0-8001-4d56-9494-aff4b3796b38",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "9a57cec3-e154-4523-bde4-9ddfa8e0c0dd",
+    "reason": "Superseded by a single consolidated #ZBAC9D record queued in the same push. Its measured live exposure data is preserved verbatim in the replacement; only its NEXT step is corrected, because that step cannot be written as described - public.retrieval_owner_matches takes two uuids and never sees document metadata. Cancelled rather than left pending because two pending mutations for one issue fail the ledger planner and turned Static PR checks red on PR #2547."
+  }
+}

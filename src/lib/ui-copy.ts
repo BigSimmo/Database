@@ -119,6 +119,11 @@ export const sharedHomePresentation = {
     subtitle: "Clinical source catalogue.",
     suggestions: ["Australian guidelines", "RANZCP", "review required"],
   },
+  "on-call": {
+    title: "On Call",
+    subtitle: "Your service's numbers, escalation, orientation and teaching.",
+    suggestions: ["after-hours registrar", "acute behavioural disturbance", "ward 4B number"],
+  },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
 /** Browser/assistive-technology title for the mode selected on the shared home. */

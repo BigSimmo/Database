@@ -2,8 +2,23 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { blankCssComments } from "./helpers/strip-source-comments";
+/*
+ * ⚠️ COMMENTS ARE BLANKED BEFORE ANY MATCH, AND THIS GUARD IS THE REASON THE HELPER EXISTS.
+ *
+ * The assertions below take the first textual `.screen {` and read to the next `}`. That is a TEXT
+ * scan, so a comment mentioning a rule captures the match. It happened twice on 2026-09-04, both
+ * times in a comment written to EXPLAIN the print rule: once quoting `.screen { background: none }`
+ * and once quoting a `body` colour declaration with its closing brace. Both times the guard matched
+ * the prose, truncated its extract and went red on a stylesheet whose CSS was correct.
+ *
+ * ⚠️ `blankCssComments` blanks in place rather than deleting, so every line number and column
+ * offset below still points at the real file. A guard that names the wrong line is worse than one
+ * that names none.
+ */
+
 function source(path: string): string {
-  return readFileSync(resolve(process.cwd(), path), "utf8");
+  return blankCssComments(readFileSync(resolve(process.cwd(), path), "utf8"));
 }
 
 /**

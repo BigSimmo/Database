@@ -24,6 +24,7 @@ import { referralQueueOrder } from "@/components/ward-management/ward-referrals"
 import { BED_RELEASE_BLOCKERS } from "@/components/ward-management/ward-change-reasons";
 import { allUnits, NOW_ANCHOR, wardSites } from "@/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 const NOW = NOW_ANCHOR;
 
 function unit(overrides: Partial<Unit> = {}): Unit {
@@ -32,11 +33,12 @@ function unit(overrides: Partial<Unit> = {}): Unit {
     siteCode: "RPH",
     name: "Test Unit",
     cohort: "Adult",
-    security: "Open",
+    lockedBeds: 0,
     authorised: true,
     beds: 20,
     empty: { value: 3, source: "feed", confirmedAt: NOW - 2, staleAfterMinutes: 15 },
     allocatable: { value: 2, source: "ward", confirmedAt: NOW - 10, staleAfterMinutes: 120 },
+    allocatableLocked: 0,
     held: 0,
     blocked: 0,
     sexMix: { Female: 10, Male: 8 },
@@ -483,7 +485,9 @@ describe("ward-morning-rollup", () => {
    */
   it("defines the six figure labels once, in the order the spec lists them", () => {
     expect(CAPACITY_FIGURE_LABELS).toEqual({
-      availableNow: "Available now",
+      // "Ready" since the owner's 2026-09-04 ruling — one word for one number. This figure is
+      // `min(allocatable, empty)` and was called seven different things across the product.
+      availableNow: "Ready",
       confirmedToday: "Confirmed today",
       expectedToday: "Expected today",
       blockedToday: "Blocked releases",
@@ -546,6 +550,7 @@ describe("ward-morning-rollup", () => {
         urgency: 2,
         originSiteCode: "RPH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
         ...rest,
       };
     }

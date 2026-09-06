@@ -1,5 +1,5 @@
-import { normalizeSearchText } from "@/lib/catalog-search";
-import { smartSearchExpansions } from "@/lib/smart-search-intent";
+import { includesWholeTerm, normalizeSearchText } from "@/lib/catalog-search";
+import { smartSearchContentTerms } from "@/lib/smart-search-intent";
 import {
   dictionaryComparisonPairs,
   dictionaryEntries,
@@ -168,12 +168,19 @@ function entryScore(entry: DictionaryEntry, query: string) {
 
 function relatedEntryScore(entry: DictionaryEntry, normalizedExpansions: readonly string[]) {
   if (!normalizedExpansions.length) return null;
+  const identities = [entry.term, ...entry.aliases.map((alias) => alias.value)].map(normalizeSearchText);
   const searchable = normalizeSearchText(
     `${entry.term} ${entry.aliases.map((alias) => alias.value).join(" ")} ${entry.definition} ${entry.meaning} ${entry.context.join(" ")} ${dictionaryKindLabel(entry.kind)}`,
   );
-  return normalizedExpansions.some((term) => searchable.includes(term))
-    ? { score: 43, reason: "Related search term" }
-    : null;
+  const score = normalizedExpansions.reduce((best, term) => {
+    const specificity = term.includes(" ") ? term.split(" ").length : 1;
+    if (identities.some((identity) => identity === term)) return Math.max(best, 43.5 + specificity / 10);
+    if (identities.some((identity) => includesWholeTerm(identity, term)))
+      return Math.max(best, 43.25 + specificity / 10);
+    if (includesWholeTerm(searchable, term)) return Math.max(best, 43 + specificity / 100);
+    return best;
+  }, 0);
+  return score ? { score, reason: "Related search term" } : null;
 }
 
 function abbreviationGroups(entries: readonly DictionaryEntry[]) {
@@ -236,7 +243,7 @@ export function searchDictionary(filters: DictionaryFilters): DictionarySearchHi
     for (const topic of dictionaryTopics) {
       if (!allowedTopics.has(topic.slug)) continue;
       const searchable = normalizeSearchText(`${topic.title} ${topic.description}`);
-      const relatedMatch = normalizedExpansions.some((term) => searchable.includes(term));
+      const relatedMatch = normalizedExpansions.some((term) => includesWholeTerm(searchable, term));
       if (!normalizedQuery || searchable.includes(normalizedQuery) || relatedMatch) {
         const directMatch = !normalizedQuery || searchable.includes(normalizedQuery);
         hits.push({
@@ -353,7 +360,7 @@ export const dictionaryClearedQueryKeys = ["q", "query", "run"] as const;
 export function dictionaryCatalogue(params: DictionaryCatalogueParams): DictionarySearchHit[] {
   const filters: DictionaryFilters = {
     q: params.q,
-    expansions: smartSearchExpansions("dictionary", params.q),
+    expansions: smartSearchContentTerms("dictionary", params.q),
     view: params.scope,
     topics: params.topics,
     kinds: params.kinds,

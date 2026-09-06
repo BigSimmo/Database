@@ -14,7 +14,8 @@
  */
 
 import { categoryAccentVars, FACTSHEET_CATEGORY_IDENTITY, type FactsheetCategoryKey } from "@/lib/category-identity";
-import { normalizeSearchText } from "@/lib/catalog-search";
+import { includesWholeTerm, normalizeSearchText } from "@/lib/catalog-search";
+import { smartSearchContentTerms } from "@/lib/smart-search-intent";
 
 /**
  * Demonstration/governance status shown on-screen and preserved in the printed /
@@ -703,11 +704,13 @@ export function visibleTopicSheets<T>(
 /** Server-driven filter for the search page: optional query + optional category. */
 export function filterFactsheets(query: string, category?: string, expansions: readonly string[] = []): Factsheet[] {
   const q = normalizeSearchText(query);
-  const normalizedExpansions = expansions.map(normalizeSearchText).filter(Boolean);
+  const normalizedExpansions = Array.from(
+    new Set([...expansions, ...smartSearchContentTerms("factsheets", query)].map(normalizeSearchText).filter(Boolean)),
+  );
   const activeCategory = factsheetCategories.find((entry) => entry === category);
   const identityMatches: Factsheet[] = [];
   const directMatches: Factsheet[] = [];
-  const expansionOnlyMatches: Factsheet[] = [];
+  const expansionOnlyMatches: Array<{ sheet: Factsheet; score: number }> = [];
   for (const sheet of factsheets) {
     if (activeCategory && sheet.category !== activeCategory) continue;
     // Include the brand suffix (e.g. "(Zoloft)") so brand-name searches resolve
@@ -728,11 +731,19 @@ export function filterFactsheets(query: string, category?: string, expansions: r
       identityMatches.push(sheet);
     } else if (!q || searchable.includes(q)) {
       directMatches.push(sheet);
-    } else if (normalizedExpansions.some((term) => searchable.includes(term))) {
-      expansionOnlyMatches.push(sheet);
+    } else {
+      const identityText = normalizeSearchText(`${sheet.title} ${sheet.brand ?? ""}`);
+      const expansionScore = normalizedExpansions.reduce((score, term) => {
+        const specificity = term.includes(" ") ? term.split(" ").length : 1;
+        if (includesWholeTerm(identityText, term)) return score + 10 * specificity;
+        if (includesWholeTerm(searchable, term)) return score + specificity;
+        return score;
+      }, 0);
+      if (expansionScore > 0) expansionOnlyMatches.push({ sheet, score: expansionScore });
     }
   }
-  return [...identityMatches, ...directMatches, ...expansionOnlyMatches];
+  expansionOnlyMatches.sort((left, right) => right.score - left.score);
+  return [...identityMatches, ...directMatches, ...expansionOnlyMatches.map(({ sheet }) => sheet)];
 }
 
 export function relatedFactsheets(slug: string): Factsheet[] {

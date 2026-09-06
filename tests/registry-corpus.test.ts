@@ -212,6 +212,67 @@ describe("registry corpus", () => {
     });
   });
 
+  // #ZBAC9D. A stored null owner_id means the row is in the public corpus, and in this
+  // schema an ownerless document must also carry the publication marker — the two signals
+  // src/lib/documents/is-public-document.ts requires together, now enforced by the
+  // documents_ownerless_requires_publication_marker CHECK. registryDocumentRow rebuilds
+  // metadata from scratch with no public_corpus key, so before this fix a re-sync while the
+  // corpus was in public mode preserved the owner and silently stripped the marker: visible
+  // to retrieval, which resolves the public sentinel to owner_id IS NULL alone, but not
+  // public to the application. That is almost certainly how the unmarked ownerless rows
+  // described in 20260825025032's header arose, and post-constraint the upsert would be
+  // rejected outright — swallowed by bestEffortRegistryCorpusSync, so a clinician's edit
+  // would silently stop reaching the corpus.
+  it("carries the publication marker across a public-corpus refresh", async () => {
+    const { supabase, documents } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const { embedClinicalRegistryRows } = await import("../src/lib/registry-corpus");
+
+    await embedClinicalRegistryRows(supabase as never, [registryRow()]);
+    const [documentId] = [...documents.keys()];
+    const stored = documents.get(documentId!)!;
+    // The shape set_document_corpus_access_mode('public') leaves behind.
+    documents.set(documentId!, {
+      ...stored,
+      owner_id: null,
+      metadata: {
+        ...(stored.metadata as Record<string, unknown>),
+        public_corpus: true,
+        registry_detail_href: "/legacy/crisis-service",
+      },
+    });
+
+    await embedClinicalRegistryRows(supabase as never, [registryRow()]);
+
+    const refreshed = documents.get(documentId!)!;
+    expect(refreshed.owner_id).toBeNull();
+    expect((refreshed.metadata as Record<string, unknown>).public_corpus).toBe(true);
+  });
+
+  // The marker is carried, not invented: an owned row must not acquire one, and neither
+  // must an ownerless row that never had one — that state is the quarantine the constraint's
+  // third arm covers, and re-publishing it here would be the republication hole in reverse.
+  it("does not invent a publication marker for a row that has none", async () => {
+    const { supabase, documents } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const { embedClinicalRegistryRows } = await import("../src/lib/registry-corpus");
+
+    await embedClinicalRegistryRows(supabase as never, [registryRow()]);
+    const [documentId] = [...documents.keys()];
+    const stored = documents.get(documentId!)!;
+    expect((stored.metadata as Record<string, unknown>).public_corpus).toBeUndefined();
+
+    documents.set(documentId!, {
+      ...stored,
+      owner_id: null,
+      metadata: { ...(stored.metadata as Record<string, unknown>), registry_detail_href: "/legacy/crisis-service" },
+    });
+
+    await embedClinicalRegistryRows(supabase as never, [registryRow()]);
+
+    expect((documents.get(documentId!)!.metadata as Record<string, unknown>).public_corpus).toBeUndefined();
+  });
+
   it("refuses to move a registry document from another tenant", async () => {
     const { supabase, documents } = corpusHarness();
     embedTextsMock.mockReset().mockResolvedValue([[0.1]]);

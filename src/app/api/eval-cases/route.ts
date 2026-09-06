@@ -117,6 +117,72 @@ async function ownedChunkReference(args: {
   return validatedDocumentId ? { id: args.chunkId, documentId: validatedDocumentId } : null;
 }
 
+/**
+ * Keeps only the chunk ids whose parent document the caller owns.
+ *
+ * `top_chunk_ids` / `cited_chunk_ids` were previously stored on shape alone, so a promoted eval
+ * case could point at chunks the owner cannot read, or at nothing at all — input the offline eval
+ * loader then treats as ground truth. Two batched reads (chunks, then their documents) rather than
+ * one lookup per id, so an 80-id capture stays two round trips.
+ */
+async function ownedChunkIdSet(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
+  chunkIds: string[];
+}): Promise<Set<string>> {
+  if (args.chunkIds.length === 0) return new Set();
+  const { data: chunks, error: chunkError } = await args.supabase
+    .from("document_chunks")
+    .select("id,document_id")
+    .in("id", args.chunkIds);
+  if (chunkError) throw new Error(chunkError.message);
+
+  const chunkRows = (chunks ?? []) as Array<{ id?: unknown; document_id?: unknown }>;
+  const documentIds = Array.from(
+    new Set(chunkRows.map((row) => row.document_id).filter((id): id is string => typeof id === "string" && id !== "")),
+  );
+  if (documentIds.length === 0) return new Set();
+
+  const { data: documents, error: documentError } = await args.supabase
+    .from("documents")
+    .select("id")
+    .in("id", documentIds)
+    .eq("owner_id", args.ownerId);
+  if (documentError) throw new Error(documentError.message);
+
+  const ownedDocumentIds = new Set(
+    ((documents ?? []) as Array<{ id?: unknown }>)
+      .map((row) => row.id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+  return new Set(
+    chunkRows
+      .filter((row) => typeof row.document_id === "string" && ownedDocumentIds.has(row.document_id))
+      .map((row) => row.id)
+      .filter((id): id is string => typeof id === "string"),
+  );
+}
+
+/** Keeps only the file names carried by a document the caller owns (same rule, one batched read). */
+async function ownedFileNameSet(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
+  fileNames: string[];
+}): Promise<Set<string>> {
+  if (args.fileNames.length === 0) return new Set();
+  const { data, error } = await args.supabase
+    .from("documents")
+    .select("file_name")
+    .in("file_name", args.fileNames)
+    .eq("owner_id", args.ownerId);
+  if (error) throw new Error(error.message);
+  return new Set(
+    ((data ?? []) as Array<{ file_name?: unknown }>)
+      .map((row) => row.file_name)
+      .filter((name): name is string => typeof name === "string"),
+  );
+}
+
 export async function POST(request: Request) {
   try {
     if (isDemoMode())
@@ -138,9 +204,24 @@ export async function POST(request: Request) {
     }
 
     const normalizedQuery = normalizedQueryTextForStorage(parsed.query);
-    const sourceChunkIds = uniqueUuidValues(parsed.sourceChunkIds);
-    const citedChunkIds = uniqueUuidValues(parsed.citedChunkIds);
-    const sourceFiles = uniqueValues(parsed.sourceFiles);
+    // Shape first, then ownership: an id the caller does not own is rejected exactly like a
+    // malformed one, and both are counted in the same rejected tallies below.
+    const wellFormedSourceChunkIds = uniqueUuidValues(parsed.sourceChunkIds);
+    const wellFormedCitedChunkIds = uniqueUuidValues(parsed.citedChunkIds);
+    const wellFormedSourceFiles = uniqueValues(parsed.sourceFiles);
+    const ownedChunkIds = await ownedChunkIdSet({
+      supabase,
+      ownerId: user.id,
+      chunkIds: Array.from(new Set([...wellFormedSourceChunkIds, ...wellFormedCitedChunkIds])),
+    });
+    const ownedFileNames = await ownedFileNameSet({
+      supabase,
+      ownerId: user.id,
+      fileNames: wellFormedSourceFiles,
+    });
+    const sourceChunkIds = wellFormedSourceChunkIds.filter((id) => ownedChunkIds.has(id));
+    const citedChunkIds = wellFormedCitedChunkIds.filter((id) => ownedChunkIds.has(id));
+    const sourceFiles = wellFormedSourceFiles.filter((fileName) => ownedFileNames.has(fileName));
     const rating = feedbackRating(parsed);
     const missReason = missReasonFor(parsed, rating);
     const expectedDocumentId = await ownedDocumentId({
@@ -190,6 +271,7 @@ export async function POST(request: Request) {
           unverified_numeric_tokens: parsed.unverifiedNumericTokens,
           source_chunk_ids_rejected: parsed.sourceChunkIds.length - sourceChunkIds.length,
           cited_chunk_ids_rejected: parsed.citedChunkIds.length - citedChunkIds.length,
+          top_files_rejected: parsed.sourceFiles.length - sourceFiles.length,
           captured_at: new Date().toISOString(),
           ...queryPrivacyMetadata(parsed.query),
           ...answerPrivacyMetadata(),

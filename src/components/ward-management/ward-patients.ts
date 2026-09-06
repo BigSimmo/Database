@@ -26,10 +26,27 @@
  * `Referral`, whose own guards stay exactly as they are — an admission links to a patient, and a
  * referral references one. A link is not a copy, and it is what stops one permission becoming three.
  *
- * WHAT IS NOT PERMITTED, and stays denied. `address` and narrative history were not ruled on, so the
- * guard keeps them closed OVER the allowlist: a field called `homeAddress` fails even with a
- * plausible decision id beside it. Silence is not permission, and the one thing a widening must not
- * do is widen by implication.
+ * WHAT IS NOT PERMITTED, and stays denied. Narrative history stays closed OVER the allowlist: a
+ * field called `nextOfKinContact` or `progressNotes` fails even with a plausible decision id beside
+ * it. Silence is not permission, and the one thing a widening must not do is widen by implication.
+ *
+ * OWNER RULING R-2026-09-04-A, 2026-09-04 (`docs/ward-flow/owner-rulings-2026-09-04.md` section A),
+ * widened the record beyond PD-1's five fields: address, suburb, GP, catchment community team,
+ * legal status, interpreter/preferred language, Aboriginal or Torres Strait Islander status, plus
+ * two the owner delegated and were selected narrowly — sex/gender (already carried on the
+ * referral's ward arm, so this records something the system holds rather than collecting something
+ * new) and preferred name (a dignity fact, no clinical inference attaches). Risk flags, diagnosis,
+ * next of kin and medication were explicitly asked about and explicitly refused — each is a larger
+ * clinical surface than the nine approved fields, and "any others you think may be clinically
+ * relevant" was not read as authorising them. Those nine fields are OPTIONAL: the owner's
+ * add-patient flow (`ward-flow-reducer.ts`, `ADD_PATIENT`) still collects only identity, so a
+ * freshly added person legitimately has none of them recorded yet.
+ *
+ * ⚠️ TWO OF THE NINE ARE NOT SETTLED FOR DISPLAY. Whether Aboriginal or Torres Strait Islander
+ * status and interpreter/preferred language belong on a screen at all remains open with the
+ * Aboriginal health review — the ruling is only that the record may HOLD them. Where a screen does
+ * render them, the placement rule from the ruling stands: not adjacent to each other, and neither
+ * directly above a past-psychiatric-history panel. See `person-screen.tsx`.
  */
 
 /** Synthetic and clearly fictional. See `ward-patients-seed.ts` for why the names are shaped the way
@@ -57,6 +74,32 @@ export type Patient = {
    * one fact here and `patientAgeYears` reads it.
    */
   dateOfBirth: string;
+
+  // ── R-2026-09-04-A. All nine OPTIONAL — see the file header for why. ──────────────────────────
+
+  /** A dignity fact, not a clinical one: how this person wants to be addressed. No inference
+   *  attaches to it. */
+  preferredName?: string;
+  /** Free text rather than a fixed enum, deliberately: bed allocation depends on this, and a closed
+   *  list picked without clinical input would be a second decision riding on this one's back. */
+  sexOrGender?: string;
+  /** Street-level only; the record is not a mailing system. */
+  address?: string;
+  /** The key a catchment lookup would use (see `ward-catchment.ts`) — not wired to one here. */
+  suburb?: string;
+  /** Name and, where known, clinic — free text, same reasoning as `sexOrGender`. */
+  generalPractitioner?: string;
+  /** Which community mental health team covers this person, by name. Not derived from `suburb`:
+   *  that derivation is a separate decision `ward-catchment.ts` exists to make carefully, and this
+   *  field holds whatever a clinician has actually recorded. */
+  catchmentCommunityTeam?: string;
+  /** Under the Mental Health Act 2014 (WA) or otherwise — free text; no status machine attaches. */
+  legalStatus?: string;
+  /** ⚠️ NOT SETTLED FOR DISPLAY. The record may hold it; whether a screen may show it is open with
+   *  the Aboriginal health review — see `person-screen.tsx`. */
+  aboriginalOrTorresStraitIslanderStatus?: string;
+  /** ⚠️ NOT SETTLED FOR DISPLAY, same review, same caveat as the field above. */
+  interpreterLanguage?: string;
 };
 
 /**
@@ -64,7 +107,22 @@ export type Patient = {
  * check passes `vitest run` with no `tsc` involved and would let a field through on any run that
  * skipped typecheck.
  */
-export const PATIENT_FIELDS = ["id", "umrn", "givenName", "familyName", "dateOfBirth"] as const;
+export const PATIENT_FIELDS = [
+  "id",
+  "umrn",
+  "givenName",
+  "familyName",
+  "dateOfBirth",
+  "preferredName",
+  "sexOrGender",
+  "address",
+  "suburb",
+  "generalPractitioner",
+  "catchmentCommunityTeam",
+  "legalStatus",
+  "aboriginalOrTorresStraitIslanderStatus",
+  "interpreterLanguage",
+] as const;
 
 /** Whole years, from the stored date of birth and a supplied "today". Never stored: see the field's
  *  own comment. `today` is passed rather than read so this stays deterministic. */

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Same reason as every sibling dom suite (ward-capacity-view.dom.test.tsx,
 // ward-escalation.dom.test.tsx, ward-screen.dom.test.tsx): `ClinicalRail` renders next/link
@@ -64,29 +65,35 @@ describe("GovernanceView", () => {
   // statusChanges entry; no movement carries a hand-authored urgencyChanges or unwinds entry.
   // So the board starts with exactly one row, and dispatching a real change grows the list —
   // newest first — rather than the row count being frozen or the new entry landing at the end.
-  it("shows the real fixture's one hand-authored change (WF-010) and grows, newest first, once a new change is dispatched", () => {
+  it("shows the real fixture's two hand-authored changes (WF-010, WF-009) and grows, newest first, once a new change is dispatched", () => {
     renderGovernance();
 
     const listBefore = screen.getByTestId("ward-governance-change-audit");
     expect(listBefore).toHaveTextContent("WF-010");
+    // WF-009's own hand-authored legal-status change, added 2026-09-04 (Task 6 seed fix — WF-009
+    // carried an examination and an "Involuntary inpatient" legalStatus with no statusChanges
+    // entry recording how it got there).
+    expect(listBefore).toHaveTextContent("WF-009");
     // The explicit empty state must not render while at least one entry exists — both
     // directions of the same guard ward-capacity-view.dom.test.tsx checks for its own rows.
     expect(screen.queryByTestId("ward-governance-change-audit-empty")).not.toBeInTheDocument();
-    expect(listBefore.querySelectorAll("li")).toHaveLength(1);
+    expect(listBefore.querySelectorAll("li")).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: "raise urgency change" }));
 
     const listAfter = screen.getByTestId("ward-governance-change-audit");
     const itemsAfter = listAfter.querySelectorAll("li");
-    expect(itemsAfter).toHaveLength(2);
+    expect(itemsAfter).toHaveLength(3);
     // Newest first: the just-dispatched urgency change is recorded at `now` (NOW_ANCHOR), which
-    // sorts ahead of the fixture's own WF-010 entry, timestamped NOW_ANCHOR - 40. Checked as one
-    // ordered pair per row (id + kind together), not two independent substring checks that a
-    // swapped-row mutation could still satisfy.
+    // sorts ahead of the fixture's own WF-010 entry (NOW_ANCHOR - 40), which in turn sorts ahead
+    // of WF-009's (NOW_ANCHOR - 95). Checked as one ordered pair per row (id + kind together), not
+    // independent substring checks a swapped-row mutation could still satisfy.
     expect(itemsAfter[0]).toHaveTextContent("WF-002");
     expect(itemsAfter[0]).toHaveTextContent("Urgency change");
     expect(itemsAfter[1]).toHaveTextContent("WF-010");
     expect(itemsAfter[1]).toHaveTextContent("Legal status change");
+    expect(itemsAfter[2]).toHaveTextContent("WF-009");
+    expect(itemsAfter[2]).toHaveTextContent("Legal status change");
   });
 
   it("renders the two effectiveness numbers, the synthetic-scenario caveat, and the dropped third measure", () => {
@@ -103,7 +110,7 @@ describe("GovernanceView", () => {
     // ⚠️ AMENDED 2026-08-30. This asserted the screen shows "30" and NOT the fallback. The owner's
     // floor ruling reversed it: one recoverable acceptance is below MINIMUM_EFFECTIVENESS_SAMPLE,
     // so the board now suppresses the figure and says so.
-    expect(acceptance).toHaveTextContent("Not enough data to compute");
+    expectSays(acceptance.textContent ?? "", "the acceptance-effectiveness figure", ["not enough data"]);
     expect(acceptance, "the retired median is still being printed").not.toHaveTextContent("30 min");
     // Read the SUPPRESSION ELEMENT, not the line it sits in — same reason as the units-contacted
     // figure below, and see that comment. If the floor ruling is ever reversed and this measure
@@ -150,10 +157,10 @@ describe("GovernanceView", () => {
       `the published effectiveness figure "Average units contacted per patient" is not a number — the governance board printed ${JSON.stringify(unitsFigureText)}`,
     ).toBe(true);
 
-    expect(effectiveness).toHaveTextContent("Neither is evidence that this prototype works");
+    expectSays(effectiveness.textContent ?? "", "the effectiveness figures", ["evidence"]);
 
     const dropped = screen.getByTestId("ward-governance-dropped-measure");
-    expect(dropped).toHaveTextContent("legal deadlines passed while a patient waits");
+    expectSays(dropped.textContent ?? "", "the dropped-measure note", ["legal deadline"]);
     expect(dropped).toHaveTextContent("dropped");
     expect(dropped).toHaveTextContent("cannot be computed");
   });

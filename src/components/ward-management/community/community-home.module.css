@@ -1,0 +1,86 @@
+/* src/components/ward-management/community/community-home.module.css
+ *
+ * No background here, on purpose. Global constraint (design-foundation plan): `.shell` is the
+ * ONLY stylesheet allowed to paint `--ward-ground`. This screen composes the token layer for
+ * variable access only and leaves the ground to show through from the shell beneath it. */
+.home {
+  composes: wardTokens from "../ward-tokens.module.css";
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-16);
+}
+.eyebrow {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ward-muted);
+}
+.picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ward-space-8);
+  align-items: center;
+}
+.picker button {
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--ward-space-8) var(--ward-space-12);
+  cursor: pointer;
+  border: 1px solid var(--ward-border);
+  border-radius: var(--radius-sm);
+  background: var(--ward-canvas);
+  color: var(--ward-text);
+}
+.picker button[aria-pressed="true"] {
+  background: var(--ward-text);
+  color: var(--ward-ground);
+  border-color: var(--ward-text);
+}
+.picker label {
+  font-size: var(--text-sm);
+  color: var(--ward-muted);
+}
+.covers {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ward-muted);
+  line-height: var(--ward-leading-prose);
+}
+.picker select {
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--ward-space-8) var(--ward-space-8);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--radius-sm);
+  background: var(--ward-canvas);
+  color: var(--ward-text);
+  max-width: 15rem;
+}
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rows li {
+  border-top: 1px solid var(--ward-divider);
+  padding: var(--ward-space-12) var(--ward-space-16);
+}
+.rows li:first-child {
+  border-top: 0;
+}
+.id {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--ward-muted);
+  margin-right: var(--ward-space-8);
+}
+.otherDestinations {
+  margin: var(--ward-space-4) 0 0;
+  font-size: var(--text-xs);
+  color: var(--ward-muted);
+}

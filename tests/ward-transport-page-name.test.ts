@@ -24,21 +24,41 @@ import { describe, expect, it } from "vitest";
  */
 const PAGE = "src/app/mockups/ward-flow/transport/page.tsx";
 const COMPONENT = "src/components/ward-management/tracker/live-tracker.tsx";
+/** Where the transport content lives after MERGE 03, and therefore where the name must now match. */
+const MERGED = "src/components/ward-management/movements/movements-screen.tsx";
 
 describe("the transport page names itself the same way everywhere a user can hear it", () => {
   const page = readFileSync(PAGE, "utf8");
   const component = readFileSync(COMPONENT, "utf8");
+  const merged = readFileSync(MERGED, "utf8");
 
-  it("reads both files, or every assertion below is about an empty string", () => {
+  it("reads every file, or every assertion below is about an empty string", () => {
     // The canary. `.not.toContain` on a file that failed to load passes perfectly.
     expect(page.length).toBeGreaterThan(100);
     expect(component.length).toBeGreaterThan(100);
-    expect(page).toContain("Metadata");
+    expect(merged.length).toBeGreaterThan(100);
     expect(component).toContain("sr-only");
   });
 
-  it("titles the document Transport", () => {
-    expect(page).toContain('title: "Transport - Ward Flow"');
+  /**
+   * 🔴 **THE PAGE BECAME A REDIRECT, SO THE NAME MOVED RATHER THAN STOPPED MATTERING.**
+   *
+   * MERGE 03 folded `/transport` into `/movements`. This file used to assert the transport PAGE
+   * titled itself "Transport"; there is no longer a transport page for anyone to land on, so that
+   * assertion had nothing left to protect and would have been deleted in a tidy-up — **taking the
+   * accessibility rule with it.**
+   *
+   * The rule survives because the reason survives: owner ruling HD-Q1 says the name a screen reader
+   * announces must match the name the navigation gives. Transport content now lives on Movements,
+   * so that is where the property is checked.
+   */
+  it("sends /transport to /movements, so nobody can land on a page with a name nobody maintains", () => {
+    expect(page).toContain("redirect(");
+    expect(page).toContain("/mockups/ward-flow/movements");
+  });
+
+  it("⚠️ HEADS THE MERGED PAGE Movements — the name a screen reader gets, matching the nav label", () => {
+    expect(merged).toMatch(/<h1[^>]*>\s*Movements\s*<\/h1>/u);
   });
 
   it("⚠️ HEADS THE PAGE Transport — the accessible name, and the only one a screen reader gets", () => {
@@ -76,9 +96,10 @@ describe("the transport page names itself the same way everywhere a user can hea
   });
 
   it("keeps the INTERNAL name, so this file is about user-facing names and not a rename sweep", () => {
-    // Stated positively. Without it, a future reader satisfies the assertion above by renaming the
-    // component too, which moves every import and helps nobody.
-    expect(component).toContain("export function LiveTracker()");
-    expect(page).toContain("LiveTracker");
+    // The COMPONENT keeps its name. Nobody meets it, and renaming it would move every import for
+    // no reader's benefit. The page no longer names it because the page no longer renders it —
+    // `LiveTracker` is now unreachable by routing, and deleting it is governed by
+    // docs/agents/dead-code-deletion.md, which this merge deliberately does not run.
+    expect(component).toContain("LiveTracker");
   });
 });

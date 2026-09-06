@@ -133,6 +133,17 @@ export function ListEmptyState(props: ListEmptyStateProps) {
     <div
       role="group"
       aria-label={props.heading}
+      /*
+        One hook for "this list is showing nothing", carried by all three kinds.
+        `tests/ui-caring-contacts-populated.spec.ts` runs against the SEEDED server and has to be
+        able to prove a screen actually has records on it before it measures the layout of one --
+        a sweep that silently ran against empty screens would pass while proving exactly nothing,
+        which is the gap that spec exists to close. Matching the rendered prose instead was tried
+        and is not workable: the copy on these screens legitimately contains sentences like
+        "No contact needs review on a plan nobody owns", which is a populated screen saying
+        something true, not an empty one.
+      */
+      data-testid="caring-contacts-list-empty-state"
       className="flex min-w-0 flex-col items-start gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-6 forced-colors:border-[CanvasText]"
     >
       <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]">

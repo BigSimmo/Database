@@ -789,10 +789,26 @@ const CSS_WIDE_KEYWORD = /^(?:inherit|initial|unset|revert|revert-layer|normal|a
 const CSS_ZERO_VALUE = /^-?0(?:\.0+)?(?:[a-z%]+)?$/i;
 const ARBITRARY_PROPERTY_UTILITY = /^\[([a-z-]+):([^\]]+)\]$/i;
 
+/**
+ * ⚠️ A CSS-WIDE KEYWORD WAS ALLOWED FOR THE WHOLE VALUE BUT NOT FOR A PART OF ONE.
+ *
+ * `CSS_WIDE_KEYWORD` was tested only against the trimmed value, so `margin: auto` passed and
+ * `margin: 0 auto` — the ordinary horizontal-centring shorthand — was reported as a raw scale
+ * literal. Every part of it is either zero or a keyword; there is no scale value anywhere in it.
+ * Found 2026-09-04 on `ed-home.module.css:16`.
+ *
+ * 🔴 THE CHEAP REPAIR WAS TO REWRITE THE CSS, AND IT WOULD HAVE BEEN THE WRONG ONE. The ratchet
+ * only moves down, so the pressure is to make the count fall by any means — and splitting a
+ * correct `margin: 0 auto` into two declarations to satisfy a predicate makes the stylesheet worse
+ * and leaves the next `0 auto` for somebody else to hit.
+ *
+ * The per-part test now accepts zero, a CSS-wide keyword, or a `var()`. It does NOT accept a
+ * length: `margin: 10px auto` is still flagged, which is the case this check exists for.
+ */
 function isRawScaleLiteralValue(value) {
   const trimmed = value.trim();
   if (!trimmed || /\w\(/.test(trimmed) || CSS_WIDE_KEYWORD.test(trimmed)) return false;
-  return !trimmed.split(/\s+/).every((part) => CSS_ZERO_VALUE.test(part));
+  return !trimmed.split(/\s+/).every((part) => CSS_ZERO_VALUE.test(part) || CSS_WIDE_KEYWORD.test(part));
 }
 
 function recordRawScaleLiteralProperty(result, relativePath, line, prop, value, token) {
@@ -2392,7 +2408,36 @@ function medicationAccentDefaultRanges(source) {
   return ranges;
 }
 
+/**
+ * ⚠️ AN IN-PAGE LINK TARGET IS NOT A COLOUR, AND `RAW_COLOR` CANNOT TELL THE DIFFERENCE.
+ *
+ * `RAW_COLOR` is `/#[0-9a-f]{3,8}\b.../i`, so any fragment href whose first three-to-eight
+ * characters are hex digits counts as a raw colour literal. Found 2026-09-04 on
+ * `href="#bed-capacity"` — `bed` is three valid hex digits and the `-` supplies the word
+ * boundary. `#face`, `#added`, `#dec`, `#cafe`, `#feed`, `#deface` all do the same.
+ *
+ * 🔴 THIS IS THE FAILURE MODE WORTH NAMING: THE GATE WENT RED ON CORRECT CODE, AND THE CHEAP
+ * REPAIR IS TO RENAME A WORKING ANCHOR. The ratchet only ever moves up, so the pressure is to
+ * make the count go down by any means — and renaming `#bed-capacity` would have satisfied it
+ * while making the page worse and leaving the next `#face` to be found by somebody else.
+ *
+ * Masked rather than exempted: a per-file exemption would blind the whole file to real colour
+ * literals, which is exactly the over-broad silencing the exemption list exists to avoid.
+ * A colour literal can never appear as the value of an `href`, so this loses no coverage —
+ * proved by injecting `color: #bed` into the same file and confirming the count still rises.
+ */
+function maskFragmentHrefs(source) {
+  const ranges = [];
+  const pattern = /\bhref\s*=\s*(?:"#[^"]*"|'#[^']*'|\{\s*`#[^`]*`\s*\})/g;
+  for (const match of source.matchAll(pattern)) {
+    const start = match.index ?? -1;
+    if (start >= 0) ranges.push({ start, end: start + match[0].length });
+  }
+  return ranges.length === 0 ? source : maskRanges(source, ranges);
+}
+
 export function rawColorContractSource(relativePath, source, reportFailure = () => {}) {
+  source = maskFragmentHrefs(source);
   const exemption = RAW_COLOR_EXEMPTIONS.find(({ pattern }) => pattern.test(relativePath));
   if (!exemption) return source;
   if (exemption.scope === "whole-file") return "";

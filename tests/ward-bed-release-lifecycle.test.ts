@@ -693,4 +693,98 @@ describe("ward bed release lifecycle", () => {
     const after = capacityBreakdown(unit(next, "rph-adult-secure"), next.bedReleases, next.leaveBeds, NOW);
     expect(after).toEqual(before);
   });
+
+  // L66: this model has only three `state` values (expected/confirmed/discharged, "Bed-model
+  // rework (2026-08-28)" above) — blocking is a separate flag, not a fourth state — so the
+  // untested refusal branches are CONFIRM_BED_RELEASE and RELEASE_BED on a release that is not
+  // in the state the event requires, and BLOCK_BED_RELEASE on a discharged release. Every ward
+  // test above only ever dispatches these against WR-001 (confirmed) or WR-002 (expected) and
+  // never asserts a refusal string, so these cases close that gap on WR-007 (confirmed, and
+  // already flagged blocked) and WR-008 (discharged) and pin the exact rejection text so a
+  // future silent-transition regression on the ward capacity board's counts turns red.
+  it("9. CONFIRM_BED_RELEASE on an already-confirmed release is refused with the exact text, state unchanged", () => {
+    const state = seeded();
+    // WR-007 (fsh-adult-secure) is seeded confirmed and already flagged blocked.
+    const before = release(state, "WR-007");
+    expect(before.state).toBe("confirmed");
+    const next = wardFlowReducer(state, {
+      type: "CONFIRM_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-007",
+      actingUnitId: "fsh-adult-secure",
+    });
+    expect(next.rejections).toHaveLength(1);
+    expect(next.rejections[0]?.reason).toBe("cannot move release WR-007 from confirmed to confirmed");
+    expect(release(next, "WR-007")).toEqual(before);
+  });
+
+  it("10. CONFIRM_BED_RELEASE on a discharged release is refused with the exact text, state unchanged", () => {
+    const state = seeded();
+    // WR-008 (arm-adult-open) is seeded discharged — a terminal state.
+    const before = release(state, "WR-008");
+    expect(before.state).toBe("discharged");
+    const next = wardFlowReducer(state, {
+      type: "CONFIRM_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-008",
+      actingUnitId: "arm-adult-open",
+    });
+    expect(next.rejections).toHaveLength(1);
+    expect(next.rejections[0]?.reason).toBe("cannot move release WR-008 from discharged to confirmed");
+    expect(release(next, "WR-008")).toEqual(before);
+  });
+
+  it("11. BLOCK_BED_RELEASE on a discharged release is refused with the exact text, state unchanged", () => {
+    const state = seeded();
+    // WR-008 (arm-adult-open) is seeded discharged — nothing left to hold up.
+    const before = release(state, "WR-008");
+    expect(before.state).toBe("discharged");
+    const next = wardFlowReducer(state, {
+      type: "BLOCK_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-008",
+      actingUnitId: "arm-adult-open",
+      blocker: BED_RELEASE_BLOCKERS[0],
+    });
+    expect(next.rejections).toHaveLength(1);
+    expect(next.rejections[0]?.reason).toBe("cannot block release WR-008 because it is already released");
+    expect(release(next, "WR-008")).toEqual(before);
+  });
+
+  it("12. RELEASE_BED on a discharged release is refused with the exact text, state unchanged", () => {
+    const state = seeded();
+    // WR-008 (arm-adult-open) is already discharged — releasing it again is refused.
+    const before = release(state, "WR-008");
+    expect(before.state).toBe("discharged");
+    const next = wardFlowReducer(state, {
+      type: "RELEASE_BED",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-008",
+      actingUnitId: "arm-adult-open",
+    });
+    expect(next.rejections).toHaveLength(1);
+    expect(next.rejections[0]?.reason).toBe("cannot move release WR-008 from discharged to released");
+    expect(release(next, "WR-008")).toEqual(before);
+  });
+
+  it("13. RELEASE_BED on an expected release is accepted (expected -> discharged, no confirm step required)", () => {
+    const state = seeded();
+    // WR-002 (scgh-adult-open) is seeded expected — RELEASE_BED accepts expected -> discharged
+    // directly (see the reducer's own comment: "the four-stage model already permitted the same
+    // journey via expected -> blocked -> released").
+    expect(release(state, "WR-002").state).toBe("expected");
+    const next = wardFlowReducer(state, {
+      type: "RELEASE_BED",
+      role: "ward",
+      now: NOW,
+      releaseId: "WR-002",
+      actingUnitId: "scgh-adult-open",
+    });
+    expect(next.rejections).toHaveLength(0);
+    expect(release(next, "WR-002").state).toBe("discharged");
+  });
 });

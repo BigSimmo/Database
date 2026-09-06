@@ -164,6 +164,39 @@ export const DECLINE_REASONS = [
 ] as const;
 export type DeclineReason = (typeof DECLINE_REASONS)[number];
 
+/**
+ * `STEP_BACK_STAGE` and `WITHDRAW_ACCEPTANCE` (Task 5, ward-flow movement step-track plan,
+ * 2026-09-04). Chosen, never typed — the same discipline `DECLINE_REASONS` above already has, and
+ * placed alongside it in this file rather than in `ward-change-reasons.ts` (where every other
+ * fixed reason list lives) because this build's assigned scope is a fixed, narrow set of files
+ * that does not include `ward-change-reasons.ts`. `DECLINE_REASONS` is the existing precedent for
+ * a reason list living in this file instead — chosen and content-free either way.
+ *
+ * ⚠️ **`WITHDRAW_ACCEPTANCE` reuses this list rather than a second one of its own** — owner ruling
+ * 1 of 2026-09-04's five rulings, accepted as proposed: a second vocabulary for one concept is
+ * exactly the "two places for one fact" this project's standing rule forbids, and all four reasons
+ * read naturally for a withdrawal too.
+ *
+ * ⚠️ **THE WARD READS THESE; THE STEP-BACK READER DOES NOT** (same ruling, recorded rather than
+ * acted on). `STEP_BACK_STAGE` is a coordinator's own record correction, seen only on the
+ * coordinator's screen. `WITHDRAW_ACCEPTANCE` tells a ward its earlier "yes" no longer holds, and
+ * if a ward-facing rendering of these reasons is ever built, the wording is revisited then — do
+ * not pre-empt it now by writing ward-facing prose into a coordinator-facing label.
+ *
+ * ⚠️ **NO LABEL MAP ENTRY EXISTS FOR THESE FOUR YET.** `changeReasonLabels` (`ward-change-reasons.ts`)
+ * is a UI-facing lookup outside this build's scope, deferred alongside the reason picker control
+ * and the DOM test that would exercise it — see the handover note for this task. Add the four
+ * labels there, keeping the `the_patient_situation_changed` → `"The situation changed"` label
+ * (never the value) free of the token "patient", before wiring any picker to this list.
+ */
+export const STEP_BACK_REASONS = [
+  "recorded_in_error",
+  "the_decision_changed",
+  "the_patient_situation_changed",
+  "the_bed_was_lost",
+] as const;
+export type StepBackReason = (typeof STEP_BACK_REASONS)[number];
+
 /** Referring to more than three units at once spams wards and erodes trust between services. */
 export const PARALLEL_REFERRAL_CAP = 3;
 
@@ -256,10 +289,6 @@ export type Unit = {
   siteCode: string;
   name: string;
   cohort: Cohort;
-  /** Physical/procedural security, not one of the four bed-matching dimensions below — do not
-   *  fold this into `forensic`; they are independent facts (a locked ward need not be forensic,
-   *  and a forensic bed is not automatically a locked ward in this model). */
-  security: Security;
   /**
    * Authorised under the Mental Health Act 2014 to receive involuntary admissions. This IS the
    * bed's legal-status dimension — an authorised bed accepts BOTH voluntary and involuntary
@@ -268,11 +297,41 @@ export type Unit = {
    * fact: two fields for one fact is how a screen ends up giving two answers.
    */
   authorised: boolean;
+  /**
+   * HOW MANY OF THIS WARD'S BEDS ARE DESIGNATED LOCKED. Replaced `security: Security` on
+   * 2026-09-04 by owner ruling: "Ward 7 in Bentley is a locked/Open ward so some wards are a
+   * combination with a number of designated locked beds and open beds." `(OWNER, 2026-09-04)`
+   *
+   * ⚠️ A whole-ward flag could not express that, and the failure was not cosmetic: the old
+   * eligibility gate read `movement.security === "Open" || unit.security === "Secure"`, so a
+   * mixed ward recorded as `Open` hid every one of its locked beds from every patient who
+   * needed one.
+   *
+   * ⚠️ **OPEN BEDS ARE DERIVED, NEVER STORED** — `openBeds(unit)` in `ward-bed-designation.ts`
+   * returns `beds - lockedBeds`. Storing both is two sources for one fact, which the owner
+   * ruled against by name in the same decision. A wholly-open ward carries `0` here.
+   *
+   * ⚠️ **THIS IS A PROPERTY OF THE WARD, NOT OF A PATIENT.** An involuntary patient is a
+   * property of the person (`LegalStatus`); a voluntary patient may be nursed on a locked
+   * ward. Never rename this to anything containing "involuntary".
+   */
+  lockedBeds: number;
   beds: number;
   /** Physically empty beds, per the feed. */
   empty: CapacityFigure;
   /** Beds the ward says it can actually allocate. Never greater than `empty` in practice. */
   allocatable: CapacityFigure;
+  /**
+   * HOW MANY OF THE `allocatable` BEDS ARE LOCKED ONES. The open half is derived
+   * (`openBedsFree` in `ward-bed-designation.ts`), for the same one-source reason as
+   * `lockedBeds` above.
+   *
+   * ⚠️ Splits the ALLOCATABLE figure, not the `empty` one. `allocatable` is what the ward says
+   * it can actually fill; `empty` is what the feed believes is physically vacant. Every
+   * eligibility gate has always asked about allocatable beds, so the split belongs there.
+   * (Plan author's reasoning, 2026-09-04 — not an owner ruling.)
+   */
+  allocatableLocked: number;
   /**
    * ⚠️ **AUTHORED AND READ BY NOTHING.** Every "Held" figure any screen shows is DERIVED —
    * `unitCapacity` computes it as `empty.value - min(allocatable.value, empty.value)` and never
@@ -449,6 +508,67 @@ export type MovementClosure = {
 };
 
 /**
+ * WHETHER THIS PATIENT NEEDS TRANSPORT AT ALL — the third state, owner ruling R-2026-09-04-C.
+ *
+ * ⚠️ **THREE STATES, NOT TWO, AND THE ABSENT ONE IS THE DEFAULT.** `Movement.transport` answers
+ * "is there a job?", and until this field existed that was the only thing the model held: a
+ * movement with no `TransportJob` could mean **no transport is needed** (the ward is across the
+ * corridor, the patient is walking) or **no transport has been booked yet**, and a screen could
+ * honestly say no more than "no transport recorded". Those are opposite operational situations —
+ * one is finished and one is outstanding — and they rendered identically.
+ *
+ * Deliberately the same shape as `Referral.medicalClearance`, which already models exactly this
+ * uncertainty: a stated answer plus the time it was stated, and ABSENCE meaning **nobody has said**
+ * rather than "no". Read it through `transportNeedState` (`ward-derivations.ts`), which names all
+ * three so a caller cannot accidentally collapse two of them with `?? false`.
+ *
+ * ⚠️ **DO NOT DEFAULT IT AND DO NOT BACKFILL IT.** The ruling's own words: a migration that guessed
+ * one of the other two for legacy movements would manufacture the very certainty this field exists
+ * to provide honestly. Every hand-authored movement in `ward-movements.ts` and every generated one
+ * therefore carries nothing here, and reads as "not recorded".
+ *
+ * ⚠️ **IT SAYS NOTHING ABOUT `TransportJob.formRequired`, WHICH IS STILL AN UNVALIDATED BARE
+ * STRING** (see that field's own comment). A screen showing `needed` beside a form code must not
+ * let the recorded need imply the form was checked; nothing checks it.
+ */
+export type MovementTransportNeed = {
+  /** The answer somebody gave. `false` is a real answer — "this patient needs no transport". */
+  needed: boolean;
+  at: Instant;
+};
+
+/**
+ * WHY A MOVEMENT CARRIES NO `referralId`, when somebody has actually said why.
+ *
+ * Owner ruling R-2026-09-04-D, second half. `Movement.referralId` being absent had three different
+ * causes that rendered identically, and **only the first is clinical**:
+ *
+ *   - `none_raised` — nobody raised a front-door referral for this person. A recorded answer.
+ *   - `not_asked` — the journey was raised at runtime and whoever raised it was never asked which
+ *     referral it came from. Record-keeping, written by `RAISE_REFERRAL` itself.
+ *   - *the field absent entirely* — the movement predates the link (`ward-movements.ts`'s
+ *     hand-authored fixture) or nothing has ever recorded anything. Record-keeping, and the
+ *     DEFAULT, in the same discipline as `MovementTransportNeed` above.
+ *
+ * ⚠️ **`none_raised` IS THE ONLY ONE A SCREEN MAY TREAT AS A CLINICAL FACT.** The ruling exists
+ * because an earlier one asked for an absent referral to be rendered as the loudest thing on the
+ * page; against the data of the day that would have reported that nobody was looking for anybody,
+ * anywhere, with every gate green.
+ *
+ * ⚠️ **AND `none_raised` DOES NOT MEAN "NOBODY IS LOOKING FOR A BED".** It means no FRONT-DOOR
+ * referral brought this person in. The bed search is `referredUnitIds`/`declines`, a different
+ * absence with its own unresolved version of this problem — see `ed-home-derivations.ts`'s own
+ * doc block, which refuses to count it for exactly this reason.
+ */
+export const MOVEMENT_REFERRAL_ABSENCE_REASONS = ["none_raised", "not_asked"] as const;
+export type MovementReferralAbsenceReason = (typeof MOVEMENT_REFERRAL_ABSENCE_REASONS)[number];
+
+export type MovementReferralAbsence = {
+  reason: MovementReferralAbsenceReason;
+  at: Instant;
+};
+
+/**
  * The undo the prototype has never had (Task 3, spec item 10). Before this, the only path that
  * released a pulled bed or cancelled a transport job was closing the movement outright — recording
  * an examination with outcome `community_order` or `revoked` — so a coordinator who pulled the
@@ -461,11 +581,72 @@ export type MovementClosure = {
  */
 export type UnwindRecord = {
   at: Instant;
-  kind: "pull_released" | "transport_cancelled";
+  /**
+   * The third and fourth kind, added for the coordinator step-back / withdraw-acceptance pair
+   * (Task 5, ward-flow movement step-track plan, 2026-09-04, owner rulings E and F). Appended to
+   * this ONE existing audit trail rather than a second store — ruling 3 of that plan is explicit
+   * that inventing a second place to record an unwind is the defect, not a variant to avoid.
+   *
+   * `"stage_corrected"`: `STEP_BACK_STAGE` — a coordinator record correction, moving `stage`
+   * strictly backwards with no other side effect.
+   * `"acceptance_withdrawn"`: `WITHDRAW_ACCEPTANCE` — the coordinator undoes a WARD's earlier
+   * "yes" (distinct from `WITHDRAW_REFERRAL`, which is the REFERRER taking its own referral back).
+   */
+  kind: "pull_released" | "transport_cancelled" | "stage_corrected" | "acceptance_withdrawn";
   by: string;
   reason: string;
   /** The cancelled job retained in the audit trail when a replacement becomes active. */
   transportId?: string;
+  /**
+   * Which ward's acceptance was withdrawn — populated only for `"acceptance_withdrawn"`, parallel
+   * to `transportId` above. `WITHDRAW_ACCEPTANCE` clears `Movement.acceptedUnitId` in the same
+   * update, so nothing else on the record would say who it used to be without this field.
+   */
+  unitId?: string;
+};
+
+/**
+ * ONE STAGE TRANSITION — the single record of how a patient moved, replacing a reconstruction of
+ * the journey from scattered timestamps (Task 4, ward-flow movement step-track plan, 2026-09-04).
+ *
+ * ⚠️ **APPEND-ONLY, ALWAYS.** Nothing ever rewrites or removes an entry, including a later
+ * coordinator step-back — that appends its OWN backwards entry rather than editing the one it is
+ * correcting. The array is the movement's history, not its current state; `movement.stage` alone
+ * still answers "where is this patient now".
+ *
+ * `from` IS OPTIONAL AND ABSENT EXACTLY ONCE — on creation (`RAISE_REFERRAL`), where there is no
+ * previous stage to name. An entry is still written there, so step 1 of the track lives inside
+ * this array rather than being reachable only through `Movement.openedAt`.
+ *
+ * `by` IS A ROLE, NEVER A PERSON — the same discipline as `StatusChange.by`, `UrgencyChange.by`
+ * and `Override.by`. Every reducer case that writes an entry takes it from the triggering event's
+ * own `role`, never from a name a caller could supply.
+ *
+ * ⚠️ **THIS DOES NOT REPLACE `openedAt`, `referredAt`, `acceptedAt`, `transport.collectedAt` OR
+ * `closure.at`.** Each of those has other consumers that read it directly (the ED referral board,
+ * `daysInBed`, the outbox), and removing any of them to avoid "two places recording the same
+ * fact" would break those callers for no gain. Two sources that AGREE, with something that
+ * actually checks they agree, is the honest design; two sources with nobody checking is how this
+ * project got a live-drift incident. `tests/ward-movement-stage-changes.test.ts` is that check.
+ *
+ * ⚠️ **AN EMPTY ARRAY HAS TWO DIFFERENT CAUSES, DECIDABLE FROM `movement.stage` ALONE.** A
+ * movement still at `placement_requested` with no entries has made no transitions yet — the
+ * ordinary case for a freshly raised movement. A movement at any LATER stage with no entries
+ * PREDATES this field — every hand-authored and generated movement in `ward-movements.ts` is in
+ * this second class, because none of them was reached by dispatching an event. A renderer must
+ * say which; treating both as one "no record" absence is the exact defect this plan exists to
+ * close on the fields that came before it.
+ *
+ * Never backfilled: existing hand-authored and generated movements keep `stageChanges: []`
+ * exactly as authored. "No record of how this movement moved" is the honest answer for them, not
+ * a gap to be invented shut.
+ */
+export type StageChange = {
+  at: Instant;
+  from?: MovementStage;
+  to: MovementStage;
+  by: string;
+  reason?: string;
 };
 
 /**
@@ -501,10 +682,21 @@ export type Movement = {
    * about the journey is derived from the referral: `RAISE_REFERRAL` already carries every fact a
    * movement needs, so this field adds an id and changes nothing else.
    *
-   * ⚠️ **OPTIONAL, AND NEVER BACKFILLED.** Most movements have no referral — a person who walked
-   * into an emergency department was referred by nobody, and that is the ordinary case rather than
-   * a missing value. Absent on every hand-authored movement in `ward-movements.ts`, all of which
-   * predate the link; giving them one would be inventing the very fact this field exists to record.
+   * ⚠️ **OPTIONAL, AND ABSENCE IS THE ORDINARY CASE.** Most movements have no referral — a person
+   * who walked into an emergency department was referred by nobody — so an absent value is a real
+   * answer rather than a missing one.
+   *
+   * ⚠️ **TWO OF THE TWENTY HAND-AUTHORED MOVEMENTS NOW CARRY ONE (owner ruling R-2026-09-04-D,
+   * first half), AND THE OTHER EIGHTEEN STILL DO NOT.** This comment previously said the fixture
+   * would never be given a value here because doing so would invent the fact the field records.
+   * The ruling's answer is that a fixture in which the link resolves for NOBODY hides the link's
+   * whole general problem behind a uniform absence, so `ward-movements.ts` now authors two
+   * referral-and-journey PAIRS — a referral raised before the journey and addressed to the very
+   * department that raised it, the same two conditions `RAISE_REFERRAL` enforces at runtime. The
+   * remaining eighteen carry nothing, because nothing in their authored story says anybody
+   * referred them, and guessing would be the invention this paragraph used to forbid outright.
+   *
+   * ⚠️ **AN ABSENT VALUE HERE IS NOT SELF-EXPLAINING — READ `referralAbsence` BESIDE IT.**
    *
    * ⚠️ **`Admission.referralId` IS THE COUNTER-EXAMPLE, NOT THE PRECEDENT.** That field is
    * documented as *"the join back to the front door"* and joins to nothing: its seeded values are
@@ -524,6 +716,21 @@ export type Movement = {
    * movement that has no referral rather than throwing or guessing at one.
    */
   referralId?: string;
+  /**
+   * WHY THERE IS NO `referralId`, when somebody has said why — see `MovementReferralAbsence`.
+   *
+   * ⚠️ **MEANINGLESS BESIDE A SET `referralId`, AND THE TYPE CANNOT STOP THAT.** The two fields
+   * answer the same question and only one of them may be answered: `RAISE_REFERRAL` writes exactly
+   * one, `RECORD_NO_REFERRAL` refuses a movement that already names a referral, and
+   * `movementReferralLink` (`ward-derivations.ts`) resolves the contradiction in favour of the
+   * referral that actually exists rather than reporting an absence beside a real join.
+   */
+  referralAbsence?: MovementReferralAbsence;
+  /**
+   * WHETHER THIS PATIENT NEEDS TRANSPORT — three states, absent meaning nobody has said. See
+   * `MovementTransportNeed`, and read it through `transportNeedState` (`ward-derivations.ts`).
+   */
+  transportNeed?: MovementTransportNeed;
   /**
    * THE URGENT FLAG — the one thing that outranks a wait and a tier (owner, 2026-08-30).
    *
@@ -681,6 +888,10 @@ export type Movement = {
   /** Every pull released and transport job cancelled against this movement, oldest first. Empty
    *  for a movement nothing has ever been unwound on. See `UnwindRecord`'s own doc comment. */
   unwinds: UnwindRecord[];
+  /** Every stage transition this movement has made, oldest first, written by the reducer. Empty
+   *  either because the movement has made none yet or because it predates this field — the two
+   *  are decidable from `stage` alone. See `StageChange`'s own doc comment. */
+  stageChanges: StageChange[];
 };
 
 /** A transition the reducer refused, surfaced on the coordinator screen rather than swallowed. */
@@ -1212,6 +1423,37 @@ export const suburbUnknownLabels: Record<SuburbUnknownReason, string> = {
 
 export type ReferralSuburb = { kind: "named"; name: string } | { kind: "unknown"; reason: SuburbUnknownReason };
 
+/**
+ * How long each written-history field may be.
+ *
+ * ⚠️ **PLACEHOLDERS. NOBODY HAS MEASURED A REAL REFERRAL AGAINST THEM.** Chosen to be generous
+ * enough that no ordinary referral meets one, and small enough that the field is BOUNDED — a
+ * bounded free-text field is a different privacy proposition from an endless one. The owner has
+ * been told they are unmeasured and it is his number to set.
+ *
+ * ⚠️ **A LIMIT IS ENFORCED BY REFUSING, NEVER BY CUTTING.** The reducer rejects an over-length
+ * value and the front door shows a counted, blocking state. Nothing truncates: silently dropping
+ * the tail of a risk note is the worst thing this form could do, and it would look like success.
+ *
+ * ⚠️ **2000, AND IT IS NOT A NEW NUMBER.** The three-box form used 1500 / 2000 / 1000; the owner's
+ * 2026-09-05 ruling collapsed it to one box and this takes the LARGEST of the three rather than
+ * authoring a fresh figure or summing them. Total capacity therefore falls from 4500 to 2000, and
+ * that is a real reduction — but an over-long story BLOCKS the Send with a counted, visible
+ * message, so a referrer who needs more is told, not truncated.
+ *
+ * The keys are exactly the history fields on `Referral`, so a second field cannot be added without
+ * either appearing here or failing `historyFieldsAreLimited` in the model tests.
+ */
+export const REFERRAL_HISTORY_LIMITS = {
+  history: 2000,
+} as const;
+
+export type ReferralHistoryField = keyof typeof REFERRAL_HISTORY_LIMITS;
+
+/* `REQUIRED_HISTORY_FIELD` was declared here until the owner's ruling of 2026-09-05: ONE story
+ * box, OPTIONAL. There is no required history field any more, so the constant is gone rather than
+ * left pointing at a rule nobody enforces. The reducer's blank-refusal went with it. */
+
 export type Referral = {
   id: string;
   /**
@@ -1294,6 +1536,54 @@ export type Referral = {
   /** A synthetic site code (see `wardSites`), never an address. */
   originSiteCode: string;
   transportNeeded: boolean;
+  /**
+   * ⚠️ THE WRITTEN HISTORY — THE ONLY FREE TEXT ON A REFERRAL, AND THE ONLY FIELD HERE THAT
+   * NOTHING CAN CHECK.
+   *
+   * Owner instruction, 2026-09-05: a referrer must be able to write the patient's story. Until
+   * that date this type held no free text of any kind, and the front door had NO free-text control
+   * — no `<textarea>`, no `[contenteditable]` — which made "this form cannot record a name, an
+   * address or a clinical note" true BY CONSTRUCTION rather than by anyone's care. Three screens
+   * said so to clinicians and were right.
+   *
+   * ⚠️ **THAT GUARANTEE IS GONE, AND THIS IS WHERE IT WENT.** It is now a policy people keep, not
+   * a property the software holds. Every sentence that promised otherwise was rewritten in the
+   * same change that added this field, and `mockup-referral-intake-v6.html` carries the wording.
+   * If you are reading this because you are about to write a governance sentence: say which half
+   * is enforced. The STRUCTURED fields still cannot hold a name. This one plainly can.
+   *
+   * ⚠️ **NOTHING MAY EVER BE DERIVED FROM IT.** Not an urgency, not a risk level, not a
+   * destination, not a ranking, not a summary. `urgency` is recorded from the referrer and
+   * `UrgencyLevel` is a closed union for exactly this reason; a screen that read a risk out of
+   * this prose would be inferring a clinical judgement from it, which is the line this prototype
+   * does not cross. No parser, no keyword scan, no length heuristic. **A referral whose story is
+   * blank is not a referral about a safe person** — the field being optional makes that clearer,
+   * not less true.
+   *
+   * ⚠️ **STORED BYTE FOR BYTE.** No trim, no normalisation, no truncation. A form that quietly
+   * drops the last paragraph of a story is worse than one that refuses to send, so the length
+   * limit is enforced at the front door as a BLOCKING, VISIBLE state and never by silently
+   * cutting. `REFERRAL_HISTORY_LIMITS` holds it, and the reducer refuses an over-length value
+   * rather than shortening it.
+   *
+   * ⚠️ **EMPTY IS A REAL ANSWER, WHICH IS WHY THIS IS `string` AND NOT OPTIONAL.** `""` means
+   * the referrer left it blank; there is no third state where the field did not exist. Screens
+   * render the blank as words — "Not written yet" — never as an empty box, because a blank reads
+   * as a value.
+   *
+   * ⚠️ **AND NOTHING REQUIRES IT TO BE NON-EMPTY. Owner ruling, 2026-09-05: one story box,
+   * OPTIONAL.** It was three boxes with the first required until that ruling; `FD-13` had said one
+   * optional field from 2026-08-30 and the built form had diverged from it. A referrer with
+   * nothing written down should not be made to invent something to get a referral out of the
+   * door, and a blocked Send at 3am is answered by typing a character, not by writing a history.
+   *
+   * ⚠️ **ONE FLAT `string`, NEVER AN OBJECT.** The three-box version was three flat keys for a
+   * reason that survives the collapse to one: a `history: {...}` object would be ONE permitted key
+   * in `ALLOWED_REFERRAL_FIELDS` with an unchecked shape behind it — precisely the hole that opened
+   * when the decision fields moved inside `destinations` and needed two more allowlists to close.
+   * If a second box is ever wanted, it is a second flat key, not a nested one.
+   */
+  history: string;
   // `state`, `acceptedUnitId`, `declineReason`, `decidedAt` and `decidedBy` were here until
   // 2026-08-30. All five moved onto `ReferralAddressing`, because with several destinations there
   // is no longer one thing to decide — see that type's own doc comment. `referralState` derives the
