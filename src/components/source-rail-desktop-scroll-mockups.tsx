@@ -446,9 +446,9 @@ function OptionCHoverScrub({
 
 /* ------------------------------- the study ------------------------------- */
 
-function AnswerFrame({ width, caption, children }: { width: number; caption: string; children: React.ReactNode }) {
+function AnswerFrame({ width, caption, children }: { width: string; caption: string; children: React.ReactNode }) {
   return (
-    <figure className="min-w-0" style={{ maxWidth: width }}>
+    <figure className={cn("min-w-0", width)}>
       <figcaption className={cn("mb-2 text-2xs font-semibold uppercase tracking-wide", textMuted)}>
         {caption}
       </figcaption>
@@ -508,15 +508,18 @@ function Option({
 }
 
 const COUNTS = [3, 7, 12] as const;
+// The three column widths are a closed set, so they travel as literal utility classes
+// rather than an inline maxWidth — Tailwind only emits arbitrary values it can see in
+// the source, so these have to stay written out.
 const WIDTHS = [
-  { label: "Narrow 620", value: 620 },
-  { label: "Standard 760", value: 760 },
-  { label: "Wide 920", value: 920 },
+  { label: "Narrow 620", value: "max-w-[620px]" },
+  { label: "Standard 760", value: "max-w-[760px]" },
+  { label: "Wide 920", value: "max-w-[920px]" },
 ] as const;
 
 export function SourceRailDesktopScrollMockupsPage() {
   const [count, setCount] = useState<number>(7);
-  const [width, setWidth] = useState<number>(760);
+  const [width, setWidth] = useState<string>("max-w-[760px]");
   const [mouse, setMouse] = useState(true);
   const [wheel, setWheel] = useState(true);
   const sources = SOURCES.slice(0, count);
