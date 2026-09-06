@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 
+import { unitHasOpenBeds } from "@/components/ward-management/ward-bed-designation";
 import {
   buildActionInbox,
   candidateReason,
@@ -602,8 +603,10 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     const wf001 = requireMovement("WF-001");
     expect(wf001.security, "fixture assumption: WF-001 is an open-status movement").toBe("Open");
     const candidates = eligibleCandidatesAmong(wf001, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
-    const locked = candidates.filter((candidate) => candidate.unit.security === "Secure");
-    const open = candidates.filter((candidate) => candidate.unit.security === "Open");
+    // Wholly locked only, matching `isMoreRestrictiveThanRequired`'s own semantics (2026-09-04): a
+    // mixed ward is not "a locked ward" and does not render this notice.
+    const locked = candidates.filter((candidate) => !unitHasOpenBeds(candidate.unit));
+    const open = candidates.filter((candidate) => unitHasOpenBeds(candidate.unit));
     expect(locked.length, "fixture assumption: WF-001 has at least one locked-ward candidate").toBeGreaterThan(0);
     expect(
       open.length,
@@ -655,10 +658,16 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
    * WF-301 is selected by id, never by queue rank — rank-based selection has broken three other
    * tests in this phase. Re-measured against the real fixture: 26 Voluntary movements exist, and
    * 4 of them also carry `security: "Secure"` — WF-301, WF-308, WF-322, WF-329. WF-301's cohort
-   * is Adult, so all three of its shortlisted candidates are the Secure adult wards
-   * (`rph-adult-secure`, `fsh-adult-secure`, `rgh-adult-secure`), every one eligible — verified
-   * with `eligibleCandidatesAmong` below rather than assumed, so this test fails loudly instead of
-   * silently no-op'ing if the fixture ever changes underneath it.
+   * is Adult, so its three shortlisted candidates are `rph-adult-secure`, `fsh-adult-secure` and
+   * `rgh-adult-secure`, every one eligible — verified with `eligibleCandidatesAmong` below rather
+   * than assumed, so this test fails loudly instead of silently no-op'ing if the fixture ever
+   * changes underneath it.
+   *
+   * ⚠️ As of the 2026-09-04 locked/open split, `fsh-adult-secure` is genuinely MIXED
+   * (`ward-sites.ts`'s `WARD_LOCKED_BED_SPLITS`), not wholly locked — so it is no longer one of
+   * this test's wholly-locked `locked` candidates below and is not checked by this test at all.
+   * `rph-adult-secure` and `rgh-adult-secure` stay wholly locked and still exercise the
+   * `voluntary_on_locked` notice this test pins.
    */
   test("gives a voluntary patient on a locked ward its own, more prominent notice on the diagram", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1100 });
@@ -672,7 +681,8 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     const wf301 = requireMovement("WF-301");
     expect(wf301.legalStatus, "fixture assumption: WF-301 is a Voluntary movement").toBe("Voluntary");
     const candidates = eligibleCandidatesAmong(wf301, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
-    const locked = candidates.filter((candidate) => candidate.unit.security === "Secure");
+    // Wholly locked only — see the note on the WF-001 test above.
+    const locked = candidates.filter((candidate) => !unitHasOpenBeds(candidate.unit));
     expect(locked.length, "fixture assumption: WF-301 has at least one Secure shortlisted candidate").toBeGreaterThan(
       0,
     );

@@ -1,0 +1,2713 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Raise a referral — locked design (v5)</title>
+
+    <!--
+      ══════════════════════════════════════════════════════════════════════════════════════
+      LOCKED DESIGN, v5. Mockup only — nothing here is wired.
+
+      v5 supersedes v4 as the design of record. v4 is kept, unchanged, so the two can be
+      compared; nothing in v4 was deleted to make room for this.
+
+      ⚠️ THE ONE CHANGE THAT IS NOT A DESIGN CHANGE — READ THIS BEFORE THE REST.
+
+      v5 adds a WRITTEN HISTORY: three free-text boxes in which a referrer types the
+      patient's story. That is a clinical necessity — you cannot refer a psychiatric
+      patient with an age band, a suburb and three checkboxes — and it was asked for
+      explicitly by the owner.
+
+      It also REMOVES A GUARANTEE, and the removal is the important half.
+
+      Until v4 this form had no free-text control of any kind. That was not a styling
+      choice: with no text box, the form was STRUCTURALLY INCAPABLE of recording a name, an
+      address, a clinical note or a third party's details. The screen said so to clinicians,
+      and the claim was true by construction.
+
+      With a text box, it is no longer true by construction. It becomes a policy that
+      people have to keep. So every sentence on this screen that promised otherwise has
+      been rewritten in this same file — the governance banner, the anchor's footer, the
+      rail's consequences panel, and rule 6 of the appendix. None of them was left to be
+      "updated later", because a promise that outlives the change that falsified it is the
+      single defect this project has found most often.
+
+      What else changed from v4, and why:
+        · HEADING ORDER FIXED. In v4 the patient anchor's <h2> came BEFORE the page's <h1>,
+          so a screen-reader user met "Maya Whitlock" as a second-level heading before ever
+          hearing what the page was. The masthead now comes first. The person is still
+          above the form, and still in the app bar at every scroll position.
+        · THE TEAL IS GONE. v4 used a fifth colour to mark "a count of the network, never a
+          judgement". A neutral chip says the same thing with one less colour to learn. This
+          was already agreed in the implementation plan; v5 executes it.
+        · THE ED CARD ASKS ITS QUESTION. There are three referral purposes — a bed, a
+          psychiatric review, a medical assessment — and v4's emergency-department card
+          never showed them. A destination that cannot express what it is being asked for
+          is not a destination.
+        · CONDITIONAL QUESTIONS MOVED TO THE CARD THEY BELONG TO. "Which community team"
+          sat in step 2 as a permanently-visible "not applicable" field. It now appears on
+          the community card, when that card is chosen, where its description is attached
+          to it.
+        · THE PROGRESS STRIP IS PROGRESS ONLY. v4 mixed "10 of 12 answered" with "3 beds
+          ready across 7 units" in one row of four figures. Those are different kinds of
+          fact and they were competing with the page title. Capacity now lives on the
+          destination card that owns it.
+        · PRINT AND FORCED-COLOURS ARE DEFINED. A referral gets printed. v4 had no print
+          rules at all, while the build is guarded by a test that reads print CSS.
+        · DARK MODE USES THE FULL TRIPLE — :root, prefers-color-scheme, and [data-theme] —
+          so an explicit toggle wins in both directions, which is what the build requires.
+      ══════════════════════════════════════════════════════════════════════════════════════
+    -->
+    <style>
+      /* ═══ TOKENS ═══════════════════════════════════════════════════════════════════════
+         One accent. THREE semantic tones plus neutral. The teal is deliberately gone.
+
+         Every colour below is defined here, on bare :root, and only REDEFINED in the two
+         dark blocks. Nothing gets its only definition inside a media query — that is how a
+         theme ends up with a colour it cannot express. */
+      :root {
+        color-scheme: light;
+
+        --ground: #eef2f7;
+        --surface: #ffffff;
+        --surface-2: #f7f9fc;
+        --sunken: #e9eef5;
+
+        --ink: #0b1220;
+        --ink-2: #2f3d55;
+        --muted: #556380;
+        --faint: #7a869c;
+
+        --rule: #e3e9f1;
+        --rule-2: #ccd6e4;
+        --rule-3: #aebacd;
+
+        --accent: #1a6ab5;
+        --accent-strong: #155895;
+        --accent-wash: #eef5fc;
+        --accent-edge: #b9d5ee;
+        --on-accent: #ffffff;
+
+        --good: #0a6a3f;
+        --good-wash: #eff9f4;
+        --good-edge: #a9ddc4;
+        --warn: #8a4d05;
+        --warn-wash: #fdf8f0;
+        --warn-edge: #e8cda3;
+        --crit: #a01a10;
+        --crit-wash: #fdf4f3;
+        --crit-edge: #eebcb7;
+
+        --sh-1: 0 1px 2px rgb(11 18 32 / 0.06);
+        --sh-2: 0 1px 3px rgb(11 18 32 / 0.07), 0 8px 20px -12px rgb(11 18 32 / 0.18);
+        --sh-3: 0 -1px 0 var(--rule), 0 -14px 34px -18px rgb(11 18 32 / 0.34);
+
+        --r-xs: 4px;
+        --r-sm: 6px;
+        --r: 9px;
+        --r-lg: 13px;
+        --r-pill: 100px;
+
+        --sp-1: 0.25rem;
+        --sp-2: 0.5rem;
+        --sp-3: 0.75rem;
+        --sp-4: 1rem;
+        --sp-5: 1.5rem;
+        --sp-6: 2rem;
+        --sp-7: 3rem;
+
+        --tap: 3rem; /* 48px — production minimum, never reduced to 44 */
+        --spine: 2rem;
+        --rail: 22rem; /* was 23rem — the form column is the one that needed it */
+
+        --t-micro: 0.6875rem;
+        --t-small: 0.8125rem;
+        --t-body: 0.875rem;
+        --t-input: 0.9375rem; /* NEW — controls and typed text read one step larger
+                                        than surrounding prose. This is the text a clinician
+                                        actually reads back to check, and 14px was mean. */
+        --t-lead: 1rem;
+        --t-fig: 1.375rem;
+        --t-name: 1.375rem;
+
+        --ease: cubic-bezier(0.2, 0, 0, 1);
+      }
+
+      /* Dark, by system preference — but never when an explicit light theme is set. */
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          color-scheme: dark;
+
+          --ground: #080c13;
+          --surface: #121824;
+          --surface-2: #19202e;
+          --sunken: #0d1219;
+
+          --ink: #e9eef6;
+          --ink-2: #c2ccdb;
+          --muted: #96a3b7;
+          --faint: #7f8da2;
+
+          --rule: #232c3c;
+          --rule-2: #334054;
+          --rule-3: #4a5a72;
+
+          --accent: #4d9de0;
+          --accent-strong: #7bb8ea;
+          --accent-wash: #12243a;
+          --accent-edge: #2b4d73;
+          --on-accent: #06121f;
+
+          --good: #52c48c;
+          --good-wash: #0e2419;
+          --good-edge: #23543c;
+          --warn: #d9a441;
+          --warn-wash: #241c0c;
+          --warn-edge: #574326;
+          --crit: #ef7c72;
+          --crit-wash: #2a1210;
+          --crit-edge: #6b2f2a;
+
+          --sh-1: 0 1px 2px rgb(0 0 0 / 0.5);
+          --sh-2: 0 1px 3px rgb(0 0 0 / 0.55), 0 8px 20px -12px rgb(0 0 0 / 0.8);
+          --sh-3: 0 -1px 0 var(--rule), 0 -14px 34px -18px rgb(0 0 0 / 0.9);
+        }
+      }
+
+      /* Dark, by explicit choice — wins regardless of the system setting. */
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+
+        --ground: #080c13;
+        --surface: #121824;
+        --surface-2: #19202e;
+        --sunken: #0d1219;
+
+        --ink: #e9eef6;
+        --ink-2: #c2ccdb;
+        --muted: #96a3b7;
+        --faint: #7f8da2;
+
+        --rule: #232c3c;
+        --rule-2: #334054;
+        --rule-3: #4a5a72;
+
+        --accent: #4d9de0;
+        --accent-strong: #7bb8ea;
+        --accent-wash: #12243a;
+        --accent-edge: #2b4d73;
+        --on-accent: #06121f;
+
+        --good: #52c48c;
+        --good-wash: #0e2419;
+        --good-edge: #23543c;
+        --warn: #d9a441;
+        --warn-wash: #241c0c;
+        --warn-edge: #574326;
+        --crit: #ef7c72;
+        --crit-wash: #2a1210;
+        --crit-edge: #6b2f2a;
+
+        --sh-1: 0 1px 2px rgb(0 0 0 / 0.5);
+        --sh-2: 0 1px 3px rgb(0 0 0 / 0.55), 0 8px 20px -12px rgb(0 0 0 / 0.8);
+        --sh-3: 0 -1px 0 var(--rule), 0 -14px 34px -18px rgb(0 0 0 / 0.9);
+      }
+
+      /* ═══ RESET & BASE ═══════════════════════════════════════════════════════════════ */
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font-family:
+          "Archivo",
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        font-size: var(--t-body);
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+      .n,
+      .fig,
+      .umrn,
+      .count {
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+      }
+      a {
+        color: var(--accent-strong);
+        text-underline-offset: 0.2em;
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: var(--r-xs);
+      }
+      h1,
+      h2,
+      h3,
+      h4 {
+        margin: 0;
+      }
+
+      /* A form this long needs a way past the chrome. v4 had none. */
+      .skip {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        z-index: 200;
+        padding: var(--sp-3) var(--sp-4);
+        border-radius: 0 0 var(--r) 0;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-weight: 650;
+        text-decoration: none;
+      }
+      .skip:focus {
+        left: 0;
+      }
+
+      /* ═══ APP BAR — carries the person at every scroll position ═══════════════════════ */
+      .appbar {
+        position: sticky;
+        top: 0;
+        z-index: 80;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+        min-height: 3.25rem;
+        padding: var(--sp-2) var(--sp-4);
+        background: color-mix(in srgb, var(--surface) 88%, transparent);
+        backdrop-filter: saturate(1.6) blur(14px);
+        border-bottom: 1px solid var(--rule);
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        letter-spacing: -0.018em;
+      }
+      .brand .mark {
+        width: 0.65rem;
+        height: 0.65rem;
+        border-radius: 2px;
+        background: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-wash);
+      }
+      .crumb {
+        color: var(--faint);
+        font-size: var(--t-small);
+      }
+      .crumb b {
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      .appbar > .spacer {
+        margin-left: auto;
+      }
+
+      .whotag {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--sp-2);
+        padding: 0.2rem 0.2rem 0.2rem 0.5rem;
+        border: 1px solid var(--accent-edge);
+        border-radius: var(--r-pill);
+        background: var(--accent-wash);
+        color: var(--accent-strong);
+        font-size: var(--t-small);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .whotag .umrn {
+        font-size: var(--t-micro);
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .whotag .go {
+        width: 1.375rem;
+        height: 1.375rem;
+        border-radius: var(--r-pill);
+        display: grid;
+        place-items: center;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-size: 0.7rem;
+      }
+
+      .shell {
+        max-width: 108rem;
+        margin: 0 auto;
+        padding: var(--sp-4) var(--sp-4) var(--sp-7);
+      }
+
+      /* ═══ PROTOTYPE NOTICE ════════════════════════════════════════════════════════════
+         ⚠️ REWRITTEN IN v5. The old sentence ended "never a name, never free text, never a
+         figure from the Mental Health Act". Two thirds of that stopped being true the
+         moment the written history was added, and the third part is still true only of the
+         structured fields. It now says which half the software enforces and which half is
+         left to the person typing. */
+      .notice {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: flex-start;
+        padding: var(--sp-3) var(--sp-4);
+        border: 1px solid var(--warn-edge);
+        border-left-width: 3px;
+        border-left-color: var(--warn);
+        border-radius: var(--r);
+        background: var(--warn-wash);
+        font-size: var(--t-small);
+        color: var(--ink-2);
+      }
+      .notice p {
+        margin: 0;
+        max-width: 92ch;
+      }
+      .notice p + p {
+        margin-top: var(--sp-2);
+      }
+      .badge {
+        flex: none;
+        padding: 0.15rem 0.45rem;
+        border-radius: var(--r-xs);
+        border: 1px solid var(--warn);
+        background: var(--surface);
+        color: var(--warn);
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      /* ⚠️ On a phone the badge beside the text stole ~150px of an available 343px and drove
+         this notice to fourteen lines — a full screen of amber before the form. Measured at
+         375px. The badge goes above the text instead; nothing is removed, it just stops
+         competing for the width. */
+      @media (max-width: 34rem) {
+        .notice {
+          flex-wrap: wrap;
+          gap: var(--sp-2);
+        }
+        .notice > div {
+          flex: 1 1 100%;
+        }
+      }
+
+      /* ═══ MASTHEAD ════════════════════════════════════════════════════════════════════
+         Now FIRST in the document, above the anchor. In v4 the anchor's <h2> preceded the
+         <h1> and the heading order was wrong for anybody navigating by headings. */
+      .masthead {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-5);
+        justify-content: space-between;
+        align-items: flex-end;
+        padding: var(--sp-5) 0 var(--sp-4);
+      }
+      .eyebrow {
+        display: block;
+        margin-bottom: 0.35rem;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--accent-strong);
+      }
+      h1 {
+        font-size: clamp(1.625rem, 1.15rem + 1.7vw, 2.25rem);
+        font-weight: 700;
+        letter-spacing: -0.028em;
+        line-height: 1.06;
+      }
+      .lede {
+        margin: var(--sp-2) 0 0;
+        color: var(--muted);
+        max-width: 54ch;
+      }
+
+      /* Progress only — no capacity figure, no network count. Three tiles, not four. */
+      /* ⚠️ `minmax(0, 1fr)`, never `minmax(7.5rem, 1fr)`. A track minimum is a floor the grid
+         will honour by overflowing its container: at 375px, three 7.5rem tracks demanded
+         364px inside a 343px column and pushed the third tile 4px past the viewport edge.
+         Measured, not guessed — it is the same class of defect as the destination list that
+         shipped at zero width, and jsdom cannot see either of them. */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1px;
+        background: var(--rule);
+        border: 1px solid var(--rule);
+        border-radius: var(--r);
+        overflow: hidden;
+      }
+      /* Three tiles in two columns leaves a fourth cell empty, and an empty cell on this
+         screen reads as a rendering fault or, worse, as a value — the same rule the
+         appendix states about blanks. The third tile takes the whole row instead. */
+      .stats > .stat:nth-child(3) {
+        grid-column: 1 / -1;
+      }
+      @media (min-width: 34rem) {
+        .stats {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .stats > .stat:nth-child(3) {
+          grid-column: auto;
+        }
+      }
+      .stat {
+        background: var(--surface);
+        padding: var(--sp-3) var(--sp-4);
+        display: grid;
+        gap: 0.1rem;
+        align-content: start;
+      }
+      .stat .k {
+        font-size: 0.625rem;
+        font-weight: 650;
+        letter-spacing: 0.085em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .stat .fig {
+        font-size: var(--t-fig);
+        font-weight: 700;
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+      }
+      .stat .of {
+        font-size: var(--t-small);
+        font-weight: 500;
+        color: var(--muted);
+      }
+      .stat .sub {
+        font-size: var(--t-micro);
+        color: var(--muted);
+      }
+      .stat[data-tone="warn"] .fig {
+        color: var(--warn);
+      }
+      .stat[data-tone="good"] .fig {
+        color: var(--good);
+      }
+      .bar {
+        height: 0.3rem;
+        border-radius: var(--r-pill);
+        background: var(--sunken);
+        overflow: hidden;
+        margin-top: 0.35rem;
+      }
+      .bar > i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+        border-radius: inherit;
+      }
+
+      /* ═══ PATIENT ANCHOR ══════════════════════════════════════════════════════════════ */
+      .anchor {
+        border: 1px solid var(--rule-2);
+        border-top: 3px solid var(--accent);
+        border-radius: var(--r-lg);
+        background: var(--surface);
+        box-shadow: var(--sh-2);
+        overflow: hidden;
+      }
+      .anchor-body {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-4);
+        align-items: flex-start;
+        padding: var(--sp-4) var(--sp-5);
+      }
+      .initials {
+        flex: none;
+        width: 3rem;
+        height: 3rem;
+        border-radius: var(--r);
+        display: grid;
+        place-items: center;
+        background: var(--accent-wash);
+        color: var(--accent-strong);
+        border: 1px solid var(--accent-edge);
+        font-weight: 700;
+        font-size: 1rem;
+        letter-spacing: 0.02em;
+      }
+      .identity {
+        flex: 1 1 24rem;
+        min-width: 0;
+      }
+      .identity h2 {
+        font-size: var(--t-name);
+        font-weight: 700;
+        letter-spacing: -0.022em;
+        line-height: 1.12;
+      }
+      .identity .known {
+        margin-top: 0.1rem;
+        font-size: var(--t-small);
+        color: var(--muted);
+      }
+      .identity .known b {
+        color: var(--ink-2);
+        font-weight: 650;
+      }
+
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-2) var(--sp-5);
+        margin-top: var(--sp-3);
+      }
+      .fact {
+        display: grid;
+        gap: 0.05rem;
+      }
+      .fact dt {
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.085em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .fact dd {
+        margin: 0;
+        font-size: var(--t-small);
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .fact dd.absent {
+        font-weight: 500;
+        font-style: italic;
+        color: var(--muted);
+      }
+
+      .flags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: var(--sp-3);
+      }
+      .anchor-acts {
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-2);
+        align-items: stretch;
+        min-width: 11rem;
+      }
+
+      .anchor-foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--sp-2) var(--sp-3);
+        padding: var(--sp-3) var(--sp-5);
+        border-top: 1px solid var(--rule);
+        background: var(--surface-2);
+        font-size: var(--t-small);
+        color: var(--muted);
+      }
+      .anchor-foot p {
+        margin: 0;
+        max-width: 80ch;
+      }
+      .anchor-foot b {
+        color: var(--ink);
+        font-weight: 650;
+      }
+      .pointer {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.2rem 0.5rem;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-xs);
+        background: var(--surface);
+        color: var(--ink-2);
+        font-size: var(--t-micro);
+      }
+      .pointer .key {
+        color: var(--faint);
+      }
+
+      /* ═══ CHIPS ═══════════════════════════════════════════════════════════════════════ */
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+        padding: 0.2rem 0.5rem;
+        border-radius: var(--r-xs);
+        border: 1px solid var(--rule-2);
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 0.625rem;
+        font-weight: 650;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .chip .dot {
+        width: 0.4rem;
+        height: 0.4rem;
+        border-radius: var(--r-pill);
+        background: currentColor;
+        flex: none;
+      }
+      .chip[data-tone="good"] {
+        color: var(--good);
+        border-color: var(--good-edge);
+        background: var(--good-wash);
+      }
+      .chip[data-tone="warn"] {
+        color: var(--warn);
+        border-color: var(--warn-edge);
+        background: var(--warn-wash);
+      }
+      .chip[data-tone="crit"] {
+        color: var(--crit);
+        border-color: var(--crit-edge);
+        background: var(--crit-wash);
+      }
+      .chip[data-tone="accent"] {
+        color: var(--accent-strong);
+        border-color: var(--accent-edge);
+        background: var(--accent-wash);
+      }
+      .chip--wrap {
+        white-space: normal;
+        text-transform: none;
+        letter-spacing: 0;
+        font-size: var(--t-micro);
+        font-weight: 600;
+        text-align: left;
+      }
+
+      /* ═══ BUTTONS ═════════════════════════════════════════════════════════════════════ */
+      .btn {
+        min-height: var(--tap);
+        padding: 0 var(--sp-4);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+        font-size: var(--t-small);
+        font-weight: 650;
+        text-decoration: none;
+        cursor: default;
+        transition:
+          background 130ms var(--ease),
+          border-color 130ms var(--ease);
+      }
+      .btn:hover {
+        border-color: var(--rule-3);
+        background: var(--surface-2);
+      }
+      .btn--primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+      }
+      .btn--primary:hover {
+        background: var(--accent-strong);
+        border-color: var(--accent-strong);
+      }
+      .btn--ghost {
+        background: transparent;
+        border-color: transparent;
+        color: var(--accent-strong);
+      }
+      .btn--ghost:hover {
+        background: var(--accent-wash);
+        border-color: transparent;
+      }
+      .btn--sm {
+        min-height: 2.25rem;
+        padding: 0 var(--sp-3);
+      }
+      .btn[aria-disabled="true"] {
+        background: var(--sunken);
+        border-color: var(--rule-2);
+        color: var(--faint);
+      }
+      .btn[aria-disabled="true"]:hover {
+        background: var(--sunken);
+        border-color: var(--rule-2);
+      }
+
+      /* ═══ WORKSPACE ═══════════════════════════════════════════════════════════════════ */
+      .workspace {
+        display: grid;
+        gap: var(--sp-5);
+        align-items: start;
+        margin-top: var(--sp-5);
+      }
+      @media (min-width: 72rem) {
+        .workspace {
+          grid-template-columns: minmax(0, 1fr) var(--rail);
+        }
+      }
+
+      .steps {
+        display: grid;
+        gap: var(--sp-4);
+        min-width: 0;
+      }
+      .step {
+        position: relative;
+        display: grid;
+        grid-template-columns: var(--spine) minmax(0, 1fr);
+        gap: var(--sp-4);
+        min-width: 0;
+      }
+      .step::before {
+        content: "";
+        position: absolute;
+        left: calc(var(--spine) / 2 - 1px);
+        top: 2.25rem;
+        bottom: calc(var(--sp-4) * -1);
+        width: 2px;
+        background: var(--rule-2);
+      }
+      .step:last-of-type::before {
+        display: none;
+      }
+      @media (max-width: 44rem) {
+        .step {
+          --spine: 1.5rem;
+          gap: var(--sp-3);
+        }
+        .node {
+          font-size: var(--t-micro);
+        }
+      }
+      .step[data-state="done"]::before {
+        background: var(--good-edge);
+      }
+      .node {
+        position: sticky;
+        top: 4rem;
+        z-index: 2;
+        width: var(--spine);
+        height: var(--spine);
+        border-radius: var(--r-pill);
+        display: grid;
+        place-items: center;
+        align-self: start;
+        border: 2px solid var(--rule-2);
+        background: var(--surface);
+        color: var(--muted);
+        font-size: var(--t-small);
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        box-shadow: 0 0 0 4px var(--ground);
+      }
+      .step[data-state="done"] .node {
+        border-color: var(--good);
+        background: var(--good-wash);
+        color: var(--good);
+      }
+      .step[data-state="now"] .node {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--on-accent);
+      }
+
+      .panel {
+        min-width: 0;
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: var(--r);
+        box-shadow: var(--sh-1);
+        overflow: hidden;
+      }
+      .panel > header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+        padding: var(--sp-3) var(--sp-4);
+        background: var(--surface-2);
+        border-bottom: 1px solid var(--rule);
+      }
+      .panel > header h3 {
+        font-size: var(--t-lead);
+        font-weight: 650;
+        letter-spacing: -0.015em;
+      }
+      .panel > header .sub {
+        display: block;
+        margin-top: 0.05rem;
+        font-size: var(--t-micro);
+        font-weight: 500;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--muted);
+      }
+      .step[data-state="now"] > .panel {
+        border-color: var(--accent-edge);
+        box-shadow: var(--sh-2);
+      }
+      .step[data-state="now"] > .panel > header {
+        background: var(--accent-wash);
+        border-bottom-color: var(--accent-edge);
+      }
+      .body {
+        padding: var(--sp-4);
+        display: grid;
+        gap: var(--sp-5);
+      }
+
+      /* ── the field, as a system ── */
+      .grid2 {
+        display: grid;
+        gap: var(--sp-4);
+      }
+      @media (min-width: 44rem) {
+        .grid2 {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      .field {
+        min-width: 0;
+      }
+      .field > .lab {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 0.35rem;
+        font-size: var(--t-small);
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .field > .lab .state {
+        margin-left: auto;
+        font-size: 0.625rem;
+        font-weight: 650;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .field[data-state="answered"] .state {
+        color: var(--good);
+      }
+      .field[data-state="outstanding"] .state {
+        color: var(--warn);
+      }
+      .field[data-state="na"] .state {
+        color: var(--faint);
+      }
+      select,
+      .fauxselect {
+        width: 100%;
+        min-height: var(--tap);
+        padding: 0 var(--sp-3);
+        display: flex;
+        align-items: center;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+        font-size: var(--t-input);
+      }
+      .field[data-state="outstanding"] .fauxselect {
+        border-color: var(--warn);
+        background: var(--warn-wash);
+        color: var(--muted);
+      }
+      .field[data-state="na"] .fauxselect {
+        border-style: dashed;
+        background: var(--sunken);
+        color: var(--faint);
+      }
+      .field[data-state="error"] .fauxselect {
+        border-color: var(--crit);
+        background: var(--crit-wash);
+      }
+      .note {
+        margin: 0.4rem 0 0;
+        font-size: var(--t-micro);
+        color: var(--muted);
+      }
+      .note[data-tone="warn"] {
+        color: var(--warn);
+        font-weight: 600;
+      }
+      .note[data-tone="crit"] {
+        color: var(--crit);
+        font-weight: 600;
+      }
+
+      fieldset {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        min-width: 0;
+      }
+      legend {
+        padding: 0;
+        margin-bottom: 0.35rem;
+        font-size: var(--t-small);
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .yesno {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.4rem;
+      }
+      .opt {
+        min-height: var(--tap);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        font-size: var(--t-input);
+        color: var(--ink-2);
+      }
+      .opt[aria-pressed="true"] {
+        border-color: var(--accent);
+        background: var(--accent-wash);
+        color: var(--accent-strong);
+        font-weight: 650;
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+      fieldset[data-state="outstanding"] .opt {
+        border-color: var(--warn-edge);
+      }
+
+      /* ═══ THE WRITTEN HISTORY ═════════════════════════════════════════════════════════
+         NEW IN v5, and the only part of this form that records something nothing can check.
+
+         Deliberately THREE bounded boxes rather than one unbounded one. A single large box
+         invites everything — the family's names, the address, the whole chart — because
+         nothing in it suggests a shape. Three questions with three limits shape what gets
+         written, and a bounded field is a different privacy proposition from an endless one.
+
+         It is NOT given a colour of its own. Colour on this screen is a claim, and the one
+         thing that can never be claimed about free text is that anything has verified it.
+         It reads as a neutral surface, with amber reserved for the sentence about where the
+         text travels. */
+      .story {
+        display: grid;
+        gap: var(--sp-4);
+      }
+
+      .story-warn {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: flex-start;
+        padding: var(--sp-3);
+        border: 1px solid var(--warn-edge);
+        border-left: 3px solid var(--warn);
+        border-radius: var(--r-sm);
+        background: var(--warn-wash);
+        font-size: var(--t-small);
+        color: var(--ink-2);
+      }
+      .story-warn p {
+        margin: 0;
+        max-width: 78ch;
+      }
+      .story-warn p + p {
+        margin-top: var(--sp-2);
+      }
+      .story-warn b {
+        color: var(--ink);
+        font-weight: 650;
+      }
+      .story-warn .ico {
+        flex: none;
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: var(--r-pill);
+        display: grid;
+        place-items: center;
+        background: var(--warn);
+        color: var(--surface);
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+
+      .prose {
+        display: grid;
+        gap: 0.4rem;
+      }
+      .prose > .lab {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        font-size: var(--t-small);
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .prose > .lab .req {
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--warn);
+      }
+      .prose > .lab .opt-tag {
+        font-size: 0.625rem;
+        font-weight: 650;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .prose > .hint {
+        font-size: var(--t-micro);
+        color: var(--muted);
+        max-width: 80ch;
+      }
+
+      .box-text {
+        width: 100%;
+        min-height: 7.5rem;
+        padding: var(--sp-3);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--ink);
+        font: inherit;
+        font-size: var(--t-input);
+        line-height: 1.6;
+        resize: vertical;
+        display: block;
+        white-space: pre-wrap;
+      }
+      .box-text[data-state="empty"] {
+        color: var(--faint);
+        background: var(--surface-2);
+        border-style: dashed;
+      }
+      .box-text[data-state="outstanding"] {
+        border-color: var(--warn);
+        background: var(--warn-wash);
+        color: var(--muted);
+        border-style: dashed;
+      }
+      .box-text[data-state="over"] {
+        border-color: var(--crit);
+        background: var(--crit-wash);
+      }
+      .box-text:focus-within {
+        border-color: var(--accent);
+      }
+
+      .meter {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        flex-wrap: wrap;
+        font-size: var(--t-micro);
+        color: var(--faint);
+      }
+      .meter .count {
+        color: var(--muted);
+      }
+      .meter[data-tone="warn"] .count {
+        color: var(--warn);
+        font-weight: 650;
+      }
+      .meter[data-tone="crit"] .count {
+        color: var(--crit);
+        font-weight: 700;
+      }
+      .meter .track {
+        flex: 1 1 6rem;
+        height: 0.25rem;
+        min-width: 4rem;
+        border-radius: var(--r-pill);
+        background: var(--sunken);
+        overflow: hidden;
+      }
+      .meter .track > i {
+        display: block;
+        height: 100%;
+        background: var(--rule-3);
+        border-radius: inherit;
+      }
+      .meter[data-tone="warn"] .track > i {
+        background: var(--warn);
+      }
+      .meter[data-tone="crit"] .track > i {
+        background: var(--crit);
+      }
+
+      /* ── destinations ── */
+      .dests {
+        display: grid;
+        gap: var(--sp-3);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        clear: both;
+      }
+      .dest {
+        position: relative;
+        display: grid;
+        gap: var(--sp-3);
+        padding: var(--sp-3) var(--sp-4) var(--sp-4) calc(var(--sp-4) + 3px);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r);
+        background: var(--surface);
+        transition:
+          border-color 130ms var(--ease),
+          box-shadow 130ms var(--ease);
+      }
+      .dest::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 3px;
+        border-radius: var(--r) 0 0 var(--r);
+        background: transparent;
+      }
+      .dest:hover {
+        border-color: var(--rule-3);
+      }
+      .dest[data-state="chosen"] {
+        border-color: var(--accent);
+        background: var(--accent-wash);
+      }
+      .dest[data-state="chosen"]::before {
+        background: var(--accent);
+      }
+      .dest[data-state="refused"] {
+        background: var(--surface-2);
+      }
+      .dest[data-state="refused"]::before {
+        background: var(--crit);
+      }
+      .dest-head {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+      }
+      .dest-head .name {
+        font-size: var(--t-lead);
+        font-weight: 650;
+        letter-spacing: -0.012em;
+      }
+      .box {
+        flex: none;
+        width: 1.15rem;
+        height: 1.15rem;
+        border: 1.5px solid var(--rule-3);
+        border-radius: var(--r-xs);
+        display: inline-grid;
+        place-items: center;
+        background: var(--surface);
+        color: var(--on-accent);
+        font-size: 0.72rem;
+        font-weight: 700;
+      }
+      .dest[data-state="chosen"] .box {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .why {
+        margin: 0;
+        font-size: var(--t-small);
+        color: var(--muted);
+        max-width: 74ch;
+      }
+      .why b {
+        color: var(--ink-2);
+        font-weight: 650;
+      }
+
+      /* The question a chosen destination asks. Lives ON the card, so its description stays
+         attached to the control it describes. */
+      .dest-ask {
+        display: grid;
+        gap: 0.4rem;
+        padding: var(--sp-3);
+        border: 1px solid var(--accent-edge);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+      }
+      .dest-ask > .lab {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: var(--t-small);
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .dest-ask > .lab .state {
+        margin-left: auto;
+        font-size: 0.625rem;
+        font-weight: 650;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--warn);
+      }
+      .picks {
+        display: grid;
+        gap: 0.4rem;
+        grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+      }
+      .pick {
+        min-height: var(--tap);
+        padding: 0 var(--sp-3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        font-size: var(--t-small);
+        color: var(--ink-2);
+      }
+      .pick[aria-pressed="true"] {
+        border-color: var(--accent);
+        background: var(--accent-wash);
+        color: var(--accent-strong);
+        font-weight: 650;
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+
+      .cap {
+        display: grid;
+        gap: 0.4rem;
+      }
+      .cap-bar {
+        display: flex;
+        height: 0.5rem;
+        border-radius: var(--r-pill);
+        overflow: hidden;
+        background: var(--sunken);
+      }
+      .cap-bar i {
+        display: block;
+        height: 100%;
+      }
+      .cap-key {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.9rem;
+        font-size: var(--t-micro);
+        color: var(--muted);
+      }
+      .cap-key span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+      .cap-key b {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink);
+      }
+      .sw {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 2px;
+        flex: none;
+      }
+      .figs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+      }
+      .figs .f {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.35rem;
+        padding: 0.2rem 0.5rem;
+        border: 1px solid var(--rule);
+        border-radius: var(--r-xs);
+        background: var(--surface-2);
+        font-size: var(--t-micro);
+        color: var(--muted);
+      }
+      .figs .f b {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: var(--t-small);
+        color: var(--ink);
+      }
+
+      /* The sentence that only exists once more than one destination is chosen. */
+      .fanout {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: flex-start;
+        margin-top: var(--sp-1);
+        padding: var(--sp-3);
+        border: 1px solid var(--warn-edge);
+        border-left: 3px solid var(--warn);
+        border-radius: var(--r-sm);
+        background: var(--warn-wash);
+        font-size: var(--t-small);
+        color: var(--ink-2);
+      }
+      .fanout p {
+        margin: 0;
+        max-width: 76ch;
+      }
+      .fanout b {
+        color: var(--ink);
+        font-weight: 650;
+      }
+
+      /* ── send ── */
+      .send {
+        position: sticky;
+        bottom: 0;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-4);
+        flex-wrap: wrap;
+        margin-top: var(--sp-2);
+        padding: var(--sp-3) var(--sp-4);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r) var(--r) 0 0;
+        background: color-mix(in srgb, var(--surface) 94%, transparent);
+        backdrop-filter: blur(12px);
+        box-shadow: var(--sh-3);
+      }
+      .send .btn {
+        flex: none;
+      }
+      .send p {
+        margin: 0;
+        font-size: var(--t-small);
+        color: var(--muted);
+        flex: 1 1 16rem;
+        min-width: 0;
+      }
+      .send p b {
+        color: var(--warn);
+        font-weight: 650;
+      }
+
+      /* ═══ RAIL ════════════════════════════════════════════════════════════════════════ */
+      @media (min-width: 72rem) {
+        .rail {
+          position: sticky;
+          top: 4rem;
+          display: grid;
+          gap: var(--sp-4);
+          align-content: start;
+        }
+      }
+      @media (max-width: 71.999rem) {
+        .rail {
+          display: grid;
+          gap: var(--sp-4);
+        }
+      }
+
+      .record {
+        display: grid;
+        margin: 0;
+      }
+      .record > div {
+        display: grid;
+        grid-template-columns: 7.5rem minmax(0, 1fr);
+        gap: var(--sp-3);
+        align-items: baseline;
+        padding: 0.35rem 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .record > div:last-child {
+        border-bottom: 0;
+      }
+      .record dt {
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.075em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .record dd {
+        margin: 0;
+        font-size: var(--t-small);
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+      .record dd.absent {
+        color: var(--warn);
+        font-style: italic;
+      }
+      .record dd .hint {
+        color: var(--faint);
+        font-style: normal;
+      }
+      /* The written history gets its own row treatment: the rail reports that it exists and
+         how long it is, never a preview. A truncated preview of free text is the worst of
+         both — it implies the rail checked it, and it hides the part that matters. */
+      .record > div.is-story {
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+        background: var(--warn-wash);
+        margin: 0.35rem -0.5rem;
+        padding: var(--sp-2) 0.5rem;
+        border-radius: var(--r-xs);
+        border-bottom: 0;
+      }
+      .record .story-tag {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.075em;
+        text-transform: uppercase;
+        color: var(--warn);
+      }
+      .record .story-say {
+        font-size: var(--t-micro);
+        color: var(--ink-2);
+      }
+
+      .consq {
+        display: grid;
+        gap: var(--sp-3);
+      }
+      .consq p {
+        margin: 0;
+        font-size: var(--t-small);
+        color: var(--muted);
+      }
+      .consq p b {
+        color: var(--ink);
+        font-weight: 650;
+      }
+
+      /* ═══ APPENDIX — the state gallery ════════════════════════════════════════════════ */
+      .appendix {
+        margin-top: var(--sp-7);
+        border-top: 2px solid var(--rule-2);
+        padding-top: var(--sp-5);
+      }
+      .appendix > h2 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .appendix > .lede {
+        margin-bottom: var(--sp-5);
+      }
+      .spec {
+        display: grid;
+        gap: var(--sp-3);
+        margin-bottom: var(--sp-6);
+      }
+      .spec > h3 {
+        font-size: var(--t-small);
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--accent-strong);
+      }
+      .spec > .capt {
+        font-size: var(--t-small);
+        color: var(--muted);
+        max-width: 82ch;
+      }
+      .gallery {
+        display: grid;
+        gap: var(--sp-3);
+        grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+      }
+      .demo {
+        border: 1px dashed var(--rule-2);
+        border-radius: var(--r);
+        padding: var(--sp-3);
+        background: var(--surface);
+      }
+      .demo > .t {
+        display: block;
+        margin-bottom: var(--sp-2);
+        font-size: var(--t-micro);
+        font-weight: 650;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+
+      .swatches {
+        display: grid;
+        gap: var(--sp-2);
+        grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      }
+      .tone {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        padding: var(--sp-2) var(--sp-3);
+        border: 1px solid var(--rule);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        font-size: var(--t-small);
+      }
+      .tone .blk {
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: var(--r-xs);
+        flex: none;
+        border: 1px solid var(--rule-2);
+      }
+      .tone .mean {
+        color: var(--muted);
+        font-size: var(--t-micro);
+        display: block;
+      }
+
+      .rules {
+        margin: 0;
+        padding-left: 1.2rem;
+        font-size: var(--t-small);
+        color: var(--muted);
+        display: grid;
+        gap: var(--sp-2);
+        max-width: 88ch;
+      }
+      .rules b {
+        color: var(--ink-2);
+      }
+      .rules li[data-tone="crit"] b {
+        color: var(--crit);
+      }
+
+      .opens {
+        display: grid;
+        gap: var(--sp-2);
+      }
+      .open {
+        display: grid;
+        gap: 0.25rem;
+        padding: var(--sp-3);
+        border: 1px solid var(--rule-2);
+        border-left: 3px solid var(--rule-3);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        font-size: var(--t-small);
+      }
+      .open .q {
+        font-weight: 650;
+        color: var(--ink);
+      }
+      .open .a {
+        color: var(--muted);
+        max-width: 86ch;
+      }
+      .open .a b {
+        color: var(--ink-2);
+        font-weight: 650;
+      }
+
+      .foot {
+        margin-top: var(--sp-6);
+        padding-top: var(--sp-4);
+        border-top: 1px solid var(--rule-2);
+        font-size: var(--t-micro);
+        color: var(--muted);
+        line-height: 1.7;
+        max-width: 92ch;
+      }
+
+      /* ═══ FORCED COLOURS ══════════════════════════════════════════════════════════════
+         In Windows high-contrast the washes vanish and everything collapses to system
+         colours. Anything whose only signal is a background needs a border to survive. */
+      @media (forced-colors: active) {
+        .chip,
+        .dest,
+        .panel,
+        .anchor,
+        .box-text,
+        .opt,
+        .pick,
+        .field .fauxselect,
+        .story-warn,
+        .fanout {
+          border: 1px solid CanvasText;
+        }
+        .opt[aria-pressed="true"],
+        .pick[aria-pressed="true"],
+        .dest[data-state="chosen"] {
+          outline: 2px solid Highlight;
+          outline-offset: -2px;
+        }
+        .bar > i,
+        .cap-bar i,
+        .meter .track > i {
+          forced-color-adjust: none;
+        }
+      }
+
+      /* ═══ PRINT ═══════════════════════════════════════════════════════════════════════
+         A referral gets printed and taken to a meeting. v4 defined nothing here, and the
+         defaults print washes as white-on-white and drop every border.
+
+         The rule that matters: colour-as-claim does not survive a mono printer, so every
+         state that is carried by a wash on screen must ALSO be carried by a border or a
+         word. Nothing on this screen means anything by colour alone. */
+      @media print {
+        :root {
+          color-scheme: light;
+        }
+        body {
+          background: #fff;
+          color: #000;
+          font-size: 10.5pt;
+        }
+        .appbar,
+        .skip,
+        .send,
+        .anchor-acts,
+        .appendix {
+          display: none !important;
+        }
+        .shell {
+          max-width: none;
+          padding: 0;
+        }
+        .workspace {
+          display: block;
+        }
+        .rail {
+          margin-top: 1rem;
+          break-inside: avoid;
+        }
+        .step {
+          break-inside: avoid;
+        }
+        .panel,
+        .anchor,
+        .dest,
+        .box-text,
+        .story-warn,
+        .fanout,
+        .notice {
+          box-shadow: none !important;
+          background: #fff !important;
+          color: #000 !important;
+          border: 1px solid #000 !important;
+        }
+        .panel > header {
+          background: #fff !important;
+          border-bottom: 1px solid #000 !important;
+        }
+        .chip {
+          border: 1px solid #000 !important;
+          background: #fff !important;
+          color: #000 !important;
+        }
+        .box-text {
+          min-height: auto;
+          border-style: solid !important;
+        }
+        .fact dt,
+        .record dt,
+        .stat .k {
+          color: #000 !important;
+        }
+        .why,
+        .note,
+        .hint,
+        .meter,
+        .consq p,
+        .record dd {
+          color: #000 !important;
+        }
+        a {
+          color: #000 !important;
+          text-decoration: underline;
+        }
+        .node {
+          box-shadow: none !important;
+          border: 1px solid #000 !important;
+          background: #fff !important;
+          color: #000 !important;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <a class="skip" href="#form">Skip to the referral form</a>
+
+    <!-- ═══════════════ APP BAR ═══════════════ -->
+    <header class="appbar">
+      <span class="brand"><i class="mark"></i> Ward Flow</span>
+      <span class="crumb">Referrals&nbsp;/&nbsp;<b>Raise a referral</b></span>
+      <span class="spacer"></span>
+      <a class="whotag" href="#">
+        Maya Whitlock <span class="umrn">41 88 207</span> <span class="go" aria-hidden="true">&rarr;</span>
+      </a>
+    </header>
+
+    <main class="shell">
+      <!-- ═══════════════ GOVERNANCE NOTICE ═══════════════
+           ⚠️ REWRITTEN FOR v5. See the note at the top of this file. -->
+      <div class="notice">
+        <span class="badge">Synthetic prototype</span>
+        <div>
+          <p>
+            This form is <strong>not a medical device</strong>. It records a small set of structured facts about the
+            person referred, the request itself, the written history you type below, and &mdash; when the form was
+            opened from a person&rsquo;s record &mdash; a pointer to that record: an id.
+          </p>
+          <p>
+            <strong>The written history is free text.</strong> It is stored and sent exactly as you type it, so anything
+            you put in it &mdash; a name, an address, another person&rsquo;s details &mdash; becomes part of the
+            referral. Nothing checks it. The structured questions above it still cannot hold a name, and no field on
+            this form holds a figure from the Mental Health Act.
+          </p>
+        </div>
+      </div>
+
+      <!-- ═══════════════ MASTHEAD ═══════════════
+           Now ahead of the anchor, so the page's <h1> is the first heading in the document. -->
+      <div class="masthead">
+        <div>
+          <span class="eyebrow">New referral</span>
+          <h1>Raise a referral</h1>
+          <p class="lede">
+            One form for every source &mdash; community, crisis service, police, ambulance or another hospital.
+          </p>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <span class="k">Answered</span><span class="fig">10<span class="of"> / 12</span></span
+            ><span class="bar"><i style="width: 83%"></i></span>
+          </div>
+          <div class="stat" data-tone="warn">
+            <span class="k">Outstanding</span><span class="fig">2</span><span class="sub">questions</span>
+          </div>
+          <div class="stat" data-tone="warn">
+            <span class="k">History</span><span class="fig">1<span class="of"> / 3</span></span
+            ><span class="sub">sections written</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════ PATIENT ANCHOR ═══════════════ -->
+      <section class="anchor" aria-labelledby="anchor-h">
+        <div class="anchor-body">
+          <span class="initials" aria-hidden="true">MW</span>
+
+          <div class="identity">
+            <h2 id="anchor-h">Maya Whitlock</h2>
+            <p class="known">Known as <b>Maya</b></p>
+
+            <dl class="facts">
+              <div class="fact">
+                <dt>Record number</dt>
+                <dd class="umrn">41 88 207</dd>
+              </div>
+              <div class="fact">
+                <dt>Date of birth</dt>
+                <dd><span class="n">14 Mar 1991</span> &middot; 34</dd>
+              </div>
+              <div class="fact">
+                <dt>Sex</dt>
+                <dd>Female</dd>
+              </div>
+              <div class="fact">
+                <dt>Suburb</dt>
+                <dd>Fremantle</dd>
+              </div>
+              <div class="fact">
+                <dt>Catchment team</dt>
+                <dd>Fremantle Adult CMHS</dd>
+              </div>
+              <div class="fact">
+                <dt>General practitioner</dt>
+                <dd class="absent">Not recorded</dd>
+              </div>
+            </dl>
+
+            <div class="flags">
+              <span class="chip" data-tone="accent"><i class="dot"></i> Legal status &mdash; voluntary</span>
+              <a class="chip chip--wrap" href="#" style="text-decoration: none"
+                >Two further identity facts sit on the profile, not here <span aria-hidden="true">&rarr;</span></a
+              >
+            </div>
+          </div>
+
+          <div class="anchor-acts">
+            <a class="btn btn--primary" href="#">View full profile</a>
+            <a class="btn btn--ghost btn--sm" href="#">Refer a different person</a>
+          </div>
+        </div>
+
+        <!-- ⚠️ REWRITTEN FOR v5. v4 said flatly: "None of them is written into the referral."
+             That was true of a form with no text box. It is now true only of the structured
+             fields, and the difference is exactly the thing a referrer needs to know. -->
+        <div class="anchor-foot">
+          <span class="pointer"><span class="key">patient</span> <span class="n">PT-014</span></span>
+          <p>
+            <b>The structured referral carries the pointer above &mdash; an id, and nothing else.</b> Name, date of
+            birth and record number are shown here so you know who you are referring, and none of them is copied into
+            the referral for you. <b>The written history is the exception:</b> whatever you type there is sent as you
+            typed it.
+          </p>
+        </div>
+      </section>
+
+      <!-- ═══════════════ WORKSPACE ═══════════════ -->
+      <div class="workspace" id="form">
+        <div class="steps">
+          <!-- ── step 1 ── -->
+          <section class="step" data-state="done">
+            <span class="node" aria-hidden="true">&#10003;</span>
+            <div class="panel">
+              <header>
+                <h3>
+                  Who the referral is about<span class="sub"
+                    >Structured facts only &mdash; no name, no record number</span
+                  >
+                </h3>
+                <span class="chip" data-tone="good"><i class="dot"></i> Complete</span>
+              </header>
+              <div class="body">
+                <div class="grid2">
+                  <div class="field" data-state="answered">
+                    <span class="lab">Age band <span class="state">Answered</span></span>
+                    <span class="fauxselect">Adult</span>
+                  </div>
+                  <div class="field" data-state="answered">
+                    <span class="lab">Sex <span class="state">Answered</span></span>
+                    <span class="fauxselect">Female</span>
+                  </div>
+                  <div class="field" data-state="answered">
+                    <span class="lab">Home region <span class="state">Answered</span></span>
+                    <span class="fauxselect">South Metropolitan</span>
+                  </div>
+                  <div class="field" data-state="answered">
+                    <span class="lab">Suburb <span class="state">Answered</span></span>
+                    <span class="fauxselect">Fremantle</span>
+                    <p class="note">Read against the catchment table for every destination below.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── step 2 ── -->
+          <section class="step" data-state="done">
+            <span class="node" aria-hidden="true">&#10003;</span>
+            <div class="panel">
+              <header>
+                <h3>What they need<span class="sub">Recorded as given &mdash; nothing here is inferred</span></h3>
+                <span class="chip" data-tone="warn"><i class="dot"></i> 2 outstanding</span>
+              </header>
+              <div class="body">
+                <div class="grid2">
+                  <div class="field" data-state="answered">
+                    <span class="lab">Referral source <span class="state">Answered</span></span>
+                    <span class="fauxselect">Community</span>
+                  </div>
+                  <div class="field" data-state="answered">
+                    <span class="lab">Urgency <span class="state">Answered</span></span>
+                    <span class="fauxselect">2 &mdash; within 24 hours</span>
+                    <p class="note">Recorded from the referrer. Nothing on this screen derives an urgency.</p>
+                  </div>
+                  <div class="field" data-state="outstanding">
+                    <span class="lab">Origin site <span class="state">Outstanding</span></span>
+                    <span class="fauxselect">Choose one</span>
+                    <p class="note" data-tone="warn">Still to answer</p>
+                  </div>
+                </div>
+
+                <div class="grid2">
+                  <fieldset>
+                    <legend>Needs a secure bed</legend>
+                    <div class="yesno"><span class="opt" aria-pressed="true">Yes</span><span class="opt">No</span></div>
+                  </fieldset>
+                  <fieldset>
+                    <legend>Needs a bed that can hold someone involuntarily</legend>
+                    <div class="yesno"><span class="opt">Yes</span><span class="opt" aria-pressed="true">No</span></div>
+                  </fieldset>
+                  <fieldset data-state="outstanding">
+                    <legend>Needs transport</legend>
+                    <div class="yesno"><span class="opt">Yes</span><span class="opt">No</span></div>
+                    <p class="note" data-tone="warn">Still to answer</p>
+                  </fieldset>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ══ step 3 — THE WRITTEN HISTORY. New in v5. ══════════════════════════════
+               Placed here on purpose: after the structured questions, so the fast picks
+               keep their momentum, and immediately BEFORE the destinations, so that the
+               moment you choose who receives this, you have just finished writing what
+               they will receive. That adjacency is the safety feature. -->
+          <section class="step" data-state="now">
+            <span class="node" aria-hidden="true">3</span>
+            <div class="panel">
+              <header>
+                <h3>
+                  The history<span class="sub">Written by you, sent word for word &mdash; nothing here is checked</span>
+                </h3>
+                <span class="chip" data-tone="warn"><i class="dot"></i> 1 of 3 written</span>
+              </header>
+              <div class="body">
+                <div class="story">
+                  <div class="story-warn">
+                    <span class="ico" aria-hidden="true">!</span>
+                    <div>
+                      <p>
+                        <b>This is the only part of the referral that is free text.</b> It is stored and sent exactly as
+                        written, to every destination you choose below. Nothing on this screen reads it, checks it, or
+                        takes it out again.
+                      </p>
+                      <p>
+                        Other people mentioned here &mdash; family, a neighbour, a witness &mdash; are recorded too, and
+                        they have not agreed to that. Write what the receiving team needs to act on, and no more.
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- 1 · Why now — the only required one -->
+                  <div class="prose">
+                    <span class="lab">Why now <span class="req">Required</span></span>
+                    <span class="hint">What has happened, and what has changed to make this a referral today.</span>
+                    <div class="box-text">
+                      Seen at home this morning by the crisis team after her sister called. Three nights without sleep,
+                      describing her flat as &ldquo;being listened to&rdquo;. Has stopped her olanzapine about two weeks
+                      ago &mdash; says it made her feel flat. Agreed to come in voluntarily but is anxious about the
+                      drive.
+                    </div>
+                    <div class="meter">
+                      <span class="count">312 / 1500</span><span class="track"><i style="width: 21%"></i></span
+                      ><span>Sent word for word</span>
+                    </div>
+                  </div>
+
+                  <!-- 2 · Background -->
+                  <div class="prose">
+                    <span class="lab">Background <span class="opt-tag">Optional</span></span>
+                    <span class="hint">Relevant history, current treatment, and what has already been tried.</span>
+                    <div class="box-text" data-state="empty">Not written yet</div>
+                    <div class="meter">
+                      <span class="count">0 / 2000</span><span class="track"><i style="width: 0%"></i></span
+                      ><span>Optional &mdash; the referral can be sent without it</span>
+                    </div>
+                  </div>
+
+                  <!-- 3 · Risk and safety -->
+                  <div class="prose">
+                    <span class="lab">Risk and safety <span class="opt-tag">Optional</span></span>
+                    <span class="hint"
+                      >Anything the receiving team must know before they meet this person. This is a note to them, not a
+                      risk assessment, and the software does not treat it as one.</span
+                    >
+                    <div class="box-text" data-state="empty">Not written yet</div>
+                    <div class="meter">
+                      <span class="count">0 / 1000</span><span class="track"><i style="width: 0%"></i></span
+                      ><span>Optional &mdash; and never scored</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── step 4 — where to refer ── -->
+          <section class="step">
+            <span class="node" aria-hidden="true">4</span>
+            <div class="panel">
+              <header>
+                <h3>
+                  Where to refer<span class="sub">Up to three, chosen in one act &mdash; this view ranks nothing</span>
+                </h3>
+                <span class="chip" data-tone="accent"><i class="dot"></i> 2 chosen</span>
+              </header>
+              <div class="body">
+                <ul class="dests">
+                  <li class="dest" data-state="chosen">
+                    <div class="dest-head">
+                      <span class="box" aria-hidden="true">&#10003;</span>
+                      <span class="name">Psychiatric ward</span>
+                      <span class="chip" data-tone="good"><i class="dot"></i> In catchment</span>
+                      <span class="chip">7 units accept</span>
+                    </div>
+                    <p class="why">
+                      Fremantle sits in the South Metropolitan catchment. Units are listed in the network&rsquo;s own
+                      fixed order &mdash; <b>nothing here ranks a ward, and nothing here places anybody</b>.
+                    </p>
+                    <div class="cap">
+                      <div class="cap-bar" role="img" aria-label="Of 20 beds: 3 ready, 2 held, 15 occupied">
+                        <i style="width: 15%; background: var(--good)"></i
+                        ><i style="width: 10%; background: var(--warn)"></i
+                        ><i style="width: 75%; background: var(--rule-2)"></i>
+                      </div>
+                      <div class="cap-key">
+                        <span><i class="sw" style="background: var(--good)"></i> <b>3</b> ready</span>
+                        <span><i class="sw" style="background: var(--warn)"></i> <b>2</b> held</span>
+                        <span><i class="sw" style="background: var(--rule-2)"></i> <b>15</b> occupied</span>
+                      </div>
+                    </div>
+                    <div class="figs">
+                      <span class="f"><b>2</b> referrals waiting</span>
+                      <span class="f"><b>41</b> min median answer</span>
+                      <span class="f">Secure beds <b>available</b></span>
+                    </div>
+                  </li>
+
+                  <!-- ⚠️ NEW IN v5 — the ED card now asks what it is being asked FOR.
+                       There are three referral purposes in the model and v4 showed none. -->
+                  <li class="dest" data-state="chosen">
+                    <div class="dest-head">
+                      <span class="box" aria-hidden="true">&#10003;</span>
+                      <span class="name">Emergency department</span>
+                      <span class="chip" data-tone="good"><i class="dot"></i> In catchment</span>
+                    </div>
+                    <p class="why">Fiona Stanley Hospital is the catchment emergency department for Fremantle.</p>
+                    <div class="dest-ask">
+                      <span class="lab"
+                        >What is the department being asked for? <span class="state">Outstanding</span></span
+                      >
+                      <div class="picks">
+                        <span class="pick">A bed</span>
+                        <span class="pick">Psychiatric review</span>
+                        <span class="pick">Medical assessment</span>
+                      </div>
+                      <p class="note" data-tone="warn">
+                        Still to answer &mdash; a department referral cannot be sent without it.
+                      </p>
+                    </div>
+                    <div class="figs">
+                      <span class="f"><b>4</b> departments accept</span><span class="f"><b>1</b> referral waiting</span>
+                    </div>
+                  </li>
+
+                  <li class="dest" data-state="refused">
+                    <div class="dest-head">
+                      <span class="box" aria-hidden="true"></span>
+                      <span class="name">Community team</span>
+                      <span class="chip" data-tone="warn"><i class="dot"></i> Out of catchment</span>
+                      <span class="chip" data-tone="crit"><i class="dot"></i> Not with a bed request</span>
+                    </div>
+                    <p class="why">
+                      Still offered and still sendable &mdash; asking outside the catchment is legitimate, and this
+                      screen records the choice rather than blocking it. It cannot travel on the same referral as a
+                      psychiatric bed: <b>send those as two</b>. Choosing it here would ask which team.
+                    </p>
+                  </li>
+                </ul>
+
+                <!-- ⚠️ NEW IN v5 — appears only when more than one destination is chosen. -->
+                <div class="fanout">
+                  <span aria-hidden="true">&#8594;&#8594;</span>
+                  <p>
+                    <b>Two destinations are chosen, so the history you wrote above goes to both of them, in full.</b>
+                    There is no way to send a shorter version to one of them. If part of the history is meant for only
+                    one team, send two referrals.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div class="send">
+            <button class="btn btn--primary" type="button" aria-disabled="true">Send referral</button>
+            <p>
+              Not yet answered: <b>Origin site</b>, <b>Needs transport</b>, <b>What the department is asked for</b>. The
+              button stays reachable and focusable so the reason can be read aloud.
+            </p>
+          </div>
+        </div>
+
+        <!-- ── rail ── -->
+        <aside class="rail">
+          <section class="panel">
+            <header>
+              <h3>What this referral will record<span class="sub">Updates as you answer</span></h3>
+            </header>
+            <div class="body" style="gap: var(--sp-3)">
+              <dl class="record">
+                <div>
+                  <dt>Person</dt>
+                  <dd><span class="n">PT-014</span> <span class="hint">&mdash; pointer only</span></dd>
+                </div>
+                <div>
+                  <dt>Age band</dt>
+                  <dd>Adult</dd>
+                </div>
+                <div>
+                  <dt>Sex</dt>
+                  <dd>Female</dd>
+                </div>
+                <div>
+                  <dt>Home region</dt>
+                  <dd>South Metropolitan</dd>
+                </div>
+                <div>
+                  <dt>Suburb</dt>
+                  <dd>Fremantle</dd>
+                </div>
+                <div>
+                  <dt>Source</dt>
+                  <dd>Community</dd>
+                </div>
+                <div>
+                  <dt>Urgency</dt>
+                  <dd>2</dd>
+                </div>
+                <div>
+                  <dt>Origin site</dt>
+                  <dd class="absent">Not answered yet</dd>
+                </div>
+                <div>
+                  <dt>Secure bed</dt>
+                  <dd>Yes</dd>
+                </div>
+                <div>
+                  <dt>Involuntary bed</dt>
+                  <dd>No</dd>
+                </div>
+                <div>
+                  <dt>Transport</dt>
+                  <dd class="absent">Not answered yet</dd>
+                </div>
+                <div>
+                  <dt>Destinations</dt>
+                  <dd>Psychiatric ward, Emergency department</dd>
+                </div>
+
+                <!-- The history is reported, never previewed. See the CSS note. -->
+                <div class="is-story">
+                  <span class="story-tag"><span aria-hidden="true">&#9998;</span> Written history</span>
+                  <span class="story-say"
+                    ><b>1 of 3 sections</b> &middot; <span class="count">312</span> characters &middot; sent word for
+                    word to <b>both</b> destinations.</span
+                  >
+                  <span class="story-say"
+                    >Not shown here on purpose: a preview would suggest something had checked it.</span
+                  >
+                </div>
+              </dl>
+            </div>
+          </section>
+
+          <section class="panel">
+            <header>
+              <h3
+                style="font-size: var(--t-small); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase"
+              >
+                What sending does
+              </h3>
+            </header>
+            <div class="body consq">
+              <p>Sending records the request and puts it in front of a coordinator.</p>
+              <p>It <b>places nobody</b>: a coordinator decides every placement, one at a time.</p>
+              <!-- ⚠️ REWRITTEN FOR v5. v4 said "Maya's name is not written down." full stop. -->
+              <p>
+                <b>Maya&rsquo;s name is not written into the structured referral</b> &mdash; the receiving team opens
+                her record through the pointer, where access is theirs to have or not.
+                <b>Whatever you typed in the history is sent as written</b>, including a name if you put one there.
+              </p>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════════════
+           APPENDIX — THE STATE GALLERY
+           Part of the locked design. Every state below is one the screen can genuinely
+           reach, drawn once so nobody has to guess at it during the build.
+           ══════════════════════════════════════════════════════════════════════════════ -->
+      <section class="appendix">
+        <h2>Appendix &mdash; every state, drawn</h2>
+        <p class="lede">
+          This is the part that makes the design lockable. A state not drawn here is a state somebody invents later.
+        </p>
+
+        <div class="spec">
+          <h3>1 &middot; What each colour means</h3>
+          <p class="capt">
+            Colour is never decoration on this screen. If a thing is coloured, the colour is the claim. v5 removes the
+            teal that v4 used for network counts &mdash; a neutral chip says the same thing with one less colour to
+            learn.
+          </p>
+          <div class="swatches">
+            <div class="tone">
+              <span class="blk" style="background: var(--accent)"></span
+              ><span><b>Accent</b><span class="mean">Chosen by you &middot; the current step</span></span>
+            </div>
+            <div class="tone">
+              <span class="blk" style="background: var(--good)"></span
+              ><span
+                ><b>Green</b><span class="mean">In catchment &middot; answered &middot; a bed ready now</span></span
+              >
+            </div>
+            <div class="tone">
+              <span class="blk" style="background: var(--warn)"></span
+              ><span
+                ><b>Amber</b
+                ><span class="mean"
+                  >Outstanding &middot; out of catchment &middot; a bed held &middot; free text leaving the screen</span
+                ></span
+              >
+            </div>
+            <div class="tone">
+              <span class="blk" style="background: var(--crit)"></span
+              ><span><b>Red</b><span class="mean">Refused combination &middot; over the character limit</span></span>
+            </div>
+            <div class="tone">
+              <span class="blk" style="background: var(--rule-2)"></span
+              ><span
+                ><b>Grey</b
+                ><span class="mean"
+                  >Occupied &middot; not applicable &middot; not recorded &middot; a count of the network</span
+                ></span
+              >
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>2 &middot; The four field states</h3>
+          <p class="capt">Every structured question renders as exactly one of these. There is no fifth.</p>
+          <div class="gallery">
+            <div class="demo">
+              <span class="t">Answered</span>
+              <div class="field" data-state="answered">
+                <span class="lab">Urgency <span class="state">Answered</span></span
+                ><span class="fauxselect">2 &mdash; within 24 hours</span>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Outstanding</span>
+              <div class="field" data-state="outstanding">
+                <span class="lab">Origin site <span class="state">Outstanding</span></span
+                ><span class="fauxselect">Choose one</span>
+                <p class="note" data-tone="warn">Still to answer</p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Not applicable</span>
+              <div class="field" data-state="na">
+                <span class="lab">Receiving team <span class="state">Not applicable</span></span
+                ><span class="fauxselect">Only asked for a community referral</span>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Refused</span>
+              <div class="field" data-state="error">
+                <span class="lab">Destination</span><span class="fauxselect">Ward + community team</span>
+                <p class="note" data-tone="crit">
+                  A bed request and a community referral cannot travel together. Send them as two.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ NEW SECTION IN v5 ══ -->
+        <div class="spec">
+          <h3>3 &middot; The written history, in all four of its states</h3>
+          <p class="capt">
+            Free text has its own states because its failure modes are its own. It is never green: green on this screen
+            means something was checked, and nothing checks this.
+          </p>
+          <div class="gallery">
+            <div class="demo">
+              <span class="t">Empty &mdash; optional</span>
+              <div class="prose">
+                <span class="lab">Background <span class="opt-tag">Optional</span></span>
+                <div class="box-text" style="min-height: 4rem" data-state="empty">Not written yet</div>
+                <div class="meter">
+                  <span class="count">0 / 2000</span><span class="track"><i style="width: 0%"></i></span>
+                </div>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Empty &mdash; required, and blocking</span>
+              <div class="prose">
+                <span class="lab">Why now <span class="req">Required</span></span>
+                <div class="box-text" style="min-height: 4rem" data-state="outstanding">
+                  Still to write &mdash; the referral cannot be sent without it
+                </div>
+                <div class="meter" data-tone="warn">
+                  <span class="count">0 / 1500</span><span class="track"><i style="width: 0%"></i></span>
+                </div>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Written</span>
+              <div class="prose">
+                <span class="lab">Why now <span class="req">Required</span></span>
+                <div class="box-text" style="min-height: 4rem">
+                  Seen at home this morning by the crisis team after her sister called. Three nights without
+                  sleep&hellip;
+                </div>
+                <div class="meter">
+                  <span class="count">312 / 1500</span><span class="track"><i style="width: 21%"></i></span
+                  ><span>Sent word for word</span>
+                </div>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Over the limit &mdash; blocking</span>
+              <div class="prose">
+                <span class="lab">Why now <span class="req">Required</span></span>
+                <div class="box-text" style="min-height: 4rem" data-state="over">
+                  &hellip;and the remainder of the account, which now runs past what this field holds.
+                </div>
+                <div class="meter" data-tone="crit">
+                  <span class="count">1614 / 1500</span><span class="track"><i style="width: 100%"></i></span
+                  ><span>114 characters over &mdash; nothing is truncated for you</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>4 &middot; The anchor, in all three of its states</h3>
+          <p class="capt">
+            The form can be opened three ways, and each is a different truth about who it is for. None may be faked.
+          </p>
+          <div class="gallery">
+            <div class="demo">
+              <span class="t">A &middot; Opened from a person&rsquo;s record</span>
+              <div class="anchor" style="box-shadow: none">
+                <div class="anchor-body" style="padding: var(--sp-3)">
+                  <span class="initials" aria-hidden="true">MW</span>
+                  <div class="identity">
+                    <h3 style="font-size: var(--t-lead); font-weight: 700">Maya Whitlock</h3>
+                    <p class="known"><span class="umrn">41 88 207</span> &middot; 34</p>
+                  </div>
+                </div>
+                <div class="anchor-foot" style="padding: var(--sp-2) var(--sp-3)">
+                  <span class="pointer"><span class="key">patient</span> <span class="n">PT-014</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="demo">
+              <span class="t">B &middot; Opened directly &mdash; no person attached</span>
+              <div class="anchor" style="box-shadow: none; border-top-color: var(--rule-3)">
+                <div class="anchor-body" style="padding: var(--sp-3)">
+                  <span
+                    class="initials"
+                    aria-hidden="true"
+                    style="background: var(--sunken); color: var(--faint); border-color: var(--rule-2)"
+                    >&mdash;</span
+                  >
+                  <div class="identity">
+                    <h3 style="font-size: var(--t-lead); font-weight: 700">No person attached</h3>
+                    <p class="known">This referral will carry no pointer. It can still be sent.</p>
+                  </div>
+                </div>
+                <div class="anchor-foot" style="padding: var(--sp-2) var(--sp-3)">
+                  <a class="btn btn--ghost btn--sm" href="#">Find a person</a>
+                </div>
+              </div>
+            </div>
+
+            <div class="demo">
+              <span class="t">C &middot; The link names somebody unknown</span>
+              <div class="anchor" style="box-shadow: none; border-top-color: var(--crit)">
+                <div class="anchor-body" style="padding: var(--sp-3)">
+                  <span
+                    class="initials"
+                    aria-hidden="true"
+                    style="background: var(--crit-wash); color: var(--crit); border-color: var(--crit-edge)"
+                    >!</span
+                  >
+                  <div class="identity">
+                    <h3 style="font-size: var(--t-lead); font-weight: 700">This link names nobody we know</h3>
+                    <p class="known">
+                      It names &ldquo;<span class="n">PT-9999</span>&rdquo;. The form does not open on a guess.
+                    </p>
+                  </div>
+                </div>
+                <div class="anchor-foot" style="padding: var(--sp-2) var(--sp-3)">
+                  <a class="btn btn--ghost btn--sm" href="#">Search for the person</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>5 &middot; The destination card, in all five of its states</h3>
+          <p class="capt">
+            Same information, same order, every time: name &rarr; verdict &rarr; one sentence of reason &rarr; the
+            question it asks, if it asks one &rarr; capacity &rarr; figures. Only the treatment changes. v5 adds the
+            fifth state &mdash; chosen, and asking.
+          </p>
+          <div class="gallery">
+            <div class="demo">
+              <span class="t">Available</span>
+              <div class="dest">
+                <div class="dest-head">
+                  <span class="box"></span><span class="name">Emergency department</span
+                  ><span class="chip" data-tone="good"><i class="dot"></i> In catchment</span>
+                </div>
+                <p class="why">Fiona Stanley is the catchment department for Fremantle.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Chosen</span>
+              <div class="dest" data-state="chosen">
+                <div class="dest-head">
+                  <span class="box">&#10003;</span><span class="name">Psychiatric ward</span
+                  ><span class="chip" data-tone="good"><i class="dot"></i> In catchment</span>
+                </div>
+                <p class="why">Seven units accept this request.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Chosen, and asking its question</span>
+              <div class="dest" data-state="chosen">
+                <div class="dest-head">
+                  <span class="box">&#10003;</span><span class="name">Community team</span
+                  ><span class="chip" data-tone="good"><i class="dot"></i> In catchment</span>
+                </div>
+                <div class="dest-ask">
+                  <span class="lab">Which team? <span class="state">Outstanding</span></span>
+                  <div class="picks">
+                    <span class="pick">Fremantle Adult</span><span class="pick">Armadale Adult</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Out of catchment &mdash; still sendable</span>
+              <div class="dest">
+                <div class="dest-head">
+                  <span class="box"></span><span class="name">Community team</span
+                  ><span class="chip" data-tone="warn"><i class="dot"></i> Out of catchment</span>
+                </div>
+                <p class="why">
+                  Offered, and sendable. Asking outside the catchment is legitimate; the screen records the choice
+                  rather than blocking it.
+                </p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Refused combination</span>
+              <div class="dest" data-state="refused">
+                <div class="dest-head">
+                  <span class="box"></span><span class="name">Community team</span
+                  ><span class="chip" data-tone="crit"><i class="dot"></i> Not with a bed request</span>
+                </div>
+                <p class="why">Cannot travel on the same referral as a psychiatric bed. <b>Send them as two.</b></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>6 &middot; Send, in all three of its states</h3>
+          <p class="capt">The button never disappears and never moves. Only its reason changes.</p>
+          <div class="gallery">
+            <div class="demo">
+              <span class="t">Blocked &mdash; questions outstanding</span>
+              <div class="send" style="position: static; box-shadow: none; border-radius: var(--r)">
+                <button class="btn btn--primary" aria-disabled="true" type="button">Send referral</button>
+                <p>Not yet answered: <b>Origin site</b>, <b>Why now</b>.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Ready</span>
+              <div
+                class="send"
+                style="
+                  position: static;
+                  box-shadow: none;
+                  border-radius: var(--r);
+                  border-color: var(--accent-edge);
+                  background: var(--accent-wash);
+                "
+              >
+                <button class="btn btn--primary" type="button">Send referral</button>
+                <p>Every question answered. Two destinations chosen &mdash; the history goes to both.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <span class="t">Sent</span>
+              <div
+                class="send"
+                style="
+                  position: static;
+                  box-shadow: none;
+                  border-radius: var(--r);
+                  border-color: var(--good-edge);
+                  background: var(--good-wash);
+                "
+              >
+                <span class="chip" data-tone="good"><i class="dot"></i> Sent</span>
+                <p>Recorded and waiting for a coordinator. <b>Nobody has been placed.</b></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <h3>7 &middot; Rules the build must not break</h3>
+          <p class="capt">
+            Each of these is here because breaking it has already caused a defect somewhere on this system. Rules 6 and
+            8 to 11 are new in v5 and all of them exist because of the written history.
+          </p>
+          <ol class="rules">
+            <li>
+              <b>Tap targets stay at 48&nbsp;px.</b> Not 44. Reducing them to satisfy a generic accessibility rule
+              reintroduces a known test flake.
+            </li>
+            <li>
+              <b>The reason sits beside the Send button, never above it.</b> Reasons appear and disappear as you answer;
+              a reason above the button moves the button out from under a thumb.
+            </li>
+            <li>
+              <b>A figure beside a checkbox stays beside that checkbox</b>, and a destination&rsquo;s question stays on
+              that destination&rsquo;s card. The screen-reader announcement points at it; moving it into a rail silently
+              unhooks the description.
+            </li>
+            <li>
+              <b>Absence is written in words.</b> &ldquo;Not recorded&rdquo;, &ldquo;Not written yet&rdquo;, never a
+              blank, never a dash, never a zero. A blank reads as a value.
+            </li>
+            <li>
+              <b>Nothing on this screen ranks, scores or suggests a destination</b>, and nothing scores the history.
+              Ordering is the network&rsquo;s own fixed order, and the copy says so.
+            </li>
+            <li data-tone="crit">
+              <b>The name never enters the STRUCTURED referral &mdash; and the history is not structured.</b> This
+              replaces v4&rsquo;s rule 6, which said flatly that the name may be shown but never stored. That was true
+              of a form with no text box and is not true of this one. Say which half is enforced, every time it is said.
+            </li>
+            <li>
+              <b>Every list of options is generated from the one source of truth</b>, never retyped into a sentence.
+              Retyped enumerations are how this system produced stale copy three times &mdash; including the sentence on
+              this very screen that counted the permitted facts and was still saying &ldquo;five&rdquo; after a sixth
+              was added.
+            </li>
+            <li data-tone="crit">
+              <b>The rail reports the history; it never previews it.</b> A truncated preview implies something read it.
+              Report the section count and the length.
+            </li>
+            <li data-tone="crit">
+              <b>Free text is never given a green state.</b> Green means checked on this screen, and nothing checks
+              this.
+            </li>
+            <li data-tone="crit">
+              <b>Nothing truncates the history silently.</b> Over the limit is a blocking, visible, counted state. A
+              form that quietly drops the last paragraph of a risk note is worse than one that refuses to send.
+            </li>
+            <li data-tone="crit">
+              <b>When more than one destination is chosen, the screen says the history goes to all of them</b>, before
+              the send, not after.
+            </li>
+          </ol>
+        </div>
+
+        <!-- ══ NEW SECTION IN v5 ══ -->
+        <div class="spec">
+          <h3>8 &middot; Open questions the build must settle</h3>
+          <p class="capt">
+            Written down here rather than promised on screen. A screen that guarantees behaviour nobody has built is the
+            defect this project finds most often, so none of these appears as a sentence to a clinician until it is
+            true.
+          </p>
+          <div class="opens">
+            <div class="open">
+              <span class="q">What happens to a half-written history if the page reloads?</span>
+              <span class="a"
+                >Today, on this prototype, it is lost &mdash; a reload wipes everything. That is tolerable for three
+                checkboxes and <b>not tolerable for four paragraphs of a risk note</b>. Either the draft is held and the
+                screen says so, or the screen warns before leaving. It must not silently do neither.</span
+              >
+            </div>
+            <div class="open">
+              <span class="q"
+                >Can the history be edited after sending, and does the receiving team see that it changed?</span
+              >
+              <span class="a"
+                >Unanswered. The structured referral is a decided act; free text invites correction. If it can be
+                edited, <b>the version the receiving team read must remain recoverable</b>, or two people will be acting
+                on different accounts of the same patient.</span
+              >
+            </div>
+            <div class="open">
+              <span class="q">Who can read the history after it is sent, and for how long?</span>
+              <span class="a"
+                >The structured fields carry no identifying content, so access to them has been a low-stakes question.
+                The history changes that: it is the first thing on this form that would matter if the wrong person read
+                it. <b>This needs an answer before the screen is used with a real patient</b>, not before it is
+                built.</span
+              >
+            </div>
+            <div class="open">
+              <span class="q">Are the three sections the right three?</span>
+              <span class="a"
+                >Chosen as the smallest set that shapes the writing without becoming a clinical form: <b>why now</b>,
+                <b>background</b>, <b>risk and safety</b>. A single unbounded box was rejected because nothing in it
+                suggests a shape, and everything ends up in it. This is a clinical judgement and belongs to the
+                owner.</span
+              >
+            </div>
+            <div class="open">
+              <span class="q">Are the character limits right?</span>
+              <span class="a"
+                >1500, 2000 and 1000 are placeholders chosen to be generous enough that nobody meets them in normal use,
+                and small enough that the field is bounded.
+                <b>Nobody has measured a real referral against them.</b></span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <p class="foot">
+        Mockup only &mdash; nothing is wired, and every person, bed count, wait, median and line of history above is
+        invented. The screen is drawn mid-flight on purpose, so answered, outstanding, not-applicable, in-catchment,
+        out-of-catchment, refused, written and unwritten states are all visible at once. The anchor&rsquo;s fields are
+        the ones a person record genuinely holds; where a record does not hold one, the anchor says so in words rather
+        than leaving a gap. Dark mode is defined for every token across the full triple, print and forced-colours rules
+        are defined, and no state on this screen is carried by colour alone.
+      </p>
+    </main>
+  </body>
+</html>

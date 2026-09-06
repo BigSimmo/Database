@@ -80,7 +80,7 @@ describe("the ward screen — the bed-list control is never gated by the confirm
     expect(screen.getByTestId("ward-hero-availability")).toHaveTextContent(/Always available/);
   });
 
-  it("points at this ward's own bed-capacity section, and shows the real, unitCapacity-derived free-bed count", () => {
+  it("points at this ward's own bed-capacity section, and shows the real, unitCapacity-derived ready-bed count", () => {
     const unit = unitById(RPH_ADULT_SECURE)!;
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
@@ -90,7 +90,7 @@ describe("the ward screen — the bed-list control is never gated by the confirm
 
     // Real, not invented: the same `unitCapacity()` this screen's own bed-capacity section reads.
     const available = unitCapacity(unit, []).available;
-    expect(screen.getByTestId("ward-hero-free")).toHaveTextContent(String(available));
+    expect(screen.getByTestId("ward-hero-ready")).toHaveTextContent(String(available));
     expect(screen.getByTestId("ward-hero-open-bed-list")).toHaveAttribute("href", "#bed-capacity");
     expect(document.getElementById("bed-capacity")).toBeInTheDocument();
   });

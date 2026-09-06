@@ -26,6 +26,7 @@ import {
 import type { Movement, Referral } from "../src/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 const NOW = NOW_ANCHOR;
 
 /**
@@ -64,6 +65,7 @@ function communityRefersToEmergencyDepartment(state: WardFlowState, edId = ATTEN
     urgency: 2,
     originSiteCode: "SCGH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
   });
 }
 

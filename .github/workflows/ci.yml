@@ -786,6 +786,64 @@ jobs:
 
   # Quarantined production tests and mockup-only journeys share one advisory
   # install/server without weakening the required production-ui job above.
+  # The seven Ward Flow browser journeys, and this lane BLOCKS.
+  #
+  # They live in the `chromium-mockups` project, which `test:e2e:pr` excludes with
+  # `--grep-invert @mockup`, so before this job the only lane that ran them was
+  # `ui-advisory` below — and that carries `continue-on-error: true`. A broken ward
+  # journey was therefore executed, reported, and passed anyway. Nothing in the
+  # repository could go red because of them.
+  #
+  # They are kept separate from `ui-advisory` rather than by removing its
+  # `continue-on-error`, because that lane also runs `@quarantine` — tests that are
+  # quarantined precisely because they are flaky, and which must stay non-blocking.
+  # None of the seven is quarantined and all seven are tagged `@mockup`; checked
+  # against `tests/flake-ledger.json`, which holds one entry and it is not a ward spec.
+  #
+  # 🔴 INERT UNTIL SOMEBODY TURNS IT ON, AND THAT IS THE WHOLE SAFETY PROPERTY.
+  #
+  # These seven have never gated anything, so nothing has kept them passing. A lane
+  # that is already red, made blocking, stops every UI pull request in the REPOSITORY
+  # — a blast radius entirely outside Ward Flow. The first draft relied on a comment
+  # saying "do not merge until they are seen green once", and that was not good
+  # enough: this reaches `main` inside a ward pull request measured at 1,629 commits
+  # and 429 files, of which `ci.yml` is one. A reviewer approving 429 files of ward
+  # work is not making a decision about CI policy; they are not even seeing one.
+  #
+  # So merging it does NOTHING. `vars.WARD_JOURNEYS_BLOCKING` is unset by default, the
+  # job is skipped, and `pr-required` records it as skipped-and-fine. Turning it on is
+  # one deliberate act in repository settings, at the moment somebody has a green run
+  # of the seven in front of them.
+  #
+  # ⚠️ A rule enforced only by a comment is not enforced. Splitting this onto its own
+  # branch was considered and is weaker — it still depends on somebody remembering why
+  # the branch is separate. This removes the dependency on anyone reading anything.
+  ui-ward-journeys:
+    name: Ward Flow browser journeys
+    needs: changes
+    if: >
+      vars.WARD_JOURNEYS_BLOCKING == 'true' &&
+      github.event_name == 'pull_request' &&
+      needs.changes.outputs.ui_changed == 'true' &&
+      github.event.pull_request.draft != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
+
+      - name: Ward Flow journeys (blocking)
+        run: npm run test:e2e:ward-journeys
+
+      - name: Classify exact failed test identities
+        if: failure()
+        run: node scripts/classify-playwright-failures.mjs
+
   ui-advisory:
     name: Advisory UI
     needs: changes
@@ -1265,6 +1323,7 @@ jobs:
         container-images,
         ui-critical-fast,
         ui-critical,
+        ui-ward-journeys,
         lighthouse-budget,
         db-reset-verify,
         caring-contacts-db,
@@ -1296,6 +1355,8 @@ jobs:
           CONTAINER_RESULT: ${{ needs.container-images.result }}
           UI_FAST_RESULT: ${{ needs.ui-critical-fast.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
+          WARD_JOURNEYS_RESULT: ${{ needs.ui-ward-journeys.result }}
+          WARD_JOURNEYS_BLOCKING: ${{ vars.WARD_JOURNEYS_BLOCKING }}
           LIGHTHOUSE_RESULT: ${{ needs.lighthouse-budget.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
           CARING_CONTACTS_DB_RESULT: ${{ needs.caring-contacts-db.result }}
@@ -1406,6 +1467,21 @@ jobs:
           else
             require_skipped_or_success "production-ui-critical" "$UI_FAST_RESULT"
             require_skipped_or_success "production-ui" "$UI_RESULT"
+          fi
+
+          # The seven Ward Flow browser journeys. Required here as well as blocking in their own
+          # job: without an entry in this aggregate a failing lane is reported and merged past,
+          # which is the same hole `continue-on-error: true` left. Gated to match that job's own
+          # `if:` exactly — pull_request, ui_changed, not draft — so an out-of-scope run reports
+          # skipped-and-fine rather than a false "result was skipped" failure.
+          # ⚠️ `WARD_JOURNEYS_BLOCKING` FIRST, and it mirrors the job's own `if:` exactly. Without it
+          # here, the aggregate would demand success from a job the workflow skipped by design, and
+          # the flag would fail closed on every UI pull request — the opposite of inert. The two
+          # conditions have to move together; a future edit to one is an edit to both.
+          if [ "$WARD_JOURNEYS_BLOCKING" = "true" ] && [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ] && [ "$EVENT_NAME" = "pull_request" ]; then
+            require_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
+          else
+            require_skipped_or_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
           fi
 
           require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"

@@ -203,3 +203,99 @@ a real recipient, and it is performed as one.
 
 **F4 — The rest of the movement workspace is to be reviewed the same way** the step track was:
 the Overview, Legal and forms, Transport and Timeline tabs.
+
+## R-2026-09-04-G — "It suggests nothing" is WITHDRAWN. The board is to match patients to beds.
+
+🔴 **THIS REVERSES SPEC D4, WHICH WAS NEVER AN OWNER RULING.** It was inferred, hardened into
+emphatic comments, enforced across four source files, and then obeyed by every session that met it —
+including the one that wrote this document. It reads exactly like a safety principle, which is why
+nobody questioned it.
+
+**What the owner decided (2026-09-04):** the app is to use all the information it has to make
+accurate suggestions about which patients best fit which wards, and about the most effective way to
+match **all** patients with beds. That second half is an allocation problem across the whole board,
+not a ranked list per patient.
+
+**The boundary that survives, and it is the one that always mattered:** the software never makes a
+clinical decision on its own. **The final acceptance comes from the users.** Advising and deciding
+are different acts, and only the second was ever the danger.
+
+⚠️ **THIS RULING CHANGES NO BEHAVIOUR TODAY, AND THAT IS DELIBERATE.** The owner's instruction was
+to lift the prohibition now and plan the matching work as the next design, not to start building it.
+So the code still suggests nothing — because nothing has been built, not because it is forbidden.
+
+### The distinction every comment in this area now has to make
+
+    DESCRIPTION   "this board does not rank wards"        — true today, and fine to write
+    INSTRUCTION   "this board MUST NEVER rank wards"      — withdrawn, and must not be written
+
+**The four source files carried the second and were read as binding.** They have been corrected to
+the first. A future reader must be able to tell "nobody has built this yet" from "you are forbidden
+to build this", and D4's wording made that impossible.
+
+### What is NOT decided by this ruling
+
+- **How matching is presented.** A ranked list, a proposed allocation, or a switch between them is a
+  design question and is open.
+- 🔴 **The regulatory question, which is now live.** A board that ranks wards _for a patient_ is
+  closer to clinical decision support than one that records what happened. The TGA/SaMD
+  classification box was left unticked on PR #2597 for exactly this reason, and lifting D4 is what
+  makes it a real question rather than a hypothetical. It needs answering before this ships to
+  anyone, not before it is prototyped.
+- **Nothing about authentication, integration or AI**, which the owner placed explicitly later.
+
+### The general lesson, recorded because D4 will not be the only one
+
+**An inferred constraint that reads like a safety rule is obeyed exactly as if it were one, and
+nothing distinguishes the two in the code.** Every hard rule in this project should be traceable to
+a ruling or marked as inferred. An audit of which is which is in progress.
+
+## R-2026-09-04-H — Sex and gender identity go to a clinician. The model is NOT changed yet.
+
+**Owner decision (2026-09-04):** ask a clinician who works in this area. **Leave the code as it is
+for now** — explicitly declining the offer to add a gender-identity field in advance of that advice.
+
+**What the code does today, measured rather than recalled:**
+
+    ward-model.ts        sex: Sex          one field; NO gender field exists anywhere
+    ward-eligibility.ts  unit.sexMix[movement.sex]
+                         sexDesignationAccepts(unit.sexDesignation, movement.sex)
+
+So a patient's bed eligibility is computed from that single value, and there is currently no way to
+record that a person's gender identity differs from their recorded sex — nor, therefore, any way for
+the board to represent it, let alone match on it.
+
+⚠️ **THE INTEGRATOR RECOMMENDED ADDING THE FIELD NOW AND WAS OVERRULED. Recording that, because a
+recommendation that quietly disappears looks later like an option nobody thought of.** The argument
+was that the data model is the expensive thing to change and the matching rule is the cheap one, so
+a field could be added without pre-empting the clinical answer. The owner's call is to change
+nothing until the advice arrives, and it is a defensible one: an unused field invites guesses about
+what it means, and a half-modelled distinction can be worse than an absent one.
+
+**What this means in practice, so nobody treats silence as approval:**
+
+- **Do not add a gender field, and do not widen `Sex`, until the clinician has been asked.**
+- ⚠️ **Every new screen built in the meantime hardens the single-field assumption**, which is the
+  cost of waiting and should be visible when the advice does arrive.
+- **This is a gate before any real-patient use**, not a blocker on prototyping.
+
+**Not decided here:** what the matching rule should be. That is the clinician's question, and it is
+the reason the field was not added pre-emptively.
+
+## R-2026-09-04-I — Aboriginal cultural safety review: deferred, and a hard gate
+
+**Owner decision (2026-09-04):** defer. Not commissioned now; recorded as a **hard gate before any
+real-patient use**.
+
+**The reasoning, which is the owner's and worth keeping:** the prototype runs on invented data and
+there is not yet enough of a real thing for reviewers to react to. A review commissioned against a
+sketch produces advice about a sketch.
+
+⚠️ **THE FAILURE MODE IS FORGETTING, NOT DISAGREEING.** Nobody in this project would argue against
+the review; the risk is that a deferred item filed under another feature is never found by whoever
+prepares Ward Flow for use. It is therefore recorded as a Ward Flow gate in its own right rather
+than relying on the Caring Contacts entry (`#1S81R8`), because Ward Flow is a separate surface with
+its own questions — bed allocation, transport, and detention-adjacent legal status.
+
+**It cannot be done by anyone inside this project.** It requires Aboriginal health practitioners.
+No amount of internal review substitutes for it, and no session should record it as addressed.
