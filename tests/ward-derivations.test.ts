@@ -6,10 +6,11 @@ import {
   buildActionInbox,
   destinationNoLongerLawful,
   eligibleCandidatesAmong,
+  isOpen,
   restrictionNotice,
   transportLeg,
 } from "../src/components/ward-management/ward-derivations";
-import { eligibility } from "../src/components/ward-management/ward-eligibility";
+import { eligibility, requiresAuthorisedDestination } from "../src/components/ward-management/ward-eligibility";
 import {
   DECLINE_REASONS,
   PARALLEL_REFERRAL_CAP,
@@ -218,7 +219,43 @@ describe("buildActionInbox", () => {
     );
   });
 
-  it("returns exactly as many items as the four categories combined — no more, no fewer", () => {
+  /**
+   * ⚠️ **THE COUNT TEST BELOW CANNOT PROVE THIS CATEGORY EXISTS, AND SINCE 2026-09-05 NOTHING ELSE
+   * COULD EITHER.** The fixture's one unlawful placement (WF-318) was a defect in the generated
+   * data and was fixed at its source, so the category's real population is now zero — which means
+   * the sum test agrees whether `buildActionInbox` emits these items or has the whole block
+   * deleted. `destinationNoLongerLawful` has its own suite further down; what had NO guard was the
+   * inbox actually surfacing what it returns. This is that guard, on an injected movement rather
+   * than on a fixture population that is allowed to be empty.
+   */
+  it("surfaces an accepted destination that is no longer lawful, on a movement built to be one", () => {
+    // A real fixture unit that is `authorised: false` — private, and never authorised to receive
+    // an involuntary admission under the Mental Health Act (see its own comment in ward-sites.ts).
+    const unlawful = movementFrom({ legalStatus: "Involuntary inpatient", acceptedUnitId: "sjgs-adult-open" });
+
+    expect(buildActionInbox([unlawful], NOW_ANCHOR, allUnits())).toContainEqual(
+      expect.objectContaining({
+        id: `destination-unlawful-${unlawful.id}`,
+        title: "Accepted destination no longer lawful",
+        movementId: unlawful.id,
+      }),
+    );
+  });
+
+  /**
+   * ⚠️ **THIS TEST WAS BLIND TO A WHOLE CATEGORY BY CONSTRUCTION, AND ITS OWN NAME SAID SO.**
+   *
+   * It counted FOUR categories against an inbox that builds FIVE — `destination-unlawful-` has
+   * been in `buildActionInbox` since it was written and was never in the sum. For a long time
+   * nothing showed it, because no movement in the fixture qualified; the day one did
+   * (`be5327210` moved the generated destination pool) this went red on "expected 4, got 5" and
+   * read as the derivation being broken when the derivation was right.
+   *
+   * Two things are asserted, because the count alone cannot notice a category it does not know
+   * about. The second is the one that matters: it fails on a SIXTH category being added without
+   * being counted here, which is the failure this test has already had once.
+   */
+  it("counts every inbox category, and goes red if a new one appears uncounted", () => {
     const legalCount = wardMovements.filter(
       (movement) =>
         movement.legalForm?.dueAt !== undefined && clockState(movement.legalForm.dueAt, NOW_ANCHOR) === "breached",
@@ -234,10 +271,54 @@ describe("buildActionInbox", () => {
       (movement) =>
         movement.stage === "pulled" && movement.pullExpiresAt !== undefined && movement.pullExpiresAt < NOW_ANCHOR,
     ).length;
+    // Re-expressed from the movement's own fields rather than by calling
+    // `destinationNoLongerLawful` — the function `buildActionInbox` itself calls. Counting a
+    // category with the very predicate that produced it is a tautology: it agrees by
+    // construction and can never report a disagreement. The other four terms here are
+    // independent re-expressions for the same reason.
+    /*
+     * 🔴 **THIS ASSERTION COUNTED FOUR CATEGORIES WHILE `buildActionInbox` BUILDS FIVE.** It passed
+     * for as long as the fifth — "Accepted destination no longer lawful" — happened to be empty,
+     * and it would have broken on any change that populated it. Which is exactly what happened on
+     * 2026-09-04: a fixture change re-pointed a generated acceptance onto an unauthorised ward, the
+     * fifth category fired for WF-318, and this test failed with "expected 4, got 5".
+     *
+     * ⚠️ **THE FAILURE WAS CORRECT AND THE OBVIOUS FIX WOULD HAVE BEEN WRONG.** Editing the four to
+     * a five would have made it green while leaving a generated patient accepted somewhere that
+     * could not lawfully hold them — and the fifth category is precisely the safety flag that
+     * noticed. The fixture was repaired instead; see `fallbackUnitId`.
+     *
+     * The fifth is counted now, so this can never again pass by a category being empty.
+     *
+     * ⚠️ **BOTH BRANCHES WROTE THIS COUNT INDEPENDENTLY AND ONE OF THEM OMITTED `isOpen`.**
+     * `destinationNoLongerLawful` gates on it first, so a CLOSED movement holding an unauthorised
+     * accepted unit is not emitted by the inbox — but a count without that line would still tally
+     * it, and the assertion would fail with the derivation innocent. It is invisible today only
+     * because the fixture now holds no unlawful placement at all, so both versions count nought.
+     * The line stays.
+     */
+    const unlawfulDestinationCount = wardMovements.filter((movement) => {
+      if (!isOpen(movement)) return false;
+      if (!requiresAuthorisedDestination(movement.legalStatus)) return false;
+      const unit = allUnits().find((candidate) => candidate.id === movement.acceptedUnitId);
+      return unit !== undefined && !unit.authorised;
+    }).length;
 
-    expect(buildActionInbox(wardMovements, NOW_ANCHOR, allUnits())).toHaveLength(
-      legalCount + declineCount + transportCount + expiredHoldCount,
+    const items = buildActionInbox(wardMovements, NOW_ANCHOR, allUnits());
+
+    expect(items).toHaveLength(
+      legalCount + declineCount + transportCount + expiredHoldCount + unlawfulDestinationCount,
     );
+
+    // The anti-blindness half. Every id prefix the inbox can emit, listed here so a new category
+    // cannot be added without this file being opened — the count above would happily stay right
+    // for the four it knows while a fifth went unnoticed, which is exactly what happened.
+    const KNOWN_CATEGORY_PREFIXES = ["legal-", "declines-", "transport-", "bed-pull-", "destination-unlawful-"];
+    const unrecognised = items.filter((item) => !KNOWN_CATEGORY_PREFIXES.some((prefix) => item.id.startsWith(prefix)));
+    expect(
+      unrecognised.map((item) => item.id),
+      "a category this test does not count is a category this test cannot guard",
+    ).toEqual([]);
   });
 
   it("gives every item a unique id even with several movements in the same category", () => {

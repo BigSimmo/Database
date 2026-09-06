@@ -28,6 +28,8 @@ import {
   MOVEMENT_STAGES,
   PARALLEL_REFERRAL_CAP,
   REFERRAL_DECLINE_REASONS,
+  REFERRAL_HISTORY_LIMITS,
+  type ReferralHistoryField,
   REFERRAL_SOURCES,
   SEXES,
   REFERRAL_DESTINATION_KINDS,
@@ -2534,6 +2536,59 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `RECEIVE_REFERRAL patientId must name a patient this system already holds, and ${event.patientId} names none`,
         );
       }
+      /*
+       * ⚠️ THE WRITTEN HISTORY — THE ONLY FIELD ON THIS EVENT THE REDUCER CANNOT MEMBERSHIP-CHECK.
+       *
+       * Every guard above resolves a value against a closed set. There is no set to check prose
+       * against, so exactly two things are enforced here and nothing else is even attempted:
+       *
+       *   1. It is a string at all — see the shape note below.
+       *   2. It does not exceed its limit in `REFERRAL_HISTORY_LIMITS`.
+       *
+       * ⚠️ **A BLANK STORY IS NO LONGER REFUSED.** It was, until the owner's ruling of 2026-09-05:
+       * one story box, OPTIONAL. The rejection that lived here — "a referral needs an account of
+       * why it was raised" — was a good sentence about a rule this product no longer has, and the
+       * front door no longer goes inert on an empty box either. **`""` is a complete answer.**
+       *
+       * ⚠️ **AN OVER-LENGTH VALUE IS REFUSED, NEVER TRUNCATED.** `.slice(0, limit)` here would
+       * accept the referral and silently drop the tail of somebody's risk note, and the intake
+       * would report success. A refusal is visible; a truncation is not, and the part most likely
+       * to be cut is the part written last, which on a risk note is usually the part that matters.
+       *
+       * ⚠️ **NOTHING ELSE IS INSPECTED.** No keyword scan for a name, no check that it "looks
+       * clinical", no urgency inferred from its wording. The moment this reducer reads meaning out
+       * of this field, the prototype is doing clinical decision support — see `Referral.history`.
+       */
+      /*
+       * ⚠️ THE SHAPE CHECK COMES FIRST, AND IT IS NOT DEFENSIVE PROGRAMMING FOR ITS OWN SAKE.
+       *
+       * The first version of this block went straight to `.trim()`, which threw a TypeError on any
+       * caller that omitted the field — and the reducer's own commentary on `sex` describes exactly
+       * who those callers are: "a non-form caller (a demo control, a Playwright fixture, the guided
+       * tour)". Three suites found it within a minute of the field landing.
+       *
+       * **A crash and a refusal are not the same outcome.** A refusal is a `Rejection` a clinician
+       * can read; a thrown TypeError unwinds out of `dispatch`, leaves the state untouched, and
+       * presents as a button that did nothing at all — the phantom-press failure this file already
+       * has a comment about on the officer screen. Every other guard here checks membership before
+       * it uses a value, and this one must too — **and it matters MORE now the field is optional**,
+       * because an omitted field and a deliberately blank one are the same keystroke away and the
+       * loop below is the only thing that tells a caller which mistake it made.
+       */
+      for (const field of Object.keys(REFERRAL_HISTORY_LIMITS) as ReferralHistoryField[]) {
+        if (typeof event[field] !== "string") {
+          return reject(state, event, `RECEIVE_REFERRAL ${field} must be text, even when it is empty text`);
+        }
+      }
+      for (const [field, limit] of Object.entries(REFERRAL_HISTORY_LIMITS) as [ReferralHistoryField, number][]) {
+        if (event[field].length > limit) {
+          return reject(
+            state,
+            event,
+            `RECEIVE_REFERRAL ${field} is ${event[field].length} characters and the limit is ${limit} — it is refused rather than shortened`,
+          );
+        }
+      }
       const sequence = state.frontDoorReferralSequence + 1;
       const created: Referral = {
         id: nextFrontDoorReferralId(sequence),
@@ -2553,6 +2608,11 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         urgency: event.urgency,
         originSiteCode: event.originSiteCode,
         transportNeeded: event.transportNeeded,
+        // ⚠️ BYTE FOR BYTE, AND THE UNTRIMMED ORIGINAL. The blank check above trims to decide
+        // whether anything was written; it does not trim what is kept. A referrer's leading
+        // indent and paragraph breaks are part of what they wrote, and a reducer that tidies
+        // prose is a reducer that has an opinion about prose.
+        history: event.history,
       };
       return { ...state, referrals: [...state.referrals, created], frontDoorReferralSequence: sequence };
     }

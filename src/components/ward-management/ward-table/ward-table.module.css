@@ -1,0 +1,180 @@
+/* src/components/ward-management/ward-table/ward-table.module.css
+ *
+ * The canonical Ward Flow table block. Verbatim from `discharges.module.css`, which had the
+ * clearest documented history of it: `escalation`, `handover`, `out-of-area` and
+ * `search`/`patient-search` each declared the same rule set independently — same tokens, same
+ * values, differing only in `min-width` and rule order across the eleven `.table`-named sites.
+ * Declared here ONCE now; every migrated module `composes: table from
+ * "../ward-table/ward-table.module.css"` on its own local `.table` class and adds nothing but its
+ * one legitimate per-screen variable, `--ward-table-min-width` (see below). No property here may
+ * be re-declared elsewhere — `tests/ward-table-single-source.test.ts` holds that line, walking the
+ * stylesheet tree from disk rather than a hand-written file list.
+ *
+ * ⚠️ `ed`, `ward-management-modes` and `ward-management-network` are DELIBERATELY NOT migrated in
+ * this round, even though an earlier deliverable list named them. Their tables
+ * (`.capacityTable`, `.dataTable`, `.compareTable`) are not re-declarations of this block: they
+ * use a different token layer in one case (`ward-management-network.module.css`'s own `--net-*`
+ * scale, which does not compose `wardTokens` at all), a different `border-collapse` mode and a
+ * sticky header in another, and a full grid border plus a smaller font tier in the third — three
+ * independent, deliberate designs, not copy-paste drift. Forcing them onto this shape would be a
+ * visual redesign, not the extraction this task was scoped as. See
+ * `.superpowers/sdd/2026-09-05-ward-screens-second-edition/task-wardtable-report.md`.
+ */
+.tableScroll {
+  composes: wardTokens from "../ward-tokens.module.css";
+  overflow-x: auto;
+  /*
+   * 🔴 `overflow-x: auto` DOES NOT CONTAIN AN ABSOLUTELY POSITIONED DESCENDANT, AND THAT LEAKED A
+   * WHOLE PAGE SIDEWAYS ON A PHONE.
+   *
+   * Measured on the patient-search board at a 375px viewport: `document.documentElement` carried
+   * 324px of horizontal scroll while EVERY element in the chain — `.tableScroll`, the panel, the
+   * main column, the screen, the shell, `<body>` — measured clean. The visible cells were contained
+   * correctly the whole time, which is why an ancestor walk found nothing.
+   *
+   * The escapee was a visually-hidden accessible label inside the last header cell:
+   * `<th><span class="sr-only">Open</span></th>`. `.sr-only` is `position: absolute`, and an
+   * absolutely positioned element takes its containing block from the nearest POSITIONED ancestor.
+   * Nothing between that span and `<body>` was positioned, so its containing block was the initial
+   * containing block — the one `position: fixed` uses — and it reached straight past this scroll box
+   * to the document, contributing the un-scrolled table's full width to the page's own overflow.
+   *
+   * ⚠️ **A SCROLL CONTAINER ONLY CLIPS ITS IN-FLOW DESCENDANTS.** That is the general fact, and it
+   * is why this was invisible to every containment guard we have: they measure the cells, and the
+   * cells were never the problem.
+   *
+   * `position: relative` with no offsets moves nothing, creates no stacking context (`z-index` stays
+   * `auto`), and does exactly one thing: gives this box a containing block, so any absolutely
+   * positioned descendant is clipped by the same scroll box as everything else.
+   *
+   * ⚠️ **HOISTED TO THE PRIMITIVE RATHER THAN FIXED ON THE PAGE THAT FOUND IT.** The agent that
+   * diagnosed it correctly refused to make that call and handed it up: the hazard belongs to every
+   * table composing this class, since any of them could gain an `sr-only` header label, a badge or a
+   * tooltip and leak identically. Verified before hoisting that no ward stylesheet positions a
+   * descendant of a table against an ancestor further out, so nothing is re-parented by this.
+   * Measured after: 324px of page overflow became 0.
+   */
+  position: relative;
+}
+
+/*
+ * THE SCROLL AFFORDANCE. `hasScrollThreshold` (ward-table.tsx) sets `data-ward-scroll-hint="true"`
+ * on this element for every caller that has declared a `--ward-table-min-width` threshold, i.e.
+ * every table that CAN find itself narrower than its content at some viewport. This cannot be a
+ * gradient/edge-fade: that device degrades to nothing under `forced-colors: active` (a fill, not a
+ * drawn edge) and obscures the leftmost characters of the very content it advertises — the defect
+ * this design language has already shipped once. A border has neither problem: `border` keeps its
+ * author-specified width and style under forced colours, only re-pointing its colour, and it never
+ * sits over the table's own content.
+ *
+ * `--ward-border-strong` is the colour, not `--ward-divider`/`--ward-border`: those two are the
+ * ordinary row-rule and panel-edge weight already present everywhere in this design language, so a
+ * cue drawn in that colour would read as "this is a panel" rather than "this is a distinct,
+ * scrollable region". `--ward-border-strong` aliases `--text-muted`, which is ALSO one of the roles
+ * `ckb-v2-tokens.css`'s forced-colors block re-points to `CanvasText` (line ~448) — so this cue
+ * needs no forced-colors override of its own, the same way eleven of `wardTokens`'s nineteen colour
+ * roles already need none (see that file's own forced-colors comment).
+ *
+ * MEASURED CONTRAST, `--ward-border-strong` against every surface a ward table sits on
+ * (WCAG 1.4.11 non-text contrast floor is 3:1; this is a structural border, not text):
+ *   light / --surface-subtle (#fbfcfd) vs --text-muted (#55627a): 5.99:1
+ *   light / --surface-raised (#ffffff) vs --text-muted (#55627a): 6.16:1
+ *   dark  / --surface-subtle (#1c2126) vs --text-muted (#a8b2bd): 7.54:1
+ *   dark  / --surface-raised (#1c2126, identical to subtle in dark) vs --text-muted: 7.54:1
+ * All four clear the floor with room to spare — comfortably above even the 4.5:1 text threshold —
+ * so the cue does not go the way `--ward-chrome` did, tuned against one surface and nearly invisible
+ * on the other.
+ *
+ * Width is `--ward-space-2` (2px), one step past the 1px hairline `--ward-divider` already uses
+ * everywhere else in this file, so the cue reads as a deliberately different, thicker edge rather
+ * than another ordinary rule.
+ */
+.tableScroll[data-ward-scroll-hint="true"] {
+  border: var(--ward-space-2) solid var(--ward-border-strong);
+}
+
+/*
+ * THE STATED SENTENCE. Renders as a sibling below the scroller, for every caller with a declared
+ * threshold, regardless of whether that table happens to overflow at the viewport currently being
+ * read — whether it does is a runtime fact this Server Component cannot measure (see ward-table.tsx
+ * for why it must not become a Client Component to find out), so the sentence states only what is
+ * true at every width: this table is built to scroll sideways rather than squash its columns.
+ */
+.scrollNotice {
+  margin: var(--ward-space-8) 0 0;
+  color: var(--ward-muted);
+  font-size: var(--text-xs);
+}
+
+.table {
+  width: 100%;
+  /*
+   * The one per-screen variable, carried as a custom property rather than a component prop that
+   * takes a length string — a raw length in TSX is the hex problem in another costume. Each
+   * migrated module sets `--ward-table-min-width` on its own local `.table` class (which
+   * `composes:` this one), same-element declarations winning over the default. Observed values:
+   * `30rem` (discharges, out-of-area), `44rem` (escalation), absent (handover, search).
+   *
+   * ⚠️ THE `0` DEFAULT IS DECLARED IN `ward-tokens.module.css`'s BASE BLOCK, NOT HERE — Ward
+   * Lead's ruling after this file first declared it locally: `tests/ward-design-language-
+   * contract.test.ts`'s phantom-token guard requires every `--ward-*` a module USES to be
+   * declared in the canonical token layer (so a typo cannot silently resolve to nothing), and the
+   * layer already owns non-colour facts of exactly this class beside `--ward-tap` and
+   * `--ward-radius-pixel`. Declaring it locally here passed that guard too (a module may legally
+   * declare its own name), but centralised is the form the layer is meant to take, and it is what
+   * every OTHER consumer of `wardTokens` inherits automatically rather than needing its own copy.
+   */
+  min-width: var(--ward-table-min-width, 0);
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+/*
+ * READ THIS BEFORE ADDING A RULE IN YOUR OWN MODULE THAT OVERRIDES A CELL.
+ *
+ * THE RULE BELOW IS A COMPOUND SELECTOR, AND A BARE CLASS IN YOUR MODULE LOSES TO IT.
+ *
+ *     .table th, .table td   specificity (0,1,1)   <- this rule
+ *     .num                   specificity (0,1,0)   <- a bare class in your module: LOSES
+ *     .myTable td.num        specificity (0,2,1)   <- wins
+ *
+ * So `text-align`, `vertical-align`, `padding` and `border-bottom` cannot be overridden from a
+ * bare class. **The rule is silently inert: the stylesheet reads as though the override applies,
+ * and the page renders as though it does not.**
+ *
+ * FOUND THE HARD WAY, 2026-09-05. A right-alignment rule for numeric columns on the compare screen
+ * was written as a bare `.num` and rendered LEFT-aligned. Numeric comparability down a column is
+ * the entire point of that table. Caught by opening the page, not by the suite.
+ *
+ * AND THE OBVIOUS GUARD CANNOT BE WRITTEN IN THIS TEST SUITE. `getComputedStyle(cell).textAlign`
+ * returns the empty string under jsdom, which loads no CSS Modules stylesheet — so an alignment
+ * assertion there can only ever FAIL, never pass, and a guard that cannot pass is as useless as one
+ * that cannot fail. Assert the property that actually broke instead: that the override is SCOPED to
+ * a table selector, read from the stylesheet source.
+ *
+ * This is the same mechanism as a catch-all losing to the compound selectors that style the tables
+ * and lists actually holding data. Scope your override; do not raise it with `!important`.
+ */
+.table th,
+.table td {
+  border-bottom: 0.0625rem solid var(--ward-divider);
+  padding: var(--ward-space-6) var(--ward-space-8);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table td {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.table tbody tr:last-child th,
+.table tbody tr:last-child td {
+  border-bottom: none;
+}

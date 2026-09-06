@@ -423,6 +423,34 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     LIGHTHOUSE_RESULT: "skipped",
     DB_RESULT: "skipped",
     CARING_CONTACTS_DB_RESULT: "success",
+    /*
+     * 🔴 **ADDED 2026-09-06, AND ITS ABSENCE TURNED ALL TWELVE OF THIS BLOCK'S CASES RED.** The
+     * `ui-ward-journeys` job and its two aggregate variables were added to `ci.yml` without this
+     * fixture gaining the matching entry, so `WARD_JOURNEYS_RESULT` reached the extracted script
+     * as an EMPTY STRING. `record()` treats anything that is not `success`, `skipped` or
+     * `cancelled` as a failure, so every case — including "passes when every in-scope job
+     * succeeded" — recorded `ward-flow-journeys result was ` and exited 1.
+     *
+     * ⚠️ **AND NOTHING LOCAL COULD HAVE CAUGHT IT: this whole `describe` is `skipIf(win32)`.** It
+     * runs on Linux only, so on this project's development machine it reports as SKIPPED rather
+     * than as failing, and the first execution it ever gets is in CI. A fixture that must be
+     * edited alongside a workflow, guarded by a block that cannot run where the workflow is
+     * edited, is the shape to watch for here.
+     *
+     * `"skipped"` is what GitHub actually sets for a job whose `if:` is false, which is the state
+     * on every pull request until `WARD_JOURNEYS_BLOCKING` is turned on in repository settings —
+     * so this fixture now describes the real default rather than an omission.
+     *
+     * ⚠️ **BOTH VARIABLES ARE NEEDED AND THE BLOCKING FLAG FAILS FIRST.** The script runs under
+     * `set -u`, so the unbound `WARD_JOURNEYS_BLOCKING` aborts it at that line before
+     * `WARD_JOURNEYS_RESULT` is ever read — which is why every case in the block died, not only
+     * the ward one. In the real workflow `env:` binds it to `${{ vars.WARD_JOURNEYS_BLOCKING }}`,
+     * which is the EMPTY STRING when the variable is unset: bound, and not `"true"`. The empty
+     * string here is therefore the faithful default, not a placeholder — writing `"false"` would
+     * test a state the repository never actually produces.
+     */
+    WARD_JOURNEYS_BLOCKING: "",
+    WARD_JOURNEYS_RESULT: "skipped",
   };
 
   function runAggregate(overrides: Record<string, string> = {}) {

@@ -496,7 +496,27 @@
   --success-bg: #ecfdf3;
   --success-border: #abefc6;
   --warning-text: #8a4d05;
-  --warning-bg: #fef7ec;
+  /* ⚠️ THE ONLY WARM SURFACE LEFT IN THE PRODUCT, AND IT READ AS CREAM. Was `#fef7ec`.
+   *
+   * v2 modernised every neutral surface to pure white and never touched the four status
+   * backgrounds, so this one kept a warm yellow against white panels. Its three siblings are all
+   * cool — `--info-bg #eff4ff`, `--success-bg #ecfdf3`, `--danger-bg #fef3f2` — so warning was the
+   * outlier by HUE rather than by lightness, which is why it looked dingy rather than merely
+   * different.
+   *
+   * It is the second most-used background in the ward layer: 46 uses across ~20 stylesheets, one
+   * to eight each. Spread that thin it is a genuine warning treatment rather than one large
+   * surface painted wrongly — so the TOKEN moves and no call site does.
+   *
+   * Lifted toward white and de-yellowed. The signal now sits in `--warning-border` and
+   * `--warning-text`, which already carry it, rather than in a large tinted field.
+   *
+   * ⚠️ CHANGE IT HERE AND NOWHERE ELSE. Setting it in `ckb-v2-tokens.css` instead creates a
+   * divergence that `check:design-system-contract` fails — the v2 value would paint and this one
+   * would silently do nothing. That gate caught exactly that on the first attempt at this change.
+   *
+   * Owner request, 2026-09-04: "I want the crisp white... not the cream colour". */
+  --warning-bg: #fffcf6;
   --warning-border: #f5d9a8;
   --danger-text: #a3190f;
   --danger-bg: #fef3f2;

@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Same reason as the sibling dom suites (ward-screen.dom.test.tsx,
 // ward-flow-clock-consistency.dom.test.tsx): `ClinicalRail` renders next/link anchors and this
@@ -18,7 +19,9 @@ import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import { COHORTS, URGENCY_LEVELS, type UrgencyLevel } from "@/components/ward-management/ward-model";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
-import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { bedReleases } from "@/components/ward-management/ward-movements";
+import { unitCapacity } from "@/components/ward-management/ward-derivations";
 import { formTitleForCode } from "@/lib/form-register";
 
 /**
@@ -207,7 +210,7 @@ describe("emergency department intake picker", () => {
 
     const outstanding = screen.getByTestId(`ward-ed-outstanding-${FIRST_RAISED_ID}`);
     expect(outstanding).toHaveAttribute("data-kind", "examination");
-    expect(outstanding).toHaveTextContent("No examination outcome recorded for this movement.");
+    expectSays(outstanding.textContent ?? "", "the examination-outcome absence line", ["no examination", "none"]);
     // The software may not say what a Form 1A means or what it referred this person for.
     // `fillRequiredReferralFields` answers legal status Voluntary above, so the deleted wording
     // would have been false here as well as unattributed.
@@ -629,5 +632,66 @@ describe("one-to-one nursing must be stated, not assumed", () => {
 
     fireEvent.click(screen.getByTestId("ward-ed-referral-specialling-not-required"));
     expect(submit.getAttribute("aria-disabled"), "still blocked after the clinician answered").toBeNull();
+  });
+});
+
+describe("the ED screen's statewide capacity table says which ready beds are not yet usable", () => {
+  /*
+   * 🔴 **OWNER RULING 2026-09-05, CARRIED TO THIS SCREEN 2026-09-06.** "Ready" counts beds the
+   * application itself refuses to admit a patient into — `ward-flow-reducer.ts` rejects
+   * `PULL_PATIENT` with *"every free bed at X is still being made ready"*. The ruling was explicitly
+   * NOT to change the number: the cleaning count sits beside it.
+   *
+   * ⚠️ **THIS TABLE IS READ-ONLY AND THAT IS NOT A REASON TO OMIT THE COUNT.** Nothing on it can be
+   * actioned, but a figure that overstates availability does its damage wherever it is believed,
+   * not only where it is clicked. Before this, nothing in the repository asserted anything at all
+   * about this table.
+   *
+   * The count comes from `bedsPendingPreparation`, the reducer's OWN helper — the same function
+   * whose result gates the refusal — so this screen and that refusal cannot disagree.
+   */
+  const PREPARING_UNIT = "arm-adult-open";
+
+  it("fixture precondition: exactly one ward has a bed discharged and still being made ready", () => {
+    const preparing = bedReleases.filter((release) => release.state === "discharged" && release.preparing);
+    expect(
+      preparing.map((release) => release.unitId),
+      "no seeded release is discharged-and-preparing, so both assertions below would be vacuous",
+    ).toContain(PREPARING_UNIT);
+  });
+
+  it("shows the cleaning count beside that ward's Ready figure, and the figure itself is untouched", () => {
+    renderEd();
+    const cell = screen.getByTestId(`ward-ed-capacity-ready-${PREPARING_UNIT}`);
+    const note = within(cell).getByTestId(`ward-ed-capacity-pending-${PREPARING_UNIT}`);
+
+    expect(note).toHaveTextContent(/still being made ready/u);
+
+    /*
+     * The figure is read with the note stripped out, and compared against `unitCapacity` — the same
+     * derivation the screen calls. Asserting the whole cell's text would conflate the ruling working
+     * with the defect it forbids, which is exactly how the sibling guard on the ward screen came to
+     * go red for the right behaviour.
+     */
+    const figure = (cell.textContent ?? "").replace(note.textContent ?? "", "").trim();
+    const unit = allUnits().find((candidate) => candidate.id === PREPARING_UNIT)!;
+    expect(figure, "the cleaning count was subtracted from Ready; the owner ruled the number does not move").toBe(
+      String(unitCapacity(unit, bedReleases).available),
+    );
+  });
+
+  it("renders no cleaning note for a ward with nothing being made ready", () => {
+    /*
+     * Both directions. Without this the guard above would pass on a screen that printed the note on
+     * every row — which would claim every ward has a bed out of use.
+     */
+    const quiet = allUnits().find(
+      (unit) => !bedReleases.some((r) => r.unitId === unit.id && r.state === "discharged" && r.preparing),
+    )!;
+    renderEd();
+    expect(
+      screen.queryByTestId(`ward-ed-capacity-pending-${quiet.id}`),
+      `${quiet.id} has nothing being made ready and must not claim it does`,
+    ).toBeNull();
   });
 });
