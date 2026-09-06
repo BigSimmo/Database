@@ -58,10 +58,12 @@ async function goBackToWard(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
-/** The capacity board's per-unit row renders six `<span>`s in this fixed order — Now, Held,
+/** The capacity board's per-unit row renders six `<span>`s in this fixed order — Ready, Held,
  *  Confirmed, Expected, Blocked, Occupied (`CapacityView`'s own JSX in
- *  `ward-management-modes.tsx`) — each rendering as e.g. `"1Now"` with no space between the
- *  number and its label, so `toHaveText` matches the literal concatenation. */
+ *  `ward-management-modes.tsx`) — each rendering as e.g. `"1Ready"` with no space between the
+ *  number and its label, so `toHaveText` matches the literal concatenation. "Now" was renamed to
+ *  "Ready" in 9a257d846 ("ready" everywhere, ruling R-B-09/R-B-10) — this was the one site left
+ *  using the old word for this number. */
 function bedStateCells(page: Page) {
   return page.getByTestId(`ward-capacity-bed-states-${UNIT_ID}`).locator("span");
 }
@@ -134,7 +136,7 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     // --- The coordinator's capacity board reflects the flag: Expected +1, Confirmed unmoved. ---
     await goToCapacityBoard(page);
     const cells = bedStateCells(page);
-    await expect(cells.nth(0)).toHaveText("1Now");
+    await expect(cells.nth(0)).toHaveText("1Ready");
     await expect(cells.nth(2)).toHaveText("1Confirmed"); // WR-001, seeded confirmed
     await expect(cells.nth(3)).toHaveText("1Expected"); // the release just flagged
 
@@ -189,10 +191,11 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     // `discharged` is terminal and drops off the ward's own pending list (spec D10).
     await expect(releaseRow).toHaveCount(0);
 
-    // --- The board reflects the release: Now (`availableNow`) rises by one — the single number
-    // this whole phase exists to protect, moving only once the bed is truly, physically free. ---
+    // --- The board reflects the release: Ready (`capacity.available`) rises by one — the single
+    // number this whole phase exists to protect, moving only once the bed is truly, physically
+    // free. ---
     await goToCapacityBoard(page);
-    await expect(cells.nth(0)).toHaveText("2Now");
+    await expect(cells.nth(0)).toHaveText("2Ready");
     await expect(cells.nth(2)).toHaveText("1Confirmed");
     await expect(cells.nth(3)).toHaveText("0Expected");
   });
@@ -262,21 +265,45 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
      * passed. `toBeVisible` is the matcher that fails for `display: none`, `visibility: hidden` and
      * a zero-size box alike, which is the whole class the geometric loop cannot see.
      *
-     * Pinned on the first table rather than all four: every group renders the same `<thead>` from
-     * one component, so one is the header contract and four would be the same assertion written
-     * four times. Nothing below is relaxed to make room for these.
+     * ⚠️ **THIS WAS PINNED ON THE FIRST TABLE ONLY, AND THE REASON GIVEN STOPPED BEING TRUE ON
+     * 2026-09-05.** The comment here read: *"every group renders the same `<thead>` from one
+     * component, so one is the header contract and four would be the same assertion written four
+     * times."* Ward Lead ruling E16 dropped the `Blocker` column from the three non-blocked groups
+     * — `groupDischarges` routes every release with a blocker into `blocked`, so the cell said
+     * "Not applicable" on every row elsewhere — and the four `<thead>`s stopped agreeing. **The
+     * assertion would have gone on passing, still green, still measuring the blocked table, while
+     * three tables it silently claimed to cover went unpinned.** A guard that keeps asking its
+     * original question after the answer has changed shape is the failure this file's own W1 note
+     * is about, one layer up.
+     *
+     * Both shapes are pinned now, and each is checked on the group it belongs to. Nothing below is
+     * relaxed to make room for these.
      */
     const DISCHARGE_COLUMNS = ["Unit", "Health service", "Expected", "Stage", "Blocker", "Freshness"];
-    const dischargeHeaders = scrollers.first().locator("thead th");
-    await expect(
-      dischargeHeaders,
-      "the discharges board's table no longer carries exactly these six columns, in this order",
-    ).toHaveText(DISCHARGE_COLUMNS);
-    for (const [index, column] of DISCHARGE_COLUMNS.entries()) {
+    const DISCHARGE_COLUMNS_NO_BLOCKER = ["Unit", "Health service", "Expected", "Stage", "Freshness"];
+    const columnsByGroup: ReadonlyArray<readonly [string, readonly string[]]> = [
+      ["blocked", DISCHARGE_COLUMNS],
+      ["confirmed", DISCHARGE_COLUMNS_NO_BLOCKER],
+      ["expected", DISCHARGE_COLUMNS_NO_BLOCKER],
+      ["discharged-today", DISCHARGE_COLUMNS_NO_BLOCKER],
+    ];
+    for (const [groupKey, columns] of columnsByGroup) {
+      const table = page.getByTestId(`ward-discharge-table-${groupKey}`);
       await expect(
-        dischargeHeaders.nth(index),
-        `the discharges board's \`${column}\` column is in the document but not on the screen`,
+        table,
+        `the discharges board renders no table for \`${groupKey}\`, so its column contract went unchecked`,
       ).toBeVisible();
+      const headers = table.locator("thead th");
+      await expect(
+        headers,
+        `the \`${groupKey}\` group no longer carries exactly these columns, in this order`,
+      ).toHaveText([...columns]);
+      for (const [index, column] of columns.entries()) {
+        await expect(
+          headers.nth(index),
+          `the \`${groupKey}\` group's \`${column}\` column is in the document but not on the screen`,
+        ).toBeVisible();
+      }
     }
 
     for (const width of [641, 700, 760, 820]) {

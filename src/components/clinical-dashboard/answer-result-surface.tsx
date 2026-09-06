@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
-import { ChevronDown, CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
+import { memo, useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
+import { CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 
@@ -22,12 +22,12 @@ import { CanonicalAnswerTables } from "@/components/clinical-dashboard/visual-ev
 import { annotateSourceAttachments, buildAnswerSourceRows } from "@/components/clinical-dashboard/answer-source-rows";
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { AnswerCard, type AnswerSupportStrength } from "@/components/ui/answer-card";
-import { VerificationNotice } from "@/components/ui/verification-notice";
+import { compactVerificationWordingFor, VerificationNotice } from "@/components/ui/verification-notice";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn } from "@/components/ui-primitives";
 import { isCurrencyReviewWarning, type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { type AppModeId } from "@/lib/app-modes";
-import { extractSafetyFindings } from "@/lib/clinical-safety";
+import { extractSafetyFindings, groupSafetyFindingsByKind } from "@/lib/clinical-safety";
 import type { BestSourceRecommendation, EvidenceSummary, QuoteCard, RagAnswer, SearchResult } from "@/lib/types";
 
 /**
@@ -35,9 +35,23 @@ import type { BestSourceRecommendation, EvidenceSummary, QuoteCard, RagAnswer, S
  *
  * @returns The staged answer surface.
  */
-/** The header status chips share one shape so they read as one status line. */
-const chipShape =
-  "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-3xs font-semibold uppercase tracking-eyebrow";
+/** The header status chips share one shape so they read as one status line.
+ *
+ * Sentence case at `--text-xs`, replacing uppercase at `--text-3xs`. **Owner preference, not a
+ * spec violation being corrected** — `docs/design-system/sweep-2026-08-29-unenforced-rules.md`
+ * row 9 counts `uppercase tracking-eyebrow` sites among the 75 SANCTIONED ones, so the previous
+ * setting was allowed and SPEC §11 carries no gate either way. Recorded as preference so a later
+ * reader does not take it for a rule.
+ *
+ * The size change is not cosmetic and must not be reverted with the capitalisation. At 10px,
+ * `uppercase` + `tracking-eyebrow` was carrying real legibility: every glyph sat at cap height
+ * with 0.08em of air. Sentence case at 10px drops most glyphs to x-height and takes the spacing
+ * away, which would have left the single most load-bearing string on this screen quieter than
+ * before rather than calmer. `--text-xs` is also what SPEC §"Type scale" assigns to chips; 10px
+ * is the micro floor for count bubbles and legends.
+ *
+ * Nothing about what these state has changed: same words, same amber tokens, same icons. */
+const chipShape = "inline-flex min-h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold";
 /**
  * An interactive chip is a small pill inside a full-size button, not a small
  * button. `before:-inset-y-*` hit expansion draws the same 48px region and is
@@ -54,8 +68,9 @@ const chipButton =
   // 390px before that was removed: the safety chip covered a 133x9px band of the
   // support chip beside it and a 133x2px band of the answer prose below, and a
   // tap in either band opened the chip instead of doing nothing. Keep the full
-  // 48px hitbox in layout; `AnswerCard` gives these chips a row of their own so
-  // the honest height costs nothing.
+  // 48px hitbox in layout; `AnswerCard` puts these chips in a centre-aligned
+  // status row that takes its height from the tallest child, so the honest 48px
+  // costs nothing even while they share the line with the static support pill.
   "inline-flex min-h-12 shrink-0 items-center focus-visible:outline-none";
 const chipFocus =
   "group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-[color:var(--focus)]";
@@ -164,9 +179,31 @@ function StagedAnswerResultSurfaceImpl({
     onSubmitFeedback("wrong_source");
   }, [onSubmitFeedback]);
   const safetyTriggerRef = useRef<HTMLButtonElement>(null);
-  function openSafetyFindings() {
+  /**
+   * Which pill opened the sheet, so closing returns focus there rather than to
+   * the first pill in the rail.
+   *
+   * `safetyTriggerRef` alone cannot do this: the rail has one button per finding
+   * kind, so a ref bound to the first would drag focus back to the left edge
+   * after opening from any other pill — and because the rail scrolls
+   * horizontally, that also scrolls the row out from under the reader. `Sheet`
+   * consults this resolver before `returnFocusRef`, so the ref stays as the
+   * fallback for the case where the opener has since unmounted.
+   */
+  const safetyOpenerRef = useRef<HTMLButtonElement | null>(null);
+  // One trigger, so a plain ref is enough — unlike the safety rail, which has a button per
+  // finding and needs `resolveSafetyReturnFocus` to send focus back to the one that was tapped.
+  const limitationsTriggerRef = useRef<HTMLButtonElement>(null);
+  function openSafetyFindings(event: MouseEvent<HTMLButtonElement>) {
+    safetyOpenerRef.current = event.currentTarget;
     setSafetyFindingsOpen(true);
   }
+  const resolveSafetyReturnFocus = useCallback(() => {
+    const opener = safetyOpenerRef.current;
+    // Only if it is still in the document — a re-rendered answer replaces these
+    // buttons, and focusing a detached node silently drops focus to <body>.
+    return opener?.isConnected ? opener : null;
+  }, []);
   function closeSafetyFindingsReview() {
     setSafetyFindingsOpen(false);
   }
@@ -217,34 +254,78 @@ function StagedAnswerResultSurfaceImpl({
    * card carries a dash instead of a number. Two spellings of one number in one
    * glance invite the reader to look for a difference between them.
    *
-   * The safety chip is the ONLY route to the safety-critical findings sheet now
-   * that the support card is gone, so it is a real button whenever there are
-   * findings — never a decorative label. Its count is worded, not bare: "2
-   * safety notes" survives forced-colors and greyscale print, where a coloured
-   * chip alone would not.
+   * The safety findings themselves are NOT here any more (owner decision,
+   * 2026-09-03). They render as the Key points rail below the prose, at the
+   * seam where the answer ends and its evidence begins, because a finding is
+   * extracted content rather than a statement about the answer's status. This
+   * row is now the support chip plus the limitations control alone.
    */
-  const answerMetaChips =
+  const answerMetaChips = null;
+  /**
+   * The Key points rail: one pill per finding kind, in severity order,
+   * every pill opening the same sheet.
+   *
+   * Grouped by kind because `SafetyFinding` carries no short title — only
+   * `label` ("Contraindication") and `text`, the whole passage — so a pill per
+   * finding would either repeat "Monitoring" twice or put a full passage in a
+   * pill. The count carries the repetition instead.
+   *
+   * Each pill is a small pill inside a full-size button, exactly as the header
+   * chips are, and for the same recorded reason: `before:-inset-y-*` hit
+   * expansion draws a 48px region that `boundingBox()` cannot see, so every
+   * tap-target gate passes while the control silently covers its neighbours.
+   * The button carries the height, the pill carries the look.
+   */
+  const clinicalPointGroups = useMemo(() => groupSafetyFindingsByKind(safetyFindings), [safetyFindings]);
+  const clinicalPointsRail =
     safetyFindings.length > 0 ? (
-      <button
-        ref={safetyTriggerRef}
-        id="answer-safety-findings-drawer-trigger"
-        data-testid="answer-safety-findings-trigger"
-        type="button"
-        onClick={openSafetyFindings}
-        className={cn("group", chipButton)}
-        aria-label={`Open safety-critical source findings — ${safetyFindings.length} ${safetyFindings.length === 1 ? "note" : "notes"}`}
+      <section
+        data-testid="answer-clinical-points"
+        aria-label={`Key points — ${safetyFindings.length} ${safetyFindings.length === 1 ? "point" : "points"}`}
+        className="flex min-w-0 items-center gap-2 overflow-x-auto scrollbar-none"
       >
-        <span
-          className={cn(
-            chipShape,
-            "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)] transition group-hover:bg-[color:var(--warning-soft)]/70",
-            chipFocus,
-          )}
-        >
-          <TriangleAlert aria-hidden="true" className="size-icon-xs shrink-0" />
-          {safetyFindings.length} {safetyFindings.length === 1 ? "safety note" : "safety notes"}
+        <span className="shrink-0 text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          Key points
         </span>
-      </button>
+        {clinicalPointGroups.map((group, index) => (
+          <button
+            key={group.kind}
+            // The first pill is the sheet's return-focus target, so a tap
+            // anywhere on the rail returns focus somewhere predictable.
+            ref={index === 0 ? safetyTriggerRef : undefined}
+            id={index === 0 ? "answer-safety-findings-drawer-trigger" : undefined}
+            data-testid={index === 0 ? "answer-safety-findings-trigger" : "answer-clinical-point"}
+            data-tone={group.tone}
+            type="button"
+            onClick={openSafetyFindings}
+            className={cn("group shrink-0", chipButton)}
+            aria-label={`Open key points — ${group.label}${group.count > 1 ? `, ${group.count}` : ""}`}
+          >
+            <span
+              className={cn(
+                "inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 text-2xs font-medium transition",
+                group.tone === "stop"
+                  ? "border-[color:var(--danger)]/35 bg-[color:var(--danger)]/8 text-[color:var(--text-heading)] group-hover:bg-[color:var(--danger)]/12"
+                  : group.tone === "act"
+                    ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/60 text-[color:var(--text-heading)] group-hover:bg-[color:var(--warning-soft)]"
+                    : "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text)] group-hover:bg-[color:var(--surface-subtle)]",
+                chipFocus,
+              )}
+            >
+              {group.tone === "stop" ? (
+                <ShieldAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--danger)]" />
+              ) : group.tone === "act" ? (
+                <TriangleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
+              ) : (
+                <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" />
+              )}
+              {group.label}
+              {/* Neutral, never a status-coloured numeral. */}
+              {group.count > 1 ? <span className="nums text-[color:var(--text-muted)]">{group.count}</span> : null}
+            </span>
+          </button>
+        ))}
+      </section>
     ) : null;
   /**
    * Evidence gaps sit with the other status chips rather than in the action row.
@@ -261,60 +342,62 @@ function StagedAnswerResultSurfaceImpl({
   const answerGapWarningCount = renderModel.warnings.filter((warning) => !isCurrencyReviewWarning(warning)).length;
   /**
    * The chip is the ONLY place the default view states that a cited source is
-   * overdue on a source-only answer: `VerificationNotice` is `hidden print:flex`
-   * there (its wording moves into the Source-only disclosure), and that
-   * disclosure's collapsed pill reads "Source-only · verify passages", which
-   * says nothing about currency. So `Review due` must survive the presence of
-   * warnings rather than being replaced by their count — dropping it was a
-   * genuine regression in the first cut of this change, and the combination that
-   * exposes it (source-only + stale + warnings) is the common one, because the
-   * same overdue assessment that sets the stale state also adds a warning.
+   * overdue on a source-only answer, and since the Source-only pill was folded
+   * into this disclosure it is also the only place the default view states that
+   * no model wrote the answer. `VerificationNotice` is `hidden print:flex`
+   * there, so if the label drops either fact, nothing on screen carries it.
+   *
+   * That is why `Source-only` and `Review due` are prefixes rather than
+   * alternatives to the count: dropping `Review due` for a warning count was a
+   * genuine regression in an earlier cut, and the combination that exposes it
+   * (source-only + stale + warnings) is the common one, because the same overdue
+   * assessment that sets the stale state also adds a warning.
    */
-  const answerEvidenceChipLabel = [
+  const answerLimitationsChipLabel = [
+    sourceOnly ? "Source-only" : null,
     answerReviewDue || (answerGapWarningCount === 0 && renderModel.warnings.length > 0) ? "Review due" : null,
-    answerGapWarningCount > 0
-      ? `${answerGapWarningCount} evidence ${answerGapWarningCount === 1 ? "gap" : "gaps"}`
-      : null,
+    answerGapWarningCount > 0 ? `${answerGapWarningCount} limitation${answerGapWarningCount === 1 ? "" : "s"}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
   const answerMetaChipsWithGaps =
-    renderModel.warnings.length > 0 || answerReviewDue ? (
+    renderModel.warnings.length > 0 || answerReviewDue || sourceOnly ? (
       <>
         {answerMetaChips}
         <button
-          id="answer-evidence-gaps-trigger"
-          data-testid="answer-evidence-gaps-trigger"
+          id="answer-limitations-trigger"
+          data-testid="answer-limitations-trigger"
           type="button"
-          onClick={() => setEvidenceGapsOpen((current) => !current)}
+          ref={limitationsTriggerRef}
+          onClick={() => setEvidenceGapsOpen(true)}
           className={cn("group", chipButton)}
-          aria-expanded={evidenceGapsOpen}
-          // Unconditional, because the panel below is mounted whether or not it
-          // is open. The conditional attribute this replaces was well formed —
-          // attribute and target appeared and disappeared together, which is
-          // what the feedback trigger in `evidence-panels.tsx` still does, and
-          // correctly. It is only redundant here now that the target is always
-          // present.
-          aria-controls="answer-evidence-gaps-detail"
+          aria-label={`Answer limitations — ${answerLimitationsChipLabel}`}
+          // `aria-haspopup`, not `aria-expanded`/`aria-controls`. This opens a dialog now, and
+          // the two announcements are not interchangeable: `aria-expanded` promises a region
+          // revealed in place, which is exactly the behaviour that has gone. The dialog is not
+          // in the tree while closed, so a persistent `aria-controls` would dangle.
+          aria-haspopup="dialog"
         >
           <span
             className={cn(
               chipShape,
               evidenceGapsOpen
                 ? "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] group-hover:bg-[color:var(--surface-subtle)]",
+                : // `--text`, not `--text-muted`. On a source-only answer `VerificationNotice` is
+                  // `hidden print:flex`, so this label is the ONLY on-screen carrier of "no model
+                  // wrote this answer" and "a cited source is overdue". Muted grey made the
+                  // one string that must be read the quietest thing in the row.
+                  "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text)] group-hover:bg-[color:var(--surface-subtle)]",
               "transition",
               chipFocus,
             )}
           >
             <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
-            {answerEvidenceChipLabel}
-            {/* The chip looked identical open and closed, so on a phone the only
-                way to tell was to find the panel. */}
-            <ChevronDown
-              aria-hidden="true"
-              className={cn("size-icon-xs shrink-0 transition-transform", evidenceGapsOpen && "rotate-180")}
-            />
+            {answerLimitationsChipLabel}
+            {/* No chevron. A chevron promises an expansion in place; this opens a sheet, and
+                the sheet's own arrival is the state change a reader sees. The earlier note
+                here — that the chip looked identical open and closed, so on a phone the only
+                way to tell was to find the panel — no longer applies for the same reason. */}
           </span>
         </button>
       </>
@@ -344,23 +427,41 @@ function StagedAnswerResultSurfaceImpl({
       />
     ) : null;
   /**
-   * The disclosure, mounted whether or not the chip is expanded so
-   * `aria-controls` above always resolves, and rendered by `AnswerCard`
-   * immediately under the chip row rather than below the whole answer.
+   * The limitations content, now the body of a sheet rather than a panel that expanded in place.
+   *
+   * The move is not cosmetic. `evidence-panels.tsx` already records what an in-flow disclosure
+   * does on this surface: it opens partly behind the fixed phone composer and cannot scroll
+   * clear of it, so the reader is shown a panel they cannot finish reading. A `Sheet` owns its
+   * own scrollport above that composer. It also settles the layout argument that put the chip on
+   * its own row — a panel that is no longer in the flow cannot push the governed caution below
+   * it down the page, which is what the previous placement note here was guarding against.
    *
    * It exists for an overdue-sources banner alone, not only for warnings —
    * otherwise moving the banner in here would delete it outright on an answer
-   * whose only evidence qualification is that a source is overdue.
+   * whose only evidence qualification is that a source is overdue. It exists for
+   * `sourceOnly` alone for the same reason: that is the answer with the most to
+   * disclose and the one most likely to carry no other warning.
+   *
+   * Order is severity, not source: provenance first, then which sources are
+   * overdue, then the rest.
    */
   const answerEvidenceGapsDetail =
-    renderModel.warnings.length > 0 || overdueSourcesBanner ? (
-      <div
-        id="answer-evidence-gaps-detail"
-        hidden={!evidenceGapsOpen}
-        // Display comes from the class only while open, so the `hidden`
-        // attribute is never fighting a `grid` display it cannot override.
-        className={evidenceGapsOpen ? "mt-2 grid max-w-[68ch] gap-2" : undefined}
-      >
+    renderModel.warnings.length > 0 || overdueSourcesBanner || sourceOnly ? (
+      <div id="answer-limitations-detail" className="grid gap-2">
+        {/* The governed extractive wording, verbatim from the same lookup the
+            Source-only pill used before it was folded in here. Never reworded at
+            this call site. */}
+        {sourceOnly ? (
+          <p
+            data-testid="answer-limitation-source-only"
+            className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/70 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
+          >
+            <span className="mb-0.5 block text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--warning)]">
+              Source-only
+            </span>
+            {compactVerificationWordingFor(answerState.kind, "extractive")}
+          </p>
+        ) : null}
         {overdueSourcesBanner}
         {renderModel.warnings.map((warning, index) => (
           <p
@@ -383,8 +484,7 @@ function StagedAnswerResultSurfaceImpl({
       text={answer.answer}
       query={query}
       preformatted={isPreformattedGroundedAnswer(answer)}
-      sourceOnly={sourceOnly}
-      sourceOnlyVerificationState={answerState.kind}
+      clinicalPoints={clinicalPointsRail}
       bestSource={bestSource}
       sources={sources}
       sourceLinks={renderModel.primarySources}
@@ -449,7 +549,6 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement="content"
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaDetail={answerEvidenceGapsDetail}
               >
                 {answerProse}
               </AnswerCard>
@@ -462,7 +561,6 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement={answerState.kind === "stale_evidence" ? "content" : "header"}
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaDetail={answerEvidenceGapsDetail}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button
@@ -543,9 +641,9 @@ function StagedAnswerResultSurfaceImpl({
           <Sheet
             open={safetyFindingsOpen}
             onClose={closeSafetyFindingsReview}
-            title="Safety-critical source findings"
-            description="Items come from source text. Verify before clinical use."
-            closeLabel="Close safety findings"
+            title="Key points"
+            description="Drawn from the cited source text. Verify before clinical use."
+            closeLabel="Close key points"
             // The warning tones are written out rather than layered onto
             // `iconTilePremium`: that recipe carries the clinical-accent border and
             // background, so appending `text-…` recoloured only the glyph — the sheet
@@ -578,9 +676,38 @@ function StagedAnswerResultSurfaceImpl({
             // so the gesture went to the page behind the sheet. A plain block
             // scrollport keeps the list at its natural height and scrolls it.
             bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            resolveReturnFocusTarget={resolveSafetyReturnFocus}
             returnFocusRef={safetyTriggerRef}
           >
             <SafetyFindingsListContent findings={safetyFindings} />
+          </Sheet>
+        ) : null}
+
+        {/* The limitations sheet. Same shape as the key-points sheet above deliberately: two chips
+            sitting on one status line should not open two different kinds of thing. */}
+        {answerEvidenceGapsDetail ? (
+          <Sheet
+            open={evidenceGapsOpen}
+            onClose={() => setEvidenceGapsOpen(false)}
+            title="Answer limitations"
+            description="What qualifies the evidence behind this answer."
+            closeLabel="Close answer limitations"
+            headerLeading={
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]">
+                <CircleAlert aria-hidden="true" className="h-3.5 w-3.5" />
+              </span>
+            }
+            headerClassName="gap-2 p-2.5 sm:p-3"
+            titleClassName="text-base-minus leading-5"
+            closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
+            // Plain block scrollport, not `flex flex-col`, for the reason recorded on the sheet
+            // above: as a flex column the single child is shrunk to the space left rather than
+            // kept at its natural height, and the overflow is clipped instead of scrolled.
+            bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-3 pt-2 sm:p-3"
+            returnFocusRef={limitationsTriggerRef}
+          >
+            {answerEvidenceGapsDetail}
           </Sheet>
         ) : null}
       </div>

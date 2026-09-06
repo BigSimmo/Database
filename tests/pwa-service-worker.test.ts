@@ -570,6 +570,11 @@ describe("PWA service worker cache and lifecycle policy", () => {
       destination: "script",
       cache: "no-store",
     },
+    // L67: the 51 same-origin /forms-pdf/*.pdf statutory forms (50 password-gated per
+    // check:forms-pdf-manifest) are the largest sensitive static path on the origin, and this
+    // table never exercised it. Correct by trace today (neither isImmutableNextAsset nor
+    // isPublicPwaAsset matches /forms-pdf/), but unpinned until this row.
+    { label: "statutory form PDF", url: "/forms-pdf/form-1a.pdf", destination: "document" },
   ])(
     "does not intercept or cache a $label request",
     async ({ absoluteUrl, cache, destination, headers, method, url }) => {

@@ -426,6 +426,29 @@ export function requireQueryHashSecret() {
   }
 }
 
+let answerFeedbackWarningEmitted = false;
+
+// Same secret, second job: it signs the answer-feedback token (answer-feedback-token.ts).
+// Outside production it is optional, and when it is absent createAnswerFeedbackToken()
+// returns undefined, the answer payload carries no `feedbackToken`, and the reader is told
+// the answer "predates traceable feedback. Run the question again." — an instruction that
+// can never succeed on that deployment. Nothing said why (2026-09-02 audit, L44).
+//
+// Warning only, once per process, and never in production: there
+// requireQueryHashSecret() above already refuses to start without the secret.
+export function warnAnswerFeedbackDisabled() {
+  if (answerFeedbackWarningEmitted) return;
+  if (env.RAG_QUERY_HASH_SECRET) return;
+  if (process.env.NODE_ENV === "production") return;
+  answerFeedbackWarningEmitted = true;
+  console.warn(
+    "[env] RAG_QUERY_HASH_SECRET is not set. Answer feedback is disabled on this deployment: " +
+      "answers carry no feedback token, so every rating is refused and the UI asks the reader to " +
+      "run the question again, which cannot help. Set a random secret (min 16 chars) to enable it. " +
+      "Logged clinical-query hashes also fall back to unsalted SHA-256 until it is set.",
+  );
+}
+
 export function isDemoMode() {
   // Explicit opt-in is honored in every environment (e.g. a deliberate demo deploy).
   if (env.NEXT_PUBLIC_DEMO_MODE === "true") {

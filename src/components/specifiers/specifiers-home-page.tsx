@@ -25,6 +25,7 @@ import {
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { cn, primaryControl } from "@/components/ui-primitives";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { searchSpecifiers, specifierFamilies, type SpecifierFamily } from "@/lib/specifiers";
@@ -408,6 +409,8 @@ function SpecifierResults({ query }: { query: string }) {
           Show more ({catalogueMatches.length - visibleCatalogueMatches.length} remaining)
         </button>
       ) : null}
+
+      <UniversalSearchAlsoMatches modeId="specifiers" query={query} />
 
       <SpecifierSafetyNote />
     </SpecifierPageShell>

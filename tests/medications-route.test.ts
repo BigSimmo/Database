@@ -334,7 +334,7 @@ describe("medications API", () => {
     };
 
     expect(response.status).toBe(200);
-    expect(payload.matches?.map((match) => match.medication.slug)).toContain("warfarin-vka");
+    expect(payload.matches?.[0]?.medication.slug).toBe("warfarin-vka");
     expect(payload.matches?.find((match) => match.medication.slug === "warfarin-vka")?.result.match).toBe(
       "Related match",
     );

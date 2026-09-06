@@ -41,6 +41,18 @@ describe("Cursor project MCP contract", () => {
     expect(servers["chrome-devtools"]?.command).toBe("npx");
     expect(servers["chrome-devtools"]?.args).toEqual(["-y", "chrome-devtools-mcp@1.6.0"]);
     expect(servers.figma?.url).toBe("https://mcp.figma.com/mcp");
-    expect(servers.supabase?.url).toBe("https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true");
+  });
+
+  it("restricts the Supabase MCP to the docs and development feature groups, like the Claude and Codex entries", () => {
+    // Without `features=`, the hosted server enables its default groups in read-only mode,
+    // which include `database` (execute_sql, list_tables) and `debugging` (logs, advisors)
+    // against the live clinical project — enforced by prose only (audit L39). The Claude
+    // (`.mcp.json`) and Codex (`.codex/config.toml`) entries pin docs + development; Cursor
+    // must match.
+    expect(servers.supabase?.url).toBe(
+      "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=docs%2Cdevelopment",
+    );
+    const claudeMcp = JSON.parse(readFileSync(path.join(repoRoot, ".mcp.json"), "utf8")) as CursorMcpConfig;
+    expect(servers.supabase?.url).toBe(claudeMcp.mcpServers?.supabase?.url);
   });
 });

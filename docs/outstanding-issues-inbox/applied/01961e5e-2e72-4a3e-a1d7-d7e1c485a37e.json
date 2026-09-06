@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "01961e5e-2e72-4a3e-a1d7-d7e1c485a37e",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "4478f605-1e05-4a8e-addd-32cf70e5d155",
+    "reason": "Superseded by pending add b11bdfdd-70eb-4bf9-9384-4d30af2a6ad2, which records the same defect at P2. Both are add requests filed independently by two sessions that each hit it, and both name the same two specs (tests/clinical-hazard-controls.test.ts, tests/rag-plan-package-parity.test.ts) and the same two commit shas (883f1007, f3d1a3cc) as the truncated-history cause. add requests carry no baseRowFingerprint, so nothing makes them conflict: left alone, the next reconciliation files two ledger rows for one defect. Cancelling this P3 keeps the P2, which carries the fuller reproduction and the more accurate severity. Raised by Codex review on PR #2560 (discussion_r3913118402), verified there, and queued separately because the finding is not specific to that PR and outlived its closure."
+  }
+}

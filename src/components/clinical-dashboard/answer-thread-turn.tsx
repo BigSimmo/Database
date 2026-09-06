@@ -94,7 +94,6 @@ export function PriorAnswerTurnSurface({
               text={turn.answer.answer}
               query={turn.query}
               preformatted={turnPreformatted}
-              sourceOnly={turn.answer.answerQualityTier === "source_only"}
               bestSource={renderModel.bestSource}
               sources={renderModel.reviewSources}
               sourceLinks={renderModel.primarySources}

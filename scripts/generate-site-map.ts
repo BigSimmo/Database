@@ -82,6 +82,13 @@ const documentedRedirectTargets: Record<string, string> = {
   "/dictionary/browse": "/dictionary/search",
   "/dictionary/sources": "/sources/search?usedBy=dictionary",
   "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
+  // Medication is consolidated like the modes in `consolidatedRedirectTargets`
+  // above, but deliberately kept out of that shared map — there is no
+  // `/medications/search` route, so its own bespoke redirect (medications/page.tsx,
+  // mirrored in src/proxy.ts) handles both branches instead. Pinned here by hand
+  // for the same reason as the entries above it: the target is computed, not a
+  // string literal the `redirect("…")` regex can read.
+  "/medications": "/?mode=prescribing",
 };
 
 const routeDescriptions: Record<string, string> = {
@@ -145,19 +152,24 @@ const routeDescriptions: Record<string, string> = {
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
+  "/forms/search":
+    "Forms results surface: searches the WA MHA 2014 forms register by code, title and clinical purpose.",
   "/formulation": "Clinical formulation home and local mechanism search surface.",
   "/formulation/[slug]": "Formulation mechanism decision-support guide.",
   "/formulation/builder": "Structured clinical formulation builder.",
   "/formulation/compare": "Side-by-side mechanism comparison.",
   "/formulation/map": "Formulation mechanism domain map.",
-  "/medications": "Medication mode home.",
+  "/formulation/search":
+    "Formulation results surface: searches mechanisms by pattern, clinical clue and hypothesis, and browses the full catalogue on an empty query.",
+  "/medications": "Compatibility redirect to the shared Medication (prescribing) home.",
   "/medications/[slug]": "Medication detail.",
   "/privacy": "Public privacy and data-processing transparency notice; governance approval pending.",
   "/reference/colour-coding": "Clinical domain and category colour-coding palette reference.",
   "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
-  "/sources": "Sources mode home; a submitted `?q=…&run=1` forwards to `/sources/search`, where the catalogue lives.",
+  "/services/search":
+    "Services results surface: searches the private services registry by need, catchment, eligibility and referral route.",
   "/sources/[sourceId]": "Clinical source traceability record: identity, rating, canonical locations and usage.",
   "/sources/method": "How the catalogue rates, reviews and traces a source, and its stated limitations.",
   "/sources/publishers": "Publishing bodies grouped by jurisdiction scope.",
@@ -169,6 +181,8 @@ const routeDescriptions: Record<string, string> = {
   "/specifiers/builder": "Structured diagnostic wording builder.",
   "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
   "/specifiers/map": "Psychiatric specifier family map.",
+  "/specifiers/search":
+    "Specifiers results surface: searches diagnostic specifiers by presentation, episode pattern, course and severity, and browses the full catalogue on an empty query.",
   "/therapy-compass": "Therapy home (source-grounded therapy reference).",
   "/therapy-compass/[slug]": "Therapy record detail.",
   "/therapy-compass/[slug]/brief": "Therapy brief-intervention view.",
@@ -259,7 +273,12 @@ const routeOwnershipRows = [
   ["Dictionary", "src/app/(search-app)/dictionary, src/lib/dictionary.ts"],
   ["Safety Plan", "src/app/safety-plan, src/components/patient-safety-plan.tsx"],
   ["Privacy", "src/app/privacy"],
-  ["Tools", "src/components/applications-launcher-page.tsx"],
+  [
+    "Tools",
+    "src/app/(search-app)/tools, src/components/tools/tools-search-results-page.tsx, src/components/applications-launcher-page.tsx (the retained `/?mode=tools` alias)",
+  ],
+  ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
+  ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
   [
     "Caring Contacts workspace",
     "src/app/caring-contacts, src/components/caring-contacts/workspace, src/lib/caring-contacts-routes.ts",
@@ -416,6 +435,7 @@ function renderModeRoutes() {
     factsheets: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
     dictionary: appModeHomeHref("dictionary", { query: "mental state examination", focus: true, run: true }),
     sources: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
+    "on-call": appModeHomeHref("on-call", { query: "after-hours registrar", focus: true, run: true }),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -540,21 +560,21 @@ function renderModePageIndex() {
       home: appModeHomeHref("sources"),
       search: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
       detail:
-        "`/sources` keeps a home of its own; `/sources/search` is the filterable catalogue. Also `/sources/topics`, `/sources/publishers`, `/sources/method`, and `/sources/[sourceId]` traceability records.",
+        "`/sources` redirects to the shared home, which carries a `Browse catalogue` chip; `/sources/search` is the filterable catalogue, and a submitted or filter-carrying deep link to `/sources` forwards there. Also `/sources/topics`, `/sources/publishers`, `/sources/method`, and `/sources/[sourceId]` traceability records.",
     },
     {
       mode: "Therapy Compass",
       home: appModeHomeHref("therapy-compass"),
       search: appModeHomeHref("therapy-compass", { query: "CBT", focus: true, run: true }),
       detail:
-        "Keeps a home of its own at `/therapy-compass`; `/search` (query-free browse), `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
+        "`/therapy-compass` redirects to the shared home; `/search` is a query-free browse. Also `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
     },
   ]);
 }
 
 function renderDocumentFlowIndex() {
   return [
-    bullet(DOCUMENTS_MODE_HOME_ROUTE, "Documents mode home. Stays as the no-query home surface for document mode."),
+    bullet(DOCUMENTS_MODE_HOME_ROUTE, "Redirects to the shared home with Documents preselected (consolidated mode)."),
     bullet(
       documentsSearchHref({ query: "clozapine monitoring table", focus: true, run: true }),
       "Documents search command centre used after submitting a search in Documents mode.",
@@ -717,8 +737,8 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         : ["- No page-level redirects discovered."],
     ),
     ...section("Known caveats and stale-path flags", [
-      "- `/mockups/*` prototype routes are development-only; production returns 404 and `robots.txt` disallows indexing.",
-      "- `/mockups/favourites-hub` is a legacy compatibility route and should redirect to `/favourites`.",
+      "- `/mockups/*` prototype routes are development-only: production returns 404 for every path except the four developer-gated subtrees (`/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan`, `/mockups/ward-flow`), which carry their own signed-in administrator gate. `robots.txt` deliberately allows crawling; responses under `/mockups/:path*` carry `X-Robots-Tag: noindex, nofollow` instead, so per-response indexing policy can be observed.",
+      "- `/mockups/favourites-hub` (to `/favourites`) and `/mockups/medication-prescribing` (to `/medications/acamprosate`) are legacy compatibility routes whose page-level redirects work in development only; in production the proxy's mockup block returns 404 before either page renders. `/mockups/document-search-command` is the one mockup path that still redirects in production, via `staticRouteRedirects` in `src/proxy.ts`.",
       "- Registry-backed service and form pages may show sign-in, load-error, or in-app not-found states for missing per-user records.",
       "- Live user registries may contain additional service or form slugs beyond the seeded/demo slugs listed here.",
       "- `/documents/[id]` is intentionally summarized as a route family; individual document IDs are private runtime data.",

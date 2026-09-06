@@ -34,6 +34,11 @@ import { SharedHomeEmptyState } from "@/components/clinical-dashboard/answer-sta
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 function completeAnswers(calc: CalculatorFixture): AnswerMap {
   return Object.fromEntries(calc.items.map((item) => [item.id, 0]));
 }
@@ -240,6 +245,21 @@ describe("calculator filter predicates", () => {
 
     expect(smartSearchExpansions("calculators", query)).toEqual([]);
     expect(filterCalculatorRecords(records, query, emptyFilters()).map(({ calc }) => calc.id)).toEqual(["phq9"]);
+  });
+
+  it("finds the subject of a natural calculator question without a curated phrase rule", () => {
+    const records = recordsWithProgress();
+    const query = "What tool measures depression symptoms?";
+
+    expect(smartSearchExpansions("calculators", query)).toEqual([]);
+    expect(filterCalculatorRecords(records, query, emptyFilters()).map(({ calc }) => calc.id)[0]).toBe("phq9");
+  });
+
+  it("does not invent calculator matches from question boilerplate alone", () => {
+    const records = recordsWithProgress();
+
+    expect(filterCalculatorRecords(records, "Which calculator should I use?", emptyFilters())).toEqual([]);
+    expect(filterCalculatorRecords(records, "Can you help me choose a score?", emptyFilters())).toEqual([]);
   });
 
   it("matches calculator identities with spaced or unicode-dash separators", () => {

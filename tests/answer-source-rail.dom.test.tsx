@@ -2,9 +2,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { useState } from "react";
 
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+
+import { installMatchMediaStub } from "./setup/jsdom.setup";
 
 vi.mock("@/components/clinical-dashboard/signed-image", () => ({
   SignedImage: ({
@@ -411,8 +413,8 @@ describe("evidence gaps stay answer-level", () => {
       resolve(process.cwd(), "src/components/clinical-dashboard/answer-result-surface.tsx"),
       "utf8",
     );
-    expect(surface).toContain('data-testid="answer-evidence-gaps-trigger"');
-    expect(surface).toContain('id="answer-evidence-gaps-detail"');
+    expect(surface).toContain('data-testid="answer-limitations-trigger"');
+    expect(surface).toContain('id="answer-limitations-detail"');
     expect(surface).toContain("renderModel.warnings");
 
     const rail = readFileSync(
@@ -428,7 +430,7 @@ describe("evidence gaps stay answer-level", () => {
     expect(screen.getByRole("button", { name: "Copy answer with source status" })).toBeInTheDocument();
     expect(screen.getByTestId("answer-feedback-useful")).toBeInTheDocument();
     expect(screen.getByTestId("answer-feedback-trigger")).toBeInTheDocument();
-    expect(screen.queryByTestId("answer-evidence-gaps-trigger")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("answer-limitations-trigger")).not.toBeInTheDocument();
   });
 });
 
@@ -570,5 +572,171 @@ describe("source drawer overflow menu", () => {
     await user.click(report);
     expect(onReportSource).not.toHaveBeenCalled();
     expect(report).toHaveTextContent("Confirm: report this page");
+  });
+});
+
+/**
+ * Desktop paging controls.
+ *
+ * The rail hides its scrollbar — correct for a finger and a trackpad, and a dead
+ * end for a plain mouse, which has no horizontal gesture at all. Before the
+ * chevrons every card past the right fade was drawn and then unreachable unless
+ * the reader knew about shift + wheel.
+ *
+ * jsdom lays nothing out, so `scrollWidth` and `clientWidth` are both 0 and the
+ * rail always reports "fits". `overflowBy` fakes the one measurement the hook
+ * actually reads, which keeps these cases about the decision (does an end have
+ * cards behind it?) rather than about layout.
+ */
+function overflowBy(element: HTMLElement, { scrollLeft, scrollWidth, clientWidth }: Record<string, number>) {
+  // All three are defined rather than assigned: jsdom implements no layout, so its
+  // `scrollLeft` setter is a no-op and the value would read back as 0.
+  Object.defineProperty(element, "scrollWidth", { configurable: true, value: scrollWidth });
+  Object.defineProperty(element, "clientWidth", { configurable: true, value: clientWidth });
+  Object.defineProperty(element, "scrollLeft", { configurable: true, value: scrollLeft, writable: true });
+  // The listener sets React state, so the dispatch has to be an act() unit or the
+  // assertion below runs against the pre-update render.
+  act(() => {
+    element.dispatchEvent(new Event("scroll"));
+  });
+}
+
+describe("AnswerSourceRail desktop paging", () => {
+  it("shows no control and no fade while every card already fits", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+
+    expect(screen.queryByTestId("answer-source-rail-page-left")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("answer-source-rail-page-right")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("answer-source-rail-fade-right")).not.toBeInTheDocument();
+  });
+
+  it("offers only the end that still has cards behind it", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 900, clientWidth: 300 });
+    expect(screen.queryByTestId("answer-source-rail-page-left")).not.toBeInTheDocument();
+    expect(screen.getByTestId("answer-source-rail-page-right")).toBeInTheDocument();
+
+    overflowBy(list, { scrollLeft: 300, scrollWidth: 900, clientWidth: 300 });
+    expect(screen.getByTestId("answer-source-rail-page-left")).toBeInTheDocument();
+    expect(screen.getByTestId("answer-source-rail-page-right")).toBeInTheDocument();
+
+    overflowBy(list, { scrollLeft: 600, scrollWidth: 900, clientWidth: 300 });
+    expect(screen.getByTestId("answer-source-rail-page-left")).toBeInTheDocument();
+    expect(screen.queryByTestId("answer-source-rail-page-right")).not.toBeInTheDocument();
+  });
+
+  it("stays out of the tab order but keeps an accessible name", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    overflowBy(screen.getByRole("list", { name: "Cited documents" }), {
+      scrollLeft: 0,
+      scrollWidth: 900,
+      clientWidth: 300,
+    });
+
+    // Tabbing already walks the cards, so a tab stop here reaches nothing new —
+    // but a control that does something must still say what it does, and
+    // `aria-hidden` on an interactive element is how that gets lost.
+    const control = screen.getByTestId("answer-source-rail-page-right");
+    expect(control).toHaveAttribute("tabindex", "-1");
+    expect(control).not.toHaveAttribute("aria-hidden");
+    expect(control).toHaveAccessibleName("Show more cited documents");
+  });
+
+  it("re-measures when a new answer swaps the card list, with no scroll and no resize", () => {
+    // The silent case: the rail keeps its own width, nothing scrolls, and neither
+    // the scroll listener nor the ResizeObserver fires — so without the card count
+    // in the effect's dependencies the edges would still describe the previous
+    // answer's sources.
+    const { rerender } = render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 900, clientWidth: 300 });
+    expect(screen.getByTestId("answer-source-rail-page-right")).toBeInTheDocument();
+
+    // A shorter answer whose two cards fit. Only the measurement changes.
+    Object.defineProperty(list, "scrollWidth", { configurable: true, value: 300 });
+    rerender(<AnswerSourceRail sources={SOURCES.slice(0, 2)} onOpenSource={vi.fn()} />);
+
+    expect(screen.queryByTestId("answer-source-rail-page-right")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("answer-source-rail-fade-right")).not.toBeInTheDocument();
+  });
+
+  it("pages by roughly a screen of cards, and drops the animation under reduced motion", async () => {
+    const user = userEvent.setup();
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+    const scrollBy = vi.fn();
+    Object.defineProperty(list, "scrollBy", { configurable: true, value: scrollBy });
+    overflowBy(list, { scrollLeft: 300, scrollWidth: 900, clientWidth: 300 });
+
+    await user.click(screen.getByTestId("answer-source-rail-page-right"));
+    expect(scrollBy).toHaveBeenCalledWith({ left: 240, behavior: "smooth" });
+
+    await user.click(screen.getByTestId("answer-source-rail-page-left"));
+    expect(scrollBy).toHaveBeenLastCalledWith({ left: -240, behavior: "smooth" });
+
+    installMatchMediaStub(true);
+    await user.click(screen.getByTestId("answer-source-rail-page-right"));
+    expect(scrollBy).toHaveBeenLastCalledWith({ left: 240, behavior: "auto" });
+  });
+});
+
+/**
+ * Wheel panning.
+ *
+ * The chevrons make the far cards reachable; the wheel makes reaching them feel
+ * ordinary. What these cases actually pin is the restraint: the rail may take the
+ * gesture only while it has somewhere to go, because a reader scrolling the answer
+ * with the pointer over the sources must never hit an invisible wall.
+ */
+function wheel(element: HTMLElement, init: WheelEventInit) {
+  const event = new WheelEvent("wheel", { cancelable: true, ...init });
+  act(() => {
+    element.dispatchEvent(event);
+  });
+  return event;
+}
+
+describe("AnswerSourceRail wheel panning", () => {
+  it("turns a vertical wheel into sideways movement while the rail can still move", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 900, clientWidth: 300 });
+
+    const event = wheel(list, { deltaY: 120 });
+    expect(event.defaultPrevented).toBe(true);
+    expect(list.scrollLeft).toBe(120);
+  });
+
+  it("hands the gesture back at each end, so the page never stalls under the pointer", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 900, clientWidth: 300 });
+    expect(wheel(list, { deltaY: -120 }).defaultPrevented).toBe(false);
+
+    overflowBy(list, { scrollLeft: 600, scrollWidth: 900, clientWidth: 300 });
+    expect(wheel(list, { deltaY: 120 }).defaultPrevented).toBe(false);
+  });
+
+  it("leaves a rail whose cards already fit entirely alone", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 300, clientWidth: 300 });
+
+    expect(wheel(list, { deltaY: 120 }).defaultPrevented).toBe(false);
+  });
+
+  it("does not touch a gesture the device already calls horizontal, or a pinch-zoom", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 900, clientWidth: 300 });
+
+    // A trackpad's sideways swipe already scrolls the rail natively; taking it
+    // here would double the movement.
+    expect(wheel(list, { deltaX: 120, deltaY: 10 }).defaultPrevented).toBe(false);
+    // Ctrl-wheel is the browser's zoom.
+    expect(wheel(list, { deltaY: 120, ctrlKey: true }).defaultPrevented).toBe(false);
   });
 });

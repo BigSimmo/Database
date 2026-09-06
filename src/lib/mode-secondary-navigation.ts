@@ -6,6 +6,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import { SOURCE_METHOD_ROUTE } from "@/lib/sources/rating-method";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
 export type ModeSecondaryNavigationEntry = {
@@ -103,8 +104,18 @@ export const modeSecondaryNavigationRegistry = {
     { id: "catalogue", label: "Catalogue", href: "/sources/search" },
     { id: "topics", label: "Topics", href: "/sources/topics" },
     { id: "publishers", label: "Publishers", href: "/sources/publishers" },
-    { id: "method", label: "Method", href: "/sources/method" },
+    { id: "method", label: "Method", href: SOURCE_METHOD_ROUTE },
   ],
+  // On Call registers no destinations, and that is deliberate. Its six section
+  // routes are information pages (`isInformationPage`), so
+  // `PageSecondaryNavigation` returns null for every one of them and the shared
+  // bar could never render — the entries this once carried were declared for
+  // exactly the routes that cannot show them. On Call navigates with
+  // `OnCallNavHeader`, the `InPageNavHeader` template AGENTS.md names as the
+  // default for in-page navigation, portalling through the one phone header
+  // collapse owner. `tests/ui-mode-nav-density.spec.ts` proved the mismatch:
+  // the bar never appeared at any width because nothing rendered it.
+  "on-call": [],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -139,6 +150,7 @@ export const MODE_NAV_ADOPTED_MODES = [
   "therapy-compass",
   "dictionary",
   "sources",
+  // On Call is deliberately not adopted: see its (empty) registry entry above.
 ] as const satisfies readonly AppModeId[];
 
 export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
@@ -227,7 +239,16 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/sources/search") return "catalogue";
     if (pathname === "/sources/topics") return "topics";
     if (pathname === "/sources/publishers") return "publishers";
-    if (pathname === "/sources/method") return "method";
+    if (pathname === SOURCE_METHOD_ROUTE) return "method";
+    return null;
+  }
+  if (modeId === "on-call") {
+    if (pathname === "/on-call/contacts") return "contacts";
+    if (pathname === "/on-call/playbook") return "playbook";
+    if (pathname === "/on-call/referrals") return "referrals";
+    if (pathname === "/on-call/orientation") return "orientation";
+    if (pathname === "/on-call/education") return "teaching";
+    if (pathname === "/on-call/logistics") return "logistics";
     return null;
   }
   // Every mode with destinations has a branch above; the rest register none, so
@@ -286,7 +307,7 @@ export function isModeSecondaryNavigationRoute(params: {
     );
   }
   if (modeId === "sources") {
-    return ["/sources/search", "/sources/topics", "/sources/publishers", "/sources/method"].includes(pathname);
+    return ["/sources/search", "/sources/topics", "/sources/publishers", SOURCE_METHOD_ROUTE].includes(pathname);
   }
   return false;
 }

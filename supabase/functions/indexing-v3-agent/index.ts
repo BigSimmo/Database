@@ -22,8 +22,11 @@ import {
   completionGateFromRow,
   agentFailureDecision,
   deferralDecision,
+  isAllowedAgentMethod,
   missingArtifactPlan,
+  parseAgentClaimLimit,
   parseJobStatusRpcResult,
+  runClaimedJobBatch,
   shouldRunVisualArtifacts,
   type CompletionGate,
   type CompletionGateRow,
@@ -1911,14 +1914,15 @@ async function processJob(job: ClaimedJob): Promise<{ status: "completed" | "def
 
 Deno.serve({ port: Number(Deno.env.get("PORT") ?? "8000") }, async (req: Request) => {
   try {
-    if (req.method !== "POST" && req.method !== "GET") {
-      return new Response("Method not allowed", { status: 405 });
+    // Claiming jobs mutates the queue, so a GET must not reach it (audit L13).
+    if (!isAllowedAgentMethod(req.method)) {
+      return new Response("Method not allowed", { status: 405, headers: { Allow: "POST" } });
     }
     const unauthorized = await authorizeRequest(req);
     if (unauthorized) return unauthorized;
 
     const url = new URL(req.url);
-    const limit = Math.max(1, Math.min(50, Number(url.searchParams.get("limit") ?? "8")));
+    const limit = parseAgentClaimLimit(url.searchParams.get("limit"));
     const workerId = `indexing-v3-agent-${crypto.randomUUID()}`;
 
     const claimSource = "documents";
@@ -1930,39 +1934,35 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? "8000") }, async (req: Request
       return Response.json({ ok: true, claimed: 0, processed: 0, failed: 0 });
     }
 
-    let processed = 0;
-    let deferred = 0;
-    let failed = 0;
-    const failures: Array<{ job_id: string; document_id: string; error: string }> = [];
-    const deferrals: Array<{ job_id: string; document_id: string; missing: string[] }> = [];
-
-    for (const job of claimed) {
-      try {
-        const result = await processJob(job);
-        if (result.status === "completed") {
-          processed += 1;
-        } else {
-          deferred += 1;
-          deferrals.push({ job_id: job.id, document_id: job.document_id, missing: result.missing });
-        }
-      } catch (e) {
-        failed += 1;
-        const msg = e instanceof Error ? e.message : JSON.stringify(e);
-        failures.push({ job_id: job.id, document_id: job.document_id, error: msg });
-        await markJobFailure(job, msg);
-      }
-    }
+    // Both the per-job work and the per-job failure recording are isolated in
+    // here: markJobFailure throws on an ok:false status RPC or a DB error, and
+    // when that throw escaped the loop it returned 500 and left every
+    // not-yet-processed sibling `processing` under its lock until the
+    // 45-minute stale reclaim (audit L13).
+    const batch = await runClaimedJobBatch(claimed, {
+      processJob,
+      markJobFailure: (job, message) => markJobFailure(job, message),
+    });
 
     return Response.json({
       ok: true,
       worker: workerId,
       claim_source: claimSource,
       claimed: claimed.length,
-      processed,
-      deferred,
-      failed,
-      deferrals,
-      failures,
+      processed: batch.processed,
+      deferred: batch.deferred,
+      failed: batch.failed,
+      deferrals: batch.deferrals.map((entry) => ({
+        job_id: entry.job.id,
+        document_id: entry.job.document_id,
+        missing: entry.missing,
+      })),
+      failures: batch.failures.map((entry) => ({
+        job_id: entry.job.id,
+        document_id: entry.job.document_id,
+        error: entry.error,
+        failure_record_error: entry.failure_record_error,
+      })),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : JSON.stringify(e);

@@ -154,7 +154,15 @@ export function sourceGovernanceWarnings(args: {
       });
     }
 
-    if (source.clinical_validation_status === "unverified") {
+    // Audit M8: docs/clinical-governance.md treats unknown source metadata as
+    // unverified, not current. Comparing to the literal "unverified" alone left
+    // a partially-recorded document — governance fields present but
+    // clinical_validation_status absent, which normalizeOptionalSourceMetadata
+    // renders as "unknown" — cited with no caveat at all. Only an explicitly
+    // reviewed or approved status clears it. This is a caveat only: it must
+    // never be read back as a retrieval or ordering signal
+    // (docs/rag-behaviour/refuted-approaches.md, Refutation 3).
+    if (source.clinical_validation_status !== "locally_reviewed" && source.clinical_validation_status !== "approved") {
       pushUnique(warnings, {
         code: SOURCE_GOVERNANCE_CODES.UNVERIFIED,
         severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.UNVERIFIED] as SourceGovernanceWarning["severity"],

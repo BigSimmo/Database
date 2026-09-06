@@ -69,7 +69,14 @@ describe("Ward Flow sidebar — phone contract", () => {
     expect(sidebar).toContain("@media (min-width: 64rem) {\n  .panel {\n    display: flex;\n  }\n}");
     // Default state for each, so a browser with no media-query support shows the rail alone
     // rather than three sidebars stacked.
-    expect(sidebar).toContain(".phoneBar {\n  position: fixed;");
+    // ⚠️ ASSERT THE PROPERTY, NOT THE LINE THAT HAPPENED TO BE FIRST. This previously read
+    // toContain(".phoneBar {\n  position: fixed;"), which pinned ADJACENCY: it broke the moment a
+    // `composes:` line was added above, even though `position: fixed` was untouched and the
+    // guarantee held. A test that fails when the thing it names is still true trains people to
+    // edit the test, which is how the next real break gets waved through.
+    const phoneBarBlock = /\.phoneBar \{([^}]*)\}/u.exec(sidebar)?.[1];
+    expect(phoneBarBlock, ".phoneBar rule not found in ward-sidebar.module.css").toBeTruthy();
+    expect(phoneBarBlock).toMatch(/^\s*(?:composes:[^;]*;\s*)?position: fixed;/u);
     expect(sidebar).toMatch(/\.panel \{\n {2}display: none;/);
   });
 

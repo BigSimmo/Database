@@ -10,6 +10,7 @@ const isWindows = process.platform === "win32";
 const commonScripts = ["check:runtime", "check:installed-lock-parity", "format:changed", "check:diff-integrity"];
 const docsScripts = [
   "sitemap:check",
+  "check:mockups",
   "check:repo-awareness-snapshot",
   "docs:check-index",
   "docs:check-inventory",
@@ -18,6 +19,8 @@ const docsScripts = [
   "check:branch-review-ledger",
   "check:outstanding-issues",
   "check:ledger-write-discipline",
+  // Offline, ~1 s: the hazard register's proofs must still name their controls (M33).
+  "check:clinical-hazard-controls",
 ];
 const workflowScripts = [
   "check:github-actions",
@@ -31,6 +34,34 @@ const workflowScripts = [
   "check:verification-plan",
 ];
 const focusedWorkflowTestScript = "test:ci-workflows";
+// Every static gate CI's `static-pr` job runs under `static_heavy_changed`, in
+// the order that job runs them, so `verify:pr-local` is the PR mirror
+// CLAUDE.md says it is. Before this list existed the heavy plan selected only
+// lint/typecheck/test, so a migration using a non-postgres role, a SECURITY
+// DEFINER function left open to PUBLIC, or an API handler reading an
+// owner-scoped table without an owner filter passed the recommended local gate
+// green and reddened only in CI after push (audit M24). The docs/ledger steps
+// CI also runs for heavy scope ride `docsScripts` below.
+// `tests/ci-cache-safety.test.ts` pins this list against the workflow.
+const staticHeavyGuards = [
+  "check:upload-limit-parity",
+  "check:gate-manifest",
+  "check:knip",
+  "check:maintainability-budgets",
+  "check:type-scale",
+  "check:icon-scale",
+  "check:design-drift-ratchet",
+  "brand:check",
+  "check:assets",
+  "check:therapy-data-index",
+  "check:cross-mode-index",
+  "check:mha-act-sections",
+  "check:forms-pdf-manifest",
+  "check:design-system-contract",
+  "check:migration-role",
+  "check:function-grants",
+  "check:owner-scope",
+];
 const staticHeavyScripts = ["lint", "typecheck", "test"];
 
 function dependencyManifestChanged(scope) {
@@ -108,7 +139,9 @@ export function selectedScripts(scope, extended) {
   add(...commonScripts);
   // #204: fail locally in seconds instead of reddening every install-owning CI job.
   if (dependencyManifestChanged(scope)) add("check:npm-ci-dry-run");
-  if (scope.docs_changed) add(...docsScripts);
+  // CI runs the docs, site-map and ledger integrity steps for heavy scope too:
+  // routes, app-modes and the flake ledger reshape the generated documents.
+  if (scope.docs_changed || scope.static_heavy_changed) add(...docsScripts);
   if (scope.workflow_changed) {
     add(...workflowScripts);
     // The full unit suite already contains every workflow-reading contract.
@@ -116,10 +149,9 @@ export function selectedScripts(scope, extended) {
     if (!scope.static_heavy_changed) add(focusedWorkflowTestScript);
   }
   if (scope.codex_autofix_changed) add("check:codex-autofix-workflow");
-  if (scope.static_heavy_changed) add(...staticHeavyScripts);
-  // CI runs this on docs_changed || static_heavy_changed because routes,
-  // app-modes, and the flake ledger also reshape the snapshot.
-  if (scope.docs_changed || scope.static_heavy_changed) add("check:repo-awareness-snapshot");
+  // Cheap static guards first so a tenancy or migration-role miss reports in
+  // seconds, before the long lint/typecheck/unit stages.
+  if (scope.static_heavy_changed) add(...staticHeavyGuards, ...staticHeavyScripts);
   if (scope.build_changed) scripts.push("build");
   // Full offline RAG contracts remain mandatory for retrieval/answer surfaces.
   // Other executable changes retain the cheap fixture-integrity guard, while
@@ -242,9 +274,11 @@ async function selfTest() {
     },
     [
       ...commonScripts,
+      ...docsScripts,
       ...workflowScripts,
+      // check:gate-manifest already rode workflowScripts; the plan never repeats a step.
+      ...staticHeavyGuards.filter((script) => !workflowScripts.includes(script)),
       ...staticHeavyScripts,
-      "check:repo-awareness-snapshot",
       "check:rag:fixtures",
       "check:medication-interactions",
       "check:medication-lexicon-report",
@@ -252,16 +286,28 @@ async function selfTest() {
   );
   assertPlan("unknown-or-product-change-fails-heavy", { static_heavy_changed: true }, [
     ...commonScripts,
+    ...docsScripts,
+    ...staticHeavyGuards,
     ...staticHeavyScripts,
-    "check:repo-awareness-snapshot",
     "check:rag:fixtures",
     "check:medication-interactions",
     "check:medication-lexicon-report",
   ]);
+  // The three tenancy/database guards are the ones whose absence let a migration or
+  // handler regression pass the local gate green (M24); pin them by name, not by list.
+  for (const guard of ["check:migration-role", "check:function-grants", "check:owner-scope"]) {
+    if (!selectedScripts({ static_heavy_changed: true }, false).includes(guard)) {
+      throw new Error(`heavy-scope-guards: expected ${guard} in the static_heavy plan`);
+    }
+    if (selectedScripts({ docs_changed: true }, false).includes(guard)) {
+      throw new Error(`heavy-scope-guards: ${guard} must not run for docs-only scope`);
+    }
+  }
   assertPlan("rag-change", { static_heavy_changed: true, rag_eval_changed: true }, [
     ...commonScripts,
+    ...docsScripts,
+    ...staticHeavyGuards,
     ...staticHeavyScripts,
-    "check:repo-awareness-snapshot",
     "eval:rag:offline",
     "eval:rag:adversarial:offline",
     "check:medication-interactions",
@@ -272,8 +318,9 @@ async function selfTest() {
     { static_heavy_changed: true, ui_changed: true },
     [
       ...commonScripts,
+      ...docsScripts,
+      ...staticHeavyGuards,
       ...staticHeavyScripts,
-      "check:repo-awareness-snapshot",
       "check:rag:fixtures",
       "check:medication-interactions",
       "check:medication-lexicon-report",
@@ -287,8 +334,9 @@ async function selfTest() {
     [
       ...commonScripts,
       "check:npm-ci-dry-run",
+      ...docsScripts,
+      ...staticHeavyGuards,
       ...staticHeavyScripts,
-      "check:repo-awareness-snapshot",
       "build",
       "check:rag:fixtures",
       "check:medication-interactions",
@@ -301,8 +349,9 @@ async function selfTest() {
     [
       ...commonScripts,
       "check:npm-ci-dry-run",
+      ...docsScripts,
+      ...staticHeavyGuards,
       ...staticHeavyScripts,
-      "check:repo-awareness-snapshot",
       "build",
       "check:rag:fixtures",
       "check:medication-interactions",

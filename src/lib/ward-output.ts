@@ -609,6 +609,18 @@ export function buildHighYieldClinicalOutputSections(answer: RagAnswer | null | 
 // re-emitted as the first data row when explicit columns exist (M8), and
 // (c) ragged rows are padded so values cannot shift into the wrong column
 // (M16).
+// Audit M1: the on-screen AccessibleTable prints "Showing 6 of N rows" and
+// offers an expand control, but the copied ward note / clipboard artefact
+// dropped rows 7+ with no marker at all and so read as complete — a titration
+// or threshold table pasted into a record could silently lose its highest-dose
+// or most-severe rows. Both emitters now say what was left behind.
+const CLIPBOARD_TABLE_ROW_LIMIT = 6;
+
+function clipboardTableTruncationNotice(totalRows: number) {
+  if (totalRows <= CLIPBOARD_TABLE_ROW_LIMIT) return "";
+  return `Showing ${CLIPBOARD_TABLE_ROW_LIMIT} of ${totalRows} rows — open the source document for the full table.`;
+}
+
 function clinicalTableToTextRows(table: ClinicalThresholdTable) {
   const explicitRows = table.rows?.length ? table.rows : null;
   const parsedRows = explicitRows ? null : parseMarkdownTable(table.markdown);
@@ -622,7 +634,7 @@ function clinicalTableToTextRows(table: ClinicalThresholdTable) {
   });
   if (!normalized) return [];
   const header = normalized.header;
-  const visibleBody = normalized.body.slice(0, 6);
+  const visibleBody = normalized.body.slice(0, CLIPBOARD_TABLE_ROW_LIMIT);
 
   return [
     table.caption,
@@ -632,6 +644,7 @@ function clinicalTableToTextRows(table: ClinicalThresholdTable) {
     header.length ? `| ${header.join(" | ")} |` : "",
     header.length ? `| ${header.map(() => "---").join(" | ")} |` : "",
     ...visibleBody.map((row) => `| ${row.join(" | ")} |`),
+    clipboardTableTruncationNotice(normalized.body.length),
   ].filter(Boolean);
 }
 
@@ -659,7 +672,8 @@ export function formatDisplayedVisualEvidenceForClipboard(cards: VisualEvidenceC
       title,
       normalized.header.length ? `| ${normalized.header.join(" | ")} |` : "",
       normalized.header.length ? `| ${normalized.header.map(() => "---").join(" | ")} |` : "",
-      ...normalized.body.slice(0, 6).map((row) => `| ${row.join(" | ")} |`),
+      ...normalized.body.slice(0, CLIPBOARD_TABLE_ROW_LIMIT).map((row) => `| ${row.join(" | ")} |`),
+      clipboardTableTruncationNotice(normalized.body.length),
       source,
     ].filter(Boolean);
   });

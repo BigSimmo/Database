@@ -34,6 +34,8 @@ import styles from "./board.module.css";
 export type DailySheetPerson = {
   key: string;
   days: number | null;
+  /** Which day of the stay today is, arrival day = Day 1. An ORDINAL, unlike `days`. */
+  dayNumber: number | null;
   bandLabel: string | null;
   pastDate: boolean;
   sex: string;
@@ -175,7 +177,10 @@ function SheetPerson({ person, testId }: { person: DailySheetPerson; testId: str
   return (
     <li className={styles.sheetRow} data-testid={testId}>
       <p className={styles.sheetRowLead}>
-        {person.days === null ? "No stay yet — not arrived" : `Day ${person.days}`}
+        {/* `dayNumber`, never `days`. `days` is a DURATION and is 0 for everybody admitted since
+         *  yesterday; this line is an ORDINAL, and printing the duration here read "Day 0". Both
+         *  arrive as props — this file still derives nothing. See `stayDayNumber`. */}
+        {person.dayNumber === null ? "No stay yet — not arrived" : `Day ${person.dayNumber}`}
         {person.bandLabel !== null && <span className={styles.sheetRowBand}>{person.bandLabel}</span>}
       </p>
       {/*
@@ -197,9 +202,7 @@ function SheetPerson({ person, testId }: { person: DailySheetPerson; testId: str
             : `At an emergency department, ${person.awayAtEdHours} ${person.awayAtEdHours === 1 ? "hour" : "hours"} — the bed is still theirs.`}
         </p>
       )}
-      <p className={styles.sheetRowLine}>
-        {person.sex}, {person.homeRegion === null ? "home region not recorded" : `from ${person.homeRegion}`}
-      </p>
+      <p className={styles.sheetRowLine}>{personFacts(person)}</p>
       {/* "Tentative" leads the line, as it does on the board's own panel and for the same reason: a
         reader scanning a column takes the first words of each row, so a qualification at the end is
         the half that gets skipped — and a broad ICD-10-AM block read as settled is exactly the
@@ -290,6 +293,27 @@ export type WardDailySheetProps = {
  * (`header, nav, button { display: none !important }`) can take nothing away from it. That reset is
  * why the sheet is a `<section>` and its title an `<h2>`, never a `<header>`.
  */
+/**
+ * The person facts line — sex and home region — in the ONE place both renderings read it.
+ *
+ * ⚠️ **THE "OFF THE WARD" LINE PRINTED THE LITERAL WORD "null" AND THIS SHEET IS READ ALOUD.**
+ * `DailySheetPerson.homeRegion` is `string | null`, and `PULL_PATIENT` creates every runtime
+ * admission with `homeRegion: null` (reducer, "the fact does not exist on a movement anywhere in
+ * the model"). The row rendering guarded it; the "Off the ward" summary interpolated it bare, so
+ * a pulled-then-away patient read as **"Female, from null — at an emergency department"**.
+ *
+ * Not reachable from the seed — both seeded away-patients carry a region — which is exactly why it
+ * survived: it needs a patient who was pulled at runtime and then recorded away.
+ *
+ * ⚠️ **ONE FUNCTION RATHER THAN A SECOND COPY OF THE TERNARY.** The defect was two renderings of one
+ * fact disagreeing about whether it can be absent. Fixing the second by pasting the first's guard
+ * leaves the same shape in place for the third. This file's own comment calls the sheet something
+ * "carried to a meeting and believed"; the guard belongs where the sentence is built, once.
+ */
+function personFacts(person: DailySheetPerson): string {
+  return `${person.sex}, ${person.homeRegion === null ? "home region not recorded" : `from ${person.homeRegion}`}`;
+}
+
 export function WardDailySheet({
   movement,
   incomingPulled,
@@ -434,7 +458,7 @@ export function WardDailySheet({
         {groups.awayFromWard.length === 0
           ? "none."
           : `${groups.awayFromWard
-              .map((person) => `${person.sex}, from ${person.homeRegion}`)
+              .map((person) => personFacts(person))
               .join("; ")} — at an emergency department. The bed stays theirs.`}
       </p>
 

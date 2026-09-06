@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7a641879-4fce-4226-84c2-905c854cfc1d",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Caring Contacts: the workspace's front door is still a placeholder while every screen behind it is built",
+    "detail": "/caring-contacts (\"Today\") is the route the live tools catalogue links to and the first screen anyone lands on, and src/app/caring-contacts/page.tsx renders one <h2> reading \"What this screen will show\" plus a paragraph in future tense. No data at all. Meanwhile Patients, Patient overview, Schedule, Templates, Template detail, Team, Guidance, Reports and the activation wizard are all fully built, and the domain layer a Today screen would need already exists (schedule-view.ts for contacts due, team-workload.ts for unclaimed work and coverage, patients-directory-filter.ts for plans needing a decision). So the workspace reads as unfinished on the one screen a first-time reader judges it by, and the impression is the opposite of the truth. NOT built during the 2026-09-02 design audit, deliberately: what a clinician sees FIRST about live suicide-prevention plans is a clinical design decision about triage order and emphasis, not a layout question, and it wants the owner's call before any agent picks the content. Two adjacent things to know before scheduling it: the draft plan docs/superpowers/plans/2026-09-02-caring-contact-phase-3-demonstrable.md covers populated-data work and lists the missing contact-detail and system-states routes as an explicit Phase 2 question rather than absorbing them; and patient-visible copy is never authored by an agent, though a Today screen needs none - every string on it is clinician-facing.",
+    "source": "Multi-agent Caring Contacts design audit, 2026-09-02; verified against src/app/caring-contacts/page.tsx on branch claude/caring-contacts-design-audit-fcay0l",
+    "issueUlid": "01M1HXE0W6EP65NRX2MY3EA6RV"
+  }
+}

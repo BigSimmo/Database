@@ -187,6 +187,88 @@ describe("source governance warnings", () => {
     expect(hasDangerSourceGovernanceWarning(warnings)).toBe(false);
   });
 
+  // Audit M8: docs/clinical-governance.md says unknown source metadata is
+  // treated as unverified, not current. The caveat was emitted only for the
+  // literal value "unverified", so a partially-recorded document (governance
+  // fields present, clinical_validation_status absent, normalised to "unknown")
+  // was cited with no "not locally validated" caveat at all.
+  it("treats an unknown clinical_validation_status as not locally validated (M8)", () => {
+    const warnings = sourceGovernanceWarnings({
+      results: [
+        result({
+          source_metadata: {
+            source_title: "Partially recorded local source",
+            publisher: "WA Health",
+            jurisdiction: "Australia/WA",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "current",
+            clinical_validation_status: "unknown",
+            extraction_quality: "good",
+          },
+          indexing_quality: {
+            document_id: "doc-1",
+            quality_score: 0.9,
+            extraction_quality: "good",
+            metrics: {},
+            issues: [],
+          },
+          table_facts: [],
+        }),
+      ],
+    });
+
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        code: "unverified_source",
+        severity: "warning",
+        message: "One or more supporting sources have not been locally validated.",
+      }),
+    ]);
+    // Conservative, not adverse: an unvalidated source still answers.
+    expect(hasDangerSourceGovernanceWarning(warnings)).toBe(false);
+    expect(frontendSourceGovernanceWarnings(warnings).map((warning) => warning.code)).toEqual(["unverified_source"]);
+  });
+
+  it("keeps the locally reviewed and approved statuses free of the validation caveat (M8)", () => {
+    for (const status of ["locally_reviewed", "approved"] as const) {
+      const warnings = sourceGovernanceWarnings({
+        results: [
+          result({
+            source_metadata: {
+              source_title: "Reviewed local source",
+              publisher: "WA Health",
+              jurisdiction: "Australia/WA",
+              version: null,
+              publication_date: null,
+              review_date: null,
+              uploaded_at: null,
+              indexed_at: null,
+              uploaded_by: null,
+              document_status: "current",
+              clinical_validation_status: status,
+              extraction_quality: "good",
+            },
+            indexing_quality: {
+              document_id: "doc-1",
+              quality_score: 0.9,
+              extraction_quality: "good",
+              metrics: {},
+              issues: [],
+            },
+            table_facts: [],
+          }),
+        ],
+      });
+
+      expect(warnings.map((warning) => warning.code)).not.toContain("unverified_source");
+    }
+  });
+
   it("surfaces review-due and unvalidated-source caveats to the frontend", () => {
     const warnings = sourceGovernanceWarnings({
       results: [

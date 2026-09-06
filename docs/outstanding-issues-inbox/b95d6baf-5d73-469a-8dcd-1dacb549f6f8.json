@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b95d6baf-5d73-469a-8dcd-1dacb549f6f8",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#A3AHCX",
+    "outcome": "Closed 2026-09-06 as a duplicate of #B16HW8, which records the same defect (validateGovernedMessage in src/lib/caring-contacts/message-policy.ts has no production caller) and is graded P1 as a real-patient pilot blocker. This row was written 2026-08-24 and #B16HW8 re-found it independently on 2026-09-04, so the two are one finding. Its technical detail has been carried into #B16HW8 rather than lost.",
+    "baseRowFingerprint": "6b7a05a4e0cde78165a0f8aa4c6f860fd6171f04bb68621c6c7ef747616a63de"
+  }
+}

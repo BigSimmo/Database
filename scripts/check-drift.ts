@@ -534,7 +534,7 @@ Options:
   }
 
   const supabase = createAdminClient();
-  const { data: liveSnapshot, error } = await supabase.rpc("schema_drift_snapshot" as never);
+  const { data: liveSnapshot, error } = await supabase.rpc("schema_drift_snapshot");
   if (error) {
     const message = String(error.message ?? error);
     if (/could not find the function|schema cache|PGRST202/i.test(message)) {

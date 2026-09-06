@@ -48,7 +48,12 @@ type FavouritesSnapshot = {
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const canonicalKeyPattern = /^[a-z0-9]+(?:[._:/-][a-z0-9]+)*$/;
-const isoTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/;
+// Fractional seconds are 1-9 digits, not exactly 3: the route passes Supabase
+// timestamptz values through untouched, and Postgres serialises `now()` at
+// microsecond precision with trailing zeros trimmed (`.550361+00:00`, `.5+00:00`).
+// The server's Zod check is precision-agnostic; the client must be too, or one
+// live row nulls the whole snapshot and the Favourites hub shows a load error.
+const isoTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)

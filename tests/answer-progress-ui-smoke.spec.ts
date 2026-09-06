@@ -682,7 +682,9 @@ test("the sources arrive during the wait and hand over to the answer's own rail"
   await expect(page.getByTestId("answer-source-rail")).toBeVisible();
 });
 
-test("the arriving sources are paced apart, and are simply present when motion is suppressed", async ({ page }) => {
+test("the arriving sources are simply present when motion is suppressed", async ({ page }) => {
+  // The suite runs reduced-motion by default (see the dual-mode note on contextOptions in
+  // playwright.config.ts), so this is that half of the pair.
   await page.setViewportSize({ width: 390, height: 844 });
   await mockDashboardApis(page);
   await installEvidencePreviewAnswerStream(page);
@@ -695,12 +697,11 @@ test("the arriving sources are paced apart, and are simply present when motion i
   const cards = page.getByTestId("answer-evidence-preview").getByTestId("answer-evidence-preview-source");
   await expect(cards.first()).toBeVisible({ timeout: 8_000 });
 
-  // Reduced motion first, because the suite runs that way by default (see the
-  // dual-mode note on contextOptions in playwright.config.ts). Suppressing motion must
-  // never withhold the content: the cards stop animating and are immediately, fully
-  // visible — not held invisible for the length of the cascade, which is exactly what a
-  // delay on a `both`-filled animation would do if the reduced-motion reset did not also
-  // zero the delay.
+  // Suppressing motion must never withhold the content. The pacing that reveals the cards one
+  // at a time is JS, so unlike a CSS delay it could genuinely hold cards back from a
+  // reduced-motion reader — the reveal therefore returns the full count immediately, and every
+  // card is here at once, not animating, fully opaque.
+  await expect(cards).toHaveCount(6);
   const suppressed = await cards.evaluateAll((nodes) =>
     nodes.map((node) => ({
       name: getComputedStyle(node).animationName,
@@ -708,25 +709,64 @@ test("the arriving sources are paced apart, and are simply present when motion i
       opacity: getComputedStyle(node).opacity,
     })),
   );
-  expect(suppressed).toHaveLength(6);
   for (const card of suppressed) {
     expect(card.name).toBe("none");
     expect(card.delay).toBe("0s");
     expect(card.opacity).toBe("1");
   }
+  await expect(page.getByTestId("answer-progress-line")).toContainText("6 sources found");
+});
 
-  // With motion allowed, cards arrive one at a time rather than as a single block. The
-  // shared `.stagger-item` rung is 35ms, which reads as one movement across six cards;
-  // this rail overrides it so each card is separately noticeable.
+test("the arriving sources are paced apart when motion is allowed", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  const delays = await cards.evaluateAll((nodes) =>
-    nodes.map((node) => Number.parseFloat(getComputedStyle(node).animationDelay)),
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockDashboardApis(page);
+  await installEvidencePreviewAnswerStream(page);
+  await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  await dismissBlockingPwaNotice(page);
+
+  // Record when each card is inserted, rather than sampling the count from the test side.
+  // A MutationObserver sees every insertion, so the proof does not depend on how fast this
+  // machine happens to poll — the pacing either produced separated insertions or it did not.
+  await page.evaluate(() => {
+    const stamps: number[] = [];
+    (window as unknown as { __evidenceCardStamps: number[] }).__evidenceCardStamps = stamps;
+    const card = '[data-testid="answer-evidence-preview-source"]';
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (!(node instanceof HTMLElement)) continue;
+          // Descendants too, not only the node itself. The first card arrives inside the rail
+          // container, so the observer sees the container added and the card only as its
+          // child — matching the added node alone silently loses card one and makes the
+          // pacing look one beat shorter than it is.
+          const added = node.matches(card) ? 1 : node.querySelectorAll(card).length;
+          for (let index = 0; index < added; index += 1) stamps.push(performance.now());
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+
+  const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
+  await submit.click();
+
+  const cards = page.getByTestId("answer-evidence-preview").getByTestId("answer-evidence-preview-source");
+  await expect(cards).toHaveCount(6, { timeout: 8_000 });
+
+  const stamps = await page.evaluate(
+    () => (window as unknown as { __evidenceCardStamps: number[] }).__evidenceCardStamps,
   );
-  expect(delays[0]).toBe(0);
-  expect(delays[1] ?? 0).toBeGreaterThan(0.035);
-  expect(delays[5] ?? 0).toBeGreaterThan(delays[1] ?? 0);
-  // …and the whole rail is still standing well before a normal generation wait ends.
-  expect(delays[5] ?? 0).toBeLessThan(1);
+  expect(stamps).toHaveLength(6);
+  // One card per --duration-moderate (200ms), so first to last spans about a second. The
+  // bound is deliberately loose at both ends: the point is that the rail accrues rather than
+  // blinking into place, and that it is still standing well before generation ends.
+  const span = (stamps.at(-1) ?? 0) - (stamps[0] ?? 0);
+  expect(span).toBeGreaterThan(500);
+  expect(span).toBeLessThan(3_000);
+
+  // The wait's one copy rule, checked where it is easiest to break: the number in the line is
+  // the number of cards beneath it, all the way to the end of the reveal.
+  await expect(page.getByTestId("answer-progress-line")).toContainText("6 sources found");
 });
 
 test("a completion frame cannot mark a previous answer complete when final is invalid", async ({ page }) => {

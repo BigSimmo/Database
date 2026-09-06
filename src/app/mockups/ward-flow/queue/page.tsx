@@ -1,12 +1,11 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
-
-export const metadata: Metadata = {
-  title: "Priority queue - Ward Flow",
-  description: "Synthetic operational priority queue for mental health patient movement.",
-};
-
-export default function WardQueuePage() {
-  return <WardModeWorkspace mode="queue" />;
+/**
+ * MERGE 01 (owner-approved 2026-09-05) folded the priority queue, the exceptions inbox and the
+ * escalation board into one screen — `DelaysScreen` — that answers one question: why is this
+ * person still waiting? See that screen's own doc comment for the merge's reasoning. This route
+ * stays as a bookmark/deep-link backstop so an existing link to the priority queue does not 404.
+ */
+export default function WardQueueRedirect() {
+  redirect("/mockups/ward-flow/delays");
 }

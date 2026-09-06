@@ -25,12 +25,16 @@ import {
   BED_RELEASE_WAITING_ON,
   COHORTS,
   HOME_REGIONS,
+  MOVEMENT_STAGES,
   PARALLEL_REFERRAL_CAP,
   REFERRAL_DECLINE_REASONS,
+  REFERRAL_HISTORY_LIMITS,
+  type ReferralHistoryField,
   REFERRAL_SOURCES,
   SEXES,
   REFERRAL_DESTINATION_KINDS,
   REFERRAL_PURPOSES,
+  STEP_BACK_REASONS,
   type ReferralAddressing,
   TRANSPORT_PROVIDERS,
 } from "@/components/ward-management/ward-model";
@@ -824,6 +828,21 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // rather than a missing one. Never a manufactured id: the guard above refuses anything
         // that does not resolve.
         referralId: raisedFrom?.id,
+        /*
+         * ⚠️ WHY THE ABSENCE IS WRITTEN DOWN RATHER THAN LEFT EMPTY — owner ruling R-2026-09-04-D.
+         *
+         * An empty `referralId` had three causes and rendered as one: nobody raised a referral
+         * (clinical), the record predates the link (record-keeping), or the raiser was never asked
+         * (record-keeping). This branch knows which of the three it is producing. Nothing on this
+         * event asks WHICH referral a journey came from unless the caller volunteers one, so a
+         * runtime movement with no id is the third case and says so — `not_asked`, not
+         * `none_raised`. Only `RECORD_NO_REFERRAL`, where somebody actually answers the question,
+         * writes the clinical one.
+         *
+         * Exactly one of the two fields is ever set here: a resolved referral leaves the absence
+         * undefined, and an absence leaves the id undefined.
+         */
+        referralAbsence: raisedFrom === undefined ? { reason: "not_asked" as const, at: event.now } : undefined,
         // A newly raised movement is never flagged. The flag is an act somebody takes on a
         // patient already in the queue, not a property of arriving.
         flaggedUrgent: false,
@@ -846,6 +865,10 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         blocker: "Awaiting coordinator referral",
         withdrawnReferrals: [],
         unwinds: [],
+        // Step 1 of the track (Task 4) — `from` absent because there is no previous stage, but an
+        // entry is still written, so the creation moment lives inside this array rather than being
+        // reachable only through `openedAt` beside it.
+        stageChanges: [{ at: event.now, to: "placement_requested", by: event.role }],
         // `formedAt` is deliberately left unset. It used to be stamped in this same branch, on
         // the strength of the status-derived Form 1A that has now been deleted; with that
         // derivation gone there is no rule left to hang it on, and inventing a replacement one
@@ -875,6 +898,54 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         medicalClearance: { cleared: event.cleared, at: event.now },
       };
       return replaceReferral(state, referral.id, updated);
+    }
+
+    case "RECORD_TRANSPORT_NEED": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      // Refused once the journey is over, on `RECORD_EXAMINATION`'s reasoning above: every other
+      // movement-scoped handler refuses a closed movement, and an answer about how somebody will
+      // travel is meaningless once they have arrived or did not proceed.
+      if (movement.closure) {
+        return reject(
+          state,
+          event,
+          `cannot record a transport need for a closed movement (${movement.closure.reason})`,
+        );
+      }
+      // ⚠️ RE-RECORDING IS ALLOWED AND OVERWRITING IS THE POINT, exactly as for a medical
+      // clearance: a patient who could walk at 09:00 may need an escort by 11:00, and refusing the
+      // correction would leave the board asserting something the sending team no longer believes.
+      // The `at` stamp is the answer's own time, so the record says when it was true.
+      const updated: Movement = { ...movement, transportNeed: { needed: event.needed, at: event.now } };
+      return replaceMovement(state, movement.id, updated);
+    }
+
+    case "RECORD_NO_REFERRAL": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(
+          state,
+          event,
+          `cannot record a referral answer for a closed movement (${movement.closure.reason})`,
+        );
+      }
+      /*
+       * ⚠️ THE CONTRADICTION IS REFUSED RATHER THAN STORED. `referralId` and `referralAbsence`
+       * answer the same question, and a movement carrying both says a referral exists and that
+       * none does. `movementReferralLink` prefers the referral when it meets that pair, but a
+       * reader resolving a contradiction is a last line, not a licence to create one here.
+       */
+      if (movement.referralId !== undefined) {
+        return reject(
+          state,
+          event,
+          `movement ${movement.id} was raised from referral ${movement.referralId}, so it cannot also record that nobody referred this patient`,
+        );
+      }
+      const updated: Movement = { ...movement, referralAbsence: { reason: "none_raised", at: event.now } };
+      return replaceMovement(state, movement.id, updated);
     }
 
     case "RECORD_EXAMINATION": {
@@ -1039,6 +1110,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // line — the coordinator has now referred. Until 2026-09-01 it survived this transition and
         // every one after it. See `STAGE_TRANSITION_BLOCKERS`.
         blocker: STAGE_TRANSITION_BLOCKERS.referred,
+        // `movement.stage` here is the value BEFORE this update — `placement_requested` the first
+        // time, `destination_review` on a re-referral. Re-referral rewrites `referredAt` above and
+        // appends its own entry here too; the two stay in step because both are written in this
+        // one place. See `StageChange`'s own doc comment on `referredAt`'s agreement rule.
+        stageChanges: [
+          ...movement.stageChanges,
+          { at: event.now, from: movement.stage, to: "destination_review", by: event.role },
+        ],
       };
       // `withHeldBack`, not `state` — any ward refused above must survive into the returned state,
       // or the coordinator is told nothing and the referral silently shrank.
@@ -1107,6 +1186,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // is the bed, and that is all this sentence claims: the seed's richer "Bed being made
         // ready" is a ward's own observation and only a human may write it.
         blocker: STAGE_TRANSITION_BLOCKERS.accepted,
+        // `acceptedAt` above and this entry are written together and must never diverge — see
+        // `StageChange`'s doc comment: `acceptedAt` agrees with the FIRST entry with
+        // `to: accepted_awaiting_bed`, which this always is on the acceptance path (RELEASE_PULL
+        // later adds a SECOND one without touching `acceptedAt`, and must never rewrite it here).
+        stageChanges: [
+          ...movement.stageChanges,
+          { at: event.now, from: movement.stage, to: "accepted_awaiting_bed", by: event.role },
+        ],
       };
       return replaceMovement(state, movement.id, updated);
     }
@@ -1366,6 +1453,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // The join `RELEASE_PULL` needs to undo exactly this record, and `PATIENT_ARRIVED` needs to
         // mark exactly this one as having arrived. See `Movement.admissionId`.
         admissionId: admission.id,
+        stageChanges: [...movement.stageChanges, { at: event.now, from: movement.stage, to: "pulled", by: event.role }],
       };
       const withUnit = replaceUnit(state, unit.id, updatedUnit);
       const withPerson: WardFlowState = {
@@ -1393,6 +1481,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         referredUnitIds: movement.referredUnitIds.filter((unitId) => unitId !== event.unitId),
         declines: [...movement.declines, { unitId: event.unitId, at: event.now, reason: event.reason }],
         stage: "destination_review",
+        // A decline that leaves the movement at the stage it was already at — ruling 4: labelled
+        // a Decline on the tracker, never a step-back, which is why `declines` above is the
+        // clinical record and this entry exists only for the derived-case-list floor (every case
+        // that assigns `stage:` appends exactly one entry, whether or not the value changes).
+        stageChanges: [
+          ...movement.stageChanges,
+          { at: event.now, from: movement.stage, to: "destination_review", by: event.role, reason: event.reason },
+        ],
       };
       return replaceMovement(state, movement.id, updated);
     }
@@ -1428,7 +1524,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (!movement.transport) {
         return reject(state, event, `cannot ready a handover before transport is booked (BOOK_TRANSPORT)`);
       }
-      const updated: Movement = { ...movement, stage: "handover_ready" };
+      const updated: Movement = {
+        ...movement,
+        stage: "handover_ready",
+        stageChanges: [
+          ...movement.stageChanges,
+          { at: event.now, from: movement.stage, to: "handover_ready", by: event.role },
+        ],
+      };
       return replaceMovement(state, movement.id, updated);
     }
 
@@ -1496,6 +1599,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // Nothing is blocking a patient who is in a vehicle — and the SEED already says so in these
         // exact words on its two `moving` movements. Reused verbatim rather than reworded.
         blocker: STAGE_TRANSITION_BLOCKERS.collected,
+        // `transport.collectedAt` above and this entry's `at` are the same `event.now` — see
+        // `StageChange`'s doc comment.
+        stageChanges: [...movement.stageChanges, { at: event.now, from: movement.stage, to: "moving", by: event.role }],
       };
       return replaceMovement(state, movement.id, updated);
     }
@@ -1536,6 +1642,11 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // the pair a derivation could never hold apart: two situations, both with no blocker, and
         // the sentence is the only thing that says which.
         blocker: STAGE_TRANSITION_BLOCKERS.arrived,
+        // `closure.at` above agrees with this entry's `at` — see `StageChange`'s doc comment.
+        stageChanges: [
+          ...movement.stageChanges,
+          { at: event.now, from: movement.stage, to: "arrived", by: event.role },
+        ],
       };
       const withUnit = replaceUnit(state, unit.id, updatedUnit);
       /*
@@ -2425,6 +2536,59 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           `RECEIVE_REFERRAL patientId must name a patient this system already holds, and ${event.patientId} names none`,
         );
       }
+      /*
+       * ⚠️ THE WRITTEN HISTORY — THE ONLY FIELD ON THIS EVENT THE REDUCER CANNOT MEMBERSHIP-CHECK.
+       *
+       * Every guard above resolves a value against a closed set. There is no set to check prose
+       * against, so exactly two things are enforced here and nothing else is even attempted:
+       *
+       *   1. It is a string at all — see the shape note below.
+       *   2. It does not exceed its limit in `REFERRAL_HISTORY_LIMITS`.
+       *
+       * ⚠️ **A BLANK STORY IS NO LONGER REFUSED.** It was, until the owner's ruling of 2026-09-05:
+       * one story box, OPTIONAL. The rejection that lived here — "a referral needs an account of
+       * why it was raised" — was a good sentence about a rule this product no longer has, and the
+       * front door no longer goes inert on an empty box either. **`""` is a complete answer.**
+       *
+       * ⚠️ **AN OVER-LENGTH VALUE IS REFUSED, NEVER TRUNCATED.** `.slice(0, limit)` here would
+       * accept the referral and silently drop the tail of somebody's risk note, and the intake
+       * would report success. A refusal is visible; a truncation is not, and the part most likely
+       * to be cut is the part written last, which on a risk note is usually the part that matters.
+       *
+       * ⚠️ **NOTHING ELSE IS INSPECTED.** No keyword scan for a name, no check that it "looks
+       * clinical", no urgency inferred from its wording. The moment this reducer reads meaning out
+       * of this field, the prototype is doing clinical decision support — see `Referral.history`.
+       */
+      /*
+       * ⚠️ THE SHAPE CHECK COMES FIRST, AND IT IS NOT DEFENSIVE PROGRAMMING FOR ITS OWN SAKE.
+       *
+       * The first version of this block went straight to `.trim()`, which threw a TypeError on any
+       * caller that omitted the field — and the reducer's own commentary on `sex` describes exactly
+       * who those callers are: "a non-form caller (a demo control, a Playwright fixture, the guided
+       * tour)". Three suites found it within a minute of the field landing.
+       *
+       * **A crash and a refusal are not the same outcome.** A refusal is a `Rejection` a clinician
+       * can read; a thrown TypeError unwinds out of `dispatch`, leaves the state untouched, and
+       * presents as a button that did nothing at all — the phantom-press failure this file already
+       * has a comment about on the officer screen. Every other guard here checks membership before
+       * it uses a value, and this one must too — **and it matters MORE now the field is optional**,
+       * because an omitted field and a deliberately blank one are the same keystroke away and the
+       * loop below is the only thing that tells a caller which mistake it made.
+       */
+      for (const field of Object.keys(REFERRAL_HISTORY_LIMITS) as ReferralHistoryField[]) {
+        if (typeof event[field] !== "string") {
+          return reject(state, event, `RECEIVE_REFERRAL ${field} must be text, even when it is empty text`);
+        }
+      }
+      for (const [field, limit] of Object.entries(REFERRAL_HISTORY_LIMITS) as [ReferralHistoryField, number][]) {
+        if (event[field].length > limit) {
+          return reject(
+            state,
+            event,
+            `RECEIVE_REFERRAL ${field} is ${event[field].length} characters and the limit is ${limit} — it is refused rather than shortened`,
+          );
+        }
+      }
       const sequence = state.frontDoorReferralSequence + 1;
       const created: Referral = {
         id: nextFrontDoorReferralId(sequence),
@@ -2444,6 +2608,11 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         urgency: event.urgency,
         originSiteCode: event.originSiteCode,
         transportNeeded: event.transportNeeded,
+        // ⚠️ BYTE FOR BYTE, AND THE UNTRIMMED ORIGINAL. The blank check above trims to decide
+        // whether anything was written; it does not trim what is kept. A referrer's leading
+        // indent and paragraph breaks are part of what they wrote, and a reducer that tidies
+        // prose is a reducer that has an opinion about prose.
+        history: event.history,
       };
       return { ...state, referrals: [...state.referrals, created], frontDoorReferralSequence: sequence };
     }
@@ -2909,6 +3078,15 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // about.
         admissionId: undefined,
         unwinds: [...movement.unwinds, { at: event.now, kind: "pull_released", by: event.role, reason: event.reason }],
+        // ⚠️ THIS APPENDS A SECOND `to: accepted_awaiting_bed` ENTRY AND MUST NEVER TOUCH
+        // `acceptedAt`. `acceptedAt` agrees with the FIRST such entry (`ACCEPT_IN_PRINCIPLE`
+        // above) precisely because a release is not a re-acceptance — the patient survives and
+        // keeps their original acceptance, and the record of WHEN that happened must not move
+        // just because a bed reservation was undone. See `StageChange`'s own doc comment.
+        stageChanges: [
+          ...movement.stageChanges,
+          { at: event.now, from: movement.stage, to: "accepted_awaiting_bed", by: event.role, reason: event.reason },
+        ],
       };
       const withUnit = replaceUnit(state, unit.id, releasedUnit);
       /*
@@ -3050,6 +3228,113 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
             by: event.role,
             reason: event.reason,
             transportId: cancelledTransport.id,
+          },
+        ],
+        stageChanges: [
+          ...movement.stageChanges,
+          { at: event.now, from: movement.stage, to: "handover_ready", by: event.role, reason: event.reason },
+        ],
+      };
+      return replaceMovement(state, movement.id, updatedMovement);
+    }
+
+    /**
+     * THE COORDINATOR'S OWN RECORD CORRECTION — Task 5 (ward-flow movement step-track plan,
+     * 2026-09-04), owner rulings E and F. See `STEP_BACK_STAGE`'s own doc comment in
+     * `ward-flow-events.ts` for what this is and is not.
+     */
+    case "STEP_BACK_STAGE": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot step back a closed movement (${movement.closure.reason})`);
+      }
+      const fromIndex = MOVEMENT_STAGES.indexOf(movement.stage);
+      const toIndex = MOVEMENT_STAGES.indexOf(event.to);
+      if (toIndex >= fromIndex) {
+        return reject(
+          state,
+          event,
+          `STEP_BACK_STAGE target must be strictly before the movement's current stage (movement ${movement.id} is at ${movement.stage}, target was ${event.to})`,
+        );
+      }
+      if (!STEP_BACK_REASONS.includes(event.reason)) {
+        /*
+         * Runtime membership, not merely the type — the same discipline `CANCEL_TRANSPORT` above
+         * already states in its own comment: a type-only requirement passes `vitest run` with no
+         * `tsc` involved.
+         */
+        return reject(state, event, `STEP_BACK_STAGE reason must be chosen from STEP_BACK_REASONS`);
+      }
+      // 🔴 TOUCH NOTHING ELSE — F3 and ruling E's "does not release the bed / does not cancel the
+      // transport" in one sentence. Never write `acceptedUnitId`, `acceptedAt`, `pullExpiresAt`,
+      // `admissionId`, `transport`, or any `Unit.allocatable` field, no matter how far back
+      // `event.to` goes. The entire side effect is the two appends below and the `stage` field.
+      const updatedMovement: Movement = {
+        ...movement,
+        stage: event.to,
+        stageChanges: [
+          ...movement.stageChanges,
+          { at: event.now, from: movement.stage, to: event.to, by: event.role, reason: event.reason },
+        ],
+        unwinds: [
+          ...movement.unwinds,
+          { at: event.now, kind: "stage_corrected", by: event.role, reason: event.reason },
+        ],
+      };
+      return replaceMovement(state, movement.id, updatedMovement);
+    }
+
+    /**
+     * THE COORDINATOR UNDOES A WARD'S "YES" — Task 5, same plan and rulings as `STEP_BACK_STAGE`
+     * above. See `WITHDRAW_ACCEPTANCE`'s own doc comment in `ward-flow-events.ts`.
+     */
+    case "WITHDRAW_ACCEPTANCE": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot withdraw an acceptance for a closed movement (${movement.closure.reason})`);
+      }
+      if (movement.stage !== "accepted_awaiting_bed") {
+        return reject(
+          state,
+          event,
+          `cannot withdraw an acceptance once a bed has been pulled (movement ${movement.id} is at ${movement.stage})`,
+        );
+      }
+      if (!STEP_BACK_REASONS.includes(event.reason)) {
+        return reject(state, event, `WITHDRAW_ACCEPTANCE reason must be chosen from STEP_BACK_REASONS`);
+      }
+      // Read before clearing — the whole point of `UnwindRecord.unitId` is naming which ward's
+      // acceptance this was, which nothing else on the record would say once `acceptedUnitId`
+      // below is cleared.
+      const withdrawnUnitId = movement.acceptedUnitId;
+      const updatedMovement: Movement = {
+        ...movement,
+        acceptedUnitId: undefined,
+        acceptedAt: undefined,
+        stage: "destination_review",
+        // Deliberately NOT pushed back into `referredUnitIds` (owner ruling 3, 2026-09-04):
+        // withdrawing an acceptance is not the same act as re-referring, and reviving a "live
+        // referral" the ward never re-received would be a false claim on that ward's own screen.
+        stageChanges: [
+          ...movement.stageChanges,
+          {
+            at: event.now,
+            from: "accepted_awaiting_bed",
+            to: "destination_review",
+            by: event.role,
+            reason: event.reason,
+          },
+        ],
+        unwinds: [
+          ...movement.unwinds,
+          {
+            at: event.now,
+            kind: "acceptance_withdrawn",
+            by: event.role,
+            reason: event.reason,
+            unitId: withdrawnUnitId,
           },
         ],
       };

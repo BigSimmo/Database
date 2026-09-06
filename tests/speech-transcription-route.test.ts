@@ -6,8 +6,10 @@ const mocks = vi.hoisted(() => ({
   transcribe: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
+  enabled: vi.fn(),
 }));
 vi.mock("@/lib/public-api-access", () => ({ publicAccessContext: mocks.access }));
+vi.mock("@/lib/clinical-ask/authority-registry", () => ({ clinicalAskEnabled: mocks.enabled }));
 vi.mock("@/lib/api-rate-limit", () => ({
   consumeSubjectApiRateLimit: mocks.rate,
   rateLimitJsonResponse: () => new Response("limited", { status: 429 }),
@@ -35,12 +37,28 @@ const file = (type = "audio/webm", bytes = 2, name = "private-name.webm") =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.enabled.mockReturnValue(true);
   mocks.access.mockResolvedValue({ rateLimitSubject: { kind: "owner", ownerId: "owner-a" } });
   mocks.rate.mockResolvedValue({ limited: false });
   mocks.transcribe.mockResolvedValue({ transcript: "Synthetic transcript", model: "gpt-4o-mini-transcribe" });
 });
 
 describe("POST /api/speech/transcribe", () => {
+  it("answers 404 before access, the rate limiter, or the provider when Clinical Ask is off", async () => {
+    mocks.enabled.mockReturnValue(false);
+    const response = await POST(request(file(), "1000"));
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("content-type")).not.toContain("text/event-stream");
+    expect(mocks.access).not.toHaveBeenCalled();
+    expect(mocks.rate).not.toHaveBeenCalled();
+    expect(mocks.transcribe).not.toHaveBeenCalled();
+    // A designed 404 is not a server fault: it must not write an error-level
+    // log line (which the Sentry Logs allowlist would forward) per probe.
+    expect(mocks.error).not.toHaveBeenCalled();
+    expect(mocks.warn).not.toHaveBeenCalled();
+  });
+
   it.each([
     "audio/webm",
     "audio/webm;codecs=opus",

@@ -59,17 +59,49 @@ function normalizeText(text: string) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+const conciseTextLimit = 260;
+const conciseTextCut = 257;
+
+// Audit L111: the chip text was cut at a fixed character offset with no word or
+// number boundary, so a dose or count straddling the cut rendered as a partial
+// number — "ANC 1500" became "ANC 1" — which reads as a complete threshold.
+// Cut at the last word boundary instead. When a single token runs past the whole
+// limit there is no boundary to use, so drop a trailing partial number rather
+// than show half of one.
+function truncateAtSafeBoundary(text: string, cut: number) {
+  const slice = text.slice(0, cut);
+  // Audit L111, second boundary case (Codex review on PR #2610): when the cut
+  // itself lands on whitespace, the slice already ends on a COMPLETE token, so
+  // backing up to the previous space deletes a whole value. "…ANC below 1500"
+  // became "…ANC below" — worse than the original defect, because it still reads
+  // as a finished clinical instruction with the threshold silently removed.
+  if (/\s/.test(text.charAt(cut)) || /\s$/.test(slice)) return slice.trimEnd();
+  const lastSpace = slice.lastIndexOf(" ");
+  if (lastSpace > 0) return slice.slice(0, lastSpace).trimEnd();
+  return slice.replace(/[\d.,]*\d[\d.,]*$/, "").trimEnd() || slice.trimEnd();
+}
+
 function conciseSourceText(text: string) {
   const useful = clinicalProseUsefulness(text);
   const normalized = normalizeText(
     (sourceTextForCompactDisplay(useful.text || text) || sourceTextForDisplay(text))
       .replace(/\bsource mentions\s*:?\s*/gi, "")
-      .replace(/\b(?:procedure|policy|protocol)\s+[A-Z]{2,}(?:-[A-Z0-9]+)+(?:\/\d+)?\b[\s.:-]*/gi, "")
+      // Audit M9: this scrub removes a document code such as
+      // "Procedure PAE-PRO-0338/16". With the `i` flag it also matched any
+      // lowercase hyphenated word, so "protocol re-challenge",
+      // "policy co-prescribing" and "procedure post-operative" lost the subject
+      // of the sentence in a rendered Safety finding. The keyword stays
+      // case-insensitive by spelling; the code itself must be upper case and
+      // must contain a digit, which every real code does.
+      .replace(
+        /\b(?:[Pp]rocedure|[Pp]olicy|[Pp]rotocol)\s+(?=[A-Z0-9/-]*\d)[A-Z]{2,}(?:-[A-Z0-9]+)+(?:\/\d+)?\b[\s.:-]*/g,
+        "",
+      )
       .replace(/\bpage\s+\d+\s+of\s+\d+\b[\s.:-]*/gi, "")
       .replace(/\bchunk\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]+\b[\s.:-]*/gi, ""),
   );
-  if (normalized.length <= 260) return normalized;
-  return `${normalized.slice(0, 257).trim()}...`;
+  if (normalized.length <= conciseTextLimit) return normalized;
+  return `${truncateAtSafeBoundary(normalized, conciseTextCut)}...`;
 }
 
 function citationFromSource(source: SearchResult): Citation {
@@ -274,4 +306,68 @@ const safetyKindPriority: Record<SafetyFindingKind, number> = {
 
 export function sortSafetyFindingsBySeverity(findings: SafetyFinding[]): SafetyFinding[] {
   return [...findings].sort((left, right) => safetyKindPriority[left.kind] - safetyKindPriority[right.kind]);
+}
+
+/**
+ * What the reader is being asked to do, which is not the same question as how
+ * severe the finding is.
+ *
+ * The three tiers exist so routine monitoring stops being painted amber.
+ * `docs/design-system/TOKENS.md` reserves the clinical status colours for
+ * "source state and sanctioned urgency only", and an answer whose every finding
+ * is a warning colour teaches the reader that the warning colours mean nothing —
+ * which is exactly the state a contraindication cannot afford them to be in.
+ *
+ * `stop` earns `--danger`, `act` earns `--warning`, and `know` deliberately
+ * earns neither.
+ */
+export type SafetyFindingTone = "stop" | "act" | "know";
+
+const safetyKindTone: Record<SafetyFindingKind, SafetyFindingTone> = {
+  contraindication: "stop",
+  red_flag: "stop",
+  escalation: "act",
+  dose_limit: "act",
+  monitoring: "know",
+  exclusion: "know",
+  caveat: "know",
+};
+
+export function safetyFindingTone(kind: SafetyFindingKind): SafetyFindingTone {
+  return safetyKindTone[kind];
+}
+
+/**
+ * The findings collapsed to one entry per kind, in severity order, for the
+ * rail of clinical points under an answer.
+ *
+ * Grouped by kind rather than listed per finding because `SafetyFinding` has no
+ * short title: it carries `label` ("Contraindication") and `text` (the whole
+ * passage), and a rail of full passages is the panel this rail exists to
+ * replace. The count keeps two monitoring findings from rendering as two
+ * identical pills.
+ */
+export type SafetyFindingGroup = {
+  kind: SafetyFindingKind;
+  label: string;
+  tone: SafetyFindingTone;
+  count: number;
+};
+
+export function groupSafetyFindingsByKind(findings: SafetyFinding[]): SafetyFindingGroup[] {
+  const groups = new Map<SafetyFindingKind, SafetyFindingGroup>();
+  for (const finding of sortSafetyFindingsBySeverity(findings)) {
+    const existing = groups.get(finding.kind);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    groups.set(finding.kind, {
+      kind: finding.kind,
+      label: finding.label,
+      tone: safetyFindingTone(finding.kind),
+      count: 1,
+    });
+  }
+  return [...groups.values()];
 }

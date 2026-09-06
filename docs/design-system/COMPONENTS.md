@@ -932,9 +932,26 @@ source-derived and its reference preview exercises the typed confirmation path.
 **Contract.** Heading level is a prop — never a hardcoded `<h3>` · collapsed content is
 **not** find-in-page reachable via plain `hidden` (retracted claim); evaluate
 `hidden="until-found"` where discoverability matters · print-relevant disclosures expand
-under the print theme (PR 11) · the group supports controlled and default-open ids.
-**Landed.** `headingLevel` drives `h2`–`h6` for both components. **Open defects → PR.** print
-behaviour and truncation → PR 11.
+under the print theme (PR 11) · the group supports controlled and default-open ids ·
+the trigger is a **grid** and the panel repeats its template, so the label, the collapsed
+preview and the expanded body share one left edge · `py-2.5` plus a 28px first-line band
+(`leading-7`) puts a single-line row exactly on the 48px tap floor, and `items-start` holds
+the tile, `meta` and chevron to that band when copy wraps · the preview clamps to two
+lines · `icon` is a **leading tile for list-shaped groups**, passed as a bare glyph so the
+component owns the tile and its grid track cannot desync from
+`--spacing-disclosure-icon`; an inline glyph inside a sentence stays in `title` (see
+`medication-considerations.tsx`) · `surface` and the group's `variant` are props, never
+`className` overrides, because `cn()` joins strings and does not resolve Tailwind
+conflicts · panel copy uses the exported `disclosureBodyText`, never a restated size.
+**Landed.** `headingLevel` drives `h2`–`h6` for both components. Truncation is closed: the
+trigger had horizontal padding only, so a wrapped preview pressed its copy into the border;
+the preview was `text-xs` against a `text-sm leading-6` panel, so an `extendDescription` row
+re-sized the same sentence on open; and the panel's own `px-3` moved that copy sideways.
+Pinned in a browser by `tests/ui-forms-section-nav.spec.ts` ("symmetric vertical padding",
+"left edge and in the preview's type") — jsdom applies no Tailwind, so it can assert neither.
+**Accepted residual.** With `extendDescription` the trigger holds the tap floor whether or
+not the preview is present, so the copy moves down about 10px on expand. It does not change
+size, colour or left edge. **Open defects → PR.** print behaviour → PR 11.
 
 ### 9.26 `Progress`
 
@@ -1015,7 +1032,7 @@ tests to run.
 
 Registered public components: 55
 Components with a valid design-sync preview: 55
-Components with product imports: 39
+Components with product imports: 40
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -1026,27 +1043,27 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              23 |
-| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              26 |
+| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
-| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `DateDisplay`            | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
-| `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `DoseLine`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DownloadLink`           | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              14 |
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `ExternalTextLink`       | controls | yes   | yes                | no                    | yes            | no                 |               0 |
+| `ExternalTextLink`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
+| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
@@ -1060,17 +1077,17 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
-| `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              33 |
+| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
+| `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              34 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SourceStatusBadge`      | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `StageList`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Tabs`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
+| `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `TextLink`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToastRegion`            | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToggleSwitch`           | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |

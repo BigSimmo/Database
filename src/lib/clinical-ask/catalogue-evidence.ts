@@ -15,6 +15,10 @@ import { searchTherapyRecords } from "@/lib/therapies";
 const RESULT_LIMIT = 12;
 const EXTRACT_LIMIT = 2_000;
 
+// A question that matches nothing yields an empty tier. Never substitute the
+// whole catalogue: the orchestrator's evidence-gap path must fire before any
+// provider call rather than synthesise over unrelated records (audit L16).
+
 function abortIfRequested(signal: AbortSignal) {
   if (!signal.aborted) return;
   const error = new Error("The catalogue request was aborted.");
@@ -56,9 +60,7 @@ function serviceReviewState(status: string | null | undefined): SourceReviewStat
 }
 
 function serviceEvidence(request: ClinicalAskRequest) {
-  const matches = searchServiceRecords(request.question, RESULT_LIMIT);
-  const ranked = matches.length ? matches : searchServiceRecords("", RESULT_LIMIT);
-  return ranked.map(({ service }) =>
+  return searchServiceRecords(request.question, RESULT_LIMIT).map(({ service }) =>
     evidence(request, service.slug, {
       title: service.title,
       publisher: service.source?.label?.trim() || service.catalogueLabel?.trim() || "Services catalogue",
@@ -73,9 +75,7 @@ function serviceEvidence(request: ClinicalAskRequest) {
 }
 
 function formEvidence(request: ClinicalAskRequest) {
-  const matches = searchFormRecords(request.question, RESULT_LIMIT);
-  const ranked = matches.length ? matches : searchFormRecords("", RESULT_LIMIT);
-  return ranked.map(({ service: form }) =>
+  return searchFormRecords(request.question, RESULT_LIMIT).map(({ service: form }) =>
     evidence(request, form.slug, {
       title: form.title,
       publisher: form.source?.label?.trim() || "Forms catalogue",
@@ -100,10 +100,8 @@ function differentialEvidence(request: ClinicalAskRequest) {
       : "unknown";
   const diagnoses = searchDifferentialRecords(request.question);
   const presentations = searchPresentationWorkflows(request.question);
-  const rankedDiagnoses = diagnoses.length ? diagnoses : searchDifferentialRecords("");
-  const rankedPresentations = presentations.length ? presentations : searchPresentationWorkflows("");
   return [
-    ...rankedDiagnoses.map((record) =>
+    ...diagnoses.map((record) =>
       evidence(request, `diagnosis:${record.slug}`, {
         title: record.title,
         publisher: snapshot.governance.sourceTitle,
@@ -113,7 +111,7 @@ function differentialEvidence(request: ClinicalAskRequest) {
         updatedAt: snapshot.exportedAt,
       }),
     ),
-    ...rankedPresentations.map((workflow) =>
+    ...presentations.map((workflow) =>
       evidence(request, `presentation:${workflow.id}`, {
         title: workflow.title,
         publisher: snapshot.governance.sourceTitle,
@@ -127,8 +125,7 @@ function differentialEvidence(request: ClinicalAskRequest) {
 }
 
 function formulationEvidence(request: ClinicalAskRequest) {
-  const matches = searchFormulationMechanisms(request.question);
-  const ranked = matches.length ? matches : searchFormulationMechanisms("");
+  const ranked = searchFormulationMechanisms(request.question);
   return ranked.slice(0, RESULT_LIMIT).map(({ mechanism }) =>
     evidence(request, mechanism.id, {
       title: mechanism.name,
@@ -141,9 +138,7 @@ function formulationEvidence(request: ClinicalAskRequest) {
 }
 
 function dsmEvidence(request: ClinicalAskRequest) {
-  const matches = rankDsmDiagnoses(request.question, RESULT_LIMIT);
-  const ranked = matches.length ? matches : rankDsmDiagnoses("", RESULT_LIMIT);
-  return ranked.map(({ diagnosis }) => {
+  return rankDsmDiagnoses(request.question, RESULT_LIMIT).map(({ diagnosis }) => {
     const summary = dsmDiagnosisSummary(diagnosis);
     return evidence(request, diagnosis.slug, {
       title: summary.title,
@@ -157,12 +152,16 @@ function dsmEvidence(request: ClinicalAskRequest) {
 
 function specifierEvidence(request: ClinicalAskRequest) {
   const rankedLabels = new Map(searchSpecifiers(request.question).map(({ record }, index) => [record.name, index]));
-  const items = specifierCatalogItems().filter((item) =>
-    request.question.trim()
-      ? `${item.label} ${item.disorderName}`.toLowerCase().includes(request.question.toLowerCase())
-      : true,
+  const question = request.question.trim().toLowerCase();
+  // Match on the ranked specifier search (the same signal the specifiers mode
+  // uses), plus any catalogue item whose label or disorder contains a short
+  // question verbatim. No match means no evidence for this tier.
+  const items = specifierCatalogItems().filter(
+    (item) =>
+      rankedLabels.has(item.label) ||
+      (question ? `${item.label} ${item.disorderName}`.toLowerCase().includes(question) : true),
   );
-  const candidates = (items.length ? items : specifierCatalogItems())
+  const candidates = items
     .map((item, index) => ({ item, rank: rankedLabels.get(item.label) ?? rankedLabels.size + index }))
     .sort((left, right) => left.rank - right.rank)
     .slice(0, RESULT_LIMIT);
@@ -181,8 +180,7 @@ function specifierEvidence(request: ClinicalAskRequest) {
 }
 
 function therapyEvidence(request: ClinicalAskRequest) {
-  const matches = searchTherapyRecords(request.question);
-  const ranked = matches.length ? matches : searchTherapyRecords("");
+  const ranked = searchTherapyRecords(request.question);
   return ranked.slice(0, RESULT_LIMIT).map(({ record }) => {
     const source = therapySourceMetadata(
       { title: record.name, sourceType: record.category, reference: record.clinicalSummary },

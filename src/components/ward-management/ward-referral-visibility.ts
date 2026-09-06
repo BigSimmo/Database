@@ -6,7 +6,9 @@ import type {
   ReferralAddressing,
   ReferralAddressingState,
   ReferralDeclineReason,
+  ReferralDestination,
   ReferralDestinationKind,
+  ReferralPurpose,
   ReferralSource,
   ReferralState,
   Sex,
@@ -31,10 +33,11 @@ import { referralState } from "@/components/ward-management/ward-referrals";
  * projection never carries cannot be. There is no `hideOtherDestinations` flag anywhere in this
  * module and there must never be one: a flag is a thing that can be passed the other way.
  *
- * **The two projections are two TYPES, not one type with a switch.** `WardScopedReferral` has no
- * `destinations` field at all — the plural does not exist on it, so no amount of later editing in a
- * ward component can reach one. `CoordinatorScopedReferral` carries the whole list. Nothing
- * converts one into the other, and neither takes a role, a scope or a viewer as an argument.
+ * **The projections are separate TYPES, not one type with a switch.** `WardScopedReferral` and
+ * `CommunityScopedReferral` have no `destinations` field at all — the plural does not exist on
+ * either, so no amount of later editing in a ward or community component can reach one.
+ * `CoordinatorScopedReferral` carries the whole list. Nothing converts one into another, no
+ * converter exists between them, and none of them takes a role, a scope or a viewer as an argument.
  *
  * **Every field is copied by name, never spread.** `{ ...addressing }` would silently carry a field
  * added to `ReferralAddressing` later — which is precisely how a projection quietly becomes the
@@ -51,19 +54,86 @@ import { referralState } from "@/components/ward-management/ward-referrals";
  * never by whom, never how many places were tried. Nothing else about the other destinations
  * survives the projection.
  *
- * **What is NOT decided here.** Whether the same rule binds the other destination kinds — whether
- * an emergency department may see that a ward was also asked — is not in the ruling and is not
- * taken by this module. Only the ward-scoped projection exists, because only the ward-facing rule
- * was given. An ED-scoped projection is a product decision, not an implementer's.
+ * ---
+ *
+ * **COMMUNITY IS NOW DECIDED — owner ruling, 2026-09-04.** A community team becomes a first-class
+ * role with its own page, alongside ED, coordinator and the wards, and **a community team may NOT
+ * see that the same patient was referred anywhere else. The same restriction as a ward.** His
+ * reasoning is the ward reasoning, in his own words: so a team does not spend its time on a patient
+ * being placed elsewhere; and information never sent cannot leak later.
+ *
+ * So `CommunityScopedReferral` exists below, built exactly as `WardScopedReferral` is — a THIRD
+ * type with no `destinations` field, its own projection function taking no role, scope or viewer
+ * argument, every field copied by name, and its own field-set allowlists at every level in
+ * `tests/ward-referral-visibility.test.ts`. **There is no shared helper between the two and there
+ * must never be one**: a function both a community screen and a ward screen reach is, in FD-23's
+ * own words, shared infrastructure by construction — the exemption arriving by the front door.
+ *
+ * **The identical inference is available to a community team, and it is the same non-hole.** A
+ * community team's own addressing can read `"cancelled"`, so it can infer THAT the patient went
+ * somewhere — never where, never to whom, never how many places were tried. That is the ward
+ * position word for word, and it is the owner's intent rather than a leak. (It is reachable only
+ * where a community arm is cancelled at all; `ACCEPT_REFERRAL` exempts a `community_team` candidate
+ * from cancellation today, so the state is rarer for a community team than for a ward. The rule is
+ * written for the state, not for how often it occurs.)
+ *
+ * ---
+ *
+ * **AND THE EMERGENCY DEPARTMENT IS NOW DECIDED — owner ruling R-2026-09-04-B**
+ * (`docs/ward-flow/owner-rulings-2026-09-04.md`). Asked whether an ED may see that a patient was
+ * also referred to a ward, the owner answered *"Yes can see."* So the ED seat is **coordinator-like
+ * for destination visibility, and the opposite of the ward and community seats**, which are both
+ * restricted. `EdScopedReferral` below is that seat, and it carries the destination list.
+ *
+ * **ALL THREE DESTINATION KINDS ARE NOW RULED. Nothing about who may see a referral's destinations
+ * is open any more:** ward RESTRICTED (2026-08-30), community RESTRICTED (2026-09-04), emergency
+ * department UNRESTRICTED (2026-09-04). A paragraph stood here for five days saying the ED question
+ * was a product decision nobody had taken and that adding a projection on the pattern below would be
+ * taking it. It has been taken, by the owner, and the paragraph is replaced rather than deleted so
+ * that a reader who remembers it can see what happened to it.
+ *
+ * ⚠️ **"MAY SEE THE DESTINATIONS" IS NOT "MAY SEE EVERYTHING", AND THE RULING SAYS SO IN TERMS.** It
+ * widens WHAT the ED seat may carry and changes NOTHING about why the seat is a projection at all:
+ * data that reaches a component can be revealed later by a styling change, a new column or a debug
+ * panel. So the ED seat is a FOURTH TYPE built exactly like the other three — every field copied by
+ * name, no role/scope/viewer argument, no converter to or from any other projection — and it is
+ * deliberately **not** the coordinator projection under another name. It carries each destination's
+ * KIND and STATE, and nothing else about an arm that is not its own. What it omits and why is
+ * written on `EdScopedDestinationSummary` and `EdScopedReferral` below; the short form is that an ED
+ * is one party to a referral that may also see where else the patient was sent, and a coordinator
+ * is the seat that sees everything.
+ *
+ * ⚠️ **THE EXISTING ONE-BIT DISCLOSURE THROUGH `referralPersonFacts` IS SANCTIONED, NOT A DEFECT —
+ * SAID HERE BECAUSE SOMEBODY WILL OTHERWISE FIND IT AND FILE IT.** `referralPersonFacts`
+ * (`ward-referrals.ts`) returns a patient's sex only when a WARD arm exists, because that is the
+ * only arm that holds it. An ED screen rendering those facts therefore already tells the department
+ * THAT a ward was asked — one bit, in shipped code, before any of this was built. The owner was told
+ * that when he was asked, and the ruling records it: a "no" would have been an instruction to change
+ * shipped behaviour, and he said yes. **No fix is scheduled for it and none should be opened.**
  */
 
 /**
- * ⚠️ ZERO PRODUCTION IMPORTERS IS EXPECTED — this is not orphaned code.
+ * ⚠️ FEW PRODUCTION IMPORTERS IS EXPECTED — this is not orphaned code.
  *
- * No file under `src/` imports this module today, and its only importer anywhere in the repo is
- * `tests/ward-referral-visibility.test.ts`. That absence is correct, not neglect: `Referral` carries
- * no patient link, so no ward-facing screen can render a referral today even if it tried. These
- * functions exist to be ready the day one can.
+ * ⚠️ **THIS BLOCK CARRIED TWO CLAIMS THAT WERE TRUE WHEN WRITTEN AND ARE NOT TRUE NOW. Both are
+ * corrected in place rather than deleted, because both were load-bearing for the argument that a
+ * thin importer list here is correct rather than neglect.**
+ *
+ *   - **It said no file under `src/` imports this module.** It does now:
+ *     `community/community-home.tsx` imports `coordinatorScopedReferrals`, and
+ *     `community/community-team-hub.tsx` imports the `CommunityScopedReferral` type. The seats are
+ *     starting to be built, which is what these functions were written for.
+ *   - **It said `Referral` carries no patient link, so no ward-facing screen could render a referral
+ *     even if it tried.** `Referral.patientId` has existed since the owner's 2026-09-02 ruling
+ *     (*"Yes to the referral remembering its patient"*) — optional, an id and nothing else, and read
+ *     by nothing yet. The old sentence describes a constraint the model no longer has, and a reader
+ *     meeting it would take it as current.
+ *
+ * The reason a short importer list is still correct is simply that most seats have no screen yet.
+ * The surfaces that render referrals today — the coordinator board, the match view, the network
+ * diagram and the ED screen — read the `Referral` record directly and are not ward-facing. These
+ * functions exist so that each seat has somewhere to route through the day it is built, and the ED
+ * seat below is the newest example: it is written ahead of the screen that will adopt it.
  *
  * ⚠️ **This paragraph used to list WHICH exports that test called, and which had no caller at all.
  * It was false by the time anyone read it** — the list was written when there were four exports and
@@ -155,6 +225,228 @@ export type WardScopedReferral = {
 };
 
 /**
+ * The community arm as a community-scoped projection carries it — the team that was asked, and
+ * nothing else.
+ *
+ * Structurally identical to the model's `community_team` arm today and deliberately declared
+ * separately rather than aliased to it, for the reason `WardScopedDestination` is: an alias would
+ * mean a field added to the model's community arm arrives here automatically; a separate
+ * declaration means somebody has to decide.
+ *
+ * And it is deliberately NOT `WardScopedDestination` with a different `kind`, nor a union with it.
+ * Two types, no converter — see this module's header on why a function both a ward screen and a
+ * community screen reach is the FD-23 exemption arriving by the front door.
+ */
+export type CommunityScopedDestination = {
+  kind: "community_team";
+  teamName: string;
+};
+
+/**
+ * THIS community team's own addressing: what it was asked, what it answered, when, and by which
+ * role.
+ *
+ * Carries no reference of any kind to another destination — not its kind, not its state, not its
+ * times, not its count. `state` here is this addressing's own state (`ReferralAddressingState`) and
+ * never the referral's derived overall state, which is a fact about all the destinations together
+ * and therefore a leak: a referral reads `"accepted"` only because somebody accepted it, and a
+ * community team whose own answer was `"declined"` would be reading somebody else's decision.
+ *
+ * ⚠️ **`acceptedUnitId` is on the ward projection and deliberately NOT here.** `ReferralAddressing`
+ * says in terms that it is "Only ever set on a `psychiatric_ward` addressing — the other three are
+ * answered by a person or a team, and have no unit to name." A community team is not a unit. A key
+ * nothing can ever write is not harmless: it passes every gate, renders as a legitimate empty state,
+ * and invites the next author to find something to put in it. `acceptOverrideReason` is absent for
+ * the same reason it is absent from the ward projection — the acceptance gates it records are bed
+ * gates.
+ */
+export type CommunityScopedAddressing = {
+  destination: CommunityScopedDestination;
+  /** When THIS team answered, or when acceptance elsewhere cancelled it. Never another
+   *  destination's decision time. */
+  state: ReferralAddressingState;
+  decidedAt?: Instant;
+  /** A ROLE, never a person — the role that answered on this team's behalf. */
+  decidedBy?: string;
+  /** This team's own decline reason, from `REFERRAL_DECLINE_REASONS`. It is this team's own words
+   *  about its own answer, so it is not a leak even when it reads `referred_elsewhere` — the team
+   *  wrote it. */
+  declineReason?: ReferralDeclineReason;
+};
+
+/**
+ * A referral as a COMMUNITY TEAM may see it: the person facts every destination shares, the facts
+ * about the referral itself, and **one** addressing — its own.
+ *
+ * Owner ruling 2026-09-04, and the field that is absent is the design, exactly as it is on the ward
+ * projection. There is no `destinations`, no `destinationCount`, no `otherDestinations`, no `state`.
+ * "Referred to 3 places" names nobody and still tells a team the patient is being worked elsewhere,
+ * so the count is as forbidden as the list.
+ *
+ * `localBedSought` is left off for the ward projection's reason and one more: it records a
+ * coordinator hunting a BED, which is the arriving side of a question this team is downstream of.
+ * `suburb` is off both scoped projections — see the owner's 2026-09-02 ruling, recorded in the test
+ * file's own guard.
+ */
+export type CommunityScopedReferral = {
+  id: string;
+  // Facts about the person, common to every destination.
+  ageBand: Cohort;
+  homeRegion: HomeRegion;
+  // Facts about the referral itself.
+  source: ReferralSource;
+  raisedAt: Instant;
+  urgency: UrgencyLevel;
+  originSiteCode: string;
+  transportNeeded: boolean;
+  /** Singular, and that is the whole rule in one key name. */
+  addressing: CommunityScopedAddressing;
+};
+
+/**
+ * THIS emergency department's own arm — which department, and why it was asked.
+ *
+ * Structurally identical to the model's `emergency_department` arm today and deliberately declared
+ * separately rather than aliased to it, for the reason `WardScopedDestination` and
+ * `CommunityScopedDestination` are: an alias would mean a field added to the model's ED arm arrives
+ * here automatically; a separate declaration means somebody has to decide.
+ *
+ * ⚠️ **`purpose` IS CARRIED AND IT IS NOT OPTIONAL DECORATION.** `FD-18`: a ward→ED medical
+ * notification and ED psychiatry's own review request carry the same `edId` and differ only in
+ * `purpose`. A seat that could not see why it was asked would answer a medical notification with a
+ * psychiatric-review affordance — the exact confusion `REFERRAL_PURPOSES` exists to prevent.
+ */
+export type EdScopedDestination = {
+  kind: "emergency_department";
+  edId: string;
+  purpose: ReferralPurpose;
+};
+
+/**
+ * THIS department's own addressing: what it was asked, what it answered, when, and by which role.
+ *
+ * The same field set as `CommunityScopedAddressing`, and separately declared for the same reason the
+ * community one is separately declared from the ward one: two lists that agree today and one shared
+ * constant are different things, and only the second makes widening one widen the other.
+ *
+ * ⚠️ **`acceptedUnitId` IS DELIBERATELY ABSENT**, exactly as it is from the community projection.
+ * `ReferralAddressing` says it is "Only ever set on a `psychiatric_ward` addressing — the other three
+ * are answered by a person or a team, and have no unit to name." A department is not a unit. A key
+ * nothing can ever write passes every gate, renders as a legitimate empty state, and invites the next
+ * author to find something to put in it. `acceptOverrideReason` is absent for the reason it is absent
+ * from both other scoped projections — the acceptance gates it records are BED gates.
+ *
+ * ⚠️ **`state` HERE IS THIS ADDRESSING'S OWN STATE and never the referral's derived overall state.**
+ * That distinction is weaker for this seat than for the other two — an ED may now see every arm's
+ * state anyway — but it is kept, because the derived state is a fact about all the destinations
+ * TOGETHER and this key would then mean something different from the identically-named key on the
+ * other three projections.
+ */
+export type EdScopedAddressing = {
+  destination: EdScopedDestination;
+  state: ReferralAddressingState;
+  /** When THIS department answered, or when acceptance elsewhere cancelled it. */
+  decidedAt?: Instant;
+  /** A ROLE, never a person — the role that answered on this department's behalf. */
+  decidedBy?: string;
+  /** This department's own decline reason, from `REFERRAL_DECLINE_REASONS`. Its own words about its
+   *  own answer. */
+  declineReason?: ReferralDeclineReason;
+};
+
+/**
+ * ONE DESTINATION THIS REFERRAL WAS SENT TO, AS AN EMERGENCY DEPARTMENT MAY SEE IT — and this type
+ * is where owner ruling R-2026-09-04-B is actually spent, so it is where the omissions are argued.
+ *
+ * The ruling: *"Yes can see."* Its interpretation, recorded in
+ * `docs/ward-flow/owner-rulings-2026-09-04.md` so the owner can correct it rather than discover it,
+ * is that an ED-facing screen may see **which destinations were asked and the state of those arms**.
+ *
+ * ⚠️ **SO IT IS TWO FIELDS, AND EVERY OTHER FIELD OF A `ReferralAddressing` IS LEFT OFF ON PURPOSE.**
+ * The coordinator seat hands `ReferralAddressing[]` over whole because its answer is "everything";
+ * this seat's answer is not "everything", and handing the arms over whole is the single easiest way
+ * to turn one into the other. Each omission below is a question the ruling does not answer, and the
+ * rule this module works to is that an unobvious inclusion is excluded and reported:
+ *
+ *   - **`declineReason`** — another ward's clinical reason for saying no. "The state of those arms"
+ *     is `declined`; WHY it declined is that ward's own words about its own answer, and the ward
+ *     projection's comment says exactly that about the same field.
+ *   - **`decidedBy`** — the role that answered elsewhere. Naming who decided is not naming what was
+ *     decided.
+ *   - **`decidedAt`** — when somebody else answered. A timeline of another destination's decisions is
+ *     a different disclosure from the destination list, and nothing in the ruling reaches it.
+ *   - **`acceptedUnitId`** — WHICH unit took the patient. The ruling grants which destinations were
+ *     ASKED; the receiving unit is a further fact and this seat is not the coordinator.
+ *   - **`acceptOverrideReason`** — a clinical override recorded against a bed gate. Off all four
+ *     projections.
+ *   - **the arm's own criteria** — a ward arm's `sex`, `secureBedNeeded` and `involuntaryBedNeeded`,
+ *     and a community arm's `teamName`. These say what was asked OF that destination, not that it was
+ *     asked. ⚠️ `sex` is the one worth naming: it already reaches an ED screen through
+ *     `referralPersonFacts`, so leaving it off here takes nothing away from a department that has it
+ *     — which makes the conservative choice the free one, and it should stay the choice even if that
+ *     stops being true.
+ *
+ * **A ward arm names no ward, and that is the model rather than an omission.** `ReferralDestination`'s
+ * `psychiatric_ward` arm carries bed criteria and no ward identity — a bed is matched to a unit at
+ * acceptance, not chosen at referral — so `kind` genuinely is the whole of "which" for that arm. The
+ * owner's phrasing ("which ward or wards were asked") is honoured by this as fully as the model can
+ * honour it.
+ */
+export type EdScopedDestinationSummary = {
+  kind: ReferralDestinationKind;
+  state: ReferralAddressingState;
+};
+
+/**
+ * A referral as an EMERGENCY DEPARTMENT may see it: the person facts every destination shares, the
+ * facts about the referral itself, **one** addressing — its own — and, new under owner ruling
+ * R-2026-09-04-B, **the destination list**.
+ *
+ * ⚠️ **THE PLURAL IS PRESENT HERE AND FORBIDDEN ON THE OTHER TWO SCOPED SEATS. THAT IS THE RULING,
+ * AND IT IS THE WHOLE DIFFERENCE.** A ward and a community team have no `destinations` key at all,
+ * so no later edit in one of their components can reach one. An ED has one, and what it holds is
+ * `EdScopedDestinationSummary` — kind and state — never `ReferralAddressing`.
+ *
+ * **`destinations` lists EVERY arm, this department's own included.** An "others" list would have to
+ * decide what "other" means from a seat, would report a count one short of the referral's real one,
+ * and would be a second concept to keep in step with the first. The department's own arm appearing
+ * twice — once in full as `addressing`, once as a two-field summary — is redundant and harmless;
+ * inventing an exclusion rule is neither.
+ *
+ * **What this seat does NOT carry, each one a decision rather than an oversight:**
+ *
+ *   - **`state`, the referral's derived overall state.** The coordinator has it. The ruling grants
+ *     the state of the ARMS, which `destinations` carries; a single collapsed verdict over all of
+ *     them is a further fact nobody asked for. It is also the field most likely to be wanted next,
+ *     which is exactly why it should be added by a ruling and not by an implementer.
+ *   - **`localBedSought`.** It records a coordinator hunting a bed closer to home — activity on this
+ *     referral that is not this department's, and not something the ruling reaches. Left off the ward
+ *     and community seats for the same reason.
+ *   - **`patientId`, `suburb`, `triagedAt`, `medicalClearance`.** None of the four is on any scoped
+ *     projection. ⚠️ **`triagedAt` is the one a reader will want to argue about**: it is the start of
+ *     the department clock (`P9-D2`) and an ED screen has an obvious use for it. That is a reason to
+ *     ASK for it, not a reason to include it under a ruling about destinations. `suburb` is refused
+ *     to a ward outright by the owner's 2026-09-02 ruling and is unruled elsewhere.
+ */
+export type EdScopedReferral = {
+  id: string;
+  // Facts about the person, common to every destination.
+  ageBand: Cohort;
+  homeRegion: HomeRegion;
+  // Facts about the referral itself.
+  source: ReferralSource;
+  raisedAt: Instant;
+  urgency: UrgencyLevel;
+  originSiteCode: string;
+  transportNeeded: boolean;
+  /** Singular — this department's own arm, in full. */
+  addressing: EdScopedAddressing;
+  /** Plural, and the ruling in one key name: every destination this referral was sent to, as a kind
+   *  and a state. Never `ReferralAddressing` — see `EdScopedDestinationSummary`. */
+  destinations: EdScopedDestinationSummary[];
+};
+
+/**
  * A referral as the COORDINATOR may see it: everywhere it was sent, what each destination
  * answered, and the referral's overall state.
  *
@@ -241,23 +533,200 @@ export function wardScopedReferrals(referrals: Referral[]): WardScopedReferral[]
     .filter((projection): projection is WardScopedReferral => projection !== undefined);
 }
 
+/** One addressing whose destination is a community team. Declared locally rather than in the model
+ *  because nothing outside this module needs it, and a `CommunityAddressing` sitting beside
+ *  `WardAddressing` in `ward-model.ts` would be one import away from a screen reading the arm
+ *  straight off the record — the thing this module exists to stop. */
+type CommunityArmAddressing = ReferralAddressing & {
+  destination: Extract<ReferralDestination, { kind: "community_team" }>;
+};
+
+/** The community addressing on this referral, if it was addressed to a community team at all. At
+ *  most one exists: the reducer refuses two destinations of the same kind.
+ *
+ *  A private twin of `wardAddressingOf` and NOT a shared kind-parameterised finder. A single
+ *  `addressingOf(referral, kind)` reached by both projections would be a module both roles reach —
+ *  shared infrastructure by construction, which is precisely the exemption FD-23's guard cannot
+ *  see through. The duplication is nine lines and it is the point. */
+function communityAddressingOf(referral: Referral): CommunityArmAddressing | undefined {
+  return referral.destinations.find(
+    (addressing): addressing is CommunityArmAddressing => addressing.destination.kind === "community_team",
+  );
+}
+
+/**
+ * FD-23 (owner ruling 2026-09-04): the community-scoped view of one referral, or `undefined` when
+ * this referral was never addressed to a community team.
+ *
+ * `undefined` rather than an empty projection, and it leaks nothing by saying so: a referral not
+ * addressed to a community team simply never appears in that team's list, which is the same thing
+ * the team would see if the referral did not exist. It does not say that the referral exists and is
+ * hidden.
+ *
+ * Takes no role, no scope and no viewer, exactly like the other two. Every field is written out by
+ * name. Read this module's own doc comment before replacing any of it with a spread.
+ */
+export function communityScopedReferral(referral: Referral): CommunityScopedReferral | undefined {
+  const community = communityAddressingOf(referral);
+  if (!community) return undefined;
+  return {
+    id: referral.id,
+    ageBand: referral.ageBand,
+    homeRegion: referral.homeRegion,
+    source: referral.source,
+    raisedAt: referral.raisedAt,
+    urgency: referral.urgency,
+    originSiteCode: referral.originSiteCode,
+    transportNeeded: referral.transportNeeded,
+    addressing: {
+      destination: {
+        kind: community.destination.kind,
+        teamName: community.destination.teamName,
+      },
+      state: community.state,
+      // Spread-with-condition rather than `decidedAt: community.decidedAt`, so an undecided
+      // addressing has NO key rather than a key holding `undefined`. The field-set guard reads
+      // `Object.keys`, and a present-but-undefined key would sit inside it unnoticed.
+      ...(community.decidedAt !== undefined ? { decidedAt: community.decidedAt } : {}),
+      ...(community.decidedBy !== undefined ? { decidedBy: community.decidedBy } : {}),
+      ...(community.declineReason !== undefined ? { declineReason: community.declineReason } : {}),
+    },
+  };
+}
+
+/** Every referral a community team may see, community-scoped. A referral addressed to no community
+ *  team is absent from the list entirely — see `communityScopedReferral` on why that is not itself
+ *  a signal. A deliberate twin of `wardScopedReferrals`, never a shared generic. */
+export function communityScopedReferrals(referrals: Referral[]): CommunityScopedReferral[] {
+  return referrals
+    .map((referral) => communityScopedReferral(referral))
+    .filter((projection): projection is CommunityScopedReferral => projection !== undefined);
+}
+
+/** One addressing whose destination is an emergency department. Declared locally rather than in the
+ *  model for the reason `CommunityArmAddressing` is: an `EdAddressing` sitting beside `WardAddressing`
+ *  in `ward-model.ts` would be one import away from a screen reading the arm straight off the record,
+ *  which is the thing this module exists to stop. */
+type EdArmAddressing = ReferralAddressing & {
+  destination: Extract<ReferralDestination, { kind: "emergency_department" }>;
+};
+
+/** The emergency-department addressing on this referral, if it was addressed to one at all. At most
+ *  one exists: the reducer refuses two destinations of the same kind.
+ *
+ *  A private twin of `wardAddressingOf` and `communityAddressingOf`, and NOT a shared
+ *  kind-parameterised finder — see `communityAddressingOf` on why the duplication is the point.
+ *
+ *  ⚠️ **IT TAKES NO `edId`, AND THAT IS THE NO-VIEWER-ARGUMENT RULE RATHER THAN AN OVERSIGHT.**
+ *  `edReferralsFor` (`ward-referrals.ts`) does take one, because its job is to select which referrals
+ *  belong on one department's worklist. This function's job is to project ONE referral, and a
+ *  referral has at most one ED arm, so the kind alone finds it. A department id here would be a
+ *  viewer argument in a module whose header forbids them. */
+function edAddressingOf(referral: Referral): EdArmAddressing | undefined {
+  return referral.destinations.find(
+    (addressing): addressing is EdArmAddressing => addressing.destination.kind === "emergency_department",
+  );
+}
+
+/**
+ * Owner ruling R-2026-09-04-B: the ED-scoped view of one referral, or `undefined` when this referral
+ * was never addressed to an emergency department.
+ *
+ * `undefined` rather than an empty projection, and it leaks nothing by saying so: a referral not
+ * addressed to a department simply never appears in that department's list, which is the same thing
+ * it would see if the referral did not exist.
+ *
+ * Takes no role, no scope and no viewer, exactly like the other three. Every field is written out by
+ * name — including every field of every destination summary. Read this module's own doc comment
+ * before replacing any of it with a spread, and `EdScopedDestinationSummary` before adding a field
+ * to one.
+ */
+export function edScopedReferral(referral: Referral): EdScopedReferral | undefined {
+  const ed = edAddressingOf(referral);
+  if (!ed) return undefined;
+  return {
+    id: referral.id,
+    ageBand: referral.ageBand,
+    homeRegion: referral.homeRegion,
+    source: referral.source,
+    raisedAt: referral.raisedAt,
+    urgency: referral.urgency,
+    originSiteCode: referral.originSiteCode,
+    transportNeeded: referral.transportNeeded,
+    addressing: {
+      destination: {
+        kind: ed.destination.kind,
+        edId: ed.destination.edId,
+        purpose: ed.destination.purpose,
+      },
+      state: ed.state,
+      // Spread-with-condition rather than `decidedAt: ed.decidedAt`, so an undecided addressing has
+      // NO key rather than a key holding `undefined`. The field-set guard reads `Object.keys`, and a
+      // present-but-undefined key would sit inside it unnoticed.
+      ...(ed.decidedAt !== undefined ? { decidedAt: ed.decidedAt } : {}),
+      ...(ed.decidedBy !== undefined ? { decidedBy: ed.decidedBy } : {}),
+      ...(ed.declineReason !== undefined ? { declineReason: ed.declineReason } : {}),
+    },
+    // ⚠️ TWO FIELDS, BY NAME, PER ARM. `referral.destinations.map((a) => a)` or `{ ...addressing }`
+    // here hands over every arm's decline reason, decider, decision time and accepting unit — the
+    // coordinator seat's answer pasted into a seat the owner did not give it to.
+    destinations: referral.destinations.map((addressing) => ({
+      kind: addressing.destination.kind,
+      state: addressing.state,
+    })),
+  };
+}
+
+/** Every referral an emergency department may see, ED-scoped. A referral addressed to no department
+ *  is absent from the list entirely — see `edScopedReferral` on why that is not itself a signal. A
+ *  deliberate twin of `wardScopedReferrals` and `communityScopedReferrals`, never a shared generic.
+ *
+ *  ⚠️ It does NOT narrow to one department. `edReferralsFor` / `edAnsweredReferralsFor`
+ *  (`ward-referrals.ts`) are where a screen picks its own department's work; this answers only what
+ *  each referral looks like from an ED seat. Two questions, two functions, and no flag. */
+export function edScopedReferrals(referrals: Referral[]): EdScopedReferral[] {
+  return referrals
+    .map((referral) => edScopedReferral(referral))
+    .filter((projection): projection is EdScopedReferral => projection !== undefined);
+}
+
 /**
  * FD-23: the coordinator's view — everywhere this referral was sent, and what each said.
  *
- * ⚠️ **THE FIELD SET HERE IS ENFORCED BY `tsc`, NOT BY THE TEST SUITE — measured, not assumed.**
- * Delete a line from the object below and `npx vitest run tests/ward-referral-visibility.test.ts`
- * still reports `Tests 100 passed (100)`; `npx tsc -p tsconfig.typecheck.json --noEmit` exits 2 with
- * `TS2741: Property '…' is missing in type '…' but required in type 'CoordinatorScopedReferral'`.
- * (Mutation run 2026-09-02, `originSiteCode` removed and restored byte-identically.) The same is
- * true of the ward projection: its allowlist test compares two literals both defined in the test
- * file, and its real teeth are the `Required<WardScopedReferral>` annotation. **`vitest.config.mts`
- * carries no `typecheck` block**, so vitest never evaluates either.
+ * ⚠️ **`tsc` CATCHES A FIELD REMOVED FROM THE OBJECT BELOW. IT DOES NOT CATCH A FIELD ADDED BY A
+ * SPREAD — AND AN EARLIER VERSION OF THIS PARAGRAPH SAID IT DID.** Both halves are measured.
  *
- * That is not a hole — `verify:cheap` and CI both run `typecheck`, so nothing merges past it. It is
- * a statement about WHICH gate holds the contract, written here because the fast local loop
- * (`test:focused`, a bare vitest run) is the one people iterate on and the one that cannot see this.
- * **Do not "fix" it by re-asserting the field set at runtime**: this repository's rule is not to buy
- * the same verdict twice, and a duplicate guard would decay independently of the type it copies.
+ *   - **REMOVED — `tsc` holds it, the suite does not.** Delete a line from the object below and
+ *     `npx vitest run tests/ward-referral-visibility.test.ts` still passes; `npx tsc -p
+ *     tsconfig.typecheck.json --noEmit` exits 2 with `TS2741: Property '…' is missing in type '…'
+ *     but required in type 'CoordinatorScopedReferral'`. (Mutation run 2026-09-02, `originSiteCode`
+ *     removed and restored byte-identically.)
+ *   - **ADDED — `tsc` holds NOTHING.** Put `...referral` at the top of the object below, leaving
+ *     every by-name line in place, and the projection silently gains `patientId`, `suburb` and
+ *     `triagedAt` while `tsc` exits **0**. TypeScript's excess-property check does not reach
+ *     properties arriving through a spread, so an object literal assigned to a declared type
+ *     accepts extra ones in this position. (Mutation run 2026-09-04; before the guard described
+ *     below existed it also left all 116 tests in that file passing.)
+ *
+ * ⚠️ **THE OLD CLAIM WAS LOAD-BEARING, WHICH IS WHY IT IS CORRECTED HERE RATHER THAN QUIETLY
+ * DELETED.** It said the field set was enforced by `tsc`, full stop. A reviewer reads that and
+ * stops looking — and that is exactly what happened, for two days, until somebody ran the addition
+ * mutation. **`vitest.config.mts` carries no `typecheck` block**, so vitest never evaluates the
+ * type either.
+ *
+ * **The addition half is now held at runtime by `tests/ward-referral-visibility.test.ts`**, in a
+ * root field-set allowlist for this projection built the way the ward and community ones are: a
+ * hand-built referral carrying `patientId`, `suburb`, `triagedAt` and `medicalClearance`, the real
+ * projection run over it, and a positive control proving the check finds the fields that ARE
+ * legitimately there. **That is not the same verdict `tsc` gives, so it is not buying one twice** —
+ * `tsc` holds the removal half and can hold nothing else. What it asserts is structural only: the
+ * object carries exactly the set this type declares. **It rules on nothing about what a coordinator
+ * MAY see.** FD-23's answer for this seat is still "everything"; widening the seat simply has to be
+ * an edit to the type and the allowlist together, which a reviewer sees, rather than a spread that
+ * does it on somebody's behalf. `destinations` is handed over whole and its contents are
+ * deliberately unguarded. The ward projection's allowlist test likewise compares two literals both
+ * defined in the test file, with its real teeth in the `Required<WardScopedReferral>` annotation —
+ * and its root has its own spread guard, measured red.
  *
  * ⚠️ **What NEITHER gate can catch is a field missing from the TYPE.** `suburb` is on `Referral` and
  * on neither projection, so there is nothing for `tsc` to require — and `coordinatorScopedReferrals`

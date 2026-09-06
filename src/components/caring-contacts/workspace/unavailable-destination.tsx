@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
+import { cn, controlDisabled, ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 export type UnavailableDestinationProps = {
   /** Unique within one render; also names the screen-reader note this control points at. */
@@ -59,6 +59,24 @@ export function UnavailableDestination({ id, label, reason, className, children 
         onClick={ignoreUnavailableActivation}
         className={cn(
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border",
+          // The VISUAL half of unavailability, which this control shipped without.
+          //
+          // `aria-disabled` and the `sr-only` note below have always told assistive technology the
+          // truth. A sighted person was told nothing: callers hand this component the same class
+          // they hand the live `<Link>` beside it -- see `MorePanelDestination` in `shell.tsx` --
+          // so seven unbuilt destinations rendered pixel-identical to three working ones, and the
+          // first signal was the click doing nothing.
+          //
+          // `controlDisabled` is the design system's encoding for exactly this: flatten the fill to
+          // `--surface-subtle`, put the label on `--disabled`, drop the shadow, remove the press.
+          // It is deliberately an encoding rather than `opacity-50`, which dims label and fill
+          // together and leaves a disabled control still reading as available. Its `aria-disabled:`
+          // half exists FOR this case -- a control that carries the attribute and no native one --
+          // and its `!` modifiers are what let it outrank whatever the caller passed.
+          //
+          // It goes here rather than at each call site so the encoding cannot be forgotten by the
+          // next screen that renders an unbuilt destination.
+          controlDisabled,
           className,
         )}
       >

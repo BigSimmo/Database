@@ -12,6 +12,7 @@ import {
 } from "@/components/clinical-dashboard/result-filter-control";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
@@ -412,6 +413,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
       <SearchResultsLayout
         testId="calculators-search-page"
         resultsLabel="Calculator results"
+        footer={<UniversalSearchAlsoMatches modeId="calculators" query={query} />}
         header={
           <>
             <SearchResultsHeaderBand

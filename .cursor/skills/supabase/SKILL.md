@@ -10,7 +10,7 @@ metadata:
 
 ## Database repository override
 
-When this skill runs in `C:\Dev\Apps\Database`, root `AGENTS.md`, repository migrations, and
+When this skill runs in this repository (any checkout of BigSimmo/Database), root `AGENTS.md`, repository migrations, and
 committed tests take precedence over this generic guide. Documentation lookup is read-only, but
 Supabase MCP/CLI calls, linked-project inspection, SQL execution, schema pulls, advisors, storage,
 logs, and test queries are provider-backed and require explicit user approval. Before any database
@@ -133,7 +133,7 @@ Before implementing any Supabase feature, find the relevant documentation. Use t
 ## Making and Committing Schema Changes
 
 Outside this repository, direct SQL tools may be appropriate only after proving the target is a
-disposable local development database. Inside `C:\Dev\Apps\Database`, create and review a migration
+disposable local development database. Inside this repository (any checkout of BigSimmo/Database), create and review a migration
 file first and use the repository's migration checks. Never iterate directly against a linked or
 remote project, and obtain explicit user approval before any Supabase MCP/CLI operation.
 

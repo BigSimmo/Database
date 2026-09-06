@@ -18,6 +18,7 @@
       "/worker/**",
       "/eval/docling/requirements.txt",
       "/scripts/build-worker.mjs",
+      "/scripts/check-installed-lock-parity.mjs",
       "/scripts/check-node-engine.cjs",
       "/scripts/enable-server-only-stub.mjs",
       "/scripts/install-git-hooks.mjs",

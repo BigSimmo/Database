@@ -1,13 +1,17 @@
+import { unitHasLockedBeds, unitHasOpenBeds } from "@/components/ward-management/ward-bed-designation";
+import { requiresAuthorisedDestination } from "@/components/ward-management/ward-eligibility";
 import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import { MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
 import type {
   BedRelease,
   Cohort,
   LeaveBed,
+  LegalStatus,
   Movement,
   MovementStage,
   Referral,
   Security,
+  UrgencyLevel,
 } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
 
@@ -26,12 +30,48 @@ export const SEEDED_TRANSPORT_FORM_REQUIRED = "Form 1A";
  * authored two Form 1A "legal-form breaches" here; the 2026-08-23 product-owner correction
  * removed every `dueAt` from every Form 1A, so no legal-form breach exists in this fixture any
  * longer — see `LegalForm`'s doc comment in `ward-model.ts`.)
+ *
+ * ⚠️ **THE FRONT-DOOR LINK, OWNER RULING R-2026-09-04-D — READ THIS BEFORE ADDING OR REMOVING A
+ * `referralId` HERE.** Until 2026-09-04 not one of these twenty movements carried one, so
+ * `referralForMovement` returned `undefined` for every patient in every department and the link
+ * looked identical to a link that did not work. The ruling asks for both halves: seed the pairs
+ * that genuinely exist, AND make the reasons a movement has no referral distinguishable.
+ *
+ * **What is authored here, and the two conditions every seeded link satisfies.** `RAISE_REFERRAL`
+ * refuses a referral that does not resolve, and refuses one that was never addressed to the
+ * department raising the journey. A seeded link is written by hand and meets no reducer, so the
+ * fixture holds itself to the same two conditions plus a third the reducer gets for free — the
+ * referral must have been raised BEFORE the journey it produced. **No existing referral could
+ * satisfy that third condition against any existing movement**: the only two referrals addressed
+ * to an emergency department (`RF-009`, `RF-011`) were raised 35 and 50 minutes before the anchor,
+ * and the youngest movement at either of their departments was opened 180 minutes before it. So
+ * `RF-012` and `RF-013` were AUTHORED AS THE ORIGINS of `WF-002` and `WF-009` — a referral, then
+ * a triage into that same department, then the department raising the journey — rather than an
+ * existing referral being retro-fitted to a movement it could not have caused.
+ * `tests/ward-movement-referral-link.test.ts` asserts all three conditions over the whole fixture
+ * by name, so a later edit that breaks one fails there rather than rendering as a true join.
+ *
+ * **Eighteen carry no referral and that is not laziness.** Three of them (`WF-001`, `WF-013`,
+ * `WF-019`) record `referralAbsence: none_raised` — the ASSERTION that nobody referred this
+ * person, authored so the clinical state has data at three departments and three stages instead of
+ * being a code path nothing exercises. The other fifteen record nothing at all and read as
+ * `not_recorded`: nothing in their authored story says whether anybody referred them, and
+ * answering for them would manufacture exactly the certainty the ruling's `⚠️` warns against.
+ *
+ * ⚠️ **AND NO MOVEMENT HERE CARRIES `transportNeed` (owner ruling R-2026-09-04-C).** "Not recorded"
+ * is the required default for existing data, and every movement in this fixture is existing data.
+ * The three-state field is exercised through the reducer in
+ * `tests/ward-movement-transport-need.test.ts`, never by guessing an answer for a seeded record.
  */
 const seededMovements: Movement[] = [
   {
     id: "WF-001",
     originEdId: "arm-ed",
     openedAt: NOW_ANCHOR - 95,
+    // Nobody referred this person — recorded 35 minutes after the department opened the journey,
+    // which is when somebody actually looked. The ASSERTION, not the absence: see
+    // `MovementReferralAbsence` for why the two are different facts.
+    referralAbsence: { reason: "none_raised", at: NOW_ANCHOR - 60 },
     flaggedUrgent: false,
     urgency: 1,
     cohort: "Adult",
@@ -50,11 +90,17 @@ const seededMovements: Movement[] = [
     blocker: "Confirming destination options",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
   },
   {
     id: "WF-002",
     originEdId: "fsh-ed",
     openedAt: NOW_ANCHOR - 180,
+    // Raised from `RF-012`, which was authored as this journey's origin: raised 240 minutes before
+    // the anchor, addressed to THIS department (`fsh-ed`), and answered at the moment the
+    // department opened the journey below. Ordering, department and resolution all hold — the
+    // three conditions the fixture's own doc comment sets out.
+    referralId: "RF-012",
     flaggedUrgent: false,
     urgency: 2,
     cohort: "Older adult",
@@ -72,6 +118,7 @@ const seededMovements: Movement[] = [
     blocker: "Awaiting older-adult bed confirmation",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
     formedAt: NOW_ANCHOR - 180 - 90,
     arrivalMode: "ambulance",
   },
@@ -101,6 +148,7 @@ const seededMovements: Movement[] = [
     blocker: "Bed being made ready",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
     arrivalMode: "ambulance",
     examination: { at: NOW_ANCHOR - 60, outcome: "inpatient_order" },
   },
@@ -131,6 +179,7 @@ const seededMovements: Movement[] = [
     blocker: "Escort provider organising secure transport",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
     pullExpiresAt: NOW_ANCHOR - 10,
   },
   {
@@ -163,6 +212,7 @@ const seededMovements: Movement[] = [
     blocker: "Transport escort confirming departure time",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
     formedAt: NOW_ANCHOR - 330 - 150,
   },
   {
@@ -213,6 +263,7 @@ const seededMovements: Movement[] = [
       },
     ],
     unwinds: [],
+    stageChanges: [],
   },
   {
     id: "WF-007",
@@ -234,9 +285,25 @@ const seededMovements: Movement[] = [
     acceptedUnitId: "scgh-older-adult",
     declines: [],
     blocker: "None — handover complete",
+    // ⚠️ Sweep R64's own defect class, found a third time (2026-09-04, alongside the generator's
+    // identical gap in `stageFields`'s `case "arrived"`): `PATIENT_ARRIVED` refuses outright
+    // unless `movement.stage === "moving" && movement.transport?.collectedAt`, so this
+    // hand-authored record was a state the reducer could never have produced until this job was
+    // added. Timestamps built backwards from `closure.at`, the same construction the generator
+    // now uses.
+    transport: {
+      id: "TR-007",
+      provider: "Patient transport service",
+      escortRequired: false,
+      acceptedAt: NOW_ANCHOR - 40,
+      enRouteAt: NOW_ANCHOR - 25,
+      collectedAt: NOW_ANCHOR - 10,
+      arrivedAt: NOW_ANCHOR - 5,
+    },
     closure: { at: NOW_ANCHOR - 5, outcome: "arrived", reason: "Handover complete at SCGH Older Adult" },
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
   },
   {
     id: "WF-008",
@@ -263,18 +330,27 @@ const seededMovements: Movement[] = [
     acceptedUnitId: "fre-adult-open",
     declines: [],
     blocker: "Patient declined transfer",
+    // Seed gap fixed 2026-09-04: the closure sentence said "before transport arrived", but this
+    // record carries no `transport` at all — the comment immediately above confirms the movement
+    // never progressed past `accepted_awaiting_bed`, so no transport was ever booked for it to
+    // arrive. Reworded to be true of the record beside it, without changing `outcome` or `at`.
     closure: {
       at: NOW_ANCHOR - 20,
       outcome: "did_not_proceed",
-      reason: "Patient self-discharged from ED before transport arrived",
+      reason: "Patient self-discharged from ED before transport was arranged",
     },
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
   },
   {
     id: "WF-009",
     originEdId: "peel-ed",
     openedAt: NOW_ANCHOR - 420,
+    // Raised from `RF-013` — a police referral to THIS department 470 minutes before the anchor,
+    // matching this record's own `arrivalMode: "police"`. The second of the fixture's two seeded
+    // links, at a different department from `WF-002`'s so a single-department bug cannot pass.
+    referralId: "RF-013",
     flaggedUrgent: false,
     urgency: 1,
     cohort: "Adult",
@@ -286,7 +362,21 @@ const seededMovements: Movement[] = [
       code: "3B",
       kind: "detention",
     },
-    statusChanges: [],
+    // Seed gap fixed 2026-09-04: this record carried a `legalStatus` of "Involuntary inpatient"
+    // and an examination whose outcome was an inpatient order (`examination.outcome:
+    // "inpatient_order"`, below), while `statusChanges` sat empty — the page had no way to say
+    // the status had changed and read the opposite. `CHANGE_LEGAL_STATUS` is the reducer's only
+    // writer of both `legalStatus` and `statusChanges`, always in the same update, so a genuine
+    // change leaves exactly this shape: one entry, timed at or after the examination it followed.
+    statusChanges: [
+      {
+        at: NOW_ANCHOR - 95,
+        from: "Detained awaiting examination",
+        to: "Involuntary inpatient",
+        by: "Duty psychiatrist",
+        reason: "recorded_by_treating_team",
+      },
+    ],
     urgencyChanges: [],
     overrides: [],
     stage: "destination_review",
@@ -322,6 +412,7 @@ const seededMovements: Movement[] = [
     blocker: "No secure adult bed available across the network",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
     arrivalMode: "police",
     examination: { at: NOW_ANCHOR - 100, outcome: "inpatient_order" },
     escalation: {
@@ -366,6 +457,7 @@ const seededMovements: Movement[] = [
     blocker: "Awaiting destination response",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
   },
   {
     id: "WF-011",
@@ -394,6 +486,7 @@ const seededMovements: Movement[] = [
     blocker: "Awaiting single-room clean",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
     pullExpiresAt: NOW_ANCHOR + 20,
   },
   {
@@ -432,11 +525,17 @@ const seededMovements: Movement[] = [
     blocker: "Awaiting specialling roster confirmation",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
   },
   {
     id: "WF-013",
     originEdId: "sjgm-ed",
     openedAt: NOW_ANCHOR - 200,
+    // Nobody referred this person. Recorded at a DIFFERENT stage from WF-001's — this movement is
+    // already in `destination_review` with two live referrals to units — so the assertion cannot be
+    // mistaken for "nothing is happening for this patient": the front door and the bed search are
+    // separate facts, and this one is only about the front door.
+    referralAbsence: { reason: "none_raised", at: NOW_ANCHOR - 150 },
     flaggedUrgent: false,
     urgency: 3,
     cohort: "Older adult",
@@ -454,7 +553,31 @@ const seededMovements: Movement[] = [
     blocker: "Comparing two older-adult options",
     withdrawnReferrals: [],
     unwinds: [],
-    formedAt: NOW_ANCHOR - 200 - 120,
+    stageChanges: [],
+    /**
+     * ⚠️ **EQUAL TO `openedAt` ON PURPOSE — THIS IS THE BOUNDARY CASE, AND IT IS THE ONLY MOVEMENT
+     * THAT DISCRIMINATES THE RULE `ed-screen.tsx`'s `isCommunityFormed` APPLIES.**
+     *
+     * Owner ruling, 2026-09-05: a form recorded at the very same minute as arrival IS community
+     * formed, so the screen says *"since formed"*. He was asked precisely because the elapsed figure
+     * is identical either way — both references are the same instant — so the ONLY thing the rule
+     * changes here is which authority the screen names. Before this row the comparison was `<` and
+     * nobody had chosen it.
+     *
+     * **Was `NOW_ANCHOR - 200 - 120` until 2026-09-05. Changed rather than adding a fourth movement
+     * on purpose:** 73 test files import this fixture and 46 assert an exact count, so a new row
+     * moves numbers under most of the ward suite. Editing this one moves none — the movement count
+     * stays 50, and under the shipped `<=` rule WF-013 stays community formed, so that count stays 3
+     * too. Under the old `<` rule it would drop to 2, which is exactly what makes it a discriminating
+     * case rather than a decorative one.
+     *
+     * ⚠️ **ITS LEGAL CLOCK NOW EQUALS ITS TIME IN DEPARTMENT**, where every other community-formed
+     * movement reads strictly older. A test asserting those two differ for WF-013 is a real second
+     * consumer, not a broken assertion. `tests/ward-ed-legal-clock.dom.test.tsx` pins the intended
+     * behaviour; `tests/ui-ward-roles.spec.ts` pins the strictly-older case at `peel-ed` on WF-005,
+     * whose 150-minute gap must NOT be touched.
+     */
+    formedAt: NOW_ANCHOR - 200,
   },
   {
     id: "WF-014",
@@ -494,6 +617,7 @@ const seededMovements: Movement[] = [
     blocker: "None — in transit",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
   },
   {
     id: "WF-015",
@@ -514,15 +638,24 @@ const seededMovements: Movement[] = [
     referredUnitIds: [],
     acceptedUnitId: "scgh-older-adult",
     declines: [],
+    // Seed gap fixed 2026-09-04: this record carried `transport.escortRequired: false` alongside
+    // a blocker reading "Awaiting transport escort" — the transport record said no escort was
+    // needed while the page said the movement was stuck waiting for one. Resolved toward
+    // `escortRequired: true`, not the blocker text: this movement's `specialling: true` (below)
+    // already says the patient needs one-to-one observation, which is exactly the kind of patient
+    // an escort exists for, and the blocker is specific, authored prose (this file's own
+    // convention favours the richer, human-written signal — see `STAGE_TRANSITION_BLOCKERS`'s own
+    // doc comment) rather than a value a generator could have gotten wrong by a coin flip.
     transport: {
       id: "TR-1015",
       provider: "Patient transport service",
-      escortRequired: false,
+      escortRequired: true,
       acceptedAt: NOW_ANCHOR - 15,
     },
     blocker: "Awaiting transport escort",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
   },
   {
     id: "WF-016",
@@ -547,6 +680,7 @@ const seededMovements: Movement[] = [
     blocker: "Ward finalising bed clean",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
     pullExpiresAt: NOW_ANCHOR + 45,
   },
   {
@@ -580,6 +714,7 @@ const seededMovements: Movement[] = [
     blocker: "Escalated to duty psychiatrist — breach imminent",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
     examination: { at: NOW_ANCHOR - 260, outcome: "inpatient_order" },
   },
   {
@@ -623,6 +758,7 @@ const seededMovements: Movement[] = [
     // else in this record (blocker text, stage, other fields) supports that history.
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
   },
   /**
    * THE TWO LONG WAITS, added 2026-08-30 — and they exist to make a capability reachable rather
@@ -649,6 +785,10 @@ const seededMovements: Movement[] = [
     originEdId: "rgh-ed",
     // Two days and fourteen hours. Long enough that no reader can mistake it for a bad afternoon.
     openedAt: NOW_ANCHOR - (2 * 24 * 60 + 14 * 60),
+    // Nobody referred this person either — the third `none_raised` record, on the longest wait in
+    // the fixture. Recorded ten hours before the anchor, long after the journey opened: somebody
+    // asked the question during the wait, which is when it actually gets asked.
+    referralAbsence: { reason: "none_raised", at: NOW_ANCHOR - 600 },
     flaggedUrgent: false,
     urgency: 2,
     cohort: "Adult",
@@ -666,6 +806,7 @@ const seededMovements: Movement[] = [
     blocker: "No secure bed available within reach of home",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
   },
   {
     id: "WF-020",
@@ -690,6 +831,7 @@ const seededMovements: Movement[] = [
     blocker: "Waiting on an older-adult bed",
     withdrawnReferrals: [],
     unwinds: [],
+    stageChanges: [],
   },
 ];
 
@@ -699,12 +841,66 @@ const seededMovements: Movement[] = [
  * synthetic model — which has no secure older-adult unit anywhere in the network — never
  * throws for a combination it cannot satisfy exactly. `index` is the only varying input, so
  * the pick is stable across runs.
+ *
+ * ⚠️ **AUTHORISATION IS NOT PART OF THAT CASCADE, AND THE DIFFERENCE IS THE POINT.** Cohort and
+ * security are SUITABILITY — a bed of the wrong kind is a compromise a human could knowingly
+ * make, so it is allowed to fall back. Authorisation under the Mental Health Act is LAWFULNESS —
+ * a detained patient accepted at an unauthorised unit is not a compromise, it is a placement that
+ * could not lawfully happen. So it filters the pool BEFORE the cascade runs, which means no
+ * fallback level can reintroduce it. The old last resort — "then any unit" — is exactly where the
+ * unlawful pick came from.
+ *
+ * This generator had never filtered on `authorised`; it merely happened not to land on either of
+ * the network's two unauthorised units. `be5327210` changed the pool's size and order (whole-ward
+ * flag to a bed-designation question) and WF-318, who is referred for psychiatric examination,
+ * landed on `sjgs-adult-open` — measured 2026-09-05, and it is the only such record in the
+ * fixture. The app was right to complain: `buildActionInbox` reported "Accepted destination no
+ * longer lawful", which is a real defect in the DATA rather than in the derivation.
+ *
+ * It throws rather than degrading when nothing lawful exists, because a synthetic record that
+ * silently states an unlawful placement is worse than a fixture that refuses to build. Measured
+ * 2026-09-05: every cohort in this network has authorised units (Adult 14 of 16, Older adult 6 of
+ * 6, Youth 1 of 1), so this cannot fire today — it exists for the day somebody removes one.
  */
-function fallbackUnitId(cohort: Cohort, security: Security, index: number): string {
-  const units = allUnits();
-  const exact = units.filter((unit) => unit.cohort === cohort && unit.security === security);
-  const sameCohort = units.filter((unit) => unit.cohort === cohort);
-  const pool = exact.length > 0 ? exact : sameCohort.length > 0 ? sameCohort : units;
+function fallbackUnitId(cohort: Cohort, security: Security, index: number, legalStatus: LegalStatus): string {
+  // "is this ward of the right kind" for the security requested — mirrors the same locked/open
+  // question `ward-eligibility.ts`'s `security` gate asks, not a whole-ward flag anymore.
+  //
+  // ⚠️ **AUTHORISATION IS PART OF "THE RIGHT KIND" AND WAS MISSING UNTIL 2026-09-04.** A generated
+  // movement whose legal status requires an authorised destination must not be ACCEPTED at a unit
+  // that cannot lawfully hold it. Two units in the network are `authorised: false`, and this
+  // function used to be able to pick one for a detained patient.
+  //
+  // **It only surfaced when the locked/open change altered the POOL.** The pick is
+  // `pool[index % pool.length]`, so changing which units qualify silently re-points every
+  // generated acceptance — WF-318 landed on an unauthorised ward and `buildActionInbox` correctly
+  // raised "Accepted destination no longer lawful". The app was right; the fixture was wrong.
+  //
+  // ⚠️ **AUTHORISATION FILTERS THE POOL BEFORE THE CASCADE, AND THAT ORDERING IS THE POINT.**
+  // An earlier version applied it to `exact` and `sameCohort` but deliberately NOT to the final
+  // `units` fallback, on the grounds that an empty pool is worse than an imperfect pick. That
+  // reasoning does not survive the difference between the two kinds of constraint. Cohort and
+  // security are SUITABILITY — a bed of the wrong kind is a compromise a human may knowingly make,
+  // so those fall back. Authorisation is LAWFULNESS — an unauthorised bed for a detained patient is
+  // not a compromise, it is a placement that could not lawfully happen — so it does not.
+  //
+  // ⚠️ **AND THE EXEMPTED FALLBACK IS ONE FIELD EDIT FROM FIRING.** Measured 2026-09-05: 23 units,
+  // 21 authorised, and both unauthorised ones are cohort Adult — so a cohort with no authorised
+  // unit does not exist today and the two versions behave identically. **Youth is a single ward.**
+  // Mark `bty-youth` unauthorised and the exempted fallback silently places a detained young person
+  // somewhere that cannot hold them. The throw below is loud instead: an empty pool is a fixture
+  // that refuses to build, which is recoverable; an unlawful acceptance is silent, which is not.
+  const lawful = requiresAuthorisedDestination(legalStatus) ? allUnits().filter((unit) => unit.authorised) : allUnits();
+  if (lawful.length === 0) {
+    throw new Error(
+      `No unit in this network is authorised under the Mental Health Act, so no lawful destination can be generated for a ${legalStatus} movement.`,
+    );
+  }
+  const exact = lawful.filter(
+    (unit) => unit.cohort === cohort && (security === "Secure" ? unitHasLockedBeds(unit) : unitHasOpenBeds(unit)),
+  );
+  const sameCohort = lawful.filter((unit) => unit.cohort === cohort);
+  const pool = exact.length > 0 ? exact : sameCohort.length > 0 ? sameCohort : lawful;
   return pool[index % pool.length].id;
 }
 
@@ -719,15 +915,16 @@ function stageFields(
   cohort: Cohort,
   security: Security,
   index: number,
+  legalStatus: LegalStatus,
 ): Pick<Movement, "acceptedUnitId" | "transport" | "closure" | "pullExpiresAt"> {
   switch (stage) {
     case "accepted_awaiting_bed":
-      return { acceptedUnitId: fallbackUnitId(cohort, security, index) };
+      return { acceptedUnitId: fallbackUnitId(cohort, security, index, legalStatus) };
     case "pulled":
       // Bounds match the hand-authored records: NOW_ANCHOR - 20 to NOW_ANCHOR + 45, so a
       // pull cannot be recorded without a time for it to expire at.
       return {
-        acceptedUnitId: fallbackUnitId(cohort, security, index),
+        acceptedUnitId: fallbackUnitId(cohort, security, index, legalStatus),
         pullExpiresAt: NOW_ANCHOR - 20 + (index % 66),
       };
     case "moving": {
@@ -742,7 +939,7 @@ function stageFields(
       // before `NOW_ANCHOR` even for an index/gap combination narrower than the largest offset.
       const collectedAt = enRouteAt + Math.min(NOW_ANCHOR - enRouteAt, 8 + (index % 18));
       return {
-        acceptedUnitId: fallbackUnitId(cohort, security, index),
+        acceptedUnitId: fallbackUnitId(cohort, security, index, legalStatus),
         transport: {
           id: `TR-${1300 + index}`,
           provider: "Patient transport service",
@@ -754,12 +951,37 @@ function stageFields(
       };
     }
     case "arrived": {
-      const acceptedUnitId = fallbackUnitId(cohort, security, index);
+      // ⚠️ Sweep R64's own defect class, found a third time while building the movement
+      // step-track's Task 6 reachability test (2026-09-04): `PATIENT_ARRIVED` refuses outright
+      // unless `movement.stage === "moving" && movement.transport?.collectedAt`
+      // (ward-flow-reducer.ts), so an "arrived" record with no transport at all — what this case
+      // returned until this fix — is a state the reducer could never produce. `arrived` is not
+      // remapped the way `handover_ready`/`destination_review` above are, because the stage
+      // GENUINELY implies a completed transport job; giving it one states what the stage already
+      // means rather than inventing a fact the stage does not imply. Built backwards from the
+      // closure instant, the same way `case "moving"` above builds forward from NOW_ANCHOR, so the
+      // two stages tell one consistent story and every timestamp on the job is honestly in the
+      // past relative to when the handover completed.
+      const acceptedUnitId = fallbackUnitId(cohort, security, index, legalStatus);
       const unitName = allUnits().find((unit) => unit.id === acceptedUnitId)?.name ?? acceptedUnitId;
+      const closureAt = NOW_ANCHOR - (index % 10);
+      const arrivedAt = closureAt;
+      const collectedAt = arrivedAt - (5 + (index % 10));
+      const enRouteAt = collectedAt - (8 + (index % 10));
+      const acceptedAt = enRouteAt - (10 + (index % 10));
       return {
         acceptedUnitId,
+        transport: {
+          id: `TR-${1300 + index}`,
+          provider: "Patient transport service",
+          escortRequired: index % 2 === 0,
+          acceptedAt,
+          enRouteAt,
+          collectedAt,
+          arrivedAt,
+        },
         closure: {
-          at: NOW_ANCHOR - (index % 10),
+          at: closureAt,
           outcome: "arrived",
           reason: `Handover complete at ${unitName}`,
         },
@@ -814,7 +1036,45 @@ function routineMovements(count: number, startIndex: number): Movement[] {
     // for a record with an empty referredUnitIds and no acceptedUnitId is "placement_requested"
     // (ruling R64), so that index is remapped here rather than stageFields inventing fields —
     // this closes the defect for every index this generator can ever produce, not only today's.
-    const stage = rawStage === "handover_ready" ? "placement_requested" : rawStage;
+    //
+    // Sweep R64, defect 5a (Task 6, ward-flow movement step-track plan, 2026-09-04): the same
+    // reasoning, one stage later. Every generated movement's `declines` is ALSO unconditionally
+    // `[]` below, so a generated "destination_review" record carries neither a live referral nor a
+    // decline. The remap stands — but ⚠️ **ITS ORIGINAL JUSTIFICATION WAS FALSE AND IS CORRECTED
+    // HERE (2026-09-04), NOT QUIETLY BUMPED.**
+    //
+    // ⚠️ **WHAT THIS USED TO SAY, AND WHY IT WAS WRONG.** It claimed `destination_review` with an
+    // empty `referredUnitIds` AND an empty `declines` is "a state `REFER_TO_UNITS`/`DECLINE` never
+    // leave a movement in". That was true when written and `WITHDRAW_ACCEPTANCE` falsified it.
+    // DRIVEN, not argued: `REFER_TO_UNITS` -> `ACCEPT_IN_PRINCIPLE` -> `WITHDRAW_ACCEPTANCE` on
+    // WF-012 lands exactly that state — stage `destination_review`, `referredUnitIds: []`,
+    // `declines: []`, `acceptedUnitId: undefined` — with zero rejections at every step. The
+    // withdrawal deliberately does not push the unit back into `referredUnitIds` (owner ruling 3,
+    // 2026-09-04), which is precisely what produces the shape this comment called impossible.
+    //
+    // ⚠️ **THE REMAP IS STILL RIGHT, FOR A NARROWER REASON — the combination is reachable, but not
+    // WITHOUT A TRACE.** `WITHDRAW_ACCEPTANCE` writes a `stageChanges` entry and an `unwinds` entry
+    // in the same update. A movement only ever arrives at empty-and-empty `destination_review` by
+    // having had an acceptance withdrawn, and that always leaves both records behind. Every
+    // generated movement carries `stageChanges: []` and `unwinds: []`, so the generated shape —
+    // this stage, both lists empty, and no history saying how it got here — remains a state the
+    // reducer cannot produce. The remap closes that, and `tests/ward-flow-contracts.test.ts:565`
+    // (`matched` is 18, having been 14 before these four were remapped) pins it.
+    //
+    // ⚠️ **THE LESSON IS THE SHAPE, NOT THIS INSTANCE: a reachability claim in a comment is a
+    // measurement with a shelf life, and this one expired when a new event was added.** It was not
+    // wrong when written and nothing warned anyone when it stopped being true. `WF-302`, `WF-309`,
+    // `WF-316` and `WF-323` are the four indices affected (`index % 7 === 1`).
+    //
+    // `WF-009` (empty referredUnitIds, two hand-authored declines — the every-ward-declined case)
+    // is untouched by this remap, since it is HAND-AUTHORED (outside `routineMovements`) and its
+    // `declines` is genuinely non-empty.
+    const stage = rawStage === "handover_ready" || rawStage === "destination_review" ? "placement_requested" : rawStage;
+    // Hoisted out of the literal below because `stageFields` needs it: a generated destination
+    // must be lawful for THIS movement's status, and the status is what decides that. Passing the
+    // STATUS rather than a caller-computed boolean keeps `requiresAuthorisedDestination` the one
+    // place that decides what the status requires.
+    const legalStatus: LegalStatus = index % 3 === 0 ? "Referred for psychiatric examination" : "Voluntary";
     return {
       id: `WF-${String(index).padStart(3, "0")}`,
       originEdId: ed.id,
@@ -825,7 +1085,7 @@ function routineMovements(count: number, startIndex: number): Movement[] {
       security,
       sex,
       specialling: index % 11 === 0,
-      legalStatus: index % 3 === 0 ? "Referred for psychiatric examination" : "Voluntary",
+      legalStatus,
       // 2026-08-23: no Form 1A in this model carries a dueAt (see LegalForm's own doc comment
       // in ward-model.ts) — the product owner's instruction was to drop the legal countdown
       // entirely, not to derive a corrected one, so this generator authors none.
@@ -846,7 +1106,8 @@ function routineMovements(count: number, startIndex: number): Movement[] {
       blocker: index % 5 === 0 ? "Awaiting destination response" : "No blocker",
       withdrawnReferrals: [],
       unwinds: [],
-      ...stageFields(stage, cohort, security, index),
+      stageChanges: [],
+      ...stageFields(stage, cohort, security, index, legalStatus),
     } satisfies Movement;
   });
 }
@@ -1125,6 +1386,9 @@ const RF_010_RAISED_DAYS_BEFORE_ANCHOR = 24;
  *     — this fixture exists to demonstrate the privacy boundary, not to exercise FD-22's
  *     cancel-on-acceptance behaviour, which the reducer-built fixture in that test file already
  *     covers.
+ *   - RF-012 and RF-013: the origins of `WF-002` and `WF-009` (owner ruling R-2026-09-04-D). They
+ *     are the only referrals any seeded MOVEMENT points at, and their own comment below explains
+ *     why they had to be authored rather than picked from the nine above.
  *
  * Phase 8 Task 2R REMOVED the arrivals this fixture briefly carried. A referral no longer records
  * arriving anywhere: `Admission` (`ward-admissions.ts`) is the one record of a person occupying a
@@ -1147,6 +1411,217 @@ const RF_010_RAISED_DAYS_BEFORE_ANCHOR = 24;
  * `wardSites`' own synthetic codes (never an address), and `homeRegion` is always one of
  * `HOME_REGIONS` (never an address), chosen to be plausible for the referral's origin site.
  */
+/**
+ * ⚠️ **DEMONSTRATION DATA. ONE TEAM. ADDED 2026-09-05 AT THE OWNER'S EXPLICIT REQUEST, AND NOT A
+ * MODELLED CASE SERIES.** The owner asked for the community hub to be judgeable on a screen with
+ * people on it, and chose ONE team — `"Midland"` — so that a single page is obviously populated and
+ * the other 64 stay honestly empty. **Nothing here is evidence about how often somebody is admitted
+ * while already with a community team.** Nine is a number picked to fill a page.
+ *
+ * ⚠️ **IT IS PURELY ADDITIVE, AND THAT IS THE SAFETY PROPERTY.** Not one admission changed. Every
+ * `id` below is a value `ward-admissions-seed.ts` ALREADY manufactures from its own admission's id
+ * (`AD-XXXX-NN` -> `RF-XXXX-NN`), so these referrals resolve links that were previously dangling
+ * rather than creating new people, new beds or new departures. No bed count, occupancy figure or
+ * discharge list moves.
+ *
+ * ⚠️ **AND IT IS THE SHAPE `52ad01dda` GOT WRONG, DONE THE WAY `RF-010` DOES IT.** That commit
+ * populated nine team pages the same way and was backed out at `fa616d1c9` for TWO reasons, both of
+ * which are avoided here deliberately rather than by luck:
+ *
+ *   1. **Its referrals were `"queued"`, so nine requests for no bed at all sat at the top of the
+ *      coordinator's bed-matching queue** — `referralQueueOrder` scopes to queued and nothing else.
+ *      **Every referral below is `"accepted"`**, which is also the clinically true state: a team
+ *      that has taken somebody on has answered. `RF-010` is the precedent — an accepted
+ *      community-only addressing with no `acceptedUnitId`, because a team is not a bed.
+ *   2. **Every pair it produced put the person in the bed BEFORE the referral existed**, so not one
+ *      could carry a duration. **Each row below is raised, and answered, before its admission's bed
+ *      was even pulled** — the `bedPulledDaysBeforeAnchor` column is the admission's own pull, copied
+ *      here ONLY so the two columns after it can be read against something. It is not a second home
+ *      for that fact: `tests/ward-community-demonstration-data.test.ts` reads BOTH fixtures and fails
+ *      if this column, or the ordering it exists to make visible, ever stops matching the admissions
+ *      seed. The two files cannot import one another — `tests/ward-flow-single-source.test.ts` allows
+ *      only four readers of the admissions fixture and this is not one of them — so a test is the
+ *      only place that coupling can live.
+ *
+ * ⚠️ **`joinedCount` IN `tests/ward-statistics-derivations.test.ts` MOVES FROM 1 TO 10 BECAUSE OF
+ * THIS BLOCK, AND `chronologicallyCoherentCount` MOVES WITH IT.** Moving together is the property
+ * that test actually guards: a match that cannot date a bed is the defect, never the count changing.
+ * If you are reading this because that test went red at some other number, a demonstration row has
+ * lost its lead over its admission — fix the row, do not adjust the figure.
+ *
+ * ⚠️ **EVERY ACCEPTANCE HERE IS OLDER THAN `RF-010`'s, AND THAT IS A HARD CONSTRAINT RATHER THAN A
+ * PREFERENCE — IT IS THE `fa616d1c9` LESSON ARRIVING IN THE NEXT LIST ALONG.** The coordinator's
+ * decided board is `recentlyDecidedReferrals`, which sorts by `decidedAt` descending and keeps only
+ * `RECENTLY_DECIDED_DISPLAY_LIMIT` rows. The seed holds nine genuinely decided referrals, so three
+ * demonstration rows accepted more recently than `RF-010` PUSHED `RF-010` OFF THAT BOARD — real
+ * clinical data evicted by fixture data added for a different screen. It was caught by
+ * `tests/ward-referral-screens.dom.test.tsx` naming the missing id, not by anybody looking.
+ *
+ * **So every row's `acceptedDaysBeforeAnchor` exceeds 24, `RF-010`'s own age**, and the nine sort
+ * below all nine real ones. Exactly one demonstration row reaches that board, at the bottom. Raising
+ * a row's acceptance above 24 days will silently evict a real referral again — the count still looks
+ * right, and a different id quietly disappears.
+ *
+ * The suburbs are Midland's own, from `ward-catchment.ts`; the origin site is St John of God
+ * Midland, the area's hospital, and every person is admitted somewhere else, which is the ordinary
+ * case in this network rather than an oddity. `ageBand` matches the cohort of the unit each person
+ * is actually in.
+ */
+export type MidlandDemonstrationRow = {
+  readonly id: string;
+  /** The admission this id already pointed at. Named so a reader can check the pair by hand. */
+  readonly admissionId: string;
+  /** The admission's own `pulledAt`, in days before the anchor. Context for the two columns below;
+   *  the test, not this file, is what keeps it true. */
+  readonly bedPulledDaysBeforeAnchor: number;
+  readonly raisedDaysBeforeAnchor: number;
+  /** When Midland said yes. Must exceed the pull column: the team accepted before the bed. */
+  readonly acceptedDaysBeforeAnchor: number;
+  readonly ageBand: Cohort;
+  readonly suburb: string;
+  readonly urgency: UrgencyLevel;
+  readonly history: string;
+};
+
+export const MIDLAND_DEMONSTRATION_ROWS: readonly MidlandDemonstrationRow[] = [
+  {
+    id: "RF-RGHS-01",
+    admissionId: "AD-RGHS-01",
+    bedPulledDaysBeforeAnchor: 6.27,
+    raisedDaysBeforeAnchor: 40,
+    acceptedDaysBeforeAnchor: 30,
+    ageBand: "Adult",
+    suburb: "Bassendean",
+    urgency: 2,
+    history:
+      "Known to the team for some years and had been disengaging from appointments. Taken back on for community follow-up shortly before this admission.",
+  },
+  {
+    id: "RF-SCGA-07",
+    admissionId: "AD-SCGA-07",
+    bedPulledDaysBeforeAnchor: 6.27,
+    raisedDaysBeforeAnchor: 45,
+    acceptedDaysBeforeAnchor: 32,
+    ageBand: "Adult",
+    suburb: "Bellevue",
+    urgency: 2,
+    history:
+      "Referred by his general practitioner after a period of worsening sleep and withdrawal. Accepted for community assessment, and admitted before the first appointment.",
+  },
+  {
+    id: "RF-GRYS-09",
+    admissionId: "AD-GRYS-09",
+    bedPulledDaysBeforeAnchor: 6.27,
+    raisedDaysBeforeAnchor: 50,
+    acceptedDaysBeforeAnchor: 36,
+    ageBand: "Adult",
+    suburb: "Caversham",
+    urgency: 2,
+    history:
+      "Referred from an emergency department after a brief presentation, for community follow-up rather than a bed. The team accepted and had begun visiting.",
+  },
+  {
+    id: "RF-RPHS-14",
+    admissionId: "AD-RPHS-14",
+    bedPulledDaysBeforeAnchor: 6.27,
+    raisedDaysBeforeAnchor: 55,
+    acceptedDaysBeforeAnchor: 41,
+    ageBand: "Adult",
+    suburb: "Aveley",
+    urgency: 3,
+    history:
+      "Long-standing contact with the service, referred back after moving into the area. Community follow-up was in place at the time of this admission.",
+  },
+  {
+    id: "RF-SJGA-05",
+    admissionId: "AD-SJGA-05",
+    bedPulledDaysBeforeAnchor: 3.27,
+    raisedDaysBeforeAnchor: 40,
+    acceptedDaysBeforeAnchor: 33,
+    ageBand: "Adult",
+    suburb: "Beechboro",
+    urgency: 3,
+    history:
+      "Referred for ongoing community treatment after a previous admission elsewhere. Seen at home twice before this presentation.",
+  },
+  {
+    id: "RF-BTYO-05",
+    admissionId: "AD-BTYO-05",
+    bedPulledDaysBeforeAnchor: 6.27,
+    raisedDaysBeforeAnchor: 60,
+    acceptedDaysBeforeAnchor: 51,
+    ageBand: "Older adult",
+    suburb: "Ashfield",
+    urgency: 3,
+    history:
+      "Older adult referred for community review of memory and mood, accepted by the team and reviewed at home. Admitted some weeks later.",
+  },
+  {
+    id: "RF-ARMA-01",
+    admissionId: "AD-ARMA-01",
+    bedPulledDaysBeforeAnchor: 12.27,
+    raisedDaysBeforeAnchor: 75,
+    acceptedDaysBeforeAnchor: 66,
+    ageBand: "Adult",
+    suburb: "Bullsbrook",
+    urgency: 3,
+    history:
+      "Referred by the crisis service after a home visit, for continuing community care. Under the team throughout the weeks before this admission.",
+  },
+  {
+    id: "RF-ARMA-02",
+    admissionId: "AD-ARMA-02",
+    bedPulledDaysBeforeAnchor: 48.27,
+    raisedDaysBeforeAnchor: 95,
+    acceptedDaysBeforeAnchor: 88,
+    ageBand: "Adult",
+    suburb: "Boya",
+    urgency: 3,
+    history:
+      "Transferred to the team after moving from another catchment. Community treatment was established well before this admission began.",
+  },
+  {
+    id: "RF-FSHS-01",
+    admissionId: "AD-FSHS-01",
+    bedPulledDaysBeforeAnchor: 122.27,
+    raisedDaysBeforeAnchor: 180,
+    acceptedDaysBeforeAnchor: 170,
+    ageBand: "Adult",
+    suburb: "Brigadoon",
+    urgency: 3,
+    history:
+      "Long-term community patient of the team, followed up for several months before this admission. The referral predates the current episode by some margin.",
+  },
+];
+
+/**
+ * The rows above as referrals. Built rather than written out nine times, so the property that makes
+ * them safe — accepted, community-only, and answered before the bed — is stated once and cannot
+ * hold on eight rows and quietly fail on the ninth.
+ */
+const midlandDemonstrationReferrals: Referral[] = MIDLAND_DEMONSTRATION_ROWS.map((row) => ({
+  id: row.id,
+  ageBand: row.ageBand,
+  destinations: [
+    {
+      destination: { kind: "community_team", teamName: "Midland" },
+      // Accepted, never queued — reason 1 in this block's own comment. `acceptedUnitId` is absent
+      // for the same reason it is absent on `RF-010`: a team is not a bed.
+      state: "accepted",
+      decidedAt: NOW_ANCHOR - row.acceptedDaysBeforeAnchor * MINUTES_PER_DAY,
+      decidedBy: "Community service",
+    },
+  ],
+  homeRegion: "Perth Metropolitan",
+  suburb: { kind: "named", name: row.suburb },
+  source: "community",
+  raisedAt: NOW_ANCHOR - row.raisedDaysBeforeAnchor * MINUTES_PER_DAY,
+  urgency: row.urgency,
+  originSiteCode: "SJGM",
+  transportNeeded: false,
+  history: row.history,
+}));
+
 export const referrals: Referral[] = [
   {
     id: "RF-001",
@@ -1169,6 +1644,8 @@ export const referrals: Referral[] = [
     urgency: 2,
     originSiteCode: "ARM",
     transportNeeded: true,
+    history:
+      "Referred by the community team after three weeks of worsening withdrawal and two missed depot appointments. Mother reports she has not left her room since the weekend. Known to the youth service for two years. Was on aripiprazole, stopped around a month ago.",
   },
   {
     id: "RF-002",
@@ -1200,6 +1677,8 @@ export const referrals: Referral[] = [
     urgency: 2,
     originSiteCode: "KUN",
     transportNeeded: true,
+    history:
+      "Transferred from the regional hospital medical ward. Settled on the ward but no local psychiatric bed available in town, and the medical reason for admission has resolved. Third presentation this year. Long trip home, so discharge planning needs the family involved early.",
   },
   {
     id: "RF-003",
@@ -1240,6 +1719,8 @@ export const referrals: Referral[] = [
     urgency: 1,
     originSiteCode: "SCGH",
     transportNeeded: false,
+    history:
+      "Crisis team called overnight. Acute distress, not sleeping, and saying she cannot keep herself safe at home tonight. Agreed to come in. Partner is with her and can stay until transport.",
   },
   {
     id: "RF-004",
@@ -1272,6 +1753,8 @@ export const referrals: Referral[] = [
     urgency: 3,
     originSiteCode: "PEEL",
     transportNeeded: true,
+    history:
+      "Brought to attention by police after being found disoriented near the foreshore in the early hours. Not known to local services. No treating team identified. Nothing in the record before today. Was found near water and could not say how he got there.",
   },
   {
     id: "RF-005",
@@ -1297,6 +1780,8 @@ export const referrals: Referral[] = [
     urgency: 2,
     originSiteCode: "FSH",
     transportNeeded: true,
+    history:
+      "Ambulance called by the residential home after two days of increasing confusion and refusing food and fluids. Staff say this is a marked change from her usual self. Lives in supported residential care. Physical health review may be needed alongside the psychiatric one.",
   },
   {
     id: "RF-006",
@@ -1348,6 +1833,8 @@ export const referrals: Referral[] = [
     urgency: 1,
     originSiteCode: "BRM",
     transportNeeded: false,
+    history:
+      "Police attendance in the city. Acutely unwell, no fixed address, and unable to give a suburb — which is why the suburb field is recorded as not known rather than guessed. Unable to give a contact or a next of kin at the time of referral.",
   },
   {
     id: "RF-007",
@@ -1401,6 +1888,8 @@ export const referrals: Referral[] = [
     urgency: 2,
     originSiteCode: "GER",
     transportNeeded: true,
+    history:
+      "Transfer request from the regional hospital. Presented to their emergency department twice in four days and there is no youth bed in the region. Under the care of the regional youth team. Long distance from family if admitted to the metropolitan area.",
   },
   {
     // Phase 8 Task 2. Added — not edited into an existing referral — because the equity ledger
@@ -1453,6 +1942,8 @@ export const referrals: Referral[] = [
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: true,
+    history:
+      "Ambulance called by a neighbour. Agitated and distressed at home, calmer on arrival of the crew, and agreed to come in voluntarily.",
   },
   {
     /*
@@ -1488,6 +1979,8 @@ export const referrals: Referral[] = [
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    history:
+      "Brought in by ambulance and needs a psychiatric opinion in the department before any decision about admission is made.",
   },
   {
     /*
@@ -1590,6 +2083,8 @@ export const referrals: Referral[] = [
     urgency: 3,
     originSiteCode: "ARM",
     transportNeeded: false,
+    history:
+      "Ready for discharge from the medical ward and needs community follow-up rather than a bed. Asking the team to pick him up rather than admitting. Was under the inner city clinic previously and is willing to re-engage.",
   },
   {
     /*
@@ -1643,5 +2138,95 @@ export const referrals: Referral[] = [
     urgency: 3,
     originSiteCode: "FSH",
     transportNeeded: true,
+    history:
+      "Ambulance attendance after a call from a family member. Needs review in the department first, and a bed is being asked for in parallel because the picture may not settle. Family have said they cannot manage at home tonight.",
   },
+  /*
+   * 🔴 RF-012 AND RF-013 — THE TWO REFERRALS A SEEDED MOVEMENT WAS ACTUALLY RAISED FROM. Owner
+   * ruling R-2026-09-04-D, added 2026-09-04.
+   *
+   * ⚠️ **THEY WERE AUTHORED RATHER THAN CHOSEN, AND THE REASON IS A MEASUREMENT.** Before them the
+   * seed held two ED-addressed referrals: `RF-009` (`rph-ed`, raised 35 minutes before the anchor)
+   * and `RF-011`'s ED arm (`fsh-ed`, 50 minutes). A journey cannot precede the referral that
+   * produced it, and the youngest movement at either department was opened 180 minutes before the
+   * anchor — so linking any existing pair would have recorded a patient arriving hours before
+   * anybody referred them. That is the shape `52ad01dda` shipped for admissions and `fa616d1c9`
+   * removed; it reads as a repair and is a fabrication.
+   *
+   * Each of these is therefore timed as the ORIGIN of one specific movement: referral raised,
+   * patient triaged into that same department some time later, department opens the journey later
+   * still. `decidedAt` on each ED arm is the moment its movement opened, because taking the patient
+   * on IS the department's answer.
+   *
+   * ⚠️ **BOTH ED ARMS ARE `accepted`, NOT `queued`, AND THAT IS A FACT ABOUT THEM RATHER THAN A
+   * CONVENIENCE.** A queued arm says the department has not answered yet; each of these has a
+   * movement in the fixture proving it did. (It also keeps both off the ED psychiatry hub's
+   * waiting inbox, which is `RF-009`'s fixture and not theirs to change — a happy consequence, not
+   * the reason.) `acceptedUnitId` is absent because a department is not a bed, exactly as for
+   * `RF-010`'s community arm.
+   *
+   * ⚠️ **NEITHER CARRIES A WARD ARM, DELIBERATELY.** These are referrals INTO an emergency
+   * department; the bed search that follows belongs to the movement, and giving them a ward arm as
+   * well would put a second, parallel bed request beside a movement already doing exactly that.
+   */
+  {
+    // The origin of `WF-002` — Older adult, Male, at `fsh-ed`, arrived by ambulance, journey opened
+    // 180 minutes before the anchor. Raised 240 before, triaged into the department at 200: a
+    // 40-minute referral clock that stopped when the patient arrived, then 20 minutes in the
+    // department before psychiatry opened the journey. Suburb `Murdoch` is the one `RF-005`
+    // already uses for this site, so the catchment table resolves it exactly as it does there.
+    id: "RF-012",
+    ageBand: "Older adult",
+    destinations: [
+      {
+        destination: { kind: "emergency_department", edId: "fsh-ed", purpose: "psychiatric_review" },
+        state: "accepted",
+        decidedAt: NOW_ANCHOR - 180,
+        decidedBy: "ED mental health",
+      },
+    ],
+    homeRegion: "Perth Metropolitan",
+    suburb: { kind: "named", name: "Murdoch" },
+    source: "ambulance",
+    raisedAt: NOW_ANCHOR - 240,
+    triagedAt: NOW_ANCHOR - 200,
+    urgency: 2,
+    originSiteCode: "FSH",
+    transportNeeded: true,
+    history:
+      "Ambulance called from home after a fall and a period of confusion. Needs a medical look as well as a psychiatric one, so the department is the right first stop. Lives alone with daily support. Increasingly forgetful over recent months, per the daughter.",
+  },
+  {
+    // The origin of `WF-009` — Adult, Male, at `peel-ed`, `arrivalMode: "police"`, journey opened
+    // 420 minutes before the anchor. `source: "police"` matches that arrival rather than being
+    // picked for variety, and `Mandurah` is the Peel suburb `RF-004` already uses.
+    //
+    // ⚠️ Urgency 1 here and urgency 1 on `WF-009` are two separate records of the same judgement,
+    // not one derived from the other: nothing in this model copies a referral's tier onto the
+    // journey raised from it, and `RAISE_REFERRAL` takes the tier from its own draft.
+    id: "RF-013",
+    ageBand: "Adult",
+    destinations: [
+      {
+        destination: { kind: "emergency_department", edId: "peel-ed", purpose: "psychiatric_review" },
+        state: "accepted",
+        decidedAt: NOW_ANCHOR - 420,
+        decidedBy: "ED mental health",
+      },
+    ],
+    homeRegion: "Peel",
+    suburb: { kind: "named", name: "Mandurah" },
+    source: "police",
+    raisedAt: NOW_ANCHOR - 470,
+    triagedAt: NOW_ANCHOR - 440,
+    urgency: 1,
+    originSiteCode: "PEEL",
+    transportNeeded: true,
+    history:
+      "Police attendance overnight, acutely distressed in a public place, and taken to the department as the nearest place able to assess him. Was distressed in a public place and could not be left alone.",
+  },
+  // ⚠️ DEMONSTRATION DATA, LAST AND SPREAD RATHER THAN WRITTEN OUT, so the boundary between the
+  // hand-authored referrals above and the nine added to populate one team's page is visible in the
+  // array itself. See `MIDLAND_DEMONSTRATION_ROWS` for what they are and why they are safe.
+  ...midlandDemonstrationReferrals,
 ];

@@ -5,6 +5,8 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { stripAllComments } from "./helpers/strip-source-comments";
+
 /**
  * NINE CLAIMS THAT WERE FALSE ON THE COMMUNITY SCREENS, PINNED SO THAT NONE OF THEM CAN COME BACK.
  *
@@ -49,6 +51,7 @@ import { MODEL_CLAIMS, UNEVIDENCED_CLAIMS } from "@/components/ward-management/s
 import type { Referral } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 const SCREEN_PATH = "src/components/ward-management/community/community-screen.tsx";
 const DERIVATIONS_PATH = "src/components/ward-management/community/community-derivations.ts";
 const NAV_TEST_PATH = "tests/ward-nav.test.ts";
@@ -148,8 +151,15 @@ describe("claims 1 and 2 — the demo clock shifts the admission instants, and t
     }
   });
 
+  // ⚠️ MATCHED WITH COMMENTS STRIPPED (`stripAllComments`, see
+  // tests/ward-guard-comment-blindness.test.ts). This checks that the guard REALLY reads both
+  // files — a code write, not prose — via a raw path string. Unstripped, a comment merely
+  // mentioning "src/components/ward-management/ward-model.ts" satisfies the match exactly as well
+  // as the real `MODEL_FILES` array entry does. Proved live 2026-09-04: emptying `MODEL_FILES` in
+  // `tests/ward-reanchor.test.ts` and leaving only an explanatory comment naming both paths passed
+  // this test unchanged.
   it("the guard really does read both model files, which is the claim the screen had inverted", () => {
-    const guard = sourceOf(REANCHOR_TEST_PATH);
+    const guard = stripAllComments(sourceOf(REANCHOR_TEST_PATH));
     expect(guard).toContain("src/components/ward-management/ward-model.ts");
     expect(guard).toContain("src/components/ward-management/ward-admissions.ts");
   });
@@ -313,11 +323,33 @@ describe("claims 6 and 7 — the switcher is the way across, and carries no coun
   const switcherComment = (() => {
     const nav = screenSource.indexOf("<nav className={styles.teamSwitcher}");
     expect(nav, "the team switcher's <nav> has gone — this region no longer exists").toBeGreaterThan(-1);
-    const end = screenSource.lastIndexOf("*/", nav);
-    expect(end, "no comment closes immediately above the team switcher").toBeGreaterThan(-1);
-    const start = screenSource.lastIndexOf("{/*", end);
-    expect(start, "no comment opens above the team switcher").toBeGreaterThan(-1);
-    return screenSource.slice(start, end);
+    /*
+     * 🔴 **THE WHOLE RUN OF COMMENTS, NOT THE NEAREST ONE, AND THAT DISTINCTION HAD ALREADY BROKEN
+     * THIS FILE.** A single `lastIndexOf` takes the comment immediately above the `<nav>`. The
+     * second-edition port added a short note there about why this is a `<nav>` rather than a
+     * `WardPanel` — so the scan started returning 368 characters of the wrong comment, the length
+     * floor went red, and the claim assertion below reported the long comment's sentence as MISSING
+     * when it was three lines further up and entirely intact.
+     *
+     * ⚠️ **THAT IS THE DANGEROUS DIRECTION: a guard pointing at correct text and calling it false**
+     * sends the next reader to "fix" something that is already right. It walks the contiguous run
+     * now — every comment separated from the next by nothing but whitespace and the closing brace —
+     * so inserting another note above the element cannot hide the one being policed.
+     */
+    const blocks: string[] = [];
+    let cursor = nav;
+    for (;;) {
+      const end = screenSource.lastIndexOf("*/", cursor);
+      if (end === -1) break;
+      const start = screenSource.lastIndexOf("{/*", end);
+      if (start === -1) break;
+      const between = screenSource.slice(end + 2, cursor).replace(/[}\s]/gu, "");
+      if (between !== "") break;
+      blocks.unshift(screenSource.slice(start, end));
+      cursor = start;
+    }
+    expect(blocks.length, "no comment at all sits above the team switcher").toBeGreaterThan(0);
+    return blocks.join(" ");
   })();
 
   it("scans a comment that is really there, so the absences below mean something", () => {
@@ -351,7 +383,14 @@ describe("claims 6 and 7 — the switcher is the way across, and carries no coun
      * the shape a careless check waves through. Pin the reasoning, never the bare figure.
      */
     const nav = sourceOf(NAV_TEST_PATH);
-    expect(nav).toContain("/mockups/ward-flow/community/[teamId]");
+    // ⚠️ MATCHED WITH COMMENTS STRIPPED (`stripAllComments`) for this one assertion only. This is a
+    // code-write check — is the route really a registered dynamic-route entry — not a prose check,
+    // so a comment merely naming the route must not satisfy it. Proved live 2026-09-04: removing all
+    // three real `MODEL_FILES`-style entries from `ward-nav.test.ts` and leaving one decoy comment
+    // naming the route passed this test unchanged. The two checks below stay on the unstripped `nav`
+    // deliberately: one pins a documented explanation (reads a comment on purpose) and the other is
+    // an absence check, the conservative direction already.
+    expect(stripAllComments(nav)).toContain("/mockups/ward-flow/community/[teamId]");
     expect(nav, "the nav test no longer explains that 0 is a scan limit rather than an orphan").toContain(
       "a limit of a source scan, not an orphan",
     );
@@ -533,6 +572,7 @@ function referralsNamingFirstTeam(): Referral[] {
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
   });
   expect(state.rejections, "the reducer refused the fixture referral").toEqual([]);
   const created = state.referrals.slice(before);

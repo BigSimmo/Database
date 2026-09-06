@@ -226,6 +226,16 @@ describe("merged dictionary catalogue", () => {
     );
   });
 
+  it("finds the subject of a natural definition question without an exact catalogue phrase", () => {
+    const hits = dictionaryCatalogue({
+      ...baseCatalogue,
+      q: "What is feeling sad called?",
+      sort: "relevance",
+    });
+
+    expect(hits[0]).toMatchObject({ type: "entry", entry: { slug: "low-mood" } });
+  });
+
   it("degrades the two retired search lenses rather than rendering an empty list", () => {
     // `view=all` and `view=topics` were `/dictionary/search`'s own lenses. Topics
     // is its own mode-nav destination now and `all` mixed two row shapes, so both

@@ -67,3 +67,45 @@ describe("resolveDeveloperAccessState", () => {
     });
   });
 });
+
+describe("developerGateBypassAllowed", () => {
+  it("allows the bypass outside production regardless of the mockups flag", async () => {
+    vi.doMock("server-only", () => ({}));
+    const { developerGateBypassAllowed } = await import("../src/lib/developer-area/access");
+
+    expect(developerGateBypassAllowed({ NODE_ENV: "development" })).toBe(true);
+    expect(developerGateBypassAllowed({ NODE_ENV: "test" })).toBe(true);
+  });
+
+  it("does NOT bypass in production when only NEXT_PUBLIC_MOCKUPS_ENABLED is set (#L30)", async () => {
+    vi.doMock("server-only", () => ({}));
+    const { developerGateBypassAllowed } = await import("../src/lib/developer-area/access");
+
+    expect(
+      developerGateBypassAllowed({
+        NODE_ENV: "production",
+        NEXT_PUBLIC_MOCKUPS_ENABLED: "true",
+      }),
+    ).toBe(false);
+  });
+
+  it("bypasses in production only under the proxy's exact double-flag exception", async () => {
+    vi.doMock("server-only", () => ({}));
+    const { developerGateBypassAllowed } = await import("../src/lib/developer-area/access");
+
+    expect(
+      developerGateBypassAllowed({
+        NODE_ENV: "production",
+        NEXT_PUBLIC_MOCKUPS_ENABLED: "true",
+        PLAYWRIGHT_OFFLINE_MODE: "true",
+      }),
+    ).toBe(true);
+    expect(
+      developerGateBypassAllowed({
+        NODE_ENV: "production",
+        NEXT_PUBLIC_MOCKUPS_ENABLED: "false",
+        PLAYWRIGHT_OFFLINE_MODE: "true",
+      }),
+    ).toBe(false);
+  });
+});

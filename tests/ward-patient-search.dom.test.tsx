@@ -1,7 +1,9 @@
-import { referralState } from "../src/components/ward-management/ward-referrals";
+import { declinedAddressings, referralState } from "../src/components/ward-management/ward-referrals";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
+import type { Referral } from "@/components/ward-management/ward-model";
 
 // Same reason as every sibling dom suite (ward-handover.dom.test.tsx, ward-escalation.dom.test.tsx,
 // ward-screen.dom.test.tsx): `ClinicalRail` renders next/link anchors and this suite checks the
@@ -15,11 +17,12 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
+import { PatientSearchPage, ResultsSection } from "@/components/ward-management/search/patient-search";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { isOpen } from "@/components/ward-management/ward-derivations";
 import { seedWardFlowState } from "@/components/ward-management/ward-flow-reducer";
-import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { NOW_ANCHOR, allUnits } from "@/components/ward-management/ward-sites";
+import { wardMovements } from "@/components/ward-management/ward-movements";
 
 /** Raises the same `ADVANCE_CLOCK` demo event the real demo controls dispatch, so this suite can
  * move the shared clock without reaching into the reducer directly — mirrors `ClockAdvancer` in
@@ -232,11 +235,10 @@ describe("search finds PEOPLE, including ones the movement search structurally c
 
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "zzzznobody" } });
 
-    expect(
-      screen.getByTestId("ward-patient-search-people-empty"),
-      "an empty result must SAY nobody is known and what that means. A blank space reads as a page " +
-        "that has not loaded, and the decision resting on it is whether to add a person.",
-    ).toHaveTextContent("need adding before they can be referred");
+    expectSays(screen.getByTestId("ward-patient-search-people-empty"), "the not-in-system note", [
+      "before they can be referred",
+      "adding",
+    ]);
   });
 
   it("prompts rather than listing everybody before anything is typed", () => {
@@ -245,5 +247,245 @@ describe("search finds PEOPLE, including ones the movement search structurally c
     renderSearch();
     expect(screen.getByTestId("ward-patient-search-people-idle")).toBeInTheDocument();
     expect(screen.queryByTestId("ward-patient-search-people-list")).toBeNull();
+  });
+});
+
+/*
+ * 🔴 WHAT THIS SCREEN ASSERTS ABOUT A BED, AND WHAT THE RECORD ACTUALLY HOLDS.
+ *
+ * Both defects below shipped green through fifty-nine passing DOM assertions, because every one of
+ * those asserted that a cell RENDERED rather than that it was TRUE. These two assert the property
+ * over the fixture and name the row that would break them.
+ */
+describe("the results table never claims more than the record holds", () => {
+  /*
+   * ⚠️ THE POPULATION IS FLOORED, NOT THE FINDING. This walks every open movement with live
+   * referrals and no acceptance — the only rows that can exhibit the defect. If the fixture stops
+   * containing any, this test would pass by walking nothing, so the floor below fails FIRST and
+   * says so. Flooring the population walked is the check; flooring the number of violations would
+   * be an assertion that the defect exists, which is the opposite of what is wanted.
+   */
+  it("shows no destination for a patient no ward has accepted, however many wards were asked", () => {
+    const referredNotAccepted = wardMovements
+      .filter(isOpen)
+      .filter((movement) => movement.referredUnitIds.length > 0 && movement.acceptedUnitId === undefined);
+
+    expect(
+      referredNotAccepted.length,
+      "no open movement has live referrals and no acceptance, so this test walks nothing and proves " +
+        "nothing. Do not delete it — find out what changed in the fixture and re-point it.",
+    ).toBeGreaterThan(0);
+
+    renderSearch();
+    const results = screen.getByTestId("ward-patient-search-results");
+
+    for (const movement of referredNotAccepted) {
+      const row = within(results).getByText(movement.id).closest("tr");
+      expect(row, `movement ${movement.id} is missing from the results table entirely`).not.toBeNull();
+      const cells = [...(row as HTMLTableRowElement).cells].map((cell) => cell.textContent ?? "");
+
+      /*
+       * 🔴 THE PROPERTY, WITH NO VOCABULARY IN IT. Rewritten twice on 2026-09-04, and the two
+       * discarded versions are why this one is shaped the way it is.
+       *
+       * v1 asserted that NO referred ward's name may appear anywhere on the row. That was an EXACT
+       * proxy while the only way such a name could appear was as the destination, and it caught the
+       * real defect — the cell printing the first ward ASKED as though it were the destination. It
+       * stopped being exact when the cell began naming the wards asked ALONGSIDE an explicit denial
+       * ("2 wards asked, none has accepted — Ward A, Ward B"), which exists because the search
+       * haystack matches on a ward's name: without it the coordinator types a ward and the ward
+       * vanishes from the row, leaving a result with no visible reason.
+       *
+       * ⚠️ v2 REPLACED ONE ALLOWED PHRASE WITH THREE AND CALLED IT A PROPERTY. A reviewer listed
+       * the truthful denials it would have gone RED on — "not yet accepted by any ward", "awaiting
+       * acceptance", "No acceptance recorded", "0 wards have accepted", "Nobody has accepted this
+       * patient" — and noted that the movement workspace masthead already says "No ward has
+       * accepted this patient", so harmonising the two screens would have turned this red on the
+       * harmonisation. It was the same defect as v1, occurring three times less often, sitting
+       * under a comment that described it as the property.
+       *
+       * v3, below, names no wording at all. The population is chosen from the MODEL — referred,
+       * never accepted — and the assertion is that this movement's DESTINATION CELL says something
+       * beyond ward names. A cell that is nothing but ward names reads as "this is where they are
+       * going", which is the false claim; a cell that is empty says nothing at all, which was the
+       * other half of the original defect. Both now fail here, and every rewording above passes.
+       *
+       * ⚠️ Cell-scoped, not row-scoped. v2 tested the joined row, so a denial in any OTHER column
+       * satisfied a claim about the destination. Latent today (only this column can carry that
+       * text) and live the day anyone adds a column.
+       *
+       * The column is found from the table's own header rather than by index, so inserting a
+       * column ahead of it cannot silently re-point this at the wrong cell.
+       */
+      const headerTexts = [...results.querySelectorAll("thead th")].map((th) => th.textContent ?? "");
+      const destinationColumn = headerTexts.findIndex((text) => /destination/i.test(text));
+      expect(
+        destinationColumn,
+        `the results table has no column whose header matches /destination/i — headers read ` +
+          `${JSON.stringify(headerTexts)}. This test cannot locate the cell it is about.`,
+      ).toBeGreaterThanOrEqual(0);
+
+      const destinationCellText = (cells[destinationColumn] ?? "").trim();
+      let residue = destinationCellText;
+      for (const unit of allUnits()) residue = residue.split(unit.name).join("");
+      residue = residue.replace(/[\s,;.—–-]+/gu, "");
+
+      expect(
+        residue.length,
+        `${movement.id} has NOT been accepted anywhere, yet its Destination cell reads ` +
+          `${JSON.stringify(destinationCellText)} — which is nothing but ward names` +
+          `${destinationCellText === "" ? " (in fact it is empty)" : ""}. A cell containing only ` +
+          `the wards that were ASKED reads as the ward they are GOING to, and a coordinator would ` +
+          `believe a bed exists. Say something: name the wards if it helps, but say that none has ` +
+          `accepted.`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  /*
+   * `elapsedLabel` measures from `openedAt`, and `Movement` carries no arrival instant — `arrivedAt`
+   * was deliberately deleted. `Referral.triagedAt`'s doc comment forbids the wording in terms.
+   *
+   * ⚠️ This asserts over the HEADER ROW ONLY, deliberately. "Since arrival" is CORRECT on the
+   * out-of-area ledger, where it is fed by a real admission, so a repo-wide text ban would be wrong
+   * and would go red on truthful copy.
+   */
+  it("does not word an opened-at clock as an arrival", () => {
+    renderSearch();
+    const headers = [...screen.getByTestId("ward-patient-search-results").querySelectorAll("thead th")].map(
+      (cell) => cell.textContent ?? "",
+    );
+
+    expect(headers.length, "the results table has no header row to check").toBeGreaterThan(0);
+    expect(
+      headers.some((text) => /arriv/i.test(text)),
+      "a column here is worded as arrival, but every time on this table is measured from `openedAt` " +
+        "and this model records no arrival instant. Triage is not arrival and no screen may word it " +
+        "as one (see `Referral.triagedAt`).",
+    ).toBe(false);
+  });
+});
+
+/*
+ * 🔴 THE REFERRAL ROW NEVER SAID HOW MANY DESTINATIONS HAD ALREADY DECLINED.
+ *
+ * Every queued-referral row rendered the same sentence — "waiting for a decision, no bed accepted
+ * yet" — whether nobody had been asked yet or several destinations had already said no. Those are
+ * opposite clinical situations and the sentence could not tell them apart. `declinedAddressings`
+ * already existed for exactly this and this row never called it.
+ *
+ * Both fixtures below are built from a REAL seeded referral (RF-011: two queued destinations, one
+ * ward and one ED) rather than invented from scratch, so the shape stays whatever `Referral`
+ * actually requires. Only `destinations` is touched.
+ *
+ * ⚠️ THE EXPECTED COUNTS ARE COMPUTED FROM THE MODEL, NEVER HAND-TYPED. `declinedAddressings` is
+ * the same function the component must call — asserting a hand-typed "1" would pass even if the
+ * component counted something else that happened to also be 1 on this fixture.
+ */
+describe("the referral row states how many destinations have declined", () => {
+  const seededReferrals = seedWardFlowState().referrals;
+  const baseReferral = seededReferrals.find((referral) => referral.id === "RF-011");
+  if (!baseReferral) {
+    throw new Error("fixture RF-011 (two queued destinations) is required by this suite and is missing");
+  }
+  // Guards the fixture assumption this whole suite is built on: two destinations, neither declined.
+  if (baseReferral.destinations.length !== 2 || declinedAddressings(baseReferral).length !== 0) {
+    throw new Error("RF-011 no longer has two queued destinations with none declined — re-point this fixture");
+  }
+
+  const noneDeclinedReferral: Referral = baseReferral;
+
+  const partiallyDeclinedReferral: Referral = {
+    ...baseReferral,
+    id: "RF-011-TEST-partial-decline",
+    destinations: [
+      {
+        ...baseReferral.destinations[0],
+        state: "declined",
+        declineReason: "belongs_to_another_service",
+        decidedAt: NOW_ANCHOR - 10,
+        decidedBy: "Flow coordinator",
+      },
+      baseReferral.destinations[1],
+    ],
+  };
+  // Guards that the mutation actually produced a still-QUEUED referral with exactly one decline —
+  // the case this fix is for. If this ever fails, the built fixture no longer exercises the row
+  // this suite exists to check.
+  if (
+    referralState(partiallyDeclinedReferral) !== "queued" ||
+    declinedAddressings(partiallyDeclinedReferral).length !== 1
+  ) {
+    throw new Error("the constructed partial-decline fixture is no longer queued-with-one-decline");
+  }
+
+  function renderRow(referral: Referral) {
+    render(<ResultsSection results={[{ kind: "referral", referral }]} units={allUnits()} now={NOW_ANCHOR} />);
+    return screen.getByTestId(`ward-patient-search-referral-${referral.id}`);
+  }
+
+  it("says nothing has declined when declinedAddressings is empty", () => {
+    const row = renderRow(noneDeclinedReferral);
+    const declinedCount = declinedAddressings(noneDeclinedReferral).length;
+
+    expect(declinedCount, "this fixture is the zero-decline case; if it is not 0 the test proves nothing").toBe(0);
+    expect(row).not.toHaveTextContent(/declined/i);
+  });
+
+  it("states the exact number of destinations that have declined, computed from declinedAddressings", () => {
+    const row = renderRow(partiallyDeclinedReferral);
+    const declinedCount = declinedAddressings(partiallyDeclinedReferral).length;
+    const totalCount = partiallyDeclinedReferral.destinations.length;
+
+    expect(row).toHaveTextContent(String(declinedCount));
+    expect(row).toHaveTextContent(new RegExp(`\\b${declinedCount}\\b.*declined`, "i"));
+    // The referral is still QUEUED — at least one destination has not declined — so a sentence
+    // claiming every destination declined would be a false claim this data cannot support.
+    expect(row).not.toHaveTextContent(/all.*declined/i);
+    expect(row).toHaveTextContent(String(totalCount));
+  });
+
+  it("uses different wording for zero declines than for one or more — not the same template with a swapped number", () => {
+    const zeroRow = renderRow(noneDeclinedReferral);
+    const zeroText = zeroRow.textContent ?? "";
+    document.body.innerHTML = "";
+    const declinedRow = renderRow(partiallyDeclinedReferral);
+    const declinedText = declinedRow.textContent ?? "";
+
+    // Strip the shared prefix (origin/age/region, which both rows legitimately share) and compare
+    // only the clause this fix actually changes.
+    const zeroClause = zeroText.split("—")[1] ?? zeroText;
+    const declinedClause = declinedText.split("—")[1] ?? declinedText;
+    expect(declinedClause).not.toBe(zeroClause);
+  });
+
+  it("never claims a declined destination is a 'ward' when the model does not say so — a declined destination can be an ED or a community team", () => {
+    // RF-011's first destination (the one mutated to declined above) is a psychiatric ward, so this
+    // fixture alone cannot prove the word "ward" is safe in general. The row must not assert
+    // "ward" from `declinedAddressings` alone, since a declined addressing can be any of the three
+    // destination kinds and the component has no per-kind branch.
+    const edDeclinedReferral: Referral = {
+      ...baseReferral,
+      id: "RF-011-TEST-ed-decline",
+      destinations: [
+        baseReferral.destinations[0],
+        {
+          ...baseReferral.destinations[1],
+          state: "declined",
+          declineReason: "belongs_to_another_service",
+          decidedAt: NOW_ANCHOR - 10,
+          decidedBy: "Flow coordinator",
+        },
+      ],
+    };
+    expect(referralState(edDeclinedReferral)).toBe("queued");
+    expect(declinedAddressings(edDeclinedReferral).length).toBe(1);
+
+    const row = renderRow(edDeclinedReferral);
+    expect(
+      row,
+      "the declined destination here is an emergency department, not a ward — the row must not say " +
+        '"ward" for a count that includes non-ward destinations.',
+    ).not.toHaveTextContent(/\bwards?\b/i);
   });
 });

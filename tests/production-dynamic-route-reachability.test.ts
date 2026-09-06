@@ -58,6 +58,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { stripAllComments } from "./helpers/strip-source-comments";
+
 const repoRoot = path.resolve(__dirname, "..");
 // `path.resolve(__dirname, "..")` rather than `process.cwd()`: a cwd-relative read passes or fails
 // depending on where the runner happened to start, which `tests/ward-flow-sandbox.test.ts`
@@ -435,15 +437,35 @@ const staticPageFiles = walk(APP_DIR)
   .map((file) => ({ file, route: routeUrlForFile(file) }))
   .filter((entry) => !entry.route.includes("[") && !entry.route.startsWith("/mockups"));
 
+/**
+ * ⚠️ COMMENTS ARE STRIPPED BEFORE THIS REGEX RUNS, AND THE UNSTRIPPED VERSION WAS LIVE-EXPLOITABLE.
+ * The render/redirect split below decides whether a link to a static sibling can vouch for a
+ * dynamic route (see `vouches`), so a page wrongly classified as "redirects" starts vouching for
+ * routes it never reaches. Proved by mutation on real source: with every genuine
+ * `` `/formulation/${id}` `` link in src/ disguised as identical-runtime string concatenation
+ * (so `hrefsIn` cannot see it), this file correctly reported `/formulation/[slug]` as an orphan.
+ * Adding ONE line -- `// this route used to redirect(...) to the mechanism map before the builder
+ * shipped its own UI` -- to `src/app/(search-app)/formulation/builder/page.tsx`, a page that
+ * genuinely only renders, turned the whole suite green: `redirect(` matched inside the comment,
+ * `formulation/builder` flipped into `redirectingStaticRoutes`, and the real (undisguised) link
+ * `href: "/formulation/builder"` in `mode-secondary-navigation.ts` started vouching for
+ * `/formulation/[slug]` purely because the two share a segment count. `stripAllComments`, not
+ * `stripSourceComments`: this check watches for a CODE WRITE (a real `redirect(...)` call), and a
+ * trailing `// ... redirect(...)` comment must not count either.
+ */
+const staticPageSources = new Map(
+  staticPageFiles.map((entry) => [entry.file, stripAllComments(readFileSync(entry.file, "utf8"))]),
+);
+
 const renderingStaticRoutes = new Set(
   staticPageFiles
-    .filter((entry) => !/\bredirect\s*\(/.test(readFileSync(entry.file, "utf8")))
+    .filter((entry) => !/\bredirect\s*\(/.test(staticPageSources.get(entry.file)!))
     .map((entry) => entry.route),
 );
 
 const redirectingStaticRoutes = new Set(
   staticPageFiles
-    .filter((entry) => /\bredirect\s*\(/.test(readFileSync(entry.file, "utf8")))
+    .filter((entry) => /\bredirect\s*\(/.test(staticPageSources.get(entry.file)!))
     .map((entry) => entry.route),
 );
 

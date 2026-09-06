@@ -6,8 +6,9 @@ import type { WardFlowState } from "../src/components/ward-management/ward-flow-
 import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import type { MovementStage } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
-import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
+import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sites";
 import { eligibleCandidatesAmong, isOpen } from "../src/components/ward-management/ward-derivations";
+import { requiresAuthorisedDestination } from "../src/components/ward-management/ward-eligibility";
 
 const NOW = NOW_ANCHOR;
 const MOVEMENT_ID = "WF-001";
@@ -370,16 +371,20 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
         ).toBeDefined();
       }
     }
-    // No current fixture record is stage "arrived" while still carrying a transport job — both
-    // the hand-authored WF-007 and every generated "arrived" record close without ever having had
-    // a transport job at all. This is a forward-looking guard, not a vacuous one: asserting the
-    // real count (0) today, rather than `toBeGreaterThan(0)`, keeps that honest instead of
-    // inventing a fixture record just to make a non-zero check pass. The assertion above still
-    // runs on every movement that matches the condition, and still fails the moment one exists —
-    // proved by mutation in the accompanying report, which forces a "moving" movement's stage to
-    // "arrived" without giving it `arrivedAt` and confirms both this line and the inner assertion
-    // go red.
-    expect(matched).toBe(0);
+    // 0 -> 6 on 2026-09-04, Task 6 (sweep R64) of the ward-flow movement step-track plan, a THIRD
+    // instance of this same sweep's own defect class found while building its reachability test:
+    // `PATIENT_ARRIVED` refuses outright unless `movement.stage === "moving" &&
+    // movement.transport?.collectedAt`, so an "arrived" record with NO transport job at all — true
+    // of both the hand-authored WF-007 and every generated "arrived" record until this fix — was a
+    // state the reducer could never produce. `stageFields`'s `case "arrived"` (`ward-movements.ts`)
+    // and WF-007 itself now both carry a completed transport job (`collectedAt` AND `arrivedAt`
+    // set), the same fix `case "moving"` three lines above it already had. This assertion's own
+    // job did not change: every "arrived" movement that carries a transport job must have
+    // `arrivedAt` set on it, which the inner assertion above still checks per-movement and still
+    // fails the moment one does not — only the COUNT this file expected to find matching the outer
+    // condition moved, because the fixture correctly stopped being one of the records with no
+    // transport job in the first place.
+    expect(matched).toBe(6);
   });
 
   it("only ever fills transport stamps in the order the reducer allows, never after NOW_ANCHOR", () => {
@@ -469,6 +474,51 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     expect(matched).toBe(27);
   });
 
+  /**
+   * ⚠️ **THE FIXTURE ITSELF MUST NOT STATE AN UNLAWFUL PLACEMENT, AND UNTIL 2026-09-05 NOTHING
+   * SAID SO.** `routineMovements` picks a generated destination by cohort and security and had
+   * never looked at `authorised`; it merely happened not to land on either of the network's two
+   * unauthorised units. When `be5327210` changed the destination pool's size and order, WF-318 —
+   * referred for psychiatric examination, so requiring an authorised destination — landed on
+   * `sjgs-adult-open`, which is private and not authorised under the Mental Health Act.
+   *
+   * The only thing that noticed was `buildActionInbox` reporting the patient as an exception, and
+   * the test that caught THAT was counting four of the inbox's five categories, so it read as the
+   * derivation being broken rather than the data. **A guard on the derivation cannot substitute
+   * for a guard on the fixture**: the inbox's category count now includes this category, and it
+   * would stay green if the generator regressed, because it counts what the fixture contains
+   * rather than what the fixture is allowed to contain.
+   *
+   * This is not a synthetic-data tidiness rule. A detained patient recorded as accepted at a ward
+   * that cannot lawfully hold them is a clinical falsehood on every screen that renders the
+   * fixture.
+   */
+  it("never accepts a movement at a unit that cannot lawfully hold it", () => {
+    const units = allUnits();
+    let examined = 0;
+    for (const movement of wardMovements) {
+      if (movement.acceptedUnitId === undefined) continue;
+      if (!requiresAuthorisedDestination(movement.legalStatus)) continue;
+      const unit = units.find((candidate) => candidate.id === movement.acceptedUnitId);
+      if (unit === undefined) continue;
+      examined += 1;
+      expect(
+        unit.authorised,
+        `${movement.id} is "${movement.legalStatus}" and is accepted at ${unit.id}, which is not ` +
+          `authorised under the Mental Health Act — no destination generator or fixture author may ` +
+          `produce this, whatever bed is free there`,
+      ).toBe(true);
+    }
+    // ⚠️ Floor the POPULATION, never the violation count — a loop that examined nothing passes an
+    // all-clear that means nothing. Measured 2026-09-05: 14 movements are examined here. The
+    // floor is set well below that so an ordinary fixture edit does not trip it, while a change
+    // that stops this loop finding detained-and-accepted movements at all still goes red.
+    expect(
+      examined,
+      "no accepted movement requires an authorised destination — this test proved nothing",
+    ).toBeGreaterThan(8);
+  });
+
   it("never leaves a 'pulled' movement without the bed hold its stage implies", () => {
     // Direct table entry: `PULL_PATIENT` is the only branch that produces stage "pulled", and it
     // always writes `pullExpiresAt` in that same update. Unlike `acceptedUnitId`, fixture
@@ -548,7 +598,17 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     // 12 -> 14 on 2026-08-30. Both new long waits are `placement_requested` with no referral,
     // decline or withdrawal, which is what a patient nobody has yet referred anywhere looks like -
     // so they belong in this count and the coherence rule holds for both.
-    expect(matched, "the number of clean placement_requested movements changed").toBe(14);
+    // 14 -> 18 on 2026-09-04, Task 6 (sweep R64), defect 5a of the ward-flow movement step-track
+    // plan: `routineMovements` remapped its four generated `destination_review` records to
+    // `placement_requested` (`ward-movements.ts`), because every one of them carries an
+    // unconditionally empty `referredUnitIds` AND an unconditionally empty `declines` — a state
+    // `REFER_TO_UNITS`/`DECLINE` never leave a movement at `destination_review` in, exactly
+    // mirroring the existing `handover_ready` remap three lines above `stageFields` in that same
+    // file. They belong in THIS count for the same reason the two long waits above do: no
+    // referral, decline or withdrawal is exactly what a patient nobody has yet referred anywhere
+    // looks like. `WF-009` (empty referredUnitIds, two hand-authored declines) is untouched — it
+    // is hand-authored, not generated, and its `declines` is genuinely non-empty.
+    expect(matched, "the number of clean placement_requested movements changed").toBe(18);
   });
 
   it("never lets a movement carry a live referral outside the 'destination_review' stage REFER_TO_UNITS put it in", () => {

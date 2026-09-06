@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "4008efd4-b116-42a2-a4e1-f7b3ed9590f7",
+  "createdOn": "2026-09-04",
+  "action": "cancel",
+  "payload": {
+    "requestId": "97f270b0-f713-45ae-8b04-0e1982db2518",
+    "reason": "Overstated an unverified detail (claimed the duplicate element was nested inside mobile-composer-reserve-pad by analogy with two earlier occurrences); the actual job log for this instance only shows two sibling matches for the same testid, with no nesting evidence pulled. Replacing with a corrected entry that doesn't overstate what was verified."
+  }
+}
