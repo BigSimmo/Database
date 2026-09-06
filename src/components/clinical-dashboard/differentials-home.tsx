@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity,
@@ -940,6 +940,13 @@ function SearchResultsView({
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>("all");
   const filterPanelId = useId();
+  // Anchor for the tablet/desktop filter panel. Only the wide trigger carries
+  // it: the phone trigger opens the bottom sheet, which anchors to the
+  // viewport rather than to a control.
+  const desktopFilterTriggerRef = useRef<HTMLButtonElement>(null);
+  // The browse links in this view are `Link`s; the filter's reach action is a
+  // button inside the panel footer, so it needs the router directly.
+  const filterReachRouter = useRouter();
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   // Capture cold-load URL ids in state so a loading catalogue cannot wipe `ids`
@@ -1177,6 +1184,7 @@ function SearchResultsView({
         }
         filterControls={
           <ResultFilterTrigger
+            ref={desktopFilterTriggerRef}
             panelId={filterPanelId}
             testId="differential-filter-trigger-desktop"
             title="Filter differentials"
@@ -1194,22 +1202,33 @@ function SearchResultsView({
         hasCatalogueResults={!catalogFailed && results.length > 0}
         onRunSourceSearch={rerunSearch}
       />
-      {/* Phone-only by construction: the trigger that opens it lives in the
-          ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
+      {/* One panel, two presentations. Both triggers above open this: the phone
+          one from the ribbon's `mobileControls` slot, the wide one from
+          `filterControls`, which the band renders from `sm` up. Passing
+          `anchorRef` is what makes the wide case a panel under that trigger
+          instead of a full-height right rail — two short groups left roughly
+          85% of the rail empty, and gave a 768px tablet two thirds of its
+          screen to a refinement of the list behind it. */}
       <ResultFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
+        anchorRef={desktopFilterTriggerRef}
         panelId={filterPanelId}
         testId="differential-filter-panel"
         title="Filter differentials"
         description="Narrow by result type, then by clinical urgency. Both narrow the same list together."
         groups={[
+          // Both dimensions are exact partitions carrying counts, which is the
+          // case `ChoiceChip` itself sends to `SegmentedControl`: a counted
+          // chip is wide enough that four of them wrap one per line and leave
+          // most of each row empty.
           resultFilterGroup({
             id: "result-type",
             label: "Show",
             value: kindFilter,
             options: kindFilterOptions,
             onChange: setKindFilter,
+            renderAs: "segmented",
           }),
           resultFilterGroup({
             id: "urgency",
@@ -1217,12 +1236,29 @@ function SearchResultsView({
             value: urgencyFilter,
             options: urgencyFilterOptions,
             onChange: setUrgencyFilter,
+            renderAs: "segmented",
           }),
         ]}
         onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
         summary={{
           count: visibleResults.length,
           noun: visibleResults.length === 1 ? "result" : "results",
+        }}
+        // Reach, not refinement — the filter-contract framing for an action
+        // that leaves the result set rather than narrowing it, which is why it
+        // is the footer's secondary action and not a group option (there is
+        // deliberately no `navigate` kind).
+        //
+        // This is the way out of a filtered-to-zero state that does not throw
+        // the query away: `differentialRouteWithQuery` carries `q` across.
+        // Deliberately uncounted. The page cannot state the catalogue size
+        // honestly — the snapshot is a megabyte this client bundle must not
+        // import, and `/api/differentials` returns `total` as the *match* count
+        // once `q` is present, not the catalogue's. A number here would be
+        // wrong more often than right.
+        secondaryAction={{
+          label: "Browse the full differentials catalogue",
+          onClick: () => filterReachRouter.push(differentialRouteWithQuery("/differentials/diagnoses", query)),
         }}
       />
       {catalogLoading ? (
