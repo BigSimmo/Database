@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "e6c6a009879ce8809ec01c5849a41ffe13495de2",
-    "committed_at": "2026-09-06T06:08:26+08:00"
+    "sha": "3a8116708ae9fad41c0043ff908f3ed8c40e76b2",
+    "committed_at": "2026-09-06T08:20:00+08:00"
   },
   "routes": {
     "modes": [
@@ -5214,6 +5214,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/ledger-status-audit-2026-09-06.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/matching-engine-design-2026-09-04.md",
         "section": "ward-flow",
         "catalogued": false
@@ -5350,6 +5355,11 @@
       },
       {
         "path": "docs/ward-flow/owner-rulings-2026-09-04.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/owner-rulings-2026-09-05.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -6158,9 +6168,9 @@
       }
     ],
     "counts": {
-      "documents": 901,
+      "documents": 903,
       "catalogued": 590,
-      "uncatalogued": 311,
+      "uncatalogued": 313,
       "sections": 22
     }
   },
