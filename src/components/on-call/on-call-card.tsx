@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Phone } from "lucide-react";
 
-import { useAccountData } from "@/components/account-data-provider";
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
 import { ON_CALL_SECTION_TITLES, OnCallCardNavHeader } from "@/components/on-call/on-call-nav-header";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
@@ -75,6 +73,10 @@ function formatPrintedAt(now: Date): string {
  * has confirmed in over a year can never reach the page regardless of the
  * flag (`src/lib/on-call/card-selection.ts`).
  *
+ * The card needs no account, matching the six sections it summarises: the
+ * shared read already serves these entries to any visitor, and a card walled
+ * off from a reader who can see every entry behind it protected nothing.
+ *
  * The print action lives in the header's actions sheet, following
  * `DictionaryTermPage`'s "Print entry" row — the one place every converted
  * information page keeps its print control. The header itself is
@@ -83,8 +85,6 @@ function formatPrintedAt(now: Date): string {
  * and `tests/mode-nav-addon-slot.dom.test.tsx` holds it to one claimant.
  */
 export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
-  const { isAuthenticated } = useAccountData();
-  const [signInOpen, setSignInOpen] = useState(false);
   const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
   // Read the clock once per mount. A `new Date()` default parameter re-reads it
   // on every render, so the printed timestamp and the staleness cut-off could
@@ -110,29 +110,13 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
 
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
 
-        {!isAuthenticated ? (
-          <EmptyState
-            icon={Phone}
-            title="Essentials card"
-            body="Sign in to see the numbers flagged for your card."
-            actions={
-              <button
-                type="button"
-                onClick={() => setSignInOpen(true)}
-                className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
-              >
-                Sign in
-              </button>
-            }
-            testId="on-call-card-signed-out"
-          />
-        ) : loading && entries.length === 0 ? (
+        {loading && entries.length === 0 ? (
           // Nothing cached yet and the first fetch still in flight. Asserting
-          // "nothing is flagged" here would be a claim about the owner's data
-          // that this component cannot yet make.
+          // "nothing is flagged" here would be a claim about the entry set that
+          // this component cannot yet make.
           <EmptyState
             icon={Phone}
-            title="Loading your card"
+            title="Loading the card"
             body="Fetching the entries flagged for this card."
             testId="on-call-card-loading"
           />
@@ -214,7 +198,6 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
           </PrintOutput>
         )}
       </InformationPageShell>
-      <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
     </>
   );
 }
