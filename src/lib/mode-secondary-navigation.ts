@@ -6,6 +6,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import { SOURCE_METHOD_ROUTE } from "@/lib/sources/rating-method";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
 export type ModeSecondaryNavigationEntry = {
@@ -103,7 +104,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "catalogue", label: "Catalogue", href: "/sources/search" },
     { id: "topics", label: "Topics", href: "/sources/topics" },
     { id: "publishers", label: "Publishers", href: "/sources/publishers" },
-    { id: "method", label: "Method", href: "/sources/method" },
+    { id: "method", label: "Method", href: SOURCE_METHOD_ROUTE },
   ],
   // On Call registers no destinations, and that is deliberate. Its six section
   // routes are information pages (`isInformationPage`), so
@@ -238,7 +239,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/sources/search") return "catalogue";
     if (pathname === "/sources/topics") return "topics";
     if (pathname === "/sources/publishers") return "publishers";
-    if (pathname === "/sources/method") return "method";
+    if (pathname === SOURCE_METHOD_ROUTE) return "method";
     return null;
   }
   if (modeId === "on-call") {
@@ -306,7 +307,7 @@ export function isModeSecondaryNavigationRoute(params: {
     );
   }
   if (modeId === "sources") {
-    return ["/sources/search", "/sources/topics", "/sources/publishers", "/sources/method"].includes(pathname);
+    return ["/sources/search", "/sources/topics", "/sources/publishers", SOURCE_METHOD_ROUTE].includes(pathname);
   }
   return false;
 }

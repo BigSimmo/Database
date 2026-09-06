@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, FileImage, Sparkles } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { DocumentManualTagEditor } from "@/components/document-viewer/manual-tag-editor";
@@ -8,23 +8,18 @@ import { DocumentSectionIndexCard } from "@/components/document-viewer/section-n
 import { documentIndexingSectionId } from "@/components/document-viewer/section-index";
 import {
   ClinicalSummaryProfile,
-  DocumentImageList,
   DocumentSectionSummary,
   FormattedHighYieldSummary,
-  TableReviewPanel,
 } from "@/components/document-viewer/source-panels";
-import { DocumentImageFilmstrip } from "@/components/document-viewer/document-image-filmstrip";
-import type { DocumentIndexHealth, ImageRow, TableFactRow } from "@/components/document-viewer/types";
+import type { DocumentIndexHealth } from "@/components/document-viewer/types";
 import type { DocumentSection } from "@/components/document-viewer/section-index";
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import {
   clinicalDivider,
   cn,
   codeText,
-  EmptyState,
   eyebrowText,
   InlineNotice,
-  LoadingPanel,
   panel,
   proseMeasure,
   sourceCard,
@@ -42,7 +37,6 @@ export function DocumentViewerRail({
   compact,
   onCompactChange,
   indexWarnings,
-  effectiveLoadingDocument,
   document,
   summaryBadges,
   formattedStoredSummary,
@@ -52,14 +46,7 @@ export function DocumentViewerRail({
   onLabelsUpdated,
   onUnauthorized,
   onSearchByTag,
-  clinicalImages,
-  auditImages,
-  tableFacts,
-  reviewingTableFactId,
-  onReviewTableFact,
   indexHealth,
-  activePage,
-  onSelectPage,
 }: {
   className?: string;
   headerHidden: boolean;
@@ -69,7 +56,6 @@ export function DocumentViewerRail({
   compact: boolean;
   onCompactChange: (compact: boolean) => void;
   indexWarnings: string[];
-  effectiveLoadingDocument: boolean;
   document: ClinicalDocument | null;
   summaryBadges: DocumentSummaryBadge[];
   formattedStoredSummary: FormattedDocumentSummary;
@@ -79,14 +65,7 @@ export function DocumentViewerRail({
   onLabelsUpdated: (labels: DocumentLabel[]) => void;
   onUnauthorized: () => void;
   onSearchByTag: (tag: { searchText: string; label: string }) => void;
-  clinicalImages: ImageRow[];
-  auditImages: ImageRow[];
-  tableFacts: TableFactRow[];
-  reviewingTableFactId: string | null;
-  onReviewTableFact: (fact: TableFactRow, reviewClass: string) => void;
   indexHealth: DocumentIndexHealth | null;
-  activePage: number;
-  onSelectPage: (page: number) => void;
 }) {
   return (
     <aside
@@ -218,82 +197,6 @@ export function DocumentViewerRail({
           </div>
         </details>
       ) : null}
-
-      <details
-        id="source-images"
-        name="document-viewer-section"
-        className={cn(
-          panel,
-          "group min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] md:col-span-2 lg:col-span-1",
-        )}
-      >
-        <DocumentSectionSummary
-          icon={FileImage}
-          title="Tables and diagrams"
-          description={
-            effectiveLoadingDocument
-              ? "Indexed tables, diagrams, and image captions."
-              : clinicalImages.length === 1
-                ? "1 indexed table, diagram, or image caption."
-                : `${clinicalImages.length} indexed tables, diagrams, and image captions.`
-          }
-        />
-        <div className={cn(clinicalDivider, "space-y-3 p-4 pt-3")}>
-          {canUseAdministrativeApis && tableFacts.length ? (
-            <details className={cn(sourceCard, "p-3")}>
-              <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">Table tools</summary>
-              <div className="mt-3">
-                <TableReviewPanel
-                  tableFacts={tableFacts}
-                  canReview={canUseAdministrativeApis}
-                  busyFactId={reviewingTableFactId}
-                  onReview={onReviewTableFact}
-                />
-              </div>
-            </details>
-          ) : null}
-          {effectiveLoadingDocument ? (
-            <LoadingPanel label="Loading extracted tables" />
-          ) : clinicalImages.length === 0 ? (
-            <EmptyState
-              title="No clinically useful tables or diagrams"
-              body="No indexed clinically useful tables or diagrams."
-              tone="neutral"
-              live="polite"
-            />
-          ) : (
-            <>
-              {/* The filmstrip stays whole: it is one button per figure with no
-                  image behind it, so it is the cheap way to reach any page. The
-                  detailed cards below it are what get windowed. */}
-              <DocumentImageFilmstrip images={clinicalImages} activePage={activePage} onSelectPage={onSelectPage} />
-              <DocumentImageList
-                key={`${document?.id ?? "none"}:clinical`}
-                images={clinicalImages}
-                activePage={activePage}
-                onSelectPage={onSelectPage}
-                revealLabel="Tables and diagrams"
-              />
-            </>
-          )}
-          {!effectiveLoadingDocument && auditImages.length > 0 ? (
-            <details className={cn(sourceCard, "p-3")}>
-              <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
-                Administrative/reference tables retained for audit ({auditImages.length})
-              </summary>
-              <div className="mt-3 grid gap-3">
-                <DocumentImageList
-                  key={`${document?.id ?? "none"}:audit`}
-                  images={auditImages}
-                  activePage={activePage}
-                  onSelectPage={onSelectPage}
-                  revealLabel="Administrative and reference tables"
-                />
-              </div>
-            </details>
-          ) : null}
-        </div>
-      </details>
 
       {indexHealth ? (
         <details

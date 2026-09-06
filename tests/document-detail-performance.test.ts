@@ -154,16 +154,18 @@ describe("document viewer latency guards", () => {
     expect(panels).toContain("const displayChunks = useMemo(");
   });
 
-  it("wires rail filmstrip page jumps through navigateToPage without remounting the PDF viewer", () => {
+  it("wires filmstrip page jumps through navigateToPage without remounting the PDF viewer", () => {
     const viewer = source("src/components/DocumentViewer.tsx");
-    const rail = source("src/components/document-viewer/document-rail-panels.tsx");
+    // The visuals panel sits in the main reading column, not the rail; the wiring
+    // guarded here is the same either way.
+    const visuals = source("src/components/document-viewer/document-visuals-panel.tsx");
     const filmstrip = source("src/components/document-viewer/document-image-filmstrip.tsx");
     const routeHook = source("src/components/document-viewer/use-document-viewer-route.ts");
 
     expect(viewer).toContain("onSelectPage={navigateToPage}");
     expect(viewer).toContain("activePage={activePage}");
-    expect(rail).toContain("DocumentImageFilmstrip");
-    expect(rail).toContain("onSelectPage={onSelectPage}");
+    expect(visuals).toContain("DocumentImageFilmstrip");
+    expect(visuals).toContain("onSelectPage={onSelectPage}");
     expect(filmstrip).toContain('data-testid="document-image-filmstrip"');
     expect(routeHook).toContain("window.history.replaceState");
     expect(routeHook).not.toContain("window.history.pushState");
