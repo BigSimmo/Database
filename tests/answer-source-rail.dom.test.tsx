@@ -627,7 +627,7 @@ describe("AnswerSourceRail desktop paging", () => {
     expect(screen.queryByTestId("answer-source-rail-page-right")).not.toBeInTheDocument();
   });
 
-  it("stays out of the tab order, because tabbing already walks the cards themselves", () => {
+  it("stays out of the tab order but keeps an accessible name", () => {
     render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
     overflowBy(screen.getByRole("list", { name: "Cited documents" }), {
       scrollLeft: 0,
@@ -635,9 +635,31 @@ describe("AnswerSourceRail desktop paging", () => {
       clientWidth: 300,
     });
 
+    // Tabbing already walks the cards, so a tab stop here reaches nothing new —
+    // but a control that does something must still say what it does, and
+    // `aria-hidden` on an interactive element is how that gets lost.
     const control = screen.getByTestId("answer-source-rail-page-right");
     expect(control).toHaveAttribute("tabindex", "-1");
-    expect(control).toHaveAttribute("aria-hidden", "true");
+    expect(control).not.toHaveAttribute("aria-hidden");
+    expect(control).toHaveAccessibleName("Show more cited documents");
+  });
+
+  it("re-measures when a new answer swaps the card list, with no scroll and no resize", () => {
+    // The silent case: the rail keeps its own width, nothing scrolls, and neither
+    // the scroll listener nor the ResizeObserver fires — so without the card count
+    // in the effect's dependencies the edges would still describe the previous
+    // answer's sources.
+    const { rerender } = render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 900, clientWidth: 300 });
+    expect(screen.getByTestId("answer-source-rail-page-right")).toBeInTheDocument();
+
+    // A shorter answer whose two cards fit. Only the measurement changes.
+    Object.defineProperty(list, "scrollWidth", { configurable: true, value: 300 });
+    rerender(<AnswerSourceRail sources={SOURCES.slice(0, 2)} onOpenSource={vi.fn()} />);
+
+    expect(screen.queryByTestId("answer-source-rail-page-right")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("answer-source-rail-fade-right")).not.toBeInTheDocument();
   });
 
   it("pages by roughly a screen of cards, and drops the animation under reduced motion", async () => {

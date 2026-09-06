@@ -121,7 +121,7 @@ const prefersReducedMotion = () =>
  * measured rather than inferred: a rail whose content fits shows no affordance
  * at all, which is the state the chrome has to disappear in.
  */
-function useEdges(ref: RefObject<HTMLDivElement | null>) {
+function useEdges(ref: RefObject<HTMLDivElement | null>, cardCount: number) {
   const [edges, setEdges] = useState({ left: false, right: false, ratio: 1, offset: 0 });
 
   const sync = useCallback(() => {
@@ -148,7 +148,10 @@ function useEdges(ref: RefObject<HTMLDivElement | null>) {
       element.removeEventListener("scroll", sync);
       observer.disconnect();
     };
-  }, [ref, sync]);
+    // Changing the source count swaps the children without changing the rail's own
+    // width and without any scroll, so nothing else here would fire: the edges
+    // would still describe the previous count.
+  }, [ref, sync, cardCount]);
 
   return edges;
 }
@@ -217,7 +220,7 @@ function OptionAEdgeChevrons({
   wheel: boolean;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
-  const edges = useEdges(scroller);
+  const edges = useEdges(scroller, sources.length);
   useWheelPan(scroller, wheel);
 
   const arrow = (side: "left" | "right") => {
@@ -227,8 +230,10 @@ function OptionAEdgeChevrons({
     return (
       <button
         type="button"
+        // Out of the Tab sequence, because tabbing already walks the cards — but
+        // still named, because a control that does something has to say what.
         tabIndex={-1}
-        aria-hidden="true"
+        aria-label={side === "left" ? "Show earlier cited documents" : "Show more cited documents"}
         onClick={() => scrollByPage(scroller.current, side === "left" ? -1 : 1)}
         className={cn(
           "absolute top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full",
@@ -353,7 +358,7 @@ function OptionCHoverScrub({
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
-  const edges = useEdges(scroller);
+  const edges = useEdges(scroller, sources.length);
   useWheelPan(scroller, wheel);
   const drag = useRef<{ x: number; scrollLeft: number; moved: boolean } | null>(null);
   const scrollable = edges.ratio < 1;
@@ -381,6 +386,9 @@ function OptionCHoverScrub({
           onPointerDown={(event) => {
             if (!mouse || event.pointerType !== "mouse" || !scrollable) return;
             drag.current = { x: event.clientX, scrollLeft: event.currentTarget.scrollLeft, moved: false };
+            // Without capture, a drag fast enough to leave the rail stops receiving
+            // pointermove and the pan dies mid-gesture.
+            event.currentTarget.setPointerCapture(event.pointerId);
           }}
           onPointerMove={(event) => {
             const state = drag.current;
@@ -390,12 +398,15 @@ function OptionCHoverScrub({
             if (Math.abs(dx) > 5) state.moved = true;
             element.scrollLeft = state.scrollLeft - dx;
           }}
-          onPointerUp={() => {
+          onPointerUp={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId);
+            }
             // A pan that moved is not a click on the card underneath it.
             if (drag.current?.moved) window.setTimeout(() => (drag.current = null), 0);
             else drag.current = null;
           }}
-          onPointerLeave={() => (drag.current = null)}
+          onPointerCancel={() => (drag.current = null)}
           onClickCapture={(event) => {
             if (drag.current?.moved) {
               event.preventDefault();

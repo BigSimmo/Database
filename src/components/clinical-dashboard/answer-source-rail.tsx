@@ -73,7 +73,7 @@ export function AnswerSourceRail({
   const scroller = useRef<HTMLDivElement>(null);
   // Declared before the zero-source early return below, because hook order has to
   // be identical on every render.
-  const edges = useRailEdges(scroller);
+  const edges = useRailEdges(scroller, sources.length);
   const display = sourceCapsuleDisplay({ sourceCount: sources.length, compact });
 
   if (!sources.length) {
@@ -207,8 +207,16 @@ export function AnswerSourceRail({
  * `ResizeObserver` is feature-detected rather than assumed: jsdom does not
  * implement it, and the rail renders in several DOM tests that must not throw.
  * The scroll listener alone still keeps the state honest there.
+ *
+ * `cardCount` is a dependency rather than a convenience. A new answer swaps the
+ * card list without changing the rail's own width and without any scroll, so the
+ * observer never fires and neither does the scroll listener: the edges would
+ * still describe the PREVIOUS answer's sources. That is the failure mode worth
+ * naming, because it fails silently in the safe-looking direction as often as
+ * not — a rail that fits inheriting the last answer's chevron, or an overflowing
+ * one inheriting no chevron and going back to being unreachable.
  */
-function useRailEdges(ref: RefObject<HTMLDivElement | null>) {
+function useRailEdges(ref: RefObject<HTMLDivElement | null>, cardCount: number) {
   const [edges, setEdges] = useState({ left: false, right: false });
 
   const sync = useCallback(() => {
@@ -241,7 +249,9 @@ function useRailEdges(ref: RefObject<HTMLDivElement | null>) {
       element.removeEventListener("scroll", sync);
       observer?.disconnect();
     };
-  }, [ref, sync]);
+    // cardCount re-runs the whole effect so the new children are observed too,
+    // not just re-measured once.
+  }, [ref, sync, cardCount]);
 
   return edges;
 }
@@ -255,10 +265,12 @@ function useRailEdges(ref: RefObject<HTMLDivElement | null>) {
  * - **Mouse only.** `pointer-fine:` keeps it off every touch device, where the
  *   swipe already works and a 32 px control would be an undersized tap target
  *   next to `min-h-12` cards.
- * - **Out of the tab order.** Tab already walks the cards themselves and the
- *   browser scrolls each focused card into view, so a focusable button here would
- *   add two empty stops that reach nothing new. It is `aria-hidden` for the same
- *   reason: it duplicates navigation assistive technology already has.
+ * - **Out of the tab order, but named.** Tab already walks the cards themselves
+ *   and the browser scrolls each focused card into view, so a tab stop here would
+ *   reach nothing new. It carries an `aria-label` all the same: it was briefly
+ *   `aria-hidden` on the reasoning that it duplicates navigation assistive
+ *   technology already has, which is true and still not a reason to ship a
+ *   control that does something and says nothing.
  * - **Instant under reduced motion.** Smooth scrolling is the animation this
  *   control performs, so it is the animation `prefers-reduced-motion` has to turn
  *   off.
@@ -277,8 +289,13 @@ function RailPagingControl({
   return (
     <button
       type="button"
+      // Out of the Tab sequence but NOT hidden from assistive technology. Tab
+      // already walks the cards and the browser scrolls each focused card into
+      // view, so a tab stop here would reach nothing new — but a control that
+      // does something must still say what it does, and the design system's rule
+      // is that a control never gives up its accessible name.
       tabIndex={-1}
-      aria-hidden="true"
+      aria-label={direction === "left" ? "Show earlier cited documents" : "Show more cited documents"}
       data-testid={`answer-source-rail-page-${direction}`}
       onClick={() => {
         const element = scroller.current;
