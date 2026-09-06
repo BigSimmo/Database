@@ -193,6 +193,15 @@ bodies and three production source comments, which the earlier pass did not sear
 `therapy-navigation-context`, `therapy-navigation-dock`, `therapy-navigation-rail` — three
 named directions, cross-linked to each other for comparison, no recorded winner.
 
+### Therapy Recommend popup
+
+`therapy-recommend-popup-dossier`, `therapy-recommend-popup-triage`,
+`therapy-recommend-popup-workbench` — three named directions for opening a ranked Recommend
+match as a popup instead of a route change: a centred record dialog, a docked triage panel
+with a match stepper and a live fit check, and a two-column consult workbench with a plan and
+note builder. Each draws its own desktop and phone frames and carries the real
+`exposure-based-cbt-exposure-therapy` record. Parallel drafts, no recorded winner.
+
 ### One-off studies
 
 | Route                        | Status                                                                                                                                    |

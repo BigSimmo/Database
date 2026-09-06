@@ -88,6 +88,11 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
+  // Same reason: each Recommend-popup direction draws the universal top bar,
+  // the scenario box and the ranked list inside its own device frames, and the
+  // popup under study opens over them. Shared chrome would read as a second
+  // real header and a second real search bar above every frame.
+  const isTherapyRecommendPopupMockup = pathname.startsWith("/mockups/therapy-recommend-popup");
   // The calculators search page owns its own search input (top on desktop, docked
   // at the bottom on phones), so the shared universal composer is suppressed here
   // to avoid a second, floating search bar.
@@ -186,6 +191,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isServicesFilterOptionsMockup &&
         !isFilterSheetRestyleMockup &&
         !isTherapyNavigationMockup &&
+        !isTherapyRecommendPopupMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
@@ -218,6 +224,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFilterSheetRestyleMockup &&
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup &&
+        !isTherapyRecommendPopupMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
