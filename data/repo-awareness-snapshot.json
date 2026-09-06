@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "7145490ebed1fc1d2b0f09626f0c975b01adb367",
-    "committed_at": "2026-09-05T18:00:33+08:00"
+    "sha": "326daef18752a3140a666ef47c9e546b7ba4109c",
+    "committed_at": "2026-09-05T17:06:16+00:00"
   },
   "routes": {
     "modes": [
@@ -3634,6 +3634,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/staging-shutdown-and-repo-review-handover-2026-09-06.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/staging-tenancy-release-evidence.md",
         "section": "root",
         "catalogued": true
@@ -5938,8 +5943,8 @@
       }
     ],
     "counts": {
-      "documents": 858,
-      "catalogued": 590,
+      "documents": 859,
+      "catalogued": 591,
       "uncatalogued": 268,
       "sections": 22
     }
@@ -25792,6 +25797,14 @@
         "scope": "PR #1912 heavy review follow-up: post-scroll active-state repair",
         "outcome": "Exact-head Production UI trace showed the jump selection was reasserted in the same frame as the physical scroll, then overwritten by the scroll spy on its following geometry frame. Delayed the hash-guarded reassertion by one additional animation frame and added a focused ordering regression. The existing popstate guard remains unchanged. A separate builder Start over failure touched no PR-modified source and is left for the replacement exact-head run to classify.",
         "checks": "Production trace: 177 tests passed and the map active state alone reverted after the target scroll; deterministic frame model changed final state from episode-features to course-onset while suppressing stale reassertion after back navigation; TypeScript transpile PASS for hook and focused regression; git diff --check PASS; no manual production or provider-backed gate run."
+      },
+      {
+        "date": "2026-09-05",
+        "ref": "codex/services-canonical-safety-foundation (PR #2609)",
+        "head": "f2c3ea64a05661709f92033c57613185b5bad32b",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "before: PR required FAILURE, BEHIND main, 3 unresolved P1 threads (registry parser rejecting new provenance fields incl. a second self-found gap on allUrls; CAMHS crisis route dropped for unverified-but-active youth crisis; composite MHERL/AOD phone contacts collapsing into one undialable tel: link). after: all 3 fixed with narrow tests, merged origin/main (clean), all threads replied and resolved.",
+        "checks": "npx vitest run tests/services-safety-routing.test.ts tests/registry-client-contract.test.ts (11 passed, each confirmed to fail pre-fix); npm run typecheck (clean, recorded pass); prettier --write (unchanged). No provider-backed checks run."
       },
       {
         "date": "2026-08-18",
