@@ -1,7 +1,6 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { X } from "lucide-react";
 
 import {
   SearchResultsEmptyState,
@@ -9,12 +8,10 @@ import {
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
-  ResultFilterFacetChips,
   ResultFilterSheet,
   ResultFilterTrigger,
   resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
-import { Button } from "@/components/ui/button";
 import { pageContainer } from "@/components/ui-primitives";
 
 import { useTcBindings } from "../bindings";
@@ -147,6 +144,24 @@ export function SearchScreen() {
   );
   const filterGroups = [topicsGroup, reviewedGroup, handoutGroup];
 
+  // One trigger, both breakpoints — the shared idiom every other mode uses
+  // (forms-search-results-page.tsx, document-search-results.tsx). The desktop
+  // slot previously printed all three facet groups as a permanently expanded
+  // rail, which made Therapy the only mode whose filters were open by default
+  // and pushed the first result below the fold. Both copies stay in the DOM at
+  // every width; CSS in the band decides which one is displayed, so each needs
+  // its own testId.
+  const renderFilterTrigger = (testId: string) => (
+    <ResultFilterTrigger
+      panelId={filterPanelId}
+      testId={testId}
+      title="Filter therapy results"
+      open={filterOpen}
+      activeCount={activeFilterCount}
+      onToggle={() => setFilterOpen((current) => !current)}
+    />
+  );
+
   return (
     <section data-screen-label="Search" className={`${pageContainer} space-y-2.5 sm:space-y-3`}>
       <TherapyReviewNotice className="mb-2.5 sm:mb-3" />
@@ -163,47 +178,8 @@ export function SearchScreen() {
         filterLabel="Filter therapy results"
         // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"
-        mobileControls={
-          <ResultFilterTrigger
-            panelId={filterPanelId}
-            testId="therapy-filter-trigger-phone"
-            title="Filter therapy results"
-            open={filterOpen}
-            activeCount={activeFilterCount}
-            onToggle={() => setFilterOpen((current) => !current)}
-          />
-        }
-        filterControls={
-          // `ResultFilterFacetChips` carries a `border-t` meant for groups
-          // stacked vertically inside the sheet (`first:border-t-0` zeroes
-          // only the very first one). Side by side here, that put a hairline
-          // above the second and third group only — a floating tick mark, not
-          // a real divider. Neutralised per-child rather than touching the
-          // shared component, which formulation's single-group desktop rail
-          // still needs unmodified.
-          <div className="mb-1 flex flex-wrap items-start gap-x-5 gap-y-1.5 sm:mb-2 [&>section]:border-t-0 [&>section]:pt-0">
-            {filterGroups.map((group) => (
-              <ResultFilterFacetChips key={group.id} group={group} idPrefix={`${filterPanelId}-desktop`} />
-            ))}
-            {/* Rendered only when there is something to clear. Rewiring this to
-                `clearSearchFilters` fixed the label/handler mismatch but created
-                a second one: with no topics and neither availability toggle on —
-                the ordinary "typed a query, got results" case — clicking `Clear`
-                produced no observable change at all. A control that advertises an
-                action must perform one. */}
-            {activeFilterCount > 0 ? (
-              <Button
-                variant="toolbar"
-                size="sm"
-                icon={X}
-                onClick={b.clearSearchFilters}
-                className="border-dashed border-[color:var(--border-strong)] bg-transparent font-medium"
-              >
-                Clear
-              </Button>
-            ) : null}
-          </div>
-        }
+        mobileControls={renderFilterTrigger("therapy-filter-trigger-phone")}
+        filterControls={renderFilterTrigger("therapy-filter-trigger-wide")}
       />
 
       <ResultFilterSheet
