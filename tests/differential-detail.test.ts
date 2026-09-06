@@ -2,15 +2,21 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildDiscriminators,
   cleanDifferentialItem,
+  curatedContentNote,
+  detailTabCounts,
+  doNowStepsAreCurated,
   formatDifferentialCopyText,
   groupCurrentPresentation,
   isDetailTabId,
   isRedundantSafetySummary,
+  resolveDoNowSteps,
   resolveSafetyFacts,
   sectionBadgeLabel,
   visibleSectionItems,
 } from "@/lib/differential-detail";
+import { curatedDifferentials } from "@/lib/differential-curated";
 import {
   differentialRecords,
   getDifferentialDetailContext,
@@ -325,5 +331,113 @@ describe("Safety Snapshot compact layout", () => {
     expect(source).toContain('if (count >= 4) return "grid-cols-4"');
     expect(source).not.toContain("Review must-not-miss causes");
     expect(source).not.toContain('data-testid="differential-safety-cta"');
+  });
+});
+
+describe("Authored content overlay", () => {
+  it("never points a discriminator at a diagnosis the record does not list", () => {
+    // The overlay is keyed by slug and edited by hand, so the one way it rots
+    // is a related id changing in the export underneath it. A row that names a
+    // diagnosis the map does not draw would render as an orphan.
+    const offenders: string[] = [];
+    for (const [slug, entry] of Object.entries(curatedDifferentials)) {
+      const record = getDifferentialRecord(slug);
+      if (!record) {
+        offenders.push(`${slug}: no such record in the catalogue`);
+        continue;
+      }
+      const related = new Set(record.related.map((node) => node.id));
+      for (const discriminator of entry.discriminators ?? []) {
+        if (!related.has(discriminator.relatedSlug)) {
+          offenders.push(`${slug}: "${discriminator.relatedSlug}" is not one of its related diagnoses`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps authored first moves free of dosing, which governance reserves for validated tooling", () => {
+    // docs/clinical-governance.md, "Clinical Use Rules": no dose calculators or
+    // automated treatment recommendations without dedicated clinical
+    // validation. Authored steps name the action and the escalation point.
+    const dosePattern = /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|g|mL|units?)\b/i;
+    const offenders = Object.entries(curatedDifferentials).flatMap(([slug, entry]) =>
+      (entry.doNow ?? []).filter((step) => dosePattern.test(step)).map((step) => `${slug}: ${step}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("replaces the lithium record's non-actionable steps and flags the record itself", () => {
+    const record = getDifferentialRecord("lithium-physiological-withdrawal-tremor");
+    expect(record).toBeTruthy();
+    // The export gives this record four statements about akathisia and
+    // parkinsonism in its "immediate action" section; none is an action.
+    expect(record!.immediateActions[0]).toMatch(/most commonly missed/);
+    expect(doNowStepsAreCurated(record!)).toBe(true);
+    expect(resolveDoNowSteps(record!)[0]).toMatch(/Characterise the tremor/);
+    expect(curatedContentNote(record!)).toMatch(/mix material from akathisia/);
+  });
+
+  it("leaves an uncurated record on its own content", () => {
+    const record = differentialRecords.find((entry) => !(entry.slug in curatedDifferentials));
+    expect(record).toBeTruthy();
+    expect(doNowStepsAreCurated(record!)).toBe(false);
+    expect(curatedContentNote(record!)).toBeNull();
+  });
+});
+
+describe("detailTabCounts", () => {
+  it("counts the compare queue and the map as the record plus its related diagnoses", () => {
+    const record = getDifferentialRecord("delirium")!;
+    const counts = detailTabCounts(record);
+    expect(counts.compare).toBe(record.related.length + 1);
+    expect(counts.map).toBe(record.related.length + 1);
+    expect(counts.related).toBe(record.related.length);
+  });
+
+  it("shows no number where a number would be about the layout rather than the patient", () => {
+    const record = getDifferentialRecord("delirium")!;
+    const counts = detailTabCounts(record);
+    expect(counts.overview).toBeNull();
+    expect(counts.source).toBeNull();
+  });
+
+  it("suppresses the related count rather than showing a zero", () => {
+    const record: DifferentialRecord = { ...getDifferentialRecord("delirium")!, related: [] };
+    expect(detailTabCounts(record).related).toBeNull();
+  });
+});
+
+describe("buildDiscriminators", () => {
+  it("prefers an authored pair and marks it as authored", () => {
+    const record = getDifferentialRecord("lithium-physiological-withdrawal-tremor")!;
+    const rows = buildDiscriminators(record, getDifferentialDetailContext(record));
+    const akathisia = rows.find((row) => row.slug === "akathisia");
+    expect(akathisia?.curated).toBe(true);
+    expect(akathisia?.favoursRelated).toMatch(/inner restlessness/i);
+    expect(akathisia?.favoursFocus).toMatch(/postural tremor/i);
+  });
+
+  it("derives a row from the catalogue when nothing is authored, and links only verified slugs", () => {
+    const record = getDifferentialRecord("delirium")!;
+    const context = getDifferentialDetailContext(record);
+    const rows = buildDiscriminators(record, context);
+    expect(rows).toHaveLength(record.related.length);
+    for (const row of rows) {
+      expect(row.href === null || row.href === `/differentials/diagnoses/${row.slug}`).toBe(true);
+      if (row.href) expect(context.knownRelatedSlugs).toContain(row.slug);
+    }
+  });
+
+  it("leaves the second column empty rather than echoing the first", () => {
+    const record: DifferentialRecord = {
+      ...getDifferentialRecord("delirium")!,
+      slug: "uncurated-echo-record",
+      clinicalHinge: "Identical hinge.",
+      related: [{ id: "mystery", label: "Mystery", likelihood: "possible", note: "Identical hinge." }],
+    };
+    const [row] = buildDiscriminators(record, { knownRelatedSlugs: [], relatedMapDetails: {} });
+    expect(row.favoursRelated).toBe("Identical hinge");
+    expect(row.favoursFocus).toBeNull();
   });
 });

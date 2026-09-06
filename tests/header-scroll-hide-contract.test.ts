@@ -422,9 +422,16 @@ describe("shared header hide/reveal wiring", () => {
 
     // The labelled strip is the `sm+` affordance only; phones navigate from the
     // header disclosure and its sheet, so there is no strip to clip at 320px.
-    expect(differentialDetailSource).toContain(
-      'className="hidden border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)] sm:flex"',
+    //
+    // Asserted as breakpoint behaviour rather than as the strip's exact class
+    // string: this contract is about there being no second phone affordance,
+    // and pinning the visual treatment made a restyle of the rail read as a
+    // chrome-ownership regression.
+    const tabRail = differentialDetailSource.slice(
+      differentialDetailSource.indexOf('role="tablist"'),
+      differentialDetailSource.indexOf('aria-label="Diagnosis sections"'),
     );
+    expect(tabRail).toMatch(/className="hidden [^"]*\bsm:flex\b/);
 
     // The page must not grow a second scroll-hide owner for this chrome.
     expect(differentialDetailSource).not.toContain("useHideOnScroll");
