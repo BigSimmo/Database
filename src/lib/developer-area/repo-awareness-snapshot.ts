@@ -1,6 +1,7 @@
 import snapshotJson from "../../../data/repo-awareness-snapshot.json";
 
 import { resolveFreshnessFrom, type Freshness } from "./freshness";
+import { sortedByPath } from "./repo-awareness-snapshot-counts";
 import {
   REPO_AWARENESS_SNAPSHOT_VERSION,
   type DocumentationSection,
@@ -130,5 +131,8 @@ export function documentsBySection(snapshot: RepoAwarenessSnapshot): { name: str
     if (bucket) bucket.push(document);
     else grouped.set(document.section, [document]);
   }
-  return [...grouped.entries()].map(([name, documents]) => ({ name, documents }));
+  // Sorted here, not in the snapshot: documents are stored dispersed by a hash
+  // of their path so concurrent additions merge cleanly, so alphabetical order
+  // is the page's job.
+  return [...grouped.entries()].map(([name, documents]) => ({ name, documents: sortedByPath(documents) }));
 }
