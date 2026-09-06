@@ -450,6 +450,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/specifier-record-directions",
+        "file": "src/app/mockups/specifier-record-directions/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/delays",
         "file": "src/app/mockups/ward-flow/delays/page.tsx",
         "area": "mockup"
