@@ -152,6 +152,12 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // whole argument of the study. The `favourites-` prefix above already hides
   // the shared composer; the shared header still has to go or it reads as a
   // second real header above nine phone frames that each have their own.
+  // Every direction draws its own record nav bar inside phone and desktop frames,
+  // and the study's whole argument is what occupies the record page beneath that
+  // bar. Shared chrome above the frames would read as a second real header and a
+  // second real search bar over the page under review.
+  const isSpecifierRecordDirectionsMockup = pathname === "/mockups/specifier-record-directions";
+
   const isFavouritesPhonePerfectedMockup = pathname === "/mockups/favourites-phone-perfected";
 
   return (
@@ -204,7 +210,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup &&
         !isFactsheetsTopicsPhoneMockup &&
-        !isFavouritesPhonePerfectedMockup
+        !isFavouritesPhonePerfectedMockup &&
+        !isSpecifierRecordDirectionsMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -236,7 +243,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup &&
         !isFactsheetsTopicsPhoneMockup &&
-        !isFavouritesPhonePerfectedMockup
+        !isFavouritesPhonePerfectedMockup &&
+        !isSpecifierRecordDirectionsMockup
       }
     >
       {children}

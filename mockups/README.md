@@ -83,6 +83,31 @@ route depending on them before removal.
 | `privacy-live-signal-perfected` | Chosen design.                                              |
 | `privacy-page-directions`       | Active reference — the full study behind the chosen design. |
 
+### Specifier record page
+
+| Route                         | Status                                                               |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `specifier-record-directions` | Active study (2026-09-06) — three directions, no build decision yet. |
+
+Review study for `/specifiers/[slug]` (`SpecifierReferencePage`), opened because the live page
+spends its first screen and a half restating one fact — that the definition is unverified — in
+six separate places, while the only new content it carries (the ICD-11 6A20 qualifier list) sits
+roughly 1,200 px down. The specimen is
+`multiple-episodes-currently-in-full-remission` (Schizophrenia · Course & Status); every label,
+group membership, sibling set and the ICD-11 line come from `data/specifiers-content.json`.
+
+| Direction               | Verdict     | What it is                                                                                                                                                               |
+| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 01 Course matrix        | Recommended | Course & Status drawn as the two-by-three grid it actually is (episode pattern by current state), with `Continuous` and `Unspecified` shown as sitting outside that grid |
+| 02 Clinical record card | Densest     | One hairline-ruled term/value card, no icon tiles, no sidebar, provenance behind a disclosure                                                                            |
+| 03 Documentation line   | Task-led    | Leads with the assembled diagnostic wording plus live severity and catatonia controls, caveat attached to the copy control                                               |
+
+The recommendation is 01 with 02's provenance disclosure folded in, and 03's wording band added
+only once the assembled line has clinician sign-off — it is composed from catalogue labels, not
+from verified DSM-5-TR text. No direction displays a generated clinical definition: the catalogue
+withholds every one of them pending qualified clinician review, and that constraint is the brief
+rather than a hole to fill.
+
 ### Document navigation pane — five rounds, no recorded winner
 
 **Corrected 2026-09-02 — there is a winner, and the earlier "no recorded winner" reading was
