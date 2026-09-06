@@ -358,6 +358,22 @@ describe("shared-search route ownership", () => {
     expect(dictionaryCatalogueSource).not.toContain(
       "data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]",
     );
+    // The catalogue is a RESULT view. It owns the slot ELEMENT only so the
+    // composer lands under its mode nav, but the id and the reserve class must
+    // stay the page ones: `placement` is derived from which slot id the shell
+    // passes, and the home slot is what made this catalogue render the hero
+    // ticker, Prompts rail and privacy line after PR #2639 gated them.
+    expect(dictionaryCatalogueSource).toContain("id={desktopPageComposerSlotId}");
+    expect(dictionaryCatalogueSource).toContain("desktop-page-composer-slot");
+    expect(dictionaryCatalogueSource).not.toContain("modeHomeDesktopComposerSlotId");
+    expect(dictionaryCatalogueSource).not.toContain("mode-home-composer-slot");
+    // Exactly one element carries the page slot id: the shell suppresses its own
+    // copy on this route, and the shell no longer hands the catalogue the home slot.
+    expect(shellSource).toContain("shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue ? (");
+    expect(shellSource).toContain(
+      "desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}",
+    );
+    expect(shellSource).not.toContain("isStandaloneModeHome || isDictionaryCatalogue ? modeHomeDesktopComposerSlotId");
     expect(dictionaryCatalogueSource).not.toContain("Clinical terms");
     expect(dictionaryCatalogueSource).not.toContain("Clinical dictionary");
 

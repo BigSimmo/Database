@@ -55,7 +55,7 @@ import {
   dictionaryTopics,
   type DictionaryEntryKind,
 } from "@/lib/dictionary-data";
-import { modeHomeComposerReservePendingValue, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { desktopPageComposerSlotId, modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 
 const scopeOptions = [
   { value: "definitions", label: "Terms" },
@@ -367,11 +367,18 @@ export function DictionaryCataloguePage() {
   return (
     <>
       <InformationPageShell testId="dictionary-catalogue-main" width="bleed" gap={false}>
+        {/* A result view, not a mode home: this is the shared PAGE composer slot,
+            so the catalogue gets the compact pill alone at sm+ — no rotating "Try
+            ..." line, Prompts rail, or privacy line, exactly like /forms/search and
+            /documents/search. The slot is page-owned rather than shell-owned only so
+            it sits under the mode nav and above the Filter band; GlobalSearchShell
+            suppresses its own copy for this route. Padding comes from the composer's
+            own `px-4 py-3`, so the slot adds none. */}
         <DesktopComposerPortalSlot
-          id={modeHomeDesktopComposerSlotId}
+          id={desktopPageComposerSlotId}
           data-testid="dictionary-catalogue-composer"
           data-composer-reserve={modeHomeComposerReservePendingValue}
-          className="mode-home-composer-slot mx-auto hidden w-full max-w-[var(--content-width-catalogue)] min-w-0 px-4 pt-3 sm:block sm:px-6 sm:pt-4 sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
+          className="desktop-page-composer-slot mx-auto hidden w-full min-w-0 sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
         />
         <h1 className="sr-only">Dictionary catalogue</h1>
         {/* The original Filter band stays on browse and search. Compact Terms /
