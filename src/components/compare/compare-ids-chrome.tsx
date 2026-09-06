@@ -162,7 +162,9 @@ export function CompareIdsChrome({
           starters={starters}
         />
       </ComparePickerShell>
-      {showEmptyState && filled < minCount && !suppressEmptyState ? (
+      {/* The open picker already carries the same title, description and starters — do not stack a
+          second empty panel underneath it. */}
+      {showEmptyState && filled < minCount && !suppressEmptyState && !picker.open ? (
         <CompareEmptyState
           icon={icon}
           title={emptyTitle}

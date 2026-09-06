@@ -74,6 +74,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // column before the answer. Shared chrome above those frames would read as a
   // second real header and a second real search bar over the study.
   const isAnswerLoadingRedesignMockup = pathname === "/mockups/answer-loading-redesign";
+  // Draws its own answer card in every frame, and the subject is the source rail
+  // inside it. Shared chrome would put a second real header and a second real
+  // search bar over a study about one row of that answer.
+  const isSourceRailDesktopScrollMockup = pathname === "/mockups/source-rail-desktop-scroll";
   // Draws its own sticky chrome + device frames for /privacy; shared shell would
   // read as a second real header over the study.
   const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
@@ -197,6 +201,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
         !isAnswerLoadingRedesignMockup &&
+        !isSourceRailDesktopScrollMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
@@ -230,6 +235,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
         !isAnswerLoadingRedesignMockup &&
+        !isSourceRailDesktopScrollMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&

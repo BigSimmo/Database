@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "526e2b07d3e852f4095c2d6fae82f2a1eb9c627c",
-    "committed_at": "2026-09-06T08:36:12+00:00"
+    "sha": "d51b8bba79e73e3b52d0ba831977ac1dc967ca0f",
+    "committed_at": "2026-09-06T08:37:09+00:00"
   },
   "routes": {
     "modes": [
@@ -323,11 +323,6 @@
       {
         "path": "/mockups/also-matches-accents",
         "file": "src/app/mockups/also-matches-accents/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/also-matches-closed",
-        "file": "src/app/mockups/also-matches-closed/page.tsx",
         "area": "mockup"
       },
       {
@@ -793,6 +788,11 @@
       {
         "path": "/mockups/sidebar-live",
         "file": "src/app/mockups/sidebar-live/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/source-rail-desktop-scroll",
+        "file": "src/app/mockups/source-rail-desktop-scroll/page.tsx",
         "area": "mockup"
       },
       {
