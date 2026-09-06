@@ -804,8 +804,9 @@ Rules:
   peeping at the viewport edge.
 - **Only claim the addon where the pill actually mounts.** The reserve inflates on
   the claim, not on the render, so claiming a route whose component never mounts
-  opens a blank band at the bottom. `/medications` is a standalone mode home with
-  the composer in the hero and no dock at all; `/medications/[slug]` already opens
+  opens a blank band at the bottom. `/medications` renders nothing at all — its bare
+  path redirects on both branches (`medicationsHomeTarget()` in `src/proxy.ts`, with
+  `medications/page.tsx` as the backstop) — and `/medications/[slug]` already opens
   the patient sheet from its own nav header, so neither claims the addon.
 - **An addon that can be empty must gate its claim on being non-empty.** The
   therapy compare tray renders nothing until something is in the comparison, so

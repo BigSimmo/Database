@@ -34,27 +34,36 @@ test("Dictionary sources redirects into the Sources catalogue", async ({ page })
 });
 
 test("a submitted link to the Sources home forwards to the catalogue", async ({ page }) => {
-  // `/sources` served both the home and the catalogue before the split, so this
-  // bookmark shape has to keep resolving to results rather than the new home.
+  // `/sources` served both the home and the catalogue before it was consolidated,
+  // so this bookmark shape has to keep resolving to results rather than the home.
   await page.goto("/sources?q=RANZCP&run=1", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/sources\/search\?q=RANZCP&run=1$/);
+  await expect(page).toHaveURL(/\/sources\/search\?q=RANZCP&run=1&mode=sources$/);
   await expectSingleSettledOwner(page.getByTestId("sources-catalogue-main"));
 });
 
-test("Sources home offers the catalogue surfaces and owns its composer in the hero", async ({ page }) => {
+test("a filter-only link to the Sources home forwards without run=1", async ({ page }) => {
+  // A filter chip has no draft state, so a shareable catalogue link must not need
+  // `run=1` to survive the hop (`#ZBAC9D`).
+  await page.goto("/sources?usedBy=dictionary", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/sources\/search\?usedBy=dictionary&mode=sources$/);
+  await expect(page.getByRole("button", { name: "Remove Used in: Dictionary filter" })).toBeVisible();
+});
+
+test("Sources opens the shared home, which chips through to the catalogue", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 820 });
   await page.goto("/sources", { waitUntil: "domcontentloaded" });
 
-  const home = page.getByTestId("sources-home");
+  // The four-card home that used to live here was a second home for a mode that
+  // already had one. `/sources` now forwards to that one.
+  await expect(page).toHaveURL(/\/\?mode=sources$/);
+  const home = page.getByTestId("shared-home-empty-state");
   await expect(home).toBeVisible();
   await expect(home.getByRole("heading", { name: "Sources" })).toBeVisible();
+  await expect(page.getByTestId("sources-home")).toHaveCount(0);
 
-  // Standalone mode homes keep the composer in-flow in the hero on phones and
-  // reserve no bottom dock (AGENTS.md "Search chrome behaviour").
-  await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input")).toHaveCount(1);
-  await expect(page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]')).toHaveCount(0);
-
-  await page.getByTestId("sources-home-catalogue").click();
+  // The shared home renders no cards and no mode tab bar, so the chip is the only
+  // route into the catalogue that is not a typed search.
+  await page.getByTestId("sources-show-all").click();
   await expect(page).toHaveURL(/\/sources\/search$/);
   await expectSingleSettledOwner(page.getByTestId("sources-catalogue-main"));
 });
@@ -114,6 +123,17 @@ test("@critical Sources browse tabs carry the results band and reach the filtere
   await expectSingleSettledOwner(page.getByTestId("sources-publishers-main"));
   await expect(page.getByRole("status")).toContainText("publisher");
   await expectNoHorizontalOverflow(page);
+});
+
+test("catalogue Clear search stays on the catalogue and keeps the filters", async ({ page }) => {
+  // It used to push `/sources`, which left the results entirely and landed on the
+  // retired four-card home with every filter silently dropped. The empty state
+  // offers Clear filters as its own control, so this one must only clear the query.
+  await page.goto("/sources/search?usedBy=dictionary&q=zzzzznomatch", { waitUntil: "domcontentloaded" });
+  await page.getByTestId("search-results-empty-clear-search").click();
+  await expect(page).toHaveURL(/\/sources\/search\?usedBy=dictionary$/);
+  await expect(page.getByRole("button", { name: "Remove Used in: Dictionary filter" })).toBeVisible();
+  await expectSingleSettledOwner(page.getByTestId("sources-catalogue-main"));
 });
 
 test("a browse query narrows the browse list instead of being ignored", async ({ page }) => {
