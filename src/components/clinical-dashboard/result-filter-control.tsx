@@ -1,10 +1,14 @@
 "use client";
 
 import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject } from "react";
 
+import { usePhoneMedia } from "@/components/compare/use-phone-media";
 import { Sheet } from "@/components/ui/sheet";
 import { ChoiceChip } from "@/components/ui/chip";
+import { OverlayPortal } from "@/components/ui/overlay-root";
+import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
+import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, searchShell } from "@/components/ui-primitives";
 
 /**
@@ -101,6 +105,25 @@ export type ResultFilterLensGroup = ResultFilterGroupBase & {
       than role alone. Omit for a sheet with no facet groups; the roving
       radiogroup already says "one active" on its own there. */
   note?: string;
+  /**
+   * How the one-of-N options are drawn. Defaults to `"chips"`, so every lens
+   * call site that predates this renders unchanged.
+   *
+   * `"segmented"` is the shape `docs/filter-contract.md` section 5 argues for
+   * once options carry counts: a counted chip is wide enough that four of them
+   * wrap one per line and leave most of each row empty, which is exactly the
+   * ragged column the counted-row renderer was added to fix for facets. A lens
+   * is an exact partition, so it gets the segmented bar rather than that
+   * two-column grid — `ChoiceChip`'s own contract sends one-of-many choices to
+   * `SegmentedControl`.
+   *
+   * Ignored for a group carrying a dead-end option. `SegmentedControl` marks a
+   * disabled option with the native `disabled` attribute, which drops it out of
+   * the tab order; this group keeps dead ends focusable and explained on
+   * purpose (see `isDeadEnd` below), and losing that is a real regression, so
+   * such a group falls back to chips.
+   */
+  renderAs?: "chips" | "segmented";
 };
 
 export type ResultFilterFacetGroup = ResultFilterGroupBase & {
@@ -135,6 +158,7 @@ export function resultFilterGroup<Value extends string>(group: {
   onChange: (value: Value) => void;
   note?: string;
   optionSections?: ReadonlyArray<ResultFilterOptionSection>;
+  renderAs?: "chips" | "segmented";
 }): ResultFilterGroup {
   return {
     kind: "lens",
@@ -145,6 +169,7 @@ export function resultFilterGroup<Value extends string>(group: {
     options: group.options,
     note: group.note,
     optionSections: group.optionSections,
+    renderAs: group.renderAs,
     // The one narrowing, isolated here rather than repeated at seven call sites.
     onChange: (value) => group.onChange(value as Value),
   };
@@ -207,6 +232,7 @@ export function ResultFilterTrigger({
   title,
   label = "Filter",
   labelVisibility = "responsive",
+  ref,
 }: {
   panelId: string;
   /** Distinct per slot when a page renders the trigger more than once: both
@@ -224,9 +250,14 @@ export function ResultFilterTrigger({
   /** Preserve the default compact-band behaviour unless a page has deliberately
       budgeted room for the visible wordmark at every supported width. */
   labelVisibility?: "responsive" | "always";
+  /** Anchor for the tablet/desktop panel. Pass the same ref to
+      `ResultFilterSheet`'s `anchorRef` to open the filters under this control
+      instead of in the full-height right rail. */
+  ref?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onToggle}
       aria-expanded={open}
@@ -316,6 +347,11 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
   // selectable one when the value matches no option (a stale URL param, or a
   // catalogue that dropped a category between renders).
   const tabStopValue = selectable.some((o) => o.value === group.value) ? group.value : selectable[0]?.value;
+  // See `renderAs` on ResultFilterLensGroup for why a dead end vetoes the
+  // segmented bar: SegmentedControl disables such an option natively, which
+  // takes it out of the tab order, and an unreachable dead end cannot explain
+  // itself to the reader whose selection created it.
+  const useSegmented = group.renderAs === "segmented" && selectable.length === group.options.length;
 
   const moveTo = useCallback(
     (next: ResultFilterOption<string> | undefined) => {
@@ -367,83 +403,110 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
       {group.description ? (
         <p className="-mt-0.5 mb-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{group.description}</p>
       ) : null}
-      <div
-        role="radiogroup"
-        aria-labelledby={groupLabelId}
-        onKeyDown={onKeyDown}
-        className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5"
-      >
-        {group.options.map((option) => {
-          const selected = option.value === group.value;
-          const deadEnd = Boolean(option.disabled) && !selected;
-          const deadEndDescId = `${panelId}-${group.id}-${option.value.replace(/[^A-Za-z0-9_-]/g, "-")}-note`;
-          return (
-            <button
-              key={option.value}
-              ref={(node) => {
-                if (node) refs.current.set(option.value, node);
-                else refs.current.delete(option.value);
-              }}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              // Without this the label and hint spans concatenate to "All8" in
-              // the accessible name — the name computation normalises the
-              // inter-element whitespace away, so a text-node separator cannot
-              // fix it. Same defect and same fix as SegmentedControl, which is
-              // what lets one shared option array announce identically on the
-              // desktop rail and in this sheet.
-              aria-label={option.hint ? `${option.label} (${option.hint})` : undefined}
-              // `aria-disabled` rather than `disabled`: a real disabled
-              // button leaves the tab order, so a keyboard or screen-reader
-              // user loses the option entirely and never learns why. Kept
-              // focusable and explained, with the click guarded instead —
-              // the disabled-affordance pattern in docs/wiring-conventions.md.
-              aria-disabled={deadEnd || undefined}
-              aria-describedby={deadEnd ? deadEndDescId : undefined}
-              // One tab stop for the whole group — the radio contract. Without it
-              // a reader Tabs through every option of every dimension to reach
-              // Done. A dead end is never `tabStopValue` (it is filtered out of
-              // `selectable`, which is where that value comes from), so it always
-              // lands on -1 here; see the note on this component about the
-              // announcement that costs.
-              tabIndex={option.value === tabStopValue ? 0 : -1}
-              data-radio-value={option.value}
-              onClick={() => {
-                if (deadEnd) return;
-                group.onChange(option.value);
-              }}
-              className={cn(
-                // DS-P2-24: filter chips are compact-meta (40px) from `sm`, not a
-                // primary CTA. Phone stays min-h-tap. Never min-h-11 / min-h-9.
-                "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-compact-meta sm:gap-1 sm:px-2",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                selected
-                  ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                  : deadEnd
-                    ? // Not `opacity-50`. Transparency multiplies against an
-                      // already-muted foreground; a real muted pair plus a
-                      // dashed border reads as a different KIND of thing
-                      // rather than a faded one, and survives forced colors,
-                      // where border-style is preserved and opacity is not.
-                      "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
-                    : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-              )}
-            >
-              {selected ? <Check aria-hidden="true" className="h-3 w-3 shrink-0" /> : null}
-              <span className="truncate">{option.label}</span>
-              {option.hint ? (
-                <span className="nums text-[color:var(--text-muted)]">{option.hintLabel ?? option.hint}</span>
-              ) : null}
-              {deadEnd ? (
-                <span id={deadEndDescId} className="sr-only">
-                  Not selectable from here.
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
+      {useSegmented ? (
+        <div className="min-w-0 pb-2.5">
+          <SegmentedControl
+            ariaLabelledBy={groupLabelId}
+            value={group.value}
+            onChange={group.onChange}
+            options={group.options.map((option): SegmentedControlOption<string> => ({
+              value: option.value,
+              label: option.label,
+              // `hint` only. SegmentedControl uses one field for both the
+              // visible count and the accessible name, whereas an option
+              // splits them into `hint` (announced, carries the unit) and
+              // `hintLabel` (displayed). Passing `hintLabel` here would
+              // strip the unit from the announced name, so a lens whose
+              // counts carry one has to stay on chips until SegmentedControl
+              // grows the second field.
+              hint: option.hint,
+            }))}
+            // Not `equal`: that stretches every segment to the same width with
+            // `whitespace-nowrap` and truncates. "All priorities" and
+            // "Investigations" share a four-option row, which at 390px leaves
+            // roughly 97px a segment and cuts both labels. `fit` wraps instead.
+            layout="fit"
+          />
+        </div>
+      ) : (
+        <div
+          role="radiogroup"
+          aria-labelledby={groupLabelId}
+          onKeyDown={onKeyDown}
+          className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5"
+        >
+          {group.options.map((option) => {
+            const selected = option.value === group.value;
+            const deadEnd = Boolean(option.disabled) && !selected;
+            const deadEndDescId = `${panelId}-${group.id}-${option.value.replace(/[^A-Za-z0-9_-]/g, "-")}-note`;
+            return (
+              <button
+                key={option.value}
+                ref={(node) => {
+                  if (node) refs.current.set(option.value, node);
+                  else refs.current.delete(option.value);
+                }}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                // Without this the label and hint spans concatenate to "All8" in
+                // the accessible name — the name computation normalises the
+                // inter-element whitespace away, so a text-node separator cannot
+                // fix it. Same defect and same fix as SegmentedControl, which is
+                // what lets one shared option array announce identically on the
+                // desktop rail and in this sheet.
+                aria-label={option.hint ? `${option.label} (${option.hint})` : undefined}
+                // `aria-disabled` rather than `disabled`: a real disabled
+                // button leaves the tab order, so a keyboard or screen-reader
+                // user loses the option entirely and never learns why. Kept
+                // focusable and explained, with the click guarded instead —
+                // the disabled-affordance pattern in docs/wiring-conventions.md.
+                aria-disabled={deadEnd || undefined}
+                aria-describedby={deadEnd ? deadEndDescId : undefined}
+                // One tab stop for the whole group — the radio contract. Without it
+                // a reader Tabs through every option of every dimension to reach
+                // Done. A dead end is never `tabStopValue` (it is filtered out of
+                // `selectable`, which is where that value comes from), so it always
+                // lands on -1 here; see the note on this component about the
+                // announcement that costs.
+                tabIndex={option.value === tabStopValue ? 0 : -1}
+                data-radio-value={option.value}
+                onClick={() => {
+                  if (deadEnd) return;
+                  group.onChange(option.value);
+                }}
+                className={cn(
+                  // DS-P2-24: filter chips are compact-meta (40px) from `sm`, not a
+                  // primary CTA. Phone stays min-h-tap. Never min-h-11 / min-h-9.
+                  "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-compact-meta sm:gap-1 sm:px-2",
+                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  selected
+                    ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : deadEnd
+                      ? // Not `opacity-50`. Transparency multiplies against an
+                        // already-muted foreground; a real muted pair plus a
+                        // dashed border reads as a different KIND of thing
+                        // rather than a faded one, and survives forced colors,
+                        // where border-style is preserved and opacity is not.
+                        "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                      : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                )}
+              >
+                {selected ? <Check aria-hidden="true" className="h-3 w-3 shrink-0" /> : null}
+                <span className="truncate">{option.label}</span>
+                {option.hint ? (
+                  <span className="nums text-[color:var(--text-muted)]">{option.hintLabel ?? option.hint}</span>
+                ) : null}
+                {deadEnd ? (
+                  <span id={deadEndDescId} className="sr-only">
+                    Not selectable from here.
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
@@ -771,6 +834,165 @@ export type ResultFilterSecondaryAction = {
 };
 
 /**
+ * The tablet/desktop presentation: a content-sized panel anchored under the
+ * trigger, instead of the full-height right rail `Sheet` draws from `sm` up.
+ *
+ * Why not `Sheet`. `placement="responsive-right"` becomes a 32rem rail spanning
+ * the whole viewport height, which is right for a mode carrying six facet
+ * groups and wrong for one carrying two. Differentials put two short groups in
+ * it and left most of the panel empty; a 768px tablet gave that rail two thirds
+ * of the screen. A filter is a refinement of the list behind it, so it should
+ * sit next to its own control and be no taller than its content.
+ *
+ * Why non-modal. The rail is a modal dialog: focus trapped, background inert,
+ * scrim over the results. But the thing a reader is filtering is the list they
+ * can no longer see or reach. `useDismissableLayer` gives outside-pointerdown
+ * and Escape without any of that, and its focus restore deliberately declines
+ * to steal focus back if the reader has already moved it.
+ *
+ * This adds no new stacking layer — `--z-popover` already exists and
+ * `source-preview-popover.tsx` already sits on it, which is what `globals.css`
+ * asks for when it says new overlays go through `sheet.tsx` rather than a new
+ * layer. It is deliberately not a `ui/` primitive either: it exists to serve
+ * this one surface, and a general anchored-popover primitive is a much larger
+ * contract than the filter needs.
+ *
+ * The phone keeps the `Sheet`. Its modal focus trap is load-bearing — see
+ * `tests/ui-accessibility.spec.ts`, which proves the roving radiogroup under a
+ * real trap because jsdom cannot. It also means 400% zoom is handled for free:
+ * that reduces the viewport to roughly 320 CSS px, `usePhoneMedia()` matches,
+ * and the bottom sheet is what renders. Do not "fix" that by widening the
+ * media query.
+ */
+function ResultFilterAnchoredPanel({
+  anchorRef,
+  onClose,
+  panelId,
+  testId,
+  title,
+  description,
+  headerActions,
+  footer,
+  children,
+}: {
+  anchorRef: RefObject<HTMLElement | null>;
+  onClose: () => void;
+  panelId: string;
+  testId: string;
+  title: string;
+  description?: string;
+  headerActions?: ReactNode;
+  footer: ReactNode;
+  children: ReactNode;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = `${panelId}-title`;
+  const [placement, setPlacement] = useState({ left: 0, top: 0, maxHeight: 0 });
+  // Positioning needs the panel's own measured box, so the first paint would
+  // otherwise flash at (0, 0) before the frame that places it. Same gate as
+  // `Tooltip`: rendered and measurable, but not yet visible.
+  const [positioned, setPositioned] = useState(false);
+
+  const updatePlacement = useCallback(() => {
+    const anchor = anchorRef.current;
+    const panel = panelRef.current;
+    if (!anchor || !panel) return;
+    const anchorBox = anchor.getBoundingClientRect();
+    const panelBox = panel.getBoundingClientRect();
+    const edge = 8;
+    const gap = 6;
+    const spaceBelow = window.innerHeight - anchorBox.bottom - gap - edge;
+    const spaceAbove = anchorBox.top - gap - edge;
+    // Flip only when below genuinely cannot hold the panel AND above is
+    // roomier. Flipping on the first pixel of overflow makes the panel jump
+    // sides while the reader is still scrolling.
+    const flipAbove = spaceBelow < Math.min(panelBox.height, 240) && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(160, flipAbove ? spaceAbove : spaceBelow);
+    const top = flipAbove
+      ? Math.max(edge, anchorBox.top - gap - Math.min(panelBox.height, maxHeight))
+      : anchorBox.bottom + gap;
+    // Right-aligned to the trigger, then clamped into the viewport, so the
+    // panel reads as belonging to the control it opened from.
+    const left = Math.max(edge, Math.min(anchorBox.right - panelBox.width, window.innerWidth - edge - panelBox.width));
+    setPlacement({ left, top, maxHeight });
+    setPositioned(true);
+  }, [anchorRef]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(updatePlacement);
+    // Capture phase: the results list scrolls in its own container, not the
+    // document, so a bubbling listener would never see it move.
+    window.addEventListener("scroll", updatePlacement, true);
+    window.addEventListener("resize", updatePlacement);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", updatePlacement, true);
+      window.removeEventListener("resize", updatePlacement);
+    };
+  }, [updatePlacement]);
+
+  // Move focus in on open so a reader who opened this from the keyboard lands
+  // inside it. The container itself, not the first control: the title and
+  // description should be announced before the first option.
+  useEffect(() => {
+    panelRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  const dismissRefs = useMemo(() => [panelRef, anchorRef], [anchorRef]);
+  useDismissableLayer({ enabled: true, refs: dismissRefs, onDismiss: onClose, restoreFocusRef: anchorRef });
+
+  return (
+    <OverlayPortal layer="popover" name="result-filter">
+      <div
+        ref={panelRef}
+        // Non-modal: no `aria-modal`, because the results behind stay readable
+        // and reachable, which is the whole point of leaving the rail behind.
+        role="dialog"
+        aria-labelledby={titleId}
+        id={panelId}
+        data-testid={testId}
+        tabIndex={-1}
+        style={{ position: "fixed", left: placement.left, top: placement.top, maxHeight: placement.maxHeight }}
+        className={cn(
+          "pointer-events-auto flex w-[min(24rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--e2)]",
+          "motion-safe:animate-pop-in motion-reduce:animate-none",
+          positioned ? "visible" : "invisible",
+        )}
+      >
+        <div className="flex shrink-0 items-start justify-between gap-x-3 border-b border-[color:var(--border)] px-4 py-3">
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-base font-semibold text-[color:var(--text-heading)]">
+              {title}
+            </h2>
+            {description ? (
+              <p className="mt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{description}</p>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            {headerActions}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={`Close ${title.toLowerCase()}`}
+              className={cn(
+                "grid h-tap w-tap shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] motion-reduce:transition-none sm:h-compact-meta sm:w-compact-meta",
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              )}
+            >
+              <X aria-hidden="true" className="size-icon-md" />
+            </button>
+          </div>
+        </div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 polished-scroll">
+          {children}
+        </div>
+        <div className="shrink-0 border-t border-[color:var(--border)] p-3">{footer}</div>
+      </div>
+    </OverlayPortal>
+  );
+}
+
+/**
  * A single-choice filter sheet: one radio group per dimension, plus
  * many-of-N facet groups.
  *
@@ -818,6 +1040,7 @@ export function ResultFilterSheet({
       it no longer describes. Only meaningful once a sheet goes dense (more
       than three facet groups); a sheet that never does can omit it. */
   chromeResetKey = "",
+  anchorRef,
 }: {
   open: boolean;
   onClose: () => void;
@@ -837,9 +1060,25 @@ export function ResultFilterSheet({
   secondaryAction?: ResultFilterSecondaryAction;
   applicationMode?: "live" | "staged";
   chromeResetKey?: string;
+  /**
+   * Anchor for the tablet/desktop presentation. Pass the same ref given to the
+   * wide-screen `ResultFilterTrigger` and the filters open in a content-sized
+   * panel beneath it rather than in the full-height right rail.
+   *
+   * Omit it and nothing changes: the rail is still what every other mode gets,
+   * which is what keeps this additive.
+   */
+  anchorRef?: RefObject<HTMLElement | null>;
 }) {
   // Hooks run unconditionally — the empty-groups early return happens below,
   // after every hook the render needs has already been declared.
+  //
+  // The presentation split is the one thing here that cannot be a media query:
+  // anchoring needs the trigger's measured box, which only exists in JS. This
+  // hook is `useSyncExternalStore` with a `false` server snapshot, and the
+  // panel renders only while `open`, which starts false — so the first paint is
+  // empty either way and there is no hydration mismatch to guard against.
+  const isPhone = usePhoneMedia();
   const [chromeByKey, setChromeByKey] = useState<
     Record<
       string,
@@ -924,6 +1163,208 @@ export function ResultFilterSheet({
     if (filtered.length > 0) anyFacetGroupVisible = true;
   }
 
+  const headerActionsNode = onClearAll ? (
+    <button
+      type="button"
+      onClick={onClearAll}
+      data-testid={`${testId}-clear`}
+      className={cn(
+        "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-2xs font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-compact-meta",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+      )}
+    >
+      <X aria-hidden="true" className="h-3.5 w-3.5" />
+      Clear filters
+    </button>
+  ) : null;
+
+  const footerNode = (
+    <div className="grid gap-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span aria-live="polite" className="min-w-0 text-xs font-semibold text-[color:var(--text-muted)]">
+          {summary
+            ? `${summary.count.toLocaleString()} ${summary.noun}${
+                summary.totalCount == null ? "" : ` of ${summary.totalCount.toLocaleString()}`
+              }`
+            : null}
+          {applicationMode === "staged" ? <span className="sr-only">. Changes apply together.</span> : null}
+        </span>
+        <button
+          type="button"
+          onClick={onApply ?? onClose}
+          data-testid={`${testId}-done`}
+          className={cn(
+            "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-xs font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-hover)]",
+            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          )}
+        >
+          {primaryActionLabel ??
+            (summary
+              ? `View ${summary.count.toLocaleString()} ${summary.noun}`
+              : applicationMode === "staged"
+                ? "Apply filters"
+                : "Done")}
+        </button>
+      </div>
+      {secondaryAction ? (
+        <button
+          type="button"
+          onClick={secondaryAction.onClick}
+          className={cn(
+            "flex min-h-tap w-full items-center justify-between gap-3 rounded-lg border-t border-[color:var(--border)] px-1 pt-2.5 text-left text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-compact-meta",
+            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          )}
+        >
+          <span>{secondaryAction.label}</span>
+          {secondaryAction.count == null ? null : (
+            <span className="nums text-[color:var(--text-muted)]">{secondaryAction.count.toLocaleString()}</span>
+          )}
+        </button>
+      ) : null}
+    </div>
+  );
+
+  const bodyNode = (
+    <div className="grid min-w-0 gap-1">
+      {coverage ? (
+        <div className="min-w-0 pb-2">
+          <div
+            role="progressbar"
+            aria-label={coverage.label ?? "Visible results"}
+            aria-valuemin={0}
+            aria-valuemax={Math.max(coverage.totalCount, 0)}
+            aria-valuenow={Math.min(coverage.visibleCount, Math.max(coverage.totalCount, 0))}
+            className="h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
+          >
+            <span
+              aria-hidden
+              className="block h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform motion-reduce:transition-none"
+              style={{
+                transform: `scaleX(${
+                  coverage.totalCount > 0
+                    ? Math.min(100, Math.max(0, (coverage.visibleCount / coverage.totalCount) * 100)) / 100
+                    : 0
+                })`,
+              }}
+            />
+          </div>
+          <p className="nums mt-1 text-2xs font-medium text-[color:var(--text-muted)]">
+            <span className="font-semibold text-[color:var(--text-heading)]">
+              {coverage.visibleCount.toLocaleString()}
+            </span>{" "}
+            of {coverage.totalCount.toLocaleString()} retrieved matches visible
+          </p>
+        </div>
+      ) : null}
+      {scope ? (
+        <div className="min-w-0 border-b border-[color:var(--border)] pb-3">
+          <ResultFilterScopeSelector
+            id={panelId}
+            label={scope.label}
+            value={scope.value}
+            options={scope.options}
+            onChange={scope.onChange}
+          />
+        </div>
+      ) : null}
+      {dense ? (
+        <div className="min-w-0 pb-2.5">
+          <label htmlFor={findFieldId} className="sr-only">
+            Find a filter
+          </label>
+          <div className={cn(searchShell, "min-w-0 bg-[color:var(--surface)] px-2.5")}>
+            <Search aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" />
+            <input
+              id={findFieldId}
+              type="search"
+              value={needle}
+              onChange={(event) => setNeedle(event.target.value)}
+              placeholder="Find a filter…"
+              data-testid={`${testId}-find`}
+              className="search-shell-input min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-compact-meta"
+            />
+            {needle ? (
+              <button
+                type="button"
+                onClick={() => setNeedle("")}
+                aria-label="Clear the filter search"
+                className="grid min-h-tap min-w-tap place-items-center text-[color:var(--decoration-soft)] hover:text-[color:var(--text)] sm:min-h-compact-meta sm:min-w-compact-meta"
+              >
+                <X aria-hidden="true" className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+          <p aria-live="polite" className="sr-only">
+            {activeNeedle
+              ? `${matchedOptionCount} filter${matchedOptionCount === 1 ? "" : "s"} match "${needle.trim()}"`
+              : ""}
+          </p>
+        </div>
+      ) : null}
+      {groups.map((group) => {
+        if (!isFacetGroup(group)) {
+          return <FilterRadioGroup key={group.id} group={group} panelId={panelId} />;
+        }
+        const filteredOptions = facetOptionsById.get(group.id);
+        // A needle that matched nothing in this group hides it entirely,
+        // matching document-search-results.tsx: a heading over zero options
+        // is a section with nothing to disclose.
+        if (activeNeedle && (filteredOptions?.length ?? 0) === 0) return null;
+        // Keep auto-open behavior aligned with the badge, which counts every selected value.
+        const selectedCount = group.selected.size;
+        const isOpen =
+          !dense ||
+          Boolean(activeNeedle) ||
+          (!collapsed.has(group.id) && (expanded.has(group.id) || selectedCount > 0));
+        return (
+          <ResultFilterFacetChips
+            key={group.id}
+            group={group}
+            idPrefix={panelId}
+            options={filteredOptions}
+            disclosure={
+              dense && !activeNeedle
+                ? {
+                    open: isOpen,
+                    onToggle: () => toggleGroupOpen(group.id, isOpen),
+                    contentId: `${panelId}-${group.id}-content`,
+                  }
+                : undefined
+            }
+          />
+        );
+      })}
+      {activeNeedle && !anyFacetGroupVisible ? (
+        <p className="border-t border-[color:var(--border)] py-4 text-center text-xs font-semibold text-[color:var(--text-muted)]">
+          No filter matches &ldquo;{needle.trim()}&rdquo;.
+        </p>
+      ) : null}
+    </div>
+  );
+
+  // A mode that names an anchor gets the tablet/desktop panel; every other
+  // call site keeps the full-height rail it already had, unchanged.
+  if (!isPhone && anchorRef) {
+    // `Sheet` unmounts itself when closed and this does not, so the closed
+    // state has to be handled here — otherwise the panel would keep its
+    // scroll position and its listeners alive behind the results.
+    if (!open) return null;
+    return (
+      <ResultFilterAnchoredPanel
+        anchorRef={anchorRef}
+        onClose={onClose}
+        panelId={panelId}
+        testId={testId}
+        title={title}
+        description={description}
+        headerActions={headerActionsNode}
+        footer={footerNode}
+      >
+        {bodyNode}
+      </ResultFilterAnchoredPanel>
+    );
+  }
+
   return (
     <Sheet
       open={open}
@@ -953,183 +1394,10 @@ export function ResultFilterSheet({
       placement="responsive-right"
       id={panelId}
       testId={testId}
-      headerActions={
-        onClearAll ? (
-          <button
-            type="button"
-            onClick={onClearAll}
-            data-testid={`${testId}-clear`}
-            className={cn(
-              "search-band-ghost inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-2xs font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-compact-meta",
-              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-            )}
-          >
-            <X aria-hidden="true" className="h-3.5 w-3.5" />
-            Clear filters
-          </button>
-        ) : null
-      }
-      footer={
-        <div className="grid gap-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span aria-live="polite" className="min-w-0 text-xs font-semibold text-[color:var(--text-muted)]">
-              {summary
-                ? `${summary.count.toLocaleString()} ${summary.noun}${
-                    summary.totalCount == null ? "" : ` of ${summary.totalCount.toLocaleString()}`
-                  }`
-                : null}
-              {applicationMode === "staged" ? <span className="sr-only">. Changes apply together.</span> : null}
-            </span>
-            <button
-              type="button"
-              onClick={onApply ?? onClose}
-              data-testid={`${testId}-done`}
-              className={cn(
-                "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-xs font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-hover)]",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              )}
-            >
-              {primaryActionLabel ??
-                (summary
-                  ? `View ${summary.count.toLocaleString()} ${summary.noun}`
-                  : applicationMode === "staged"
-                    ? "Apply filters"
-                    : "Done")}
-            </button>
-          </div>
-          {secondaryAction ? (
-            <button
-              type="button"
-              onClick={secondaryAction.onClick}
-              className={cn(
-                "flex min-h-tap w-full items-center justify-between gap-3 rounded-lg border-t border-[color:var(--border)] px-1 pt-2.5 text-left text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-compact-meta",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              )}
-            >
-              <span>{secondaryAction.label}</span>
-              {secondaryAction.count == null ? null : (
-                <span className="nums text-[color:var(--text-muted)]">{secondaryAction.count.toLocaleString()}</span>
-              )}
-            </button>
-          ) : null}
-        </div>
-      }
+      headerActions={headerActionsNode}
+      footer={footerNode}
     >
-      <div className="grid min-w-0 gap-1">
-        {coverage ? (
-          <div className="min-w-0 pb-2">
-            <div
-              role="progressbar"
-              aria-label={coverage.label ?? "Visible results"}
-              aria-valuemin={0}
-              aria-valuemax={Math.max(coverage.totalCount, 0)}
-              aria-valuenow={Math.min(coverage.visibleCount, Math.max(coverage.totalCount, 0))}
-              className="h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
-            >
-              <span
-                aria-hidden
-                className="block h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform motion-reduce:transition-none"
-                style={{
-                  transform: `scaleX(${
-                    coverage.totalCount > 0
-                      ? Math.min(100, Math.max(0, (coverage.visibleCount / coverage.totalCount) * 100)) / 100
-                      : 0
-                  })`,
-                }}
-              />
-            </div>
-            <p className="nums mt-1 text-2xs font-medium text-[color:var(--text-muted)]">
-              <span className="font-semibold text-[color:var(--text-heading)]">
-                {coverage.visibleCount.toLocaleString()}
-              </span>{" "}
-              of {coverage.totalCount.toLocaleString()} retrieved matches visible
-            </p>
-          </div>
-        ) : null}
-        {scope ? (
-          <div className="min-w-0 border-b border-[color:var(--border)] pb-3">
-            <ResultFilterScopeSelector
-              id={panelId}
-              label={scope.label}
-              value={scope.value}
-              options={scope.options}
-              onChange={scope.onChange}
-            />
-          </div>
-        ) : null}
-        {dense ? (
-          <div className="min-w-0 pb-2.5">
-            <label htmlFor={findFieldId} className="sr-only">
-              Find a filter
-            </label>
-            <div className={cn(searchShell, "min-w-0 bg-[color:var(--surface)] px-2.5")}>
-              <Search aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" />
-              <input
-                id={findFieldId}
-                type="search"
-                value={needle}
-                onChange={(event) => setNeedle(event.target.value)}
-                placeholder="Find a filter…"
-                data-testid={`${testId}-find`}
-                className="search-shell-input min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-compact-meta"
-              />
-              {needle ? (
-                <button
-                  type="button"
-                  onClick={() => setNeedle("")}
-                  aria-label="Clear the filter search"
-                  className="grid min-h-tap min-w-tap place-items-center text-[color:var(--decoration-soft)] hover:text-[color:var(--text)] sm:min-h-compact-meta sm:min-w-compact-meta"
-                >
-                  <X aria-hidden="true" className="h-3.5 w-3.5" />
-                </button>
-              ) : null}
-            </div>
-            <p aria-live="polite" className="sr-only">
-              {activeNeedle
-                ? `${matchedOptionCount} filter${matchedOptionCount === 1 ? "" : "s"} match "${needle.trim()}"`
-                : ""}
-            </p>
-          </div>
-        ) : null}
-        {groups.map((group) => {
-          if (!isFacetGroup(group)) {
-            return <FilterRadioGroup key={group.id} group={group} panelId={panelId} />;
-          }
-          const filteredOptions = facetOptionsById.get(group.id);
-          // A needle that matched nothing in this group hides it entirely,
-          // matching document-search-results.tsx: a heading over zero options
-          // is a section with nothing to disclose.
-          if (activeNeedle && (filteredOptions?.length ?? 0) === 0) return null;
-          // Keep auto-open behavior aligned with the badge, which counts every selected value.
-          const selectedCount = group.selected.size;
-          const isOpen =
-            !dense ||
-            Boolean(activeNeedle) ||
-            (!collapsed.has(group.id) && (expanded.has(group.id) || selectedCount > 0));
-          return (
-            <ResultFilterFacetChips
-              key={group.id}
-              group={group}
-              idPrefix={panelId}
-              options={filteredOptions}
-              disclosure={
-                dense && !activeNeedle
-                  ? {
-                      open: isOpen,
-                      onToggle: () => toggleGroupOpen(group.id, isOpen),
-                      contentId: `${panelId}-${group.id}-content`,
-                    }
-                  : undefined
-              }
-            />
-          );
-        })}
-        {activeNeedle && !anyFacetGroupVisible ? (
-          <p className="border-t border-[color:var(--border)] py-4 text-center text-xs font-semibold text-[color:var(--text-muted)]">
-            No filter matches &ldquo;{needle.trim()}&rdquo;.
-          </p>
-        ) : null}
-      </div>
+      {bodyNode}
     </Sheet>
   );
 }
