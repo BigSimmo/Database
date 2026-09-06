@@ -144,6 +144,12 @@ export function DifferentialOverviewRail({
                     label={tag}
                     slug={termLinks[tag] ?? null}
                     tone="danger"
+                    // compact-meta (40px), not min-h-tap: a Watch-for row mixes
+                    // linked and unlinked tags of identical size, so a
+                    // tap-sized chip only when linked would jump size mid-row.
+                    // TOKENS.md §2's compact-meta role list ("filter chips") is
+                    // the closest documented fit, and mirrors the same row in
+                    // the safety snapshot (TOKENS.md requires this comment).
                     className="min-h-compact-meta px-2 text-2xs"
                   />
                 </li>

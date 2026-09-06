@@ -133,6 +133,11 @@ function MustNotMissBand({ rows }: { rows: DifferentialDiscriminatorRow[] }) {
             {row.href ? (
               <Link
                 href={row.href}
+                // compact-meta (40px), not min-h-tap: this row mixes linked and
+                // unlinked chips of identical size, so a tap-sized chip only
+                // when linked would jump size mid-row. Same reasoning, and the
+                // same TOKENS.md §2 "filter chips" role, as the Watch-for row
+                // on the Overview panel (TOKENS.md requires this comment).
                 className="inline-flex min-h-compact-meta items-center rounded-md border border-[color:var(--danger-border)] bg-[color:var(--surface)] px-2 text-2xs font-bold text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)]"
               >
                 {row.label}
@@ -229,7 +234,7 @@ function ComparisonRows({
                     type="button"
                     onClick={() => onSelect(row.slug)}
                     aria-pressed={selected}
-                    className="inline-flex min-h-compact-meta items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-2 text-2xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:mt-1"
+                    className="inline-flex min-h-tap items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:mt-1"
                   >
                     {selected ? "On map" : "Show on map"}
                   </button>
