@@ -13,10 +13,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { cardSurface } from "@/components/card-recipes";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+
+import { cardSurface, stretchedRowLinkClass } from "@/components/card-recipes";
+import { Button, buttonFaceClass } from "@/components/ui/button";
 import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
-import { THERAPY_MAX_COMPARE } from "@/lib/therapy-compass-navigation";
+import { THERAPY_MAX_COMPARE, therapyRecordHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
@@ -165,23 +167,31 @@ export function ResultCard({
         </p>
       ) : null}
       <div data-therapy-result-actions className="grid grid-cols-3 gap-2 px-4 py-3.5 sm:px-5 sm:pb-4 md:pt-0">
-        <Button
-          variant={openVariant}
-          size="sm"
-          block
-          className={cardActionButton}
-          icon={ExternalLink}
-          onClick={() => b.open(therapy.slug)}
+        {/*
+          A link rather than a `Button` with `router.push`. `b.workspaceHref`
+          builds the same URL `b.open` pushes, so the destination is unchanged,
+          but as a real anchor it can be stretched across the card — and a
+          cmd-click, middle-click or long-press behaves the way the browser
+          already knows how to make it behave.
+        */}
+        <Link
+          href={b.workspaceHref(therapyRecordHref(therapy.slug))}
+          className={cn(
+            buttonFaceClass({ variant: openVariant, size: "sm", block: true }),
+            cardActionButton,
+            stretchedRowLinkClass,
+          )}
           aria-label="Open record"
         >
+          <ExternalLink aria-hidden="true" className="size-icon-md shrink-0" />
           <span className="max-sm:hidden">Open record</span>
           <span className="sm:hidden">Open</span>
-        </Button>
+        </Link>
         <Button
           variant="secondary"
           size="sm"
           block
-          className={cn(cardActionButton, controlPressed)}
+          className={cn(cardActionButton, controlPressed, "relative z-10")}
           icon={Scale}
           // Adding no longer navigates: the tray above the composer is where the
           // set is now assembled, so this control fills it and leaves the reader
@@ -214,7 +224,7 @@ export function ResultCard({
           variant="secondary"
           size="sm"
           block
-          className={cardActionButton}
+          className={cn(cardActionButton, "relative z-10")}
           icon={FileText}
           onClick={therapy.patientSheetAvailable ? () => b.openSheet(therapy.slug) : ignoreUnavailableActivation}
           aria-disabled={therapy.patientSheetAvailable ? undefined : true}
