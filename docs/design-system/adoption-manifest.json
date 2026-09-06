@@ -711,7 +711,8 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/forms-information-disclosure.dom.test.tsx",
-        "tests/ui-forms-section-nav.spec.ts"
+        "tests/ui-forms-section-nav.spec.ts",
+        "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1660,6 +1661,7 @@
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
@@ -1671,6 +1673,7 @@
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
@@ -1848,6 +1851,7 @@
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
         "tests/factsheet-save.dom.test.tsx",
+        "tests/filter-contract.dom.test.tsx",
         "tests/guide-centre-design-contract.dom.test.tsx",
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
@@ -2069,11 +2073,18 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/differentials/differential-detail-page.tsx",
+        "src/components/differentials/differential-overview-rail.tsx",
         "src/components/ui/citation.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
       ],
-      "productImportFiles": ["src/components/ui/dose-line.tsx", "src/components/ui/retrieval-state-banner.tsx"],
+      "productImportFiles": [
+        "src/components/differentials/differential-detail-page.tsx",
+        "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/ui/dose-line.tsx",
+        "src/components/ui/retrieval-state-banner.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -2895,7 +2906,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["ModeHome"]
         },
         {
           "file": "src/app/(search-app)/sources/publishers/page.tsx",
