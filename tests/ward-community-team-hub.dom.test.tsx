@@ -12,6 +12,7 @@ import {
 } from "@/components/ward-management/ward-referral-visibility";
 import { allEmergencyDepartments, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 const RAISED_AT = NOW_ANCHOR;
 const WARD_DECIDED_AT = NOW_ANCHOR + 11;
 const ED_DECIDED_AT = NOW_ANCHOR + 23;
@@ -44,6 +45,7 @@ function multiDestinationReferral(): Referral {
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
   });
   expect(received.rejections, "the reducer refused the fixture referral this file needs").toEqual([]);
   const created = received.referrals.at(-1)!;

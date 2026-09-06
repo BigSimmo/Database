@@ -64,8 +64,12 @@ test.describe("@mockup Ward morning bed state — page render, rail navigation a
     // mounts and unmounts with the page. Never `page.goto()` here: a full navigation would remount
     // `WardFlowProvider` and reseed shared state, which would make a client-side routing failure
     // indistinguishable from a pass.
-    await page.getByRole("link", { name: "Priority queue", exact: true }).click();
-    await expect(page.getByTestId("ward-queue-view")).toBeVisible({ timeout: 15_000 });
+    // MERGE 01 (2026-09-05): the fold at e31c9c462 combined "Priority queue" and "Exceptions"
+    // into one rail entry. The id is still `queue`, but the label it renders is now "Delays" and
+    // it leads to the `DelaysScreen` route, whose root carries `data-testid="ward-delays-page"` —
+    // there is no more `ward-queue-view` testid anywhere for this link to land on.
+    await page.getByRole("link", { name: "Delays", exact: true }).click();
+    await expect(page.getByTestId("ward-delays-page")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
 
     await page.getByRole("link", { name: "Morning bed state", exact: true }).click();
@@ -76,8 +80,11 @@ test.describe("@mockup Ward morning bed state — page render, rail navigation a
     // away and mounted fresh by the navigation back, so this exercises a newly-mounted rail after
     // a client-side return — a different condition from the first click, which was on the rail
     // that came with the server-rendered page.
-    await page.getByRole("link", { name: "Priority queue", exact: true }).click();
-    await expect(page.getByTestId("ward-queue-view")).toBeVisible({ timeout: 15_000 });
+    //
+    // MERGE 01 (2026-09-05): same rename as above — the link is "Delays" now, and it lands on
+    // `ward-delays-page`, not the retired `ward-queue-view`.
+    await page.getByRole("link", { name: "Delays", exact: true }).click();
+    await expect(page.getByTestId("ward-delays-page")).toBeVisible({ timeout: 15_000 });
   });
 });
 

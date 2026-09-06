@@ -155,26 +155,26 @@
 
 /* State is worded (`.capacityWord`'s text) as well as coloured here — never colour alone. */
 .capacityTile[data-level="full"] {
-  border-color: var(--danger-text);
-  background: var(--danger-bg);
+  border-color: var(--ward-danger);
+  background: var(--ward-danger-soft);
 }
 
 .capacityTile[data-level="full"] .capacityValue,
 .capacityTile[data-level="full"] .capacityWord {
-  color: var(--danger-text);
+  color: var(--ward-danger);
 }
 
 .capacityTile[data-level="tight"] {
-  border-color: var(--warning-text);
-  background: var(--warning-bg);
+  border-color: var(--ward-warning);
+  background: var(--ward-warning-soft);
 }
 
 .capacityTile[data-level="tight"] .capacityWord {
-  color: var(--warning-text);
+  color: var(--ward-warning);
 }
 
 .capacityTile[data-level="room"] .capacityWord {
-  color: var(--success-text);
+  color: var(--ward-success);
 }
 
 .wardEnter {

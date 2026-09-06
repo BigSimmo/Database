@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 const router = vi.hoisted(() => ({
   back: vi.fn(),
@@ -314,12 +315,15 @@ describe("finding 2 — the voluntary-on-locked warning must render, not just re
     const alternatives = screen.getByTestId("ward-console-alternatives");
     // Review finding 2 named both: "RPH Adult Secure" and "FSH Adult Secure" each offered as
     // "Eligible now" with the legal warning stripped. Both rows carry it, so both are checked.
-    const notices = within(alternatives).getAllByText(
-      "Voluntary patient on a locked ward — review legal status before admission",
-    );
-    expect(notices).toHaveLength(2);
+    // Selected by the RESTRICTION ATTRIBUTE, not by the sentence. The attribute is the contract
+    // between the derivation and the screen; the sentence is rendering, and the owner is rewording
+    // these pages. Finding the notices by their text made a reworded warning look like a MISSING
+    // warning — the same red as the defect this test exists for, which is the one thing it must
+    // never be confused with.
+    const notices = Array.from(alternatives.querySelectorAll<HTMLElement>('[data-restriction="voluntary_on_locked"]'));
+    expect(notices, "both locked-ward alternatives must carry the restriction marker").toHaveLength(2);
     for (const notice of notices) {
-      expect(notice).toHaveAttribute("data-restriction", "voluntary_on_locked");
+      expectSays(notice.textContent ?? "", "the locked-ward legal-status warning", ["voluntary", "locked", "legal"]);
       // Information, never a gate: the row this notice sits on still reads its own real verdict.
       // Walked by DOM structure (span -> row), never by CSS-module class name — the vitest
       // CSS-module proxy fabricates a class for any property asked of it, so a
@@ -341,7 +345,7 @@ describe("finding 2 — the voluntary-on-locked warning must render, not just re
     fireEvent.click(screen.getByTestId("test-change-legal-status"));
 
     const notice = screen.getByTestId("ward-console-destination-restriction");
-    expect(notice).toHaveTextContent("Voluntary patient on a locked ward — review legal status before admission");
+    expectSays(notice.textContent ?? "", "the locked-ward legal-status warning", ["voluntary", "locked", "legal"]);
     expect(notice).toHaveAttribute("data-restriction", "voluntary_on_locked");
   });
 });
@@ -468,7 +472,40 @@ describe("D3 — the audit timeline must not promise ten kinds of event and deli
     renderWorkspace("WF-004");
     const timeline = screen.getByTestId("ward-console-timeline");
     expect(within(timeline).getByText("Movement opened")).toBeInTheDocument();
-    expect(within(timeline).getByText("The hold on the bed at BTY Adult Secure ran out")).toBeInTheDocument();
+
+    /*
+     * ⚠️ **THIS WAS AN EXACT-STRING `getByText` ON RENDERED COPY UNTIL 2026-09-06, AND IT WENT RED
+     * THE MOMENT THAT COPY WAS CORRECTED.** The label said "The hold on the bed at … ran out"; the
+     * owner has ruled a reserved bed is a PULL, so the label changed and this assertion had to move
+     * with it — which is the tell. **A guard that must be edited every time correct copy is reworded
+     * is a tripwire on the redesign, not on the defect**, and the owner's standing instruction is
+     * that testing works with redesigns rather than fighting them.
+     *
+     * Re-pinning the new sentence verbatim would have moved the tripwire one rewording along and
+     * cost the same edit again next time. So it asserts the CLAIM instead: this timeline names the
+     * bed reservation ending, at the named destination. Reword it freely; it may not stop saying it.
+     *
+     * The vocabulary itself is pinned where it belongs — `ward-pull-vocabulary.dom.test.tsx` for
+     * the rendered controls, and `ward-delay-cause-vocabulary.test.ts` for the copy table. This
+     * assertion deliberately does NOT check which word is used, because two guards over one fact
+     * disagree eventually and the wording one is already owned elsewhere.
+     */
+    // Found by the DESTINATION, which is data rather than copy and so cannot be reworded. My first
+    // attempt at this located the row by matching "ran out" — swapping one pinned phrase for
+    // another, which is the same defect one step quieter.
+    const bedRow = within(timeline)
+      .getAllByRole("listitem")
+      .map((row) => row.textContent ?? "")
+      .find((text) => text.includes("BTY Adult Secure"));
+    expect(
+      bedRow,
+      "the timeline no longer carries a dated row naming BTY Adult Secure. The bed reservation " +
+        "ending is a DATED fact the record holds and the figure strip already prints, so its " +
+        "absence here is the short-list defect this test exists for — not a wording change.",
+    ).toBeDefined();
+    expectSays(bedRow ?? "", "the bed-reservation row", ["bed"]);
+    expectSays(bedRow ?? "", "the bed-reservation row's ending", ["ran out", "expired", "lapsed", "ended"]);
+
     expect(timeline.querySelectorAll("li").length).toBeGreaterThan(1);
   });
 

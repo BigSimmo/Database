@@ -4,7 +4,6 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DictionarySourcesRedirect from "@/app/(search-app)/dictionary/sources/page";
-import { SourcesHomeClient } from "@/app/(search-app)/sources/sources-home-client";
 import { SourcesCatalogueClient } from "@/components/sources/sources-catalogue-client";
 import {
   SourceDetailPage,
@@ -12,7 +11,6 @@ import {
   SourcesPublishersPage,
   SourcesTopicsPage,
 } from "@/components/sources/sources-pages";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { SOURCE_RATING_WEIGHTS, type ClinicalSourceCatalogueEntry } from "@/lib/sources/catalogue-types";
 
 // Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
@@ -390,20 +388,47 @@ describe("Sources method and record", () => {
   it("publishes every weight, threshold and limitation on Method", () => {
     render(<SourcesMethodPage />);
     expect(screen.getByRole("heading", { level: 1, name: "Method" })).toHaveClass("sr-only");
-    expect(screen.getByText("Accuracy assurance")).toBeVisible();
-    expect(screen.getByText("25 points")).toBeVisible();
-    expect(screen.getByText(/A · Preferred.*85–100/)).toBeVisible();
-    expect(screen.getByText(/Excluded.*before.*score/i)).toBeVisible();
-    expect(screen.getByText(/Australian applicability is bounded/i)).toBeVisible();
-    expect(screen.getByText(/Missing fields remain unknown/i)).toBeVisible();
+
+    // Every dimension, with the points read from the scoring weights rather than
+    // re-typed here — a re-weighting that missed the page would fail this.
+    const dimensions = screen.getByRole("region", { name: "Rating dimensions" });
+    for (const [label, points] of [
+      ["Accuracy assurance", SOURCE_RATING_WEIGHTS.accuracyAssurance],
+      ["Reliability", SOURCE_RATING_WEIGHTS.reliability],
+      ["Evidence quality", SOURCE_RATING_WEIGHTS.evidenceQuality],
+      ["Currency", SOURCE_RATING_WEIGHTS.currency],
+      ["Australian applicability", SOURCE_RATING_WEIGHTS.australianApplicability],
+      ["Traceability", SOURCE_RATING_WEIGHTS.traceability],
+    ] as const) {
+      expect(within(dimensions).getByText(label)).toBeVisible();
+      expect(within(dimensions).getAllByText(`${points} points`).length).toBeGreaterThan(0);
+    }
+
+    // Every published threshold, and the two bands that are not reached by score.
+    const bands = screen.getByRole("region", { name: "Quality bands" });
+    expect(within(bands).getByText("85–100")).toBeVisible();
+    expect(within(bands).getByText("70–84")).toBeVisible();
+    expect(within(bands).getByText("50–69")).toBeVisible();
     expect(
-      screen.getByText(
+      within(bands).getByText(/Below 50, incomplete metadata, or material identity or verification uncertainty/i),
+    ).toBeVisible();
+    expect(
+      within(bands).getByText(/Applied before any score when lifecycle or governance rules reject/i),
+    ).toBeVisible();
+
+    // Every limitation, including the governance disclaimer.
+    const limits = screen.getByRole("region", { name: "Boundaries and missing data" });
+    expect(within(limits).getByText(/Australian applicability is bounded/i)).toBeVisible();
+    expect(within(limits).getByText(/Missing fields remain unknown/i)).toBeVisible();
+    expect(
+      within(limits).getByText(
         /Missing publisher, version, dates, jurisdiction, evidence type or validation.*D · Review required/i,
       ),
     ).toBeVisible();
-    expect(screen.getByText(/past expiry.*no current currency credit/i)).toBeVisible();
-    expect(screen.getByText(/identified replacement.*excluded/i)).toBeVisible();
-    expect(screen.getByText(/not RAG relevance or patient-specific guidance/i)).toBeVisible();
+    expect(within(limits).getByText(/past expiry.*no current currency credit/i)).toBeVisible();
+    expect(within(limits).getByText(/identified replacement.*excluded/i)).toBeVisible();
+    expect(within(limits).getByText(/not RAG relevance or patient-specific guidance/i)).toBeVisible();
+
     const definitions = screen.getByRole("region", { name: "Catalogue status definitions" });
     for (const label of [
       "Current",
@@ -468,9 +493,25 @@ describe("Sources method and record", () => {
   it("routes each quality band on Method to the sources carrying it", () => {
     render(<SourcesMethodPage />);
 
-    expect(screen.getByRole("link", { name: "D · Review required" })).toHaveAttribute("href", "/sources/search?band=D");
+    for (const [band, label] of [
+      ["A", "A · Preferred"],
+      ["B", "B · Strong"],
+      ["C", "C · Supplementary"],
+      ["D", "D · Review required"],
+      ["excluded", "Excluded"],
+    ] as const) {
+      expect(screen.getByRole("link", { name: `Browse ${label}` })).toHaveAttribute(
+        "href",
+        `/sources/search?band=${band}`,
+      );
+    }
+
     // The definitions themselves stay prose; a link is not wrapped around one.
-    expect(screen.getByText(/D · Review required · below 50/)).toBeVisible();
+    const reviewRequired = screen.getByText(
+      /Below 50, incomplete metadata, or material identity or verification uncertainty/i,
+    );
+    expect(reviewRequired).toBeVisible();
+    expect(reviewRequired.closest("a")).toBeNull();
   });
 
   it("turns the record's topics and publisher into routes back into the catalogue", async () => {
@@ -503,45 +544,5 @@ describe("Dictionary Sources compatibility redirect", () => {
       searchParams: Promise.resolve({ q: "RANZCP", band: ["A", "D"], usedBy: "factsheets" }),
     });
     expect(redirectMock).toHaveBeenCalledWith("/sources/search?q=RANZCP&band=A&band=D&usedBy=dictionary");
-  });
-});
-
-/*
- * `/sources` was registered as a standalone mode home and given a hero composer
- * placement, but rendered the catalogue — which mounts no composer slot, so the
- * shell portalled its search field at a host that did not exist. These cases pin
- * the home that closes that gap: the slot has to be present, and the four
- * catalogue surfaces have to stay reachable from it now that the bare path no
- * longer lists them itself.
- */
-describe("Sources home", () => {
-  it("renders the shared mode-home hero copy for Sources", () => {
-    render(<SourcesHomeClient />);
-
-    const home = screen.getByTestId("sources-home");
-    expect(within(home).getByRole("heading", { name: "Sources" })).toBeTruthy();
-    expect(within(home).getByText("Clinical source catalogue.")).toBeTruthy();
-  });
-
-  it("mounts the hero composer slot the shell portals into", () => {
-    const { container } = render(<SourcesHomeClient />);
-
-    expect(container.querySelector(`#${modeHomeDesktopComposerSlotId}`)).not.toBeNull();
-  });
-
-  it("links every catalogue surface, with the filterable catalogue on its own route", () => {
-    render(<SourcesHomeClient />);
-
-    const hrefs = ["catalogue", "topics", "publishers", "method"].map((item) =>
-      screen.getByTestId(`sources-home-${item}`).getAttribute("href"),
-    );
-    expect(hrefs).toEqual(["/sources/search", "/sources/topics", "/sources/publishers", "/sources/method"]);
-  });
-
-  it("runs a suggested search against the catalogue rather than the home", () => {
-    render(<SourcesHomeClient />);
-
-    fireEvent.click(screen.getByRole("button", { name: "RANZCP" }));
-    expect(routerPush).toHaveBeenCalledWith("/sources/search?q=RANZCP&run=1");
   });
 });

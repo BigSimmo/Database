@@ -300,6 +300,7 @@ as it was on that date; supersede with a new dated document rather than editing.
 - [current-clinical-work-brief.md](current-clinical-work-brief.md) — ledger #063 product/privacy/persistence brief (decision only, no implementation)
 - [factsheets-reading-model-brief.md](factsheets-reading-model-brief.md) — ledger #041 reading-model decision (no second Factsheets mode)
 - [tooling-follow-through-decisions-2026-08-12.md](tooling-follow-through-decisions-2026-08-12.md) — ledger #150 CodeRabbit cap policy and #151 GitHub Actions observation fallback
+- [staging-shutdown-and-repo-review-handover-2026-09-06.md](staging-shutdown-and-repo-review-handover-2026-09-06.md) — why shutting staging down does not block drift detection or repair (and what it does block), plus three off-ledger findings: the open SaMD classification on a live patient-specific feature, the spend threshold that alerts without enforcing, and unreachable password sign-in
 - [source-governance-refresh-worklist-2026-07-22.md](source-governance-refresh-worklist-2026-07-22.md) — ledger #022 worklist and BMJ attestation policy status
 - `release-source-metadata-debt-2026-06-30.json` — captured source-metadata debt policy, consumed by `npm run audit:source-governance:release` and `npm run eval:quality:release`
 - [forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md) — completed retrieval RPC codification workorder
