@@ -305,7 +305,6 @@
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
-        "src/components/therapy-compass/screens/search-screen.tsx",
         "src/components/therapy-compass/therapy-card.tsx",
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/therapy-compass/workspace.tsx",
@@ -334,7 +333,6 @@
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
-        "src/components/therapy-compass/screens/search-screen.tsx",
         "src/components/therapy-compass/therapy-card.tsx",
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/therapy-compass/workspace.tsx",
@@ -2082,6 +2080,7 @@
       "directImportFiles": [
         "src/components/differentials/differential-detail-page.tsx",
         "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/ui/citation.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
@@ -2089,6 +2088,7 @@
       "productImportFiles": [
         "src/components/differentials/differential-detail-page.tsx",
         "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
       ],

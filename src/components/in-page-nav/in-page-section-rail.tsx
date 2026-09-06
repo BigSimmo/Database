@@ -18,6 +18,11 @@ const focusRing =
  * the four-slot band. Below the minimum bar width, the header's existing title
  * disclosure remains the safe non-overflow fallback.
  *
+ * Defaults to `extended-counted`, not `extended` — the two happen to share a
+ * label family, but `extended` is Therapy's mode-nav profile and free to
+ * change for Therapy's own reasons. Coupling this rail to it by relying on a
+ * shared name is the mistake `extended-counted` exists to rule out.
+ *
  * This is deliberately not a tablist. The panel is a plain region and all
  * sections are also reachable from the sheet, so ordinary buttons keep every
  * visible destination in the normal Tab order.
@@ -30,7 +35,7 @@ export function InPageSectionRail({
   sectionSheetOpen,
   label,
   testIdPrefix,
-  density = "extended",
+  density = "extended-counted",
   countedLabels = false,
 }: {
   sections: readonly PageSection[];
