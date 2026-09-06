@@ -39,7 +39,7 @@ describe("tools catalog", () => {
   it("exposes Sources as a ready source-backed reference tool", () => {
     expect(toolCatalogRecordById("source-catalogue")).toMatchObject({
       title: "Sources",
-      href: "/sources",
+      href: appModeHomeHref("sources"),
       area: "reference",
       status: "ready",
       sourceBacked: true,
@@ -53,6 +53,7 @@ describe("tools catalog", () => {
       ["services", "services"],
       ["forms", "forms"],
       ["calculators", "calculators"],
+      ["source-catalogue", "sources"],
     ] as const satisfies readonly (readonly [Parameters<typeof toolCatalogRecordById>[0], AppModeId])[];
 
     for (const [toolId, modeId] of sharedHomeTools) {
