@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties, ReactNode } from "react";
 import { ChevronRight, Scale, ShieldAlert } from "lucide-react";
 
 import { ClinicalBadge } from "@/components/clinical-dashboard/clinical-badge";
@@ -61,7 +62,7 @@ function SectionCard({
   id: string;
   title: string;
   intro: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section className={cn(raisedCard, "p-4 sm:p-5")} aria-labelledby={id}>
@@ -87,24 +88,24 @@ function RatingDimensions() {
     >
       <dl className="mt-4 divide-y divide-[color:var(--border)]">
         {SOURCE_RATING_DIMENSIONS.map((dimension) => (
-          <div key={dimension.key} className="grid gap-1.5 py-3 sm:grid-cols-[minmax(0,1fr)_9rem] sm:items-center">
+          <div key={dimension.key} className="grid gap-1.5 py-3 sm:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] sm:gap-6">
             <div className="min-w-0">
-              <dt className="text-sm font-semibold text-[color:var(--text-heading)]">
-                {dimension.label}{" "}
-                <span className="nums text-xs font-medium text-[color:var(--text-muted)]">
-                  {dimension.points} points
-                </span>
-              </dt>
+              <dt className="text-sm font-semibold text-[color:var(--text-heading)]">{dimension.label}</dt>
               <dd className="mt-0.5 text-xs leading-5 text-[color:var(--text-muted)]">{dimension.description}</dd>
             </div>
-            <div
-              aria-hidden="true"
-              className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
-            >
+            <div className="flex min-w-0 items-center gap-3 sm:pt-1">
               <div
-                className="h-full origin-left rounded-full bg-[color:var(--clinical-accent)]"
-                style={{ transform: `scaleX(${dimension.points / SOURCE_RATING_TOTAL_POINTS})` }}
-              />
+                aria-hidden="true"
+                className="h-2 w-full min-w-0 overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
+              >
+                <div
+                  className="h-full origin-left rounded-full bg-[color:var(--clinical-accent)]"
+                  style={{ transform: `scaleX(${dimension.points / SOURCE_RATING_TOTAL_POINTS})` }}
+                />
+              </div>
+              <span className="nums w-20 shrink-0 whitespace-nowrap text-right text-xs font-semibold text-[color:var(--text-heading)]">
+                {dimension.points} points
+              </span>
             </div>
           </div>
         ))}
@@ -134,33 +135,34 @@ function QualityBands() {
       intro="A clean score falls into one of three bands. The two below are not reached by score at all — they are applied first, on identity, lifecycle and governance grounds."
     >
       {/*
-        The scale is drawn from the thresholds, not from hand-set widths: one grid
-        template built from the band windows sizes every segment, so moving a cut
-        point moves the picture. It is decoration — each band states its own range
-        in the list below — so it carries no text of its own.
+        The scale is drawn from the thresholds, not from hand-set widths. One grid
+        template — set once as a custom property and shared by the track and its
+        cut-point labels — sizes both rows, so moving a threshold moves the
+        picture and the numbers together.
       */}
-      <div className="mt-4">
-        <div
-          aria-hidden="true"
-          className="grid h-2 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
-          style={{
-            gridTemplateColumns: [
+      <div
+        aria-hidden="true"
+        className="mt-4"
+        style={
+          {
+            "--band-scale-columns": [
               `${segments[0]?.minScore ?? 0}fr`,
               ...segments.map((segment) => `${segment.upperEdge - segment.minScore}fr`),
             ].join(" "),
-          }}
-        >
+          } as CSSProperties
+        }
+      >
+        <div className="grid h-2 w-full grid-cols-[var(--band-scale-columns)] overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]">
           <span />
           {segments.map((segment) => (
             <span key={segment.band} className={BAND_SEGMENT_FILL[segment.tone]} />
           ))}
         </div>
-        <div
-          aria-hidden="true"
-          className="nums mt-1.5 flex justify-between text-2xs font-medium text-[color:var(--text-muted)]"
-        >
+        <div className="nums mt-1.5 grid grid-cols-[var(--band-scale-columns)] text-2xs font-medium text-[color:var(--text-muted)]">
           <span>0</span>
-          <span>{SOURCE_RATING_TOTAL_POINTS}</span>
+          {segments.map((segment) => (
+            <span key={segment.band}>{segment.minScore}</span>
+          ))}
         </div>
       </div>
 
@@ -168,7 +170,7 @@ function QualityBands() {
         {SOURCE_QUALITY_BAND_SCALE.map((definition) => (
           <li
             key={definition.band}
-            className="grid gap-2 py-3 sm:grid-cols-[13rem_minmax(0,1fr)] sm:items-start sm:gap-4"
+            className="grid gap-1.5 py-3 sm:grid-cols-[13rem_minmax(0,1fr)_auto] sm:items-baseline sm:gap-4"
           >
             <div className="flex flex-wrap items-center gap-2">
               <ClinicalBadge tone={definition.tone} label={definition.label} />
@@ -178,16 +180,14 @@ function QualityBands() {
                 </span>
               )}
             </div>
-            <div className="min-w-0">
-              <p className="text-xs leading-5 text-[color:var(--text-muted)]">{definition.description}</p>
-              <Link
-                href={sourceBandBrowseHref(definition.band)}
-                className="mt-1 inline-flex min-h-tap items-center gap-1 rounded-md text-xs font-semibold text-[color:var(--primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-              >
-                Browse {definition.label}
-                <ChevronRight aria-hidden="true" className="size-icon-sm" />
-              </Link>
-            </div>
+            <p className="min-w-0 text-xs leading-5 text-[color:var(--text-muted)]">{definition.description}</p>
+            <Link
+              href={sourceBandBrowseHref(definition.band)}
+              className="inline-flex min-h-tap items-center gap-1 justify-self-start whitespace-nowrap rounded-md text-xs font-semibold text-[color:var(--primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:justify-self-end"
+            >
+              Browse {definition.label}
+              <ChevronRight aria-hidden="true" className="size-icon-sm" />
+            </Link>
           </li>
         ))}
       </ul>
@@ -253,8 +253,10 @@ function StatusDefinitions() {
             <p className="mt-0.5 text-xs leading-5 text-[color:var(--text-muted)]">{group.summary}</p>
             <dl className="mt-2 divide-y divide-[color:var(--border)]">
               {group.statuses.map((status) => (
-                <div key={status.label} className="flex items-start gap-3 py-2">
-                  <dt className="w-36 shrink-0 pt-0.5">
+                // Stacked on phones: a fixed badge column at 320px left the
+                // definition about four characters wide.
+                <div key={status.label} className="grid gap-1 py-2 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-3">
+                  <dt className="justify-self-start sm:pt-0.5">
                     <ClinicalBadge tone={status.tone} label={status.label} />
                   </dt>
                   <dd className="min-w-0 text-xs leading-5 text-[color:var(--text-muted)]">{status.definition}</dd>
