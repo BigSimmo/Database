@@ -19,7 +19,6 @@ import { matchesAvailability, matchesTopics } from "../data/select";
 import { hasSearchableTherapyQuery } from "@/lib/therapy-ranking";
 import { LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
-import { TherapyReviewNotice } from "../therapy-review-notice";
 
 // Curated quick-filter tags surfaced as chips (all exist in the tag set).
 // None of the six is ever zero across the whole 205-therapy catalogue, so the
@@ -164,7 +163,6 @@ export function SearchScreen() {
 
   return (
     <section data-screen-label="Search" className={`${pageContainer} space-y-2.5 sm:space-y-3`}>
-      <TherapyReviewNotice className="mb-2.5 sm:mb-3" />
       <SearchResultsHeaderBand
         modeId="therapy-compass"
         query={q}
