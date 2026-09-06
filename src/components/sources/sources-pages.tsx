@@ -13,12 +13,7 @@ import {
   deriveTopicBrowseSummaries,
   sourceTopicLabel,
 } from "@/lib/sources/browse-facets";
-import {
-  SOURCE_RATING_WEIGHTS,
-  type ClinicalSourceCatalogueEntry,
-  type SourceGeographyScope,
-  type SourceQualityBand,
-} from "@/lib/sources/catalogue-types";
+import type { ClinicalSourceCatalogueEntry, SourceGeographyScope } from "@/lib/sources/catalogue-types";
 import { loadSourceCatalogue } from "@/lib/sources/load-source-catalogue";
 import { SOURCE_BAND_LABELS, SOURCE_BAND_TONES } from "@/lib/sources/rating-method";
 import { sourceAttentionFlags, sourceProvenanceNotes } from "@/lib/sources/source-status-presentation";
