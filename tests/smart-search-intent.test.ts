@@ -91,6 +91,31 @@ describe("interpretSmartSearch", () => {
     });
   });
 
+  // Regression: the movement, avoidance, and couples rules each matched ordinary
+  // phrasing while missing the clinical phrasing they exist for.
+  it.each([
+    ["forms", "moving forward with the assessment", "movement"],
+    ["forms", "a moving account of the incident", "transfer"],
+    ["formulation", "how do I avoid a relapse", "avoidance"],
+    ["therapy-compass", "a couple of options for anxiety", "couples"],
+    ["therapy-compass", "another couple of sessions", "couples"],
+  ] as const)("does not expand incidental wording in %s: %s", (mode, query, term) => {
+    expect(interpretSmartSearch(mode, query).expansions).not.toContain(term);
+  });
+
+  it.each([
+    ["forms", "which form moves a patient to another hospital", "transfer"],
+    ["forms", "form for moving a consumer between wards", "transport"],
+    ["forms", "transporting an involuntary patient", "movement"],
+    ["formulation", "patient avoids social situations", "avoidance"],
+    ["formulation", "avoiding work since the assault", "avoidance"],
+    ["formulation", "he stays away from crowds", "avoidance"],
+    ["therapy-compass", "couples therapy after an affair", "couples"],
+    ["therapy-compass", "therapy for relationship difficulties", "relationship"],
+  ] as const)("expands the clinical wording in %s: %s", (mode, query, term) => {
+    expect(interpretSmartSearch(mode, query).expansions).toContain(term);
+  });
+
   it("does not leak a mode-scoped rule into another mode", () => {
     const query = "where can I check medication interactions?";
     expect(interpretSmartSearch("tools", query).expansions).toEqual(
