@@ -53,8 +53,8 @@ export function DsmCompareChrome({
         }
       />
       {filled < 2 && starters.length ? (
-        <div className="flex flex-wrap gap-2" data-testid="dsm-compare-starters">
-          <span className="sr-only">Common comparison starters</span>
+        <div className="flex flex-wrap items-center gap-2" data-testid="dsm-compare-starters">
+          <span className="text-2xs font-bold text-[color:var(--text-muted)]">Or start from a common set</span>
           {starters.map((chip) => (
             <Link
               key={chip.id}
