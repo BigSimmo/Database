@@ -142,7 +142,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Browse ranked clinical sources and their traceability.",
     bestFor: "Source quality and provenance review",
     detail: "Review source identity, quality bands, locations, publishers, topics, and application usage.",
-    href: "/sources",
+    href: appModeHomeHref("sources"),
     area: "reference",
     status: "ready",
     sourceBacked: true,
