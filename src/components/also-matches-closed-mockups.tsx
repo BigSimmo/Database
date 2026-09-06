@@ -356,13 +356,25 @@ function DirectionPopover({ density }: { density: Density }) {
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
-function Frame({ label, width, children }: { label: string; width: string; children: ReactNode }) {
+// The three device widths are fixed, so they are classes rather than an inline
+// `style={{ maxWidth }}`. check:design-drift-ratchet caps inline style sites
+// repo-wide, and a static width is a BYPASS under
+// docs/design-system/drift-measurement-2026-09-02.md — the utility fits.
+const FRAME_WIDTH = {
+  desktop: "max-w-full",
+  tablet: "max-w-3xl", // 48rem / 768px
+  phone: "max-w-[24.375rem]", // 390px
+} as const;
+
+function Frame({ label, width, children }: { label: string; width: keyof typeof FRAME_WIDTH; children: ReactNode }) {
   return (
     <div className="min-w-0">
       <p className="mb-2 text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{label}</p>
       <div
-        className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--background)] p-3 sm:p-4"
-        style={{ maxWidth: width }}
+        className={cn(
+          "overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--background)] p-3 sm:p-4",
+          FRAME_WIDTH[width],
+        )}
       >
         {children}
       </div>
@@ -452,16 +464,16 @@ export function AlsoMatchesClosedMockupsPage() {
           idea="No tray at all when closed. The disclosure becomes a pill on the row that already holds Filter, reading `Also matches · 3`. Opening unfolds the same tray directly beneath that row, above the result cards."
           cost="Quieter than a full-width band, so it relies on the count to earn the press. Adds a third control to a row that already carries Filter and the sort pair."
         >
-          <Frame label="Desktop · closed, then click the chip" width="100%">
+          <Frame label="Desktop · closed, then click the chip" width="desktop">
             <DirectionChip density="desktop" />
           </Frame>
-          <Frame label="Desktop · shown open for comparison" width="100%">
+          <Frame label="Desktop · shown open for comparison" width="desktop">
             <DirectionChip density="desktop" startOpen />
           </Frame>
-          <Frame label="Tablet · 768px" width="48rem">
+          <Frame label="Tablet · 768px" width="tablet">
             <DirectionChip density="tablet" />
           </Frame>
-          <Frame label="Phone · 390px" width="24.375rem">
+          <Frame label="Phone · 390px" width="phone">
             <DirectionChip density="phone" />
           </Frame>
         </Study>
@@ -473,13 +485,13 @@ export function AlsoMatchesClosedMockupsPage() {
           idea="Keep the tray, keep the header exactly as it looks today, and simply let it collapse at every width instead of only on phones. The smallest possible change to shipped code."
           cost="Closed, it is still a full-width band with a hairline rule running across it — roughly 44px of chrome that says almost nothing. On a wide desktop that empty rule is conspicuous."
         >
-          <Frame label="Desktop · closed, then click the row" width="100%">
+          <Frame label="Desktop · closed, then click the row" width="desktop">
             <DirectionTray density="desktop" />
           </Frame>
-          <Frame label="Tablet · 768px" width="48rem">
+          <Frame label="Tablet · 768px" width="tablet">
             <DirectionTray density="tablet" />
           </Frame>
-          <Frame label="Phone · 390px, unchanged from today" width="24.375rem">
+          <Frame label="Phone · 390px, unchanged from today" width="phone">
             <DirectionTray density="phone" />
           </Frame>
         </Study>
@@ -491,10 +503,10 @@ export function AlsoMatchesClosedMockupsPage() {
           idea="Same chip trigger as B, but the panel floats over the results instead of pushing them down, so nothing below it moves when it opens or closes."
           cost="A new overlay pattern for a low-stakes suggestion surface. Needs focus trapping, Escape, outside-click dismissal and edge repositioning, and it covers the first row of results while open, which is the content the search was for."
         >
-          <Frame label="Desktop · click the chip, results stay put" width="100%">
+          <Frame label="Desktop · click the chip, results stay put" width="desktop">
             <DirectionPopover density="desktop" />
           </Frame>
-          <Frame label="Tablet · 768px" width="48rem">
+          <Frame label="Tablet · 768px" width="tablet">
             <DirectionPopover density="tablet" />
           </Frame>
         </Study>
