@@ -307,6 +307,48 @@ test.describe("Header element overlap coverage", () => {
     );
   });
 
+  // The mode-home Prompts rail must stay ONE scrolling line at every sm+ width.
+  // It was a single line only across 640-1279.98px, so above 1280px the chips
+  // were free to wrap. Fifteen modes hid that because their three prompts fit
+  // the rail; Specifiers' did not, so its home alone stood 39px taller than the
+  // stack the reserve token is sized for. Widths chosen either side of the old
+  // 1279.98px boundary, and Specifiers is named because it is the mode whose
+  // prompt copy actually overflows.
+  test("mode-home prompt rails stay on one line above the old tablet boundary", async ({ page }) => {
+    await mockDemoDashboard(page);
+
+    for (const width of [1280, 1920]) {
+      await page.setViewportSize({ width, height: 950 });
+      for (const mode of ["specifiers", "forms", "answer"]) {
+        const label = `/?mode=${mode} @ ${width}px`;
+        await page.goto(`/?mode=${mode}`, { waitUntil: "domcontentloaded" });
+        await expect(async () => {
+          await expect(page.locator("header#search")).toHaveCount(1);
+          await expect(page.getByTestId("smart-search-prompt-row")).toBeVisible();
+        }).toPass({ timeout: 30_000 });
+
+        const geometry = await page.evaluate(() => {
+          const slot = document.getElementById("mode-home-desktop-composer-slot");
+          const chips = slot?.querySelector('[data-testid="smart-search-prompt-row"] .answer-suggestion-chips');
+          if (!slot || !chips) return null;
+          const rows = new Set([...chips.children].map((chip) => Math.round(chip.getBoundingClientRect().top)));
+          return {
+            chipRows: rows.size,
+            chipCount: chips.children.length,
+            composerHeight: Math.round(slot.getBoundingClientRect().height),
+          };
+        });
+
+        expect(geometry, `${label}: home composer and prompt rail must render`).not.toBeNull();
+        expect(geometry!.chipCount, `${label}: the rail must carry prompts to be worth measuring`).toBeGreaterThan(1);
+        expect(geometry!.chipRows, `${label}: prompt chips must share one row`).toBe(1);
+        // 160px is the settled stack every mode home shares: 24px ticker line,
+        // the pill, gaps, the one-line rail and the privacy line.
+        expect(geometry!.composerHeight, `${label}: home composer must be the shared 160px stack`).toBe(160);
+      }
+    }
+  });
+
   test("tablet and desktop result views render the compact pill alone in every mode", async ({ page }) => {
     await mockDemoDashboard(page);
 
