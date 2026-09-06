@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f0f0e899-1766-42d4-9833-6c3a935952c3",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#77NJE2",
+    "outcome": "Closed 2026-09-06 as a duplicate of #1M0J6D, which records the same shallow-clone failure in the same two suites (tests/rag-plan-package-parity.test.ts and tests/clinical-hazard-controls.test.ts) with the measured evidence. The remedy remains tracked separately and correctly as the task #FP62K4. Both added 2026-09-02; this row carried no detail.",
+    "baseRowFingerprint": "a16bc0eef8980f971e3c19ed8fb57e87c1c275c53cac0f7ed8e2d804a1b6d817"
+  }
+}

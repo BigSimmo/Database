@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d02b798e-41ed-42a2-971a-893420d66d18",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#2VX8AZ",
+    "outcome": "Closed 2026-09-06 as a duplicate of #GCTFD7. Both describe the same undeclared CSS custom properties leaving the same two ward-board controls (.awayButton and .leavingSelect in board/board.module.css) without background or border. Both were added 2026-09-02; #GCTFD7 carries the full detail and this row carried none.",
+    "baseRowFingerprint": "aa531152179ea44b6274a4f2e0c7ac367a624965e147bddeca847abceb43caf7"
+  }
+}
