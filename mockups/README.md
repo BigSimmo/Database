@@ -219,6 +219,7 @@ note builder. Each draws its own desktop and phone frames and carries the real
 | Route                        | Status                                                                                                                                                    |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `also-matches-accents`       | Chosen design — records the picked "also matches" accent treatment.                                                                                       |
+| `also-matches-closed`        | Active study — three directions for closing the "also matches" tray on tablet and desktop; no recorded winner.                                            |
 | `verification-notice-subtle` | Active study, no recorded winner.                                                                                                                         |
 | `warning-consolidation`      | Active study — first pass on consolidating warning lines.                                                                                                 |
 | `warning-line`               | Active study — second pass answering a narrower, different brief (words only, no icon/border/tint); not a replacement for the first pass.                 |
