@@ -390,20 +390,47 @@ describe("Sources method and record", () => {
   it("publishes every weight, threshold and limitation on Method", () => {
     render(<SourcesMethodPage />);
     expect(screen.getByRole("heading", { level: 1, name: "Method" })).toHaveClass("sr-only");
-    expect(screen.getByText("Accuracy assurance")).toBeVisible();
-    expect(screen.getByText("25 points")).toBeVisible();
-    expect(screen.getByText(/A · Preferred.*85–100/)).toBeVisible();
-    expect(screen.getByText(/Excluded.*before.*score/i)).toBeVisible();
-    expect(screen.getByText(/Australian applicability is bounded/i)).toBeVisible();
-    expect(screen.getByText(/Missing fields remain unknown/i)).toBeVisible();
+
+    // Every dimension, with the points read from the scoring weights rather than
+    // re-typed here — a re-weighting that missed the page would fail this.
+    const dimensions = screen.getByRole("region", { name: "Rating dimensions" });
+    for (const [label, points] of [
+      ["Accuracy assurance", SOURCE_RATING_WEIGHTS.accuracyAssurance],
+      ["Reliability", SOURCE_RATING_WEIGHTS.reliability],
+      ["Evidence quality", SOURCE_RATING_WEIGHTS.evidenceQuality],
+      ["Currency", SOURCE_RATING_WEIGHTS.currency],
+      ["Australian applicability", SOURCE_RATING_WEIGHTS.australianApplicability],
+      ["Traceability", SOURCE_RATING_WEIGHTS.traceability],
+    ] as const) {
+      expect(within(dimensions).getByText(label)).toBeVisible();
+      expect(within(dimensions).getAllByText(`${points} points`).length).toBeGreaterThan(0);
+    }
+
+    // Every published threshold, and the two bands that are not reached by score.
+    const bands = screen.getByRole("region", { name: "Quality bands" });
+    expect(within(bands).getByText("85–100")).toBeVisible();
+    expect(within(bands).getByText("70–84")).toBeVisible();
+    expect(within(bands).getByText("50–69")).toBeVisible();
     expect(
-      screen.getByText(
+      within(bands).getByText(/Below 50, incomplete metadata, or material identity or verification uncertainty/i),
+    ).toBeVisible();
+    expect(
+      within(bands).getByText(/Applied before any score when lifecycle or governance rules reject/i),
+    ).toBeVisible();
+
+    // Every limitation, including the governance disclaimer.
+    const limits = screen.getByRole("region", { name: "Boundaries and missing data" });
+    expect(within(limits).getByText(/Australian applicability is bounded/i)).toBeVisible();
+    expect(within(limits).getByText(/Missing fields remain unknown/i)).toBeVisible();
+    expect(
+      within(limits).getByText(
         /Missing publisher, version, dates, jurisdiction, evidence type or validation.*D · Review required/i,
       ),
     ).toBeVisible();
-    expect(screen.getByText(/past expiry.*no current currency credit/i)).toBeVisible();
-    expect(screen.getByText(/identified replacement.*excluded/i)).toBeVisible();
-    expect(screen.getByText(/not RAG relevance or patient-specific guidance/i)).toBeVisible();
+    expect(within(limits).getByText(/past expiry.*no current currency credit/i)).toBeVisible();
+    expect(within(limits).getByText(/identified replacement.*excluded/i)).toBeVisible();
+    expect(within(limits).getByText(/not RAG relevance or patient-specific guidance/i)).toBeVisible();
+
     const definitions = screen.getByRole("region", { name: "Catalogue status definitions" });
     for (const label of [
       "Current",
@@ -468,9 +495,25 @@ describe("Sources method and record", () => {
   it("routes each quality band on Method to the sources carrying it", () => {
     render(<SourcesMethodPage />);
 
-    expect(screen.getByRole("link", { name: "D · Review required" })).toHaveAttribute("href", "/sources/search?band=D");
+    for (const [band, label] of [
+      ["A", "A · Preferred"],
+      ["B", "B · Strong"],
+      ["C", "C · Supplementary"],
+      ["D", "D · Review required"],
+      ["excluded", "Excluded"],
+    ] as const) {
+      expect(screen.getByRole("link", { name: `Browse ${label}` })).toHaveAttribute(
+        "href",
+        `/sources/search?band=${band}`,
+      );
+    }
+
     // The definitions themselves stay prose; a link is not wrapped around one.
-    expect(screen.getByText(/D · Review required · below 50/)).toBeVisible();
+    const reviewRequired = screen.getByText(
+      /Below 50, incomplete metadata, or material identity or verification uncertainty/i,
+    );
+    expect(reviewRequired).toBeVisible();
+    expect(reviewRequired.closest("a")).toBeNull();
   });
 
   it("turns the record's topics and publisher into routes back into the catalogue", async () => {
