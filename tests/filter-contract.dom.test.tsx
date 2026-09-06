@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { installMatchMediaStub } from "./setup/jsdom.setup";
+
 import {
   ResultFilterSheet,
   resultFilterFacetGroup,
@@ -209,5 +211,100 @@ describe("filter contract and density rendering", () => {
 
     fireEvent.click(radioPres);
     expect(onChange).toHaveBeenCalledWith("presentations");
+  });
+});
+
+describe("presentation: rail versus anchored panel (docs/filter-contract.md §5b)", () => {
+  const lens = (onChange = vi.fn()) =>
+    resultFilterGroup({
+      id: "kind",
+      label: "Show",
+      value: "all",
+      options: [
+        { value: "all", label: "All", hint: "8" },
+        { value: "presentations", label: "Presentations", hint: "2" },
+      ],
+      onChange,
+    });
+
+  function renderWithAnchor(overrides: { onClose?: () => void } = {}) {
+    const anchor = document.createElement("button");
+    anchor.textContent = "Filter";
+    document.body.append(anchor);
+    const anchorRef = { current: anchor };
+    const result = render(
+      <ResultFilterSheet
+        open={true}
+        onClose={overrides.onClose ?? vi.fn()}
+        anchorRef={anchorRef}
+        panelId="anchored-panel"
+        testId="anchored-panel"
+        title="Filter differentials"
+        groups={[lens()]}
+      />,
+    );
+    return { anchor, ...result };
+  }
+
+  it("keeps the modal rail when a mode passes no anchor, so the other call sites are unchanged", () => {
+    render(
+      <ResultFilterSheet
+        open={true}
+        onClose={vi.fn()}
+        panelId="rail-panel"
+        testId="rail-panel"
+        title="Filter results"
+        groups={[lens()]}
+      />,
+    );
+
+    // `Sheet` is the modal presentation: it traps focus and inerts the page
+    // behind it, which is what `aria-modal` announces.
+    expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
+  });
+
+  it("opens a NON-modal panel when a mode names an anchor, so the results stay reachable", () => {
+    renderWithAnchor();
+
+    const panel = screen.getByTestId("anchored-panel");
+    expect(panel).toHaveAttribute("role", "dialog");
+    // The whole point of leaving the rail behind: the list being filtered is
+    // still readable and operable underneath.
+    expect(panel).not.toHaveAttribute("aria-modal");
+    // The trigger's `aria-controls` points here, so the id has to survive the
+    // change of container.
+    expect(panel).toHaveAttribute("id", "anchored-panel");
+    expect(within(panel).getByRole("radio", { name: "All (8)" })).toBeInTheDocument();
+  });
+
+  it("falls back to the bottom sheet on a phone even when an anchor is supplied", () => {
+    // 400% zoom lands here too: it reduces the viewport to roughly 320 CSS px,
+    // so the anchored panel never has to survive that width.
+    installMatchMediaStub(true);
+    renderWithAnchor();
+
+    expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
+  });
+
+  it("dismisses on Escape and on a pointer outside the panel", () => {
+    const onClose = vi.fn();
+    renderWithAnchor({ onClose });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    fireEvent.pointerDown(document.body);
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats a pointer inside the panel, or on the trigger itself, as not a dismissal", () => {
+    const onClose = vi.fn();
+    const { anchor } = renderWithAnchor({ onClose });
+
+    fireEvent.pointerDown(screen.getByTestId("anchored-panel"));
+    // The anchor is in the dismissable set so the trigger can close the panel
+    // by its own toggle rather than being closed underneath itself first.
+    fireEvent.pointerDown(anchor);
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

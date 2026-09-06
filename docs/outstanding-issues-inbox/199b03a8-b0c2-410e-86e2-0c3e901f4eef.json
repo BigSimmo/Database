@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "199b03a8-b0c2-410e-86e2-0c3e901f4eef",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#V6CDEV",
+    "detail": "RECONSTRUCTED 2026-09-06 from the module comment at src/lib/caring-contacts/episode.ts:70-90, which states it directly: 'Neither store's createPlan validates a non-blank name, and the stored column is not null with no CHECK against the empty string, so ``''`` is a legal value that means two different things at once.' The only thing enforcing a non-blank name is z.string().min(1) in the plans API route, so any writer that does not go through that route can store a blank name in either store.\n\nWHY IT IS NOT COSMETIC. The repository uses '' as the sentinel for 'cleared by a policy write no ordinary caller can produce'. Because createPlan never established that precondition for patientName, the same '' carries two meanings, and #J7PZQP (2026-09-02) records the consequence: the patient overview read a blank name as a completed clearance and told a clinician, in as many words, that a first-contact reason had been given, that a clearance had since removed it, and that a clearance is not reversible. All three were false, about a live record.\n\nNEXT ACTION: enforce non-blank in both stores' createPlan rather than only at the route, and add a CHECK constraint against the empty string on the column, so the sentinel keeps one meaning. Consider whether P3 still fits given the false-statement-to-a-clinician path above.",
+    "baseRowFingerprint": "306922905454899037a4092795f7bbc5fd6c41b9d3644762bbfc2da6e556dcb2"
+  }
+}

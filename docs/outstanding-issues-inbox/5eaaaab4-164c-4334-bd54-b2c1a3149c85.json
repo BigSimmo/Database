@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5eaaaab4-164c-4334-bd54-b2c1a3149c85",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#ACWXN6",
+    "detail": "RECONSTRUCTED 2026-09-06, and corroborated the same day on PR #2668. The pattern is that a review agent which cannot run reports a NEUTRAL or informational result rather than a failure, so a PR presents as having been reviewed when no review happened. Observed on #2668: the Cursor Approval Agent and the Cursor Security Agent both completed with conclusion 'neutral'; Bugbot posted 'Bugbot couldn't run - usage limit reached'; the Codex connector posted 'You have reached your Codex usage limits for code reviews'; and CodeRabbit posted that the repository receives no automatic review because it has fewer than 10 stars. Four of the repository's review surfaces were therefore silently absent on a single PR, none of them as a failing check.\n\nWHY IT MATTERS BEYOND COST: a neutral conclusion satisfies branch protection, so on a clinical-risk change the absence of review is invisible at merge time. NEXT ACTION: decide whether an unavailable review agent should block a clinical-risk PR or merely be reported, and if it should block, make the absence a failing required check rather than a neutral one. The CodeRabbit star-count gate is a separate and already-tracked premise failure (#3F76JZ).",
+    "baseRowFingerprint": "739dd5eb00ad3317cefe334749914ca8c44abe5d69a6a13f1602226517e961ca"
+  }
+}
