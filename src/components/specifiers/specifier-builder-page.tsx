@@ -152,6 +152,16 @@ function wordingSegment(record: SpecifierRecord) {
   return lowerFirst(record.name);
 }
 
+// The step bar spans base plus one step per specifier group, so 2-5 columns. Literal
+// class names keep this on the design-token grid utilities rather than an inline
+// gridTemplateColumns style, which the drift ratchet counts as a token bypass.
+const stepColumnsClass: Record<number, string> = {
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+  5: "grid-cols-5",
+};
+
 function StepProgress({
   steps,
   active,
@@ -166,8 +176,10 @@ function StepProgress({
   return (
     <ol
       aria-label="Specifier builder steps"
-      className="grid gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1.5"
-      style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+      className={cn(
+        "grid gap-1 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1.5",
+        stepColumnsClass[steps.length] ?? "grid-cols-4",
+      )}
     >
       {steps.map((step, index) => {
         const isActive = active === step.id;
