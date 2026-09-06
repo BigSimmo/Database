@@ -3644,6 +3644,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/staging-shutdown-and-repo-review-handover-2026-09-06.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/staging-tenancy-release-evidence.md",
         "section": "root",
         "catalogued": true
@@ -6173,8 +6178,8 @@
       }
     ],
     "counts": {
-      "documents": 903,
-      "catalogued": 590,
+      "documents": 904,
+      "catalogued": 591,
       "uncatalogued": 313,
       "sections": 22
     }

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5a085bc0-5c7c-40e9-8848-f736e2501f36",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#AGBNBV",
+    "detail": "RECONSTRUCTED AND CONFIRMED 2026-09-06 by reading scripts/ledger-inbox.mjs. --dry-run is parsed once, at line 781, inside the RECONCILE path only, and is consulted at lines 801, 839 and 841. No other subcommand reads it. So 'issues:add -- --dry-run', and likewise done, update, queue and cancel, silently write a real immutable request file into docs/outstanding-issues-inbox/ while the operator believes nothing was written. The failure is silent in both directions: no warning that the flag is unsupported, and no output distinguishing a rehearsal from a real write. NEXT ACTION: either honour --dry-run in the shared request-writing helper (print the request that would be written and exit 0 without writing), or reject the flag with a non-zero exit on the subcommands that do not support it. Rejecting is the safer of the two, because a flag that is accepted and ignored is what caused this. Verify by running an add with --dry-run and confirming the inbox file count is unchanged.",
+    "baseRowFingerprint": "37f5c0bd00daf7f6f5592c38f09d12f04103b8564e168df70c43b6a123b58d0a"
+  }
+}
