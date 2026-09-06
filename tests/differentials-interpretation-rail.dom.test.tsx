@@ -126,7 +126,7 @@ describe("differentials interpretation rail", () => {
     expect(items).toEqual([
       "ECG / QT assessmentShared by 2 differentials",
       "Urea, electrolytes, creatinineShared by 2 differentials",
-      "Thyroid function testsAcute dystonia",
+      "Thyroid function testsFrom Acute dystonia",
     ]);
   });
 

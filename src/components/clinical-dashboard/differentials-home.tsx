@@ -807,7 +807,7 @@ function NextStepsCard({ results }: { results: DifferentialResult[] }) {
             <div className="min-w-0">
               <p className="text-sm font-bold leading-5 text-[color:var(--text-heading)]">{step.text}</p>
               <p className="mt-0.5 truncate text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
-                {step.sources.length > 1 ? `Shared by ${step.sources.length} differentials` : step.sources[0]}
+                {step.sources.length > 1 ? `Shared by ${step.sources.length} differentials` : `From ${step.sources[0]}`}
               </p>
             </div>
           </li>
