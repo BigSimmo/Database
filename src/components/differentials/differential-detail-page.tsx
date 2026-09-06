@@ -997,8 +997,8 @@ function DiagnosisActions({
  * The `sm+` section rail.
  *
  * Shape borrowed wholesale from `SegmentedControl` — same inset well, radius,
- * gap and raised selected pill — so this reads as the one-of-N rail the rest of
- * the app already uses, rather than a sixth bespoke tab treatment. What it is
+ * gap and accent-soft selected segment — so this reads as the one-of-N rail the
+ * rest of the app already uses, rather than a sixth bespoke tab. What it is
  * NOT is a `SegmentedControl`: that primitive is a `radiogroup`, and these
  * buttons own labelled panels, so the ARIA tabs pattern is the correct
  * semantic and is kept exactly as it was.
