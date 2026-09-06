@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "9b82c2afa0612733247261d31eed1ea2d4bc2fab",
-    "committed_at": "2026-09-06T08:05:29+00:00"
+    "sha": "b6f749f9b07db8b1032d1e1557c393d18ccad85c",
+    "committed_at": "2026-09-06T09:06:08+00:00"
   },
   "routes": {
     "modes": [
@@ -3634,16 +3634,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/site-map.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
-        "path": "docs/site-map.md",
-        "section": "root",
-        "catalogued": true
-      },
-      {
         "path": "docs/source-governance-refresh-worklist-2026-07-22.md",
         "section": "root",
         "catalogued": true
@@ -6193,8 +6183,8 @@
       }
     ],
     "counts": {
-      "documents": 906,
-      "catalogued": 593,
+      "documents": 904,
+      "catalogued": 591,
       "uncatalogued": 313,
       "sections": 22
     }
