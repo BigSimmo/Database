@@ -5,16 +5,17 @@ import { ArrowRightLeft, Plus, Search, X } from "lucide-react";
 
 import type { ComparePhoneLayout, CompareSlot, CompareStarterChip } from "@/components/compare/types";
 import { usePhoneMedia } from "@/components/compare/use-phone-media";
+import { compareSlotBadgeBase, compareSlotBadgeClass } from "@/components/compare/compare-slot-badge";
 import { cn } from "@/components/ui-primitives";
 
-/** Shared A/B/C identity colours for compare surfaces — soft tint, never a solid block or edge strip. */
-export function compareSlotBadgeClass(index: number, filled = true) {
-  if (!filled)
-    return "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]";
-  if (index === 0)
-    return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
-  if (index === 1) return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
-  return "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]";
+/**
+ * Slot columns follow the slot count, so three slots fill a row of three and four
+ * fill two rows of two. A fixed `lg:grid-cols-3` orphaned the fourth tile alone.
+ */
+function slotGridColumns(count: number) {
+  if (count >= 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
+  if (count === 3) return "grid-cols-1 sm:grid-cols-3";
+  return "grid-cols-1 sm:grid-cols-2";
 }
 
 function CompareSlotTile({
@@ -57,7 +58,7 @@ function CompareSlotTile({
       >
         <span
           className={cn(
-            "grid shrink-0 place-items-center rounded-full border font-extrabold",
+            compareSlotBadgeBase,
             compact ? "h-7 w-7 text-2xs sm:h-8 sm:w-8 sm:text-xs" : "h-8 w-8 text-xs",
             compareSlotBadgeClass(index, filled),
           )}
@@ -67,8 +68,9 @@ function CompareSlotTile({
         <span className="min-w-0">
           <strong
             className={cn(
-              "block truncate",
-              compact ? "text-sm sm:text-base" : "text-base",
+              // No `block` here: `display` and `line-clamp` are separate merge
+              // groups, so a stray `block` silently disables the clamp.
+              compact ? "line-clamp-3 text-sm sm:line-clamp-2 sm:text-base" : "line-clamp-2 text-base",
               filled ? "text-[color:var(--text-heading)]" : "font-semibold text-[color:var(--text-muted)]",
             )}
           >
@@ -229,13 +231,16 @@ export function CompareSlotStrip({
               ? // Phone: a snap rail. From `sm` it relaxes into the same grid the
                 // default layout uses, so desktop never renders narrow, sideways
                 // scrolling slot cards with no room for their titles.
-                "flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:grid-cols-2 sm:gap-2 sm:overflow-visible sm:pb-0 lg:grid-cols-3 [&::-webkit-scrollbar]:hidden"
+                cn(
+                  "flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:gap-2 sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden",
+                  slotGridColumns(slots.length),
+                )
               : "grid gap-2",
             !compactRail &&
               (pair
                 ? // Stack the pair on phones — a 3-column split truncates both titles to a few characters.
                   "grid-cols-1 sm:grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)]"
-                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"),
+                : slotGridColumns(slots.length)),
           )}
         >
           {slots.map((slot, index) => (
