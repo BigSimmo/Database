@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "299846eb-d46d-4e3c-943b-3da89741a09f",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#93Y88G",
+    "outcome": "Closed 2026-09-06 as a duplicate of #FE8BFA. Both describe the same 'as unknown as BedRelease' cast at tests/ward-release-band-day-boundary.test.ts:34; this row's 'three phantom and six missing fields' and #FE8BFA's '9 discrepancies' are the same count. Both added 2026-09-02; #FE8BFA carries the detail and this row carried none.",
+    "baseRowFingerprint": "9af2721e86c5d327022c56f2175d08de04d2a4c9ad0bd5133200b9a535764fe4"
+  }
+}
