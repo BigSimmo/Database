@@ -2074,6 +2074,7 @@
       "directImportFiles": [
         "src/components/differentials/differential-detail-page.tsx",
         "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/ui/citation.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
@@ -2081,6 +2082,7 @@
       "productImportFiles": [
         "src/components/differentials/differential-detail-page.tsx",
         "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
       ],

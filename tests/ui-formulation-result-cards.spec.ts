@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
   await stubZeroTouchPoints({ page });
 });
 
-test("separates mechanism cards and keeps the primary action in the card footer", async ({ page }) => {
+test("separates mechanism cards and keeps the primary actions on the card header row", async ({ page }) => {
   for (const viewport of [
     { width: 320, height: 720 },
     { width: 1440, height: 1000 },
@@ -42,57 +42,75 @@ test("separates mechanism cards and keeps the primary action in the card footer"
 
     const cards = page.locator("[data-formulation-result-card]");
     const topMatch = page.getByTestId("formulation-top-match");
-    const actionFooter = topMatch.locator("[data-formulation-card-action]");
-    const action = actionFooter.getByRole("link", { name: "Open Worry" });
+    const actionGroup = topMatch.locator("[data-formulation-card-action]");
+    const action = actionGroup.getByRole("link", { name: "Open Worry" });
+    const secondaryAction = actionGroup.getByRole("link", { name: "Use Worry in formulation" });
 
     await expect(cards.first()).toBeVisible();
     expect(await cards.count()).toBeGreaterThan(1);
     await expect(action).toBeVisible();
+    await expect(secondaryAction).toBeVisible();
 
     const geometry = await topMatch.evaluate((card) => {
       const detailsElement = card.querySelector<HTMLElement>("[data-formulation-card-details]");
-      const footerElement = card.querySelector<HTMLElement>("[data-formulation-card-action]");
-      const actionElement = footerElement?.querySelector<HTMLElement>("a");
+      const headerElement = card.querySelector<HTMLElement>("[data-formulation-card-header]");
+      const actionElement = card.querySelector<HTMLElement>("[data-formulation-card-action]");
+      const primaryElement = actionElement?.querySelector<HTMLElement>("a:last-of-type");
+      const secondaryElement = actionElement?.querySelector<HTMLElement>("a:first-of-type");
       const accentElement = card.querySelector<HTMLElement>("[data-formulation-card-accent]");
       const nextCard = card.nextElementSibling as HTMLElement | null;
-      if (!detailsElement || !footerElement || !actionElement || !accentElement || !nextCard) {
+      if (
+        !detailsElement ||
+        !headerElement ||
+        !actionElement ||
+        !primaryElement ||
+        !secondaryElement ||
+        !accentElement ||
+        !nextCard
+      ) {
         throw new Error("Expected complete formulation result-card structure");
       }
 
       const cardRect = card.getBoundingClientRect();
       const detailsRect = detailsElement.getBoundingClientRect();
-      const footerRect = footerElement.getBoundingClientRect();
       const actionRect = actionElement.getBoundingClientRect();
+      const primaryRect = primaryElement.getBoundingClientRect();
+      const secondaryRect = secondaryElement.getBoundingClientRect();
       const nextCardRect = nextCard.getBoundingClientRect();
       const cardStyle = getComputedStyle(card);
       const accentStyle = getComputedStyle(accentElement);
 
       return {
-        actionHeight: actionRect.height,
-        actionWidth: actionRect.width,
         accentBackground: accentStyle.backgroundColor,
+        actionBottom: actionRect.bottom,
+        actionGroupWidth: actionRect.width,
         cardBottom: cardRect.bottom,
         cardRadius: Number.parseFloat(cardStyle.borderRadius),
         cardShadow: cardStyle.boxShadow,
         cardWidth: cardRect.width,
         detailsBottom: detailsRect.bottom,
-        footerBottom: footerRect.bottom,
-        footerTop: footerRect.top,
+        detailsTop: detailsRect.top,
+        primaryHeight: primaryRect.height,
+        secondaryHeight: secondaryRect.height,
         nextCardGap: nextCardRect.top - cardRect.bottom,
       };
     });
 
-    expect(geometry.detailsBottom).toBeLessThanOrEqual(geometry.footerTop + 1);
-    expect(Math.abs(geometry.cardBottom - geometry.footerBottom)).toBeLessThanOrEqual(1);
-    expect(geometry.actionHeight).toBeGreaterThanOrEqual(47);
+    // The action row was a footer band of its own, which cost a full card row
+    // per result to hold one control the heading already linked to. It now sits
+    // on the header row, and the details band closes the card.
+    expect(geometry.actionBottom).toBeLessThanOrEqual(geometry.detailsTop + 1);
+    expect(Math.abs(geometry.cardBottom - geometry.detailsBottom)).toBeLessThanOrEqual(1);
+    expect(geometry.primaryHeight).toBeGreaterThanOrEqual(47);
+    expect(geometry.secondaryHeight).toBeGreaterThanOrEqual(47);
     expect(geometry.cardRadius).toBeGreaterThanOrEqual(12);
     expect(geometry.cardShadow).not.toBe("none");
     expect(geometry.accentBackground).not.toBe("rgba(0, 0, 0, 0)");
     expect(geometry.nextCardGap).toBeGreaterThanOrEqual(16);
     if (viewport.width === 320) {
-      expect(geometry.actionWidth).toBeGreaterThanOrEqual(geometry.cardWidth - 40);
+      expect(geometry.actionGroupWidth).toBeGreaterThanOrEqual(geometry.cardWidth - 40);
     } else {
-      expect(geometry.actionWidth).toBeLessThan(geometry.cardWidth / 2);
+      expect(geometry.actionGroupWidth).toBeLessThan(geometry.cardWidth / 2);
     }
 
     await action.focus();
