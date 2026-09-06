@@ -141,9 +141,11 @@ describe("mobile composer reserve contract", () => {
     expect(shell).toMatch(
       /const heroOwnsPhoneComposer =\s*isStandaloneModeHome && mobileHomeComposerPlacement === "hero";/,
     );
-    expect(shell).toMatch(
-      /heroComposerBreakpoint=\{\s*mobileHomeComposerPlacement === "footer" \|\| isDictionaryCatalogue \? "sm-up" : "all"\s*\}/,
-    );
+    // Dictionary is no longer a term here: the catalogue takes the page composer
+    // slot, so it has no hero slot for a breakpoint to gate and the dead term
+    // only invited the "catalogue is a home" reading that #2639 punished.
+    expect(shell).toMatch(/heroComposerBreakpoint=\{mobileHomeComposerPlacement === "footer" \? "sm-up" : "all"\}/);
+    expect(shell).not.toContain('mobileHomeComposerPlacement === "footer" || isDictionaryCatalogue');
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
     expect(dashboard).toMatch(
       /const heroComposerBreakpoint =\s*showDesktopHomeComposer && \(showSharedHome \|\| activeModeResultKind !== "tools"\) \? "all" : "sm-up";/,

@@ -15,13 +15,14 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 607
-- Distinct ref cells: 387
-- Distinct reviewed heads: 590
-- Date range: `2026-08-12` to `2026-09-04`
+- Records: 608
+- Distinct ref cells: 388
+- Distinct reviewed heads: 591
+- Date range: `2026-08-12` to `2026-09-05`
 
 Records per date, newest first:
 
+- `2026-09-05` — 1 record
 - `2026-09-04` — 4 records
 - `2026-09-03` — 12 records
 - `2026-09-02` — 16 records
@@ -52,6 +53,7 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 
 | Date | Ref | Scope | Outcome | Record |
 | --- | --- | --- | --- | --- |
+| 2026-09-05 | codex/services-canonical-safety-foundation (PR #2609) | Run PR sweep: CI fix + threads + drift | before: PR required FAILURE, BEHIND main, 3 unresolved P1 threads (reg… | [ba25b691](branch-review-records/ba25b691ce838ce9036f5c830d63e16ac0e4f29c650ad06531563ce28bbc6fd4.record.md) |
 | 2026-09-04 | claude/smart-test-selection-q4rt7m | prlanded | merged (#2553) — browser-gate planner (npm run plan:browser), arbiter… | [062e844f](branch-review-records/062e844f787018a9ccdf98bca24e4206614b7403a7e3896b73876b228f885005.record.md) |
 | 2026-09-04 | claude/sources-mode-redesign-73uxmc | prlanded | PR #2593 merged as 0f85b91 (true merge, not squash). Verified by conte… | [2eda1b1f](branch-review-records/2eda1b1f3be7656d04189b1da4434bf497c2cb52408d3f88b451597531b2f3bc.record.md) |
 | 2026-09-04 | claude/psychsift-modes-architecture-378ktx | prlanded | Merged clean via squash (PR #2614). Content diff between the squash co… | [971e2ece](branch-review-records/971e2ece5c225bde1c07b353b9a13c70784f23ae6b02d1ea8397882fff0f85cf.record.md) |
