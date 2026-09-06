@@ -506,7 +506,8 @@ function GlobalStandaloneSearchShellBody({
   // shared composer, so it cannot reserve floating-composer space. Phone
   // clearance is resolved separately from heroOwnsPhoneComposer below.
   // Dictionary catalogue keeps the usual compact phone dock; sm+ still
-  // portals into the in-page slot under mode nav (`desktopHomeComposerSlotId`).
+  // portals into the page-owned slot it renders under its mode nav, so it needs
+  // no floating-composer clearance either.
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue;
   // Most standalone mode homes keep the in-flow hero pill at every width. Tools
   // deliberately has no shared composer. Document viewer routes own their own
@@ -985,21 +986,21 @@ function GlobalStandaloneSearchShellBody({
               desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
               showPhoneSuggestionTickerOnHome={isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)}
               searchComposerVisible={shouldShowSearchComposer}
-              desktopHomeComposerSlotId={
-                isStandaloneModeHome || isDictionaryCatalogue ? modeHomeDesktopComposerSlotId : undefined
-              }
+              desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
+              // The dictionary catalogue is a RESULT view, not a mode home, so it
+              // takes the page slot like every other results page. It was wired to
+              // the home slot back when the two were one slot; once #2639 gated the
+              // ticker, Prompts rail and privacy line on `placement === "desktop-home"`,
+              // that stale wiring was the only reason a catalogue still carried the
+              // hero stack. The slot element itself stays page-owned (rendered by
+              // DictionaryCataloguePage under the mode nav), so the shell renders no
+              // second element with this id — see the slot render site below.
               desktopPageComposerSlotId={
-                shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue
-                  ? desktopPageComposerSlotId
-                  : undefined
+                shouldShowSearchComposer && !isStandaloneModeHome ? desktopPageComposerSlotId : undefined
               }
               // Most standalone homes keep the in-flow hero pill at every width.
               // Tools suppresses the shared composer at every breakpoint.
-              // Dictionary catalogue uses the usual compact phone dock; sm+
-              // still portals into the in-page slot under mode nav.
-              heroComposerBreakpoint={
-                mobileHomeComposerPlacement === "footer" || isDictionaryCatalogue ? "sm-up" : "all"
-              }
+              heroComposerBreakpoint={mobileHomeComposerPlacement === "footer" ? "sm-up" : "all"}
               // Phones: #main-content owns vertical scroll, so hide-on-scroll
               // collapses the top bar to hand space back to content.
               // Tablet and desktop portal search into normal page flow. The outer
@@ -1100,6 +1101,9 @@ function GlobalStandaloneSearchShellBody({
               data-testid="mobile-composer-reserve-pad"
               className="max-sm:pt-[var(--phone-overlay-chrome-h)] max-sm:pb-[var(--mobile-composer-reserve)] sm:flex sm:min-h-full sm:flex-col"
             >
+              {/* The dictionary catalogue renders this same slot id itself, under
+                  its own mode nav and above the Filter band, so the shell must not
+                  emit a second element carrying it — one id, one portal host. */}
               {shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue ? (
                 <DesktopComposerPortalSlot
                   id={desktopPageComposerSlotId}
