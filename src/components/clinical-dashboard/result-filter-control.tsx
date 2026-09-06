@@ -911,9 +911,18 @@ function ResultFilterAnchoredPanel({
     const top = flipAbove
       ? Math.max(edge, anchorBox.top - gap - Math.min(panelBox.height, maxHeight))
       : anchorBox.bottom + gap;
-    // Right-aligned to the trigger, then clamped into the viewport, so the
-    // panel reads as belonging to the control it opened from.
-    const left = Math.max(edge, Math.min(anchorBox.right - panelBox.width, window.innerWidth - edge - panelBox.width));
+    // Left-aligned to the trigger, because that is where the filter control
+    // actually sits in the results band — its left edge is the one the reader's
+    // eye is already on. Right-alignment is the fallback for a trigger far
+    // enough right that left-aligning would overflow, and pinning to the
+    // viewport edge is the last resort. Getting this order wrong is visible:
+    // right-aligning first put the panel hard against the left edge, 187px away
+    // from the control that opened it.
+    let left = anchorBox.left;
+    if (left + panelBox.width > window.innerWidth - edge) {
+      left = Math.min(anchorBox.right - panelBox.width, window.innerWidth - edge - panelBox.width);
+    }
+    left = Math.max(edge, left);
     setPlacement({ left, top, maxHeight });
     setPositioned(true);
   }, [anchorRef]);
@@ -954,7 +963,7 @@ function ResultFilterAnchoredPanel({
         tabIndex={-1}
         style={{ position: "fixed", left: placement.left, top: placement.top, maxHeight: placement.maxHeight }}
         className={cn(
-          "pointer-events-auto flex w-[min(24rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--e2)]",
+          "pointer-events-auto flex w-[min(25rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--e2)]",
           "motion-safe:animate-pop-in motion-reduce:animate-none",
           positioned ? "visible" : "invisible",
         )}
