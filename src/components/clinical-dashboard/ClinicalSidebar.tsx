@@ -163,6 +163,29 @@ const collapsedSidebarControl =
 const collapsedSidebarButton = `grid ${collapsedSidebarControl}`;
 const collapsedSidebarActiveButton =
   "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
+/* The same state on a full-width row, and deliberately the same language: the
+ * rail and the expanded list mark the current mode, so they may not mark it two
+ * different ways.
+ *
+ * What this replaces is a 2px `border-l` in the accent. On a `rounded-lg` row a
+ * left border follows the corner radius, so it rendered as a blue arc
+ * bracketing the row rather than a bar beside it. It was also carrying the
+ * state alone: the fill it came with, `--surface-chrome`, is #f7f9fc in light —
+ * the exact value of the hover fill `--surface-subtle` — so an active row and a
+ * hovered row were otherwise pixel-identical.
+ *
+ * So the row becomes a tinted pill: accent-soft ground, hairline accent border,
+ * heading-weight label, accent icon (kept at the call sites). The label goes to
+ * `--text-heading` rather than the accent, because accent text across a 320px
+ * row reads as a link and the icon already carries the colour.
+ *
+ * The border is a real border, not a ring or a pseudo-element, because that is
+ * what survives forced-colors: a background tint is dropped there, while the
+ * inactive rows' `border border-transparent` reservation stays invisible, so
+ * the active row is the only one the system paints an edge on. `aria-current`
+ * carries the same fact to assistive technology. */
+const sidebarItemActive =
+  "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)] hover:bg-[color:var(--clinical-accent-soft)]";
 /* One divider for the whole rail. Every group separator is the same 32px rule
    with the same 12px of air on both sides, so the rail reads as one column of
    48px controls broken into groups rather than four rules with three spacings. */
@@ -207,16 +230,29 @@ const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border
  * strip. `drawerHeader` therefore pulls itself up over that padding and re-adds
  * the inset as its own, so the ground runs to the physical top of the display:
  * the only boundary left is the edge of the screen, which cannot read as a line.
- * The other end is handled by the falloff, which completes before the divider,
- * so the band dissolves into the menu rather than stopping against it.
  *
- * Two consequences worth keeping in mind before editing either end. The wash now
- * sits behind the system status bar, so its strongest point is diluted by the
- * first stop rather than landing at full strength under the clock — do not
- * collapse those two stops back into one. And the reach (`105%` tall, clear at
- * `74%`) has to survive the notch inset: the mark sits at roughly 70% of the
- * band's height on a device with a notch, so a shorter falloff would leave the
- * lockup on bare surface.
+ * The other end is deliberately the opposite, and the two ends together are the
+ * whole contract: **no stop inside the box may reach `transparent`.** The wash
+ * opens at full strength on the top edge and its last stop is still 24% of the
+ * token at the ellipse's far edge, so every row of pixels in the band carries
+ * colour and the `border-b` is what ends it. Two earlier revisions failed here
+ * in the same way from opposite directions — one completed the falloff early so
+ * the band would dissolve into the menu, the next landed zero exactly on the
+ * bottom edge — and both read on a phone as a header that had run out of colour
+ * rather than one that stops. A gradient may stop against a rule. It may not
+ * stop against nothing.
+ *
+ * The reach (`130% 160%` from `0% 0%`) is the pre-2026-09-06 coverage restored:
+ * a wash that spreads over the whole band rather than pooling behind the mark.
+ * A tighter ellipse is not a safe edit here, because the band is now roughly
+ * twice its original height — it carries the notch inset too, and the lockup
+ * sits at about 70% of that height, so anything shorter strands the mark on
+ * bare surface.
+ *
+ * The top edge is at full strength on purpose, and that is a reversal: an
+ * earlier revision diluted the first stop to keep the wash off the system
+ * status bar. The owner asked twice for more colour up there, which is the
+ * decision that governs — do not reintroduce the dilution as a tidy-up.
  *
  * For the same reason the band carries no `--shadow-inset` bevel: that is an
  * inset 1px top highlight, i.e. a straight line drawn along an edge this ground
@@ -230,7 +266,7 @@ const collapsedSidebarDivider = "my-1.5 h-px w-8 shrink-0 bg-[color:var(--border
  * dialog in the app uses that header, and the case for a compact brand header
  * is specific to a navigation drawer that is already showing its own contents. */
 const brandHeaderGround =
-  "bg-[radial-gradient(95%_105%_at_4%_0%,color-mix(in_oklab,var(--brand-band-wash)_45%,transparent)_0%,var(--brand-band-wash)_16%,transparent_74%),linear-gradient(180deg,var(--surface-lux)_0%,var(--surface-raised)_100%)]";
+  "bg-[radial-gradient(130%_160%_at_0%_0%,var(--brand-band-wash)_0%,color-mix(in_oklab,var(--brand-band-wash)_46%,transparent)_62%,color-mix(in_oklab,var(--brand-band-wash)_24%,transparent)_100%),linear-gradient(180deg,var(--surface-lux)_0%,var(--surface-raised)_100%)]";
 /* Wordmark and strapline as one type pair, so the drawer and the sidebar cannot
  * drift into two different settings of the same two lines.
  *
@@ -321,12 +357,7 @@ function SidebarModesTrigger({
       aria-haspopup="dialog"
       aria-expanded={open}
       data-testid="sidebar-more-modes"
-      className={cn(
-        sidebarItem,
-        "border-l-2 border-transparent",
-        active &&
-          "border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
-      )}
+      className={cn(sidebarItem, "border border-transparent", active && sidebarItemActive)}
     >
       <LayoutGrid
         aria-hidden="true"
@@ -802,11 +833,7 @@ export function ClinicalSidebarContent({
                     onNavigate?.();
                   }}
                   title={recent}
-                  className={cn(
-                    sidebarItem,
-                    index === 0 &&
-                      "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
-                  )}
+                  className={cn(sidebarItem, "border border-transparent", index === 0 && sidebarItemActive)}
                 >
                   <MessageSquare
                     aria-hidden="true"
@@ -864,12 +891,7 @@ export function ClinicalSidebarContent({
                     onNavigate?.();
                   }}
                   aria-current={active ? "page" : undefined}
-                  className={cn(
-                    sidebarItem,
-                    "border-l-2 border-transparent",
-                    active &&
-                      "border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
-                  )}
+                  className={cn(sidebarItem, "border border-transparent", active && sidebarItemActive)}
                 >
                   <Icon
                     aria-hidden="true"
@@ -887,7 +909,6 @@ export function ClinicalSidebarContent({
                 Pin your most-used modes.
               </p>
             ) : null}
-            <span className="my-1 h-px w-full bg-[color:var(--border)]" aria-hidden="true" />
             <SidebarModesTrigger
               variant="expanded"
               active={moreModesActive}
@@ -915,12 +936,7 @@ export function ClinicalSidebarContent({
                     href={item.href}
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
-                    className={cn(
-                      sidebarItem,
-                      "border-l-2 border-transparent",
-                      active &&
-                        "border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
-                    )}
+                    className={cn(sidebarItem, "border border-transparent", active && sidebarItemActive)}
                   >
                     <Icon
                       aria-hidden="true"
