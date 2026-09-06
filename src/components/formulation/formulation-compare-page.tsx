@@ -6,6 +6,7 @@ import { ArrowRight, GitCompareArrows, HelpCircle, Network, Target } from "lucid
 
 import {
   CompareIdsChrome,
+  compareSlotBadgeBase,
   compareSlotBadgeClass,
   pairCompareHref,
   type CompareCatalogItem,
@@ -153,12 +154,7 @@ export function FormulationComparePage({ initialLeft, initialRight }: { initialL
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "grid h-7 w-7 place-items-center rounded-full border text-xs font-extrabold",
-                        compareSlotBadgeClass(index),
-                      )}
-                    >
+                    <span className={cn(compareSlotBadgeBase, compareSlotBadgeClass(index), "h-7 w-7 text-xs")}>
                       {index === 0 ? "A" : "B"}
                     </span>
                     <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{mechanism.name}</h2>
@@ -186,12 +182,7 @@ export function FormulationComparePage({ initialLeft, initialRight }: { initialL
                         index === 1 && "border-t border-[color:var(--border)] sm:border-l sm:border-t-0",
                       )}
                     >
-                      <span
-                        className={cn(
-                          "grid h-7 w-7 place-items-center rounded-full border text-2xs font-extrabold",
-                          compareSlotBadgeClass(index),
-                        )}
-                      >
+                      <span className={cn(compareSlotBadgeBase, compareSlotBadgeClass(index), "h-7 w-7 text-2xs")}>
                         {index === 0 ? "A" : "B"}
                       </span>
                       <span>{body}</span>
