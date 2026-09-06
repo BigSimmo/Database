@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import DeveloperTestHealthPage from "@/app/mockups/development/test-health/page";
 import { QuarantineList } from "@/components/developer-area/hub/quarantine-list";
 import { loadRepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-snapshot";
+import { testHealthCounts } from "@/lib/developer-area/repo-awareness-snapshot-counts";
 
 // PanelPageShell's back control is a ContextualBackLink, which calls
 // next/navigation's useRouter for its history-aware click handler. Outside an
@@ -40,7 +41,7 @@ describe("developer test health page", () => {
   it("shows the quarantined count as its own readable value", () => {
     render(<DeveloperTestHealthPage />);
     expect(screen.getByTestId("developer-test-health-count-quarantined-value")).toHaveTextContent(
-      String(snapshot.test_health.counts.quarantined),
+      String(testHealthCounts(snapshot.test_health).quarantined),
     );
   });
 
