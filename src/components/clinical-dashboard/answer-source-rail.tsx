@@ -45,10 +45,11 @@ import {
  *   this rail and a trackpad swipes it, but a plain desktop mouse has no
  *   horizontal gesture, and every card past the right fade was unreachable
  *   without shift + wheel. `RailPagingControl` is that missing gesture: mouse
- *   only, one end at a time, and gone entirely when the cards already fit. Do
- *   not restore a visible scrollbar here instead — the cross-mode "Also in your
- *   library" rail is the surface that carries `polished-scroll`, and these two
- *   deliberately differ.
+ *   only, one end at a time, and gone entirely when the cards already fit, and
+ *   `useWheelPan` makes an ordinary wheel do the same thing without aiming at a
+ *   button. Do not restore a visible scrollbar here instead — the cross-mode
+ *   "Also in your library" rail is the surface that carries `polished-scroll`,
+ *   and these two deliberately differ.
  * - The `compactCitations` preference collapses the rail to one chip, but the
  *   zero-source case stays worded in every mode — compact must never hide a
  *   missing-source signal.
@@ -74,6 +75,7 @@ export function AnswerSourceRail({
   // Declared before the zero-source early return below, because hook order has to
   // be identical on every render.
   const edges = useRailEdges(scroller, sources.length);
+  useWheelPan(scroller);
   const display = sourceCapsuleDisplay({ sourceCount: sources.length, compact });
 
   if (!sources.length) {
@@ -254,6 +256,49 @@ function useRailEdges(ref: RefObject<HTMLDivElement | null>, cardCount: number) 
   }, [ref, sync, cardCount]);
 
   return edges;
+}
+
+/**
+ * Turn a vertical wheel over the rail into horizontal movement.
+ *
+ * The chevrons make the far cards reachable; this makes reaching them feel
+ * ordinary, because a wheel is what a mouse user already has in their hand.
+ *
+ * The listener is deliberately timid, and each condition below is the difference
+ * between a convenience and a page that fights its reader:
+ *
+ * - **It stands down at both ends.** Without this, a reader scrolling the answer
+ *   with the pointer resting over the sources hits an invisible wall: the page
+ *   stops moving and nothing explains why. Handing the gesture back at the end of
+ *   the rail caps the interception at one rail-width, once.
+ * - **A gesture the device already calls horizontal passes through**, so a
+ *   trackpad's sideways swipe keeps its native behaviour rather than being
+ *   doubled.
+ * - **Ctrl-wheel is pinch-zoom** and belongs to the browser.
+ *
+ * `passive: false` is required — a passive listener may not call
+ * `preventDefault`, and without that the page would scroll vertically at the same
+ * time as the rail moved sideways.
+ */
+function useWheelPan(ref: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey) return;
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      const max = element.scrollWidth - element.clientWidth;
+      if (max <= 0) return;
+      if (event.deltaY < 0 && element.scrollLeft <= 0) return;
+      if (event.deltaY > 0 && element.scrollLeft >= max - 1) return;
+      event.preventDefault();
+      element.scrollLeft += event.deltaY;
+    };
+    // Read live from the element on every event rather than closing over a
+    // measurement, so this needs no dependency on the card list.
+    element.addEventListener("wheel", onWheel, { passive: false });
+    return () => element.removeEventListener("wheel", onWheel);
+  }, [ref]);
 }
 
 /**

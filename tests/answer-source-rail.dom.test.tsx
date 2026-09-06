@@ -681,3 +681,62 @@ describe("AnswerSourceRail desktop paging", () => {
     expect(scrollBy).toHaveBeenLastCalledWith({ left: 240, behavior: "auto" });
   });
 });
+
+/**
+ * Wheel panning.
+ *
+ * The chevrons make the far cards reachable; the wheel makes reaching them feel
+ * ordinary. What these cases actually pin is the restraint: the rail may take the
+ * gesture only while it has somewhere to go, because a reader scrolling the answer
+ * with the pointer over the sources must never hit an invisible wall.
+ */
+function wheel(element: HTMLElement, init: WheelEventInit) {
+  const event = new WheelEvent("wheel", { cancelable: true, ...init });
+  act(() => {
+    element.dispatchEvent(event);
+  });
+  return event;
+}
+
+describe("AnswerSourceRail wheel panning", () => {
+  it("turns a vertical wheel into sideways movement while the rail can still move", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 900, clientWidth: 300 });
+
+    const event = wheel(list, { deltaY: 120 });
+    expect(event.defaultPrevented).toBe(true);
+    expect(list.scrollLeft).toBe(120);
+  });
+
+  it("hands the gesture back at each end, so the page never stalls under the pointer", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 900, clientWidth: 300 });
+    expect(wheel(list, { deltaY: -120 }).defaultPrevented).toBe(false);
+
+    overflowBy(list, { scrollLeft: 600, scrollWidth: 900, clientWidth: 300 });
+    expect(wheel(list, { deltaY: 120 }).defaultPrevented).toBe(false);
+  });
+
+  it("leaves a rail whose cards already fit entirely alone", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 300, clientWidth: 300 });
+
+    expect(wheel(list, { deltaY: 120 }).defaultPrevented).toBe(false);
+  });
+
+  it("does not touch a gesture the device already calls horizontal, or a pinch-zoom", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const list = screen.getByRole("list", { name: "Cited documents" });
+    overflowBy(list, { scrollLeft: 0, scrollWidth: 900, clientWidth: 300 });
+
+    // A trackpad's sideways swipe already scrolls the rail natively; taking it
+    // here would double the movement.
+    expect(wheel(list, { deltaX: 120, deltaY: 10 }).defaultPrevented).toBe(false);
+    // Ctrl-wheel is the browser's zoom.
+    expect(wheel(list, { deltaY: 120, ctrlKey: true }).defaultPrevented).toBe(false);
+  });
+});
