@@ -69,6 +69,42 @@ export const cardInteractive = cn(
 );
 
 /**
+ * Widens a row's existing link to cover the whole row, so a click or tap
+ * anywhere in the row that is not another control opens the result.
+ *
+ * A pseudo-element on the one link already in the row, rather than a second
+ * overlay anchor or a click handler on the container. Three reasons, and all
+ * three are constraints rather than preferences:
+ *
+ * - The row stays a real link, so a tap activates it natively — no synthetic
+ *   events, no `touch-action` plumbing — and long-press "open in new tab" and
+ *   cmd/ctrl-click keep working. A container `onClick` breaks all of that.
+ * - Assistive technology still hears one link per row, named by the result. A
+ *   duplicate anchor would double the length of every screen-reader link list.
+ * - Nothing is nested inside a link, so the row keeps its `<article>`/`<tr>`
+ *   element and its sibling controls stay siblings. `docs/design-system/
+ *   sweep-2026-08-29-structure.md` records that this repo has zero nested
+ *   interactive elements and re-verifies it.
+ *
+ * Three things the caller must do:
+ *
+ * 1. The row container needs `relative` (and `group`, if the row hover-styles
+ *    its children), or the stretch resolves against the wrong ancestor.
+ * 2. Every other control in the row needs `relative z-10`, or it falls under
+ *    the stretch layer and stops being clickable.
+ * 3. Do not paint a focus ring on the pseudo-element. The `:focus-visible`
+ *    rule in `globals.css` is unlayered, so it wins over any `outline-none`
+ *    here, and a second ring would stack — which is exactly what the "focus is
+ *    singular" assertion in `tests/ui-smoke.spec.ts` forbids. Focus stays on
+ *    the link itself, at its own size.
+ *
+ * The pseudo-element paints nothing, so it needs no radius of its own — and a
+ * `rounded-[inherit]` arbitrary value is a raw radius literal that the
+ * design-system contract ratchet counts against the calling file.
+ */
+export const stretchedRowLinkClass = "after:absolute after:inset-0 after:z-0 after:content-['']";
+
+/**
  * The single selected/active encoding.
  *
  * Replaces four: a tinted fill at `/45`, `/50` and `/55`, a `ring-…/35`, and a
