@@ -354,7 +354,16 @@ test.describe("Header element overlap coverage", () => {
 
     for (const width of [820, 1280]) {
       await page.setViewportSize({ width, height: 900 });
-      for (const route of ["/forms/search?q=lithium&run=1", "/services/search?q=crisis&run=1"]) {
+      // Dictionary is in this list because it was the mode that fell out of it:
+      // its catalogue was wired to the mode-home composer slot, so it kept the
+      // hero ticker, Prompts rail and privacy line long after every other result
+      // view had dropped them. Select the slot by id, not by test id — the
+      // dictionary catalogue renders the same slot itself under its mode nav.
+      for (const route of [
+        "/forms/search?q=lithium&run=1",
+        "/services/search?q=crisis&run=1",
+        "/dictionary/search?q=lithium",
+      ]) {
         const label = `${route} @ ${width}px`;
         await page.goto(route, { waitUntil: "domcontentloaded" });
         await expect(async () => {
@@ -373,7 +382,7 @@ test.describe("Header element overlap coverage", () => {
         // The page slot reserves exactly the settled composer height, so no
         // blank band sits between the pill and the results at any sm+ width.
         const geometry = await page.evaluate(() => {
-          const slot = document.querySelector('[data-testid="desktop-page-search-composer-slot"]');
+          const slot = document.getElementById("desktop-page-search-composer-slot");
           const form = slot?.querySelector('form[role="search"]');
           if (!slot || !form) return null;
           return { slot: slot.getBoundingClientRect().height, form: form.getBoundingClientRect().height };
