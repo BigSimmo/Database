@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ff548c82-4411-45be-9244-c9baec0ea43c",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#EV7RMQ",
+    "detail": "INDEPENDENTLY REPRODUCED 2026-09-06 in a Claude Code cloud session, a third occurrence after the two Ward Flow chats of 2026-09-02. 'npx vitest run --reporter=basic' was run to list failing test files and returned NO OUTPUT AT ALL and a zero exit. Nothing in the result distinguished it from a suite with no failures; the run was only recognised as void because the output was expected to contain file names and did not. This is the precise hazard the row describes, and it happened again to a session that had not read this row. It argues for a hard fix rather than documentation: make an unrecognised --reporter value exit non-zero with a message naming the valid reporters, so a void run can never be mistaken for a clean one.",
+    "baseRowFingerprint": "dd51dcd30c6751f4685010e0b3a0166dd8db659ec2276efa06e0f026f59a6b53"
+  }
+}

@@ -20,7 +20,22 @@ function hasText(value: string | null | undefined): value is string {
   return Boolean(value && value.trim().length > 0);
 }
 
+const PRIORITY_FACT_ICONS = {
+  clock: Clock3,
+  authority: UserRound,
+  criteria: Scale,
+  "act-sections": BookOpenText,
+} as const;
+
 function summaryIcon(card: ServiceSummaryCard) {
+  // Match the card id before the prose. The old heuristic searched the title too, so
+  // Form 4C's authority card — whose title reads "Check the official form signature block
+  // and Act sections." — drew the Act-sections book instead of the person.
+  const known = PRIORITY_FACT_ICONS[card.id as keyof typeof PRIORITY_FACT_ICONS];
+  if (known) {
+    const KnownIcon = known;
+    return <KnownIcon className="h-5 w-5" aria-hidden />;
+  }
   const label = `${card.id} ${card.label} ${card.title}`.toLowerCase();
   const Icon =
     label.includes("act-section") || label.includes("act section")
@@ -95,6 +110,21 @@ function hasExtraDetail(card: ServiceSummaryCard, detail: { body: string } | nul
   return body !== (card.title ?? "").trim();
 }
 
+/**
+ * The four cards sit in one stretched grid row, so the card with the most to say sets the
+ * height for all of them. Left alone that reads as three ragged boxes beside a full one:
+ * a two-line clock card printed its text at the top and left 150px of dead space below,
+ * while an interactive card's text floated to the middle because a `<button>` centres its
+ * own content. So the anatomy is fixed in three zones rather than flowed:
+ *
+ *   header    pinned to the top, identical on every card
+ *   body      centred in whatever height the tallest sibling imposes
+ *   footnote  pinned to the bottom, and always occupying a line even when a card has no
+ *             hint to show, so the four baselines agree
+ *
+ * Text stays left-aligned inside that: these are clinical sentences to be read, not stat
+ * tiles to be glanced at, and centred ragged prose is harder to scan.
+ */
 function DetailCardShell({
   card,
   children,
@@ -114,9 +144,22 @@ function DetailCardShell({
           {hasText(card.label) ? card.label.trim() : "Priority fact"}
         </p>
       </div>
-      {children}
-      {footer}
+      <div className="flex min-w-0 flex-1 flex-col justify-center">{children}</div>
+      <CardFootnote>{footer}</CardFootnote>
     </article>
+  );
+}
+
+/**
+ * The bottom line of a card. It renders even with nothing to say, because a card that
+ * drops the line is 1rem shorter in its body zone than its neighbours and the row stops
+ * lining up. The blank stays out of the accessibility tree.
+ */
+function CardFootnote({ children }: { children?: ReactNode }) {
+  return (
+    <p className={cn("mt-auto pt-1 text-2xs font-medium leading-4 sm:pt-1.5", textMuted)}>
+      {children ?? <span aria-hidden>&nbsp;</span>}
+    </p>
   );
 }
 
@@ -162,15 +205,15 @@ function DetailCard({
   }
 
   return (
-    <DetailCardShell
-      card={card}
-      footer={<p className={cn("mt-auto pt-1 text-2xs font-medium leading-4 sm:pt-1.5", textMuted)}>Tap for detail</p>}
-    >
+    <DetailCardShell card={card} footer="Tap for detail">
+      {/* `block`, not `flex-1`: a stretched button centres its own content under the UA
+          stylesheet, which is what made this card's text sit lower than its neighbours'.
+          The shell owns the centring now, so every card resolves it the same way. */}
       <button
         type="button"
         onClick={onOpenDetail}
         aria-haspopup="dialog"
-        className="min-w-0 flex-1 rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="block w-full min-w-0 rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         aria-label={`${label}: ${title}${hasText(card.detail) ? ` — ${card.detail.trim()}` : ""}. Open detail.`}
       >
         {content}
@@ -179,10 +222,24 @@ function DetailCard({
   );
 }
 
+// Full-width inside a three-column track rather than an intrinsically sized pill, so the
+// tiles are one size and the block reads as a grid instead of a ragged wrap. The 48px
+// production tap height is unchanged.
 const actChipClass = cn(
-  "inline-flex min-h-12 min-w-12 items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-semibold text-[color:var(--text-heading)]",
+  "inline-flex min-h-12 w-full min-w-0 items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1 text-xs font-semibold text-[color:var(--text-heading)]",
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
 );
+
+/**
+ * Column count for the tile block, chosen so the last row is never a lone tile: four
+ * tiles read better as 2x2 than as 3 + 1, and a form citing one or two sections gets
+ * tiles that fill the card rather than a stub against empty space.
+ */
+function actTileColumns(tiles: number) {
+  if (tiles <= 1) return "grid-cols-1";
+  if (tiles === 2 || tiles === 4) return "grid-cols-2";
+  return "grid-cols-3";
+}
 
 function ActSectionsCard({
   card,
@@ -196,7 +253,12 @@ function ActSectionsCard({
   onOpenIndex: () => void;
 }) {
   const groupLabelId = useId();
-  const visible = sections.slice(0, ACT_SECTION_CHIP_LIMIT);
+  // ACT_SECTION_CHIP_LIMIT is the number of tiles the block may show, not the number of
+  // sections: two full rows of three. Form 4A cites nine sections, which used to render
+  // as six chips plus a "+3" — seven tiles, so a ragged third row of one that made this
+  // card 56px taller than it needed to be and set that height for the whole row. When
+  // there is an overflow the last tile is spent on the "+n" control instead.
+  const visible = sections.length > ACT_SECTION_CHIP_LIMIT ? sections.slice(0, ACT_SECTION_CHIP_LIMIT - 1) : sections;
   const overflow = sections.length - visible.length;
   // Say on the card face, not only inside the sheet, that these summaries carry no
   // clinician sign-off yet — otherwise the card reads as reviewed authority to anyone who
@@ -204,14 +266,21 @@ function ActSectionsCard({
   const awaitingReview = sections.some((entry) => entry.reviewStatus === "drafted");
 
   return (
-    <DetailCardShell card={card}>
+    <DetailCardShell
+      card={card}
+      footer={awaitingReview ? "Tap a section — awaiting clinical review" : "Tap a section for authority detail"}
+    >
       <h3
         id={groupLabelId}
         className="text-xs font-semibold leading-tight text-[color:var(--text-heading)] sm:text-sm sm:leading-5"
       >
         {hasText(card.title) ? card.title.trim() : "Authority under the Act"}
       </h3>
-      <div className="mt-1 flex flex-wrap gap-1" role="group" aria-labelledby={groupLabelId}>
+      <div
+        className={cn("mt-1 grid gap-1", actTileColumns(visible.length + (overflow > 0 ? 1 : 0)))}
+        role="group"
+        aria-labelledby={groupLabelId}
+      >
         {visible.map((entry) => (
           <button
             key={entry.section}
@@ -236,9 +305,6 @@ function ActSectionsCard({
           </button>
         ) : null}
       </div>
-      <p className={cn("mt-auto pt-1 text-2xs font-medium leading-4 sm:pt-1.5", textMuted)}>
-        {awaitingReview ? "Tap a section — awaiting clinical review" : "Tap a section for authority detail"}
-      </p>
     </DetailCardShell>
   );
 }
