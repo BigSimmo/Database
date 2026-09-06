@@ -514,7 +514,14 @@ export function DictionaryCataloguePage() {
             </div>
           )}
         </div>
-        <UniversalSearchAlsoMatches modeId="dictionary" query={params.q} className="mt-4" />
+        {/* The catalogue shell is `bleed`, so every band owns its own container.
+            Without one this cross-mode tray stretched the full viewport while
+            the result list above it stayed inside the catalogue width, which
+            read as a wider, longer panel bolted onto the page. Same container as
+            the header band and the results, so its edges line up with theirs. */}
+        <div className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-4 sm:px-6">
+          <UniversalSearchAlsoMatches modeId="dictionary" query={params.q} className="mt-4" />
+        </div>
         <InformationPageFooter>
           All published entries link a source · Specialist clinical approval remains pending
         </InformationPageFooter>
