@@ -133,6 +133,7 @@ Every remaining tracked document in this category (operations, plus the `rag-beh
 ## Governance, safety, privacy
 
 - [clinical-governance.md](clinical-governance.md) — deployment and source governance checklist
+- [source-acquisition-protocol.md](source-acquisition-protocol.md) — how a clinical source is found, captured, scored and indexed: the WA-first locality ladder, the capture register, the metadata floor, and clinical sign-off
 - [error-tracking.md](error-tracking.md) — privacy-safe, opt-in production exception tracking envelope
 - [governance-incident-runbooks.md](governance-incident-runbooks.md) — operator response checklists for clinical, source, privacy, provider, and answer-pipeline rollback incidents
 - [clinical-hazard-analysis.md](clinical-hazard-analysis.md) — clinical hazard register
