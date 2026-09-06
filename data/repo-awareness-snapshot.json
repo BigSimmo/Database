@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "d51b8bba79e73e3b52d0ba831977ac1dc967ca0f",
-    "committed_at": "2026-09-06T08:37:09+00:00"
+    "sha": "5c5d724512402dfed26dc9e3013c910b25876848",
+    "committed_at": "2026-09-06T09:24:49+00:00"
   },
   "routes": {
     "modes": [
@@ -811,6 +811,36 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/therapy-recommend-popup-dossier",
+        "file": "src/app/mockups/therapy-recommend-popup-dossier/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-recommend-popup-triage",
+        "file": "src/app/mockups/therapy-recommend-popup-triage/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-recommend-popup-workbench",
+        "file": "src/app/mockups/therapy-recommend-popup-workbench/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-guided",
+        "file": "src/app/mockups/therapy-scenario-popup-guided/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-intake",
+        "file": "src/app/mockups/therapy-scenario-popup-intake/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-live",
+        "file": "src/app/mockups/therapy-scenario-popup-live/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/tools-action-workbench",
         "file": "src/app/mockups/tools-action-workbench/page.tsx",
         "area": "mockup"
@@ -1579,9 +1609,9 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 215,
+      "pages": 221,
       "product_pages": 73,
-      "mockup_pages": 142,
+      "mockup_pages": 148,
       "redirects": 27,
       "api": 63
     }
