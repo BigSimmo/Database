@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Lightbulb, MessageSquareQuote, Search, Target } from "lucide-react";
+import { ArrowRight, CheckCircle2, Lightbulb, ListChecks, MessageSquareQuote, Search, Target } from "lucide-react";
 
 import {
   FormulationPageShell,
@@ -259,90 +259,107 @@ function FormulationResults({ query }: { query: string }) {
                   index === 0 && hasUniqueTopMatch && "bg-[color:var(--clinical-accent)]",
                 )}
               />
-              {index === 0 && hasUniqueTopMatch ? (
-                <div className="flex items-center gap-2 border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:px-5">
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)]">
-                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-                  </span>
-                  <span>Top match for your search</span>
-                  <span className="ml-auto hidden font-semibold text-[color:var(--text-muted)] sm:inline">
-                    Review fit and alternatives
-                  </span>
-                </div>
-              ) : null}
-
-              <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)] lg:items-start">
-                <div className="min-w-0">
-                  <h2 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
-                    <Link
-                      href={`/formulation/${mechanism.id}`}
-                      className="transition hover:text-[color:var(--clinical-accent)] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none"
-                    >
-                      {mechanism.name}
-                    </Link>
-                  </h2>
+              <div
+                data-formulation-card-header
+                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:gap-4 sm:p-5"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                    <h2 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
+                      <Link
+                        href={`/formulation/${mechanism.id}`}
+                        className="transition hover:text-[color:var(--clinical-accent)] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none"
+                      >
+                        {mechanism.name}
+                      </Link>
+                    </h2>
+                    {index === 0 && hasUniqueTopMatch ? (
+                      <>
+                        {/* The banner this replaces spent a whole row saying what a
+                            chip says on the title line. The caution beside it is the
+                            part worth keeping: ranking order is not clinical fit. */}
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--clinical-accent)] px-2.5 py-1 text-2xs font-extrabold uppercase tracking-label text-[color:var(--clinical-accent-contrast)]">
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          Top match
+                        </span>
+                        <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:inline">
+                          Review fit and alternatives
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
                   <p className="mt-1.5 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                     {mechanism.summary}
                   </p>
-                  <div className="mt-3">
-                    <MechanismDomainChips values={mechanism.domains} limit={3} />
-                  </div>
                 </div>
 
-                <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55 p-3.5 shadow-[var(--shadow-inset)]">
-                  <div className="flex items-center gap-2 text-[color:var(--clinical-accent)]">
-                    <Target className="h-4 w-4 shrink-0" aria-hidden />
-                    <p className={eyebrowText}>Look for</p>
-                  </div>
-                  <p className="mt-1.5 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-                    {mechanism.clinicalClues[0]}
-                  </p>
+                {/* Both actions sit on the title row rather than in a footer band of
+                    their own: the old strip cost a full card row per result to hold
+                    one button the heading already linked to. */}
+                <div data-formulation-card-action className="flex shrink-0 items-center gap-2">
+                  <Link
+                    href={`/formulation/builder?mechanism=${mechanism.id}`}
+                    aria-label={`Use ${mechanism.name} in formulation`}
+                    className="inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:flex-none"
+                  >
+                    <ListChecks className="h-4 w-4 shrink-0" aria-hidden />
+                    Use
+                  </Link>
+                  <Link
+                    href={`/formulation/${mechanism.id}`}
+                    aria-label={`Open ${mechanism.name}`}
+                    className="inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:flex-none sm:px-5"
+                  >
+                    Open
+                    <ArrowRight
+                      className="h-4 w-4 shrink-0 transition group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                      aria-hidden
+                    />
+                  </Link>
                 </div>
               </div>
 
+              {/* One band instead of three: the clue keeps its tinted panel, and the
+                  supporting lines sit beside it rather than under two more rules. */}
               <div
                 data-formulation-card-details
-                className="grid gap-px border-y border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-2"
+                className="grid border-t border-[color:var(--border)] sm:grid-cols-[minmax(0,1fr)_minmax(15rem,0.62fr)]"
               >
-                <div className="flex items-start gap-3 bg-[color:var(--surface-subtle)] px-4 py-3.5 sm:px-5 sm:py-4">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--info-soft)] text-[color:var(--info)]">
-                    <MessageSquareQuote className="h-4 w-4" aria-hidden />
-                  </span>
-                  <div className="min-w-0">
-                    <p className={eyebrowText}>Patient language</p>
-                    <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                      “{mechanism.patientPhrases[0]}”
-                    </p>
+                <div className="grid content-start gap-3 px-4 py-3.5 sm:px-5 sm:py-4">
+                  <MechanismDomainChips values={mechanism.domains} limit={3} />
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--info-soft)] text-[color:var(--info)]">
+                      <MessageSquareQuote className="h-4 w-4" aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                      <p className={eyebrowText}>Patient language</p>
+                      <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                        “{mechanism.patientPhrases[0]}”
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 bg-[color:var(--surface-subtle)] px-4 py-3.5 sm:px-5 sm:py-4">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                    <Lightbulb className="h-4 w-4" aria-hidden />
-                  </span>
+
+                <div className="grid content-start gap-3.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-3.5 sm:border-l sm:border-t-0 sm:px-5 sm:py-4">
                   <div className="min-w-0">
-                    <p className={eyebrowText}>Formulation use</p>
+                    <div className="flex items-center gap-2 text-[color:var(--clinical-accent)]">
+                      <Target className="h-4 w-4 shrink-0" aria-hidden />
+                      <p className={eyebrowText}>Look for</p>
+                    </div>
+                    <p className="mt-1.5 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                      {mechanism.clinicalClues[0]}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-[color:var(--clinical-accent)]">
+                      <Lightbulb className="h-4 w-4 shrink-0" aria-hidden />
+                      <p className={eyebrowText}>Formulation use</p>
+                    </div>
                     <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
                       {mechanism.formulationUse}
                     </p>
                   </div>
                 </div>
-              </div>
-
-              <div
-                data-formulation-card-action
-                className="flex bg-[color:var(--surface-raised)] px-4 py-3.5 sm:justify-end sm:px-5 sm:py-4"
-              >
-                <Link
-                  href={`/formulation/${mechanism.id}`}
-                  aria-label={`Open ${mechanism.name}`}
-                  className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:w-auto sm:min-w-44 sm:px-5"
-                >
-                  Open mechanism
-                  <ArrowRight
-                    className="h-4 w-4 transition group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
-                    aria-hidden
-                  />
-                </Link>
               </div>
             </article>
           ))}
