@@ -1018,15 +1018,21 @@ export function DiagnosisMapPanel({
         <div className="mt-3 grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2.5 sm:p-3">
           <MapGraph record={record} nodes={record.related} selectedId={selectedId} onSelect={handleSelect} />
           <MapLegend nodes={record.related} compact />
+          {record.related.length > 0 ? (
+            <p className="text-2xs font-medium text-[color:var(--text-muted)]">
+              Select a diagnosis to compare it below.
+            </p>
+          ) : null}
           <button
             ref={openButtonRef}
             type="button"
             aria-label="Open full diagnosis map"
             onClick={() => {
-              setSelected("diagnosis");
+              // Selection carries into the dialog. Resetting it here meant a
+              // node chosen on the preview was silently dropped the moment the
+              // reader asked for a bigger view of the same thing.
               setView(fitView);
               setFiltered(false);
-              setInspectorExpanded(false);
               setOpen(true);
             }}
             className={cn(floatingControl, "min-h-tap w-full justify-center px-3")}
