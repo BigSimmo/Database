@@ -193,6 +193,27 @@ bodies and three production source comments, which the earlier pass did not sear
 `therapy-navigation-context`, `therapy-navigation-dock`, `therapy-navigation-rail` — three
 named directions, cross-linked to each other for comparison, no recorded winner.
 
+### Therapy Recommend scenario popup
+
+`therapy-scenario-popup-guided`, `therapy-scenario-popup-live`, `therapy-scenario-popup-intake` —
+three named directions for turning the **clinical-situation control** at the top of
+`/therapy-compass/recommend` (the textarea plus the Setting / Time / Support / Cautions chip
+groups) into a popup: a stepped builder, a docked live composer, and a structured intake that
+composes an editable scenario sentence. All three reuse the shipped constraint keys, labels and
+`inferRecommendConstraints` rules verbatim, and their live "N of 205 records in scope" counter is
+computed from `catalogue-data.ts`, which is the shipped `RECOMMEND_CONSTRAINTS[i].match()`
+predicates run over all 205 catalogue records. Parallel drafts, no recorded winner.
+
+### Therapy Recommend popup
+
+`therapy-recommend-popup-dossier`, `therapy-recommend-popup-triage`,
+`therapy-recommend-popup-workbench` — three named directions for opening a ranked Recommend
+**result** as a popup instead of a route change (the scenario-input side is the separate study
+above): a centred record dialog, a docked triage panel
+with a match stepper and a live fit check, and a two-column consult workbench with a plan and
+note builder. Each draws its own desktop and phone frames and carries the real
+`exposure-based-cbt-exposure-therapy` record. Parallel drafts, no recorded winner.
+
 ### One-off studies
 
 | Route                        | Status                                                                                                                                                    |
