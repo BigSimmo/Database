@@ -330,14 +330,26 @@ test.describe("universal search typeahead", () => {
 
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
   });
-  test("keeps compact cross-mode matches visible after submission", async ({ page }) => {
+  test("keeps submitted cross-mode matches collapsed on desktop until the header is clicked", async ({ page }) => {
     await mockUniversalSearch(page);
     const universalRequest = page.waitForRequest(/\/api\/search\/universal(?:\?.*)?$/);
     await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
 
     const alsoMatches = page.getByTestId("universal-also-matches");
     await expect(alsoMatches).toBeVisible();
-    await expect(alsoMatches.getByRole("button", { name: /Also matches in other modes/ })).toBeVisible();
+    const trigger = alsoMatches.getByRole("button", { name: /Also matches in other modes/ });
+    await expect(trigger).toBeVisible();
+
+    // The tray is a real disclosure at every width now, matching the sibling
+    // "Also in your library" line. It must NOT open itself on desktop: that put
+    // a grid of cross-mode suggestions between the composer and the results the
+    // search asked for. The mode links stay in the DOM while shut, so assert on
+    // visibility and aria-expanded, not on presence.
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeHidden();
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
     const accents = await alsoMatches
       .locator("div[data-category-accent]")

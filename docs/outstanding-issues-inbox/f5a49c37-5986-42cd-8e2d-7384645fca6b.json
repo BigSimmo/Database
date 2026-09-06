@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f5a49c37-5986-42cd-8e2d-7384645fca6b",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#RA0QAH",
+    "detail": "FIRST REPRODUCIBLE INSTANCE, with a measured rate, 2026-09-06. This row recorded four single-spec Production UI failures that each passed on re-run of the identical commit, which is why no root cause was reachable. One member of that family is now reproducible OFF CI: tests/ui-smoke.spec.ts:1354 'sidebar shortcuts switch mode in place, on the shared home and after an answer'. It asserts expect(navigationRequests).toEqual([]) after clicking the Documents sidebar shortcut, collecting requests whose rsc header is 1 and whose next-router-prefetch header is NOT 1. The failure captures a stray RSC fetch to an UNRELATED route: '+ Array [ \"http://localhost:PORT/tools?_rsc=...\" ]'. The test clicks Documents, never Tools, so something issues an RSC request for /tools without the router-prefetch header the filter excludes - a programmatic router.prefetch or a Link prefetch path that omits the header would both explain it, and either is the root cause to chase. MEASURED with --repeat-each=3 via npm run test:e2e on two trees: unmodified origin/main 2 failed / 1 passed; PR #2674's branch 1 failed / 2 passed. So it is intermittent on BOTH and failed MORE often on unmodified main - it is not caused by any branch, and 'passes on re-run' was never evidence of health. Do NOT quarantine: tests/flake-ledger.json is empty and the flake policy needs three reproductions on the same SHA, but this is a real product-behaviour question (is the app fetching a route it should not?) rather than a test-timing artefact, so the fix belongs in the app or in a corrected assertion, not in the ledger. Reproduce with: npm run test:e2e -- tests/ui-smoke.spec.ts --project=chromium -g 'sidebar shortcuts switch mode in place' --repeat-each=3",
+    "baseRowFingerprint": "66d64d52cf191d08f62cb599be4d9832cfe45d5b48b7ea8143f0b94c807accda"
+  }
+}
