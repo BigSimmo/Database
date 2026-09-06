@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2ba94458-2db2-49a4-a695-5be372381bc9",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Ward Flow: sex and gender identity are one field, and that single field drives bed matching",
+    "detail": "MEASURED 2026-09-04: ward-model.ts declares 'sex: Sex' and no gender field anywhere. ward-eligibility.ts consumes it directly — unit.sexMix[movement.sex] and sexDesignationAccepts(unit.sexDesignation, movement.sex) — so a patient's bed eligibility is computed from that one value. There is currently no way to record that a patient's gender identity differs from their recorded sex, and therefore no way for the board to represent, let alone match on, that distinction. Harmless today (synthetic prototype, no real patients) and expensive later: the data model is the costly thing to change, the matching rule is cheap. Ward Builder Two relayed the owner's view that this goes to a clinician who works in this area rather than being settled internally, and that is right. TREAT AS A GATE BEFORE ANY REAL-PATIENT USE, not as an emergency.",
+    "source": "Ward Lead, 2026-09-04",
+    "issueUlid": "01M1NW28RFBAY1TYD5B5DMQ5PB"
+  }
+}

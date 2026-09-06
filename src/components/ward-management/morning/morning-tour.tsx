@@ -118,7 +118,7 @@ const BEAT_CAPTIONS: Record<number, { heading: string; body: string }> = {
   },
   3: {
     heading: "The ward confirms",
-    body: "The ward accepts the referral in principle, and separately confirms that a expected bed is now ready to release. Every figure here is invented.",
+    body: "The ward accepts the referral in principle, and separately confirms that an expected bed is now ready to release. Every figure here is invented.",
   },
   4: {
     heading: "The board updates",
