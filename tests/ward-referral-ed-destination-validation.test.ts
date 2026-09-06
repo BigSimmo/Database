@@ -5,6 +5,7 @@ import { allEmergencyDepartments, NOW_ANCHOR } from "@/components/ward-managemen
 import type { WardFlowState } from "@/components/ward-management/ward-flow-reducer";
 import type { ReferralDestination } from "@/components/ward-management/ward-model";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * A REFERRAL TO AN EMERGENCY DEPARTMENT MUST NAME A REAL ONE.
  *
@@ -42,6 +43,7 @@ function receive(destinations: ReferralDestination[]): WardFlowState {
     // name would be refused before the rule this file is actually testing was ever reached.
     suburb: { kind: "named", name: "Armadale" },
     urgency: 2,
+    ...FIXTURE_HISTORY,
     destinations,
   } as never);
 }

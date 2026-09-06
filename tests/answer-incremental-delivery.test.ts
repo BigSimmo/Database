@@ -308,7 +308,195 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
     expect(unit!.selectedContextCount).toBe(20);
     expect(isDeliverableVerifiedUnit(unit)).toBe(true);
   });
+
+  it("shrinks a production-sized preview to the contract's size cap instead of shipping a unit the boundary rejects", () => {
+    // The unit the builder emitted for twelve real-sized sources was ~83,000 JSON characters —
+    // the cap is 64,000 — so `toPublicAnswerProgressEvent` dropped it as `contract_rejected`
+    // and the wait showed no sources at all, on exactly the strong-route answers where the
+    // wait is longest. Fast routine answers select four passages and never hit it, which is
+    // why the browser proof (small synthetic sources) stayed green throughout.
+    const results = Array.from({ length: 12 }, (_, index) => makeProductionSizedSource(index));
+    const oversized = JSON.stringify({
+      schemaVersion: 1,
+      kind: "evidence_preview",
+      sequence: 0,
+      sources: results.map(trimSourceForClient),
+      selectedContextCount: results.length,
+    }).length;
+    expect(oversized).toBeGreaterThan(64_000);
+
+    const fields = buildEvidencePreviewProgress({ normalResults: results, fallbackResults: results });
+    expect(fields.previewReason).toBe("ok");
+    const unit = fields.verifiedUnit!;
+    expect(unit).toBeDefined();
+    expect(isDeliverableVerifiedUnit(unit)).toBe(true);
+    // Shrunk from the tail in retrieval order — the leading sources are the ones the rail
+    // draws — and the count still names what was selected, never what was shipped.
+    expect(unit.sources.length).toBeGreaterThanOrEqual(6);
+    expect(unit.sources.length).toBeLessThan(12);
+    expect(unit.sources.map((source) => source.id)).toEqual(results.slice(0, unit.sources.length).map((s) => s.id));
+    expect(unit.selectedContextCount).toBe(12);
+
+    // And the route boundary now keeps it, which is the whole point.
+    const publicEvent = toPublicAnswerProgressEvent({ stage: "ranking", message: "Selecting.", ...fields }, null);
+    expect(publicEvent?.verifiedUnit).toBeDefined();
+    expect(publicEvent?.previewReason).toBe("ok");
+  });
+
+  it("drops the one source the contract rejects and keeps the deliverable ones beside it", () => {
+    // A NaN similarity serialises as null and fails `isClientSource`. Before, one such source
+    // took the whole rail down at the boundary; now it is excluded on its own and the rest ship.
+    const broken = makeSource({ id: "chunk-broken", document_id: "doc-broken", similarity: Number.NaN });
+    const unit = buildEvidencePreviewUnit({ results: [makeSource(), broken, makeSource({ id: "chunk-3" })] });
+    expect(unit).not.toBeNull();
+    expect(unit!.sources.map((source) => source.id)).toEqual(["chunk-1", "chunk-3"]);
+    expect(isDeliverableVerifiedUnit(unit)).toBe(true);
+  });
+
+  it("withholds with its own reason when no source can be delivered, rather than emitting a unit that will be rejected", () => {
+    const broken = makeSource({ similarity: Number.NaN });
+    const fields = buildEvidencePreviewProgress({ normalResults: [broken], fallbackResults: [broken] });
+    expect(fields.verifiedUnit).toBeUndefined();
+    expect(fields.previewReason).toBe("undeliverable");
+    expect(readLastEvidencePreviewReason()?.reason).toBe("undeliverable");
+  });
 });
+
+/** A source shaped and sized like the ones the live corpus actually returns: every client
+ *  field populated, a 900-character snippet duplicated into `retrieval_synopsis`, a full score
+ *  explanation, six generated labels and an indexing-quality record. Trimmed, it is ~7,000 JSON
+ *  characters, against a 64,000-character unit cap. */
+function makeProductionSizedSource(index: number): SearchResult {
+  const document_id = `2f1d4c1e-9b8a-4a6e-8b0e-0f5b6f2d${String(index).padStart(4, "0")}`;
+  const snippet =
+    "Serum lithium should be measured 5 to 7 days after initiation or any dose change, then weekly until stable, then every 3 to 6 months. ".repeat(
+      8,
+    );
+  return {
+    id: `c9a5d1a2-7e6f-4d3c-9b2a-1e0f8d7c${String(index).padStart(4, "0")}`,
+    document_id,
+    title: `Lithium Prescribing and Monitoring Guideline - North Metropolitan Health Service Mental Health (${index})`,
+    file_name: `NMHS_MH_Lithium_Prescribing_Monitoring_Guideline_v3.2_2024_${index}.pdf`,
+    page_number: 12 + index,
+    chunk_index: 40 + index,
+    section_heading: "6.2 Serum lithium monitoring and dose adjustment in adults",
+    section_path: ["6 Monitoring", "6.2 Serum lithium monitoring and dose adjustment in adults", "6.2.1 Frequency"],
+    heading_level: 3,
+    parent_heading: "6 Monitoring",
+    anchor_id: "sec-6-2-1-frequency",
+    content: snippet,
+    retrieval_synopsis: snippet,
+    image_ids: ["img-1", "img-2"],
+    similarity: 0.8123456789012345,
+    similarity_origin: "cosine",
+    text_rank: 0.0612345678,
+    hybrid_score: 0.7345678901234567,
+    lexical_score: 0.4212345678,
+    rrf_score: 0.0323456789,
+    score_explanation: {
+      vectorScore: 0.8123456789012345,
+      textRank: 0.0612345678,
+      lexicalCoverageScore: 0.6666666666666666,
+      metadataMatchScore: 0.5,
+      sectionTitleMatchBoost: 0.04,
+      freshnessRecencyBoost: 0.02,
+      weightedHybridScore: 0.7345678901234567,
+      rrfScore: 0.0323456789,
+      rrfBoost: 0.0123456789,
+      memoryBoost: 0.05,
+      titleBoost: 0.08,
+      metadataBoost: 0.03,
+      clinicalSignalBoost: 0.06,
+      penalty: 0,
+      rawPenalty: 0,
+      rankScore: 1.0234567890123456,
+      releaseRankScore: 1.0234567890123456,
+      finalScore: 0.9345678901234567,
+      finalRank: index + 1,
+      preClampFinalScore: 1.0234567890123456,
+      fusionSignals: {
+        hybridRelevance: 0.7345678901234567,
+        lexicalCoverage: 0.6666666666666666,
+        reciprocalRankFusion: 0.0323456789,
+        titleSectionRelevance: 0.12,
+        metadataRelevance: 0.5,
+        clinicalEvidence: 0.06,
+        fixedAdjustment: 0,
+      },
+      strategy: "weighted_hybrid_rrf_blend",
+    },
+    source_strength: "strong",
+    source_metadata: {
+      source_kind: "document",
+      source_title: "Lithium Prescribing and Monitoring Guideline",
+      publisher: "North Metropolitan Health Service Mental Health, Public Health and Dental Services",
+      publisher_code: "NMHS",
+      jurisdiction: "Western Australia",
+      version: "3.2",
+      publication_date: "2024-03-01",
+      review_date: "2027-03-01",
+      uploaded_at: "2026-06-12T03:14:15.926Z",
+      indexed_at: "2026-06-12T03:19:26.535Z",
+      uploaded_by: "3b7f2c9e-1d4a-4f6b-8c2d-5e9a0b1c2d3e",
+      document_status: "current",
+      clinical_validation_status: "locally_reviewed",
+      clinical_validation_evidence: {
+        reviewer: "3b7f2c9e-1d4a-4f6b-8c2d-5e9a0b1c2d3e",
+        reviewed_at: "2026-06-13T01:00:00.000Z",
+        note: "Checked against the current intranet version.",
+      },
+      extraction_quality: "good",
+    },
+    document_labels: ["lithium", "mood stabiliser", "monitoring", "bipolar disorder", "renal function", "thyroid"].map(
+      (label, labelIndex) => ({
+        id: `lbl-${index}-${labelIndex}`,
+        document_id,
+        owner_id: "3b7f2c9e-1d4a-4f6b-8c2d-5e9a0b1c2d3e",
+        label,
+        label_type: "topic",
+        source: "generated",
+        confidence: 0.91,
+        metadata: { model: "labeller", generated_at: "2026-06-12T03:19:26.535Z" },
+        created_at: "2026-06-12T03:19:26.535Z",
+        updated_at: "2026-06-12T03:19:26.535Z",
+      }),
+    ),
+    memory_score: 0.12,
+    relevance: {
+      verdict: "direct",
+      label: "Directly addresses the question",
+      matchedTerms: ["lithium", "monitoring", "serum", "level", "dose"],
+      missingTerms: [],
+      directSourceCount: 1,
+      weakSourceCount: 0,
+      score: 0.91,
+      supportReason: "The passage directly covers lithium serum level monitoring frequency.",
+      isSourceBacked: true,
+      coverageScore: 1,
+      rankScore: 1.0234567890123456,
+      titleMatchedTerms: ["lithium", "monitoring"],
+      contentMatchedTerms: ["lithium", "monitoring", "serum", "level", "dose"],
+      metadataMatchedTerms: ["lithium"],
+      chips: ["Direct match", "WA guidance", "Current", "Locally reviewed"],
+    },
+    match_explanation: { titleHit: true, labelHit: true, sectionHit: true, contentHit: true, tableHit: false },
+    indexing_quality: {
+      document_id,
+      owner_id: "3b7f2c9e-1d4a-4f6b-8c2d-5e9a0b1c2d3e",
+      quality_score: 0.87,
+      extraction_quality: "good",
+      metrics: { pages: 48, chunks: 212, ocr_pages: 3, table_count: 9, avg_chunk_chars: 812, heading_coverage: 0.93 },
+      issues: [],
+      updated_at: "2026-06-12T03:19:26.535Z",
+    },
+    document_summary: "SERVER-ONLY summary",
+    adjacent_context: "SERVER-ONLY adjacent context",
+    memory_cards: [],
+    table_facts: [],
+    index_unit: null,
+    images: [],
+  } as unknown as SearchResult;
+}
 
 describe("public progress DTO passthrough", () => {
   it("passes a valid verified unit through the ranking stage", () => {

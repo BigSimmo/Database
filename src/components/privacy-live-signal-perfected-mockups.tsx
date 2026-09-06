@@ -309,7 +309,7 @@ function StickySignalChrome({
             aria-expanded={noticeOpen}
             aria-controls={noticePanelId}
             className={cn(
-              "inline-flex min-h-10 shrink-0 items-center gap-1 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-2.5 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-bg)]",
+              "inline-flex min-h-tap shrink-0 items-center gap-1 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-2.5 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-bg)]",
               focusRing,
             )}
           >
@@ -347,7 +347,7 @@ function StickySignalChrome({
                   type="button"
                   onClick={() => onSelectSection(section.heading)}
                   className={cn(
-                    "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-2xs font-semibold transition",
+                    "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full border px-3 text-2xs font-semibold transition",
                     focusRing,
                     active
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -571,7 +571,7 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
                   if (expandAll) setOpenId(SECTIONS[0]?.heading ?? "");
                 }}
                 className={cn(
-                  "rounded-md px-1.5 py-1 text-3xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+                  "inline-flex min-h-tap items-center rounded-md px-1.5 py-1 text-3xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
                   focusRing,
                 )}
               >

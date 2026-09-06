@@ -9,6 +9,12 @@ import { DifferentialPresentationWorkflowPage } from "@/components/differentials
 import { hasLocalInformationPageNavigation, PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
+
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 import {
   MODE_NAV_ADOPTED_MODES,
   modeSecondaryNavigationEntries,

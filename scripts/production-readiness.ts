@@ -269,6 +269,40 @@ function recordAnswerPersistenceProductionCheck() {
   }
 }
 
+/**
+ * #L30: a single public build-time flag (`NEXT_PUBLIC_MOCKUPS_ENABLED=true`),
+ * set alone, used to disable the developer-area administrator gate
+ * (`DeveloperAreaGate`) in production for `/mockups/development`,
+ * `/mockups/caring-contacts/**`, `/mockups/care-plan/**` and
+ * `/mockups/ward-flow/**`. The gate now bypasses in production only under the
+ * exact same double-flag pairing `src/proxy.ts`'s `shouldBlockProductionMockups`
+ * reserves for the isolated Playwright production build
+ * (`developerGateBypassAllowed()` in `src/lib/developer-area/access.ts`). This
+ * still deserves a release-time assertion so a Railway variable set alone in a
+ * real deployment fails readiness instead of silently opening the gate again.
+ */
+export function mockupsGateProductionRisk(
+  environment: Record<string, string | undefined> = process.env,
+): "none" | "playwright-exception" | "unguarded" {
+  const productionLike = environment.NODE_ENV === "production" || environment.VERCEL_ENV === "production";
+  if (!productionLike || environment.NEXT_PUBLIC_MOCKUPS_ENABLED !== "true") return "none";
+  return environment.PLAYWRIGHT_OFFLINE_MODE === "true" ? "playwright-exception" : "unguarded";
+}
+
+function recordMockupsGateProductionCheck() {
+  const risk = mockupsGateProductionRisk();
+  if (risk === "unguarded") {
+    result.failures.push(
+      "NEXT_PUBLIC_MOCKUPS_ENABLED=true is set in a production-like environment without PLAYWRIGHT_OFFLINE_MODE=true. " +
+        "This pairing must stay reserved for the isolated Playwright production build (#L30) — set NEXT_PUBLIC_MOCKUPS_ENABLED=false on a real deployment.",
+    );
+  } else if (risk === "playwright-exception") {
+    result.warnings.push(
+      "NEXT_PUBLIC_MOCKUPS_ENABLED=true with PLAYWRIGHT_OFFLINE_MODE=true bypasses the developer-area administrator gate; confirm this is the isolated Playwright production build, not a real deployment.",
+    );
+  }
+}
+
 async function checkFileForServiceRoleExposure() {
   const envFiles = [".env", ".env.production", ".env.development"];
   for (const fileName of envFiles) {
@@ -322,6 +356,7 @@ async function main() {
   checkNodeRuntime();
   recordNoAuthProductionCheck();
   recordDemoModeProductionCheck();
+  recordMockupsGateProductionCheck();
   recordRawQueryPersistenceProductionCheck();
   recordAnswerPersistenceProductionCheck();
   await checkFileForServiceRoleExposure();

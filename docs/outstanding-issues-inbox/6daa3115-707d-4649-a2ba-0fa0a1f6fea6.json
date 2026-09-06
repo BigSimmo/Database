@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6daa3115-707d-4649-a2ba-0fa0a1f6fea6",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Ward Flow: the 'it suggests nothing' rule may be reversed, and the reversal is written down nowhere",
+    "detail": "MEASURED 2026-09-04: the rule is live in 8 files, 4 of them source — escalation/page.tsx, escalation-board.tsx, referrals/referral-destination-options.ts, ward-derivations.ts — plus four planning documents. It is written in capitals with reasoning ('THIS BOARD RECORDS AND SHOWS. IT SUGGESTS NOTHING — no least-bad options, no ranking of wards the patient does not fit, no near-miss computation') and reads exactly like a safety principle, so every session that meets it obeys it. Ward Builder Two reports the owner reversed it in conversation, wanting active patient-to-bed matching with the clinician making the final acceptance. THE REVERSAL IS NOT IN docs/ward-flow/owner-rulings-2026-09-04.md, whose last change predates the conversation, so it exists only in one chat transcript. WHY THIS IS P1: the cost is not the unbuilt feature, it is that the codebase actively instructs the next session to build the opposite, confidently. Also note the regulatory dimension flagged on PR #2597 and left unresolved there: a board that ranks wards for a patient is closer to clinical decision support than one that records, which is the TGA/SaMD classification question. Needs an owner decision, not an integrator's.",
+    "source": "Ward Lead, PR #2597 aftermath, 2026-09-04",
+    "issueUlid": "01M1NW27Z76DT5K74JR1VKBR21"
+  }
+}

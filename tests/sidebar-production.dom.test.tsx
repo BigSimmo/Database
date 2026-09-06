@@ -148,3 +148,86 @@ describe("production PsychSift sidebar", () => {
     await waitFor(() => expect(appearance).toHaveFocus());
   });
 });
+
+describe("sidebar shortcuts select modes in place", () => {
+  /**
+   * jsdom cannot navigate, so a click that correctly falls through to the link
+   * logs "Not implemented: navigation". Swallow it after the sidebar's own
+   * handler has run — the listener sits on `document`, so the link's
+   * `defaultPrevented` reading inside that handler is unaffected.
+   */
+  function suppressJsdomNavigation() {
+    const listener = (event: Event) => event.preventDefault();
+    document.addEventListener("click", listener);
+    return () => document.removeEventListener("click", listener);
+  }
+
+  it("hands a plain click on a shared-home shortcut to onSelectMode instead of the router", () => {
+    const onSelectMode = vi.fn();
+    renderSidebar({ onSelectMode });
+
+    const documentsLink = screen.getByRole("link", { name: "Documents" });
+    expect(documentsLink).toHaveAttribute("href", "/?mode=documents");
+    const clickEvent = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+    documentsLink.dispatchEvent(clickEvent);
+
+    expect(onSelectMode).toHaveBeenCalledTimes(1);
+    expect(onSelectMode).toHaveBeenCalledWith("documents");
+    expect(clickEvent.defaultPrevented).toBe(true);
+  });
+
+  it("keeps native link semantics for modified clicks", () => {
+    const onSelectMode = vi.fn();
+    renderSidebar({ onSelectMode });
+    const restore = suppressJsdomNavigation();
+
+    const documentsLink = screen.getByRole("link", { name: "Documents" });
+    fireEvent.click(documentsLink, { ctrlKey: true });
+    fireEvent.click(documentsLink, { metaKey: true });
+    fireEvent.click(documentsLink, { shiftKey: true });
+    fireEvent.click(documentsLink, { button: 1 });
+
+    expect(onSelectMode).not.toHaveBeenCalled();
+    restore();
+  });
+
+  it("leaves standalone destinations as ordinary links", () => {
+    const onSelectMode = vi.fn();
+    renderSidebar({ onSelectMode, showAccountLibrary: true });
+    const restore = suppressJsdomNavigation();
+
+    fireEvent.click(screen.getByRole("link", { name: "Tools" }));
+    fireEvent.click(screen.getByRole("link", { name: "Favourites" }));
+
+    expect(onSelectMode).not.toHaveBeenCalled();
+    restore();
+  });
+
+  it("selects More modes entries in place too, and still closes the editor", async () => {
+    const onSelectMode = vi.fn();
+    const onNavigate = vi.fn();
+    renderSidebar({ onSelectMode, onNavigate });
+
+    await userEvent.click(screen.getByRole("button", { name: /More modes/ }));
+    const editor = await screen.findByRole("dialog");
+    const dsmLink = within(editor).getByRole("link", { name: /DSM/ });
+    expect(dsmLink).toHaveAttribute("href", "/?mode=dsm");
+    fireEvent.click(dsmLink);
+
+    expect(onSelectMode).toHaveBeenCalledWith("dsm");
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("stays a plain link when no in-place switch is offered", () => {
+    renderSidebar();
+    const restore = suppressJsdomNavigation();
+    const documentsLink = screen.getByRole("link", { name: "Documents" });
+    const clickEvent = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+    // next/link handles the click itself outside an app router; the sidebar
+    // must not have claimed it first.
+    documentsLink.dispatchEvent(clickEvent);
+    expect(documentsLink).toHaveAttribute("href", "/?mode=documents");
+    restore();
+  });
+});

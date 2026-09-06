@@ -10,6 +10,7 @@ import {
 } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
+import { routesCounts, sortedByPath } from "@/lib/developer-area/repo-awareness-snapshot-counts";
 
 export const metadata: Metadata = {
   title: "Routes and modes · Developer · PsychSift",
@@ -54,9 +55,15 @@ function RoutePath({ path }: { path: string }) {
 export default function DeveloperRoutesPage() {
   const snapshot = loadRepoAwarenessSnapshot();
   const freshness = resolveRepoFreshness(snapshot, new Date());
-  const { modes, pages, redirects, api, counts } = snapshot.routes;
-  const productPages = pages.filter((page) => page.area === "product");
-  const mockupPages = pages.filter((page) => page.area === "mockup");
+  const { modes, pages } = snapshot.routes;
+  const redirects = sortedByPath(snapshot.routes.redirects);
+  const api = sortedByPath(snapshot.routes.api);
+  const counts = routesCounts(snapshot.routes);
+  // Sorted here because the snapshot stores routes dispersed by a hash of their
+  // path, so that two branches adding routes merge cleanly. Alphabetical order
+  // is presentation and belongs to this page.
+  const productPages = sortedByPath(pages.filter((page) => page.area === "product"));
+  const mockupPages = sortedByPath(pages.filter((page) => page.area === "mockup"));
 
   // `page.area` is typed `RouteArea` ("product" | "mockup") only because the
   // generator has never emitted a third value — `loadRepoAwarenessSnapshot`'s
@@ -71,7 +78,7 @@ export default function DeveloperRoutesPage() {
   // `path` (a redirect target and a page, for instance), and an identity-keyed
   // set is exact where a path-keyed one could swallow a second row.
   const recognisedPages = new Set<(typeof pages)[number]>([...productPages, ...mockupPages]);
-  const otherPages = pages.filter((page) => !recognisedPages.has(page));
+  const otherPages = sortedByPath(pages.filter((page) => !recognisedPages.has(page)));
 
   return (
     <PanelPageShell
@@ -122,8 +129,12 @@ export default function DeveloperRoutesPage() {
         heading={`Design-scratch pages · ${mockupPages.length}`}
       >
         <p className={META_CLASS}>
-          These do not exist in production. They are exempt from the button-wiring and reachability checks, and from
-          nothing else.
+          {/* #L82: this used to say these routes "do not exist in production" outright, which was
+           * false for the four developer-gated subtrees (this hub included — it is one of them) —
+           * see DEVELOPER_GATED_PATH_PREFIXES in src/lib/developer-area/headers.ts. */}
+          Design-scratch pages are unavailable in production except the developer-gated subtrees (development,
+          caring-contacts, care-plan, ward-flow), which require an administrator sign-in. They are exempt from the
+          button-wiring and reachability checks, and from nothing else.
         </p>
         <ul data-testid="developer-routes-pages-mockup" className="grid gap-2">
           {mockupPages.map((page) => (

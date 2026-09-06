@@ -12,6 +12,11 @@ vi.mock("next/navigation", () => ({
 import { FactsheetsSearchPage } from "@/components/factsheets/factsheets-search-page";
 import { filterFactsheets } from "@/components/factsheets/factsheets-data";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 // "sertraline" matches exactly one factsheet (Medications) — a small, stable
 // fixture that still exercises real counting rather than an empty result set.
 const query = "sertraline";

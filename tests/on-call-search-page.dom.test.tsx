@@ -7,6 +7,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { OnCallSearchPage } from "@/components/on-call/on-call-search-page";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/on-call/search",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),

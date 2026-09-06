@@ -47,16 +47,18 @@ function SortControl({ compact = false }: { compact?: boolean }) {
   return (
     <label
       className={cn(
-        "relative inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-3 pr-8 text-xs font-bold shadow-[var(--shadow-inset)]",
+        "relative inline-flex items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-3 pr-8 text-xs font-bold shadow-[var(--shadow-inset)]",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
-        compact && "w-full justify-between",
+        // The label is the hit area for the select inside it, so the phone
+        // specimen takes the 48px tap floor and the desktop one keeps 40px.
+        compact ? "min-h-tap w-full justify-between" : "min-h-10",
       )}
     >
       <span className={cn("text-[color:var(--text-soft)]", compact && "max-[359px]:sr-only")}>Sort</span>
       <select
         defaultValue="relevance"
         aria-label="Sort results"
-        className="cursor-pointer appearance-none bg-transparent font-extrabold text-[color:var(--text)] outline-none"
+        className="cursor-pointer appearance-none self-stretch bg-transparent font-extrabold text-[color:var(--text)] outline-none"
       >
         <option value="relevance">Relevance</option>
         <option value="alpha">A–Z</option>
@@ -232,7 +234,7 @@ function ScopeControl({ compact = false }: { compact?: boolean }) {
     return (
       <label
         className={cn(
-          "relative inline-flex min-h-10 min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-3 pr-8 text-xs font-bold shadow-[var(--shadow-inset)]",
+          "relative inline-flex min-h-tap min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-3 pr-8 text-xs font-bold shadow-[var(--shadow-inset)]",
           "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
         )}
       >
@@ -240,7 +242,7 @@ function ScopeControl({ compact = false }: { compact?: boolean }) {
         <select
           defaultValue="all"
           aria-label="Filter results by source"
-          className="min-w-0 cursor-pointer appearance-none bg-transparent font-extrabold text-[color:var(--text)] outline-none"
+          className="min-w-0 cursor-pointer appearance-none self-stretch bg-transparent font-extrabold text-[color:var(--text)] outline-none"
         >
           <option value="all">All</option>
           <option value="guidelines">Guides</option>
@@ -265,7 +267,7 @@ function ScopeControl({ compact = false }: { compact?: boolean }) {
       <select
         defaultValue="all"
         aria-label="Filter results by source"
-        className="min-w-0 cursor-pointer appearance-none truncate bg-transparent font-extrabold text-[color:var(--text)] outline-none"
+        className="min-w-0 cursor-pointer appearance-none self-stretch truncate bg-transparent font-extrabold text-[color:var(--text)] outline-none"
       >
         <option value="all">All sources</option>
         <option value="guidelines">Guidelines</option>
@@ -411,7 +413,7 @@ export function SearchHeadingMockupsPage() {
                   aria-pressed={state === value}
                   onClick={() => setState(value)}
                   className={cn(
-                    "inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition-colors",
+                    "inline-flex min-h-tap items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition-colors sm:min-h-9",
                     focusRing,
                     state === value
                       ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"

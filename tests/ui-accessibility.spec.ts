@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectNoPageHorizontalOverflow, gotoApp } from "./helpers/spec-navigation";
 import { visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
@@ -117,20 +118,6 @@ async function mockDifferentialSearch(page: Page) {
       },
     });
   });
-}
-
-async function gotoApp(page: Page, path = "/") {
-  await page.goto(path, { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
-}
-
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
 }
 
 async function expectDashboardUsable(page: Page) {
@@ -472,6 +459,62 @@ test.describe("PsychSift accessibility coverage", () => {
     // color-contrast is unreliable under forced-colors emulation (the OS palette overrides
     // author colors); contrast is asserted by the default-colors scan instead.
     await expectNoBlockingAxeViolations(page, testInfo, { disableRules: ["color-contrast"] });
+  });
+
+  // The wide presentation is a different container from the phone sheet — a
+  // non-modal panel anchored under the trigger rather than a modal full-height
+  // rail. jsdom proves the roles and the dismiss paths; only a browser can show
+  // that it is actually placed under its trigger and leaves the results
+  // reachable. See docs/filter-contract.md section 5b.
+  test("the desktop differential filter opens under its trigger and leaves the results reachable", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockMinimalDashboardApi(page);
+    await mockDifferentialSearch(page);
+    await gotoApp(page, "/differentials");
+
+    const presentationInput = page.locator('input[placeholder="Ask or search a presentation..."]:visible').first();
+    const differentialSubmit = page.locator('button[aria-label="Search differential presentations"]:visible');
+    await expect(async () => {
+      await presentationInput.fill("acute confusion");
+      await expect(presentationInput).toHaveValue("acute confusion");
+      await expect(differentialSubmit).toBeEnabled({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+    await differentialSubmit.click();
+    const results = visibleByTestId(page, "differentials-search-results");
+    await expect(results).toBeVisible();
+
+    const trigger = page.getByTestId("differential-filter-trigger-desktop");
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+
+    const panel = page.getByTestId("differential-filter-panel");
+    await expect(panel).toBeVisible();
+    // Non-modal: no focus trap, no inert background. The list being filtered
+    // stays on screen and hit-testable, which is the whole reason the rail went.
+    await expect(panel).not.toHaveAttribute("aria-modal", "true");
+    await expect(results).toBeVisible();
+
+    // Anchored, not a full-height rail: it starts below the trigger and is
+    // materially shorter than the viewport.
+    const triggerBox = (await trigger.boundingBox())!;
+    const panelBox = (await panel.boundingBox())!;
+    expect(panelBox.y).toBeGreaterThanOrEqual(triggerBox.y + triggerBox.height - 1);
+    expect(panelBox.height).toBeLessThan(700);
+    // Right-aligned to the trigger rather than pinned to the viewport edge.
+    // Left-aligned to the trigger: the panel's leading edge lines up with the
+    // control that opened it, rather than being pinned to the viewport edge.
+    expect(Math.abs(panelBox.x - triggerBox.x)).toBeLessThan(4);
+
+    // The lens is a segmented bar here, and still a real radiogroup.
+    const showGroup = panel.getByRole("radiogroup", { name: "Show" });
+    await expect(showGroup.getByRole("radio", { name: /^All/ })).toBeChecked();
+    await showGroup.getByRole("radio", { name: /^Presentations/ }).click();
+    await expect(showGroup.getByRole("radio", { name: /^Presentations/ })).toBeChecked();
+
+    // Escape dismisses and hands focus back to the control that opened it.
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(trigger).toBeFocused();
   });
 
   test("differential result types use an accessible mobile filter instead of tabs", async ({ page }) => {

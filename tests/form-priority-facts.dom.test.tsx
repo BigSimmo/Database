@@ -104,13 +104,16 @@ describe("Act sections card with many citations", () => {
   it("caps the chips and opens the full list behind the overflow control", async () => {
     const user = userEvent.setup();
     // Form 5A cites 11 sections; rendering all of them as 48px targets inside one
-    // quarter of the 2x2 grid destroys the layout.
+    // quarter of the 2x2 grid destroys the layout. The block is two rows of three, and
+    // where there is an overflow the sixth tile is spent on the "+n" control — so five
+    // sections show, not six. A seventh tile would open a ragged third row and set that
+    // height for every other priority-facts card in the grid.
     render(<FormDetailPage form={formWithSections(elevenSections)} />);
     const priorityFacts = screen.getByLabelText("Priority facts");
 
     expect(within(priorityFacts).getByRole("button", { name: /Section 120:/i })).toBeInTheDocument();
-    expect(within(priorityFacts).getByRole("button", { name: /Section 125:/i })).toBeInTheDocument();
-    expect(within(priorityFacts).queryByRole("button", { name: /Section 126:/i })).not.toBeInTheDocument();
+    expect(within(priorityFacts).getByRole("button", { name: /Section 124:/i })).toBeInTheDocument();
+    expect(within(priorityFacts).queryByRole("button", { name: /Section 125:/i })).not.toBeInTheDocument();
 
     await user.click(within(priorityFacts).getByRole("button", { name: /Show all 11 Act sections/i }));
     const sheet = await screen.findByTestId("form-act-section-sheet");
@@ -118,6 +121,20 @@ describe("Act sections card with many citations", () => {
 
     await user.click(within(sheet).getByRole("button", { name: /Section 130 — Section 130 heading/ }));
     expect(await screen.findByTestId("form-act-section-sheet")).toHaveTextContent(/Summary of section 130\./);
+  });
+
+  it("shows every section when they fill the two rows exactly", () => {
+    // Six sections fit the block, so there is nothing to collapse and no "+n" tile.
+    const sixSections = Array.from({ length: 6 }, (_, index) => ({
+      section: String(120 + index),
+      title: `Section ${120 + index} heading`,
+      summary: `Summary of section ${120 + index}.`,
+    }));
+    render(<FormDetailPage form={formWithSections(sixSections)} />);
+    const priorityFacts = screen.getByLabelText("Priority facts");
+
+    expect(within(priorityFacts).getByRole("button", { name: /Section 125:/i })).toBeInTheDocument();
+    expect(within(priorityFacts).queryByRole("button", { name: /Show all/i })).not.toBeInTheDocument();
   });
 
   it("flags drafted sections on the card face, not only inside the sheet", () => {

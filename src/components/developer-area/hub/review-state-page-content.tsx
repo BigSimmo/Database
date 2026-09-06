@@ -63,7 +63,9 @@ export function ReviewStatePageContent({ requestedPage = 1 }: { requestedPage?: 
         what the reviewer concluded. It does not show which pull requests are open, whether their checks are green, or
         whether a review is outstanding — none of that exists on disk, and reading it would need credentials this page
         deliberately does not have. A ref absent from this list has not been reviewed at any head; it does not mean
-        there is no pull request.
+        there is no pull request. Review records are refreshed only when the snapshot is regenerated (
+        <code>npm run docs:update</code>); the freshness stamp above does not move for them, because{" "}
+        <code>review_state</code> is deliberately outside the staleness comparison that stamp reports on.
       </p>
 
       <PanelSection headingId="developer-review-state-heading" heading={`Records · ${counts.records}`}>

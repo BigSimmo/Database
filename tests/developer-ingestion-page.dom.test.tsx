@@ -25,6 +25,7 @@ function readyPayload(overrides: Record<string, unknown> = {}) {
   return {
     jobs: [],
     activeJobCount: 0,
+    failedJobCount: 0,
     hasActiveJobs: false,
     pollAfterMs: null,
     pagination: { limit: 100, offset: 0, total: 0, nextOffset: 0, hasMore: false },
@@ -74,6 +75,18 @@ describe("developer ingestion page — shell and freshness (plan §8)", () => {
     const checkedAt = await screen.findByTestId("developer-ingestion-checked-at");
     expect(checkedAt).toHaveTextContent(/checked/i);
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/read live on demand/i);
+  });
+
+  // #L14: this client-rendered line followed the browser clock while the
+  // shell's server-rendered stamp followed the container clock (UTC on
+  // Railway), an unlabelled eight-hour gap on the one page that polls live.
+  // Both now pin Australia/Perth and print the zone name.
+  it("prints the timezone on the live checked-at line, pinned to Australia/Perth", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(readyPayload()));
+    render(<DeveloperIngestionPage />);
+
+    const checkedAt = await screen.findByTestId("developer-ingestion-checked-at");
+    expect(checkedAt).toHaveTextContent(/AWST/);
   });
 });
 
@@ -189,6 +202,28 @@ describe("developer ingestion page — counts render as given", () => {
 
     const tile = await screen.findByTestId("developer-ingestion-count-active-value");
     expect(tile).toHaveTextContent("7");
+  });
+
+  // #L15: the tile used to derive from bucketJobs(state.jobs), i.e. only the
+  // current page, so older failures beyond the newest 100 rows vanished from
+  // the number — the direction this tile's own doc comment says it must not
+  // fail in. Deliberately mismatched, same shape as the activeJobCount case
+  // above: only 1 row on this page is failed-status, but the query-wide
+  // server count reports 12.
+  it("shows the server's own failedJobCount rather than recomputing a page-scoped length that could disagree (#L15)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        readyPayload({
+          jobs: [{ id: "job-1", status: "failed", document_id: "doc-1" }],
+          failedJobCount: 12,
+          pagination: { limit: 100, offset: 0, total: 105, nextOffset: 100, hasMore: true },
+        }),
+      ),
+    );
+    render(<DeveloperIngestionPage />);
+
+    const tile = await screen.findByTestId("developer-ingestion-count-failed-value");
+    expect(tile).toHaveTextContent("12");
   });
 });
 

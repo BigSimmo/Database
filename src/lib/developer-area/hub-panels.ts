@@ -131,6 +131,9 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "routes",
     name: "Routes and modes",
+    // Audit L81: this summary used to state a mode count, which drifted every time
+    // a mode was added (the routes page below it renders the live count from the
+    // snapshot). Kept deliberately count-free — do not reintroduce a number here.
     summary: "Every page and every app mode",
     group: "reference",
     phase: 1,
@@ -166,8 +169,12 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "care-plan",
     name: "Care Plan",
+    // #L76: this described the August (pre-Task 10-11) state, before
+    // Reviews/Team/Governance (operations-pages.tsx: ReviewsSurface,
+    // TeamSurface, GovernanceSurface) and the Patient Plan route became
+    // functional. Kept accurate to what the prototype actually covers now.
     summary:
-      "Stage B prototype: Management Plan authoring, ED Presentation continuity, and Personal Safety Plan; later routes remain specimens",
+      "Synthetic, memory-only prototype: Management Plan, ED Presentations, Personal Safety Plan, Patient Plan, Reviews/Team/Governance",
     group: "reference",
     phase: 1,
     href: "/mockups/care-plan",

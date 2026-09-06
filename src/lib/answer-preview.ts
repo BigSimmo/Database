@@ -10,7 +10,11 @@
 import { trimSourceForClient } from "@/lib/answer-client-payload";
 import { env } from "@/lib/env";
 import { hasDangerSourceGovernanceWarning, sourceGovernanceWarnings } from "@/lib/source-governance";
-import type { VerifiedEvidencePreviewUnit, VerifiedUnit } from "@/lib/answer-stream-contract";
+import {
+  isDeliverableVerifiedUnit,
+  type VerifiedEvidencePreviewUnit,
+  type VerifiedUnit,
+} from "@/lib/answer-stream-contract";
 import type { EvidenceRelevance, SearchResult } from "@/lib/types";
 
 export type { VerifiedUnit };
@@ -39,6 +43,7 @@ export const evidencePreviewReasons = [
   "empty_intersection_relaxed",
   "answer_level_danger",
   "all_sources_danger",
+  "undeliverable",
   "contract_rejected",
 ] as const;
 
@@ -207,7 +212,8 @@ export function evaluateEvidencePreview(args: {
   const dangerDocumentIds = new Set(args.results.filter(isDangerLevelSource).map((result) => result.document_id));
   const survivors = args.results.filter((result) => !dangerDocumentIds.has(result.document_id));
   if (!survivors.length) return withheld("all_sources_danger");
-  return { unit: buildUnit(survivors), reason: "ok" };
+  const unit = buildUnit(survivors);
+  return unit ? { unit, reason: "ok" } : withheld("undeliverable");
 }
 
 /** The unit alone, for callers that do not need to explain an absence. */
@@ -218,18 +224,51 @@ export function buildEvidencePreviewUnit(args: {
   return evaluateEvidencePreview(args).unit;
 }
 
-function buildUnit(results: SearchResult[]): VerifiedEvidencePreviewUnit {
-  const selected = results.slice(0, evidencePreviewMaxSources);
-  return {
+/**
+ * Build the unit so that it is guaranteed to pass the stream contract it is about to meet.
+ *
+ * **The builder used to size the unit by source count alone, while the contract bounds it by
+ * JSON size — and nothing checked one against the other.** `isDeliverableVerifiedUnit` caps a
+ * unit at 64,000 characters, sized on the assumption that "≤900 chars/source, ≤12 sources"
+ * leaves headroom. A real trimmed source is ~7,000 characters, not 900: the snippet is carried
+ * twice (`content` and `retrieval_synopsis`), and the score explanation, six generated labels,
+ * the indexing-quality record and the relevance chips all ride along by policy. Twelve of them
+ * is ~83,000 characters. Fast routine answers select four passages and stayed well under the
+ * cap, which is why the browser proof kept passing; every other route selects all of its
+ * candidates, so on precisely the long strong-route waits the rail exists for, the unit was
+ * built, sent to the boundary, and thrown away there as `contract_rejected`. The wait then
+ * showed no sources at all.
+ *
+ * The contract stays where it is — the boundary is the last line, not the only one — and the
+ * builder now shrinks to fit it: the same validator, applied here, on the exact unit that will
+ * be sent. Sources are dropped from the tail so what remains is the top of retrieval in
+ * retrieval order, which is what the rail draws. A source the contract would reject on its own
+ * (a malformed field, say) is excluded individually rather than taking the rail down with it.
+ * `selectedContextCount` keeps naming what governance let through, so the count never claims
+ * the shipped subset was the whole selection.
+ *
+ * Returns null only when not even one source can be delivered.
+ */
+function buildUnit(results: SearchResult[]): VerifiedEvidencePreviewUnit | null {
+  const unitOf = (sources: SearchResult[]): VerifiedEvidencePreviewUnit => ({
     schemaVersion: 1,
     kind: "evidence_preview",
     sequence: 0,
-    sources: selected.map(trimSourceForClient),
+    sources,
     // Counts what survived governance, never the wider retrieval set: the stream contract
     // requires selectedContextCount >= sources.length, and a count drawn from passages that
     // were excluded would describe evidence the preview is deliberately not showing.
     selectedContextCount: results.length,
-  };
+  });
+  const deliverable = results
+    .slice(0, evidencePreviewMaxSources)
+    .map(trimSourceForClient)
+    .filter((source) => isDeliverableVerifiedUnit(unitOf([source])));
+  for (let count = deliverable.length; count > 0; count -= 1) {
+    const unit = unitOf(deliverable.slice(0, count));
+    if (isDeliverableVerifiedUnit(unit)) return unit;
+  }
+  return null;
 }
 
 /** Keep the ranking event small and keep final-path reconciliation out of the RAG monolith.

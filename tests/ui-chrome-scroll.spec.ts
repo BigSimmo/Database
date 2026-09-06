@@ -29,12 +29,15 @@ const breakpoints = [
 // One surface per scroll-ownership model above the phone breakpoint, chosen for
 // having real scroll runway at both sizes (short pages legitimately never hide).
 // These result/detail pages own the generic page-flow slot on desktop.
-const surfaces = [
+const surfaces: Array<{ name: string; route: string; minimumRunway?: number }> = [
   { name: "shell results", route: "/forms?q=form%201A&run=1" },
-  // The dormant Clinical Ask deployment intentionally omits the old Smart-search
-  // promise, so this compact detail page has slightly less runway than the other
-  // surfaces while still leaving enough room to prove the mid-page reveal.
-  { name: "shell service detail", route: "/services/13yarn", minimumRunway: 650 },
+  // A long detail record on purpose. The 13YARN page used to carry this
+  // surface with a lowered 650px floor, but once result composers became the
+  // compact pill alone (no hint, prompt rail, or privacy line) its desktop
+  // range fell to ~600px, too short to scroll down, come back 360px, and still
+  // be > 200px from the top. This record measures ~1200px at 1440x900 and
+  // ~2000px at 834x1112, so it proves the mid-page reveal with the default floor.
+  { name: "shell service detail", route: "/services/mother-and-baby-mental-health-unit-fiona-stanley-hospital" },
   { name: "dashboard results", route: "/?mode=prescribing&q=a&run=1" },
   // Therapy search carries the shared `ModeNav` inside the collapse row. The
   // phone case is covered by ui-phone-scroll; this is the tablet/desktop proof

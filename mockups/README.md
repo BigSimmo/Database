@@ -14,7 +14,7 @@ npm run sitemap:check
 ## Mockup index, by topic
 
 A quick-scan catalogue of every route under `src/app/mockups/` and what state it's in, so
-nobody has to open 72 folders to find out what's still useful. `docs/site-map.md` remains
+nobody has to open every folder to find out what's still useful. `docs/site-map.md` remains
 the authoritative list of exact live paths (regenerate it after any change here); this
 table exists to group those paths by topic and record a status for each one.
 
@@ -82,6 +82,31 @@ route depending on them before removal.
 | ------------------------------- | ----------------------------------------------------------- |
 | `privacy-live-signal-perfected` | Chosen design.                                              |
 | `privacy-page-directions`       | Active reference — the full study behind the chosen design. |
+
+### Specifier record page
+
+| Route                         | Status                                                               |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `specifier-record-directions` | Active study (2026-09-06) — three directions, no build decision yet. |
+
+Review study for `/specifiers/[slug]` (`SpecifierReferencePage`), opened because the live page
+spends its first screen and a half restating one fact — that the definition is unverified — in
+six separate places, while the only new content it carries (the ICD-11 6A20 qualifier list) sits
+roughly 1,200 px down. The specimen is
+`multiple-episodes-currently-in-full-remission` (Schizophrenia · Course & Status); every label,
+group membership, sibling set and the ICD-11 line come from `data/specifiers-content.json`.
+
+| Direction               | Verdict     | What it is                                                                                                                                                               |
+| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 01 Course matrix        | Recommended | Course & Status drawn as the two-by-three grid it actually is (episode pattern by current state), with `Continuous` and `Unspecified` shown as sitting outside that grid |
+| 02 Clinical record card | Densest     | One hairline-ruled term/value card, no icon tiles, no sidebar, provenance behind a disclosure                                                                            |
+| 03 Documentation line   | Task-led    | Leads with the assembled diagnostic wording plus live severity and catatonia controls, caveat attached to the copy control                                               |
+
+The recommendation is 01 with 02's provenance disclosure folded in, and 03's wording band added
+only once the assembled line has clinician sign-off — it is composed from catalogue labels, not
+from verified DSM-5-TR text. No direction displays a generated clinical definition: the catalogue
+withholds every one of them pending qualified clinician review, and that constraint is the brief
+rather than a hole to fill.
 
 ### Document navigation pane — five rounds, no recorded winner
 
@@ -193,15 +218,38 @@ bodies and three production source comments, which the earlier pass did not sear
 `therapy-navigation-context`, `therapy-navigation-dock`, `therapy-navigation-rail` — three
 named directions, cross-linked to each other for comparison, no recorded winner.
 
+### Therapy Recommend scenario popup
+
+`therapy-scenario-popup-guided`, `therapy-scenario-popup-live`, `therapy-scenario-popup-intake` —
+three named directions for turning the **clinical-situation control** at the top of
+`/therapy-compass/recommend` (the textarea plus the Setting / Time / Support / Cautions chip
+groups) into a popup: a stepped builder, a docked live composer, and a structured intake that
+composes an editable scenario sentence. All three reuse the shipped constraint keys, labels and
+`inferRecommendConstraints` rules verbatim, and their live "N of 205 records in scope" counter is
+computed from `catalogue-data.ts`, which is the shipped `RECOMMEND_CONSTRAINTS[i].match()`
+predicates run over all 205 catalogue records. Parallel drafts, no recorded winner.
+
+### Therapy Recommend popup
+
+`therapy-recommend-popup-dossier`, `therapy-recommend-popup-triage`,
+`therapy-recommend-popup-workbench` — three named directions for opening a ranked Recommend
+**result** as a popup instead of a route change (the scenario-input side is the separate study
+above): a centred record dialog, a docked triage panel
+with a match stepper and a live fit check, and a two-column consult workbench with a plan and
+note builder. Each draws its own desktop and phone frames and carries the real
+`exposure-based-cbt-exposure-therapy` record. Parallel drafts, no recorded winner.
+
 ### One-off studies
 
-| Route                        | Status                                                                                                                                    |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `also-matches-accents`       | Chosen design — records the picked "also matches" accent treatment.                                                                       |
-| `verification-notice-subtle` | Active study, no recorded winner.                                                                                                         |
-| `warning-consolidation`      | Active study — first pass on consolidating warning lines.                                                                                 |
-| `warning-line`               | Active study — second pass answering a narrower, different brief (words only, no icon/border/tint); not a replacement for the first pass. |
-| `phone-mode-sheet-yes`       | Active study — design review of the shipping phone mode sheet.                                                                            |
+| Route                        | Status                                                                                                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `also-matches-accents`       | Chosen design — records the picked "also matches" accent treatment.                                                                                       |
+| `also-matches-closed`        | Active study — three directions for closing the "also matches" tray on tablet and desktop; no recorded winner.                                            |
+| `verification-notice-subtle` | Active study, no recorded winner.                                                                                                                         |
+| `warning-consolidation`      | Active study — first pass on consolidating warning lines.                                                                                                 |
+| `warning-line`               | Active study — second pass answering a narrower, different brief (words only, no icon/border/tint); not a replacement for the first pass.                 |
+| `phone-mode-sheet-yes`       | Active study — design review of the shipping phone mode sheet.                                                                                            |
+| `source-rail-desktop-scroll` | Chosen design — direction A (edge chevrons, mouse only) was picked and applied to the live `AnswerSourceRail`. Kept as the comparison it was chosen from. |
 
 Static (non-route) design comps under `public/mockups/mode-page-redesign-2026-07/` are
 already documented below and are not part of this route index.
@@ -260,10 +308,11 @@ Mockups use the Clinical White / Sky Graphite role tokens (`--command`, `--clini
 Runnable mockups under `src/app/mockups/*` inherit the shared PsychSift header and bottom search composer from `src/app/mockups/layout.tsx`.
 
 - Put the mockup content between the global header and bottom composer; do not copy the header or composer into new pages.
-- Favourites mockups and Tools mockups that provide their own primary search surface keep the shared app header but hide the bottom composer.
+- `src/app/mockups/mockups-layout-client.tsx` is the suppression registry: it carries the route-specific rules (by exact path or prefix) for which mockups hide the composer, the header, or both — Favourites and Tools mockups that provide their own primary search surface, the phone-frame studies that draw their own chrome, the Caring Contact and Care Plan prototypes, and more. Add a new mockup's rule there with a comment saying why, rather than inventing a route-local override.
+- Two subtrees bypass the shell entirely rather than rendering inside it with the chrome switched off: Ward Flow (`/mockups/ward-flow/**`) and the Developer Hub (`/mockups/development/**`). The comment block in that file records why (duplicate `<main>` landmarks and pointer interception when nested).
 - Use `?mode=answer`, `?mode=documents`, `?mode=prescribing`, `?mode=evidence`, or `?mode=favourites` to preview the active search mode.
 - The bottom composer routes live searches to the dashboard with `mode`, `q`, and `run=1`; New chat routes to `/?mode=answer&focus=1`.
-- If a future mockup must be standalone, move it outside the `/mockups` route shell or add an explicit opt-out route group before implementing it.
+- If a future mockup must be standalone, add it to the bypass branch in `mockups-layout-client.tsx` (the Ward Flow pattern) or move it outside the `/mockups` route shell; do not copy the shell's header or composer into the page.
 
 ## Calculators Show all chip (2026-08-24)
 
@@ -286,8 +335,12 @@ Shared mockup chrome is suppressed because each frame draws its own top bar and 
   `/mockups/:path*` carry `X-Robots-Tag: noindex, nofollow`, so compliant crawlers do not index them. This header is a
   crawler policy, not access control; `robots.txt` intentionally allows crawling so per-response indexing policy can
   be observed.
-- `/mockups/favourites-hub` is a legacy compatibility route and redirects to `/favourites`.
-- `/mockups/medication-prescribing` redirects to `/medications/acamprosate`; prescribing mode also lives at `/?mode=prescribing`.
+- `/mockups/favourites-hub` (to `/favourites`) and `/mockups/medication-prescribing` (to `/medications/acamprosate`;
+  prescribing mode also lives at `/?mode=prescribing`) are page-level `redirect()` compatibility routes that work **in
+  development only**: in production `src/proxy.ts` returns 404 for every non-developer-gated `/mockups/**` path before
+  either page renders, so neither forwards there. The one mockup path that still redirects in production is
+  `/mockups/document-search-command` (to `/documents/search`), because it is resolved in the proxy's
+  `staticRouteRedirects` ahead of that block.
 
 ## Synthetic document-search assets
 
@@ -465,7 +518,7 @@ Three sticky header directions for record pages that use `InformationPageBreadcr
 
 **Outcome: direction 02 shipped**, as the breadcrumb shape of the existing `InPageNavHeader` rather than a new component — omitting `sections` drops the disclosure and the track, and `primaryAction` / `mode` / `showBackLabel` shape the row. Adopted first on `/factsheets/<slug>`, where the reading level rides the `mode` slot. Contract: `docs/search-chrome-behaviour.md` ("The breadcrumb shape").
 
-**The runnable `/mockups/breadcrumb-header` route was removed once 02 shipped.** It was not deleted for tidiness: `check:bundle-budget` totals every built chunk, mockups included, and `main` sits at roughly +9.4% against a 10% tolerance, so the study's two scratch chunks (~9.8 KiB gzip) alone pushed the repo to +10.1% and failed `Build` — the same failure PR #1580 hit, at the same number. A design-scratch route that 404s in production is the wrong thing to spend the last of that headroom on. The table above is the durable record; recover the route from history if the alternatives need re-reading.
+**The runnable `/mockups/breadcrumb-header` route was removed once 02 shipped.** It was not deleted for tidiness: at the time, `check:bundle-budget` totalled every built chunk, mockups included, and `main` sat at roughly +9.4% against a 10% tolerance, so the study's two scratch chunks (~9.8 KiB gzip) alone pushed the repo to +10.1% and failed `Build` — the same failure PR #1580 hit, at the same number. (Since PR #1779 `bundle-budget.json` keeps mockups in their own `mockups` scratch bucket with a 25% tolerance, separate from the `production` bucket, so a scratch route no longer competes with production headroom.) A design-scratch route that 404s in production is the wrong thing to spend the last of that headroom on. The table above is the durable record; recover the route from history if the alternatives need re-reading.
 
 ## Services filter surface (2026-08-11)
 

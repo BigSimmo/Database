@@ -28,11 +28,25 @@ export function legacyHomeRedirectUrl(requestUrl: LegacyHomeRequestUrl, method: 
 
   const destination = new URL(requestUrl.toString());
   destination.pathname = destinationPath;
-  destination.search = "";
   destination.hash = "";
 
+  // Carry the incoming query string rather than rebuilding it. Rebuilding kept only
+  // q/focus/run, so `queryMode`, `scope.*` and `scopeRef` were already gone by the time
+  // `consolidatedModeHomeTarget` ran for differentials/specifiers — the redirect whose own
+  // contract is that "every other query parameter rides along untouched". The visitor got
+  // unscoped, auto-mode results for a link that was scoped, with nothing to indicate the
+  // narrower context had been dropped (2026-09-02 audit, L9).
+  //
+  // `mode` is the one parameter that must not travel: it is consumed by the destination
+  // pathname, and forwarding it would let this URL arrive at the next redirect naming a
+  // different mode than the path it was sent to.
+  destination.searchParams.delete("mode");
+  // Normalised, so the destination is identical for every spelling of the same link: the
+  // trimmed query, a single `run=1` however many the caller sent, and `focus` as a flag
+  // whose only truthy spelling is "1".
   destination.searchParams.set("q", query);
   if (requestUrl.searchParams.get("focus") === "1") destination.searchParams.set("focus", "1");
+  else destination.searchParams.delete("focus");
   destination.searchParams.set("run", "1");
 
   return destination;

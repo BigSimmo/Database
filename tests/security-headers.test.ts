@@ -39,11 +39,16 @@ describe("security headers", () => {
         expect(sources).not.toContain("https:");
       });
 
-      it("allows the Supabase and Sentry origins in connect-src for signed-URL/API/telemetry fetches", () => {
+      it("allows the Supabase origin in connect-src and no third-party telemetry origin", () => {
         const connectSrc = csp.split(";").find((directive) => directive.trim().startsWith("connect-src"));
         expect(connectSrc).toBeDefined();
         expect(connectSrc).toContain("https://*.supabase.co");
-        expect(connectSrc).toContain("https://*.ingest.sentry.io");
+        // There is no browser Sentry SDK (docs/error-tracking.md: "no client Sentry
+        // bundle path"; the only inits are src/sentry.{server,edge}.config.ts), so the
+        // three wildcard `*.ingest*.sentry.io` origins were an egress channel from the
+        // clinical origin with no consumer (2026-09-02 audit, L34). Re-add them only
+        // alongside a browser SDK and the privacy review docs/error-tracking.md requires.
+        expect(connectSrc).not.toContain("sentry.io");
         // OpenAI calls are server-side only; the browser must not be allowed
         // to reach the provider origin (2026-07-13 audit, finding 12).
         expect(connectSrc).not.toContain("api.openai.com");

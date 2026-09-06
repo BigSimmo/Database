@@ -130,7 +130,10 @@ conflicts, and conclusions that depend on later sections are not independently e
 ### Phase 0 — offline contract proof
 
 - Add schema validation for `verifiedUnit`, sequence monotonicity, bounded payload size, and rejection
-  of `token` / `revising`.
+  of `token` / `revising`. (Amended 2026-09-05: the builder must fit the unit under the boundary's
+  size cap itself, by dropping sources from the tail, and never emit a unit the boundary will reject.
+  Until then a twelve-source unit of real-sized sources was ~83,000 characters against a 64,000 cap,
+  so every non-fast answer's rail was built and then discarded as `contract_rejected`.)
 - Add reconciliation tests proving every preview is an exact subset of `final` and is discarded on
   error, cancellation, retry, unknown schema version, or mismatch.
 - Add a source-governance fixture proving an outdated or poorly extracted danger-level source is

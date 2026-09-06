@@ -1,5 +1,12 @@
 # Ward Flow constellation design QA
 
+> **Superseded (2026-09-02).** Point-in-time QA handoff from 2026-08-19 (PR #2140), kept as the
+> record of that review. The constellation view it passes was retired in Ward Flow Phase 2:
+> `src/app/mockups/ward-flow/constellation/page.tsx` is now a redirect-only stub to
+> `/mockups/ward-flow/network` (see `docs/ward-management-mode-map.md`). The evidence paths below
+> (`artifacts/ward-management/*.png` and a workstation-local generated image) are not tracked in
+> this repository and cannot be opened from it. Do not treat the verdict as current.
+
 ## Comparison setup
 
 - Visual target: `C:\Users\joshs\.codex\generated_images\01a00060-be1a-7252-922f-b9dfc7a496b3\exec-c93f388a-175c-463d-89bd-db70dadc014f.png`

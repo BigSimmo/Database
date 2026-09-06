@@ -35,6 +35,7 @@ import { WARD_SCENARIOS } from "../src/components/ward-management/ward-scenarios
 import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 import { literalsIn } from "./helpers/ast-string-literals";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * Guard against a fourth fabrication of a Mental Health Act duration in this prototype.
  *
@@ -250,6 +251,28 @@ const MODEL_CONSTANT_PROVENANCE: Record<string, string> = {
   // quantity of anything: nothing in this codebase does arithmetic on them beyond comparing two
   // tiers to order a queue, and no minute, hour, day or bed count is derived from them.
   URGENCY_LEVELS: "product owner's own tiers, recorded at ward-priority.ts 2026-08-24 — tier labels, not a duration",
+
+  // ⚠️ NOBODY MEASURED THIS, AND THE PROVENANCE LINE SAYS SO RATHER THAN DRESSING IT UP.
+  //
+  // `REFERRAL_HISTORY_LIMITS` was `{ historyWhyNow: 1500, historyBackground: 2000,
+  // historyRiskAndSafety: 1000 }` — three assistant-chosen placeholders — until the owner's ruling
+  // of 2026-09-05 collapsed the three history boxes to ONE optional `history` field. The single
+  // 2000 that remains is NOT a newly authored figure: it is the LARGEST of the three superseded
+  // placeholders, kept rather than re-derived, so a value nobody measured stays exactly as
+  // generous as the most generous of the three it replaced. No real referral was measured against
+  // any of them and no clinician set them. The owner was told they are unmeasured, in those words,
+  // and it is his number to set.
+  //
+  // It is a COUNT OF CHARACTERS IN A TEXT BOX. Not a duration, not a deadline, not a quantity of
+  // anything clinical, and nothing is derived from it beyond refusing to send an over-long field
+  // — see `Referral.history`, which forbids anything at all being derived from the text. This
+  // guard exists because a fabricated statutory figure once reached the model; a character limit
+  // is the opposite kind of number, and saying which kind it is, is the whole job of this line.
+  REFERRAL_HISTORY_LIMITS:
+    "assistant's placeholder, 2026-09-05 — 2000 is the largest of the three superseded per-field " +
+    "placeholders (1500/2000/1000), kept rather than re-derived when the owner's same-day ruling " +
+    "collapsed three history boxes to one; owner told it is unmeasured — a character count in a " +
+    "text box, not a duration",
 };
 
 /**
@@ -435,6 +458,7 @@ const RECEIVE_REFERRAL_CANDIDATE = {
   urgency: 2 as const,
   originSiteCode: "SCGH",
   transportNeeded: false,
+  ...FIXTURE_HISTORY,
 };
 
 /**

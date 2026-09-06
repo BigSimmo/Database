@@ -129,8 +129,9 @@ __pycache__/
 # vercel
 .vercel
 
-# supabase local CLI state
+# supabase local CLI state (per-machine; the CLI's own scaffold ignores both)
 supabase/.temp/
+supabase/.branches/
 
 # typescript
 *.tsbuildinfo
@@ -169,7 +170,10 @@ ds-bundle/
 # esbuild output for the worker image (scripts/build-worker.mjs)
 dist/
 test-output*.txt
+# Downloaded staging tenancy CI artifacts are disposable; the one committed evidence
+# document (run 29795051547) is a tracked repository file and must not be ignored.
 docs/archive/staging-tenancy-evidence-*
+!docs/archive/staging-tenancy-evidence-29795051547/
 
 # Subagent-driven-development coordination scratch (ledger, briefs, review packages)
 .superpowers/

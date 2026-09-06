@@ -8,13 +8,15 @@ import { PanelCard } from "@/components/developer-area/hub/panel-card";
 afterEach(cleanup);
 
 /**
- * Formats the date the way the component does. The test timezone is not pinned
- * (`Australia/Perth` locally, UTC on many CI boxes), so a hardcoded locale string
- * would be environment-sensitive; deriving it keeps the assertion about *which*
- * date rendered rather than about the formatter.
+ * Formats the date the way the component does. #L14: `FreshnessStamp` now
+ * pins `timeZone: "Australia/Perth"` explicitly (Perth carries no daylight
+ * saving, so this is the same offset year-round) rather than following the
+ * host's local timezone (`Australia/Perth` locally, UTC on many CI boxes),
+ * so this helper pins the same zone to keep the assertion about *which* date
+ * rendered rather than about the formatter or the host running the test.
  */
 function mediumDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-AU", { dateStyle: "medium" });
+  return new Date(iso).toLocaleDateString("en-AU", { dateStyle: "medium", timeZone: "Australia/Perth" });
 }
 
 describe("FreshnessStamp", () => {
@@ -59,6 +61,21 @@ describe("FreshnessStamp", () => {
     const stamp = screen.getByTestId("developer-hub-freshness");
     expect(stamp).toHaveTextContent(new RegExp(`viewed ${mediumDate("2026-08-21T00:00:00Z")}`));
     expect(stamp).toHaveTextContent(/Ledger content as of/);
+  });
+
+  // #L14: the server-rendered stamp used to follow the container's clock (UTC
+  // on Railway) with no timezone printed, while the client-side CheckedAt line
+  // on the same ingestion page followed the browser (Perth) — an unlabelled
+  // eight-hour gap on the one page that polls live. Pinning Australia/Perth
+  // and printing the zone name closes both halves of that gap.
+  it("prints the timezone alongside the content date, pinned to Australia/Perth regardless of host clock", () => {
+    render(
+      <FreshnessStamp
+        freshness={{ contentAt: "2026-08-20T00:00:00Z", viewedAt: "2026-08-21T00:00:00Z", ageHours: 24 }}
+      />,
+    );
+    const stamp = screen.getByTestId("developer-hub-freshness");
+    expect(stamp).toHaveTextContent(/AWST/);
   });
 
   it("says '1 hour old', not '1 hours old'", () => {

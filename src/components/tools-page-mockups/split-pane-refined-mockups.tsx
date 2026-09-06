@@ -474,7 +474,7 @@ function PhonePopup({
                 <Link
                   href={tool.href}
                   className={cn(
-                    "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
+                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
                     focusRing,
                   )}
                 >

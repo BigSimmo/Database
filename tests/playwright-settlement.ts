@@ -43,3 +43,20 @@ export async function expectSingleSettledOwner(
 export function visibleByTestId(page: Page, testId: string): Locator {
   return page.getByTestId(testId).filter({ visible: true });
 }
+
+/**
+ * Scope a rendered-copy query to the visible DOM owner (#093).
+ *
+ * The text counterpart of `visibleByTestId`, for pages that assert on copy
+ * rather than on a testid. Production UI shard 3 on PR #2651:
+ * `/formulation/compare` resolved its comparison lede to 2 elements — the live
+ * one under `mobile-composer-reserve-pad` and a hidden streaming twin beside
+ * it — and a bare `getByText` failed strict mode.
+ *
+ * Only for `toBeVisible` assertions. A `toHaveCount(0)` assertion must stay
+ * bare: filtering to visible there would let a hidden duplicate of copy that
+ * should not exist at all pass unnoticed.
+ */
+export function visibleByText(page: Page, text: string | RegExp, options?: { exact?: boolean }): Locator {
+  return page.getByText(text, options).filter({ visible: true });
+}

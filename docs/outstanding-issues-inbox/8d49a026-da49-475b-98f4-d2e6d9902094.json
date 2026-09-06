@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8d49a026-da49-475b-98f4-d2e6d9902094",
+  "createdOn": "2026-09-06",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Eight ui-ward-* browser journeys fail on main, and the blocking Ward Flow lane is path-scoped so it will not report them until someone next edits Ward Flow",
+    "detail": "REPRODUCED ON UNMODIFIED main 2026-09-06: a worktree checked out at origin/main 0ee6816, with no feature branch commits present, running npm run test:e2e:ward-journeys fails eight tests - ui-ward-discharges.spec.ts:92; ui-ward-management.spec.ts:71 and :230; ui-ward-morning.spec.ts:55 and :105; ui-ward-roles.spec.ts:227, :253 and :269. Not a flake and not one spec: eight, in four files, in one run. Likely origin is the Ward Flow second edition (#2654, commit 408c2c5), which landed shortly before. The SECOND HALF is the part that outlives the fix and is the reason this is filed separately from the existing per-spec rows (#ZWJ71W ui-ward-morning, #1BHXEF ui-ward-roles demo clock): the BLOCKING lane ui-ward-journeys ('Ward Flow browser journeys') is gated on needs.changes ward scope, so with these red on main it stays SKIPPED on every PR that does not touch Ward Flow files - it skipped on PR #2674 while the advisory lane ran the same specs and went red. A path-scoped gate cannot report a break in the code it guards once that code is already broken on the base branch; it only speaks again when someone edits the area, which is exactly when they will be blamed for it. The advisory lane is continue-on-error and not in pr-required, so nothing blocking sees this at all. Two things to settle: fix the eight (owner is whoever holds #2654), and decide whether ward-journeys should also run on a schedule or on base-branch pushes so a broken base cannot hide behind its own path filter. Reproduce with: git worktree add <dir> origin/main && cd <dir> && npm run test:e2e:ward-journeys",
+    "source": "session 2026-09-06, PR #2674; eight failures reproduced on an unmodified origin/main worktree",
+    "issueUlid": "01M1V11AA5KHTTW4XEV295CSJ0"
+  }
+}
