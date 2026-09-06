@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "49644b0d-1c2f-4169-a22f-fb7637d17dc9",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#WKFSV6",
+    "detail": "RECONSTRUCTED 2026-09-06, partially verified. answer-evidence-popups is confirmed gone: it survives only as references in docs/outstanding-issues.md, the archived q3 branch-review ledger and two applied inbox records, with no occurrence anywhere in src/ or tests/. Heading-hierarchy assertions now exist only in tests/ward-community-index.test.ts and tests/ward-referral-screens.dom.test.tsx, both Ward Flow surfaces, so the claim that no coverage reaches mockup gallery pages or source-text rendering matches what is in the suite today. NOT VERIFIED: the exact contract the retired component asserted, which was not recorded before it was deleted. NEXT ACTION: decide whether a source-text heading-hierarchy contract is still wanted. If it is, write it fresh against the surface that renders source text today rather than trying to recover the retired component's version, and point it at the mockup gallery pages the row says were never covered.",
+    "baseRowFingerprint": "6cb17e21ea43ef1bd639b77af3007dc70f6cef1aebecfece9520b4e22ce78cbb"
+  }
+}
