@@ -6,7 +6,7 @@
     "embedding_version": "text-embedding-3-small@1536"
   },
   "extractorVersions": {
-    "legacy": "src/lib/extractors/document.ts + worker/python/extract_pdf_assets.py (pymupdf==1.28.0, worker/python/requirements.txt)",
+    "legacy": "src/lib/extractors/document.ts + worker/python/extract_pdf_assets.py (pymupdf==1.28.2, worker/python/requirements.txt)",
     "docling": "docling==2.120.2 (eval/docling/requirements.txt)"
   },
   "sandbox": {

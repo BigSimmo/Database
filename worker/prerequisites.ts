@@ -160,7 +160,12 @@ function probePythonJson(
         return;
       }
       try {
-        const parsed = JSON.parse(stdout) as { ok: boolean; missing?: string[] };
+        // Some libraries (e.g. PyMuPDF's `fitz` compatibility shim as of 1.28.2) print a
+        // deprecation notice to stdout on import, ahead of our JSON payload. The probe script
+        // always ends with a single `print(json.dumps(result))`, so parse only the last
+        // non-empty line rather than the whole stream.
+        const lastLine = stdout.trim().split("\n").pop() ?? "";
+        const parsed = JSON.parse(lastLine) as { ok: boolean; missing?: string[] };
         finish({
           ok: parsed.ok,
           detail: parsed.ok ? readyDetail : `Missing ${parsed.missing?.join("; ")}`,
