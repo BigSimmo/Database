@@ -601,11 +601,7 @@ function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrows
         <Link href={item.href} className={cn(floatingControl, "px-2.5 text-xs", stretchedRowLinkClass)}>
           {item.primaryAction}
         </Link>
-        <button
-          type="button"
-          onClick={onBrowseSets}
-          className={cn(floatingControl, "relative z-10 px-2.5 text-xs")}
-        >
+        <button type="button" onClick={onBrowseSets} className={cn(floatingControl, "relative z-10 px-2.5 text-xs")}>
           <Folder aria-hidden="true" className="h-3.5 w-3.5" />
           Browse sets
         </button>

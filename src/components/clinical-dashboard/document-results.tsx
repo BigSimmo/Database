@@ -105,7 +105,13 @@ function RelatedDocumentCard({
         </p>
       ) : null}
 
-      <DocumentTagCloud labels={tagCloudLabels} limit={3} compact className="relative z-10 mt-2" onTagClick={onTagSearch} />
+      <DocumentTagCloud
+        labels={tagCloudLabels}
+        limit={3}
+        compact
+        className="relative z-10 mt-2"
+        onTagClick={onTagSearch}
+      />
     </article>
   );
 }

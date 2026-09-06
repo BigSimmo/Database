@@ -56,8 +56,9 @@ function findElementsUsing(source: string, needle: string) {
   const stack: Array<Record<string, unknown>> = [];
 
   const classNameSourceOf = (node: Record<string, unknown>): string => {
-    const attributes = ((node.openingElement as Record<string, unknown> | undefined)?.attributes ??
-      []) as Array<Record<string, unknown>>;
+    const attributes = ((node.openingElement as Record<string, unknown> | undefined)?.attributes ?? []) as Array<
+      Record<string, unknown>
+    >;
     for (const attribute of attributes) {
       if (attribute.type !== "JSXAttribute") continue;
       if ((attribute.name as { name?: string } | undefined)?.name !== "className") continue;
