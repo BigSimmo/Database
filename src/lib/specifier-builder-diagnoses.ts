@@ -282,15 +282,40 @@ export function resolveInitialBuilderState(
   return { diagnosisId: guidedBuilderDiagnoses[0].id, selected: curated };
 }
 
+// A trailing parenthetical that enumerates the sub-options of a specifier, or tells the
+// clinician to fill something in. Those belong on the option row, where they show what
+// is available, but not in the documented phrase: "with anxious distress (mild,
+// moderate, moderate-severe, severe)" is a menu, not a diagnosis.
+//
+// The comma is what separates a menu from a qualifier across the whole dataset. Every
+// comma-bearing parenthetical lists alternatives; every comma-free one defines the term
+// it follows — a duration ("less than 6 months"), a threshold ("BMI 17 or above"), a
+// count ("2+ criteria"), an age ("before age 21") or a constraint ("recurrent only") —
+// and each of those changes the meaning of the phrase, so it stays.
+//
+// Two boundaries the pattern has to hold: the parenthetical must be trailing, so the
+// mid-label "Other (or unknown) substance" survives, and it must be preceded by
+// whitespace, so "With marked stressor(s)" does not lose its plural.
+const trailingParenthetical = /\s+\(([^()]*)\)\s*$/;
+
+export function stripSpecifierOptionList(label: string) {
+  const match = label.match(trailingParenthetical);
+  if (!match || match.index === undefined) return label;
+  const inner = match[1];
+  if (!inner.includes(",") && !/^specify\b/i.test(inner)) return label;
+  return label.slice(0, match.index).trimEnd();
+}
+
 /**
- * Wording segment for a catalogue specifier. Dataset labels are reproduced verbatim —
- * only the leading capital of an ordinary word is lowered so the phrase reads as one
- * sentence. Labels carrying a structured prefix ("Level 1:", "Cluster B:") keep their
- * capital, and acronyms are left alone.
+ * Wording segment for a catalogue specifier. The dataset's own words are kept: the only
+ * edits are dropping a trailing option list (above) and lowering the leading capital of
+ * an ordinary word so the phrase reads as one sentence. Labels carrying a structured
+ * prefix ("Level 1:", "Cluster B:") keep their capital, and acronyms are left alone.
  */
 export function catalogWordingSegment(label: string) {
-  if (label.includes(":")) return label;
-  const [firstWord] = label.split(/\s+/);
-  if (!firstWord || !/^[A-Z][a-z']*$/.test(firstWord)) return label;
-  return label.charAt(0).toLowerCase() + label.slice(1);
+  const trimmed = stripSpecifierOptionList(label);
+  if (trimmed.includes(":")) return trimmed;
+  const [firstWord] = trimmed.split(/\s+/);
+  if (!firstWord || !/^[A-Z][a-z']*$/.test(firstWord)) return trimmed;
+  return trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
 }

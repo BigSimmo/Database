@@ -11,6 +11,7 @@ import {
   findBuilderDiagnosis,
   guidedBuilderDiagnoses,
   resolveInitialBuilderState,
+  stripSpecifierOptionList,
   toggleBuilderCatalogSlug,
 } from "@/lib/specifier-builder-diagnoses";
 import { specifierIndexItems } from "@/lib/specifiers-search-index";
@@ -131,5 +132,54 @@ describe("specifier builder base diagnoses", () => {
     expect(catalogWordingSegment("Mild (BMI 17 or above)")).toBe("mild (BMI 17 or above)");
     expect(catalogWordingSegment("Level 1: Requiring support")).toBe("Level 1: Requiring support");
     expect(catalogWordingSegment("With Lewy bodies")).toBe("with Lewy bodies");
+  });
+
+  it("drops a trailing option list from the wording so the phrase is documentable", () => {
+    expect(catalogWordingSegment("With anxious distress (mild, moderate, moderate-severe, severe)")).toBe(
+      "with anxious distress",
+    );
+    expect(catalogWordingSegment("With speech symptoms (dysphonia, slurred speech)")).toBe("with speech symptoms");
+    expect(catalogWordingSegment("Current severity (mild, moderate, severe)")).toBe("current severity");
+    expect(catalogWordingSegment("With or without behavioural disturbance (specify disturbance)")).toBe(
+      "with or without behavioural disturbance",
+    );
+    expect(stripSpecifierOptionList("First episode (acute, partial, full remission)")).toBe("First episode");
+  });
+
+  it("keeps a parenthetical that qualifies the specifier rather than listing its options", () => {
+    // Each of these changes what the phrase means, so stripping them would lose clinical
+    // content: a threshold, a duration, a count, an age and a constraint.
+    for (const label of [
+      "Mild (BMI 17 or above)",
+      "Acute (less than 6 months)",
+      "Mild (2-3 symptoms)",
+      "Early onset (before age 21)",
+      "With seasonal pattern (recurrent only)",
+      "Episodic (at least 1 month but less than 3 months)",
+    ]) {
+      expect(stripSpecifierOptionList(label)).toBe(label);
+    }
+
+    // A parenthetical that is part of a word, or sits mid-label, is never trailing.
+    expect(stripSpecifierOptionList("With marked stressor(s)")).toBe("With marked stressor(s)");
+    expect(stripSpecifierOptionList("Other (or unknown) substance")).toBe("Other (or unknown) substance");
+  });
+
+  it("strips every option list in the catalogue and nothing else", () => {
+    const stripped = specifierIndexItems.filter((item) => stripSpecifierOptionList(item.label) !== item.label);
+    // Every label the rule rewrites must have carried a comma-separated menu or a
+    // "specify" instruction, and must keep text once the menu is gone.
+    for (const item of stripped) {
+      const inner = item.label.match(/\s+\(([^()]*)\)\s*$/)?.[1] ?? "";
+      expect(inner.includes(",") || /^specify\b/i.test(inner)).toBe(true);
+      expect(stripSpecifierOptionList(item.label).length).toBeGreaterThan(0);
+    }
+    expect(stripped.map((item) => item.label)).toEqual(
+      expect.arrayContaining([
+        "With anxious distress (mild, moderate, moderate-severe, severe)",
+        "With impairment in reading (word reading accuracy, reading rate or fluency, reading comprehension)",
+        "Stimulant (amphetamine-type, cocaine, other/unspecified)",
+      ]),
+    );
   });
 });
