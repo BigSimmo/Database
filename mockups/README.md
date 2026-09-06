@@ -220,13 +220,14 @@ named directions, cross-linked to each other for comparison, no recorded winner.
 
 ### One-off studies
 
-| Route                        | Status                                                                                                                                    |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `also-matches-accents`       | Chosen design — records the picked "also matches" accent treatment.                                                                       |
-| `verification-notice-subtle` | Active study, no recorded winner.                                                                                                         |
-| `warning-consolidation`      | Active study — first pass on consolidating warning lines.                                                                                 |
-| `warning-line`               | Active study — second pass answering a narrower, different brief (words only, no icon/border/tint); not a replacement for the first pass. |
-| `phone-mode-sheet-yes`       | Active study — design review of the shipping phone mode sheet.                                                                            |
+| Route                        | Status                                                                                                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `also-matches-accents`       | Chosen design — records the picked "also matches" accent treatment.                                                                                       |
+| `verification-notice-subtle` | Active study, no recorded winner.                                                                                                                         |
+| `warning-consolidation`      | Active study — first pass on consolidating warning lines.                                                                                                 |
+| `warning-line`               | Active study — second pass answering a narrower, different brief (words only, no icon/border/tint); not a replacement for the first pass.                 |
+| `phone-mode-sheet-yes`       | Active study — design review of the shipping phone mode sheet.                                                                                            |
+| `source-rail-desktop-scroll` | Chosen design — direction A (edge chevrons, mouse only) was picked and applied to the live `AnswerSourceRail`. Kept as the comparison it was chosen from. |
 
 Static (non-route) design comps under `public/mockups/mode-page-redesign-2026-07/` are
 already documented below and are not part of this route index.

@@ -32,6 +32,20 @@ import {
 
 export { CopyButton } from "@/components/ui/copy-button";
 
+/**
+ * The one-tap route into a mode's catalogue from the shared home.
+ *
+ * The shared home renders no starter cards and no mode tab bar
+ * (`isModeSecondaryNavigationRoute` lists routed destinations only), so a mode whose
+ * catalogue is a real browsable surface would otherwise be reachable only by typing a
+ * search. Calculators established the pattern; Sources joined it when its four-card
+ * home at `/sources` was retired into this one.
+ */
+const sharedHomeCatalogueChips: Partial<Record<AppModeId, { label?: string; ariaLabel: string }>> = {
+  calculators: { ariaLabel: "Show all calculators" },
+  sources: { label: "Browse catalogue", ariaLabel: "Browse the source catalogue" },
+};
+
 export function SharedHomeEmptyState({
   modeId,
   desktopComposerSlotId,
@@ -53,6 +67,7 @@ export function SharedHomeEmptyState({
       ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5)
       : [];
   const presentation: SharedHomePresentation = sharedHomePresentation[modeId];
+  const catalogueChip = sharedHomeCatalogueChips[modeId];
 
   return (
     <ModeHomeTemplate
@@ -64,12 +79,13 @@ export function SharedHomeEmptyState({
       stabilizePhoneCopy
       desktopComposerSlotId={desktopComposerSlotId}
       heroAction={
-        modeId === "calculators" ? (
+        catalogueChip ? (
           <ShowAllChip
-            href={consolidatedModeSearchPath("calculators")}
-            icon={appModeIcons.calculators}
-            ariaLabel="Show all calculators"
-            testId="calculators-show-all"
+            href={consolidatedModeSearchPath(modeId)}
+            icon={appModeIcons[modeId]}
+            label={catalogueChip.label}
+            ariaLabel={catalogueChip.ariaLabel}
+            testId={`${modeId}-show-all`}
           />
         ) : undefined
       }

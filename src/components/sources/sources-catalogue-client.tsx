@@ -334,6 +334,22 @@ export function SourcesCatalogueClient({
   });
 
   const activeFilterCount = appliedFilters.length;
+
+  // Drops the query and keeps every filter — the mirror of `clearFilters`, which
+  // keeps the query. The empty state offers both as separate controls, so a
+  // "Clear search" that also silently wiped band, jurisdiction and usage would make
+  // one of those controls a lie. It used to `router.push(appModeHomeHref("sources"))`,
+  // which left the catalogue entirely and dropped every filter with it — the same
+  // reasoning already applied to the Topics and Publishers browse view.
+  const clearQuery = () => {
+    const next = new URLSearchParams();
+    for (const [candidateKey, candidateValue] of searchParams.entries()) {
+      if (candidateKey !== "q") next.append(candidateKey, candidateValue);
+    }
+    const suffix = next.toString();
+    router.push(`${pathname}${suffix ? `?${suffix}` : ""}`);
+  };
+
   const clearFilters = () => {
     const next = new URLSearchParams();
     const query = searchParams.get("q");
@@ -421,7 +437,7 @@ export function SourcesCatalogueClient({
           query={filters.q}
           appliedFilters={appliedFilters}
           onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
-          onClearSearch={() => router.push(appModeHomeHref("sources", { focus: true }))}
+          onClearSearch={filters.q ? clearQuery : undefined}
           onTryExample={(example) => router.push(appModeHomeHref("sources", { query: example, run: true }))}
         />
       )}
