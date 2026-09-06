@@ -1,3 +1,24 @@
+/**
+ * ⚠️⚠️ **THESE 20 CASES DESCRIBE A SCREEN NO ROUTE RENDERS. PARKED ON WARD LEAD'S RULING, 2026-09-06.**
+ *
+ * `MorningPage` has been unmounted since MERGE 02 (owner-approved) folded the morning bed state
+ * board into `CapacityScreen`. `/mockups/ward-flow/morning` is a redirect stub kept only so an
+ * existing bookmark does not 404. **So every case below passes, forever, about a screen nobody can
+ * open** — which reads as coverage and is not.
+ *
+ * **Nothing flags this**: the reachability guard watches `WardModeWorkspace` modes, and this is a
+ * standalone component.
+ *
+ * ⚠️ **DO NOT MAKE THIS FILE HONEST BY RE-POINTING IT AT `CapacityScreen`.** The two screens are
+ * not the same surface — the capacity screen deliberately shows no sex mix and no specialling
+ * headroom, and whether those belong on a network view is an OPEN owner question. Re-pointing these
+ * assertions would answer it by default, which is exactly the mistake made and withdrawn elsewhere
+ * in this repository on the same day.
+ *
+ * Deleting it is the other way to answer it by default. Both are the owner's call, and the question
+ * is with him along with whether Spec D9's reciprocal-link requirement survives the merge at all.
+ */
+
 import { render, screen, within } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";

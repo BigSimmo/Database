@@ -119,10 +119,18 @@ have found a dead page, and the record would still have read as though the desig
 published.** The design was described in this file, discussed and locked without anybody following
 its own citation.
 
-**No checker covers this.** `scripts/check-ward-citations.mjs` verifies every backticked SHA and
-repository path in the ward documents against six branches — an artifact URL is neither, so a
-document can carry a dead external link through every gate this project has. The remedy applied here
-was to publish the file and paste the real URL back; the general remedy is not taken here.
+**No checker covers this.** The ward citation checker (`check-ward-citations.mjs`, which lives on the
+`claude/Wardquestions` branch and not on this one) verifies every backticked SHA and repository path
+in the ward documents against six branches — an artifact URL is neither, so a document can carry a
+dead external link through every gate this project has. The remedy applied here was to publish the
+file and paste the real URL back; the general remedy is not taken here.
+
+⚠️ **The branch qualifier above was added 2026-09-06 because this sentence was itself an instance of
+its own subject.** It named the script as a bare repository path, `check:docs-links` resolved that
+path against the published tree, did not find it, and failed CI — the script is real, and it is on a
+branch that is deliberately never published. **A citation that is true on the author's branch and
+false on the reader's is the same defect as a dead link**, and it is the one this document was
+written about.
 
 ### The one repeated shape
 

@@ -142,9 +142,22 @@ is no join.
   (`ward-model.ts:1343-1351`) says the opposite in the same file: "Carries a deliberately tiny,
   governed set of facts... No free-text field of any kind, unlike `Decline` (which has an
   optional `note`)" - and this is enforced structurally by `ALLOWED_REFERRAL_FIELDS` in
-  `tests/ward-referral-model.test.ts:750ff`, which lists no such field. I read every field `Referral`
+  `tests/ward-referral-model.test.ts:753`, which lists no such field. I read every field `Referral`
   and `ReferralAddressing` actually declare (above) and confirmed no string free-text field exists.
   Trusting the actual guarded type over the stale/aspirational comment: there is no story field.
+
+  🔴 **SUPERSEDED 2026-09-06, AND LEFT STANDING RATHER THAN REWRITTEN, because this is a dated
+  survey and a survey that quietly updates its findings is not a record of anything.** The
+  conclusion above was correct when it was written and is now false: the owner ruled on 2026-09-05
+  for ONE story box, optional, and it is built. Measured, not recalled — `Referral` declares
+  `history: string` (`ward-model.ts:1586`), `REFERRAL_HISTORY_LIMITS` caps it, the reducer refuses
+  an over-length value, and `history` is a member of `ALLOWED_REFERRAL_FIELDS`, so the guard cited
+  above now permits it deliberately rather than by omission.
+
+  ⚠️ **The line reference in the paragraph above was also wrong and was the reason CI failed.** It
+  read `:750ff`; the symbol is at line 753, and the `ff` suffix is not something `check:docs-links`
+  can resolve. **An approximate citation is not a smaller version of an exact one — it is one the
+  checker cannot follow**, which is the same failure as citing a file that is not there.
 - **(ii) Producer:** N/A - nothing to assign to.
 - **(iii) Consumer:** N/A - nothing reads it.
 - **(iv) Verdict: NOT IN MODEL AT ALL.**

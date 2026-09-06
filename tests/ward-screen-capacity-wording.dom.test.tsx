@@ -30,12 +30,24 @@ import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
  * "free" and "ready" describe the same set, so such a unit cannot tell the defect from the repair
  * and a test walking only those would pass against the wording it exists to reject.
  *
- * ⚠️ WHAT THIS DELIBERATELY DOES NOT DECIDE. Whether the product's word for this quantity should be
- * "ready", "free", or the board's "beds you can fill today" is an open question with the owner —
- * `board/ward-board.tsx` renders the comparable figure as "beds you can fill today". This file pins
- * only that ONE SCREEN uses ONE WORD for ONE VALUE, which is repairable without pre-empting that
- * answer. If the owner picks a different word, the right change is the word here and in the
- * breakdown together, and this test will say so by failing on the mismatch rather than on the term.
+ * ⚠️ WHAT THIS DELIBERATELY DID NOT DECIDE — AND THE OWNER HAS SINCE DECIDED IT. This block said
+ * the product's word for the quantity was an open question, and cited `board/ward-board.tsx`
+ * rendering "beds you can fill today" as the rival term. **OWNER RULING R-B-09, 2026-09-04:
+ * "Ready", everywhere** — one word replacing seven renderings of `min(allocatable, empty)`
+ * (`docs/ward-flow/owner-rulings-2026-09-04-decision-batch.md`). The board now renders "ready
+ * bed(s)"; the old phrase survives only in prose describing what its header used to say, which is
+ * history and not a competing live term.
+ *
+ * ⚠️ **WHAT THIS FILE PINS IS UNCHANGED BY THAT, AND IS NARROWER THAN THE RULING.** It pins that
+ * ONE SCREEN uses ONE WORD for ONE VALUE — correct before the ruling and correct after it, because
+ * a screen contradicting itself is a defect whatever the chosen word is. It cannot see a SECOND
+ * screen using a different word, because it never renders one. The product-wide half of R-B-09 is
+ * `tests/ward-capacity-figure-one-word.test.ts`, written on 2026-09-06 after four rendered strings
+ * were found still naming this figure by a retired name — the rename had followed the label
+ * constant, so it moved every label and no sentence.
+ *
+ * If the word is ever changed again, the right change is here and in the breakdown together, and
+ * this test will say so by failing on the mismatch rather than on the term.
  */
 
 /** Units where "empty" and "offered" genuinely differ — the only ones that discriminate. */

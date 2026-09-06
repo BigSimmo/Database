@@ -14,7 +14,7 @@ import {
   DECLINE_REASON_LABELS,
   recentlyDecidedReferrals,
   referralQueueOrder,
-  referralPersonFacts,
+  referralPersonFactsStatingSex,
   referralSexCell,
   acceptedAddressing,
   cancelledAddressings,
@@ -466,7 +466,7 @@ function QueuedSection({
                     <span className={styles.waitBadge} data-testid={`ward-referral-board-card-wait-${referral.id}`}>
                       {referralWaitLine(referral, now)}
                     </span>
-                    <span className={styles.cardService}>{referralPersonFacts(referral).join(" · ")}</span>
+                    <span className={styles.cardService}>{referralPersonFactsStatingSex(referral).join(" · ")}</span>
                   </button>
                   {/* Same ruling as the table row above (owner ruling, 2026-09-01) — rendered as
                       a `<span>`, phrasing content only, and as a SIBLING of the button rather

@@ -91,7 +91,14 @@ function wardStylesheets(dir: string): string[] {
 }
 
 const HEX = /#[0-9a-fA-F]{3,8}\b/g;
-const COLOUR_FUNCTION = /\b(rgba?|hsla?)\(([^)]*)\)/g;
+/**
+ * One level of nesting is matched deliberately. `[^)]*` stopped at the FIRST `)`, so a declaration
+ * containing a nested `var()` was both mis-exempted (see the check at the call site) and, once the
+ * exemption was fixed, REPORTED TRUNCATED — `rgb(0 0 0 / var(--ward-shadow-alpha)` without its
+ * closing paren, which reads as broken CSS rather than as a raw colour. A guard whose message
+ * misdescribes the offence sends the reader to the wrong repair.
+ */
+const COLOUR_FUNCTION = /\b(rgba?|hsla?)\(((?:[^()]|\([^()]*\))*)\)/g;
 /** `url(#gradient)` is an SVG fragment reference, and `#id` in selector position is a selector. */
 const URL_FRAGMENT = /url\(\s*#[^)]*\)/g;
 const ID_SELECTOR = /(^|[\s,>+~])#[-_a-zA-Z][-_a-zA-Z0-9]*(?=[\s,{:.[])/g;
@@ -132,9 +139,25 @@ function rawColourIn(file: string): Finding[] {
       });
     }
     for (const match of line.matchAll(COLOUR_FUNCTION)) {
-      // `rgb(var(--ward-shadow-rgb) / 0.2)` is token-derived: the channels come from the layer.
-      // Raw channels do not, and are the defect however small the alpha.
-      if (/var\(/.test(match[2])) continue;
+      /*
+       * `rgb(var(--ward-shadow-rgb) / 0.2)` is token-derived: the CHANNELS come from the layer, and
+       * the trailing alpha is a number rather than a colour.
+       *
+       * 🔴 **THIS TESTED `/var\(/` ANYWHERE IN THE ARGUMENT LIST UNTIL 2026-09-06, WHICH IS A
+       * WEAKER RULE THAN THE SENTENCE ABOVE AND LET A RAW COLOUR THROUGH.**
+       * `rgb(0 0 0 / var(--ward-shadow-alpha))` is black, written out, exempted because a `var(`
+       * appeared somewhere after it — and it is a natural way to write a shadow, not a contrived
+       * one. Found by checking this guard against the defect Ward Builder Three found in THEIR
+       * `var()` parser, after I warned them about a false-positive risk in it; their hole was a
+       * false NEGATIVE too, in the same family. **A warning about over-reporting is worth
+       * re-aiming at your own detector's under-reporting.**
+       *
+       * The rule is now what the sentence says: the argument list must BEGIN with `var(`. What that
+       * still permits, stated rather than left to be discovered: a raw value AFTER a leading
+       * `var(` — `rgb(var(--a), 34, 56)`. That is contrived where the shadow form was not, and
+       * narrowing further would start rejecting the sanctioned pattern this exemption exists for.
+       */
+      if (/^\s*var\(/.test(match[2])) continue;
       findings.push({
         file,
         line: index + 1,
@@ -187,6 +210,10 @@ describe("ward stylesheets declare colour through the --ward-* layer, never raw"
       ".rawHsl { background: hsl(210, 40%, 96%); }",
       ".tokenised { background: var(--ward-subtle); }",
       ".tokenAlpha { box-shadow: 0 1px 2px rgb(var(--ward-shadow-rgb) / 0.2); }",
+      // 🔴 The false negative fixed on 2026-09-06: raw black channels, exempted until then because
+      // a `var(` appeared later in the same function. Both directions are pinned — this must be
+      // FOUND, and `.tokenAlpha` above must still NOT be, or the fix has disarmed the exemption.
+      ".rawChannelsTokenAlpha { box-shadow: 0 1px 2px rgb(0 0 0 / var(--ward-shadow-alpha)); }",
       ".systemKeyword { border-color: CanvasText; }",
       ".transparentIsNotAColour { background: transparent; }",
       ".inherits { color: currentColor; }",
@@ -209,7 +236,7 @@ describe("ward stylesheets declare colour through the --ward-* layer, never raw"
       "the detector did not find exactly the three raw declarations in its own fixture, so a clean " +
         "estate below proves nothing. Anything extra here is a false positive that will fire on " +
         "correct work; anything missing is a hole.",
-    ).toEqual(["#1b2533", "hsl(210, 40%, 96%)", "rgba(0, 0, 0, 0.2)"]);
+    ).toEqual(["#1b2533", "hsl(210, 40%, 96%)", "rgb(0 0 0 / var(--ward-shadow-alpha))", "rgba(0, 0, 0, 0.2)"]);
 
     // And the fix is named, not merely the offence.
     const shadow = hits.find((h) => h.found.startsWith("rgba"));

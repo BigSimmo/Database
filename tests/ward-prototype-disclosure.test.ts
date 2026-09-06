@@ -28,6 +28,23 @@ import { describe, expect, it } from "vitest";
  *
  * This walks routes rather than components on purpose: a component nothing routes to cannot show a
  * disclosure to anybody, and a route is what a reader actually opens.
+ *
+ * ⚠️ **NO FOCUSED RUN CAN EVER SELECT THIS FILE, SO DO NOT TRUST ONE OVER IT.** `npm run
+ * test:focused` selects by `vitest related`, which walks the IMPORT GRAPH — and this file imports
+ * `node:fs` and `vitest`, nothing else. Adding a ward screen with no disclosure therefore changes
+ * no file this guard imports, and a focused run over that change reports green having never loaded
+ * it. **The same is true of `ward-nav.test.ts` and `ward-mode-workspace-reachability.test.ts`**, the
+ * other two guards on this branch that read the repository rather than importing it.
+ *
+ * **That is not hypothetical here.** On 2026-09-06 a change on this branch added a third builder of
+ * the `/ward/[unitId]` route; the delays, capacity, landmarks and route-binding suites were all run
+ * and all green, and `ward-nav.test.ts` — which no run had selected — sat red for three commits.
+ *
+ * Making this file import a component to get itself selected would be worse than the gap: it would
+ * tie a whole-repository walk to whichever one component it happened to import, and `related` would
+ * still miss every change to the other twenty-odd. **The honest mitigation is a full run before a
+ * fold, which matters more here than in most of the repository because this branch never reaches
+ * CI — a local `vitest run --dir tests` is the ONLY thing that ever executes this guard.**
  */
 
 const ROUTES_DIR = "src/app/mockups/ward-flow";
@@ -58,9 +75,75 @@ function routeOf(file: string): string {
   return relative === "" ? "/" : relative;
 }
 
+/**
+ * 🔴 **COMMENTS ARE REMOVED BEFORE ANY QUESTION IS ASKED OF A FILE, AND WITHOUT THIS THE GUARD WAS
+ * DECIDED BY THE WORDING OF A COMMENT RATHER THAN BY WHAT THE SCREEN RENDERS.**
+ *
+ * Proved on the live tree, 2026-09-06, by deleting the badge from `capacity-screen.tsx` twice:
+ *
+ *     badge removed, comment left saying "the prototypeBadge span was removed here"  -> 2 PASSED
+ *     badge removed, comment saying "the synthetic-data badge span was removed here" -> 1 FAILED,
+ *                                                                 naming capacity -> CapacityScreen
+ *
+ * Identical code, identical missing disclosure on a page showing 303 beds and twenty-three named
+ * Perth hospitals; the verdict turned on whether a comment happened to contain the class name. And
+ * it is not hypothetical: `statistics/statistics-disclaimers.tsx` already mentions `prototypeBadge`
+ * in prose and nowhere in code, so the satisfying text is in the tree today.
+ *
+ * ⚠️ **IT FIXES A SECOND HOLE OF THE SAME SHAPE THAT NOBODY HAD LOOKED FOR.** `disclosesWithin`
+ * finds a component's children by scanning for `<Tag`, so a COMMENTED-OUT child element counted as
+ * rendered — a route could inherit its disclosure from a component it no longer draws.
+ */
+export function stripComments(source: string): string {
+  let out = "";
+  let index = 0;
+  let state: "code" | "block" | "line" = "code";
+  while (index < source.length) {
+    const here = source[index];
+    const next = source[index + 1];
+    if (state === "code") {
+      if (here === "/" && next === "*") {
+        state = "block";
+        out += "  ";
+        index += 2;
+        continue;
+      }
+      if (here === "/" && next === "/") {
+        state = "line";
+        out += "  ";
+        index += 2;
+        continue;
+      }
+      out += here;
+      index += 1;
+      continue;
+    }
+    if (state === "block") {
+      if (here === "*" && next === "/") {
+        state = "code";
+        out += "  ";
+        index += 2;
+        continue;
+      }
+      out += here === "\n" ? "\n" : " ";
+      index += 1;
+      continue;
+    }
+    if (here === "\n") {
+      state = "code";
+      out += "\n";
+      index += 1;
+      continue;
+    }
+    out += " ";
+    index += 1;
+  }
+  return out;
+}
+
 const componentSources = filesUnder(COMPONENTS_DIR, (name) => name.endsWith(".tsx")).map((path) => ({
   path,
-  source: readFileSync(path, "utf8"),
+  source: stripComments(readFileSync(path, "utf8")),
 }));
 
 /** The file that exports `name`, or null. A component nothing exports cannot be checked. */
@@ -100,7 +183,10 @@ function disclosesWithin(name: string, seen: Set<string>, depth = 0): boolean {
 describe("every ward route a reader can open says its data is synthetic", () => {
   const routes = filesUnder(ROUTES_DIR, (name) => name === "page.tsx").map((file) => ({
     route: routeOf(file),
-    renders: componentRenderedBy(readFileSync(file, "utf8")),
+    // Stripped for the same reason the component sources are: a commented-out `export default`
+    // or a commented-out JSX tag in a route file would otherwise name a component this route does
+    // not render.
+    renders: componentRenderedBy(stripComments(readFileSync(file, "utf8"))),
   }));
 
   it("walks the ward routes at all, so the assertion below is not vacuous", () => {
@@ -112,6 +198,37 @@ describe("every ward route a reader can open says its data is synthetic", () => 
     expect(routes.length, "no ward routes found — the walk is measuring nothing").toBeGreaterThan(20);
     const screens = routes.filter((entry) => entry.renders !== null && !entry.renders.startsWith("redirect:"));
     expect(screens.length, "every ward route resolved to a redirect — no screen is being checked").toBeGreaterThan(15);
+  });
+
+  it("cannot be satisfied by a comment naming the badge, and still sees a real one", () => {
+    /*
+     * ⚠️ **BOTH DIRECTIONS, RUN ON EVERY PASS, AND WRITTEN IN THE EXACT FORM THE SCAN MATCHES.**
+     * The failing direction is the one that matters — a guard a comment can satisfy certifies a
+     * screen that shows invented clinical figures with nothing saying so — but asserting only that
+     * would pass on a stripper that deleted everything, which would report every screen as
+     * undisclosed and get the guard deleted instead.
+     */
+    const commented = [
+      "export default function Fake() {",
+      "  /* the prototypeBadge span was removed here while this note stayed behind */",
+      "  // prototypeBadge",
+      "  return null;",
+      "}",
+    ].join("\n");
+    expect(
+      DISCLOSURE.test(stripComments(commented)),
+      "a comment naming the badge satisfies this guard again — a screen can lose its disclosure and stay green",
+    ).toBe(false);
+
+    const real = [
+      "export default function Real() {",
+      "  return <span className={styles.prototypeBadge}>x</span>;",
+      "}",
+    ].join("\n");
+    expect(
+      DISCLOSURE.test(stripComments(real)),
+      "a real badge is no longer seen — every screen would report as undisclosed and this guard would be deleted",
+    ).toBe(true);
   });
 
   it("renders a synthetic-data disclosure on every routed screen", () => {

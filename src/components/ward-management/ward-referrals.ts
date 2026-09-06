@@ -321,6 +321,38 @@ export function referralPersonFacts(referral: Referral): string[] {
 }
 
 /**
+ * The same facts, with the absent sex STATED rather than dropped. For the referral board only.
+ *
+ * 🔴 **WHY THIS IS A SEPARATE FUNCTION AND NOT A FIX TO THE ONE ABOVE — the difference is a privacy
+ * ruling, not a style preference.**
+ *
+ * Ward Lead ruled on 2026-09-06 that the phone card must state the absence in words, the same way
+ * `referralSexCell` does for the table, because a shorter list hides the absence rather than
+ * reporting it. That ruling is right and is applied here.
+ *
+ * ⚠️ **BUT `referralPersonFacts` FEEDS FIVE SURFACES, AND ONE OF THEM IS AN EMERGENCY DEPARTMENT
+ * SCREEN CARRYING AN EXPLICIT OWNER RULING.** `ward-referral-visibility.ts` records it: because the
+ * helper returns a sex only when a ward arm exists, an ED rendering those facts already learns THAT
+ * a ward was asked — one bit, in shipped code, and *"the owner was told that when he was asked, and
+ * the ruling records it… No fix is scheduled for it and none should be opened."*
+ *
+ * **Emitting "not a ward referral" from the shared helper would not add a bit — it would turn a bit
+ * a careful reader could INFER into a sentence every reader is TOLD.** That is a change in what a
+ * department is disclosed, on the one surface whose disclosure the owner was consulted about, made
+ * as a side effect of a copy ruling about a phone card. So the board gets its own function and the
+ * ED screen keeps the behaviour the owner approved.
+ *
+ * If the two should converge, that is the owner's call and not an implementer's — the same shape as
+ * every other question on these screens.
+ */
+export function referralPersonFactsStatingSex(referral: Referral): string[] {
+  const ward = referral.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
+  return ward && ward.destination.kind === "psychiatric_ward"
+    ? [referral.ageBand, ward.destination.sex, referral.homeRegion]
+    : [referral.ageBand, SEX_NOT_HELD, referral.homeRegion];
+}
+
+/**
  * The sex cell for a table with a fixed Sex column.
  *
  * ⚠️ **WORDS WHERE THE FACT IS NOT HELD, NOT AN EM DASH.** This returned `"—"` until 2026-09-05,

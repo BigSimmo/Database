@@ -1,10 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { DelaysScreen } from "@/components/ward-management/delays/delays-screen";
 import { formatInstantWithDay } from "@/components/ward-management/ward-clock";
 import { isOpen, stageCopy } from "@/components/ward-management/ward-derivations";
-import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
+import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { BLOCKERS_MEANING_NOTHING_IS_BLOCKING } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
@@ -23,6 +23,25 @@ function renderScreen() {
   return render(
     <WardFlowProvider initialNow={NOW_ANCHOR}>
       <DelaysScreen />
+    </WardFlowProvider>,
+  );
+}
+
+/**
+ * Reports the shared `focusMovementId` into the DOM. `CoordinatorScreen` reads no search params —
+ * its selection is `useState` seeded from this value — so this is not an implementation detail
+ * standing in for the real thing: **it IS the whole channel between the two screens.**
+ */
+function FocusProbe() {
+  const { focusMovementId } = useWardFlow();
+  return <output data-testid="focus-probe">{focusMovementId ?? "nobody"}</output>;
+}
+
+function renderScreenWithProbe() {
+  return render(
+    <WardFlowProvider initialNow={NOW_ANCHOR}>
+      <DelaysScreen />
+      <FocusProbe />
     </WardFlowProvider>,
   );
 }
@@ -135,6 +154,51 @@ describe("the Delays screen", () => {
           "than none, because a coordinator presses it and believes something happened",
       ).toBeTruthy();
     }
+  });
+
+  /*
+   * 🔴 **AN href IS NOT AN ARRIVAL, AND THE GUARD ABOVE CANNOT TELL THE DIFFERENCE.** Found
+   * 2026-09-06 by clicking the link in a browser rather than by reading either file: it landed on
+   * the coordinator screen showing *"Select a movement from the priority queue to see its
+   * explainable shortlist"* — **right screen, no patient, 43 people in that queue.** The guard above
+   * was green before and after, because it asks whether the affordance has a destination.
+   *
+   * ⚠️ **THE REASON IS WORTH KNOWING BECAUSE IT WILL RECUR.** `CoordinatorScreen` reads NO search
+   * params — `grep useSearchParams` over `coordinator/` returns nothing. Its selection is `useState`
+   * seeded from the shared `focusMovementId`. So a URL cannot carry a patient to that screen, and a
+   * plain `<Link>` never could have: **the only channel is the one this test observes.**
+   *
+   * ⚠️ **THIS ASSERTS THE ARRIVAL, NOT THE onClick.** The probe reads the same context value the
+   * destination seeds itself from, so replacing the handler with any other mechanism that sets it
+   * keeps this green, and removing the mechanism turns it red no matter how live the link looks.
+   */
+  it("carries the patient to the coordinator screen, because a URL cannot", () => {
+    renderScreenWithProbe();
+
+    const probe = screen.getByTestId("focus-probe");
+    expect(
+      probe.textContent,
+      "the fixture already had somebody focused, so this test could not tell a working link from a " + "dead one",
+    ).toBe("nobody");
+
+    const offers = screen.getAllByRole("link", { name: /Override/u });
+    expect(offers.length, "no override affordance rendered — this guard proved nothing").toBeGreaterThan(0);
+
+    // The row this affordance belongs to, read from the row rather than assumed from fixture order.
+    const row = offers[0].closest("[data-ward-primitive='record-row']");
+    expect(row, "an override affordance rendered outside a record row").not.toBeNull();
+    const id = (row as HTMLElement).querySelector("[data-ward-primitive='record-id']")?.textContent?.trim();
+    expect(id, "the row carries no record id, so there is nothing to compare the arrival against").toBeTruthy();
+
+    fireEvent.click(offers[0]);
+
+    expect(
+      screen.getByTestId("focus-probe").textContent,
+      `pressing "override a refusal" for ${id} leaves the coordinator screen seeded with ` +
+        `"${screen.getByTestId("focus-probe").textContent}" — a coordinator arrives at a queue of ` +
+        `${OPEN_COUNT} open movements and has to find the person again, or worse, acts on whoever ` +
+        `was selected last`,
+    ).toBe(id);
   });
 
   /*

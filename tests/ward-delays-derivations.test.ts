@@ -40,7 +40,26 @@ describe("delayGroups", () => {
     // not — a silently skipped ordering rule is how one comes back wrong.
     const legal = groups.findIndex((group) => group.cause === "legal_expiring");
     if (legal === -1) {
-      expect(groups.map((group) => group.cause)).not.toContain("legal_expiring");
+      /*
+       * ⚠️ THIS BRANCH USED TO ASSERT `groups` DID NOT CONTAIN `legal_expiring`, WHICH IS THE
+       * CONDITION OF THE BRANCH IT SITS IN. A filter and an assertion over the same predicate is a
+       * tautology: it could not fail, so on today's fixture — where the group is never populated —
+       * this whole test was unfailable while reading as coverage.
+       *
+       * The replacement asserts the REASON the group is absent, which is falsifiable: no open
+       * movement's legal clock is "critical" against `NOW`. If a seeded `dueAt` moves inside the
+       * hour, this goes red and the branch above starts running instead, which is the correct
+       * outcome either way. The ordering rule itself is now proved unconditionally by
+       * "ranks a passed legal deadline above an approaching one" below, on constructed movements.
+       */
+      for (const movement of wardMovements.filter(isOpen)) {
+        const dueAt = movement.legalForm?.dueAt;
+        if (dueAt === undefined) continue;
+        expect(
+          clockState(dueAt, NOW),
+          `${movement.id}'s legal clock is critical, so legal_expiring should have been populated`,
+        ).not.toBe("critical");
+      }
       return;
     }
     expect(legal).toBe(0);
@@ -162,20 +181,55 @@ describe("delayGroups", () => {
   });
 
   /**
-   * AUDIT GAP 3, ranking half. `legal_breached` must outrank `legal_expiring` whenever both are
-   * present — a passed deadline is worse than one merely approaching. Neither group is populated
-   * by today's fixture (see the test above), so this is written to hold in both the case where
-   * the fixture starts exercising one or both groups later and the case where it never does,
-   * rather than being skipped outright.
+   * AUDIT GAP 3, ranking half. `legal_breached` must outrank `legal_expiring`: a legal authority
+   * that has already expired is worse than one merely approaching, and it is the one thing on this
+   * screen the module says nothing outranks.
+   *
+   * 🔴 **THIS TEST RAN ZERO ASSERTIONS UNTIL 2026-09-06 AND WAS THEREFORE UNFAILABLE.** It read the
+   * two groups out of `delayGroups(wardMovements, …)` and returned early when either was missing —
+   * and neither is EVER populated by the seeded fixture, whose four `dueAt` values are all "due" or
+   * "clear" against `NOW_ANCHOR`. Its own docblock said so and called the early return a way of
+   * holding "in both the case where the fixture starts exercising one or both groups later and the
+   * case where it never does". **Holding in both cases is the defect, not the mitigation:** a test
+   * that passes vacuously is indistinguishable from one that passes because the property holds.
+   *
+   * Proved rather than argued: swapping the two entries in `ORDER` — so a PASSED legal deadline
+   * ranks below an approaching one, on the ward screen where that ordering matters most — left this
+   * file at 15 of 15 passing, and every other test that touches the ordering
+   * (`ward-delay-cause-vocabulary`) at 18 of 18. Nothing in the repository caught it.
+   *
+   * ⚠️ **AND THE FIXTURE WAS NEVER THE OBSTACLE.** `delayGroups` is a pure function: two seeded
+   * movements cloned with a moved `dueAt` populate both groups today, with no wait and no new
+   * seed. The constructed case below goes red under that same swap.
    */
-  it("ranks legal_breached above legal_expiring when both are present", () => {
-    const groups = delayGroups(wardMovements, allUnits(), NOW);
-    const breachedIndex = groups.findIndex((group) => group.cause === "legal_breached");
-    const expiringIndex = groups.findIndex((group) => group.cause === "legal_expiring");
-    if (breachedIndex === -1 || expiringIndex === -1) {
-      return;
-    }
-    expect(breachedIndex).toBeLessThan(expiringIndex);
+  it("ranks a passed legal deadline above an approaching one, on movements built to populate both", () => {
+    const carryingLegalForm = wardMovements.filter((movement) => isOpen(movement) && movement.legalForm !== undefined);
+    // Floor on the POPULATION the case is built from, never on the result: if the seed stops
+    // carrying open movements with a legal form, the clones below cannot be made and this test
+    // would otherwise construct nothing and pass.
+    expect(
+      carryingLegalForm.length,
+      "fewer than two open seeded movements carry a legal form, so the two groups cannot both be populated",
+    ).toBeGreaterThan(1);
+
+    const [first, second] = carryingLegalForm;
+    // Only `dueAt` moves. Everything else is the seed's own record, so nothing about these
+    // movements is invented beyond the one field whose value decides the branch.
+    const breached = { ...first, legalForm: { ...first.legalForm!, dueAt: NOW - 10 } };
+    const expiring = { ...second, legalForm: { ...second.legalForm!, dueAt: NOW + 30 } };
+    expect(clockState(NOW - 10, NOW), "the breached clone is not breached").toBe("breached");
+    expect(clockState(NOW + 30, NOW), "the expiring clone is not critical").toBe("critical");
+
+    const groups = delayGroups([breached, expiring], allUnits(), NOW);
+    const causes = groups.map((group) => group.cause);
+    // Both must be present before the ordering means anything — an absent group would make
+    // `indexOf` return -1 and the comparison below pass for the wrong reason.
+    expect(causes, "the constructed movements did not populate both legal groups").toContain("legal_breached");
+    expect(causes, "the constructed movements did not populate both legal groups").toContain("legal_expiring");
+    expect(
+      causes.indexOf("legal_breached"),
+      "an already-expired legal authority is ranked below one merely running out",
+    ).toBeLessThan(causes.indexOf("legal_expiring"));
   });
 });
 
@@ -210,17 +264,39 @@ describe("legalDeadlineMinutes", () => {
     }
   });
 
+  /**
+   * 🔴 **THIS RAN ZERO ASSERTIONS UNTIL 2026-09-06, AND ITS OWN COMMENT SAID SO.** It filtered the
+   * seed for a movement whose legal deadline had passed, found none — measured: `delayGroups`
+   * populates `no_eligible_bed:2, awaiting_ward_answer:4, bed_pull_expired:1, awaiting_bed_ready:6,
+   * awaiting_transport:8, patient_or_family:1, awaiting_coordinator:21`, and neither legal group at
+   * all — and returned, recording that the branch "cannot be exercised without inventing fixture
+   * data".
+   *
+   * ⚠️ **THAT SENTENCE IS THE MISTAKE, AND IT IS THE SAME ONE AS THE RANKING TEST ABOVE.**
+   * `legalDeadlineMinutes` is a pure function of a movement and a `now`; moving one seeded
+   * movement's `dueAt` is not inventing fixture data, it is supplying the argument. The seeded
+   * arm is kept — if a real deadline ever passes, it must hold there too — but it is no longer the
+   * only arm, so the test can no longer pass by finding nothing.
+   */
   it("returns a negative figure once the deadline has passed, matching formatRemaining's own sign convention", () => {
-    const overdue = wardMovements.filter(
-      (movement) => movement.legalForm?.dueAt !== undefined && movement.legalForm.dueAt < NOW,
-    );
-    if (overdue.length === 0) {
-      // Recorded rather than assumed: as of this fixture (see delays-derivations.ts's own
-      // comment on the legal_breached/legal_expiring split) no seeded legal deadline has
-      // actually passed, so this branch cannot be exercised without inventing fixture data.
-      return;
-    }
-    for (const movement of overdue) {
+    const carryingLegalForm = wardMovements.filter((movement) => movement.legalForm !== undefined);
+    expect(
+      carryingLegalForm.length,
+      "no seeded movement carries a legal form, so the constructed case below cannot be built",
+    ).toBeGreaterThan(0);
+
+    // Only `dueAt` moves, to ten minutes before `NOW`. Everything else is the seed's own record.
+    const passed = {
+      ...carryingLegalForm[0],
+      legalForm: { ...carryingLegalForm[0].legalForm!, dueAt: NOW - 10 },
+    };
+    expect(legalDeadlineMinutes(passed, NOW), "a passed deadline did not report a negative figure").toBe(-10);
+
+    // The seeded arm, unchanged in intent: if the fixture ever does carry a passed deadline, the
+    // same convention must hold on the real record and not only on the constructed one.
+    for (const movement of wardMovements.filter(
+      (candidate) => candidate.legalForm?.dueAt !== undefined && candidate.legalForm.dueAt < NOW,
+    )) {
       expect(legalDeadlineMinutes(movement, NOW)).toBeLessThan(0);
     }
   });

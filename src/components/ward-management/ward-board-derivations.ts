@@ -16,8 +16,11 @@ import {
 /**
  * The figures at the top of one ward's board.
  *
- * The board leads with ONE number — beds you can fill today — and immediately under it ONE
- * sentence naming what stops that number being true. On a real psychiatric ward the commonest
+ * The board leads with ONE number — the Ready beds, `min(allocatable, empty)` — and immediately
+ * under it ONE sentence naming what stops that number being true. ⚠️ This paragraph called it
+ * "beds you can fill today" until 2026-09-06; that phrasing was retired by owner ruling R-B-09 on
+ * 2026-09-04 (one word for one number) and the header itself was renamed then. The comment was
+ * missed because the rename followed `CAPACITY_FIGURE_LABELS`, and prose reads no constant. On a real psychiatric ward the commonest
  * reason a bed is not a bed is the sex mix, and the second is having nobody free to watch someone
  * one-to-one, so those are the two things the sentence names.
  *

@@ -161,8 +161,8 @@ export function WardIndex({ units: unitsOverride }: { units?: Unit[] }) {
          */}
         <p className={styles.provenance} data-testid="ward-index-provenance">
           This is a way in, not a bed state. It shows what each ward is and links to it — no bed numbers, no
-          availability and nothing about who is in a bed. The capacity and morning bed state boards answer those
-          questions, and a ward&apos;s own screen answers them for that ward.
+          availability and nothing about who is in a bed. The capacity board answers those questions, and a ward&apos;s
+          own screen answers them for that ward.
         </p>
 
         {serviceGroups.map((group) => (

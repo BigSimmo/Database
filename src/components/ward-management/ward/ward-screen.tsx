@@ -795,10 +795,28 @@ export function WardScreen({ unitId }: WardScreenProps) {
                * the contradiction was already on this page — the breakdown below renders
                * `Ready {capacity.available}` beside `Held {capacity.held}` as two different things.
                *
-               * The word is taken from that breakdown deliberately. Whether the product's term for
-               * this quantity should be "free", "ready", or the board's "beds you can fill today"
-               * is a question with the owner; aligning this hero to its own screen removes the
-               * contradiction without answering it by implementation.
+               * The word is taken from that breakdown deliberately: aligning this hero to its own
+               * screen removed the contradiction without pre-empting the product's term.
+               *
+               * ⚠️ **THE TERM IS NO LONGER OPEN. OWNER RULING R-B-09, 2026-09-04: "Ready",
+               * everywhere** — one word replacing seven renderings of `min(allocatable, empty)`
+               * (`docs/ward-flow/owner-rulings-2026-09-04-decision-batch.md`; census in
+               * `docs/ward-flow/bed-figure-wording-census-2026-09-04.md` §2). This comment used to
+               * say the choice was still with the owner. That was true when written and stopped
+               * being true that day. The authority is `CAPACITY_FIGURE_LABELS.availableNow`
+               * (`ward-morning-rollup.ts`), never this file.
+               *
+               * ⚠️ **"beds you can fill today" IS HISTORY, NOT A RIVAL TERM.** The board renders
+               * "ready bed(s)" (`board/ward-board.tsx`); the retired phrase survives only in prose
+               * describing what its header used to say. A reader who greps it is looking at an
+               * account of the past — adjacent evidence, not authority for a second live word.
+               *
+               * ⚠️ **WHAT WAS STILL MISSING WAS THE CHECK, NOT THE DECISION.** The rename followed
+               * the label constant, so it moved every label and no SENTENCE: four rendered strings
+               * kept a retired name until 2026-09-06, one of them two lines above a card reading
+               * "Ready" from the same figure. `tests/ward-capacity-figure-one-word.test.ts` is the
+               * product-wide guard; the per-screen one below it is
+               * `tests/ward-screen-capacity-wording.dom.test.tsx`.
                */}
               <span className={styles.heroFigureValue} data-testid="ward-hero-ready">
                 {capacity.available}

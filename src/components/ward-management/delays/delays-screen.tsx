@@ -312,6 +312,20 @@ function DelayRow({
 }) {
   const declines = movement.declines.length;
   /*
+   * 🔴 **THE OVERRIDE LINK HAS TO CARRY THE PATIENT, AND FOR ONE DAY IT DID NOT.** `CoordinatorScreen`
+   * reads no search params at all — its selection is `useState` seeded from the shared
+   * `focusMovementId` — so a bare `<Link href="/mockups/ward-flow">` landed a coordinator on
+   * *"Select a movement from the priority queue to see its explainable shortlist"* with 43 people in
+   * that queue. Right screen, no patient. **Verified in a browser on 2026-09-06 by clicking the
+   * link, not by reading this file**; every DOM test over this screen was green either way, because
+   * the guard asked whether the affordance had an `href`.
+   *
+   * `setFocusMovementId` is the mechanism the provider already exposes for exactly this — it is how
+   * a coordinator who switches role mid-decision comes back to the same patient. Setting it on the
+   * way out means the destination opens on the person whose refusal was being overridden.
+   */
+  const { setFocusMovementId } = useWardFlow();
+  /*
    * The ward actually holding the bed, looked up from this row's own `units` rather than named. A
    * missing lookup yields `undefined` and the link is simply not offered — never a link to a ward
    * this row cannot identify, and never a bare id shown as a ward name.
@@ -435,7 +449,12 @@ function DelayRow({
               </Link>
             ) : null}
             {declines > 0 ? (
-              <Link className={styles.action} href="/mockups/ward-flow" data-testid={`delays-override-${movement.id}`}>
+              <Link
+                className={styles.action}
+                href="/mockups/ward-flow"
+                data-testid={`delays-override-${movement.id}`}
+                onClick={() => setFocusMovementId(movement.id)}
+              >
                 Override a refusal on the coordinator screen
               </Link>
             ) : null}

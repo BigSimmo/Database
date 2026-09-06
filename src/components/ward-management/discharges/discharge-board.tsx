@@ -180,7 +180,7 @@ export function DischargeBoard() {
           <p>
             This board is <strong>not a medical device</strong>. It shows only what a ward has recorded — a release
             expected, confirmed or discharged, and whether it is currently blocked — and it never adds an expected or
-            unreleased bed into &quot;available now&quot;.
+            unreleased bed into the Ready figure.
           </p>
         </div>
 

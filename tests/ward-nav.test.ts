@@ -518,19 +518,29 @@ describe("Ward Flow dynamic routes — what links them, and what they leave orph
     // seeded rail example. That is the failure mode a ratchet is supposed to have.
     expect(board?.builtSites).toEqual(["src/components/ward-management/ward/ward-screen.tsx"]);
     const ward = dynamicRouteScans.get("/mockups/ward-flow/ward/[unitId]");
-    // THREE builders now, and the third cost a decision at the fold on 2026-09-06, which is what
-    // this exact list is for. The ward index (Phase 8) builds one href per unit over the whole
-    // network; the role switcher builds nought to three over a selection; and the delays screen now
-    // builds exactly one, on a lapsed bed pull — "Release the bed pull at {ward}".
+    // Three builders now, and the list stays exact rather than becoming a `toContain`: the ward
+    // index (Phase 8) builds one href per unit over the whole network, the role switcher builds
+    // nought to three over a selection, and the Delays screen builds one per LAPSED BED PULL.
+    // Which is which is the entire subject of the coverage record above, so a fourth builder
+    // appearing here should still cost somebody a decision.
     //
-    // That third one was ACCEPTED rather than absorbed. It is the next step the owner approved when
-    // a bed reservation expires: the screen used to name the problem and stop, so a coordinator was
-    // told a bed had been held for someone who may never arrive and offered nowhere to go. The link
-    // is the answer to that, and it is a real navigation edge rather than an incidental href.
+    // 🔴 **THE THIRD ENTRY IS THE DECISION THIS PIN ASKED FOR, TAKEN 2026-09-06 AND WRITTEN DOWN
+    // RATHER THAN ABSORBED.** The exceptions inbox MERGE 01 folded into `DelaysScreen` offered
+    // "reconfirm or release bed pull"; the screen that replaced it named the delay and stopped, so
+    // a coordinator was told a bed reservation had expired and offered no next step — a bed held
+    // for somebody who may never arrive. The row now links to the ward actually holding that bed,
+    // which is where `RELEASE_PULL`'s control and the owner's four-reason picker already live.
     //
-    // The list stays exact rather than becoming a `toContain`: which builder is which is the entire
-    // subject of the coverage record above, so a FOURTH appearing here should cost somebody a
-    // decision in turn.
+    // ⚠️ **IT IS A ROUTE, NOT A THIRD COPY OF THE CONTROL, AND THAT IS WHY IT SHOWS UP HERE RATHER
+    // THAN AS A NEW DISPATCH SURFACE.** `RELEASE_PULL` has exactly two controls — the coordinator's
+    // shortlist panel and the ward screen — and a third reason picker would be a third place for
+    // `RELEASE_PULL_REASONS` to drift. What was missing was never the control; it was the way to it
+    // from where the problem is reported. So the cost lands on this ledger, deliberately.
+    //
+    // ⚠️ **AND THIS PIN CAUGHT SOMETHING MY OWN TARGETED RUNS DID NOT.** I ran the delays, capacity,
+    // landmarks and route-binding suites after that change and all were green; this file was not
+    // among them, so the branch carried a red for three commits. A route ledger is invisible to
+    // every screen test, because no screen test asks who ELSE links to a route.
     expect([...(ward?.builtSites ?? [])].sort()).toEqual([
       "src/components/ward-management/delays/delays-screen.tsx",
       "src/components/ward-management/ward-role-switcher.tsx",
@@ -1287,7 +1297,9 @@ const WARD_INDEX_FIXED_COPY: readonly string[] = [
   "All wards",
   "Every ward in this prototype's network, by health service.",
   "This is a way in, not a bed state. It shows what each ward is and links to it — no bed numbers, no availability " +
-    "and nothing about who is in a bed. The capacity and morning bed state boards answer those questions, and a " +
+    // Updated 2026-09-06: MERGE 02 folded the morning bed state board into the capacity board, so
+    // this sentence named two boards where the app has one. See ward-index.tsx for the correction.
+    "and nothing about who is in a bed. The capacity board answers those questions, and a " +
     "ward's own screen answers them for that ward.",
   "No ward in this prototype belongs to this health service.",
   "Not placed in a health service",

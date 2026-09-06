@@ -603,9 +603,18 @@ function CapacityView() {
       <header className={styles.panelHeader}>
         <div>
           <h2>Ward-confirmed capacity</h2>
+          {/*
+           * ⚠️ "Ready", NOT "Available now" — OWNER RULING R-B-09, 2026-09-04, one word for one
+           * number. This caption said "Available now" while the first card below it, computed from
+           * the same `headline.availableNow`, said "Ready": one number, two names, two lines apart,
+           * on the screen that displays the ruled vocabulary. The rename of 2026-09-04 followed
+           * `CAPACITY_FIGURE_LABELS`, so it moved every LABEL and no SENTENCE — prose reads no
+           * constant. `tests/ward-capacity-figure-one-word.test.ts` is the product-wide guard that
+           * did not exist while this drifted.
+           */}
           <p>
-            Availability is not suitability. Available now is never softened by an expected, confirmed-but-unreleased or
-            on-leave bed.
+            Availability is not suitability. The Ready figure is never softened by an expected, confirmed-but-unreleased
+            or on-leave bed.
           </p>
         </div>
         <span className={styles.prototypeBadge}>Synthetic counts</span>

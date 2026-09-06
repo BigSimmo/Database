@@ -289,7 +289,13 @@ function wardFigures(inputs: DestinationOptionInputs, ward: WardReferralDestinat
   ).length;
   return [
     `${accepting} of ${inputs.units.length} units accept this referral right now.`,
-    `${noBed} of ${inputs.units.length} units have no bed free right now.`,
+    // ⚠️ "ready", NOT "free" — OWNER RULING R-B-09, 2026-09-04, one word for one number, and the
+    // link to that ruling is not obvious from here. `noBed` counts units failing
+    // `referralEligibility`'s `allocatable_bed` gate, which passes on `availableNow > 0` — i.e.
+    // `min(allocatable, empty)`, the ruled figure. That gate's own `detail` was renamed on the day;
+    // this sentence, built from the same verdicts, was missed because it names the figure in prose
+    // and prose reads no label constant. Census row 7: the same quantity stated as an absence.
+    `${noBed} of ${inputs.units.length} units have no ready bed right now.`,
   ];
 }
 

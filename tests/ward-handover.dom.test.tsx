@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { expectSays } from "./helpers/ward-caption";
@@ -151,16 +151,40 @@ describe("HandoverPage", () => {
   // each section component takes that snapshot as a plain prop, with no dependency on the
   // provider or the freeze. Rendering each one directly proves the empty-note branch for real.
   /**
-   * Spec D9: the morning page and this handover page must each carry a one-line link to the
-   * other, naming the question each one answers, so the two are never confused. The morning
-   * page's own reciprocal link (`morning-page.tsx`) is already covered by
-   * `tests/ward-morning-page.dom.test.tsx`; this is the other half.
+   * Spec D9: this page and the board answering "what can I fill right now" must each carry a
+   * one-line link to the other, naming the question each answers, so the two are never confused.
+   *
+   * 🔴 **THE DESTINATION CHANGED ON 2026-09-06 AND THIS TEST HAD PINNED THE OLD ONE.** It required
+   * the link to be named "morning bed state" and to point at `/mockups/ward-flow/morning`. MERGE 02
+   * folded that board into `CapacityScreen` the day before, owner-approved, leaving the old route as
+   * a redirect stub kept only so bookmarks do not 404 — `ward-nav.ts` calls it "not a destination in
+   * its own right". So this test was requiring the page to link somewhere it must not link, and it
+   * was GREEN, because the link resolved.
+   *
+   * ⚠️ **It now asserts the SPEC'S REQUIREMENT rather than the destination's name**: a cross-link
+   * exists, it names the question the other screen answers, and it points at a real screen rather
+   * than a redirect stub. Rename the board again and this survives;
+   * `tests/ward-links-never-point-at-redirect-stubs.test.ts` holds the stub half for every screen.
+   *
+   * ⚠️ **AND THE RECIPROCAL HALF OF D9 IS NOW UNSATISFIABLE, WHICH IS REPORTED AND NOT FIXED HERE.**
+   * `morning-page.tsx` is rendered by no route at all, so the "each links to the other" requirement
+   * has one end that no reader can reach. That needs a ruling, not a test edit.
    */
-  it("carries a one-line cross-link back to the morning bed state, naming the question each page answers", () => {
+  it("carries a one-line cross-link to the board answering the other question, at a real destination", () => {
     renderHandover();
 
-    const link = screen.getByRole("link", { name: "morning bed state" });
-    expect(link).toHaveAttribute("href", "/mockups/ward-flow/morning");
+    // Scoped to the cross-link paragraph, not the page: the nav rail carries its own Capacity
+    // link, so a page-wide role query matches two and fails for a reason unrelated to the claim.
+    const paragraph = screen.getByText(/fill right now/iu).closest("p");
+    expect(paragraph, "the handover cross-link paragraph is gone entirely").not.toBeNull();
+    const link = within(paragraph as HTMLElement).getByRole("link");
+    const href = link.getAttribute("href") ?? "";
+    expect(
+      href,
+      `the handover cross-link points at ${href}, which is a redirect stub kept only so old bookmarks ` +
+        "do not 404. It will not 404 — it will land a reader on a differently-named screen.",
+    ).not.toBe("/mockups/ward-flow/morning");
+    expect(href).toMatch(/^\/mockups\/ward-flow\//u);
     expectSays(link.closest("p")?.textContent ?? "", "the handover framing question", ["fill right now"]);
   });
 

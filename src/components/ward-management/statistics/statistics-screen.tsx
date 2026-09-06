@@ -808,15 +808,36 @@ export function StatisticsScreen({
                * The claim above turns on that pointer being nullable and on a match being exact, and
                * both are properties of the field rather than of the fixture — which is the whole point
                * of the paragraph. `statistics-claims-register.ts` pins them to `ward-model.ts`.
+               *
+               * 🔴 **AND THAT SCOPE NOTE WAS TRUE OF THE COMMENT AND FALSE OF THE SENTENCE, UNTIL
+               * 2026-09-06.** The paragraph read "nothing at all is an ordinary state HERE" — a claim
+               * about this data, not about the type — and the measurement is that **NO admission is
+               * in that state: 0 of 267 carry a null `referralId`.** The seed writes
+               * `RF-${suffix}` for every generated admission, so the branch has no producer at all.
+               * A reader on the page cannot see this comment; they see "ordinary", and 267 of 267 is
+               * not ordinary, it is universal. The sentence now says what the register evidences —
+               * that the POINTER is nullable — and claims nothing about how often.
+               *
+               * ⚠️ **THE PROJECT ALREADY HAD THIS RULE AND IT WAS NOT APPLIED TO THIS FIELD.**
+               * `tests/ward-admissions-seed.test.ts` requires `tentativeDiagnosis` to be null on some
+               * seeded people and not all, in terms: a fixture where everybody carried a value would
+               * leave "the branch a reader is most likely to see wrong" with no seeded case. Three
+               * hundred lines away, on the sibling field, `referralId` has no such guard.
+               *
+               * ⚠️ **A SECOND MEASURED FACT THIS PAGE DOES NOT STATE, reported rather than fixed:
+               * 257 of the 267 ids match no referral on record** — they are shaped `RF-RPHS-01`,
+               * a different family from the seeded `RF-001`…`RF-010`. The figures below are all
+               * true and a reader can compute it, but nothing says the join essentially fails.
+               * Whether the seed should carry real nulls and matching ids is a fixture decision.
                */}
               <p className={styles.absence} data-testid="ward-statistics-referral-join-absent">
                 <strong>
                   This page publishes no referral-to-bed duration, and the reason is not that the join finds nothing. It
                   is that a matching id does not establish that the two records are the two ends of one wait.
                 </strong>{" "}
-                An admission carries the referral it came from, or nothing at all — and nothing at all is an ordinary
-                state here, meaning that admission came from a movement rather than from a referral. Matching it against
-                the referrals on record is exact, so a pair either exists or it does not, and the counts below are that
+                An admission carries the referral it came from, or nothing at all — the pointer is nullable, and a null
+                would mean that admission came from a movement rather than from a referral. Matching it against the
+                referrals on record is exact, so a pair either exists or it does not, and the counts below are that
                 measurement taken on this render. What a matched pair cannot say for itself is whether the referral it
                 names is the request that PRODUCED the bed. A referral raised about somebody already in the bed carries
                 a perfectly good instant, matches a perfectly good id, and dates the wrong event; all the arithmetic can

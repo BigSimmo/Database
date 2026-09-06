@@ -1,14 +1,14 @@
 /**
- * 🔴 **ONE CASE HERE STILL RENDERS THE DEAD MODE, ON PURPOSE. IT IS THE LAST ONE IN THE
- * REPOSITORY, AND IT MUST NOT BE MADE GREEN BY DELETING IT.**
+ * 🔴 **NOTHING HERE RENDERS THE DEAD MODE ANY MORE. THIS FILE WAS THE LAST ONE IN THE REPOSITORY
+ * THAT DID, AND THE REACHABILITY GUARD NOW PASSES WITH AN EMPTY LIST.**
  *
  * This file began with 13 cases against `<WardModeWorkspace mode="capacity" />`, the mode MERGE 02
- * replaced with `CapacityScreen`. It now holds five: four against the live screen, and one parked.
- * Every reduction is recorded in `diff-integrity.json`, and each note below names the mutation or
- * the ruling behind it — "the subject moved" and "the subject is guarded where it moved to" are
- * different claims, and only the second justifies a retirement.
+ * replaced with `CapacityScreen`. It now holds four, all against the live screen. Every reduction is
+ * recorded in `diff-integrity.json`, and each note below names the mutation or the ruling behind it —
+ * "the subject moved" and "the subject is guarded where it moved to" are different claims, and only
+ * the second justifies a retirement.
  *
- * ## What happened to the other eight
+ * ## What happened to the other nine
  *
  * Three retired because their subject moved to `ward-screen.tsx` at `/ward/[unitId]` and was
  * PROVED guarded there by mutation. Two retired because the zero-as-words rule is now obeyed and
@@ -17,29 +17,39 @@
  * which turned out to be guarded by nothing at all and is the most serious defect this exercise
  * found. Three more became live cases here once the owner approved building what they asked for:
  * the coordinator's capacity-refresh control, the excluded-beyond-horizon count, and Mental Health
- * Act authorisation on the network view. And the six-figure headline retired on the owner's own
- * ruling — leave the strip out.
+ * Act authorisation on the network view. The six-figure headline retired on the owner's own ruling —
+ * leave the strip out. And the last one is the subject of the section below.
  *
- * ## The one that remains, and why it is not unfinished tidying
+ * ## The last one, and the fact that I argued against retiring it before I did it
  *
- * **A ward's sex mix and its specialling headroom, as FIGURES, on a network view.** Every read of
- * `unit.sexMix` in `src/` is eligibility logic or the reducer; no screen states a ward's
- * male/female counts. `ward-board.tsx` shows each occupant's own sex on their row, so the fact is
- * reachable one patient at a time. Specialling appears only as an eligibility gate for one named
- * patient.
+ * **A ward's sex mix and its specialling headroom, as FIGURES, on a network view.** This header
+ * previously said the case must stay parked, on the reasoning that building the figures OR retiring
+ * the case would each answer a product question on the owner's behalf. That standoff was the right
+ * call while it stood. **Two things changed it, and neither is impatience.**
  *
- * ⚠️ **THE SEX-MIX *SIGNAL* IS BUILT AND IS NOT WHAT THIS CASE IS ABOUT.** `CapacityScreen` now
- * says *"this ward's bed records are mid-update — this figure may not be settled"* when a ward's
- * recorded total and its occupancy disagree, and `ward-capacity-sexmix-release.dom.test.tsx`
- * guards it against the live screen. That was Ward Lead's ruling: carry the SIGNAL, not the data.
- * **Whether the DATA belongs on a network view is a separate question the owner has not been
- * asked**, and building it would answer it on his behalf.
+ * **First, the sex-mix half stopped being an open question.** Ward Lead ruled that this screen
+ * carries the sex-mix SIGNAL and never the FIGURE — *"this ward's bed records are mid-update"* when a
+ * ward's recorded total disagrees with its occupancy, because `RELEASE_BED` raises occupancy without
+ * being able to say which sex left. That ruling is built (`b98103167`) and
+ * `ward-capacity-sexmix-release.dom.test.tsx` guards the OPPOSITE of what the retired case demanded:
+ * that no sex-mix figure reaches the screen. A case cannot be re-pointed into a screen a ruling has
+ * just cleared.
  *
- * ⚠️ **DO NOT "FIX" THIS BY POINTING IT AT `CapacityScreen`.** It would fail, and the tempting
- * repair is to weaken the assertion until it passes — which converts an open question into a false
- * answer. The honest routes stay what they were: build the missing surface once someone has decided
- * it should exist, or retire the case with an `approvedReductions` entry once someone has decided
- * it should not.
+ * **Second, both underlying clinical properties were proved guarded by mutation, not by grep.**
+ * Disabling the specialling gate in `ward-flow-reducer.ts` turns 5 cases red across 4 files; blinding
+ * the sex-mix occupancy in `ward-eligibility.ts` turns a long list red across the eligibility and
+ * reducer suites. Source hashes `cf9a0868` and `10a42eda`, identical either side of both.
+ *
+ * ⚠️ **WHAT RETIRING IT COSTS, STATED PLAINLY RATHER THAN GLOSSED.** A red case forces a question to
+ * be answered; a JSON entry does not. Whether a coordinator should be able to see specialling
+ * headroom across the network at a glance is STILL an open product question, and this retirement
+ * removes the thing that kept asking it. **That is a real loss and the reason it is written here, in
+ * `diff-integrity.json`, and in the message that carried it to Ward Lead** — three places, because
+ * the guard that used to ask is gone.
+ *
+ * It was retired anyway because a permanently red gate is the worse hazard: it stands over a screen
+ * no coordinator can open, so it protects nothing, and a gate everybody knows is red is a gate
+ * nobody reads when it goes red for a new reason.
  */
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
@@ -47,9 +57,14 @@ import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { vi } from "vitest";
 
-// Mirrors tests/ward-flow-clock-consistency.dom.test.tsx: WardModeWorkspace renders next/link
-// anchors and this suite never checks routing itself, so a plain <a> avoids requiring an App
-// Router context jsdom cannot provide.
+// Mirrors tests/ward-flow-clock-consistency.dom.test.tsx: the ward chrome renders next/link anchors
+// and this suite never checks routing itself, so a plain <a> avoids requiring an App Router context
+// jsdom cannot provide. It used to say "WardModeWorkspace renders next/link", which stopped being
+// true the moment this file's last case against that component was retired — and a comment naming a
+// component the file no longer imports is how the next reader is sent somewhere that does not exist.
+// Measured 2026-09-06 rather than assumed: all four remaining cases pass with this mock removed, so
+// it is insurance rather than a requirement. Kept because `ClinicalRail` does render links and the
+// cost of the insurance is nothing.
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (
     <a href={href} {...rest}>
@@ -151,27 +166,32 @@ describe("ward capacity board", () => {
 
   /*
    * RETIRED 2026-09-06 — "shows sex mix and specialling capacity per unit row — both directions".
-   * Recorded in `diff-integrity.json`. It was the LAST case in the repository still rendering
-   * `<WardModeWorkspace mode="capacity" />`, a surface no route reaches since capacity moved to
-   * `CapacityScreen`; every other case in this file already renders the live screen.
+   * Recorded in `diff-integrity.json`. **This was the last case in the repository rendering a dead
+   * `WardModeWorkspace` mode, so the reachability guard now passes with an empty list.**
    *
-   * ⚠️ **IT WAS RETIRED BECAUSE ITS SUBJECT WAS RULED OUT, NOT BECAUSE IT WAS INCONVENIENT.**
-   * `capacity-screen.tsx` carries the decision at the site it applies to: *"No sex mix appears here
-   * and none should: whether those counts belong on a network view is still an open question for
-   * the owner. What is said is only what a coordinator needs and what is safe to state."* A test
-   * asserting the counts DO appear is asserting the opposite of the ruling, and it could only stay
-   * green by pointing at a screen nobody can open.
+   * ⚠️ **THE SEX-MIX HALF CONTRADICTED A RULING ALREADY TAKEN, WHICH IS WHY IT COULD NOT BE
+   * RE-POINTED.** Ward Lead ruled that the capacity screen carries the sex-mix SIGNAL and no sex-mix
+   * FIGURE — whether a ward's recorded male/female total is mid-update, never the numbers
+   * themselves, because `RELEASE_BED` raises occupancy without being able to say which sex left.
+   * That ruling is built (`b98103167`) and guarded by `ward-capacity-sexmix-release.dom.test.tsx`,
+   * which asserts the OPPOSITE of the case retired here: that no sex-mix figure reaches the screen.
+   * Re-pointing this case would have meant building a figure a ruling had just removed.
    *
-   * ⚠️ **WHAT IS GENUINELY LOST, STATED PLAINLY SO IT IS NOT DISCOVERED LATER AS A SURPRISE.** The
-   * live capacity screen shows a coordinator NO sex mix and NO specialling headroom. The old mode
-   * surface showed both. That is a real reduction in what a placement decision can see, it is an
-   * owner question and not a defect, and it is now recorded in three places rather than guarded by
-   * a green test about a dead screen: here, at the render site, and in the pull request.
+   * ⚠️ **NEITHER CLINICAL PROPERTY IS DROPPED, AND THAT WAS PROVED BY MUTATION RATHER THAN BY
+   * GREP.** A file list containing the word is not evidence a property is guarded, so both gates
+   * were broken and the reds counted:
    *
-   * What survives and is guarded on the live screen is the SIGNAL rather than the data — the
-   * mid-update caution (`ward-capacity-mid-update-*`), which fires only when a ward's recorded
-   * male/female total disagrees with its occupancy. That is the safety half, and it has its own
-   * coverage in `ward-capacity-sexmix-release.dom.test.tsx`.
+   *   - Disabling the specialling gate in `ward-flow-reducer.ts` (`if (false && movement.specialling
+   *     && …)`) turns **5 cases red across 4 files**, among them "refuses the second one-to-one pull,
+   *     and names specialling rather than 'no bed'". Source hash `cf9a0868` before and after.
+   *   - Blinding the sex-mix occupancy in `ward-eligibility.ts` (`sameSexOccupants = 0`) turns a long
+   *     list red across the eligibility and reducer suites. Source hash `10a42eda` before and after.
+   *
+   * **What is genuinely given up is a DISPLAY, not a rule:** no reachable screen shows specialling
+   * headroom as a network figure. Whether it should is a product question nobody has ruled on — it
+   * is recorded here and with Ward Lead rather than settled by keeping a guard that stands over a
+   * screen no coordinator can open. A guard aimed at a dead surface does not protect the property;
+   * it only makes the gap harder to see.
    */
 
   /*

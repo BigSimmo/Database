@@ -9,7 +9,11 @@ import {
 import { HOME_REGIONS, type UrgencyLevel } from "@/components/ward-management/ward-model";
 import { referrals } from "@/components/ward-management/ward-movements";
 import { urgencyTierLabel } from "@/components/ward-management/ward-priority";
-import { recentlyDecidedReferrals, referralQueueOrder } from "@/components/ward-management/ward-referrals";
+import {
+  RECENTLY_DECIDED_DISPLAY_LIMIT,
+  recentlyDecidedReferrals,
+  referralQueueOrder,
+} from "@/components/ward-management/ward-referrals";
 import { allUnits, unitById, wardSites } from "@/components/ward-management/ward-sites";
 
 /**
@@ -210,7 +214,32 @@ const SEEDED_QUEUED = 4;
 // once the same night — an extraction of user-facing strings from a console component stripped
 // comments FIRST, precisely because that file quotes its own strings in prose. I knew the technique
 // and did not apply it here.
-const SEEDED_DECIDED = 9;
+/*
+ * 🔴 **2026-09-06: THIS STOPPED BEING ONE NUMBER, AND BUMPING IT WOULD HAVE HIDDEN WHY.** The seed
+ * grew from 9 structurally-decided referrals to 18 — a second family of site-coded ids
+ * (`RF-RGHS-01`, `RF-ARMA-02`, …) alongside the original `RF-0NN` set. All 18 ids are distinct;
+ * this is a real fixture addition, not a duplication, which is the first thing checked because 9 to
+ * 18 is exactly double.
+ *
+ * ⚠️ **AND IN GROWING, THE SEED CROSSED THE BOARD'S DISPLAY CAP.** `recentlyDecidedReferrals`
+ * `.slice(0, RECENTLY_DECIDED_DISPLAY_LIMIT)` at 10 (owner ruling, 2026-09-02), so the two
+ * quantities this file used to conflate are now genuinely different: **18 referrals have been
+ * decided, and the board shows 10.** One constant cannot serve both, and the old single
+ * `SEEDED_DECIDED` was only ever correct because 9 was below the cap.
+ */
+const SEEDED_DECIDED_STRUCTURAL = 18;
+
+/**
+ * What the board actually renders in its heading — `decided.length` on the CAPPED list. Derived
+ * from the limit rather than hardcoded as 10, because the relationship is the point: once the seed
+ * exceeds the cap, the heading shows the cap.
+ *
+ * ⚠️ **NOT true by construction.** It is computed from `RECENTLY_DECIDED_DISPLAY_LIMIT` and
+ * `SEEDED_DECIDED_STRUCTURAL` — a constant and a locally cross-checked count — and shares no code
+ * with `recentlyDecidedReferrals`, which is the function these assertions exist to test. If the cap
+ * changes, this follows; if the SELECTION changes, the assertions still fail.
+ */
+const SEEDED_DECIDED_SHOWN = Math.min(SEEDED_DECIDED_STRUCTURAL, RECENTLY_DECIDED_DISPLAY_LIMIT);
 
 /*
  * 🔴 IT WENT STALE AGAIN, EXACTLY AS THE COMMENT ABOVE PREDICTED, AND NOTHING CAUGHT IT.
@@ -235,12 +264,14 @@ const SEEDED_DECIDED = 9;
 const decidedInTheSeed = referrals.filter((referral) =>
   referral.destinations.some((destination) => destination.state !== "queued"),
 ).length;
-if (decidedInTheSeed !== SEEDED_DECIDED) {
+if (decidedInTheSeed !== SEEDED_DECIDED_STRUCTURAL) {
   throw new Error(
-    `SEEDED_DECIDED is ${SEEDED_DECIDED} and the seed now holds ${decidedInTheSeed} decided referrals. ` +
-      `Update the constant AND re-read the two assertions that use it — the board text at the "Recently ` +
-      `decided" heading and the length check — because a fixture change is exactly what made this stale ` +
-      `twice before.`,
+    `SEEDED_DECIDED_STRUCTURAL is ${SEEDED_DECIDED_STRUCTURAL} and the seed now holds ${decidedInTheSeed} ` +
+      `decided referrals. Update the constant AND re-read the THREE assertions that depend on it — the ` +
+      `length check, the board heading, and the post-decision heading — because a fixture change is exactly ` +
+      `what made this stale twice before. ⚠️ And check the cap: the board shows ` +
+      `min(structural, ${RECENTLY_DECIDED_DISPLAY_LIMIT}), so whether the heading MOVES when a referral is ` +
+      `decided depends on which side of ${RECENTLY_DECIDED_DISPLAY_LIMIT} the seed now sits.`,
   );
 }
 
@@ -388,9 +419,10 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
       referralQueueOrder(referrals).map((referral) => referral.id),
       "fixture assumption: the seed's queued referrals, in the queue's own order",
     ).toEqual([...SEEDED_QUEUED_IDS]);
-    expect(recentlyDecidedReferrals(referrals), "fixture assumption: the seed's decided referrals").toHaveLength(
-      SEEDED_DECIDED,
-    );
+    expect(
+      recentlyDecidedReferrals(referrals),
+      "fixture assumption: the board shows min(decided, the display cap), NOT every decided referral",
+    ).toHaveLength(SEEDED_DECIDED_SHOWN);
     // The referral this journey raises leads the queue on urgency alone, and the assertion that it
     // does (further down) is only meaningful while nothing seeded is as urgent. Checked here so a
     // seed that gained a tier-1 referral fails by name, rather than as an unexplained ordering
@@ -439,7 +471,9 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     // The seed, before anything is raised. Asserted so the counts below are a real change rather
     // than a number that happened to be right.
     await expect(page.getByTestId("ward-referral-board-queued")).toContainText(`Queued (${SEEDED_QUEUED})`);
-    await expect(page.getByTestId("ward-referral-board-decided")).toContainText(`Recently decided (${SEEDED_DECIDED})`);
+    await expect(page.getByTestId("ward-referral-board-decided")).toContainText(
+      `Recently decided (${SEEDED_DECIDED_SHOWN})`,
+    );
     const queuedBefore = await queuedCardIds(page);
     expect(queuedBefore).toHaveLength(SEEDED_QUEUED);
 
@@ -591,8 +625,22 @@ test.describe("@mockup Ward referrals — the front door, phone to board to acce
     // --- The board reflects the decision on the very next render: out of the queue, into
     // recently decided, with the outcome named. ---
     await expect(page.getByTestId("ward-referral-board-queued")).toContainText(`Queued (${SEEDED_QUEUED})`);
+    /*
+     * 🔴 **THIS ASSERTION USED TO READ `SEEDED_DECIDED + 1` AND THAT IS NO LONGER TRUE — the number
+     * does NOT move when a referral is decided.** The seed holds 18 decided referrals and the board
+     * shows the 10 most recent, so accepting one pushes a card in at the top and another off the
+     * bottom: the list changes completely and the COUNT does not.
+     *
+     * ⚠️ **The `+ 1` was not wrong when it was written; it was true only while the seed sat below
+     * the cap, and nothing said so.** Restoring it would go red for the right reason and be
+     * "fixed" by bumping a constant, which is how this file went stale twice before.
+     *
+     * **So the count is no longer the meaningful assertion here — the card's PRESENCE is**, and it
+     * is asserted immediately below. This line is kept, pinned to the capped value, because a
+     * heading that started moving again would mean the cap or the selection had changed.
+     */
     await expect(page.getByTestId("ward-referral-board-decided")).toContainText(
-      `Recently decided (${SEEDED_DECIDED + 1})`,
+      `Recently decided (${SEEDED_DECIDED_SHOWN})`,
     );
     expect(await queuedCardIds(page)).not.toContain(referralId);
     const decidedCard = page.getByTestId(`ward-referral-board-decided-card-${referralId}`);

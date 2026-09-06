@@ -1096,7 +1096,11 @@ export const MODEL_CLAIMS: readonly ModelClaim[] = [
   {
     id: "statistics-screen/referral-to-bed/a-null-referral-id-means-a-movement",
     renderedIn: STATISTICS_SCREEN,
-    rendered: "meaning that\n              admission came from a movement rather than from a referral",
+    // Locator moved 2026-09-06 with the sentence. The page said "nothing at all is an ordinary
+    // state HERE" — a claim about the DATA — while this register evidenced only the TYPE. No
+    // admission is in that state: 0 of 267 carry a null. The sentence now says "a null WOULD mean",
+    // which is exactly what `referralId: string | null` supports and nothing more.
+    rendered: "would mean that admission came from a movement rather than from a referral",
     claim: "A null `referralId` records an admission that came from a movement, which carries no referral.",
     /**
      * ⚠️ **RE-POINTED 2026-09-01 FROM A DOC COMMENT TO THE LINE THAT WRITES THE NULL.** It cited

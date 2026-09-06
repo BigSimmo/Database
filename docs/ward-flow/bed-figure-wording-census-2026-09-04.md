@@ -212,11 +212,31 @@ themselves — `"1 free of 20 beds"`, `"1 free bed on this ward right now"`, `"2
 
 ---
 
-## 7. The merged Capacity screen renders a bare `0` in three Ready cells — logged 2026-09-05, deliberately NOT fixed
+## 7. The merged Capacity screen renders a bare `0` in three Ready cells — logged 2026-09-05, **FIXED 2026-09-06 in `784d50a47`**
 
 **Found by Ward Builder Four while re-pointing the tests that MERGE 02 stranded, and recorded here
 rather than repaired in passing on Ward Lead's instruction: a wording change to a clinical figure
 does not ride along inside a test-re-pointing commit.**
+
+> 🔴 **THIS ENTRY WAS STALE FOR SIX COMMITS AND SAID THE OPPOSITE OF THE CODE.** It was written at
+> `f72c71e17` saying the cell was deliberately left alone. **Two commits later `784d50a47` fixed it**,
+> as one of the four capacity-board capabilities the owner approved — and nobody came back to this
+> paragraph. Anything below this line describing the bare `0` as present describes the screen as it
+> was on 2026-09-05, not as it renders now.
+>
+> **Verified by rendering on 2026-09-06, not by reading the diff.** `CapacityScreen` line 473 is now
+> `{row.ready === 0 ? <span className={styles.notTracked}>none</span> : row.ready}`, and against the
+> seeded fixture the three cells named below render the word:
+>
+>     none   <- FSH Older Adult · Fiona Stanley Hospital
+>     none   <- Graylands Older Adult · Graylands Hospital
+>     none   <- Kununurra Adult Open · Kununurra District Hospital
+>
+> The trap named at the foot of this section was avoided: the word **replaces** the digit rather than
+> sitting beside it. The distinct Ready values across all 23 rows are `1`, `2`, `3`, `none`, and one
+> cell carrying `2` above a `1 still being made ready` note on its own line.
+>
+> ⚠️ **AND THE FIX MADE A NEW PROBLEM, WHICH IS §8.** Read it before treating this row as closed.
 
 ### What was observed, by rendering rather than by reading the source
 
@@ -270,3 +290,57 @@ other on one screen.** That much is observed.
 The word must **replace** the digit, not sit beside it. `bedStateFigureText` in the stranded test
 asserted `readyText).not.toMatch(/0/)` for exactly that reason. Anything weaker passes on a cell
 reading `"0 none"`.
+
+## 8. The fix in §7 made three rows spell zero two ways on the same line — found 2026-09-06 by looking at the screen
+
+**`none` was added to the Ready column and to nothing else, so on a row where all three counts are
+zero a reader now sees `none`, `0`, `0` side by side.** Before `784d50a47` the row was internally
+consistent and read `0`, `0`, `0`. The fix improved one cell and introduced a disagreement across
+three.
+
+### The observation, rendered rather than reasoned
+
+Chromium against the dev server, seeded fixture, the network table's `Ready` / `Locked` / `Freeing`
+cells read exactly as a reader sees them. **3 of 23 rows spell zero both ways:**
+
+    Ready  Locked Freeing  ward
+    none   0      1        FSH Older Adult
+    none   0      1        Graylands Older Adult
+    none   0      0        Kununurra Adult Open        <- all three are zero; two spellings
+
+The Kununurra row is the one that matters: **three zero counts on one line, one of them a word and
+two of them digits.** Nothing on the screen says the word and the digit mean the same thing, and the
+most natural reading of a deliberate difference is that there IS one.
+
+### ⚠️ This is recorded, NOT repaired, and the reason is this document's own precedent
+
+§7 was left alone on Ward Lead's instruction that _a wording change to a clinical figure does not ride
+along inside a test-re-pointing commit_. Widening `none` to `Locked` and `Freeing` would be that same
+change again, across two more clinical columns and 23 rows, on a rule the owner has not ruled on.
+
+**And the counter-argument in §7 bites harder here, not softer.** A known `ready = 0` is a fact the
+ward reported; so is `locked = 0`. The design rule as quoted covers _"a number that could be zero **or
+unknown**"_ — but `Locked` and `Freeing` are supporting detail a coordinator scans past, and turning
+every zero in a 23-row table into a word costs scanning speed for a benefit that was argued for the
+headline figure only.
+
+### The three ways out, so whoever rules on it is choosing rather than inheriting
+
+1. **Spell all three columns `none`.** Internally consistent, applies the §7 argument evenly, costs
+   table density. This is the option that follows from taking §7's rule at face value.
+2. **Revert Ready to `0`.** Also consistent, and gives up the §7 fix — which the owner approved, so
+   this needs their word, not a builder's.
+3. **Keep the split and say why on the screen.** Only defensible if `Ready` genuinely carries a
+   different burden from the other two, and then the screen should carry that distinction visibly
+   rather than leaving it to be inferred from a typeface.
+
+**No option is safe to pick from inside a builder's commit**, which is why all three are written down
+instead of one being taken.
+
+### How this was found, because the method is the point
+
+Every DOM test over this screen was green, and stayed green. **The tests read the Ready column and the
+Locked column in separate assertions, so no test ever put the two spellings on one line** — which is
+the only place the problem exists. It was found by rendering the page in a browser and printing the
+three cells per row as a reader meets them: side by side. Cf. the standing lesson that a suite asserts
+what the author remembered to compare, and a row is not a thing any of these tests looks at.

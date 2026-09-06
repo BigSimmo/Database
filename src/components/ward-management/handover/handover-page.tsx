@@ -78,9 +78,24 @@ export function HandoverPage() {
         <InTransitSection snapshot={snapshot} units={units} />
         <PlacementGoneWrongSection snapshot={snapshot} />
 
+        {/*
+         * 🔴 **THIS LINKED AT A ROUTE THE REPOSITORY ITSELF CALLS "NOT A DESTINATION", UNTIL 2026-09-06.**
+         * It read "see the morning bed state" and pointed at `/mockups/ward-flow/morning`. MERGE 02
+         * folded that board into `CapacityScreen` the day before, owner-approved, and the old route
+         * survives ONLY as a redirect stub so an existing bookmark does not 404 — `ward-nav.ts` says
+         * exactly that about it.
+         *
+         * ⚠️ **IT DID NOT 404, WHICH IS WHY NOTHING CAUGHT IT.** The link worked. A reader clicked
+         * "morning bed state" and landed on a screen titled Capacity, so the failure was never a
+         * broken link — it was this screen promising a board the app no longer has under that name.
+         * `tests/ward-links-never-point-at-redirect-stubs.test.ts` now derives both halves from disk.
+         *
+         * The link TEXT moved with the href on purpose. Repointing alone would have left the
+         * sentence naming a retired board, which is the half a reader actually believes.
+         */}
         <p className={styles.crossLink}>
           This handover answers &quot;what do I need to hand over this shift?&quot; For &quot;what can I fill right now,
-          across the network?&quot;, see the <Link href="/mockups/ward-flow/morning">morning bed state</Link>.
+          across the network?&quot;, see the <Link href="/mockups/ward-flow/capacity">capacity board</Link>.
         </p>
       </main>
     </div>
