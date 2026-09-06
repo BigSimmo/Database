@@ -3901,6 +3901,17 @@ td,
   .mode-nav[data-density-profile="extended"] .mode-nav__bar {
     display: flex;
   }
+
+  /* `extended-counted` shares this threshold with `extended` rather than
+     declaring a duplicate of it — see the profile's own note near the 33rem
+     band below. */
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__control {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__bar {
+    display: flex;
+  }
 }
 
 @container mode-nav (min-width: 23rem) {
@@ -4002,9 +4013,58 @@ td,
    (672px) is the number this profile's top band already carried for exactly
    that content — reused rather than re-derived. Below this the bar is words
    only; see the note on `.mode-nav__icon` above. */
+/* `extended-counted`: the label family for a counted-label rail (icon + label +
+   count badge), currently only `InPageSectionRail`'s medication adopter. Its
+   bands are a fixed copy of `extended`'s pre-2026-09-06 thresholds — icons
+   always visible, band 4 at 33rem, band 5 at 42rem — kept as its own profile
+   so Therapy's icon-hiding trade-off above never reaches a rail that never
+   opted into it. Do not fold this back into `extended`; that coupling is the
+   exact bug this profile exists to prevent. */
+@container mode-nav (min-width: 33rem) {
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__slot[data-band="4"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__slot[data-until="3"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
+}
+
 @container mode-nav (min-width: 42rem) {
   .mode-nav[data-density-profile="extended"] .mode-nav__icon {
     display: block;
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__slot[data-band="5"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__slot[data-until="4"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="5"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="5"] .mode-nav__rule {
+    background-color: transparent;
   }
 }
 

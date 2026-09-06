@@ -78,7 +78,7 @@ describe("ModeNav band planning", () => {
 describe("ModeNav density contract", () => {
   it("chooses density by container width in rem, never px", () => {
     const thresholds = [...modeNavCss.matchAll(/@container mode-nav \(min-width: ([^)]+)\)/g)].map((m) => m[1].trim());
-    expect(thresholds).toEqual(["16rem", "17rem", "20rem", "22rem", "23rem", "28rem", "31rem", "42rem"]);
+    expect(thresholds).toEqual(["16rem", "17rem", "20rem", "22rem", "23rem", "28rem", "31rem", "33rem", "42rem"]);
 
     // The unit is the mechanism: raising the browser or OS text size grows the
     // root font, so a phone crosses a threshold exactly when its labels would
