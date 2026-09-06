@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "5c5d724512402dfed26dc9e3013c910b25876848",
-    "committed_at": "2026-09-06T09:24:49+00:00"
+    "sha": "c5578112fac2cd2d637104c87c4bb2e4cc25491e",
+    "committed_at": "2026-09-06T13:34:21+00:00"
   },
   "routes": {
     "modes": [
@@ -793,6 +793,11 @@
       {
         "path": "/mockups/source-rail-desktop-scroll",
         "file": "src/app/mockups/source-rail-desktop-scroll/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/specifier-record-directions",
+        "file": "src/app/mockups/specifier-record-directions/page.tsx",
         "area": "mockup"
       },
       {
@@ -1609,9 +1614,9 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 221,
+      "pages": 222,
       "product_pages": 73,
-      "mockup_pages": 148,
+      "mockup_pages": 149,
       "redirects": 27,
       "api": 63
     }
@@ -15622,6 +15627,14 @@
         "scope": "PR babysit: sync main, supersede stale READY row, close review thread",
         "outcome": "APPROVE pending hosted required CI. `git merge-tree --write-tree origin/main ba799d4a3cfdcb20eb1e040b5d6e328e2fbbc147` was clean, so GitHub DIRTY/CONFLICTING was stale branch drift after main advanced to `a9920e3fc29fce9ad2ffb547811e085a708680b9`; merged `origin/main` with no content conflicts. This supersedes the older 2026-07-25 READY row rather than editing append-only history; the remaining CodeRabbit ledger-check thread is dispositioned by this row and the final merge remains gated on exact-head required CI.",
         "checks": "`npm run check:branch-review-ledger` PASS; hosted PR required, PR policy, and GitGuardian to be waited on exact pushed head; no provider-backed evals/checks."
+      },
+      {
+        "date": "2026-09-06",
+        "ref": "claude/eager-euler-38s1yu",
+        "head": "72142455c3072d9e6e1aa5e4907bfc6170272957",
+        "scope": "prlanded",
+        "outcome": "Merged and verified: squash 7214245 content-identical to branch tip d8f2405 (empty two-dot diff), both work commits present, no orphaned late commit despite six main-merge syncs while auto-merge lost the race to five other PRs.",
+        "checks": "CI PR required green on head 3bf1d9e and again after each sync; local verify:cheap static+lint+typecheck green, 17119/17127 unit tests passed with 3 shallow-clone git-object artefacts; browser proof from CI Production UI shards plus a manual chromium capture of the rail."
       },
       {
         "date": "2026-07-31",
