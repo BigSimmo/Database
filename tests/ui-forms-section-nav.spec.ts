@@ -50,6 +50,106 @@ test.describe("Forms section navigation", () => {
     }
   });
 
+  /**
+   * The defect this pins: the trigger was a flex row carrying `px-3` and no vertical
+   * padding at all, so a row whose preview wrapped grew past the 48px floor and printed
+   * its copy hard against the top and bottom borders. It read as text escaping the box.
+   *
+   * Only a browser can see it. jsdom applies no Tailwind, so the padding it would assert
+   * is always `0px`, and the wrap that triggers the overflow never happens.
+   *
+   * Tablet and desktop are in the list because that is where it was worst — the preview
+   * only wrapped from 640px up, so every width the old spec covered was a width where
+   * the bug was invisible.
+   */
+  test("gives every information row symmetric vertical padding at each breakpoint", async ({ page }) => {
+    for (const width of [390, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });
+
+      const section = page.getByRole("region", { name: "Form information" });
+      await expect(section).toBeVisible({ timeout: 20_000 });
+
+      const rows = await section.locator('[data-testid="disclosure"] button').evaluateAll((triggers) =>
+        triggers.map((trigger) => {
+          const style = getComputedStyle(trigger);
+          const preview = trigger.querySelector("span.line-clamp-2");
+          return {
+            label: trigger.textContent?.slice(0, 24) ?? "",
+            height: trigger.getBoundingClientRect().height,
+            paddingTop: Number.parseFloat(style.paddingTop),
+            paddingBottom: Number.parseFloat(style.paddingBottom),
+            previewOverflows: preview ? preview.scrollWidth > preview.clientWidth + 1 : false,
+          };
+        }),
+      );
+
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(row.paddingTop, `${width}px "${row.label}" needs real top padding`).toBeGreaterThan(0);
+        expect(row.paddingBottom, `${width}px "${row.label}" must pad symmetrically`).toBeCloseTo(row.paddingTop, 1);
+        // The tap floor, which the padding must never quietly undercut.
+        expect(row.height, `${width}px "${row.label}" must hold the 48px tap floor`).toBeGreaterThanOrEqual(47.5);
+        // Clamped copy is ellipsised inside its box; it never spills sideways.
+        expect(row.previewOverflows, `${width}px "${row.label}" preview must stay inside its box`).toBe(false);
+      }
+    }
+  });
+
+  /**
+   * Two defects in one measurement, both of which made an `extendDescription` row look
+   * broken the instant a reader opened it:
+   *
+   * - The preview was `text-xs` while the panel body was `text-sm leading-6`, so the SAME
+   *   sentence changed size on expand.
+   * - The panel carried its own `px-3` while the label sat behind a chevron and an icon
+   *   tile, so the copy also jumped left.
+   *
+   * Both are computed-style facts, so both need a real browser. The row is expanded and
+   * re-collapsed against one element pair rather than asserted on class strings, because
+   * the class strings are what drifted in the first place.
+   */
+  test("keeps the expanded body on the label's left edge and in the preview's type", async ({ page }) => {
+    for (const width of [390, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });
+
+      const section = page.getByRole("region", { name: "Form information" });
+      const trigger = section.getByRole("button", { name: "Does not authorise" });
+      await expect(trigger).toBeVisible({ timeout: 20_000 });
+
+      const label = trigger.locator("span.min-w-0 > span").first();
+      const preview = trigger.locator("span.line-clamp-2");
+      const collapsed = await preview.evaluate((node) => {
+        const style = getComputedStyle(node);
+        return {
+          left: node.getBoundingClientRect().left,
+          fontSize: style.fontSize,
+          lineHeight: style.lineHeight,
+        };
+      });
+      const labelLeft = await label.evaluate((node) => node.getBoundingClientRect().left);
+
+      const panelId = await trigger.getAttribute("aria-controls");
+      if (!panelId) throw new Error("Disclosure trigger is missing aria-controls");
+      await trigger.click();
+
+      const expanded = await page.locator(`[id="${panelId}"] p`).evaluate((node) => {
+        const style = getComputedStyle(node);
+        return {
+          left: node.getBoundingClientRect().left,
+          fontSize: style.fontSize,
+          lineHeight: style.lineHeight,
+        };
+      });
+
+      expect(expanded.left, `${width}px body must start on the label's left edge`).toBeCloseTo(labelLeft, 0);
+      expect(expanded.left, `${width}px body must not move sideways on expand`).toBeCloseTo(collapsed.left, 0);
+      expect(expanded.fontSize, `${width}px body must not re-size the preview's sentence`).toBe(collapsed.fontSize);
+      expect(expanded.lineHeight, `${width}px body must keep the preview's leading`).toBe(collapsed.lineHeight);
+    }
+  });
+
   test("expands information previews into one continuous answer", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });
