@@ -407,9 +407,24 @@ describe("shared-search route ownership", () => {
 
     expect(tabletBand).toContain("@media (min-width: 640px) and (max-width: 1279.98px)");
     expect(tabletBand).toContain("--spacing-mode-home-composer-wide: 10rem");
-    expect(tabletBand).toContain(".smart-search-prompt-row .answer-suggestion-chips-scroll");
-    expect(tabletBand).toContain("flex-wrap: nowrap");
-    expect(tabletBand).toContain("overflow-x: auto");
+
+    // The one-line rail is NOT part of the bounded band. It was, until
+    // 2026-09-06, which left the rail free to wrap above 1280px — Specifiers was
+    // the one mode whose prompts overflowed there, and its home stood 39px
+    // taller than every other. The rule now applies at every width from 640px
+    // up, and the band keeps only the reserve token it is actually about.
+    const railStart = globalsSource.indexOf("/* BEGIN mode-home prompt rail one-line */");
+    const railEnd = globalsSource.indexOf("/* END mode-home prompt rail one-line */");
+    expect(railStart).toBeGreaterThanOrEqual(0);
+    expect(railEnd).toBeGreaterThan(railStart);
+    const railBlock = globalsSource.slice(railStart, railEnd);
+
+    expect(railBlock).toContain("@media (min-width: 640px) {");
+    expect(railBlock).not.toContain("max-width: 1279.98px");
+    expect(railBlock).toContain(".smart-search-prompt-row .answer-suggestion-chips-scroll");
+    expect(railBlock).toContain("flex-wrap: nowrap");
+    expect(railBlock).toContain("overflow-x: auto");
+    expect(tabletBand).not.toContain(".smart-search-prompt-row");
 
     // The reserve remains conditional on a pending or filled portal host, so a
     // hidden composer still owns zero height rather than a permanent tablet gap.

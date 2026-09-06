@@ -2630,6 +2630,31 @@ summary::-webkit-details-marker {
   }
 }
 
+/* BEGIN mode-home prompt rail one-line */
+/* The mode-home Prompts rail is a single scrolling line at EVERY width from
+   640px up, so all sixteen mode homes render the one composer stack the reserve
+   tokens are sized for.
+
+   From 640px up, `.answer-suggestion-chips-scroll` deliberately relaxes to a
+   wrapping row for the answer-thread follow-up chips. This rule re-imposes the
+   one-line scroller for the mode-home rail only, and until 2026-09-06 it lived
+   inside the 640-1279.98px band below — so above 1280px the rail was free to
+   wrap. Fifteen modes hid that: their three prompts fit the 576px rail on one
+   line. Specifiers did not ("depressed but racing thoughts", "returns every
+   winter", "much better but not fully recovered" total 613px), so its home
+   alone settled at 199px against a 160px stack and an 88px pending reserve.
+   Scope this rule to the band and the wrap comes straight back for whichever
+   mode's prompt copy grows next. */
+@media (min-width: 640px) {
+  .smart-search-prompt-row .answer-suggestion-chips-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+    -webkit-mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+  }
+}
+/* END mode-home prompt rail one-line */
+
 /* BEGIN tablet mode-home composer geometry */
 /* Across 640-1279px the settled one-line surface is 160px: example ticker
    line (24px), composer, gaps, and prompt rail. Every mode home renders that
@@ -2640,13 +2665,6 @@ summary::-webkit-details-marker {
 @media (min-width: 640px) and (max-width: 1279.98px) {
   :root {
     --spacing-mode-home-composer-wide: 10rem;
-  }
-
-  .smart-search-prompt-row .answer-suggestion-chips-scroll {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
-    -webkit-mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
   }
 }
 /* END tablet mode-home composer geometry */
