@@ -46,6 +46,7 @@ function buildContext(overrides: DifferentialDetailContextOverrides = {}): Diffe
     relatedMapDetails: {},
     termLinks: {},
     overlapLinks: {},
+    curated: null,
     comparePresentation: null,
     ...rest,
     source: {

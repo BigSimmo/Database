@@ -34,6 +34,7 @@ import {
   type DifferentialDetailSection,
 } from "@/components/differentials/detail-section-index";
 import { DiagnosisMapPanel } from "@/components/differentials/diagnosis-map-panel";
+import type { DifferentialCuratedEntry } from "@/lib/differential-curated";
 import { DifferentialOverviewRail } from "@/components/differentials/differential-overview-rail";
 import { DiagnosisTermChip, DiagnosisTermInline } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
@@ -46,6 +47,7 @@ import { appModeHomeHref } from "@/lib/app-modes";
 import {
   cleanDifferentialItem,
   curatedContentNote,
+  curatedProvenanceLabel,
   detailTabCounts,
   differentialSourceStatusLabel,
   differentialStatusLabel,
@@ -53,6 +55,7 @@ import {
   formatDifferentialCopyText,
   formatExportedDate,
   groupCurrentPresentation,
+  hasCuratedContent,
   isDetailTabId,
   isRedundantSafetySummary,
   resolveSafetyFacts,
@@ -382,9 +385,17 @@ function safetyFactGridClass(count: number): string {
   return "grid-cols-2";
 }
 
-function SafetySnapshot({ record, termLinks }: { record: DifferentialRecord; termLinks: Record<string, string> }) {
+function SafetySnapshot({
+  record,
+  termLinks,
+  curated,
+}: {
+  record: DifferentialRecord;
+  termLinks: Record<string, string>;
+  curated: DifferentialCuratedEntry | null;
+}) {
   const theme = snapshotThemes[record.status];
-  const facts = resolveSafetyFacts(record);
+  const facts = resolveSafetyFacts(record, curated);
   const tags = record.safetySnapshot.tags;
   const summary = record.safetySnapshot.summary.trim();
   const showSummary = summary.length > 0 && !isRedundantSafetySummary(summary, tags);
@@ -505,8 +516,8 @@ function ClinicalHinge({ record }: { record: DifferentialRecord }) {
  * the alternative is a page that reads as authoritative while the body of it is
  * describing something else.
  */
-function ContentNote({ record }: { record: DifferentialRecord }) {
-  const note = curatedContentNote(record);
+function ContentNote({ curated }: { curated: DifferentialCuratedEntry | null }) {
+  const note = curatedContentNote(curated);
   if (!note) return null;
 
   return (
@@ -732,9 +743,11 @@ function ComparePanel({
 function FooterStatus({
   source,
   liveGovernance,
+  curated,
 }: {
   source: DifferentialDetailContext["source"];
   liveGovernance: DifferentialRecordGovernance | null;
+  curated: DifferentialCuratedEntry | null;
 }) {
   const sourceStatus = liveGovernance?.sourceStatus ?? source.sourceStatus;
   const validationStatus = liveGovernance?.validationStatus ?? source.validationStatus;
@@ -769,18 +782,29 @@ function FooterStatus({
   ];
 
   return (
-    <section className="grid gap-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-xs shadow-[var(--shadow-inset)] sm:grid-cols-3">
-      {cards.map((card) => (
-        <div
-          key={card.title}
-          className="min-w-0 sm:border-l sm:border-[color:var(--border)] sm:pl-4 first:sm:border-l-0 first:sm:pl-0"
+    <div className="grid gap-3">
+      <section className="grid gap-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-xs shadow-[var(--shadow-inset)] sm:grid-cols-3">
+        {cards.map((card) => (
+          <div
+            key={card.title}
+            className="min-w-0 sm:border-l sm:border-[color:var(--border)] sm:pl-4 first:sm:border-l-0 first:sm:pl-0"
+          >
+            <p className="font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">{card.title}</p>
+            <p className={cn("mt-3 font-bold", card.lineClassName)}>{card.line}</p>
+            <p className="mt-2 leading-5 text-[color:var(--text-muted)]">{card.detail}</p>
+          </div>
+        ))}
+      </section>
+      {hasCuratedContent(curated) ? (
+        <p
+          data-testid="differential-authored-content-note"
+          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-4 py-3 text-xs leading-5 text-[color:var(--text-muted)]"
         >
-          <p className="font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">{card.title}</p>
-          <p className={cn("mt-3 font-bold", card.lineClassName)}>{card.line}</p>
-          <p className="mt-2 leading-5 text-[color:var(--text-muted)]">{card.detail}</p>
-        </div>
-      ))}
-    </section>
+          This record carries locally authored content alongside the exported source material. It is marked &ldquo;
+          {curatedProvenanceLabel}&rdquo; wherever it appears, and is not an extract from an indexed source.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -1279,8 +1303,12 @@ export function DifferentialDetailPage({
             // the rail is desktop breathing room, not a fourth phone summary.
             <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5">
               <div className="grid min-w-0 gap-4">
-                <ContentNote record={record} />
-                <SafetySnapshot record={record} termLinks={detailContext.termLinks ?? {}} />
+                <ContentNote curated={detailContext.curated ?? null} />
+                <SafetySnapshot
+                  record={record}
+                  termLinks={detailContext.termLinks ?? {}}
+                  curated={detailContext.curated ?? null}
+                />
                 <ClinicalHinge record={record} />
                 <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
                   <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
@@ -1332,6 +1360,7 @@ export function DifferentialDetailPage({
               record={record}
               relatedMapDetails={detailContext.relatedMapDetails}
               knownRelatedSlugs={detailContext.knownRelatedSlugs}
+              curated={detailContext.curated ?? null}
             />
           ) : null}
 
@@ -1343,7 +1372,11 @@ export function DifferentialDetailPage({
           ) : null}
 
           {activeTab === "source" ? (
-            <FooterStatus source={detailContext.source} liveGovernance={liveGovernance} />
+            <FooterStatus
+              source={detailContext.source}
+              liveGovernance={liveGovernance}
+              curated={detailContext.curated ?? null}
+            />
           ) : null}
         </div>
 

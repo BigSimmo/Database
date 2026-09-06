@@ -16,7 +16,7 @@ import {
   sectionBadgeLabel,
   visibleSectionItems,
 } from "@/lib/differential-detail";
-import { curatedDifferentials } from "@/lib/differential-curated";
+import { curatedDifferentials, curatedEntryFor } from "@/lib/differential-curated";
 import {
   differentialRecords,
   getDifferentialDetailContext,
@@ -112,7 +112,7 @@ describe("resolveSafetyFacts", () => {
   it("returns the curated quartet for delirium", () => {
     const delirium = getDifferentialRecord("delirium");
     expect(delirium).not.toBeNull();
-    const labels = resolveSafetyFacts(delirium!).map((fact) => fact.label);
+    const labels = resolveSafetyFacts(delirium!, curatedEntryFor(delirium!.slug)).map((fact) => fact.label);
     expect(labels).toEqual(["High risk", "Onset", "Course", "Treatable"]);
   });
 
@@ -123,7 +123,7 @@ describe("resolveSafetyFacts", () => {
       immediateActions: ["Do vitals"],
       related: [{ id: "other", label: "Other", likelihood: "possible", note: "" }],
     });
-    const facts = resolveSafetyFacts(record);
+    const facts = resolveSafetyFacts(record, null);
     expect(facts.map((fact) => fact.label)).toEqual([
       "High-risk causes",
       "Core tests",
@@ -373,16 +373,19 @@ describe("Authored content overlay", () => {
     // The export gives this record four statements about akathisia and
     // parkinsonism in its "immediate action" section; none is an action.
     expect(record!.immediateActions[0]).toMatch(/most commonly missed/);
-    expect(doNowStepsAreCurated(record!)).toBe(true);
-    expect(resolveDoNowSteps(record!)[0]).toMatch(/Characterise the tremor/);
-    expect(curatedContentNote(record!)).toMatch(/mix material from akathisia/);
+    const curated = curatedEntryFor(record!.slug);
+    expect(doNowStepsAreCurated(curated)).toBe(true);
+    expect(resolveDoNowSteps(record!, curated)[0]).toMatch(/Characterise the tremor/);
+    expect(curatedContentNote(curated)).toMatch(/mix material from akathisia/);
   });
 
   it("leaves an uncurated record on its own content", () => {
     const record = differentialRecords.find((entry) => !(entry.slug in curatedDifferentials));
     expect(record).toBeTruthy();
-    expect(doNowStepsAreCurated(record!)).toBe(false);
-    expect(curatedContentNote(record!)).toBeNull();
+    const curated = curatedEntryFor(record!.slug);
+    expect(curated).toBeNull();
+    expect(doNowStepsAreCurated(curated)).toBe(false);
+    expect(curatedContentNote(curated)).toBeNull();
   });
 });
 

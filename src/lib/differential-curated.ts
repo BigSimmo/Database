@@ -467,7 +467,3 @@ export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {
 export function curatedEntryFor(slug: string): DifferentialCuratedEntry | null {
   return curatedDifferentials[slug] ?? null;
 }
-
-/** Shown wherever authored content renders. Curated text is local clinical
- *  reference, not an extract from an indexed source, and must read that way. */
-export const curatedProvenanceLabel = "Locally authored — verify before use";

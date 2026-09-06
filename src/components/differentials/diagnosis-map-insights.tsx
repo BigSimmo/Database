@@ -4,8 +4,8 @@ import Link from "next/link";
 import { ArrowRight, ShieldAlert, SquareStack, Stethoscope } from "lucide-react";
 
 import { cn } from "@/components/ui-primitives";
-import { curatedProvenanceLabel } from "@/lib/differential-curated";
 import {
+  curatedProvenanceLabel,
   differentialStatusLabel,
   type DifferentialDiscriminatorRow,
   type DifferentialRelatedMapDetail,

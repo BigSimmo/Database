@@ -30,6 +30,7 @@ import { useEventCallback } from "@/components/clinical-dashboard/use-event-call
 import { DiagnosisMapInsights } from "@/components/differentials/diagnosis-map-insights";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, floatingControl, primaryControl, toolbarButton } from "@/components/ui-primitives";
+import type { DifferentialCuratedEntry } from "@/lib/differential-curated";
 import {
   buildDiscriminators,
   differentialStatusLabel,
@@ -896,12 +897,15 @@ export function DiagnosisMapPanel({
   record,
   relatedMapDetails = {},
   knownRelatedSlugs,
+  curated = null,
 }: {
   record: DifferentialRecord;
   relatedMapDetails?: Record<string, DifferentialRelatedMapDetail>;
   /** Related ids verified against the catalogue. Defaults to the keys of
    *  `relatedMapDetails`, which the server builds from the same check. */
   knownRelatedSlugs?: readonly string[];
+  /** This record's authored overlay entry, resolved server-side. */
+  curated?: DifferentialCuratedEntry | null;
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<SelectedNode>("diagnosis");
@@ -924,8 +928,9 @@ export function DiagnosisMapPanel({
       buildDiscriminators(record, {
         knownRelatedSlugs: knownRelatedSlugs ?? Object.keys(relatedMapDetails),
         relatedMapDetails,
+        curated,
       }),
-    [knownRelatedSlugs, record, relatedMapDetails],
+    [curated, knownRelatedSlugs, record, relatedMapDetails],
   );
   const compareIds = useMemo(
     () => [record.slug, ...selectedCompareIds.filter((slug) => slug !== record.slug && relatedMapDetails[slug])],

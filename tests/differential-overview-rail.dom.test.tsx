@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { DifferentialOverviewRail } from "@/components/differentials/differential-overview-rail";
+import { curatedEntryFor } from "@/lib/differential-curated";
 import type { DifferentialDetailContext } from "@/lib/differential-detail";
 import type { DifferentialRecord } from "@/lib/differentials";
 
@@ -11,6 +12,7 @@ const detailContext: DifferentialDetailContext = {
   termLinks: {},
   overlapLinks: {},
   comparePresentation: null,
+  curated: null,
   source: {
     version: "v10",
     exportedAt: "2026-07-11T00:00:00.000Z",
@@ -95,7 +97,9 @@ describe("DifferentialOverviewRail", () => {
           slug: "lithium-physiological-withdrawal-tremor",
           immediateActions: ["One of the most commonly missed and most distressing psychiatric side effects"],
         })}
-        detailContext={detailContext}
+        // The authored entry is resolved server-side and travels on the
+        // context, so the corpus never reaches the client bundle.
+        detailContext={{ ...detailContext, curated: curatedEntryFor("lithium-physiological-withdrawal-tremor") }}
         onOpenSource={() => {}}
       />,
     );

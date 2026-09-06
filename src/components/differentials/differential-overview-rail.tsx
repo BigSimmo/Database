@@ -7,9 +7,9 @@ import { DiagnosisTermChip } from "@/components/differentials/diagnosis-term-lin
 import { cn } from "@/components/ui-primitives";
 import { StatusMark } from "@/components/ui/status-mark";
 import type { DifferentialRecordGovernance } from "@/components/clinical-dashboard/use-differential-catalog";
-import { curatedProvenanceLabel } from "@/lib/differential-curated";
 import {
   cleanDifferentialItem,
+  curatedProvenanceLabel,
   differentialSourceStatusLabel,
   differentialValidationStatusLabel,
   doNowStepsAreCurated,
@@ -82,8 +82,9 @@ export function DifferentialOverviewRail({
   liveGovernance?: DifferentialRecordGovernance | null;
   onOpenSource: () => void;
 }) {
-  const doNow = resolveDoNowSteps(record, 4);
-  const doNowCurated = doNowStepsAreCurated(record);
+  const curated = detailContext.curated ?? null;
+  const doNow = resolveDoNowSteps(record, curated, 4);
+  const doNowCurated = doNowStepsAreCurated(curated);
   const investigations = record.investigations.map(cleanDifferentialItem).filter(Boolean).slice(0, 5);
   const watchFor = record.safetySnapshot.tags.map(cleanDifferentialItem).filter(Boolean);
   const knownRelated = new Set(detailContext.knownRelatedSlugs);

@@ -1,4 +1,4 @@
-import { curatedEntryFor } from "@/lib/differential-curated";
+import type { DifferentialCuratedEntry } from "@/lib/differential-curated";
 import type { DifferentialSourceStatus, DifferentialValidationStatus } from "@/lib/differential-records";
 import type {
   DifferentialLikelihood,
@@ -50,6 +50,12 @@ export type DifferentialDetailContext = {
   overlapLinks: Record<string, string>;
   /** First presentation workflow that lists this diagnosis as a candidate. */
   comparePresentation: { slug: string; title: string } | null;
+  /**
+   * This record's authored overlay entry, resolved server-side. Only the entry
+   * for the record on screen crosses the boundary, so the authored prose of
+   * every other record stays out of the client bundle.
+   */
+  curated: DifferentialCuratedEntry | null;
   source: {
     version: string;
     exportedAt: string;
@@ -117,6 +123,12 @@ export function differentialStatusLabel(status: DifferentialRecord["status"]): "
   return "Routine";
 }
 
+/** Shown wherever authored content renders. Curated text is local clinical
+ *  reference, not an extract from an indexed source, and must read that way.
+ *  Declared here rather than beside the corpus so a client component can label
+ *  authored content without importing every record's authored prose. */
+export const curatedProvenanceLabel = "Locally authored \u2014 verify before use";
+
 export type DifferentialSafetyFact = {
   id: "high-risk" | "onset" | "course" | "treatable" | "causes" | "tests" | "actions" | "related";
   label: string;
@@ -128,9 +140,12 @@ export type DifferentialSafetyFact = {
  *  Onset/Course/Treatable facts — every other record falls back to counts
  *  derived from its own data, so the card never fabricates clinical attributes
  *  the snapshot does not carry. */
-export function resolveSafetyFacts(record: DifferentialRecord): DifferentialSafetyFact[] {
-  const curated = curatedEntryFor(record.slug)?.atAGlance;
-  if (curated?.length) return curated;
+export function resolveSafetyFacts(
+  record: DifferentialRecord,
+  curated: DifferentialCuratedEntry | null,
+): DifferentialSafetyFact[] {
+  const authored = curated?.atAGlance;
+  if (authored?.length) return authored;
 
   const facts: DifferentialSafetyFact[] = [];
   const mustNotMiss = record.sections.find((section) => section.id === "must-not-miss");
@@ -289,9 +304,13 @@ export function detailTabCounts(record: DifferentialRecord): Record<Differential
 /** Ordered first moves for the Overview rail. Curated steps where a record has
  *  them, otherwise the record's own immediate actions. Capped because a rail
  *  block that runs past the fold stops being a summary. */
-export function resolveDoNowSteps(record: DifferentialRecord, limit = 4): string[] {
-  const curated = curatedEntryFor(record.slug)?.doNow;
-  const source = curated?.length ? curated : record.immediateActions;
+export function resolveDoNowSteps(
+  record: DifferentialRecord,
+  curated: DifferentialCuratedEntry | null,
+  limit = 4,
+): string[] {
+  const authored = curated?.doNow;
+  const source = authored?.length ? authored : record.immediateActions;
   const seen = new Set<string>();
   const steps: string[] = [];
   for (const raw of source) {
@@ -308,18 +327,19 @@ export function resolveDoNowSteps(record: DifferentialRecord, limit = 4): string
 
 /** True when the record's own steps were replaced by authored ones, so the
  *  surface rendering them can say so. */
-export function doNowStepsAreCurated(record: DifferentialRecord): boolean {
-  return (curatedEntryFor(record.slug)?.doNow?.length ?? 0) > 0;
+export function doNowStepsAreCurated(curated: DifferentialCuratedEntry | null): boolean {
+  return (curated?.doNow?.length ?? 0) > 0;
 }
 
-export function curatedContentNote(record: DifferentialRecord): string | null {
-  return curatedEntryFor(record.slug)?.contentNote ?? null;
+export function curatedContentNote(curated: DifferentialCuratedEntry | null): string | null {
+  return curated?.contentNote ?? null;
 }
 
-export function hasCuratedContent(record: DifferentialRecord): boolean {
-  const entry = curatedEntryFor(record.slug);
-  if (!entry) return false;
-  return Boolean(entry.atAGlance?.length || entry.doNow?.length || entry.discriminators?.length || entry.contentNote);
+export function hasCuratedContent(curated: DifferentialCuratedEntry | null): boolean {
+  if (!curated) return false;
+  return Boolean(
+    curated.atAGlance?.length || curated.doNow?.length || curated.discriminators?.length || curated.contentNote,
+  );
 }
 
 /** One row of the map's "tell them apart" table. */
@@ -351,12 +371,11 @@ export function buildDiscriminators(
   options: {
     knownRelatedSlugs: readonly string[];
     relatedMapDetails: Record<string, DifferentialRelatedMapDetail>;
+    curated?: DifferentialCuratedEntry | null;
   },
 ): DifferentialDiscriminatorRow[] {
   const known = new Set(options.knownRelatedSlugs);
-  const curated = new Map(
-    (curatedEntryFor(record.slug)?.discriminators ?? []).map((entry) => [entry.relatedSlug, entry]),
-  );
+  const curated = new Map((options.curated?.discriminators ?? []).map((entry) => [entry.relatedSlug, entry]));
   const focusHinge = cleanDifferentialItem(record.clinicalHinge);
 
   return record.related.map((node: DifferentialMapNode) => {
