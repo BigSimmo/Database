@@ -1736,6 +1736,7 @@
         "tests/eval-process-safety.test.ts",
         "tests/search-results-header-band.dom.test.tsx",
         "tests/ui-formulation.spec.ts",
+        "tests/ui-overlap.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx",
         "tests/ui-ward-coordinator.spec.ts",
@@ -2073,11 +2074,18 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/differentials/differential-detail-page.tsx",
+        "src/components/differentials/differential-overview-rail.tsx",
         "src/components/ui/citation.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
       ],
-      "productImportFiles": ["src/components/ui/dose-line.tsx", "src/components/ui/retrieval-state-banner.tsx"],
+      "productImportFiles": [
+        "src/components/differentials/differential-detail-page.tsx",
+        "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/ui/dose-line.tsx",
+        "src/components/ui/retrieval-state-banner.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -2899,7 +2907,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["ModeHome"]
         },
         {
           "file": "src/app/(search-app)/sources/publishers/page.tsx",

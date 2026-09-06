@@ -23,28 +23,39 @@ import {
   Share2,
   ShieldAlert,
   Stethoscope,
+  Target,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
 
 import type { DifferentialRecordGovernance } from "@/components/clinical-dashboard/use-differential-catalog";
-import { buildDifferentialSectionIndex } from "@/components/differentials/detail-section-index";
+import {
+  buildDifferentialSectionIndex,
+  type DifferentialDetailSection,
+} from "@/components/differentials/detail-section-index";
 import { DiagnosisMapPanel } from "@/components/differentials/diagnosis-map-panel";
+import type { DifferentialCuratedEntry } from "@/lib/differential-curated";
+import { DifferentialOverviewRail } from "@/components/differentials/differential-overview-rail";
 import { DiagnosisTermChip, DiagnosisTermInline } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
 import { inPageActionRowClass as actionRowClass } from "@/components/in-page-nav/in-page-nav-classes";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { PageHeader } from "@/components/ui/page-header";
+import { StatusMark } from "@/components/ui/status-mark";
 import { cn, pageContainer, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
   cleanDifferentialItem,
+  curatedContentNote,
+  curatedProvenanceLabel,
+  detailTabCounts,
   differentialSourceStatusLabel,
   differentialStatusLabel,
   differentialValidationStatusLabel,
   formatDifferentialCopyText,
   formatExportedDate,
   groupCurrentPresentation,
+  hasCuratedContent,
   isDetailTabId,
   isRedundantSafetySummary,
   resolveSafetyFacts,
@@ -374,9 +385,17 @@ function safetyFactGridClass(count: number): string {
   return "grid-cols-2";
 }
 
-function SafetySnapshot({ record, termLinks }: { record: DifferentialRecord; termLinks: Record<string, string> }) {
+function SafetySnapshot({
+  record,
+  termLinks,
+  curated,
+}: {
+  record: DifferentialRecord;
+  termLinks: Record<string, string>;
+  curated: DifferentialCuratedEntry | null;
+}) {
   const theme = snapshotThemes[record.status];
-  const facts = resolveSafetyFacts(record);
+  const facts = resolveSafetyFacts(record, curated);
   const tags = record.safetySnapshot.tags;
   const summary = record.safetySnapshot.summary.trim();
   const showSummary = summary.length > 0 && !isRedundantSafetySummary(summary, tags);
@@ -460,6 +479,60 @@ function SafetySnapshot({ record, termLinks }: { record: DifferentialRecord; ter
           })}
         </div>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * The single most useful line the catalogue carries, and until now the only one
+ * the page never showed. `clinicalHinge` is populated on all 201 records and was
+ * reachable only through "Copy after review" — it is the discriminating question
+ * the whole differential turns on, so it sits directly under the safety
+ * snapshot where the eye lands next.
+ */
+function ClinicalHinge({ record }: { record: DifferentialRecord }) {
+  const hinge = cleanDifferentialItem(record.clinicalHinge);
+  if (!hinge) return null;
+
+  return (
+    <section
+      data-testid="differential-clinical-hinge"
+      className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2.5 shadow-[var(--shadow-inset)] sm:px-4 sm:py-3"
+    >
+      <h2 className="flex items-center gap-1.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
+        <Target className="size-icon-sm shrink-0" aria-hidden />
+        Clinical hinge
+      </h2>
+      <p className="mt-1 text-sm font-semibold leading-6 text-[color:var(--text-heading)] sm:text-base sm:leading-7">
+        {hinge}
+      </p>
+    </section>
+  );
+}
+
+/**
+ * Shown only for records whose generated sections are known to carry material
+ * from another diagnosis. Saying so above the review is the honest handling:
+ * the alternative is a page that reads as authoritative while the body of it is
+ * describing something else.
+ */
+function ContentNote({ curated }: { curated: DifferentialCuratedEntry | null }) {
+  const note = curatedContentNote(curated);
+  if (!note) return null;
+
+  return (
+    <section
+      data-testid="differential-content-note"
+      role="note"
+      className="flex items-start gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2.5 sm:px-4"
+    >
+      <TriangleAlert className="mt-0.5 size-icon-md shrink-0 text-[color:var(--warning)]" aria-hidden />
+      <span className="min-w-0">
+        <span className="block text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--warning)]">
+          Check this record
+        </span>
+        <span className="mt-1 block text-sm leading-6 text-[color:var(--text-heading)]">{note}</span>
+      </span>
     </section>
   );
 }
@@ -670,9 +743,11 @@ function ComparePanel({
 function FooterStatus({
   source,
   liveGovernance,
+  curated,
 }: {
   source: DifferentialDetailContext["source"];
   liveGovernance: DifferentialRecordGovernance | null;
+  curated: DifferentialCuratedEntry | null;
 }) {
   const sourceStatus = liveGovernance?.sourceStatus ?? source.sourceStatus;
   const validationStatus = liveGovernance?.validationStatus ?? source.validationStatus;
@@ -707,18 +782,29 @@ function FooterStatus({
   ];
 
   return (
-    <section className="grid gap-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-xs shadow-[var(--shadow-inset)] sm:grid-cols-3">
-      {cards.map((card) => (
-        <div
-          key={card.title}
-          className="min-w-0 sm:border-l sm:border-[color:var(--border)] sm:pl-4 first:sm:border-l-0 first:sm:pl-0"
+    <div className="grid gap-3">
+      <section className="grid gap-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-xs shadow-[var(--shadow-inset)] sm:grid-cols-3">
+        {cards.map((card) => (
+          <div
+            key={card.title}
+            className="min-w-0 sm:border-l sm:border-[color:var(--border)] sm:pl-4 first:sm:border-l-0 first:sm:pl-0"
+          >
+            <p className="font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">{card.title}</p>
+            <p className={cn("mt-3 font-bold", card.lineClassName)}>{card.line}</p>
+            <p className="mt-2 leading-5 text-[color:var(--text-muted)]">{card.detail}</p>
+          </div>
+        ))}
+      </section>
+      {hasCuratedContent(curated) ? (
+        <p
+          data-testid="differential-authored-content-note"
+          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-4 py-3 text-xs leading-5 text-[color:var(--text-muted)]"
         >
-          <p className="font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">{card.title}</p>
-          <p className={cn("mt-3 font-bold", card.lineClassName)}>{card.line}</p>
-          <p className="mt-2 leading-5 text-[color:var(--text-muted)]">{card.detail}</p>
-        </div>
-      ))}
-    </section>
+          This record carries locally authored content alongside the exported source material. It is marked &ldquo;
+          {curatedProvenanceLabel}&rdquo; wherever it appears, and is not an extract from an indexed source.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -931,31 +1017,40 @@ function DiagnosisActions({
   );
 }
 
-const detailTabs: Array<{ id: DifferentialDetailTabId; label: string }> = [
-  { id: "overview", label: "Overview" },
-  { id: "compare", label: "Compare" },
-  { id: "map", label: "Map" },
-  { id: "related", label: "Related" },
-  { id: "source", label: "Source" },
-];
-
 /**
- * Renders keyboard-navigable tabs for the diagnosis detail sections.
+ * The `sm+` section rail.
  *
- * @param active - The currently selected tab.
- * @param onChange - Called when the selected tab changes.
+ * Shape borrowed wholesale from `SegmentedControl` — same inset well, radius,
+ * gap and accent-soft selected segment — so this reads as the one-of-N rail the
+ * rest of the app already uses, rather than a sixth bespoke tab. What it is
+ * NOT is a `SegmentedControl`: that primitive is a `radiogroup`, and these
+ * buttons own labelled panels, so the ARIA tabs pattern is the correct
+ * semantic and is kept exactly as it was.
+ *
+ * Labels, icons and order all come from the same `buildDifferentialSectionIndex`
+ * array that feeds the header's section sheet and the weighted track, so the
+ * three affordances cannot drift apart.
+ *
+ * Not sticky. `docs/search-chrome-behaviour.md` allows one chrome owner per
+ * page and the in-page header already is it; a second bar pinned underneath it
+ * would be a second owner, and the header's section disclosure already reaches
+ * every tab while scrolled.
  */
 function Tabs({
+  sections,
   active,
+  counts,
   onChange,
 }: {
+  sections: DifferentialDetailSection[];
   active: DifferentialDetailTabId;
+  counts: Record<DifferentialDetailTabId, number | null>;
   onChange: (id: DifferentialDetailTabId) => void;
 }) {
   const tabRefs = useRef(new Map<DifferentialDetailTabId, HTMLButtonElement>());
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    const order = detailTabs.map((tab) => tab.id);
+    const order = sections.map((section) => section.id);
     const index = order.indexOf(active);
     const next =
       event.key === "ArrowRight"
@@ -980,11 +1075,13 @@ function Tabs({
       onKeyDown={handleKeyDown}
       // Phones navigate from the header disclosure and its sheet instead — one
       // affordance per breakpoint, and no strip to clip at 320px.
-      className="hidden border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)] sm:flex"
+      className="hidden w-full min-w-0 gap-0.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1 shadow-[var(--shadow-inset)] sm:flex"
       aria-label="Diagnosis sections"
     >
-      {detailTabs.map((tab) => {
+      {sections.map((tab) => {
         const isActive = tab.id === active;
+        const Icon = tab.icon;
+        const count = counts[tab.id];
         return (
           <button
             key={tab.id}
@@ -1000,13 +1097,41 @@ function Tabs({
             tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(tab.id)}
             className={cn(
-              "focus-ring-tab min-h-tap flex-1 whitespace-nowrap border-b-2 px-1 py-3 text-center text-xs sm:flex-none sm:px-4 sm:text-sm",
+              "focus-ring-tab relative flex min-h-tap min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2 text-sm font-semibold transition md:px-3",
+              // Selected state matches `SegmentedControl` exactly, including
+              // keeping the same inset elevation as the well it sits in. A
+              // raised pill inside an inset well is an elevation inversion,
+              // which `check:design-system-contract` fails on.
               isActive
-                ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
-                : "border-transparent hover:text-[color:var(--text-heading)]",
+                ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+                : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-highlight)] hover:text-[color:var(--text-heading)]",
             )}
           >
+            {Icon ? (
+              <Icon
+                className={cn(
+                  "size-icon-sm shrink-0",
+                  isActive ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--decoration-soft)]",
+                )}
+                aria-hidden
+              />
+            ) : null}
             {tab.label}
+            {typeof count === "number" ? (
+              // `nums` keeps the figures tabular so the pill does not twitch
+              // between records; `sr-only` is not used because the number is
+              // part of what the tab means, not decoration.
+              <span
+                className={cn(
+                  "nums rounded-md px-1 text-2xs font-bold",
+                  isActive
+                    ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
+                    : "text-[color:var(--text-muted)]",
+                )}
+              >
+                {count}
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -1034,6 +1159,8 @@ export function DifferentialDetailPage({
     [detailContext, liveGovernance?.sourceStatus, record],
   );
   const activeSection = sections.find((section) => section.id === activeTab) ?? sections[0];
+  const tabCounts = useMemo(() => detailTabCounts(record), [record]);
+  const sourceStatus = liveGovernance?.sourceStatus ?? detailContext.source.sourceStatus;
 
   const expandableSectionIds = useMemo(
     () =>
@@ -1129,15 +1256,24 @@ export function DifferentialDetailPage({
           title={record.title}
           description={record.subtitle}
           icon={IconForDiagnosis(record)}
-          meta={
-            <span
-              className={cn(
-                "inline-flex min-h-7 items-center rounded-md border px-2.5 text-xs font-extrabold uppercase",
-                statusToneClass[record.status],
-              )}
-            >
-              {differentialStatusLabel(record.status)}
-            </span>
+          // On the title line, not the row below it: a lone urgency chip does
+          // not earn a full-width row on a desktop header, and the chip belongs
+          // to the title it qualifies. It wraps under the title on a phone.
+          inlineMeta={
+            <>
+              <span
+                className={cn(
+                  "inline-flex min-h-7 items-center rounded-md border px-2.5 text-xs font-extrabold uppercase",
+                  statusToneClass[record.status],
+                )}
+              >
+                {differentialStatusLabel(record.status)}
+              </span>
+              <span className="inline-flex min-h-7 items-center gap-1.5 text-xs font-semibold text-[color:var(--text-muted)]">
+                <StatusMark status={sourceStatus} />
+                {differentialSourceStatusLabel(sourceStatus)}
+              </span>
+            </>
           }
           actions={<TopActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />}
         />
@@ -1150,7 +1286,7 @@ export function DifferentialDetailPage({
           </p>
         ) : null}
 
-        <Tabs active={activeTab} onChange={changeTab} />
+        <Tabs sections={sections} active={activeTab} counts={tabCounts} onChange={changeTab} />
 
         {/* Named by its own label rather than by the tab button: below `sm` the
             strip is `display:none`, and assistive tech ignores a hidden
@@ -1162,47 +1298,70 @@ export function DifferentialDetailPage({
           className="grid gap-4"
         >
           {activeTab === "overview" ? (
-            <>
-              <SafetySnapshot record={record} termLinks={detailContext.termLinks ?? {}} />
-              <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
-                <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
-                  <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-                    Clinical review
-                  </p>
-                  {expandableSectionIds.length > 0 ? (
-                    <button
-                      type="button"
-                      data-testid="differential-expand-all"
-                      onClick={toggleAllSections}
-                      className="inline-flex min-h-tap items-center gap-1.5 text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
-                    >
-                      {allOpen ? (
-                        <ChevronsDownUp className="h-4 w-4" aria-hidden />
-                      ) : (
-                        <ChevronsUpDown className="h-4 w-4" aria-hidden />
-                      )}
-                      {allOpen ? "Collapse all" : "Expand all"}
-                    </button>
-                  ) : null}
+            // Two columns from `lg` only. The phone layout of this page is
+            // already settled and its geometry is pinned by the Chromium spec;
+            // the rail is desktop breathing room, not a fourth phone summary.
+            <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5">
+              <div className="grid min-w-0 gap-4">
+                <ContentNote curated={detailContext.curated ?? null} />
+                <SafetySnapshot
+                  record={record}
+                  termLinks={detailContext.termLinks ?? {}}
+                  curated={detailContext.curated ?? null}
+                />
+                <ClinicalHinge record={record} />
+                <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
+                  <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
+                    <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+                      Clinical review
+                    </p>
+                    {expandableSectionIds.length > 0 ? (
+                      <button
+                        type="button"
+                        data-testid="differential-expand-all"
+                        onClick={toggleAllSections}
+                        className="inline-flex min-h-tap items-center gap-1.5 text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
+                      >
+                        {allOpen ? (
+                          <ChevronsDownUp className="h-4 w-4" aria-hidden />
+                        ) : (
+                          <ChevronsUpDown className="h-4 w-4" aria-hidden />
+                        )}
+                        {allOpen ? "Collapse all" : "Expand all"}
+                      </button>
+                    ) : null}
+                  </div>
+                  {record.sections.map((section) => (
+                    <SectionRow
+                      key={section.id}
+                      section={section}
+                      record={record}
+                      open={openSections.has(section.id)}
+                      onOpenChange={setSectionOpen}
+                      termLinks={detailContext.termLinks ?? {}}
+                    />
+                  ))}
                 </div>
-                {record.sections.map((section) => (
-                  <SectionRow
-                    key={section.id}
-                    section={section}
-                    record={record}
-                    open={openSections.has(section.id)}
-                    onOpenChange={setSectionOpen}
-                    termLinks={detailContext.termLinks ?? {}}
-                  />
-                ))}
               </div>
-            </>
+              <DifferentialOverviewRail
+                record={record}
+                detailContext={detailContext}
+                liveGovernance={liveGovernance}
+                onOpenSource={() => changeTab("source")}
+              />
+            </div>
           ) : null}
 
           {activeTab === "compare" ? <ComparePanel record={record} detailContext={detailContext} /> : null}
 
           {activeTab === "map" ? (
-            <DiagnosisMapPanel key={record.slug} record={record} relatedMapDetails={detailContext.relatedMapDetails} />
+            <DiagnosisMapPanel
+              key={record.slug}
+              record={record}
+              relatedMapDetails={detailContext.relatedMapDetails}
+              knownRelatedSlugs={detailContext.knownRelatedSlugs}
+              curated={detailContext.curated ?? null}
+            />
           ) : null}
 
           {activeTab === "related" ? (
@@ -1213,7 +1372,11 @@ export function DifferentialDetailPage({
           ) : null}
 
           {activeTab === "source" ? (
-            <FooterStatus source={detailContext.source} liveGovernance={liveGovernance} />
+            <FooterStatus
+              source={detailContext.source}
+              liveGovernance={liveGovernance}
+              curated={detailContext.curated ?? null}
+            />
           ) : null}
         </div>
 

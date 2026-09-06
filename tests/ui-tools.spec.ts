@@ -2749,9 +2749,31 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
 
     await overviewTab.click();
     await expect(safetySnapshot).toBeVisible();
+
+    // The clinical hinge is the discriminating line every record carries and
+    // used to be reachable only through "Copy after review".
+    await expect(detailPage.getByTestId("differential-clinical-hinge")).toContainText(
+      "Inattention plus altered awareness",
+    );
+
+    // Desktop Overview splits into the review column plus a summary rail. 1280
+    // rather than 1024 so the assertion does not sit exactly on the `lg`
+    // breakpoint, where a classic scrollbar can put the layout on the wrong
+    // side of it.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const overviewRail = detailPage.getByTestId("differential-overview-rail");
+    await expect(overviewRail).toBeVisible();
+    await expect(overviewRail).toContainText("Do now");
+    await expect(overviewRail).toContainText("First-line tests");
+    await expect(overviewRail).toContainText("Source and review");
+    await expectNoPageHorizontalOverflow(page);
+
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
     await page.setViewportSize({ width: 320, height: 700 });
     await expect(safetySnapshot).toBeVisible();
+    // The rail is desktop breathing room; a phone must not get a fourth
+    // summary of the same record stacked under the ones it already has.
+    await expect(overviewRail).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
     const forcedColorsMetricRows = await safetyMetricItems.evaluateAll((items) => {
       return new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size;
@@ -2768,6 +2790,21 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     // ("element(s) not found" for the dialog after a 10s wait) while passing on the head
     // immediately before it, whose only delta was ledger JSON. Same wait every other click in
     // this file already uses.
+    // The map's information layer sits under the preview, where a phone reader
+    // meets it without opening the fullscreen dialog at all.
+    const previewCanvas = visibleByTestId(page, "diagnosis-map-preview-canvas");
+    const selectedSummary = visibleByTestId(page, "diagnosis-map-selected-summary");
+    await expect(selectedSummary).toContainText("Catatonia in mood disorder");
+    const comparison = visibleByTestId(page, "diagnosis-map-comparison");
+    await expect(comparison.getByTestId("diagnosis-map-comparison-row")).toHaveCount(5);
+    await expect(comparison).toContainText("Fever, autonomic instability and a raised CK");
+    await expectNoPageHorizontalOverflow(page);
+
+    const serotoninNode = previewCanvas.getByTestId("diagnosis-map-node-serotonin-toxicity");
+    await waitForReactEventHandler(serotoninNode);
+    await serotoninNode.click();
+    await expect(selectedSummary).toContainText("Serotonin toxicity");
+
     const openMap = visibleByTestId(page, "open-diagnosis-map");
     await waitForReactEventHandler(openMap);
     await openMap.click();
