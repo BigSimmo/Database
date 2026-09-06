@@ -117,7 +117,7 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await expect(page.getByRole("link", { name: "Worry", exact: true })).toBeVisible();
   await expect(page.getByText("Matches use patient language", { exact: false })).toHaveCount(0);
   const topMatch = page.getByTestId("formulation-top-match");
-  await expect(topMatch.getByText("Top match for your search", { exact: true })).toBeVisible();
+  await expect(topMatch.getByText("Top match", { exact: true })).toBeVisible();
   await expect(topMatch.getByRole("link", { name: "Worry", exact: true })).toBeVisible();
   // One compact trigger opening a sheet. The sheet now holds a single group:
   // the old `Pattern` group called router.push and replaced the query, so its
@@ -172,7 +172,7 @@ test("does not promote a top match when the leading results are tied", async ({ 
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoApp(page, "/formulation?q=sleep&run=1");
 
-  const topMatch = page.getByText("Top match for your search", { exact: true });
+  const topMatch = page.getByText("Top match", { exact: true });
   await expect(topMatch).toHaveCount(0);
   await expect(topMatch).toBeHidden();
 });
