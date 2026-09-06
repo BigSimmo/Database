@@ -146,7 +146,11 @@ export function UniversalSearchAlsoMatches({
       byMode.set(targetModeId, modeGroup);
     }
 
-    return [...byMode.values()].filter((group) => group.items.length > 0).slice(0, 4);
+    // Four mode cards is 4 x 155px plus the header — about 670px, four fifths of
+    // an 844px phone. Three keeps the opened tray near half the screen and still
+    // leaves the results the search asked for in view. Measured on a 390px
+    // viewport, so the cap is a phone cap, not a taste call.
+    return [...byMode.values()].filter((group) => group.items.length > 0).slice(0, isWide ? 4 : 3);
   })();
 
   const currentGroups = universal.query === trimmedQuery ? groups : [];
@@ -321,9 +325,16 @@ export function UniversalSearchAlsoMatches({
                 </span>
                 {/* Short code beside the full mode name it abbreviates — decorative
                     in the accessible name, which already says the name in full. */}
+                {/* Hidden on phones: the row already names the mode in full one
+                    span to the left, so "Meds" beside "MEDICATION" is the same
+                    word twice, and it puts a second block of colour in a header
+                    whose icon tile already carries the accent. Kept from sm up,
+                    where the row has room and the short code helps scanning a
+                    2-up or 4-up. Same call as the sibling tray in
+                    cross-mode-links.tsx (PR #2661). */}
                 <span
                   aria-hidden
-                  className="inline-flex shrink-0 items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] px-1.5 py-px text-2xs font-semibold text-[color:var(--cat-accent)] forced-colors:border"
+                  className="hidden shrink-0 items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] px-1.5 py-px text-2xs font-semibold text-[color:var(--cat-accent)] forced-colors:border sm:inline-flex"
                 >
                   {targetMode.search.statusLabel}
                 </span>
