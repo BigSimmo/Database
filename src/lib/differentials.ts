@@ -1,6 +1,7 @@
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { buildDiagnosisTitleSlugMap, buildTermLinkMap } from "@/lib/differential-diagnosis-links";
+import { curatedEntryFor } from "@/lib/differential-curated";
 import { cleanDifferentialItem, type DifferentialDetailContext } from "@/lib/differential-detail";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import { deriveGovernanceFromSnapshot } from "@/lib/differential-records";
@@ -456,6 +457,7 @@ export function getDifferentialDetailContext(
     termLinks,
     overlapLinks,
     comparePresentation: presentation ? { slug: presentation.id, title: presentation.title } : null,
+    curated: curatedEntryFor(record.slug),
     source: {
       version: snapshot.governance.version,
       exportedAt: snapshot.exportedAt,
