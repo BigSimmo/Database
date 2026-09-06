@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "c2190ff2732a7580d8c18c358cb3e00acb3fdfb9",
-    "committed_at": "2026-09-06T09:19:53+00:00"
+    "sha": "5c5d724512402dfed26dc9e3013c910b25876848",
+    "committed_at": "2026-09-06T09:24:49+00:00"
   },
   "routes": {
     "modes": [
@@ -826,6 +826,21 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/therapy-scenario-popup-guided",
+        "file": "src/app/mockups/therapy-scenario-popup-guided/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-intake",
+        "file": "src/app/mockups/therapy-scenario-popup-intake/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-live",
+        "file": "src/app/mockups/therapy-scenario-popup-live/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/tools-action-workbench",
         "file": "src/app/mockups/tools-action-workbench/page.tsx",
         "area": "mockup"
@@ -1594,9 +1609,9 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 218,
+      "pages": 221,
       "product_pages": 73,
-      "mockup_pages": 145,
+      "mockup_pages": 148,
       "redirects": 27,
       "api": 63
     }
