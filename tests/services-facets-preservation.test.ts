@@ -75,12 +75,13 @@ describe("Service record facet metadata preservation", () => {
         setting_flags: ["community", "public"],
         acuity_flags: ["moderate", "high"],
         substance_flags: ["general"],
+        specialist_groups: ["child_youth"],
         housing_flags: ["general"],
       },
     },
   };
 
-  it("preserves all 6 facet dimensions through recordToRow and rowToServiceRecord", () => {
+  it("preserves all service facet dimensions through recordToRow and rowToServiceRecord", () => {
     const ownerId = "00000000-0000-0000-0000-000000000001";
     const insertRow = recordToRow(sampleServiceRecord, ownerId, "service");
 
@@ -141,6 +142,7 @@ describe("Service record facet metadata preservation", () => {
     expect(restoredTags.setting_flags).toEqual(["community", "public"]);
     expect(restoredTags.acuity_flags).toEqual(["moderate", "high"]);
     expect(restoredTags.substance_flags).toEqual(["general"]);
+    expect(restoredTags.specialist_groups).toEqual(["child_youth"]);
     expect(restoredTags.housing_flags).toEqual(["general"]);
     expect(serviceHasFacetMetadata(roundTripped)).toBe(true);
   });
@@ -164,6 +166,7 @@ describe("Service record facet metadata preservation", () => {
       age_groups: new Set(["youth"]),
       setting_flags: new Set(["community"]),
       acuity_flags: new Set(["high"]),
+      specialist_groups: new Set(["child_youth"]),
       housing_flags: new Set(["general"]),
     };
 
@@ -172,6 +175,7 @@ describe("Service record facet metadata preservation", () => {
       age_groups: new Set(["older_adult"]),
       setting_flags: new Set(["hospital_residential"]),
       acuity_flags: new Set(["crisis_high"]),
+      specialist_groups: new Set(["older_adult"]),
       housing_flags: new Set(["home_based"]),
     };
 
@@ -215,6 +219,7 @@ describe("Service record facet metadata preservation", () => {
     expect(tags.setting_flags).toEqual([]);
     expect(tags.acuity_flags).toEqual([]);
     expect(tags.substance_flags).toEqual([]);
+    expect(tags.specialist_groups).toEqual([]);
     expect(tags.housing_flags).toEqual([]);
     expect(serviceHasFacetMetadata(roundTripped)).toBe(false);
 
@@ -224,6 +229,7 @@ describe("Service record facet metadata preservation", () => {
       age_groups: new Set(["youth"]),
       setting_flags: new Set(["community"]),
       acuity_flags: new Set(["crisis_high"]),
+      specialist_groups: new Set(["child_youth"]),
       housing_flags: new Set(["general"]),
     };
     expect(matchesServiceFacets(roundTripped, anySelection)).toBe(true);
