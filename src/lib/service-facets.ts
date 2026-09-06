@@ -2,7 +2,7 @@ import type { CatalogServiceTags } from "@/lib/service-catalog";
 import type { ServiceRecord } from "@/lib/services";
 
 /**
- * The five dimensions that accumulate (OR within the dimension, AND across
+ * The six dimensions that accumulate (OR within the dimension, AND across
  * dimensions) — see docs/filter-contract.md section 1.
  *
  * `substance_flags` is deliberately excluded: measured 2026-08-12 against
@@ -11,6 +11,12 @@ import type { ServiceRecord } from "@/lib/services";
  * constraint. Rendering it as a facet would claim a service can be both,
  * which the data says it cannot. It is a lens instead; see
  * `substanceLensOptions` / `matchesSubstanceLens` below.
+ *
+ * `specialist_groups` comes from the governed canonical overlay and captures
+ * pathway-specific cohorts such as child/youth, Aboriginal and Torres Strait
+ * Islander, perinatal, eating-disorder and family/carer services. It is an
+ * accumulating facet rather than a broad shortcut group because services can
+ * legitimately carry several specialist-group values at once.
  *
  * `housing_flags` stays a facet despite being a near-partition (215 of 219
  * carry exactly one) — 4 carry two, and a lens would misrepresent those four.
@@ -21,6 +27,7 @@ export const serviceFacetDimensions = [
   "age_groups",
   "setting_flags",
   "acuity_flags",
+  "specialist_groups",
   "housing_flags",
 ] as const;
 
@@ -31,6 +38,7 @@ export const serviceFacetDimensionLabels: Record<ServiceFacetDimension, string> 
   age_groups: "Age group",
   setting_flags: "Setting",
   acuity_flags: "Acuity",
+  specialist_groups: "Specialist pathway",
   housing_flags: "Housing",
 };
 
@@ -63,6 +71,7 @@ const dimensionValueLabels: Record<Exclude<ServiceFacetDimension, "catchments">,
     moderate: "Moderate acuity",
     supportive: "Supportive",
   },
+  specialist_groups: {},
   housing_flags: {
     general: "General",
     home_based: "Home-based",
@@ -94,12 +103,17 @@ export function serviceSubstanceLensValueLabel(value: string): string {
 
 export type ServiceFacetSelection = Readonly<Record<ServiceFacetDimension, ReadonlySet<string>>>;
 
+type NormalizedServiceCatalogTags = Omit<CatalogServiceTags, "specialist_groups"> & {
+  specialist_groups: string[];
+};
+
 export function emptyServiceFacetSelection(): ServiceFacetSelection {
   return {
     catchments: new Set(),
     age_groups: new Set(),
     setting_flags: new Set(),
     acuity_flags: new Set(),
+    specialist_groups: new Set(),
     housing_flags: new Set(),
   };
 }
@@ -121,7 +135,7 @@ function toStringArray(value: unknown): string[] {
  * rather than throwing, matching `normalizeCatalogService`'s own tolerance
  * for a catalogue row that failed to parse.
  */
-export function serviceCatalogTags(record: ServiceRecord): CatalogServiceTags {
+export function serviceCatalogTags(record: ServiceRecord): NormalizedServiceCatalogTags {
   const raw = record.catalogPayload?.tags;
   const tagsSource = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
   return {
@@ -130,6 +144,7 @@ export function serviceCatalogTags(record: ServiceRecord): CatalogServiceTags {
     setting_flags: toStringArray(tagsSource.setting_flags),
     acuity_flags: toStringArray(tagsSource.acuity_flags),
     substance_flags: toStringArray(tagsSource.substance_flags),
+    specialist_groups: toStringArray(tagsSource.specialist_groups),
     housing_flags: toStringArray(tagsSource.housing_flags),
   };
 }
@@ -266,6 +281,7 @@ export function serviceFacetSelectionFromParams(params: ReadableSearchParams): S
     age_groups: read("age_groups"),
     setting_flags: read("setting_flags"),
     acuity_flags: read("acuity_flags"),
+    specialist_groups: read("specialist_groups"),
     housing_flags: read("housing_flags"),
   };
 }
