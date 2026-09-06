@@ -1736,7 +1736,8 @@
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx",
         "tests/ui-ward-coordinator.spec.ts",
-        "tests/ui-ward-roles.spec.ts"
+        "tests/ui-ward-roles.spec.ts",
+        "tests/ward-delays-screen.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1871,6 +1872,7 @@
         "tests/ui-smoke.spec.ts",
         "tests/ui-style-contract.spec.ts",
         "tests/viewport-fill-contract.test.ts",
+        "tests/ward-shell-print-ancestor.test.ts",
         "tests/xlsx-extraction-budget.test.ts"
       ],
       "baseline": {

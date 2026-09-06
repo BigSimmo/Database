@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "e5385f97-4e03-4f3f-ab58-b9a2567a90e5",
+  "createdOn": "2026-09-04",
+  "action": "cancel",
+  "payload": {
+    "requestId": "38f958a0-05b2-4658-b395-fd38304e5d57",
+    "reason": "Withdrawn as factually wrong. It described wards/ward-overview.module.css as orphan CSS for a screen never built and recommended deletion. The file is deliberately retained: ward-index.tsx lines 33-49 record that a card layout was built from it, refused by tests/ward-nav.test.ts:1251, reverted rather than overridden, and the CSS kept for whoever the owner assigns the design decision to. The measurement behind the entry (no importer, no composes edge) was correct; the conclusion was wider than the evidence. Replaced by request 26cefa10-5af3-4592-9d19-fca84beef03b, which states the real question."
+  }
+}

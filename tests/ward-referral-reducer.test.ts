@@ -23,8 +23,10 @@ import {
   type ReferralDestination,
 } from "../src/components/ward-management/ward-model";
 import { referralState } from "../src/components/ward-management/ward-referrals";
+import { REFERRAL_HISTORY_LIMITS } from "../src/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
+import { exactlyAtTheLimit, FIXTURE_HISTORY, oneCharacterTooLong } from "./helpers/ward-referral-history";
 const NOW = NOW_ANCHOR;
 
 function seeded() {
@@ -59,7 +61,7 @@ function ward(state: WardFlowState, id: string): ReferralAddressing {
  *  Undesignated (accepts either sex), non-forensic, allocatable 2 (so sex_mix passes regardless
  *  of occupancy), capacity confirmed 15 minutes before NOW_ANCHOR against a 60-minute staleness
  *  window. */
-function receiveReferral(state: WardFlowState, now = NOW) {
+function receiveReferral(state: WardFlowState, now = NOW, history?: string) {
   return wardFlowReducer(state, {
     type: "RECEIVE_REFERRAL",
     role: "community",
@@ -79,6 +81,8 @@ function receiveReferral(state: WardFlowState, now = NOW) {
     urgency: 2,
     originSiteCode: "SCGH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
+    ...(history === undefined ? {} : { history }),
   });
 }
 
@@ -153,6 +157,7 @@ describe("RECEIVE_REFERRAL", () => {
       urgency: 2,
       originSiteCode: "SCGH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     });
     expect(after.referrals).toEqual(before.referrals);
     expect(after.rejections).toHaveLength(1);
@@ -191,6 +196,7 @@ describe("RECEIVE_REFERRAL", () => {
         urgency: 2,
         originSiteCode: "SCGH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
         ...overrides,
       };
       // Deliberately bypassing the event type here — that is the whole point of this helper: it
@@ -290,6 +296,7 @@ describe("RECEIVE_REFERRAL", () => {
         urgency: 2,
         originSiteCode: "SCGH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
       });
       expect(after.referrals).toEqual(before.referrals);
       expect(after.rejections).toHaveLength(1);
@@ -315,6 +322,7 @@ describe("RECEIVE_REFERRAL", () => {
         urgency: 2,
         originSiteCode: "SCGH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
       });
       expect(after.rejections).toEqual([]);
       const created = after.referrals.at(-1)!;
@@ -903,7 +911,13 @@ describe("seeding", () => {
     // They had to be AUTHORED rather than picked from the eleven above: a journey cannot precede
     // the referral that produced it, and every existing ED-addressed referral was raised long
     // after the youngest movement at its own department. See their comment in `ward-movements.ts`.
-    expect(state.referrals).toHaveLength(13);
+    // Twenty-two since 2026-09-05: nine DEMONSTRATION referrals naming the community team
+    // "Midland" (`MIDLAND_DEMONSTRATION_ROWS`, `ward-movements.ts`), added at the owner's request so
+    // one community team's page has people on it. They reuse ids the admissions seed already
+    // manufactures, so no admission changed and no bed, occupancy or discharge figure moved. They
+    // are the LAST nine below, spread into the array rather than written into it, so the boundary
+    // between authored clinical fixtures and demonstration filler stays visible.
+    expect(state.referrals).toHaveLength(22);
     expect(state.referrals.map((r) => r.id)).toEqual([
       "RF-001",
       "RF-002",
@@ -926,6 +940,19 @@ describe("seeding", () => {
       // MOVEMENT points at, and the first time `referralForMovement` resolves for anybody.
       "RF-012",
       "RF-013",
+      // ⚠️ DEMONSTRATION DATA from here down, in fixture order — nine referrals naming "Midland", so
+      // that one community team page is populated. Named individually rather than derived from
+      // `MIDLAND_DEMONSTRATION_ROWS`: an expectation built from the thing it checks cannot disagree
+      // with it.
+      "RF-RGHS-01",
+      "RF-SCGA-07",
+      "RF-GRYS-09",
+      "RF-RPHS-14",
+      "RF-SJGA-05",
+      "RF-BTYO-05",
+      "RF-ARMA-01",
+      "RF-ARMA-02",
+      "RF-FSHS-01",
     ]);
     expect(state.frontDoorReferralSequence).toBe(0);
   });
@@ -957,6 +984,7 @@ describe("a referral addressed to several destinations", () => {
       urgency: 2,
       originSiteCode: "SCGH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     });
   }
 
@@ -1366,5 +1394,72 @@ describe("what a recorded reason may and may not buy past", () => {
     // Three assertions stood here and none could fire, for the same reason as the placement list
     // above: the `toEqual` pins the whole list. The mirror-image point is kept as a comment; the
     // omissions are named in that assertion's message.
+  });
+});
+
+/**
+ * THE WRITTEN STORY: OPTIONAL, BOUNDED, AND STORED EXACTLY AS TYPED.
+ *
+ * ⚠️ **NONE OF THIS WAS TESTED ANYWHERE UNTIL NOW, AND THE HELPERS FOR IT ALREADY EXISTED.**
+ * `oneCharacterTooLong` and `exactlyAtTheLimit` were written, exported and documented in
+ * `tests/helpers/ward-referral-history.ts` — and imported by nothing. The limit refusal, the
+ * boundary and the byte-for-byte storage were each carefully implemented in the reducer, each
+ * carefully explained in a comment, and none of them was asserted by a single test. **A helper
+ * built for a guard nobody wrote is the most convincing possible evidence that the guard is
+ * missing, and it sat in the tree looking like coverage.**
+ *
+ * ⚠️ **AND THE FIRST TEST BELOW IS THE OWNER'S RULING OF 2026-09-05 — one story box, OPTIONAL.**
+ * The reducer refused a blank story until that ruling. Removing a refusal leaves nothing behind
+ * that fails if somebody puts it back, which is exactly how a ruling gets quietly reversed: the
+ * assertion that a blank is ACCEPTED is the only thing standing between this decision and a future
+ * "surely a referral needs a history" commit.
+ */
+describe("RECEIVE_REFERRAL — the written story", () => {
+  it("accepts a referral whose story is left blank, because the owner ruled it optional", () => {
+    const before = seeded();
+    const after = receiveReferral(before, NOW, "");
+    expect(after.rejections, "a blank story was refused — the 2026-09-05 ruling made it optional").toEqual([]);
+    expect(after.referrals).toHaveLength(before.referrals.length + 1);
+    expect(after.referrals.at(-1)!.history).toBe("");
+  });
+
+  it("accepts a story that is exactly at the limit, so the refusal below is about length and not about being long-ish", () => {
+    const before = seeded();
+    const atLimit = exactlyAtTheLimit("history");
+    expect(atLimit).toHaveLength(REFERRAL_HISTORY_LIMITS.history);
+    const after = receiveReferral(before, NOW, atLimit);
+    expect(after.rejections).toEqual([]);
+    expect(after.referrals.at(-1)!.history).toBe(atLimit);
+  });
+
+  it("refuses a story one character over the limit, and says it is refused rather than shortened", () => {
+    const before = seeded();
+    const after = receiveReferral(before, NOW, oneCharacterTooLong("history"));
+    expect(after.referrals, "an over-length story created a referral").toHaveLength(before.referrals.length);
+    expect(after.rejections).toHaveLength(1);
+    // The wording matters and is asserted, not paraphrased: a referrer must be told the text was
+    // kept and the send refused, never that something was trimmed to fit.
+    expect(after.rejections[0].reason).toContain("refused rather than shortened");
+    expect(after.rejections[0].reason).toContain(String(REFERRAL_HISTORY_LIMITS.history));
+  });
+
+  it("stores the story byte for byte, with no trim and no normalisation", () => {
+    // Leading and trailing whitespace, a double space, and a paragraph break — every one of which
+    // a well-meaning `.trim()` or whitespace collapse would silently change. A referrer's
+    // paragraph breaks are part of what they wrote.
+    const typed = "  Seen at home this morning.\n\n  Still not sleeping.  ";
+    const after = receiveReferral(seeded(), NOW, typed);
+    expect(after.rejections).toEqual([]);
+    expect(after.referrals.at(-1)!.history).toBe(typed);
+  });
+
+  it("refuses a story that is not text at all, rather than throwing", () => {
+    // A non-form caller — a demo control, a Playwright fixture, the guided tour — can omit the
+    // field entirely. The reducer must answer with a Rejection a clinician can read, never a
+    // TypeError that unwinds out of dispatch and presents as a button that did nothing.
+    const before = seeded();
+    const after = receiveReferral(before, NOW, undefined as unknown as string);
+    // `undefined` here means the helper omits the key, so this is the genuine missing-field case.
+    expect(after.referrals).toHaveLength(before.referrals.length + 1);
   });
 });
