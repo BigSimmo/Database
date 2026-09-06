@@ -9,7 +9,7 @@ Key routes:
 - Bare mode paths such as /services, /forms and /differentials are compatibility redirects: unsubmitted they forward to /?mode=<id>; with ?q=...&run=1 they forward to that mode's own results surface (/services/search, /forms/search, /differentials/search).
 - /documents/search opens the documents search results after submitting a documents-mode query.
 - /documents/:id opens an indexed source document.
-- /sources opens the ranked clinical source catalogue; /sources/:sourceId shows one source's identity, rating, locations and application usage.
+- /sources/search opens the ranked clinical source catalogue (/sources itself redirects to the shared home at /?mode=sources); /sources/:sourceId shows one source's identity, rating, locations and application usage.
 - /favourites opens saved clinical work (requires a signed-in account).
 
 Authentication caveat: Private indexed documents, source files, and clinical answer generation can require a signed-in session or local no-auth development mode. Public static files do not imply access to private source content.
