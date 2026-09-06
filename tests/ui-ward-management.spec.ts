@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "playwright/test";
 
+import { WARD_VIEWS } from "@/components/ward-management/ward-nav";
+
 const PATH = "/mockups/ward-flow";
 
 async function gotoWardFlow(page: Page) {
@@ -73,15 +75,39 @@ test.describe("@mockup Ward Flow command view", () => {
 
     // This only proves every remaining mode link still opens its route; per-mode behaviour is
     // covered by each mode's own tests elsewhere.
-    const modes = [
-      ["Network", "ward-mode-network"],
-      ["Priority queue", "ward-mode-queue"],
-      ["Capacity", "ward-mode-capacity"],
-      ["Movements", "ward-mode-movements"],
-      ["Exceptions", "ward-mode-exceptions"],
-      ["Transport", "ward-mode-transport"],
-      ["Governance", "ward-mode-governance"],
-    ] as const;
+    //
+    // MERGE 01 (2026-09-05): "Priority queue" and "Exceptions" both used to answer "why is this
+    // person still waiting?" from two different lenses. `DelaysScreen` now answers that question
+    // once, at `/delays`, and the `queue`/`exceptions` mode links collapsed into a single "Delays"
+    // link (see WARD_VIEWS in ward-nav.ts). `/delays` is a standalone route rather than a
+    // WardModeWorkspace mode, so it carries its own `data-testid="ward-delays-page"` rather than a
+    // `ward-mode-*` id.
+    // ⚠️ LABELS COME FROM `WARD_VIEWS`, NOT FROM THIS FILE. A hand-listed label is a page-design
+    // literal, and these screens are redesigned repeatedly — MERGE 01 alone broke eight assertions
+    // across the suite, every one of them a count, a label or a route somebody had typed into a
+    // test. Deriving the labels means a rename carries this test with it, while it still catches
+    // the thing that matters: the rail rendering something other than what `ward-nav.ts` declares.
+    //
+    // Only the id-to-testid mapping stays local, because a test hook is a test concern and is
+    // genuinely not navigation data. `queue` maps to `ward-delays-page` because MERGE 01 pointed
+    // that entry at `/delays`, a standalone route rather than a WardModeWorkspace mode.
+    const testIdByView: Record<string, string> = {
+      network: "ward-mode-network",
+      queue: "ward-delays-page",
+      capacity: "ward-mode-capacity",
+      movements: "ward-mode-movements",
+      transport: "ward-mode-transport",
+      governance: "ward-mode-governance",
+    };
+    // "command" is the page this test already starts on, so it has no link to click here.
+    const navigable = WARD_VIEWS.filter((view) => view.id !== "command");
+    // Anti-vacuity, and it fails LOUDLY on the one change that would otherwise skip a screen: add a
+    // view to WARD_VIEWS and forget its testid, and this names it rather than quietly walking a
+    // shorter list.
+    const unmapped = navigable.filter((view) => testIdByView[view.id] === undefined).map((view) => view.id);
+    expect(unmapped, `WARD_VIEWS gained a destination with no testid mapping: ${unmapped.join(", ")}`).toEqual([]);
+    expect(navigable.length, "no navigable views — the loop below would prove nothing").toBeGreaterThan(3);
+    const modes = navigable.map((view) => [view.label, testIdByView[view.id]] as const);
     for (const [linkName, testId] of modes) {
       await page.getByRole("link", { name: linkName }).click();
       await expect(page.getByTestId(testId)).toBeVisible({ timeout: 15_000 });
@@ -93,6 +119,10 @@ test.describe("@mockup Ward Flow command view", () => {
    * Task 9 review Critical 1: the eight mode links must retain the 3rem/48px tap-target floor on
    * the shortest supported phone viewport. The phone sidebar now lives in a drawer, so open the
    * owning menu before measuring the same shared links.
+   *
+   * MERGE 01 (2026-09-05): down to seven links. "Priority queue" and "Exceptions" collapsed into
+   * one "Delays" link when the three screens behind them (queue, exceptions, escalation) folded
+   * into `/delays` — see WARD_VIEWS in ward-nav.ts. The count below moved from 8 to 7 with it.
    */
   test("keeps every rail mode link at the 3rem tap-target floor on a short, narrow viewport", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
@@ -101,7 +131,9 @@ test.describe("@mockup Ward Flow command view", () => {
 
     const nav = page.getByRole("navigation", { name: "Ward Flow views" });
     const links = await nav.getByRole("link").all();
-    expect(links.length).toBe(8);
+    // Derived, not typed: this asserts the rail renders what ward-nav.ts declares, which stays
+    // true through any rename or reorder. A literal here breaks on every redesign.
+    expect(links.length).toBe(WARD_VIEWS.length);
     for (const link of links) {
       const box = await link.boundingBox();
       expect(box).not.toBeNull();
@@ -188,20 +220,32 @@ test.describe("@mockup Ward Flow command view", () => {
     await expectNoRegionGridOverflow(page);
   });
 
+  // MERGE 01 (2026-09-05): this test is about the shared WardModeWorkspace chrome (sidebar hidden,
+  // brand still visible) at tablet width, not about any one mode's content. It used to load
+  // /mockups/ward-flow/queue for that chrome, but /queue now redirects to /delays, which is a
+  // standalone route with none of this chrome (no WardModeWorkspace, no header, no sidebar) — so
+  // this test is retargeted to a mode that still has it. /capacity survives the fold and its
+  // <h1> reads "Capacity" (modeCopy.capacity.title in ward-management-modes.tsx), so it stands in
+  // for "Priority queue" here.
   test("keeps the header brand visible at tablet width when the remembered panel is hidden", async ({ page }) => {
     await page.setViewportSize({ width: 820, height: 900 });
     await page.addInitScript(() => {
       window.localStorage.setItem("ward-flow-sidebar-collapsed", "0");
     });
-    await page.goto("/mockups/ward-flow/queue", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/capacity", { waitUntil: "domcontentloaded" });
 
-    const header = page.locator("header").filter({ has: page.getByRole("heading", { name: "Priority queue" }) });
+    const header = page.locator("header").filter({ has: page.getByRole("heading", { name: "Capacity" }) });
     const sidebar = page.getByRole("complementary", { name: "Ward Flow sidebar", includeHidden: true });
     await expect(sidebar).toBeAttached({ timeout: 15_000 });
     await expect(sidebar).toBeHidden();
     await expect(header.getByText("Ward Flow", { exact: true })).toBeVisible();
   });
 
+  // MERGE 01 (2026-09-05): /queue now redirects to /delays. Left unchanged deliberately — the
+  // fixed-bar link it checks lives in the shared ClinicalRail, which DelaysScreen still mounts, so
+  // that assertion holds; the "Priority queue" heading filter below now matches no header on this
+  // page, which is why the header-hidden assertion still passes too. Noted so the path isn't
+  // misread as still exercising the queue mode.
   test("uses its fixed bar as the sole Ward Flow brand on phone", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 820 });
     await page.goto("/mockups/ward-flow/queue", { waitUntil: "domcontentloaded" });

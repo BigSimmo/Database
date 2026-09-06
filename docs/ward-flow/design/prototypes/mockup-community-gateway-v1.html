@@ -1,0 +1,1633 @@
+<!doctype html>
+<html lang="en-AU" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CMHT gateway — redesign v1</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    />
+    <style>
+      /* Tokens: the second edition of the Ward Flow board language, copied from
+     design-language.css so this file opens standalone like its siblings.
+     If that file changes, this block must be re-copied from it. */
+      :root {
+        color-scheme: light;
+
+        --ground: #f1f4f8;
+        --surface: #ffffff;
+        --surface-2: #f7f9fc;
+        --sunken: #eef2f7;
+
+        --ink: #0d1421;
+        --ink-2: #33415a;
+        --muted: #55637a;
+        /* 4.81:1 on the ground, 5.31:1 on white, 5.04:1 on the tinted panel head —
+       computed, not judged. The first edition's faint failed at 3.08:1 and the
+       whole quiet layer of the page went with it. */
+        --faint: #5e6c84;
+
+        --rule: #e4e9f0;
+        --rule-2: #cfd7e3;
+
+        --accent: #1d6fb8;
+        --accent-strong: #185c99;
+        --accent-wash: #eff5fc;
+        --accent-contrast: #ffffff;
+
+        --good: #0c6b41;
+        --good-wash: #f2fbf6;
+        --signal: #8a4d05;
+        --signal-wash: #fffaf2;
+        --crit: #a3190f;
+        --crit-wash: #fdf5f4;
+        --cool: #0f6b73;
+        --cool-wash: #f1fafb;
+
+        --mark: #ffe9a8;
+        --mark-ink: #0d1421;
+        --flag-hover: #fff2df;
+
+        --shadow-1: 0 1px 2px rgb(13 20 33 / 0.05);
+        --shadow-2: 0 1px 3px rgb(13 20 33 / 0.07), 0 6px 16px -8px rgb(13 20 33 / 0.1);
+        --shadow-3: 0 12px 36px -14px rgb(13 20 33 / 0.3), 0 2px 8px rgb(13 20 33 / 0.08);
+
+        --r-sm: 5px;
+        --r: 8px;
+        --r-lg: 12px;
+
+        /* The production tap floor, taken from the app's own --spacing-tap (3rem)
+       rather than picked here. globals.css says of it: "Never reduce below it."
+       A dense clinical board earns tighter controls with a mouse; a thumb does
+       not, so the floor is applied at pointer:coarse and phone widths only. */
+        --tap: 3rem;
+
+        --sp-1: 0.25rem;
+        --sp-2: 0.5rem;
+        --sp-3: 0.75rem;
+        --sp-4: 1rem;
+        --sp-5: 1.5rem;
+        --sp-6: 2rem;
+        --sp-7: 3rem;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          color-scheme: dark;
+          --ground: #0a0e15;
+          --surface: #131924;
+          --surface-2: #1a2130;
+          --sunken: #0f141d;
+          --ink: #e8edf5;
+          --ink-2: #c3cdda;
+          --muted: #98a5b8;
+          --faint: #8593a7;
+          --rule: #232c3a;
+          --rule-2: #354152;
+          --accent: #6ea8e0;
+          --accent-strong: #8dbdea;
+          --accent-wash: #132132;
+          --accent-contrast: #0a0e15;
+          --good: #4ec38d;
+          --good-wash: #0f2119;
+          --signal: #e0a63f;
+          --signal-wash: #241c0e;
+          --crit: #f0755c;
+          --crit-wash: #26130f;
+          --cool: #4fb3bd;
+          --cool-wash: #0d2124;
+          --mark: #4a3a12;
+          --mark-ink: #ffe9a8;
+          --flag-hover: #33280f;
+          --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+          --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+          --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+        }
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --ground: #0a0e15;
+        --surface: #131924;
+        --surface-2: #1a2130;
+        --sunken: #0f141d;
+        --ink: #e8edf5;
+        --ink-2: #c3cdda;
+        --muted: #98a5b8;
+        --faint: #8593a7;
+        --rule: #232c3a;
+        --rule-2: #354152;
+        --accent: #6ea8e0;
+        --accent-strong: #8dbdea;
+        --accent-wash: #132132;
+        --accent-contrast: #0a0e15;
+        --good: #4ec38d;
+        --good-wash: #0f2119;
+        --signal: #e0a63f;
+        --signal-wash: #241c0e;
+        --crit: #f0755c;
+        --crit-wash: #26130f;
+        --cool: #4fb3bd;
+        --cool-wash: #0d2124;
+        --mark: #4a3a12;
+        --mark-ink: #ffe9a8;
+        --flag-hover: #33280f;
+        --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+        --shadow-2: 0 1px 3px rgb(0 0 0 / 0.5), 0 6px 16px -8px rgb(0 0 0 / 0.55);
+        --shadow-3: 0 12px 36px -14px rgb(0 0 0 / 0.75), 0 2px 8px rgb(0 0 0 / 0.5);
+      }
+
+      /* ═══════════════════════════════════════════════════════════════════
+     CMHT GATEWAY — redesign v1, 2026-09-05.
+
+     Replaces 65 identical bordered boxes in a 4-column alphabetical grid.
+     The three failures it is written against:
+       1. No search. Sixty-five destinations and no way to type a name.
+       2. No structure. Every box identical, so nothing tells you where you are.
+       3. Near-duplicate names sit adjacent looking equally legitimate —
+          "Midalnd" between "Merredin" and "Midland".
+
+     WHAT THIS PAGE DELIBERATELY DOES NOT DO:
+       · It does not merge, de-duplicate or correct any team name. The owner's
+         ruling stands: the source document holds these spellings and the page
+         shows them. It FLAGS, it never fixes.
+       · It does not group by region, suburb or catchment. The record links a
+         team to suburbs through a separate catchment table, and that link is
+         not carried on the team itself — so a regional grouping here would be
+         one this prototype invented.
+       · It shows no caseload counts. This is a way in, not a caseload.
+     ═══════════════════════════════════════════════════════════════════ */
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font-family:
+          "Archivo",
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ── application bar ────────────────────────────────────────────── */
+      .appbar {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-4);
+        padding: 0 var(--sp-5);
+        height: 3.25rem;
+        background: var(--surface);
+        border-bottom: 1px solid var(--rule);
+        box-shadow: var(--shadow-1);
+      }
+      .brand {
+        display: flex;
+        align-items: baseline;
+        gap: var(--sp-2);
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .brand .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--accent);
+        align-self: center;
+      }
+      .brand .sub {
+        font-weight: 500;
+        color: var(--muted);
+        font-size: 0.8125rem;
+      }
+      .appbar .spacer {
+        flex: 1;
+      }
+      .crumb {
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+      .crumb b {
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+
+      /* ── page shell ─────────────────────────────────────────────────── */
+      .shell {
+        max-width: 74rem;
+        margin: 0 auto;
+        padding: var(--sp-6) var(--sp-5) var(--sp-7);
+      }
+
+      .prototype {
+        margin: 0 0 var(--sp-5);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+
+      .masthead {
+        margin-bottom: var(--sp-5);
+      }
+      .eyebrow {
+        margin: 0 0 var(--sp-2);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--accent-strong);
+      }
+      h1 {
+        margin: 0 0 var(--sp-2);
+        font-size: 1.875rem;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+      }
+      .lede {
+        margin: 0;
+        color: var(--ink-2);
+        max-width: 52ch;
+      }
+
+      /* ── governance strip ───────────────────────────────────────────── */
+      .governance {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: flex-start;
+        margin: var(--sp-5) 0;
+        padding: var(--sp-3) var(--sp-4);
+        background: var(--signal-wash);
+        border: 1px solid var(--rule-2);
+        border-left: 3px solid var(--signal);
+        border-radius: var(--r);
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+      }
+      .governance .tag {
+        flex: none;
+        font-weight: 700;
+        color: var(--signal);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-size: 0.6875rem;
+        padding-top: 0.15rem;
+      }
+      .governance p {
+        margin: 0 0 var(--sp-2);
+      }
+      .governance p:last-child {
+        margin-bottom: 0;
+      }
+
+      /* ── toolbar ────────────────────────────────────────────────────── */
+      .toolbar {
+        position: sticky;
+        top: 3.25rem;
+        z-index: 30;
+        background: var(--ground);
+        padding: var(--sp-3) 0 var(--sp-3);
+        margin-bottom: var(--sp-1);
+      }
+      .searchrow {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: stretch;
+        flex-wrap: wrap;
+      }
+      .searchbox {
+        flex: 1 1 22rem;
+        position: relative;
+        display: flex;
+        align-items: center;
+        background: var(--surface);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r);
+        box-shadow: var(--shadow-1);
+        transition:
+          border-color 120ms,
+          box-shadow 120ms;
+      }
+      .searchbox:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-wash);
+      }
+      /* The clear button used to live inside this label, nested beside the input
+     it labels — a click on the button also fired the label's own implicit
+     activation. .searchfield now wraps only the icon and the input; .clearbtn
+     is a sibling of it, inside .searchbox, not a descendant of the label. */
+      .searchfield {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        min-width: 0;
+      }
+      .searchbox svg {
+        flex: none;
+        margin-inline: var(--sp-3) 0;
+        color: var(--faint);
+      }
+      .searchbox input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        background: none;
+        outline: none;
+        font: inherit;
+        color: var(--ink);
+        padding: 0.7rem var(--sp-3);
+      }
+      .searchbox kbd {
+        flex: none;
+        margin-inline-end: var(--sp-3);
+        font-family: ui-monospace, "JetBrains Mono", monospace;
+        font-size: 0.6875rem;
+        color: var(--faint);
+        background: var(--sunken);
+        border: 1px solid var(--rule);
+        border-radius: var(--r-sm);
+        padding: 0.1rem 0.35rem;
+      }
+      .clearbtn {
+        flex: none;
+        border: 0;
+        background: none;
+        cursor: pointer;
+        color: var(--muted);
+        font: inherit;
+        padding: 0 var(--sp-3);
+      }
+      .clearbtn[hidden] {
+        display: none;
+      }
+
+      .chips {
+        display: flex;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.45rem 0.8rem;
+        font: inherit;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--ink-2);
+        background: var(--surface);
+        border: 1px solid var(--rule-2);
+        border-radius: 999px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+          background 120ms,
+          border-color 120ms,
+          color 120ms;
+      }
+      .chip:hover {
+        border-color: var(--accent);
+        color: var(--accent-strong);
+      }
+      .chip[aria-pressed="true"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-contrast);
+      }
+      .chip .n {
+        font-family: ui-monospace, "JetBrains Mono", monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: 0.75rem;
+        opacity: 0.8;
+      }
+
+      .resultline {
+        margin: var(--sp-3) 0 0;
+        font-size: 0.8125rem;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+      }
+      .resultline b {
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── body: rail + list ──────────────────────────────────────────── */
+      .body {
+        display: grid;
+        grid-template-columns: 2.25rem minmax(0, 1fr);
+        gap: var(--sp-4);
+        align-items: start;
+      }
+
+      .azrail {
+        position: sticky;
+        top: 9.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        padding: var(--sp-2) 0;
+      }
+      .azrail button {
+        border: 0;
+        background: none;
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        color: var(--faint);
+        padding: 0.12rem 0;
+        border-radius: var(--r-sm);
+        transition:
+          color 100ms,
+          background 100ms;
+      }
+      .azrail button:hover {
+        color: var(--accent-strong);
+        background: var(--accent-wash);
+      }
+      .azrail button[disabled] {
+        color: var(--muted);
+        cursor: default;
+        background: none;
+      }
+
+      /* ── name-family panel ──────────────────────────────────────────── */
+      .familypanel {
+        background: var(--surface);
+        border: 1px solid var(--rule-2);
+        border-radius: var(--r-lg);
+        box-shadow: var(--shadow-2);
+        margin-bottom: var(--sp-4);
+        overflow: hidden;
+      }
+      .familypanel > summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        padding: var(--sp-3) var(--sp-4);
+        background: var(--surface-2);
+        border-bottom: 1px solid var(--rule);
+        font-weight: 650;
+      }
+      .familypanel > summary::-webkit-details-marker {
+        display: none;
+      }
+      .familypanel > summary .caret {
+        color: var(--muted);
+        transition: transform 140ms;
+      }
+      .familypanel[open] > summary .caret {
+        transform: rotate(90deg);
+      }
+      .familypanel > summary .why {
+        font-weight: 400;
+        font-size: 0.8125rem;
+        color: var(--muted);
+        margin-inline-start: auto;
+      }
+      .familybody {
+        padding: var(--sp-4);
+      }
+      .familybody > p {
+        margin: 0 0 var(--sp-4);
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+        max-width: 74ch;
+      }
+      .familygrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+        gap: var(--sp-3);
+      }
+      .familycard {
+        border: 1px solid var(--rule);
+        border-radius: var(--r);
+        padding: var(--sp-3);
+        background: var(--surface-2);
+      }
+      .familycard h3 {
+        margin: 0 0 var(--sp-2);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .familycard ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+      .familycard a {
+        color: var(--ink);
+        text-decoration: none;
+        font-size: 0.875rem;
+        border-radius: var(--r-sm);
+        padding: 0.1rem 0.2rem;
+      }
+      .familycard a:hover {
+        color: var(--accent-strong);
+        background: var(--accent-wash);
+        text-decoration: underline;
+      }
+
+      /* ── the list ───────────────────────────────────────────────────── */
+      .letterhead {
+        position: sticky;
+        top: 9.25rem;
+        z-index: 10;
+        display: flex;
+        align-items: baseline;
+        gap: var(--sp-3);
+        margin: 0;
+        padding: var(--sp-3) var(--sp-1) var(--sp-2);
+        background: linear-gradient(var(--ground) 72%, transparent);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .letterhead:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
+      }
+      .letterhead::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--rule);
+      }
+
+      .teamlist {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        margin-bottom: var(--sp-4);
+      }
+
+      .teamrow {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: var(--sp-3);
+        padding: 0.7rem var(--sp-4);
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        transition:
+          border-color 110ms,
+          background 110ms;
+      }
+      .teamlist .teamrow:first-child {
+        border-radius: var(--r) var(--r) 0 0;
+      }
+      .teamlist .teamrow:last-child {
+        border-radius: 0 0 var(--r) var(--r);
+      }
+      .teamlist .teamrow:only-child {
+        border-radius: var(--r);
+      }
+      .teamrow + .teamrow {
+        border-top: 0;
+      }
+      .teamrow:hover {
+        background: var(--accent-wash);
+        border-color: var(--accent);
+        z-index: 2;
+      }
+      .teamrow:focus-within {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
+      }
+
+      /* The anchor visually wraps only the name, but its ::after is stretched to
+     cover the whole row (relative to .teamrow), so the row keeps its
+     whole-area click behaviour. .flag is a sibling, not a descendant of the
+     anchor — a real <button>, lifted above the stretched anchor with its own
+     stacking context so it stays independently clickable and focusable. */
+      .teamrow .namelink {
+        color: inherit;
+        text-decoration: none;
+      }
+      .teamrow .namelink::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+      }
+      .teamrow .name {
+        font-weight: 600;
+        letter-spacing: -0.005em;
+      }
+      .teamrow .name mark {
+        background: var(--mark);
+        color: var(--mark-ink);
+        border-radius: 2px;
+        padding: 0 1px;
+      }
+      .teamrow .grow {
+        flex: 1;
+      }
+      .teamrow .go {
+        flex: none;
+        color: var(--faint);
+        display: flex;
+      }
+      .teamrow:hover .go {
+        color: var(--accent-strong);
+      }
+
+      .flag {
+        position: relative;
+        z-index: 1;
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font: inherit;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        padding: 0.18rem 0.5rem;
+        border-radius: 999px;
+        border: 1px solid var(--signal);
+        color: var(--signal);
+        background: var(--signal-wash);
+        cursor: pointer;
+      }
+      .flag:hover {
+        background: var(--flag-hover);
+      }
+      .flag:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      .flag .dotm {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--signal);
+      }
+
+      .recentbar {
+        margin-bottom: var(--sp-4);
+      }
+      .recentbar h2 {
+        margin: 0 0 var(--sp-2);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .recentbar .row {
+        display: flex;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+      }
+      .recentbar a {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        text-decoration: none;
+        color: var(--ink-2);
+        background: var(--surface);
+        border: 1px solid var(--rule-2);
+        border-radius: 999px;
+      }
+      .recentbar a:hover {
+        border-color: var(--accent);
+        color: var(--accent-strong);
+      }
+      .recentbar .none {
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+
+      .empty {
+        padding: var(--sp-6) var(--sp-4);
+        text-align: center;
+        background: var(--surface);
+        border: 1px dashed var(--rule-2);
+        border-radius: var(--r-lg);
+        color: var(--ink-2);
+      }
+      .empty b {
+        display: block;
+        margin-bottom: var(--sp-2);
+        color: var(--ink);
+      }
+      .empty .hint {
+        font-size: 0.8125rem;
+        color: var(--muted);
+        margin: 0;
+        max-width: 52ch;
+        margin-inline: auto;
+      }
+
+      /* ── footer ─────────────────────────────────────────────────────── */
+      .pagefoot {
+        margin-top: var(--sp-7);
+        padding-top: var(--sp-4);
+        border-top: 1px solid var(--rule-2);
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .pagefoot h2 {
+        margin: 0 0 var(--sp-2);
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+      .pagefoot ul {
+        margin: 0 0 var(--sp-4);
+        padding-inline-start: 1.1rem;
+        max-width: 90ch;
+      }
+      .pagefoot li {
+        margin-bottom: 0.3rem;
+      }
+
+      @media (max-width: 720px) {
+        .shell {
+          padding: var(--sp-4) var(--sp-3) var(--sp-6);
+        }
+        .body {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .azrail {
+          display: none;
+        }
+        .letterhead {
+          top: 8.5rem;
+        }
+        h1 {
+          font-size: 1.5rem;
+        }
+        .teamrow {
+          min-height: var(--tap);
+        }
+      }
+
+      /* Hit areas for a thumb. Every control keeps its typographic size and grows
+     its BOX, matching the pattern in mockup-ward-home-v4.html. */
+      @media (pointer: coarse), (max-width: 40rem) {
+        .chip,
+        .flag,
+        .clearbtn,
+        .recentbar a {
+          min-height: var(--tap);
+        }
+        .familycard a {
+          display: inline-flex;
+          align-items: center;
+          min-height: var(--tap);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+
+      /* ─── forced colours: every token collapses to a system colour, so
+       anything whose only edge was a wash needs a drawn border instead. ──── */
+      @media (forced-colors: active) {
+        :root {
+          --ground: Canvas;
+          --surface: Canvas;
+          --surface-2: Canvas;
+          --sunken: Canvas;
+          --ink: CanvasText;
+          --ink-2: CanvasText;
+          --muted: CanvasText;
+          --faint: CanvasText;
+          --rule: CanvasText;
+          --rule-2: CanvasText;
+          --accent: LinkText;
+          --accent-strong: LinkText;
+          --accent-wash: Canvas;
+          --accent-contrast: Canvas;
+          --good: CanvasText;
+          --good-wash: Canvas;
+          --signal: CanvasText;
+          --signal-wash: Canvas;
+          --crit: CanvasText;
+          --crit-wash: Canvas;
+          --cool: CanvasText;
+          --cool-wash: Canvas;
+          --mark: Mark;
+          --mark-ink: MarkText;
+          --flag-hover: Canvas;
+          --shadow-1: none;
+          --shadow-2: none;
+          --shadow-3: none;
+        }
+        .chip,
+        .searchbox,
+        .familypanel,
+        .familycard,
+        .teamrow,
+        .flag,
+        .recentbar a,
+        .empty {
+          border: 1px solid CanvasText;
+        }
+        .chip[aria-pressed="true"] {
+          border-width: 2px;
+        }
+      }
+
+      /* ─── print: the same incident this repository already had once — a
+       hoisted background lost its print reset and every route would have
+       printed black. Every token takes its light-theme value, on :root AND
+       on both dark stamps, so a dark-mode reader's printer never receives
+       light ink on a dark background it just dropped. ──────────────────── */
+      @media print {
+        :root,
+        :root[data-theme="dark"],
+        :root:not([data-theme="light"]) {
+          --ground: #ffffff;
+          --surface: #ffffff;
+          --surface-2: #ffffff;
+          --sunken: #ffffff;
+          --ink: #000000;
+          --ink-2: #1a1a1a;
+          --muted: #333333;
+          --faint: #444444;
+          --rule: #999999;
+          --rule-2: #666666;
+          --accent: #1d6fb8;
+          --accent-strong: #185c99;
+          --accent-wash: #eff5fc;
+          --accent-contrast: #ffffff;
+          --good: #0c6b41;
+          --good-wash: #f2fbf6;
+          --signal: #8a4d05;
+          --signal-wash: #fffaf2;
+          --crit: #a3190f;
+          --crit-wash: #fdf5f4;
+          --cool: #0f6b73;
+          --cool-wash: #f1fafb;
+          --mark: #ffe9a8;
+          --mark-ink: #0d1421;
+          --flag-hover: #fff2df;
+          --shadow-1: none;
+          --shadow-2: none;
+          --shadow-3: none;
+        }
+        body {
+          background: #ffffff;
+        }
+        .appbar,
+        .toolbar {
+          position: static;
+        }
+        .familypanel,
+        .empty {
+          box-shadow: none;
+          break-inside: avoid;
+        }
+        .teamrow {
+          break-inside: avoid;
+        }
+        .clearbtn,
+        .chips,
+        .azrail,
+        .searchrow {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="appbar">
+      <span class="brand"><span class="dot"></span>Ward Flow <span class="sub">prototype</span></span>
+      <span class="spacer"></span>
+      <span class="crumb">Community &rsaquo; <b>All teams</b></span>
+    </div>
+
+    <main class="shell">
+      <p class="prototype">
+        Synthetic prototype &middot; No real patient data &middot; Every invented figure listed at the foot
+      </p>
+
+      <!-- ⚠️ SUPERSEDED WHERE THE RULE IS CONCERNED. Approved by Ward Lead, 2026-09-05.
+       This page computes "which names read alike" in its own JavaScript, below. The BUILD does
+       not: it calls `communityNameCollisions()` in
+       `src/components/ward-management/community/community-vocabulary.ts`, which unions THREE
+       relations rather than this file's one key plus a distance band, and therefore groups a
+       different set. Without this banner the next person to open this file reads its rule as the
+       specification, because a design prototype is exactly where somebody goes looking for one. -->
+      <div class="governance" style="border-left-color: var(--crit); background: var(--crit-wash)">
+        <span class="tag" style="color: var(--crit)">Superseded</span>
+        <div>
+          <p>
+            <b
+              >The layout on this page is what was approved. The name-matching rule on it is not what the software
+              uses.</b
+            >
+          </p>
+          <p>
+            The built pages call one shared function &mdash; <code>communityNameCollisions()</code>, in
+            <code>community-vocabulary.ts</code> &mdash; which compares names three ways where this page compares them
+            one way, and so groups a different set. <b>Read this file for the design and never for the rule.</b> Where
+            the two disagree, the shared function is the software&rsquo;s behaviour and this page is a drawing.
+          </p>
+        </div>
+      </div>
+
+      <header class="masthead">
+        <p class="eyebrow">Community</p>
+        <h1>Community mental health teams</h1>
+        <p class="lede">
+          Every team held in the service list. Search for one by name, or browse the list, then open that team&rsquo;s
+          own page.
+        </p>
+      </header>
+
+      <div class="governance">
+        <span class="tag">Prototype</span>
+        <div>
+          <p>
+            <b>This page is not a medical device.</b> Every team listed here comes from one extracted source document,
+            no team has agreed to be represented here, and nothing on this page has been checked against a real service.
+          </p>
+          <p>
+            That source document contains near-duplicate and misspelled team names, and they appear here as they reach
+            this page. <b>Nothing on this page merges, corrects or de-duplicates them</b> &mdash; two entries that read
+            alike may be two real teams, one team recorded twice, or a typing error, and this prototype cannot tell
+            which. Where names read alike the page marks them, so you can check you have the right one.
+            <b>Some spellings the document holds were already collapsed together before this page saw them</b>, which
+            the foot of the page sets out.
+          </p>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="searchrow">
+          <div class="searchbox">
+            <label class="searchfield">
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.6-3.6" />
+              </svg>
+              <input
+                id="q"
+                type="search"
+                placeholder="Search team names &mdash; try &ldquo;wheat&rdquo;, &ldquo;alma&rdquo;, &ldquo;goldfield&rdquo;"
+                autocomplete="off"
+                aria-label="Search team names"
+              />
+            </label>
+            <button class="clearbtn" id="clear" type="button" hidden aria-label="Clear search">Clear</button>
+            <kbd>/</kbd>
+          </div>
+          <div class="chips" role="group" aria-label="Filter the list">
+            <button class="chip" id="chip-all" type="button" aria-pressed="true">
+              All teams <span class="n" id="n-all">65</span>
+            </button>
+            <button class="chip" id="chip-alike" type="button" aria-pressed="false">
+              Names that read alike <span class="n" id="n-alike">0</span>
+            </button>
+          </div>
+        </div>
+        <p class="resultline" id="resultline" aria-live="polite"></p>
+      </div>
+
+      <div class="body">
+        <nav class="azrail" id="azrail" aria-label="Jump to letter"></nav>
+
+        <div>
+          <section class="recentbar">
+            <h2>Recently opened</h2>
+            <div class="row" id="recent"></div>
+          </section>
+
+          <details class="familypanel" id="familypanel">
+            <summary>
+              <span class="caret" aria-hidden="true">&#9656;</span>
+              <span
+                >Names that read alike &mdash; <span id="familyteams">0</span> teams in
+                <span id="familycount">0</span> groups</span
+              >
+              <span class="why">Check before you open one</span>
+            </summary>
+            <div class="familybody">
+              <p>
+                These entries reduce to the same or nearly the same name once brackets, punctuation and the
+                &ldquo;HS&rdquo; suffix are set aside. <b>They have not been merged.</b> Each is still its own entry
+                with its own page, exactly as the source document records it. This grouping is only a prompt to check
+                you are opening the one you mean.
+              </p>
+              <div class="familygrid" id="familygrid"></div>
+            </div>
+          </details>
+
+          <div id="results"></div>
+        </div>
+      </div>
+
+      <footer class="pagefoot">
+        <h2>What on this page is invented</h2>
+        <ul>
+          <li>
+            <b>Nothing about any team.</b> The 65 names are exactly the teams a referral in this prototype can name, in
+            exactly the spellings it can name them &mdash; near-duplicates and misspellings and all.
+            <br />
+            ⚠️
+            <b
+              >But this page is not showing you the source document, and an earlier draft of this line claimed it
+              was.</b
+            >
+            The catchment table holds <b>71 distinct spellings</b> of a clinic name, and
+            <b>six pairs collapse into one</b> the moment case and punctuation are normalised upstream, before this page
+            sees anything &mdash; <em>Wheat Belt</em> with <em>Wheat belt</em>, <em>Great Southern</em> with
+            <em>Great Southern.</em>, <em>Central Great Southern</em> and <em>Upper Great Southern</em> each with a
+            full-stopped twin, <em>Mead Centre (Armadale)</em> with <em>Mead centre (Armadale)</em>, and
+            <em>East Wheatbelt HS</em> with <em>East.Wheatbelt HS</em>. 71 less those six is the 65 shown here.
+            <b
+              >So spellings the document really contains are already gone before the &ldquo;reads alike&rdquo; check
+              runs</b
+            >, and it can only compare what reaches it.
+            <br />
+            ⚠️
+            <b
+              >An earlier version of this very paragraph said 77 and seven, called it measured, and was wrong &mdash;
+              not by arithmetic but by unit.</b
+            >
+            It counted <em>distinct values of the clinic column</em>, which is not the same population as
+            <em>distinct clinic names</em>: one of those values is empty, and five name <b>two</b> clinics joined by a
+            slash (<em>Peel/Rockingham</em>, <em>Kwinana/Peel</em>, and three more). Six impostors, and 77 becomes 71.
+            <b>A wrong figure presented as measured is worse than no figure</b>, because it survives the one check a
+            careful reader makes. Whenever two counts have disagreed on this project the cause has been this and not
+            arithmetic: <b>each side measuring a different thing, and each right about the thing it measured.</b>
+          </li>
+          <li>
+            <b>The &ldquo;reads alike&rdquo; grouping is computed here, on this page</b>, from the names alone. It is a
+            spelling comparison, not a statement that two entries are the same service &mdash; and it will miss pairs
+            written differently enough, so an unmarked name is not a guarantee of uniqueness.
+          </li>
+          <li>
+            <b>&ldquo;Recently opened&rdquo; is your own browsing on this device.</b> It is not held in any record and
+            is not shared.
+          </li>
+          <li>
+            No caseload figures appear here at all. This is a way in, not a caseload &mdash; a team&rsquo;s own page
+            answers those questions for that team.
+          </li>
+          <li>
+            Teams are listed alphabetically because the record holds a team&rsquo;s name and nothing else to group by.
+            The catchment table this list is derived from does link each team to a set of suburbs, but that link is not
+            carried on the team itself, so a regional grouping here would be one this prototype invented rather than one
+            a team&rsquo;s own record supports.
+          </li>
+        </ul>
+      </footer>
+    </main>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var TEAMS = [
+          "Albany",
+          "Alma Street",
+          "Alma Street (Central)",
+          "Alma Street (Cockburn)",
+          "Alma Street (Fremantle)",
+          "Alma Street (Melville)",
+          "Armadale",
+          "Armadale (Mead Centre)",
+          "Armadale (Mead)",
+          "Bentley",
+          "Bunbury",
+          "Central Great Southern",
+          "Central Wheatbelt",
+          "Central Wheatbelt H.S.",
+          "Clarkson",
+          "East Wheatbelt",
+          "East Wheatbelt HS",
+          "Eudoria Street (Gosnells)",
+          "Eudoria Street (Thornlie)",
+          "Gascoyne",
+          "Gascoyne H.S.",
+          "Gascoyne HS",
+          "Geraldton HS",
+          "Great South",
+          "Great Southern",
+          "ICC",
+          "Inner City",
+          "Inner City (central)",
+          "Inner City Clinic",
+          "Joondalup",
+          "Kimberley",
+          "Kimberley HS",
+          "Kwinana",
+          "Lower Great Southern",
+          "Mead Centre (Armadale)",
+          "Mead Centre (Kelmscott)",
+          "Meade Centre (Armadale)",
+          "Merredin",
+          "Midalnd",
+          "Midland",
+          "Midwest H.S.",
+          "Mills Street",
+          "Mirrabooka",
+          "Murchison HS",
+          "Narrogin",
+          "North West",
+          "North. Goldfield H.S.",
+          "Northam",
+          "Nth Goldfield H.S.",
+          "Nth Goldfield HS",
+          "Osborne",
+          "Osborne Park",
+          "Peel",
+          "Pilbara",
+          "Rockingham",
+          "South East Coastal",
+          "Southern Coastal HS",
+          "Subiaco",
+          "Swan",
+          "Upper Great Southern",
+          "West Pilbara",
+          "Western H.S.",
+          "Western HS",
+          "Wheat Belt",
+          "Wheatbelt HS",
+        ];
+
+        /* The comparison key. Brackets, punctuation, spacing and the words that name a
+     KIND of service rather than a place are set aside; "nth" is read as "north".
+     Nothing here changes a displayed name — the key exists only to decide which
+     names to MARK.
+
+     ⚠️ "clinic", "centre" and "center" were missing from this list until
+     2026-09-05, and their absence was invisible until a second implementation
+     was laid beside this one, name by name. This key stripped the HS family and
+     then behaved as though it stripped service words generally — so it left
+     `Inner City Clinic` unflagged beside `Inner City`, on the very team the
+     companion hub prototype demonstrates. The counts agreed with nothing and
+     disagreed with nothing; only the NAMES showed it. */
+        function key(name) {
+          var s = name.toLowerCase();
+          s = s.replace(/\(.*?\)/g, " ");
+          s = s.replace(/\bh\.?\s?s\.?\b/g, " ");
+          s = s.replace(/\b(?:health service|clinic|centre|center)\b/g, " ");
+          s = s.replace(/\bnth\b/g, "north");
+          s = s.replace(/[^a-z]/g, "");
+          return s;
+        }
+
+        function distance(a, b) {
+          if (a === b) return 0;
+          var prev = [],
+            i,
+            j,
+            cur;
+          for (j = 0; j <= b.length; j++) prev[j] = j;
+          for (i = 1; i <= a.length; i++) {
+            cur = [i];
+            for (j = 1; j <= b.length; j++) {
+              cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+            }
+            prev = cur;
+          }
+          return prev[b.length];
+        }
+
+        /* Union-find over the keys: identical keys join, and keys within two
+     characters of each other join too — which is what catches "Midalnd" beside
+     "Midland" and "Meade Centre" beside "Mead Centre". */
+        var keys = TEAMS.map(key);
+        var parent = TEAMS.map(function (_, i) {
+          return i;
+        });
+        function find(i) {
+          while (parent[i] !== i) {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+          }
+          return i;
+        }
+        function union(a, b) {
+          a = find(a);
+          b = find(b);
+          if (a !== b) parent[b] = a;
+        }
+
+        for (var i = 0; i < TEAMS.length; i++) {
+          for (var j = i + 1; j < TEAMS.length; j++) {
+            if (!keys[i] || !keys[j]) continue;
+            if (keys[i] === keys[j]) {
+              union(i, j);
+              continue;
+            }
+            /*
+             * ⚠️ TWO BANDS, AND THE SECOND ONE EXISTS BECAUSE A FIX BROKE A CASE IT WAS NOT ABOUT.
+             * A single `length >= 5` gate was here until 2026-09-05. Adding "clinic" and "centre" to
+             * the stripped service words shortened every key that contained one — and `Meade Centre
+             * (Armadale)` and `Mead Centre (Armadale)` became the four-letter keys "meade" and "mead",
+             * which the gate then refused to compare at all. THE MISSPELLING THIS PAGE EXISTS TO CATCH
+             * FELL OUT OF ITS OWN GROUP, silently, as a side effect of an unrelated correction. The
+             * group count did not move — 13 before and 13 after — so only re-reading the NAMES showed it.
+             */
+            var shortest = Math.min(keys[i].length, keys[j].length);
+            var gap = distance(keys[i], keys[j]);
+            if (shortest >= 7 && gap <= 2) {
+              union(i, j);
+              continue;
+            }
+            if (shortest >= 4 && gap <= 1) union(i, j);
+          }
+        }
+
+        var groups = {};
+        TEAMS.forEach(function (_, idx) {
+          var root = find(idx);
+          (groups[root] = groups[root] || []).push(idx);
+        });
+        var families = Object.keys(groups)
+          .map(function (k) {
+            return groups[k];
+          })
+          .filter(function (g) {
+            return g.length > 1;
+          })
+          .sort(function (a, b) {
+            return TEAMS[a[0]].localeCompare(TEAMS[b[0]]);
+          });
+        var familyOf = {};
+        families.forEach(function (g, gi) {
+          g.forEach(function (idx) {
+            familyOf[idx] = gi;
+          });
+        });
+        var alikeCount = families.reduce(function (n, g) {
+          return n + g.length;
+        }, 0);
+
+        document.getElementById("n-alike").textContent = String(alikeCount);
+        document.getElementById("n-all").textContent = String(TEAMS.length);
+        document.getElementById("familycount").textContent = String(families.length);
+        document.getElementById("familyteams").textContent = String(alikeCount);
+
+        function slug(n) {
+          return n
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "");
+        }
+
+        /* the name-family panel */
+        var fg = document.getElementById("familygrid");
+        families.forEach(function (g) {
+          var card = document.createElement("div");
+          card.className = "familycard";
+          var h = document.createElement("h3");
+          h.textContent = TEAMS[g[0]] + " — " + g.length + " entries read alike";
+          card.appendChild(h);
+          var ul = document.createElement("ul");
+          g.forEach(function (idx) {
+            var li = document.createElement("li");
+            var a = document.createElement("a");
+            a.href = "#/community/" + slug(TEAMS[idx]);
+            a.textContent = TEAMS[idx];
+            a.addEventListener("click", function (e) {
+              e.preventDefault();
+              openTeam(TEAMS[idx]);
+            });
+            li.appendChild(a);
+            ul.appendChild(li);
+          });
+          card.appendChild(ul);
+          fg.appendChild(card);
+        });
+
+        /* ── state ─────────────────────────────────────────────────────── */
+        var state = { q: "", alikeOnly: false };
+        var results = document.getElementById("results");
+        var resultline = document.getElementById("resultline");
+        var input = document.getElementById("q");
+        var clear = document.getElementById("clear");
+
+        function highlight(name) {
+          if (!state.q) return document.createTextNode(name);
+          var frag = document.createDocumentFragment();
+          var lower = name.toLowerCase();
+          var from = 0,
+            at;
+          while ((at = lower.indexOf(state.q, from)) !== -1) {
+            if (at > from) frag.appendChild(document.createTextNode(name.slice(from, at)));
+            var m = document.createElement("mark");
+            m.textContent = name.slice(at, at + state.q.length);
+            frag.appendChild(m);
+            from = at + state.q.length;
+          }
+          if (from < name.length) frag.appendChild(document.createTextNode(name.slice(from)));
+          return frag;
+        }
+
+        function openTeam(name) {
+          remember(name);
+          /* prototype: a real build routes to /mockups/ward-flow/community/<slug> */
+          window.location.hash = "#/community/" + slug(name);
+        }
+
+        function recentList() {
+          try {
+            return JSON.parse(window.localStorage.getItem("cmht-recent") || "[]");
+          } catch (e) {
+            return [];
+          }
+        }
+
+        function remember(name) {
+          var list = [name]
+            .concat(
+              recentList().filter(function (n) {
+                return n !== name;
+              }),
+            )
+            .slice(0, 5);
+          try {
+            window.localStorage.setItem("cmht-recent", JSON.stringify(list));
+          } catch (e) {
+            /* private window */
+          }
+          paintRecent();
+        }
+
+        function paintRecent() {
+          var box = document.getElementById("recent");
+          var list = recentList();
+          box.textContent = "";
+          if (!list.length) {
+            var none = document.createElement("span");
+            none.className = "none";
+            none.textContent = "Nothing opened yet — teams you visit will appear here.";
+            box.appendChild(none);
+            return;
+          }
+          list.forEach(function (name) {
+            var a = document.createElement("a");
+            a.href = "#/community/" + slug(name);
+            a.textContent = name;
+            a.addEventListener("click", function (e) {
+              e.preventDefault();
+              openTeam(name);
+            });
+            box.appendChild(a);
+          });
+        }
+
+        function render() {
+          var shown = TEAMS.filter(function (name, idx) {
+            if (state.alikeOnly && familyOf[idx] === undefined) return false;
+            return !state.q || name.toLowerCase().indexOf(state.q) !== -1;
+          });
+
+          results.textContent = "";
+
+          if (!shown.length) {
+            var e = document.createElement("div");
+            e.className = "empty";
+            /*
+             * ⚠️ THE HEADLINE MUST NAME EVERY FILTER THAT EMPTIED THE LIST, NOT JUST THE SEARCH.
+             * With the "reads alike" chip on, typing "albany" once produced the bold headline
+             * "No team name contains 'albany'" — false, Albany is the first entry in the list, and it
+             * is the loudest thing on the screen. Clearing the search does not clear the chip, so an
+             * ordinary sequence of clicks reaches it. The quiet result line above was telling the
+             * truth the whole time, which is exactly why nobody would have caught this.
+             */
+            var b = document.createElement("b");
+            var h = document.createElement("p");
+            h.className = "hint";
+            if (state.alikeOnly && state.q) {
+              b.textContent = "No name that reads like another contains “" + input.value + "”";
+              h.textContent =
+                "The list is filtered to entries whose name reads like another. A team matching “" +
+                input.value +
+                "” may well be in the full list — clear the filter to see it.";
+            } else if (state.alikeOnly) {
+              b.textContent = "No name in this list reads like another";
+              h.textContent =
+                "The spelling check found no near-duplicates at all, which would be a change worth noticing.";
+            } else {
+              b.textContent = "No team name contains “" + input.value + "”";
+              h.textContent =
+                "The list holds names as they reach this page, so a team may be recorded under a spelling you would not expect. Try a shorter fragment.";
+            }
+            e.appendChild(b);
+            e.appendChild(h);
+            results.appendChild(e);
+          } else {
+            var letters = {};
+            shown.forEach(function (name) {
+              var L = name[0].toUpperCase();
+              (letters[L] = letters[L] || []).push(name);
+            });
+            Object.keys(letters)
+              .sort()
+              .forEach(function (L) {
+                var head = document.createElement("h2");
+                head.className = "letterhead";
+                head.id = "letter-" + L;
+                head.setAttribute("tabindex", "-1");
+                head.appendChild(document.createTextNode(L));
+                results.appendChild(head);
+
+                var list = document.createElement("div");
+                list.className = "teamlist";
+                letters[L].forEach(function (name) {
+                  var idx = TEAMS.indexOf(name);
+                  var row = document.createElement("div");
+                  row.className = "teamrow";
+
+                  var link = document.createElement("a");
+                  link.className = "namelink";
+                  link.href = "#/community/" + slug(name);
+                  link.addEventListener("click", function (ev) {
+                    ev.preventDefault();
+                    openTeam(name);
+                  });
+
+                  var nm = document.createElement("span");
+                  nm.className = "name";
+                  nm.appendChild(highlight(name));
+                  link.appendChild(nm);
+                  row.appendChild(link);
+
+                  if (familyOf[idx] !== undefined) {
+                    var n = families[familyOf[idx]].length;
+                    var flag = document.createElement("button");
+                    flag.type = "button";
+                    flag.className = "flag";
+                    flag.title =
+                      "Reads like " +
+                      (n - 1) +
+                      " other " +
+                      (n === 2 ? "entry" : "entries") +
+                      " — open the list to compare";
+                    var d = document.createElement("span");
+                    d.className = "dotm";
+                    flag.appendChild(d);
+                    flag.appendChild(document.createTextNode(n + " read alike"));
+                    flag.addEventListener("click", function () {
+                      var panel = document.getElementById("familypanel");
+                      panel.open = true;
+                      var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                      panel.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+                    });
+                    row.appendChild(flag);
+                  }
+
+                  var grow = document.createElement("span");
+                  grow.className = "grow";
+                  row.appendChild(grow);
+
+                  var go = document.createElement("span");
+                  go.className = "go";
+                  go.innerHTML =
+                    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+                  row.appendChild(go);
+
+                  list.appendChild(row);
+                });
+                results.appendChild(list);
+              });
+          }
+
+          resultline.textContent = "";
+          var strong = document.createElement("b");
+          strong.textContent = String(shown.length);
+          resultline.appendChild(strong);
+          resultline.appendChild(
+            document.createTextNode(
+              " of " +
+                TEAMS.length +
+                " teams shown" +
+                (state.alikeOnly ? " — only entries whose name reads like another" : "") +
+                (state.q ? " — matching “" + input.value + "”" : ""),
+            ),
+          );
+
+          paintRail(shown);
+        }
+
+        function paintRail(shown) {
+          var rail = document.getElementById("azrail");
+          var present = {};
+          shown.forEach(function (n) {
+            present[n[0].toUpperCase()] = true;
+          });
+          rail.textContent = "";
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(function (L) {
+            var b = document.createElement("button");
+            b.type = "button";
+            b.textContent = L;
+            if (!present[L]) {
+              b.disabled = true;
+              b.setAttribute("aria-label", "No team starts with " + L);
+            } else {
+              b.addEventListener("click", function () {
+                var t = document.getElementById("letter-" + L);
+                if (t) {
+                  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                  t.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+                  t.focus();
+                }
+              });
+            }
+            rail.appendChild(b);
+          });
+        }
+
+        input.addEventListener("input", function () {
+          state.q = input.value.trim().toLowerCase();
+          clear.hidden = !input.value;
+          render();
+        });
+        clear.addEventListener("click", function () {
+          input.value = "";
+          state.q = "";
+          clear.hidden = true;
+          input.focus();
+          render();
+        });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "/" && document.activeElement !== input) {
+            e.preventDefault();
+            input.focus();
+          }
+          if (e.key === "Escape" && document.activeElement === input) {
+            input.value = "";
+            state.q = "";
+            clear.hidden = true;
+            render();
+          }
+        });
+
+        var chipAll = document.getElementById("chip-all");
+        var chipAlike = document.getElementById("chip-alike");
+        function setFilter(alikeOnly) {
+          state.alikeOnly = alikeOnly;
+          chipAll.setAttribute("aria-pressed", String(!alikeOnly));
+          chipAlike.setAttribute("aria-pressed", String(alikeOnly));
+          render();
+        }
+        chipAll.addEventListener("click", function () {
+          setFilter(false);
+        });
+        chipAlike.addEventListener("click", function () {
+          setFilter(true);
+        });
+
+        paintRecent();
+        render();
+      })();
+    </script>
+  </body>
+</html>
