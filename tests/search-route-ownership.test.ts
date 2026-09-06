@@ -44,7 +44,11 @@ describe("shared-search route ownership", () => {
   });
 
   it("keeps the Sources catalogue route-owned before and after submission", () => {
-    expect(isStandaloneModeHomePath("/sources")).toBe(true);
+    // `/sources` joined the consolidated modes when its four-card home was folded
+    // into the shared one, so it renders nothing and cannot own a hero composer.
+    // It stays always-standalone, because that is a prefix match covering
+    // `/sources/search` and the rest of the namespace.
+    expect(isStandaloneModeHomePath("/sources")).toBe(false);
     expect(isAlwaysStandaloneShellPath("/sources")).toBe(true);
     expect(shouldRenderClinicalDashboard({ hasSubmittedSearch: false, mode: "sources", pathname: "/sources" })).toBe(
       false,
@@ -75,11 +79,16 @@ describe("shared-search route ownership", () => {
   });
 
   it("classifies standalone mode homes from pathname alone", () => {
-    // Documents joined the consolidated modes and no longer owns a standalone home.
-    for (const pathname of ["/favourites", "/tools", "/medications", "/sources"]) {
+    // Favourites and Tools are the last two: every other mode's bare path redirects.
+    for (const pathname of ["/favourites", "/tools"]) {
       expect(isStandaloneModeHomePath(pathname)).toBe(true);
     }
+    // Documents, Sources and Medications all joined the redirecting modes. A path
+    // that 307s never renders, so it can never own a hero composer — listing one
+    // here could not take effect, only mislead.
     expect(isStandaloneModeHomePath("/documents")).toBe(false);
+    expect(isStandaloneModeHomePath("/sources")).toBe(false);
+    expect(isStandaloneModeHomePath("/medications")).toBe(false);
     expect(isStandaloneModeHomePath("/")).toBe(false);
     expect(isStandaloneModeHomePath("/services/crisis")).toBe(false);
     expect(isStandaloneModeHomePath("/dsm/search")).toBe(false);
