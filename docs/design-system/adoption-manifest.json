@@ -806,7 +806,7 @@
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx"
       ],
@@ -822,7 +822,7 @@
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx"
       ],
@@ -1182,7 +1182,7 @@
         "src/components/clinical-dashboard/dashboard-nav.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/document-viewer/source-panels.tsx",
         "src/components/therapy-compass/ui.tsx"
       ],
@@ -1194,7 +1194,7 @@
         "src/components/clinical-dashboard/dashboard-nav.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/document-viewer/source-panels.tsx",
         "src/components/therapy-compass/ui.tsx"
       ],
