@@ -59,9 +59,9 @@
   justify-content: center;
   border: 0.0625rem solid var(--danger-border);
   border-radius: var(--radius-md);
-  background: var(--danger-bg);
+  background: var(--ward-danger-soft);
   padding: 0 var(--mt-space-16);
-  color: var(--danger-text);
+  color: var(--ward-danger);
   font-size: var(--text-xs);
   font-weight: 700;
 }
@@ -77,7 +77,7 @@
 
 .captionRefused {
   border-color: var(--danger-border);
-  background: var(--danger-bg);
+  background: var(--ward-danger-soft);
 }
 
 .captionHeading {
@@ -96,7 +96,7 @@
 
 .captionRefused .captionHeading,
 .captionRefused p {
-  color: var(--danger-text);
+  color: var(--ward-danger);
 }
 
 .nextButton {

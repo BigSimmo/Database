@@ -28,5 +28,7 @@
       "sha256": "4519b4d6f3d071b2fe5d7b226504910fb1fd62c4f3436f576ab52172d59f9996"
     }
   ],
-  "updatedAt": "2026-08-31T19:57:00+08:00"
+  "updatedAt": "2026-08-31T19:57:00+08:00",
+  "activationTreeHash": "451f2469c29cbb723f6bfeb8c8ee53e203178b41045741c73952e96abfe0ed53",
+  "activationTreeFileCount": 5962
 }

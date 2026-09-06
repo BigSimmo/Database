@@ -7,6 +7,7 @@ import { MOVEMENT_STAGES } from "@/components/ward-management/ward-model";
 import type { Movement, MovementStage, Unit } from "@/components/ward-management/ward-model";
 import {
   elapsedLabel,
+  isOpen,
   searchPatients,
   type PatientSearchResult,
   stageCopy,
@@ -14,12 +15,43 @@ import {
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { findPatients, patientDisplayName, type Patient } from "@/components/ward-management/ward-patients";
+import { declinedAddressings } from "@/components/ward-management/ward-referrals";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { WardPanel } from "@/components/ward-management/ward-panel";
 import { WARD_ADD_PERSON_HREF } from "@/components/ward-management/ward-nav";
 import { allEmergencyDepartments, edById } from "@/components/ward-management/ward-sites";
+import { WardTable } from "@/components/ward-management/ward-table/ward-table";
+
+import { PatientTypeahead } from "./patient-typeahead";
 
 import styles from "./search.module.css";
+
+/**
+ * 🔴 THE STAGE FILTER OFFERED AN OPTION THAT COULD NEVER RETURN ANYTHING, AND ITS EMPTINESS READ AS
+ * AN ANSWER.
+ *
+ * `searchMovements` applies `isOpen` FIRST, before any filter (`ward-derivations.ts:1149`), and
+ * `isOpen` is `!closure && stage !== "arrived"`. The `<select>` mapped over all seven
+ * `MOVEMENT_STAGES`, so choosing **Arrived** was guaranteed to return zero results, silently, every
+ * time — and a coordinator reads that as *nobody has arrived*, when the truth is *this board never
+ * shows arrived movements*. **An absence rendered as a measurement**, which is the failure this
+ * whole prototype has spent its life closing, in the one place a reader can trigger it deliberately.
+ *
+ * ⚠️ **AND THE APPROVED MOCKUP HAD ALREADY CAUGHT IT.** `patient-search-console.html` states in
+ * terms that Arrived "is not listed" and that the stage filter "says so out loud rather than
+ * quietly omitting the option". The reasoning survived into the mockup and not into the code.
+ *
+ * ⚠️ **DERIVED FROM `isOpen` ITSELF, NOT FROM A SECOND COPY OF ITS RULE.** Writing
+ * `filter(s => s !== "arrived")` here would put the same fact in two files, and this repository has
+ * been bitten repeatedly by exactly that — a rule restated beside its owner and then drifting. The
+ * probe carries only the two fields `isOpen` reads, and the cast is narrow and deliberate: if
+ * `isOpen` ever consults a third field, `tests/ward-patient-search.dom.test.tsx` fails on the
+ * resulting list rather than this silently going wrong. **The sentence below is derived too**, so a
+ * change to `isOpen` moves the option list AND the explanation together.
+ */
+const stageIsSearchable = (stage: MovementStage) => isOpen({ stage, closure: undefined } as Movement);
+const SELECTABLE_STAGES = MOVEMENT_STAGES.filter(stageIsSearchable);
+const UNSEARCHABLE_STAGES = MOVEMENT_STAGES.filter((stage) => !stageIsSearchable(stage));
 
 /**
  * Task 7 (spec item 5): patient search — a live filter over the open caseload, on its own page
@@ -91,15 +123,21 @@ export function PatientSearchPage() {
       <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-patient-search-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
-          {/* PLACEHOLDER WORDING — owner has not chosen this. Only the enumeration clause changed
+          {/* THREE RESULT KINDS, NOT TWO — enumeration completed 2026-09-04. This sentence listed people and
+              open movements while the page also rendered QUEUED REFERRALS, in their own list, FIRST (see
+              `referralResults` below). The code gained a third kind and the sentence was never touched. Completing
+              a factual enumeration is not choosing the safety wording, so the placeholder note below still stands:
+              whoever writes the final paragraph should know there are THREE kinds and not re-derive two.
+
+              PLACEHOLDER WORDING — owner has not chosen this. Only the enumeration clause changed
               here (the box now also finds a person by name or record number); the "not a medical
               device" sentence, the "never assesses risk, acuity or treatment" clause and the
               closed/arrived caveat are safety language and are carried over verbatim. */}
           <p>
             This search is <strong>not a medical device</strong>. It looks up people already known to this synthetic
-            system by name or record number, and open movements by id, department, destination, stage and owner — it
-            never assesses a patient&apos;s risk, acuity or treatment, and a movement that has already left the system
-            (closed or arrived) never appears here.
+            system by name or record number, queued referrals, and open movements by id, department, destination, stage
+            and owner — it never assesses a patient&apos;s risk, acuity or treatment, and a movement that has already
+            left the system (closed or arrived) never appears here.
           </p>
         </div>
 
@@ -112,32 +150,68 @@ export function PatientSearchPage() {
         </header>
 
         <form className={styles.filters} onSubmit={(event) => event.preventDefault()}>
-          <label className={styles.field} htmlFor="ward-patient-search-text">
-            Search
-            <input
-              id="ward-patient-search-text"
-              type="text"
+          {/*
+            THE NAME BOX IS A TYPEAHEAD (owner request, 2026-09-05). It is the same one string this
+            page has always held and it still drives `searchPatients` and `findPatients` unchanged —
+            what is new is that it SHOWS the people it found while the clinician is still typing,
+            with the record number and date of birth that tell two similar names apart.
+
+            ⚠️ IT DOES NOT RANK, PRESELECT, OR SUGGEST A BEST MATCH. `nearPatients` refused that for
+            its own output and the refusal binds the control built on top of it. See
+            `patient-typeahead.tsx` for the three consequences and the model gap it reports.
+          */}
+          <div className={styles.typeaheadSlot}>
+            <PatientTypeahead
+              patients={patients}
+              referrals={referrals}
               value={text}
-              onChange={(event) => setText(event.target.value)}
+              onValueChange={setText}
+              label="Search"
               // PLACEHOLDER WORDING — owner has not chosen this.
               placeholder="Name, record number, or movement id…"
+              // The people panel below already carries the add-person route, with its own wording
+              // and a testid two tests pin. One destination, one door.
+              offerAddPerson={false}
             />
-          </label>
-          <label className={styles.field} htmlFor="ward-patient-search-stage">
-            Stage
+          </div>
+          {/*
+           * ⚠️ THE NOTE SITS OUTSIDE THE `<label>`, AND PUTTING IT INSIDE IS WHAT BROKE TWO TESTS.
+           *
+           * A `<label>` wrapping its control takes its accessible name from ALL its text, so a
+           * sentence added inside it renamed the field from "Stage" to "Stage Arrived is not
+           * listed: …". `getByLabelText("Stage")` stopped finding it — and the same rename would
+           * have reached a screen reader, which is the half no test was watching. So the label is
+           * now `htmlFor`-linked and holds only its own word, and the note is tied to the control
+           * with `aria-describedby`, which is the attribute for a hint ABOUT a field rather than
+           * the field's name.
+           */}
+          <div className={styles.field}>
+            <label htmlFor="ward-patient-search-stage">Stage</label>
             <select
               id="ward-patient-search-stage"
               value={stage}
+              aria-describedby={UNSEARCHABLE_STAGES.length > 0 ? "ward-patient-search-stage-note" : undefined}
               onChange={(event) => setStage(event.target.value as MovementStage | "")}
             >
               <option value="">All stages</option>
-              {MOVEMENT_STAGES.map((value) => (
+              {SELECTABLE_STAGES.map((value) => (
                 <option key={value} value={value}>
                   {stageCopy[value].label}
                 </option>
               ))}
             </select>
-          </label>
+            {UNSEARCHABLE_STAGES.length > 0 ? (
+              <span
+                id="ward-patient-search-stage-note"
+                className={styles.fieldNote}
+                data-testid="ward-patient-search-stage-note"
+              >
+                {UNSEARCHABLE_STAGES.map((hidden) => stageCopy[hidden].label).join(", ")} is not listed: a movement at
+                that stage has left this board, so the filter would find nothing and that nothing would read as an
+                answer.
+              </span>
+            ) : null}
+          </div>
           <label className={styles.field} htmlFor="ward-patient-search-department">
             Department
             <select id="ward-patient-search-department" value={edId} onChange={(event) => setEdId(event.target.value)}>
@@ -151,11 +225,70 @@ export function PatientSearchPage() {
           </label>
         </form>
 
-        <PeopleSection people={people} query={text} />
+        <SearchSummary people={people} results={results} query={text} />
+
+        <PeopleSection people={people} query={text} otherMatches={results.length} />
 
         <ResultsSection results={results} units={units} now={now} />
       </main>
     </div>
+  );
+}
+
+/**
+ * WHAT THIS SEARCH FOUND — one line, above the panels, counting the three kinds separately.
+ *
+ * ⚠️ IT COUNTS; IT DOES NOT SUMMARISE. Every figure below is `list.length` of a list rendered on
+ * this same page, so the sentence cannot drift from what is underneath it. The temptation on a
+ * screen like this is a line that characterises the result set — "mostly awaiting beds", "several
+ * urgent" — and every such sentence is a clinical assertion this page has promised not to make.
+ *
+ * The referral count is stated in WORDS as "still waiting for a decision" rather than labelled
+ * "referrals", because "referral" alone does not carry to somebody who has just typed a name and is
+ * scanning for where their patient is — the same reason the referral rows themselves say it.
+ *
+ * Renders nothing before a search: a row of zeroes above an idle page is noise that looks like a
+ * finding.
+ */
+function SearchSummary({
+  people,
+  results,
+  query,
+}: {
+  people: Patient[];
+  results: PatientSearchResult[];
+  query: string;
+}) {
+  if (query.trim().length === 0) return null;
+
+  const referralCount = results.filter((result) => result.kind === "referral").length;
+  const movementCount = results.filter((result) => result.kind === "movement").length;
+  const total = people.length + referralCount + movementCount;
+
+  if (total === 0) {
+    return (
+      <p className={styles.summary} data-testid="ward-patient-search-summary">
+        <strong>Nothing matches “{query.trim()}”.</strong> No person, no waiting referral and no open movement. A record
+        that has already left the system would not appear here even if it existed.
+      </p>
+    );
+  }
+
+  return (
+    <p className={styles.summary} data-testid="ward-patient-search-summary">
+      <strong>
+        {total} {total === 1 ? "record" : "records"}
+      </strong>{" "}
+      for “{query.trim()}” —{" "}
+      <span className={styles.summaryPart}>
+        {people.length} {people.length === 1 ? "person" : "people"}
+      </span>
+      , <span className={styles.summaryPart}>{referralCount} still waiting for a decision</span>, and{" "}
+      <span className={styles.summaryPart}>
+        {movementCount} open {movementCount === 1 ? "movement" : "movements"}
+      </span>
+      .
+    </p>
   );
 }
 
@@ -167,7 +300,29 @@ export function PatientSearchPage() {
  * a bed or a journey — it says this person is known to the system, which is exactly the question
  * being asked before somebody decides to add them.
  */
-export function PeopleSection({ people, query }: { people: Patient[]; query: string }) {
+export function PeopleSection({
+  people,
+  query,
+  otherMatches = 0,
+}: {
+  people: Patient[];
+  query: string;
+  /**
+   * 🔴 HOW MANY NON-PERSON RECORDS THIS SAME SEARCH FOUND — because without it this panel asserted
+   * that nobody was known whenever the search matched a movement or a referral instead of a person.
+   *
+   * Search a movement id and the movement appears in the panel below, while this one said *"Nobody
+   * of that name or record number is known to this system"* and offered to ADD them. The claim is a
+   * category error rather than a falsehood — the string was never a person's — but the invitation is
+   * the part that gets acted on, and adding a duplicate person is the outcome this screen exists to
+   * prevent. **The empty state has to know whether the search found nothing, or found something
+   * that was not a person.**
+   *
+   * Defaults to 0 so the standalone/idle uses of this component keep the stronger sentence, which is
+   * correct when nothing else matched.
+   */
+  otherMatches?: number;
+}) {
   const searched = query.trim().length > 0;
   /**
    * Carries what the clinician already typed into `AddPatientForm`, so agreeing "add this person"
@@ -192,6 +347,11 @@ export function PeopleSection({ people, query }: { people: Patient[]; query: str
         <p className={styles.emptyNote} data-testid="ward-patient-search-people-idle">
           Search by record number or name to find a person. Related spellings are found too — searching
           &ldquo;hallow&rdquo; finds both Halloway and Hallowin.
+        </p>
+      ) : people.length === 0 && otherMatches > 0 ? (
+        <p className={styles.emptyNote} data-testid="ward-patient-search-people-none-matched">
+          No person matched that search, though it did find records below. Nothing here says whether the person exists —
+          only that what you typed did not match a name or a record number.
         </p>
       ) : people.length === 0 ? (
         <p className={styles.emptyNote} data-testid="ward-patient-search-people-empty">
@@ -259,22 +419,53 @@ export function ResultsSection({
        * Each row says in words that nobody has accepted them yet, because "referral" alone does not
        * carry that to a reader who has just typed a name into a search box and is scanning for
        * where their patient is.
+       *
+       * 🔴 AND EACH ROW NOW SAYS HOW MANY DESTINATIONS HAVE ALREADY SAID NO. "Waiting for a
+       * decision" alone reads the same whether nobody has been asked yet or several destinations
+       * have already declined — and those are opposite clinical situations for a coordinator
+       * triaging this list. `declinedAddressings` is the one place that count is computed;
+       * nothing here counts it a second time.
        */}
       {referralResults.length > 0 && (
         <ul className={styles.referralList} data-testid="ward-patient-search-referrals">
-          {referralResults.map(({ referral }) => (
-            <li
-              key={referral.id}
-              className={styles.referralRow}
-              data-testid={`ward-patient-search-referral-${referral.id}`}
-            >
-              <span className={styles.referralId}>{referral.id}</span>
-              <span className={styles.referralNote}>
-                Referral from {referral.originSiteCode} · {referral.ageBand} · {referral.homeRegion} — waiting for a
-                decision, no bed accepted yet.
-              </span>
-            </li>
-          ))}
+          {referralResults.map(({ referral }) => {
+            const declinedCount = declinedAddressings(referral).length;
+            const totalCount = referral.destinations.length;
+            return (
+              <li
+                key={referral.id}
+                className={styles.referralRow}
+                data-testid={`ward-patient-search-referral-${referral.id}`}
+              >
+                <span className={styles.referralId}>{referral.id}</span>
+                <span className={styles.referralNote}>
+                  Referral from {referral.originSiteCode} · {referral.ageBand} · {referral.homeRegion} —{" "}
+                  {declinedCount > 0 ? (
+                    /*
+                     * ⚠️ NEVER "all declined". `searchPatients` only lists QUEUED referrals here
+                     * (`referralState(referral) === "queued"`), and `referralState` classifies a
+                     * referral as "declined" — dropping it from this list entirely — the moment
+                     * every destination has declined. So a referral reaching this row always has at
+                     * least one destination that has NOT declined; `declinedCount` is always less
+                     * than `totalCount`, and stating anything else would be a claim this data
+                     * cannot support.
+                     *
+                     * ⚠️ "destination", never "ward". `declinedAddressings` counts declined
+                     * ADDRESSINGS, and an addressing can be a ward, an emergency department or a
+                     * community team (`ReferralDestination`) — a declined destination is not
+                     * necessarily a declined ward.
+                     */
+                    <>
+                      {declinedCount} of {totalCount} destination{totalCount === 1 ? "" : "s"} already declined, no bed
+                      accepted yet.
+                    </>
+                  ) : (
+                    "waiting for a decision, no bed accepted yet."
+                  )}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -287,48 +478,46 @@ export function ResultsSection({
           No open movement fits the current search. The waiting referrals above have not been accepted anywhere yet.
         </p>
       ) : (
-        <div className={styles.tableScroll}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th scope="col">Movement</th>
-                <th scope="col">Stage</th>
-                <th scope="col">Department</th>
-                <th scope="col">Destination</th>
-                {/*
-                 * 🔴 "Open for", NOT "Since arrival". `elapsedLabel` measures from
-                 * `movement.openedAt` (`ward-derivations.ts:195`), and `Movement` holds NO arrival
-                 * instant at all — `arrivedAt` was deliberately deleted (`ward-model.ts`, Phase 8
-                 * Task 2R). `Referral.triagedAt`'s doc comment states the rule in terms: "TRIAGE IS
-                 * NOT ARRIVAL, AND NO SCREEN MAY WORD IT AS ONE." A patient arrives, waits, and is
-                 * triaged some time later; on a busy night that gap is not small, so a header
-                 * saying "arrival" over an opened-at clock understates every wait on the screen.
-                 *
-                 * ⚠️ THE SAME TWO WORDS ARE CORRECT ON THE OUT-OF-AREA LEDGER and must stay there.
-                 * That column is fed by `sinceArrivalLabel`, which reads a real admission and says
-                 * "Arrival not recorded" when it has none. Identical wording, different source,
-                 * only one of them a claim the record cannot support — which is why this one
-                 * survived review: it reads as house style rather than as an assertion.
-                 * `tests/ui-ward-referrals.spec.ts` pins that ledger's four headers; it does not
-                 * cover this table, so nothing there needed relaxing to make this change.
-                 *
-                 * "Open for" is safe across every row because `searchMovements` filters `isOpen`
-                 * first and unconditionally, so a closed movement can never reach this column and
-                 * be described as still open.
-                 */}
-                <th scope="col">Open for</th>
-                <th scope="col">
-                  <span className="sr-only">Open</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {movementResults.map(({ movement }) => (
-                <ResultRow key={movement.id} movement={movement} units={units} now={now} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <WardTable className={styles.table} wrapperClassName={styles.tableScroll}>
+          <thead>
+            <tr>
+              <th scope="col">Movement</th>
+              <th scope="col">Stage</th>
+              <th scope="col">Department</th>
+              <th scope="col">Destination</th>
+              {/*
+               * 🔴 "Open for", NOT "Since arrival". `elapsedLabel` measures from
+               * `movement.openedAt` (`ward-derivations.ts:195`), and `Movement` holds NO arrival
+               * instant at all — `arrivedAt` was deliberately deleted (`ward-model.ts`, Phase 8
+               * Task 2R). `Referral.triagedAt`'s doc comment states the rule in terms: "TRIAGE IS
+               * NOT ARRIVAL, AND NO SCREEN MAY WORD IT AS ONE." A patient arrives, waits, and is
+               * triaged some time later; on a busy night that gap is not small, so a header
+               * saying "arrival" over an opened-at clock understates every wait on the screen.
+               *
+               * ⚠️ THE SAME TWO WORDS ARE CORRECT ON THE OUT-OF-AREA LEDGER and must stay there.
+               * That column is fed by `sinceArrivalLabel`, which reads a real admission and says
+               * "Arrival not recorded" when it has none. Identical wording, different source,
+               * only one of them a claim the record cannot support — which is why this one
+               * survived review: it reads as house style rather than as an assertion.
+               * `tests/ui-ward-referrals.spec.ts` pins that ledger's four headers; it does not
+               * cover this table, so nothing there needed relaxing to make this change.
+               *
+               * "Open for" is safe across every row because `searchMovements` filters `isOpen`
+               * first and unconditionally, so a closed movement can never reach this column and
+               * be described as still open.
+               */}
+              <th scope="col">Open for</th>
+              <th scope="col">
+                <span className="sr-only">Open</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {movementResults.map(({ movement }) => (
+              <ResultRow key={movement.id} movement={movement} units={units} now={now} />
+            ))}
+          </tbody>
+        </WardTable>
       )}
     </WardPanel>
   );

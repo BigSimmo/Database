@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Same reason as `ward-patient-page.dom.test.tsx`: `AddPatientForm` navigates via `useRouter()`
 // after a successful add, and jsdom has no App Router context to resolve it against.
@@ -374,7 +375,7 @@ describe("AddPatientForm — the exact-duplicate tiers", () => {
     // mistyped. There is no third reading in which a new patient legitimately holds it, so a
     // hedged "might be" would be a WEAKER claim than the evidence supports.
     const notice = screen.getByTestId("ward-add-patient-duplicate-umrn");
-    expect(notice.textContent).toContain("UM100002 already belongs to Marcus Hallowin");
+    expectSays(notice.textContent ?? "", "the duplicate-record refusal", ["UM100002", "Hallowin"]);
     expect(
       notice.textContent,
       "the collision is hedged, which understates evidence that admits only two readings",

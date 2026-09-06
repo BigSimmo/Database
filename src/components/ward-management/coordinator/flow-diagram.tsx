@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import type { Instant } from "@/components/ward-management/ward-clock";
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
+import { designationSummary } from "@/components/ward-management/ward-bed-designation";
 import {
   candidateReason,
   eligibleCandidatesAmong,
@@ -54,8 +55,8 @@ function elbowPath(from: Point, to: Point) {
   return `M ${from.x} ${from.y} H ${trunk} V ${to.y} H ${to.x}`;
 }
 
-function capabilityLabel(unit: { security: string; cohort: string; beds: number }) {
-  return `${unit.security} · ${unit.cohort} · ${unit.beds} beds`;
+function capabilityLabel(unit: Unit) {
+  return `${designationSummary(unit)} · ${unit.cohort} · ${unit.beds} beds`;
 }
 
 /**

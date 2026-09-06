@@ -23,8 +23,27 @@ import {
  * `UNEVIDENCED_CLAIMS` into `MODEL_CLAIMS` as `community-index/reachability/the-root-rail-links-this-index`,
  * carrying a real citation and a `falsifiedBy` edit instead of a reason no line could be cited.
  */
-const EXPECTED_MODEL_CLAIMS = 86;
-const EXPECTED_UNEVIDENCED_CLAIMS = 12;
+/*
+ * 86 -> 81 on 2026-09-05, for the reason this count names as legitimate: "the page sentence went
+ * with it". Five claims recorded that `wardStatistics()` DERIVES a figure while the page carried a
+ * paragraph saying those derivations existed and were surfaced nowhere; the page now shows the five
+ * figures, so that paragraph and its sentences are gone. A sixth said the module had no consumer in
+ * the app, which this change made false rather than moved.
+ *
+ * ⚠️ Lowering this number is exactly what the assertion warns against when it is done to clear a
+ * red. It is recorded here so the next reader can check the reason rather than the arithmetic: the
+ * six removals are enumerated in `statistics-claims-register.ts` beside the section they left.
+ */
+const EXPECTED_MODEL_CLAIMS = 81;
+/*
+ * 12 -> 11 on 2026-09-05. The admitted gap that left was
+ * `statistics-ward-screen/computed/ward-statistics-has-no-consumer-in-the-app`, and it left because
+ * it became FALSE: the ward statistics page now consumes that derivation. An admitted gap is an
+ * absence somebody chose not to evidence; when the absence ends, the entry is not evidence-less any
+ * more, it is simply wrong. Its own guard in `ward-statistics-sections.test.ts` fired on the
+ * commit that ended it and is inverted in the same change.
+ */
+const EXPECTED_UNEVIDENCED_CLAIMS = 11;
 const EXPECTED_REGISTERED_SURFACES = 9;
 
 /**

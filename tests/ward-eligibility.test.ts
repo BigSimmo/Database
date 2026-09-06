@@ -8,6 +8,7 @@ import {
 import type { LegalStatus, Movement, Referral, Unit } from "../src/components/ward-management/ward-model";
 import { NOW_ANCHOR, unitById } from "../src/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 const NOW = 10 * 60 + 42;
 
 function unit(overrides: Partial<Unit> = {}): Unit {
@@ -16,11 +17,14 @@ function unit(overrides: Partial<Unit> = {}): Unit {
     siteCode: "RPH",
     name: "Test Unit",
     cohort: "Adult",
-    security: "Open",
+    // Wholly open by default — 0 locked beds, so `lockedBedsFree` is always 0 unless a test
+    // overrides `lockedBeds`/`allocatableLocked` to build a locked or mixed ward.
+    lockedBeds: 0,
     authorised: true,
     beds: 20,
     empty: { value: 3, source: "feed", confirmedAt: NOW - 2, staleAfterMinutes: 15 },
     allocatable: { value: 2, source: "ward", confirmedAt: NOW - 10, staleAfterMinutes: 120 },
+    allocatableLocked: 0,
     held: 0,
     blocked: 0,
     sexMix: { Female: 10, Male: 8 },
@@ -87,6 +91,7 @@ function referral(overrides: Partial<Omit<Referral, "destinations">> = {}): Refe
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
     ...overrides,
   };
 }
@@ -139,8 +144,8 @@ describe("clinical and operational gates", () => {
   });
 
   it("gives the security gate a different detail string on pass than on fail", () => {
-    const failing = eligibility(movement({ security: "Secure" }), unit({ security: "Open" }), NOW);
-    const passing = eligibility(movement({ security: "Open" }), unit({ security: "Open" }), NOW);
+    const failing = eligibility(movement({ security: "Secure" }), unit(), NOW);
+    const passing = eligibility(movement({ security: "Open" }), unit(), NOW);
     const failGate = failing.gates.find((gate) => gate.gate === "security");
     const passGate = passing.gates.find((gate) => gate.gate === "security");
     expect(failGate?.pass).toBe(false);
@@ -204,11 +209,12 @@ describe("sex designation, on the movement path", () => {
   });
 
   it("still offers that same bed to a Male movement, so the gate is not a blanket refusal", () => {
-    const verdict = eligibility(
-      movement({ sex: "Male", cohort: "Adult", security: "Secure" }),
-      unitById("fsh-adult-secure") as Unit,
-      NOW_ANCHOR,
-    );
+    // Task 3 gave `ward-sites.ts` real locked/open splits, so this reads the seeded unit directly
+    // rather than patching one on — `fsh-adult-secure` is now genuinely mixed (12 of 18 beds
+    // locked, 2 of 3 allocatable beds locked free), which still exercises the bed-kind gate
+    // against a real network unit.
+    const secureBed = unitById("fsh-adult-secure") as Unit;
+    const verdict = eligibility(movement({ sex: "Male", cohort: "Adult", security: "Secure" }), secureBed, NOW_ANCHOR);
     expect(verdict.gates.find((gate) => gate.gate === "sex_designation")?.pass).toBe(true);
     expect(verdict.eligible).toBe(true);
   });
@@ -275,7 +281,8 @@ describe("forensic, on the movement path", () => {
     const bed = unit({
       forensic: true,
       cohort: "Adult",
-      security: "Secure",
+      lockedBeds: 20,
+      allocatableLocked: 2,
       sexDesignation: "Undesignated",
       name: "Test Secure Unit",
     });
@@ -293,5 +300,85 @@ describe("forensic, on the movement path", () => {
     expect(referralVerdict.eligible).toBe(false);
     expect(movementVerdict.gates.find((g) => g.gate === "forensic")?.pass).toBe(false);
     expect(referralVerdict.gates.find((g) => g.gate === "forensic")?.pass).toBe(false);
+  });
+});
+
+describe("security gate — a mixed ward's locked beds are reachable", () => {
+  // ⚠️ THE DEFECT THIS FIXES. Before 2026-09-04 the gate read
+  //   `movement.security === "Open" || unit.security === "Secure"`
+  // so a ward with locked beds but recorded as Open failed every Secure patient.
+  it("passes a Secure movement at a mixed ward with a free locked bed", () => {
+    const mixedWard = unit({
+      beds: 17,
+      lockedBeds: 4,
+      allocatable: { value: 2, source: "ward", confirmedAt: NOW - 10, staleAfterMinutes: 120 },
+      allocatableLocked: 1,
+    });
+    const verdict = eligibility(movement({ security: "Secure" }), mixedWard, NOW);
+    const gate = verdict.gates.find((g) => g.gate === "security");
+    expect(gate?.pass).toBe(true);
+    expect(gate?.detail).toContain("1 locked bed");
+  });
+
+  // ⚠️ THIS TEST ASSERTED THE OPPOSITE UNTIL 2026-09-04, AND THE CHANGE IS DELIBERATE — read the
+  // reason before restoring it, because the obvious "fix" is to put the old assertion back.
+  //
+  // It used to require that a Secure movement FAIL at a mixed ward whose locked beds are all
+  // occupied. That made the security gate answer a capacity question, which duplicated
+  // `allocatable_bed` and broke the leniency that gate deliberately carries — the movement path
+  // passes on raw `allocatable`, and the guard that makes it safe is `PATIENT_ARRIVED` refusing
+  // when `empty.value <= 0`, three events downstream. The observable symptom was the last-bed
+  // reducer case: a second acceptance failed on the SECURITY gate instead of reaching the pull
+  // guard that answers `bed_pulled_for_earlier_referral`.
+  //
+  // 🔴 SO THIS PINS A KNOWN RESIDUAL RATHER THAN A DESIRED BEHAVIOUR. The gate asks about KIND
+  // only: has this ward locked beds at all. A mixed ward with every locked bed occupied and open
+  // beds free still passes, and the old whole-ward flag could not have that problem, because a
+  // wholly-Secure ward's free beds were necessarily locked ones.
+  //
+  // What would close it: teaching the CAPACITY gates about bed kind. That is a change to a
+  // protected surface and belongs to the matcher. Until then the detail sentence must carry the
+  // real locked-bed figures, so a coordinator sees the situation instead of a bare pass — which
+  // is what the second assertion here exists to hold.
+  it("passes a Secure movement at a mixed ward whose locked beds are all full — a known residual, and the detail must say so", () => {
+    const mixedWard = unit({
+      beds: 17,
+      lockedBeds: 4,
+      allocatable: { value: 2, source: "ward", confirmedAt: NOW - 10, staleAfterMinutes: 120 },
+      allocatableLocked: 0,
+    });
+    const verdict = eligibility(movement({ security: "Secure" }), mixedWard, NOW);
+    const gate = verdict.gates.find((g) => g.gate === "security");
+    expect(gate?.pass, "kind is satisfied — capacity is allocatable_bed's question, not this gate's").toBe(true);
+    expect(gate?.detail, "the pass must not be silent about there being no free locked bed right now").toContain(
+      "no locked bed is free",
+    );
+  });
+
+  it("fails a Secure movement at a wholly open ward", () => {
+    const openWard = unit({
+      beds: 17,
+      lockedBeds: 0,
+      allocatable: { value: 3, source: "ward", confirmedAt: NOW - 10, staleAfterMinutes: 120 },
+      allocatableLocked: 0,
+    });
+    const verdict = eligibility(movement({ security: "Secure" }), openWard, NOW);
+    expect(verdict.gates.find((g) => g.gate === "security")?.pass).toBe(false);
+  });
+
+  // Plan-author decision, not an owner ruling: an Open movement is not newly restricted — it
+  // passes wherever any bed is free, and the detail names it when the only free bed is a locked
+  // one, leaving the judgement with the coordinator.
+  it("passes an Open movement wherever any bed is free, and says when only a locked one is", () => {
+    const whollyLockedWard = unit({
+      beds: 17,
+      lockedBeds: 17,
+      allocatable: { value: 2, source: "ward", confirmedAt: NOW - 10, staleAfterMinutes: 120 },
+      allocatableLocked: 2,
+    });
+    const verdict = eligibility(movement({ security: "Open" }), whollyLockedWard, NOW);
+    const gate = verdict.gates.find((g) => g.gate === "security");
+    expect(gate?.pass).toBe(true);
+    expect(gate?.detail).toContain("only locked");
   });
 });

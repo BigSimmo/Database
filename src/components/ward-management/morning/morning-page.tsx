@@ -1,5 +1,36 @@
 "use client";
 
+/**
+ * ⚠️⚠️ **UNMOUNTED SINCE 2026-09-05. NO ROUTE RENDERS THIS COMPONENT, AND IT IS PARKED RATHER THAN
+ * DELETED — ON WARD LEAD'S RULING, 2026-09-06.**
+ *
+ * MERGE 02 (owner-approved) folded the morning bed state board into `CapacityScreen`.
+ * `/mockups/ward-flow/morning` is now a redirect stub kept so an existing bookmark does not 404 —
+ * `ward-nav.ts` calls it *"not a destination in its own right"* — and nothing else mounts
+ * `MorningPage`. So every line below is unreachable by any reader.
+ *
+ * 🔴 **`tests/ward-morning-page.dom.test.tsx` STILL PASSES, ALL 20 CASES, DESCRIBING THIS SCREEN.**
+ * Tests that pass forever against something nobody can open are worse than no tests, because they
+ * read as coverage. Nothing flags it: the reachability guard watches `WardModeWorkspace` modes, not
+ * standalone components.
+ *
+ * ⚠️ **WHY PARKED AND NOT DELETED, AND THE REASON IS AN INCIDENT RATHER THAN CAUTION.** Ward Lead
+ * retired a structurally identical orphan hours earlier to clear a red before publication, and it
+ * turned out to be holding an open owner question visible. The reasoning was withdrawn the same
+ * night. Deleting this one on the same day, on the same argument, is the mistake twice.
+ *
+ * ⚠️ **AND SPEC D9 IS NOW HALF-UNSATISFIABLE.** It requires this board and the shift handover to
+ * carry a one-line link to each other, naming the question each answers. The handover's half was
+ * repointed at `/capacity` on 2026-09-06 — it had been linking at the redirect stub, which is a
+ * separate defect that is fixed. This half has no reader to link from. **Whether D9 survives the
+ * merge, and in what form, is the owner's to rule on, and it is going to him alongside the sex-mix
+ * question.**
+ *
+ * **Do not delete, do not "fix" the tests to point at CapacityScreen, and do not quietly re-mount
+ * it.** Each of those answers the owner's question by default, which is the thing this note exists
+ * to prevent.
+ */
+
 import Link from "next/link";
 
 import type { CapacityBreakdown } from "@/components/ward-management/ward-bed-availability";
@@ -258,8 +289,8 @@ function GovernanceBanner() {
       <span className={styles.prototypeBadge}>Synthetic prototype</span>
       <p>
         This page is <strong>not a medical device</strong>. It shows only the bed-availability figures a ward has
-        recorded, rolled up to hospital and network level, and it never adds a expected, confirmed-but-unreleased or
-        leave bed into &quot;available now&quot;.
+        recorded, rolled up to hospital and network level, and it never adds an expected, confirmed-but-unreleased or
+        leave bed into the Ready figure.
       </p>
     </div>
   );
@@ -337,7 +368,8 @@ export function FreshnessLine({ freshness, now }: { freshness: RollupFreshness; 
 export function HeadlineFigure({ rollup, now }: { rollup: CapacityRollup; now: Instant }) {
   return (
     <section className={styles.headline} data-testid="ward-morning-headline">
-      <h1 className={styles.headlineTitle}>Beds available right now</h1>
+      {/* Names the figure printed directly beneath it, so it is a label rather than prose. */}
+      <h1 className={styles.headlineTitle}>Ready beds</h1>
       <p className={styles.headlineNumber} data-testid="ward-morning-figure-service-availableNow">
         <span className={styles.headlineValue}>{rollup.availableNow}</span>
         <span className={styles.headlineLabel}>{CAPACITY_FIGURE_LABELS.availableNow}</span>

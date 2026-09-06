@@ -34,6 +34,7 @@ import { referrals as seededReferrals } from "../src/components/ward-management/
 import { referralState } from "../src/components/ward-management/ward-referrals";
 import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * FD-23, owner 2026-08-30: **a ward cannot see where else a patient has been referred. The
  * coordinator may see everything.** His reason: so a ward does not spend its time on a patient who
@@ -110,6 +111,7 @@ function multiDestinationReferral(): Referral {
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
   });
   expect(received.rejections, "the reducer refused the three-destination referral this file needs").toEqual([]);
   const created = received.referrals.at(-1)!;
@@ -238,6 +240,7 @@ function cancelledArmReferral(): Referral {
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
   });
   expect(received.rejections, "the reducer refused the two-destination referral this fixture needs").toEqual([]);
   const created = received.referrals.at(-1)!;
@@ -1015,6 +1018,7 @@ describe("FD-23 — a ward cannot see where else a patient has been referred", (
         urgency: 2,
         originSiteCode: "RPH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
       };
 
       // POSITIVE CONTROL 1 — the fields must be on the source arm, or the absences below prove
@@ -1273,6 +1277,7 @@ describe("FD-23 — a ward cannot see where else a patient has been referred", (
         urgency: 2,
         originSiteCode: "RPH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
       };
 
       // POSITIVE CONTROL — the fields must be on the source arm, or the absences below prove nothing.
@@ -1326,6 +1331,7 @@ describe("FD-23 — a ward cannot see where else a patient has been referred", (
         urgency: 2,
         originSiteCode: "RPH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
       });
       expect(communityOnly.rejections, "the reducer refused the community-only referral").toEqual([]);
       const referral = communityOnly.referrals.at(-1)!;
@@ -1646,6 +1652,7 @@ describe("FD-23 — a ward cannot see where else a patient has been referred", (
         urgency: 2,
         originSiteCode: "RPH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
         localBedSought: { at: RAISED_AT + 5, by: "Flow coordinator" },
       };
 
@@ -1913,6 +1920,7 @@ describe("FD-23 — a ward cannot see where else a patient has been referred", (
         urgency: 2,
         originSiteCode: "RPH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
         // Declared on the projection, and the positive control for the sweep below.
         localBedSought: { at: RAISED_AT + 5, by: "Flow coordinator" },
       };
@@ -2078,6 +2086,7 @@ describe("the coordinator's work list — direction of the LIVE destinations", (
       urgency: 2,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     };
   }
 
@@ -2565,6 +2574,7 @@ describe("the coordinator's work list — direction of the LIVE destinations", (
         urgency: 2,
         originSiteCode: "RPH",
         transportNeeded: false,
+        ...FIXTURE_HISTORY,
       });
       expect(received.rejections, "the reducer refused the two-destination referral this test needs").toEqual([]);
       const created = received.referrals.at(-1)!;
@@ -2800,7 +2810,23 @@ describe("the coordinator's work list — direction of the LIVE destinations", (
       "the coordinator's work list no longer removes exactly RF-010. If nothing is removed, the " +
         "seed has lost its community-only referral or the rule has been unwired; if something else " +
         "is removed, the rule is hiding a referral that is still upstream of a bed decision.",
-    ).toEqual(["RF-010"]);
+    ).toEqual([
+      "RF-010",
+      // ⚠️ The nine Midland DEMONSTRATION referrals, added 2026-09-05 (`MIDLAND_DEMONSTRATION_ROWS`,
+      // `ward-movements.ts`). They are community-only, so owner ruling 18 removes them for exactly
+      // the same reason it removes RF-010 — this list growing is the rule working on more data, not
+      // a second behaviour. Written out rather than derived from that fixture: a baseline taken from
+      // the subject cannot disagree with it, and this assertion exists to disagree.
+      "RF-RGHS-01",
+      "RF-SCGA-07",
+      "RF-GRYS-09",
+      "RF-RPHS-14",
+      "RF-SJGA-05",
+      "RF-BTYO-05",
+      "RF-ARMA-01",
+      "RF-ARMA-02",
+      "RF-FSHS-01",
+    ]);
 
     // And the removed one really is community-only — the premise the assertion above rests on,
     // stated rather than assumed.

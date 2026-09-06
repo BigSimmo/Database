@@ -327,8 +327,9 @@ export function ReferralMatchView({ referral, units, now, dispatch, rejections }
        * decision is actually taken, so the sentence is repeated where it is read.
        */}
       <p className={styles.matchGovernance} data-testid="ward-referral-match-governance">
-        <strong>Not a medical device.</strong> Every unit below is listed in the network&apos;s own fixed order — this
-        view never ranks units by suitability and never suggests which bed is best. A coordinator decides.
+        <strong>Not a medical device.</strong> Every unit below is listed in the network&apos;s own fixed order. This
+        view places nobody: a coordinator decides every placement, one at a time, and nothing is accepted until they
+        record it.
       </p>
       {/*
        * The tier is its OWN element, never a field inside the dot-separated summary line below

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "89eabb12-ac1b-4ddd-9687-ab240854b891",
+  "createdOn": "2026-09-05",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Ward Flow: a coordinator can no longer see sex mix or specialling headroom when placing a patient, and the test that held that question visible has been retired",
+    "detail": "OWNER QUESTION, NOT A DEFECT. When the capacity board moved from the shared mode surface to its own CapacityScreen, two figures stopped being shown: each ward's sex mix, and its specialling (one-to-one nursing) headroom. Both are hard constraints in the eligibility engine, so the engine uses them while the coordinator making the placement cannot see them. capacity-screen.tsx (the sex-mix signal comment) states the position at the render site: no sex mix appears on the network view and none should for now, because whether those counts belong there is an open question for the owner. WHAT CHANGED 2026-09-06: the last test asserting those figures rendered against the retired surface, so it could never fail for the right reason, and it was retired to clear a red before publication of PR 2654. Three sessions independently flagged that the retirement removed the one mechanism that kept the question in front of somebody every run, and diff-integrity.json had recorded in its own words that building it would answer the question on the owner's behalf. The question is now recorded at the render site, in the retirement comment in tests/ward-capacity-view.dom.test.tsx, in the PR body, and here. WHAT IS NEEDED: the owner decides whether sex mix and specialling headroom belong as figures on a network capacity view, and if so which source is honest for sex mix (Unit.sexMix or derivedSexMix). Nothing should be built before that ruling; building it answers the question by default.",
+    "issueUlid": "01M1SYCG2SCNCB0WNH5F3ZSRK8"
+  }
+}
