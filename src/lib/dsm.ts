@@ -223,6 +223,41 @@ export function dsmCriteria(diagnosis: DsmDiagnosis) {
   return diagnosis.criteria_display.length > 0 ? diagnosis.criteria_display : diagnosis.key_features;
 }
 
+/**
+ * A specifier row that is really a statement that the disorder HAS no
+ * specifiers, e.g. "No DSM-5-TR specifiers for this disorder".
+ *
+ * Ten records carry one of these, and on all ten it is the ONLY row in
+ * `specifiers` — the upstream export uses the array as a slot for the sentence
+ * rather than leaving it empty. Counting it made every one of those records
+ * report "1 specifier" in the at-a-glance strip and the record summary when the
+ * true answer is none, which is a factual error about the diagnostic standard
+ * and not a rendering nicety.
+ *
+ * The rows are still worth rendering: six of the ten carry a real description
+ * (ARFID's sensory/fear-of-consequences/low-interest subtypes, pica's context
+ * examples), so `dsmSpecifierSplit` separates them rather than dropping them.
+ */
+function isDsmAbsentSpecifierNote(specifier: DsmSpecifier) {
+  return /^no\b/i.test(specifier.name.trim()) && /specifier/i.test(specifier.name);
+}
+
+export type DsmSpecifierSplit = {
+  /** Rows that name an actual specifier. This length is the count to display. */
+  specifiers: DsmSpecifier[];
+  /** Rows stating the disorder has none. Rendered as prose, never counted. */
+  absentNotes: DsmSpecifier[];
+};
+
+export function dsmSpecifierSplit(diagnosis: DsmDiagnosis): DsmSpecifierSplit {
+  const specifiers: DsmSpecifier[] = [];
+  const absentNotes: DsmSpecifier[] = [];
+  for (const specifier of diagnosis.specifiers) {
+    (isDsmAbsentSpecifierNote(specifier) ? absentNotes : specifiers).push(specifier);
+  }
+  return { specifiers, absentNotes };
+}
+
 export function dsmDiagnosisSummary(diagnosis: DsmDiagnosis): DsmDiagnosisSummary {
   const criteria = dsmCriteria(diagnosis);
   return {
@@ -233,7 +268,7 @@ export function dsmDiagnosisSummary(diagnosis: DsmDiagnosis): DsmDiagnosisSummar
     summary: criteria[0]?.text ?? diagnosis.key_features[0]?.text ?? "Review the complete diagnostic record.",
     criteriaCount: criteria.length,
     differentialCount: diagnosis.differentials.length,
-    specifierCount: diagnosis.specifiers.length,
+    specifierCount: dsmSpecifierSplit(diagnosis).specifiers.length,
   };
 }
 
