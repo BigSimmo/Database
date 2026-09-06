@@ -1363,22 +1363,26 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     // On the shared home a shortcut is the mode pill's in-place switch: the URL
     // is rewritten and the mode flips with no navigation request at all.
-    //
-    // Only a request for the shared home itself can be that navigation, so the
-    // filter is scoped to its pathname. Counting every RSC request on the page
-    // instead made this assertion fail on timing rather than on a regression:
-    // the sidebar deliberately warms `/tools` while the pointer crosses it
-    // (`ClinicalSidebar` renders that one item with `prefetch` and calls
-    // `prefetchApplications` from its `onPointerEnter`/`onFocus`), and such a
-    // warm-up was observed reaching the network without the prefetch header —
-    // a route this test never navigates to failing a claim about switching mode
-    // in place. Reproduced on main at fd81561, one failure in two runs.
-    const sharedHomePath = "/";
     const navigationRequests: string[] = [];
     page.on("request", (request) => {
       const headers = request.headers();
-      if (headers["rsc"] !== "1" || headers["next-router-prefetch"] === "1") return;
-      if (new URL(request.url()).pathname !== sharedHomePath) return;
+      if (headers["rsc"] !== "1") return;
+      // Next 16 does NOT mark every prefetch with `next-router-prefetch: 1`.
+      // `fetchSegmentPrefetchesUsingDynamicRequest` in
+      // node_modules/next/dist/client/components/segment-cache/cache.js sets the
+      // header per fetch strategy — `1` loading-boundary, `2` PPR-runtime, `3`
+      // runtime-shell — and for `FetchStrategy.Full` it sets NO header at all.
+      // A `!== "1"` test therefore reads strategies 2 and 3 as navigations.
+      if (headers["next-router-prefetch"] !== undefined) return;
+      // A Full-strategy prefetch carries the same headers as a navigation, so
+      // headers alone cannot separate them. Scope by route instead, which is
+      // what this test actually asks: an in-place mode switch must not fetch
+      // the page it is switching to, and every mode here lives on the shared
+      // home. The sidebar deliberately prefetches /tools (the one link with
+      // `prefetch` plus focus/pointer warming, because Tools is browse-first
+      // and opens its own directory route) — a different route, and not a
+      // navigation caused by this click.
+      if (new URL(request.url()).pathname !== "/") return;
       navigationRequests.push(request.url());
     });
     await documentsShortcut.click();
