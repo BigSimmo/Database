@@ -223,12 +223,12 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
     if (params.get("mode") || params.get("q")?.trim() || params.get("query")?.trim() || params.get("run") === "1") {
       return;
     }
-    // Settings "Default landing view" points at real mode homes now that bare
-    // `/?mode=documents` is the shared home with Documents preselected, not the
-    // Documents Start-here surface.
+    // Settings "Default landing view" → Documents now lands on the shared home
+    // with Documents preselected, same as any other consolidated mode — there is
+    // no separate Documents Start-here surface to navigate to any more.
     const landingMode = landingModeForPreference(readAppPreferences().landing);
     if (landingMode === "documents") {
-      router.replace("/documents", { scroll: false });
+      router.replace(appModeSelectionHref("documents"), { scroll: false });
       return;
     }
     if (landingMode === "tools") {
@@ -267,9 +267,12 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
           initialSearchMode={resolvedSearchMode}
           initialQuery={requestedQuery}
           focusSearch={searchParams.get("focus") === "1"}
-          // Dashboard-owned mode homes (`/documents`) mount ClinicalDashboard with
-          // nothing submitted. Keystroke drafts must not auto-run there — same
-          // contract as bare `/` — or every composer edit fires `/api/search`.
+          // Dashboard-owned mode homes mount ClinicalDashboard with nothing
+          // submitted. Keystroke drafts must not auto-run there — same contract
+          // as bare `/` — or every composer edit fires `/api/search`. No mode
+          // currently uses this path (`dashboardOwnedModeHomePaths` is empty
+          // since Documents' bare path became a redirect), but the check stays
+          // ready for the next mode shaped this way.
           autoRunSearch={pathname === "/" || isDashboardOwnedModeHomePath(pathname) ? hasSubmittedModeSearch : true}
           clinicalAskAvailableModeIds={props.clinicalAskAvailableModeIds}
         />
@@ -503,7 +506,8 @@ function GlobalStandaloneSearchShellBody({
   // shared composer, so it cannot reserve floating-composer space. Phone
   // clearance is resolved separately from heroOwnsPhoneComposer below.
   // Dictionary catalogue keeps the usual compact phone dock; sm+ still
-  // portals into the in-page slot under mode nav (`desktopHomeComposerSlotId`).
+  // portals into the page-owned slot it renders under its mode nav, so it needs
+  // no floating-composer clearance either.
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue;
   // Most standalone mode homes keep the in-flow hero pill at every width. Tools
   // deliberately has no shared composer. Document viewer routes own their own
@@ -903,6 +907,7 @@ function GlobalStandaloneSearchShellBody({
                 onPrefetchAccount={prefetchAccountDialog}
                 onPrefetchApplications={prefetchApplications}
                 onOpenSearch={openSidebarSearch}
+                onSelectMode={changeMode}
               />
             </div>
           </div>
@@ -981,21 +986,21 @@ function GlobalStandaloneSearchShellBody({
               desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
               showPhoneSuggestionTickerOnHome={isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)}
               searchComposerVisible={shouldShowSearchComposer}
-              desktopHomeComposerSlotId={
-                isStandaloneModeHome || isDictionaryCatalogue ? modeHomeDesktopComposerSlotId : undefined
-              }
+              desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
+              // The dictionary catalogue is a RESULT view, not a mode home, so it
+              // takes the page slot like every other results page. It was wired to
+              // the home slot back when the two were one slot; once #2639 gated the
+              // ticker, Prompts rail and privacy line on `placement === "desktop-home"`,
+              // that stale wiring was the only reason a catalogue still carried the
+              // hero stack. The slot element itself stays page-owned (rendered by
+              // DictionaryCataloguePage under the mode nav), so the shell renders no
+              // second element with this id — see the slot render site below.
               desktopPageComposerSlotId={
-                shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue
-                  ? desktopPageComposerSlotId
-                  : undefined
+                shouldShowSearchComposer && !isStandaloneModeHome ? desktopPageComposerSlotId : undefined
               }
               // Most standalone homes keep the in-flow hero pill at every width.
               // Tools suppresses the shared composer at every breakpoint.
-              // Dictionary catalogue uses the usual compact phone dock; sm+
-              // still portals into the in-page slot under mode nav.
-              heroComposerBreakpoint={
-                mobileHomeComposerPlacement === "footer" || isDictionaryCatalogue ? "sm-up" : "all"
-              }
+              heroComposerBreakpoint={mobileHomeComposerPlacement === "footer" ? "sm-up" : "all"}
               // Phones: #main-content owns vertical scroll, so hide-on-scroll
               // collapses the top bar to hand space back to content.
               // Tablet and desktop portal search into normal page flow. The outer
@@ -1096,12 +1101,15 @@ function GlobalStandaloneSearchShellBody({
               data-testid="mobile-composer-reserve-pad"
               className="max-sm:pt-[var(--phone-overlay-chrome-h)] max-sm:pb-[var(--mobile-composer-reserve)] sm:flex sm:min-h-full sm:flex-col"
             >
+              {/* The dictionary catalogue renders this same slot id itself, under
+                  its own mode nav and above the Filter band, so the shell must not
+                  emit a second element carrying it — one id, one portal host. */}
               {shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue ? (
                 <DesktopComposerPortalSlot
                   id={desktopPageComposerSlotId}
                   data-testid="desktop-page-search-composer-slot"
                   data-composer-reserve={modeHomeComposerReservePendingValue}
-                  className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
+                  className="desktop-page-composer-slot hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
                 />
               ) : null}
               {/*
@@ -1189,6 +1197,7 @@ function GlobalStandaloneSearchShellBody({
           onPrefetchAccount={prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
           onOpenSearch={openSidebarSearch}
+          onSelectMode={changeMode}
         />
       </div>
     );

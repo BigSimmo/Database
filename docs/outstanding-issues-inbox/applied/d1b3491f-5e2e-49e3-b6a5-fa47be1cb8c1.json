@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d1b3491f-5e2e-49e3-b6a5-fa47be1cb8c1",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "mobile /documents/search LCP is 20.6% over its 2026-08-27 Lighthouse baseline, reproducibly, and the gate blames whichever PR carries the newest main",
+    "detail": "Measured on PR #2536, which cannot be the cause. The Lighthouse gate samples each cell three times and declares a regression only at 2/3; it reached that on mobile /documents/search twice on different heads: 30afc398 gave LCP 2748ms vs 2282ms baseline (+466ms, +20.4%) and cda377fb gave 2753ms (+471ms, +20.6%), against a tolerance of +20% AND +100ms. Five milliseconds apart across two independent runs is not measurement noise, and a re-run of 30afc398 that passed is the outlier rather than the rule. RULED OUT AS THE CAUSE: PR #2536 changes only medication files (medications/[slug]/page.tsx, the two api/medications routes, use-medication-catalog.ts, medication-badges.ts, medication-records.ts). src/app/(search-app)/documents/search/page.tsx imports exactly one symbol, Metadata from next; nothing outside medication-named files calls /api/medications; and src/lib/document-summary-badges.ts names medication-badges only in a comment, reached from DocumentViewer rather than the search route. HYPOTHESIS, NOT PROVEN: lighthouse-budget.json was last refreshed at b22639b5 on 2026-08-27 and main has taken heavy change since (about 40 merges on 2026-09-02 alone). PR #2536 merged main in repeatedly that day so it carries all of that growth, while #2531 and #2538 passed the same check earlier against lighter main heads. That is the same disease #QSHHGK records for the bundle budget: no scheduled baseline refresh, so accumulated growth fails whichever unrelated PR lands last. Not verified: main itself was never measured against the baseline, and the job is path-scoped so it rarely runs on main pushes. WHY THIS NEEDS A DECISION RATHER THAN A FIX: either the page really is about half a second slower to paint on mobile than it was six days ago and the regression should be found, or it has legitimately grown and the baseline is overdue. The gate as configured cannot distinguish those, and its failure lands on an innocent PR. NEXT STEP: run the Lighthouse job against main at a known head to establish whether main itself breaches; if it does, attribute the growth before refreshing lighthouse-budget.json, and schedule the refresh rather than doing it reactively to clear a red PR.",
+    "source": "PR #2536 Lighthouse runs 33628667758 and 33681754629, 2026-09-02",
+    "issueUlid": "01M1HZ295CWDSM2WE78A64YKWV"
+  }
+}

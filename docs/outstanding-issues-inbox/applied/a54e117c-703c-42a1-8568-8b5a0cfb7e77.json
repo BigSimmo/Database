@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a54e117c-703c-42a1-8568-8b5a0cfb7e77",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Tailwind never scans the mockups tree, so any arbitrary utility written only inside a mockup component is silently never emitted",
+    "detail": "`src/app/globals.css` opens with `@source not \"./mockups\"` and `@source not \"../components/**/*mockup*\"`, and `src/app/mockups/mockups.css` re-emits utilities from `../` and `../../components` without covering the excluded component files. The consequence is silent: an arbitrary utility written only inside `src/components/caring-contacts/mockups/**` lands on the element as a class and no CSS rule is ever generated for it, so it has no effect and nothing fails. Confirmed against the built stylesheet during the Caring Contacts design audit (PR #2574): `min-h-[var(--space-10)]` on the prototype's phone dock has no rule at all, which is why that dock measures 41px rather than the 64px its code reads as; the pre-existing `min-w-[46rem]` continuity strip and `min-w-[42rem]` team table widths have likewise never applied. It also caused a real CI failure in that PR: a derived `pb-[calc(...)]` phone reserve computed to 0px, the fixed dock covered the end of every long phone page, and two 390px journeys in `ui-caring-contact-mockup.spec.ts` timed out; bisected in a scratch worktree rather than guessed. That instance is fixed by using utilities the tree can emit, but the class of defect remains open for every mockup component. Fixing it properly means widening Tailwind's scan against a deliberate exclusion, which has bundle-budget consequences and needs its own measured decision; a narrower alternative is a static gate that fails when an arbitrary-value utility appears in an unscanned mockup path.",
+    "source": "Caring Contacts design audit, PR #2574",
+    "issueUlid": "01M1NR80AK42M0618XZNEMS479"
+  }
+}

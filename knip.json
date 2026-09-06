@@ -12,5 +12,6 @@
   "vitest": {
     "config": ["vitest.config.mts"]
   },
-  "playwright": false
+  "playwright": false,
+  "ignoreDependencies": ["@sentry/core"]
 }

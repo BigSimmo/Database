@@ -83,9 +83,17 @@ export type DestinationOption = {
   readonly kind: ReferralDestinationKind;
   readonly label: string;
   readonly catchment: DestinationCatchment;
-  /** Figures that bear on the choice, read off the seeded network. Never a score. */
+  /*
+   * ⚠️ "Never a score" and "never a rank" below DESCRIBE these two fields; they are no longer a
+   * prohibition on the screen. Spec D4's "it suggests nothing" was withdrawn by owner ruling
+   * R-2026-09-04-G — the board is to match patients to beds, with the user still making the final
+   * acceptance. A rank, if one is ever built, would be a NEW field carrying its own provenance,
+   * not these two quietly changing meaning: `figures` are read off the network and `reasons` are
+   * rules a clinician can disagree with, and both are worth keeping as exactly that.
+   */
+  /** Figures that bear on the choice, read off the seeded network. Not a score. */
   readonly figures: readonly string[];
-  /** Why this option is offered, as rules a clinician can disagree with. Never a rank. */
+  /** Why this option is offered, as rules a clinician can disagree with. Not a rank. */
   readonly reasons: readonly string[];
   /**
    * Whether the catchment table itself points at this option. **A suggestion, never a selection**:
@@ -268,6 +276,11 @@ function wardFigures(inputs: DestinationOptionInputs, ward: WardReferralDestinat
     urgency: 2,
     originSiteCode: "",
     transportNeeded: false,
+    // ⚠️ EMPTY, AND THAT IS THE POINT. A probe asks whether a BED accepts a REQUEST; the written
+    // history is prose about a person and no gate may ever read it (see `Referral.history`).
+    // Empty strings here are not placeholder values waiting to be filled in — they are the
+    // demonstration that the eligibility answer cannot depend on what somebody typed.
+    history: "",
   };
   const verdicts = inputs.units.map((unit) => referralEligibility(probe, ward, unit, inputs.now));
   const accepting = verdicts.filter((verdict) => verdict.eligible).length;
@@ -276,7 +289,13 @@ function wardFigures(inputs: DestinationOptionInputs, ward: WardReferralDestinat
   ).length;
   return [
     `${accepting} of ${inputs.units.length} units accept this referral right now.`,
-    `${noBed} of ${inputs.units.length} units have no bed free right now.`,
+    // ⚠️ "ready", NOT "free" — OWNER RULING R-B-09, 2026-09-04, one word for one number, and the
+    // link to that ruling is not obvious from here. `noBed` counts units failing
+    // `referralEligibility`'s `allocatable_bed` gate, which passes on `availableNow > 0` — i.e.
+    // `min(allocatable, empty)`, the ruled figure. That gate's own `detail` was renamed on the day;
+    // this sentence, built from the same verdicts, was missed because it names the figure in prose
+    // and prose reads no label constant. Census row 7: the same quantity stated as an absence.
+    `${noBed} of ${inputs.units.length} units have no ready bed right now.`,
   ];
 }
 

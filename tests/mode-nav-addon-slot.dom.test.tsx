@@ -9,6 +9,12 @@ import { DifferentialPresentationWorkflowPage } from "@/components/differentials
 import { hasLocalInformationPageNavigation, PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
 import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
+
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 import {
   MODE_NAV_ADOPTED_MODES,
   modeSecondaryNavigationEntries,
@@ -52,6 +58,18 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/formulation/rumination")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder/differentials")).toBe(true);
+    // The six on-call section routes, converted onto `InPageNavHeader` from the
+    // start rather than the shared mode-nav bar Sources' browse tabs keep.
+    expect(isHeaderAddonSlotOwnedRoute("/on-call/contacts")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/on-call/playbook")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/on-call/referrals")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/on-call/orientation")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/on-call/education")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/on-call/logistics")).toBe(true);
+    // The mode home redirect stub and the search route keep the shared mode-nav
+    // bar instead — `search` is excluded by the shared `TOOL_SUFFIXES` set.
+    expect(isHeaderAddonSlotOwnedRoute("/on-call")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/on-call/search")).toBe(false);
     // Factsheet and medication detail, converted onto the shared header.
     expect(isHeaderAddonSlotOwnedRoute("/factsheets/sertraline")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/medications/sertraline")).toBe(true);
@@ -112,6 +130,12 @@ describe("header addon slot ownership", () => {
       "/dsm/diagnoses/major-depressive-disorder/differentials",
       "/factsheets/sertraline",
       "/medications/sertraline",
+      "/on-call/contacts",
+      "/on-call/playbook",
+      "/on-call/referrals",
+      "/on-call/orientation",
+      "/on-call/education",
+      "/on-call/logistics",
     ]) {
       expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
       expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
@@ -268,7 +292,12 @@ describe("header addon slot ownership", () => {
       "src/components/factsheets/factsheet-nav-header.tsx",
       "src/components/forms/form-detail-page.tsx",
       "src/components/formulation/formulation-nav-header.tsx",
+      "src/components/on-call/on-call-nav-header.tsx",
       "src/components/services/service-detail-page.tsx",
+      // The source record has no section index, so it renders the header's
+      // breadcrumb shape (back, title) straight from the Server Component page
+      // and needs no `*-nav-header.tsx` sibling to carry hooks or icons.
+      "src/components/sources/sources-pages.tsx",
       "src/components/specifiers/specifier-nav-header.tsx",
       "src/components/therapy-compass/therapy-record-nav-header.tsx",
     ]);

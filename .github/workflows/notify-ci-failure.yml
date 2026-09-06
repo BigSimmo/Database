@@ -23,6 +23,9 @@ on:
       - Eval Canary
       - Ingestion Autopilot
       - Docker image build
+      # Daily owner-boundary detector; without this entry its failure reached
+      # only GitHub's default e-mail (audit M25).
+      - Staging tenancy isolation
     types:
       - completed
 

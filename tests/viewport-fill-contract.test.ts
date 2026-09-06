@@ -53,10 +53,22 @@ function isDesignScratch(relativePath: string): boolean {
   );
 }
 
-/** Blank out comments while preserving line numbers, so offence reports stay locatable. */
+// Blank out comments while preserving line numbers, so offence reports stay locatable.
+//
+// LINE COMMENTS FIRST -- ORDER IS LOAD-BEARING, and this file had it backwards. Blanking BLOCK
+// comments first lets a line comment that merely CONTAINS the two characters that open a block
+// comment, with no closer on the same line, start a block that runs forward to the next block
+// closer anywhere in the file, blanking real code in between -- including a genuine offending
+// class. tests/production-dynamic-route-reachability.test.ts records the identical defect
+// measured at 1,897 characters of live JSX in one file; the mechanism is the same
+// regex-ordering mistake, applied to a different scan. Proved live here by mutation: a scratch
+// file with an opener-only line comment on one line, a genuine min-h-[calc(100dvh-4rem)]
+// offence on the next, and a real block comment closing two lines later -- under the old
+// block-first order this whole file went green with the offence still live in the scanned
+// source; blanking line comments first leaves the block regex nothing to misfire on.
 function stripComments(source: string): string {
-  const withoutBlocks = source.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " "));
-  return withoutBlocks.replace(/^[ \t]*\/\/.*$/gm, (line) => " ".repeat(line.length));
+  const withoutLines = source.replace(/^[ \t]*\/\/.*$/gm, (line) => " ".repeat(line.length));
+  return withoutLines.replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, " "));
 }
 
 /**

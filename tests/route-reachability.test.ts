@@ -10,6 +10,7 @@ import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation
 import { colourCodingReferenceHref } from "@/lib/reference-routes";
 import { tools } from "@/components/tools-page-mockups/tool-fixtures";
 import { collectSiteMapData } from "../scripts/generate-site-map";
+import { stripSourceComments } from "./helpers/strip-source-comments";
 
 /**
  * Orphan-route guard. `site-map.test.ts` proves every route is *documented*;
@@ -534,9 +535,15 @@ const workspaceShellSrc = readFileSync(path.join(srcRoot, "components/caring-con
 // shell's JSX, which is what the primary "New plan" control became in Phase 2B Task 7 when the
 // screen behind it was built. Matching only the table spelling would have read that control as no
 // link at all and reported its route as an orphan.
-const workspaceHrefKeys = [...workspaceShellSrc.matchAll(/href(?::\s*|=\{)CARING_CONTACTS_ROUTES\.(\w+)/g)].map(
-  (match) => match[1],
-);
+//
+// Comments are stripped before this scan: a mutation proved on 2026-09-04 that a prose mention of
+// `href: CARING_CONTACTS_ROUTES.newPlan` in a comment, with the real control's href renamed away,
+// satisfied the unstripped regex and made every static-page-route test pass while the route was
+// genuinely unlinked -- the same class of defect the Caring Contacts family check below already
+// guards against on its own scan.
+const workspaceHrefKeys = [
+  ...stripSourceComments(workspaceShellSrc).matchAll(/href(?::\s*|=\{)CARING_CONTACTS_ROUTES\.(\w+)/g),
+].map((match) => match[1]);
 // Fail loudly rather than silently covering nothing: an empty parse here would let every built
 // workspace destination read as an orphan, or — worse — let a future one go unchecked.
 if (workspaceHrefKeys.length === 0) {
@@ -719,17 +726,23 @@ describe("route reachability", () => {
     // patients directory's own module note contains the sentence "the control is
     // `<Link href={patientRoute(...)}>`", which satisfied the regex below on PROSE. This check
     // passed with the real link mutated away -- a check that could not fail. Documenting a link
-    // is not linking. Block comments and whole-line `//` comments only, so a protocol-relative
-    // URL inside a string cannot truncate the line it sits on.
+    // is not linking.
+    //
+    // This used to be a local, hand-rolled stripper (two regexes: block comments, then whole-line
+    // `//` comments). It reproduced the exact block-comment-first ordering bug
+    // `tests/helpers/strip-source-comments.ts` documents as M-4: a `/*` inside an ordinary string
+    // blanks every line of REAL CODE up to the next `*/`, a silent false negative inside a safety
+    // guard. Replaced with the shared, literal-aware stripper rather than repaired in place.
     const sources = sourceFiles
       .filter((file) => file.rel !== routesModule)
       .map((file) => ({
         rel: file.rel,
-        text: readFileSync(path.join(repoRoot, file.rel), "utf8")
-          .replace(/\/\*[\s\S]*?\*\//g, "")
-          .replace(/^[ \t]*\/\/[^\n]*$/gm, ""),
+        text: stripSourceComments(readFileSync(path.join(repoRoot, file.rel), "utf8")),
       }));
-    const routesModuleSource = readFileSync(path.join(repoRoot, routesModule), "utf8");
+    // Comments are stripped here too: a mutation proved on 2026-09-04 that renaming the real
+    // `patientRoute` export while leaving a comment saying `export function patientRoute(` kept
+    // this assertion green.
+    const routesModuleSource = stripSourceComments(readFileSync(path.join(repoRoot, routesModule), "utf8"));
 
     for (const route of families) {
       const builder = CARING_CONTACTS_DYNAMIC_ROUTE_BUILDERS.get(route);
@@ -762,9 +775,11 @@ describe("route reachability", () => {
       (file) => file.rel === "src/components/sources/sources-catalogue-client.tsx",
     );
     expect(catalogueClient, "the Sources catalogue client is missing").toBeDefined();
-    const catalogueSource = readFileSync(
-      path.join(srcRoot, "components", "sources", "sources-catalogue-client.tsx"),
-      "utf8",
+    // Comments are stripped before this scan: a mutation proved on 2026-09-04 that renaming the
+    // real href away and leaving a comment containing the matched JSX satisfied this regex on
+    // unstripped source, the same class of defect the Caring Contacts family check above guards.
+    const catalogueSource = stripSourceComments(
+      readFileSync(path.join(srcRoot, "components", "sources", "sources-catalogue-client.tsx"), "utf8"),
     );
     expect(
       /<Link[\s\S]*?href=\{`\/sources\/\$\{entry\.id\}`\}/.test(catalogueSource),

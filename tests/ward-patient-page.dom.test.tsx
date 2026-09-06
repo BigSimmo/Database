@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { expectCaption } from "./helpers/ward-caption";
 
 const router = vi.hoisted(() => ({
   back: vi.fn(),
@@ -178,10 +179,22 @@ describe("ward patient page — declines, changes, and escalation", () => {
     // All three sections are present in the DOM (not hidden) and each carries its own explicit
     // absence line rather than rendering nothing.
     expect(declines).toBeInTheDocument();
-    expect(declines).toHaveTextContent("No declines recorded for this movement.");
+    expectCaption(declines, {
+      of: "the declines section's absence line",
+      minimumLength: 4,
+      mentions: [["no decline", "none"]],
+    });
     expect(changes).toBeInTheDocument();
-    expect(changes).toHaveTextContent("No status or urgency changes recorded for this movement.");
+    expectCaption(changes, {
+      of: "the status-changes section's absence line",
+      minimumLength: 4,
+      mentions: [["no status", "no change", "none"]],
+    });
     expect(escalation).toBeInTheDocument();
-    expect(escalation).toHaveTextContent("No escalation recorded for this movement.");
+    expectCaption(escalation, {
+      of: "the escalation section's absence line",
+      minimumLength: 4,
+      mentions: [["no escalation", "none"]],
+    });
   });
 });

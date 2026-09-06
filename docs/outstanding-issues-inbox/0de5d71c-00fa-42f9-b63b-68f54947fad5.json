@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0de5d71c-00fa-42f9-b63b-68f54947fad5",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#V70WH9",
+    "outcome": "Closed 2026-09-06 as a duplicate of #QS6QAE. Both record that docs/ward-flow/wf-build3-004-dom-test-sweep.md details only 8 of 61 findings and summarises the remaining 53 thematically. Both added 2026-09-02; #QS6QAE carries the detail and this row carried none.",
+    "baseRowFingerprint": "5ec2fc38c5d5cf10da76a2ccaef1945ca8377d49d84f8720efa072f52a8be14e"
+  }
+}

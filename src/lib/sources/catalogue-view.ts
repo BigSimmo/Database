@@ -12,11 +12,15 @@ import type {
 type ReadableSearchParams = Pick<URLSearchParams, "get" | "getAll">;
 const BAND_ORDER = { A: 0, B: 1, C: 2, D: 3, excluded: 4 } as const;
 
-function compareText(left: string, right: string) {
+/** Shared with `browse-facets.ts` so a facet list cannot order itself differently
+    from the catalogue it links into. */
+export function compareText(left: string, right: string) {
   return left.localeCompare(right, "en-AU", { sensitivity: "base" }) || left.localeCompare(right, "en-AU");
 }
 
-function compareQuality(left: ClinicalSourceCatalogueEntry, right: ClinicalSourceCatalogueEntry) {
+/** The catalogue's own quality order. Exported so the browse summaries pick the
+    same lead source the catalogue would list first. */
+export function compareQuality(left: ClinicalSourceCatalogueEntry, right: ClinicalSourceCatalogueEntry) {
   return (
     BAND_ORDER[left.rating.band] - BAND_ORDER[right.rating.band] ||
     right.rating.score - left.rating.score ||
@@ -84,7 +88,8 @@ export function parseSourceCatalogueFilters(
   };
 }
 
-function normalizeSearchValue(value: string) {
+/** Exported so the browse surfaces narrow on exactly the terms the catalogue matches. */
+export function normalizeSearchValue(value: string) {
   return value.normalize("NFKC").trim().toLocaleLowerCase("en-AU").replace(/\s+/g, " ");
 }
 
@@ -156,6 +161,23 @@ function countValues(values: readonly string[]) {
   return [...counts]
     .map(([value, count]) => ({ value, count }))
     .sort((left, right) => compareText(left.value, right.value));
+}
+
+/**
+ * A catalogue date rendered as its own month.
+ *
+ * A recorded date here is a calendar date, not an instant, and `Date.parse`
+ * reads a bare `YYYY-MM-DD` as UTC midnight. Formatting that in a timezone west
+ * of UTC moves it back a day — `2026-01-01` renders as "Dec 2025" in
+ * America/Los_Angeles, and differently in the browser than on the server that
+ * rendered it. Parsing it as local midnight keeps the recorded month stable
+ * wherever it is read.
+ */
+export function formatCatalogueMonth(value: string | null): string | null {
+  if (!value) return null;
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-AU", { month: "short", year: "numeric" }).format(date);
 }
 
 export function deriveSourceCatalogueFacets(entries: readonly ClinicalSourceCatalogueEntry[]) {

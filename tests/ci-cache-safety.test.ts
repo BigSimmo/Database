@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { selectedScripts } from "../scripts/verify-pr-local.mjs";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 const nodeSetup = readFileSync(new URL("../.github/actions/setup-node-cached/action.yml", import.meta.url), "utf8");
@@ -140,9 +141,64 @@ describe("CI cache safety", () => {
     expect(workflow).toContain('require_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"');
   });
 
+  /**
+   * `verify:pr-local` is documented as the risk-routed PR mirror, yet until audit M24
+   * its heavy plan selected only lint/typecheck/test: the migration-role,
+   * function-grant and owner-scope guards — the three built to stop the incident
+   * shapes that reach the live clinical database on merge — ran only in CI after
+   * push. Pin the mirror the other way round from `check:gate-manifest` (which
+   * holds CI to the local verify:cheap chain): every static-pr step gated on
+   * `static_heavy_changed` must also be in the local heavy plan.
+   */
+  it("mirrors every static-heavy static-pr step in the verify:pr-local heavy plan (M24)", () => {
+    const staticPr = /\n  static-pr:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(staticPr, "static-pr job not found in ci.yml").not.toBe("");
+    const heavySteps: string[] = [];
+    for (const step of staticPr.split(/\n\s+- name: /).slice(1)) {
+      const condition = /\n\s+if: ([^\n]+)/.exec(step)?.[1] ?? "";
+      const script = /\n\s+run: npm run ([\w:.-]+)\s*$/m.exec(step)?.[1];
+      if (script && condition.includes("static_heavy_changed == 'true'")) heavySteps.push(script);
+    }
+    expect(heavySteps).toEqual(
+      expect.arrayContaining(["check:migration-role", "check:function-grants", "check:owner-scope"]),
+    );
+
+    const heavyPlan = selectedScripts({ static_heavy_changed: true }, false) as string[];
+    const missing = heavySteps.filter((script) => !heavyPlan.includes(script));
+    expect(
+      missing,
+      `static-pr runs these for static_heavy scope but verify:pr-local does not: ${missing.join(", ")}`,
+    ).toEqual([]);
+
+    // Docs-only scope stays focused: the tenancy/database guards are heavy-scope steps.
+    const docsPlan = selectedScripts({ docs_changed: true }, false) as string[];
+    for (const guard of ["check:migration-role", "check:function-grants", "check:owner-scope"]) {
+      expect(docsPlan, `${guard} leaked into the docs-only plan`).not.toContain(guard);
+    }
+  });
+
   it("runs the generated medication lexicon freshness check through static-heavy scope", () => {
     expect(workflow).toMatch(
       /name: Medication lexicon report freshness\n\s+if: needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:medication-lexicon-report/,
+    );
+  });
+
+  // The interaction index is the artefact the UI reads to decide whether a drug can be
+  // shown as clear. Its freshness gate was local-only until audit M30, so a snapshot-only
+  // merge through the bare-PR route shipped a stale index with every check green.
+  it("runs the medication interaction index drift check through static-heavy scope (M30)", () => {
+    expect(workflow).toMatch(
+      /name: Medication interaction index drift\n\s+if: needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:medication-interactions/,
+    );
+  });
+
+  // The hazard register validator ran only in the provider-backed governance:release chain
+  // until audit M33; it needs the full-history checkout for its reviewedCommit checks.
+  it("runs the clinical hazard-controls register check in static-pr with full history (M33)", () => {
+    const staticPr = /\n  static-pr:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(staticPr).toContain("fetch-depth: 0");
+    expect(staticPr).toMatch(
+      /name: Clinical hazard-controls register\n\s+if: needs\.changes\.outputs\.docs_changed == 'true' \|\| needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:clinical-hazard-controls/,
     );
   });
 
@@ -367,6 +423,34 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     LIGHTHOUSE_RESULT: "skipped",
     DB_RESULT: "skipped",
     CARING_CONTACTS_DB_RESULT: "success",
+    /*
+     * 🔴 **ADDED 2026-09-06, AND ITS ABSENCE TURNED ALL TWELVE OF THIS BLOCK'S CASES RED.** The
+     * `ui-ward-journeys` job and its two aggregate variables were added to `ci.yml` without this
+     * fixture gaining the matching entry, so `WARD_JOURNEYS_RESULT` reached the extracted script
+     * as an EMPTY STRING. `record()` treats anything that is not `success`, `skipped` or
+     * `cancelled` as a failure, so every case — including "passes when every in-scope job
+     * succeeded" — recorded `ward-flow-journeys result was ` and exited 1.
+     *
+     * ⚠️ **AND NOTHING LOCAL COULD HAVE CAUGHT IT: this whole `describe` is `skipIf(win32)`.** It
+     * runs on Linux only, so on this project's development machine it reports as SKIPPED rather
+     * than as failing, and the first execution it ever gets is in CI. A fixture that must be
+     * edited alongside a workflow, guarded by a block that cannot run where the workflow is
+     * edited, is the shape to watch for here.
+     *
+     * `"skipped"` is what GitHub actually sets for a job whose `if:` is false, which is the state
+     * on every pull request until `WARD_JOURNEYS_BLOCKING` is turned on in repository settings —
+     * so this fixture now describes the real default rather than an omission.
+     *
+     * ⚠️ **BOTH VARIABLES ARE NEEDED AND THE BLOCKING FLAG FAILS FIRST.** The script runs under
+     * `set -u`, so the unbound `WARD_JOURNEYS_BLOCKING` aborts it at that line before
+     * `WARD_JOURNEYS_RESULT` is ever read — which is why every case in the block died, not only
+     * the ward one. In the real workflow `env:` binds it to `${{ vars.WARD_JOURNEYS_BLOCKING }}`,
+     * which is the EMPTY STRING when the variable is unset: bound, and not `"true"`. The empty
+     * string here is therefore the faithful default, not a placeholder — writing `"false"` would
+     * test a state the repository never actually produces.
+     */
+    WARD_JOURNEYS_BLOCKING: "",
+    WARD_JOURNEYS_RESULT: "skipped",
   };
 
   function runAggregate(overrides: Record<string, string> = {}) {

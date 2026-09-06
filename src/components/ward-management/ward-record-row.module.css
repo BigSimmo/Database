@@ -1,0 +1,175 @@
+/* WardRecordRow, WardGroupHeading, WardRecordList — the one record shape the three merged screens
+ * repeat. Every value resolves through a --ward-* token declared in ward-tokens.module.css. */
+.list {
+  composes: wardTokens from "./ward-tokens.module.css";
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  gap: var(--ward-space-6);
+  min-height: 2.375rem;
+  padding: var(--ward-space-10) var(--ward-space-16);
+  border-top: 1px solid var(--ward-divider);
+  /* The state marker is a LEFT edge, never a bar across the top: it survives a row wrapping onto
+   * four lines and does not compete with the panel heading above it. Transparent by default so an
+   * untoned row keeps the same text alignment as a toned one. */
+  border-left: var(--ward-space-3) solid transparent;
+}
+.row[data-tone="danger"] {
+  border-left-color: var(--ward-danger);
+}
+.row[data-tone="warning"] {
+  border-left-color: var(--ward-warning);
+}
+.row[data-tone="good"] {
+  border-left-color: var(--ward-success);
+}
+/* ⚠️ `--ward-ground` IS THE SHELL'S AND MAY NOT BE PAINTED HERE. `ward-shell.dom.test.tsx`
+ * pins it: exactly one stylesheet may paint that token as a background, and it is
+ * `ward-shell.module.css`. That is not a style rule — the ground is the PAGE colour behind
+ * the panels, so painting a row with it punches a hole through the panel to the page. An
+ * earlier version of this file used it in two places and that test caught both.
+ *
+ * ⚠️ MEASURE THROUGH `src/app/ckb-v2-tokens.css`, WHICH IS THE FILE THAT WINS. `.ckb-v2.ckb-v2`
+ * is specificity 0,2,0 and sits on <html>; `:root` in globals.css is 0,1,0, so globals' values
+ * NEVER APPLY. An earlier version of this comment carried ratios read from globals and every
+ * one was wrong — this repository has already had 27 files carrying contrast measured against
+ * the losing file. Against the panel WardPanel paints:
+ *
+ *                      light                      dark
+ *   --ward-chrome      1.000:1 (identical)        1.035:1
+ *   --ward-subtle      1.027:1                    1.121:1   strongest in dark
+ *
+ * `--ward-subtle` is aliased UP in dark on purpose — ckb-v2 says "subtle must lift, not sink".
+ *
+ * ⚠️ NOTHING CLEARS 1.11:1 IN LIGHT — the threshold this project used when it replaced an
+ * invisible rule across 27 stylesheets. So a fill can only ever REINFORCE; the row's real
+ * separation is its top border, in both themes. `--ward-blue-soft` is used here because it is
+ * already this app's row-hover idiom (`.dataTable tbody tr:hover`), so a hover means the same
+ * thing on both surfaces. */
+.row:hover {
+  background: var(--ward-blue-soft);
+}
+
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ward-space-8);
+}
+
+.id {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ward-heading);
+}
+
+.clock {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ward-heading);
+  white-space: nowrap;
+}
+.clock[data-urgent="true"] {
+  color: var(--ward-danger);
+}
+
+.clockSub {
+  margin-left: var(--ward-space-4);
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--ward-muted);
+}
+
+.attrs {
+  font-size: 0.6875rem;
+  line-height: var(--ward-leading-ui);
+  color: var(--ward-muted);
+}
+
+.sep {
+  color: var(--ward-border-strong);
+}
+
+.reason {
+  padding: var(--ward-space-7) var(--ward-space-10);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--ward-radius-pixel);
+  font-size: 0.6875rem;
+  line-height: var(--ward-leading-relaxed);
+}
+.reason[data-level="danger"] {
+  background: var(--ward-danger-soft);
+  color: var(--ward-danger);
+}
+.reason[data-level="warning"] {
+  background: var(--ward-warning-soft);
+  color: var(--ward-warning);
+}
+.reason[data-level="ok"] {
+  background: var(--ward-success-soft);
+  color: var(--ward-success);
+}
+
+.annotation {
+  font-size: 0.6875rem;
+  line-height: var(--ward-leading-ui);
+  color: var(--ward-text);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ward-space-8);
+}
+
+.groupHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ward-space-12);
+  padding: var(--ward-space-12) var(--ward-space-16) var(--ward-space-4);
+  border-top: 1px solid var(--ward-border);
+  /* ⚠️ NO FILL, DELIBERATELY, AND THE HISTORY IS THE REASON. This first painted `--ward-canvas`,
+   * which is what WardPanel paints — the same colour as the panel behind it, 1.000:1, a
+   * declaration doing nothing while reading as though it tinted a band. It was then "fixed" to
+   * `--ward-ground`, which is the shell's alone and is pinned to one stylesheet. Both were wrong
+   * and neither looked wrong, because the heading has always separated on its top border and
+   * uppercase type — which is the whole of its weight and always was.
+   *
+   * Ruling, 2026-09-05: a band, a sticky header, a totals row or a row marker is carried by
+   * BORDER AND TYPE first; a fill may only reinforce. Here there is nothing to reinforce, so
+   * there is no fill. Do not add one back. */
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ward-heading);
+}
+.groupHeading[data-tone="danger"] .groupTitle {
+  color: var(--ward-danger);
+}
+
+.groupCount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+  color: var(--ward-muted);
+}
+
+.groupNote {
+  font-size: 0.6875rem;
+  color: var(--ward-muted);
+}

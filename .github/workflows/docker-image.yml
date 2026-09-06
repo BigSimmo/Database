@@ -116,8 +116,47 @@ jobs:
 
       - name: Vulnerability scan (HIGH,CRITICAL)
         # Non-blocking by design — findings are reported, not merge-gating.
+        # The summary lines are kept so the next step can surface them.
         continue-on-error: true
         run: |
           docker builder prune -af || true
-          node scripts/trivy-image-scan.mjs clinical-kb-app:ci
-          node scripts/trivy-image-scan.mjs clinical-kb-worker:ci
+          : > trivy-scan-summary.txt
+          node scripts/trivy-image-scan.mjs clinical-kb-app:ci | tee -a trivy-scan-summary.txt
+          node scripts/trivy-image-scan.mjs clinical-kb-worker:ci | tee -a trivy-scan-summary.txt
+
+      - name: Fail on HIGH/CRITICAL image findings outside pull requests
+        # Audit M20: the worker image carries the Python parsers (PyMuPDF,
+        # Pillow, pytesseract, docling) that read attacker-supplied uploads, and
+        # until now a HIGH/CRITICAL finding reached only this run's log. Pull
+        # request runs stay advisory (a base-image CVE is not the PR author's
+        # change), but the weekly schedule, main pushes and manual dispatches
+        # now fail on any HIGH/CRITICAL so notify-ci-failure.yml — which already
+        # watches "Docker image build" — delivers it to chat. A scanner that
+        # could not run (disk pressure, docker save) is still only a warning.
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ ! -s trivy-scan-summary.txt ]; then
+            echo "::warning::Trivy produced no scan summary; image vulnerabilities were not assessed this run."
+            exit 0
+          fi
+          {
+            echo "## Trivy image scan (HIGH,CRITICAL)"
+            echo
+            echo '```'
+            cat trivy-scan-summary.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          high="$(grep -oE 'HIGH=[0-9]+' trivy-scan-summary.txt | cut -d= -f2 | paste -sd+ - | bc || echo 0)"
+          critical="$(grep -oE 'CRITICAL=[0-9]+' trivy-scan-summary.txt | cut -d= -f2 | paste -sd+ - | bc || echo 0)"
+          high="${high:-0}"
+          critical="${critical:-0}"
+          echo "HIGH=${high} CRITICAL=${critical}"
+          if [ "${high}" -eq 0 ] && [ "${critical}" -eq 0 ]; then
+            exit 0
+          fi
+          if [ "${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}" = "true" ]; then
+            echo "::error::Trivy found HIGH=${high} CRITICAL=${critical} in the production images; see the job summary."
+            exit 1
+          fi
+          echo "::warning::Trivy found HIGH=${high} CRITICAL=${critical} in the production images (advisory on pull requests)."

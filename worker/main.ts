@@ -53,7 +53,7 @@ import {
 import { annotateChunkAssertions, defaultAssertionTargets } from "./assertion-tagging";
 import { runShadowExtraction } from "./shadow-extraction";
 import { buildTableFactRows } from "./table-facts";
-import { enrichmentRepairDecision, ingestionFailureDecision } from "./behavior";
+import { enrichmentRepairDecision, ingestionFailureDecision, visionImageRejectionSkipReason } from "./behavior";
 import { WorkerRuntimeControl, WorkerAbortError } from "./runtime-control";
 import { runWorkerLoop } from "./run-loop";
 import type { JobDocument, JobRow } from "./types";
@@ -710,6 +710,45 @@ function captionContextHash(args: {
   return createHash("sha256").update(JSON.stringify(fingerprint)).digest("hex").slice(0, 32);
 }
 
+/**
+ * Placeholder classification for an image the vision provider refused (audit L12).
+ *
+ * The image row is still written — with a content-free skip_reason naming the
+ * rejection — so the document completes and the clinician can see WHICH image
+ * was skipped, instead of the whole upload failing with a provider error string.
+ */
+function visionRejectedClassification(args: {
+  skipReason: string;
+  tableMetadata: ReturnType<typeof imageTableMetadata>;
+  sourceKind?: string | null;
+}) {
+  const imageType: ImageEvidenceCategory = args.sourceKind === "table_crop" ? "clinical_table" : "unclear";
+  const caption = "Image retained without a caption: the vision provider could not read it.";
+  return {
+    image_type: imageType,
+    caption,
+    searchable: false,
+    clinical_relevance_score: 0,
+    labels: ["needs-review"],
+    skip_reason: args.skipReason,
+    clinical_use_class: "ambiguous" as const,
+    clinical_use_reason: args.skipReason,
+    clinical_signal_score: 0,
+    admin_signal_score: 0,
+    structured_visual_profile: deterministicStructuredVisualProfile({
+      imageType,
+      caption,
+      tableTitle: args.tableMetadata.tableTitle,
+      tableLabel: args.tableMetadata.tableLabel,
+      tableTextSnippet: args.tableMetadata.tableTextSnippet,
+      tableRows: args.tableMetadata.tableRows as string[][] | null,
+      tableColumns: args.tableMetadata.tableColumns as string[] | null,
+      metadata: {},
+    }),
+    structured_extraction_confidence: 0,
+  } satisfies ImageClassification;
+}
+
 function nonClinicalTableClassification(args: {
   tableMetadata: ReturnType<typeof imageTableMetadata>;
   sourceKind?: string | null;
@@ -1104,17 +1143,35 @@ async function uploadAndCaptionImages(
         }
         if (!classification) {
           const bytes = await readFile(task.image.path);
-          classification = await classifyAndCaptionImageFromBase64({
-            base64: bytes.toString("base64"),
-            mimeType: task.image.mimeType,
-            nearbyText: task.nearbyText,
-            sourceKind: task.image.sourceKind ?? null,
-            candidateType: task.tableMetadata.candidateType,
-            tableLabel: task.tableMetadata.tableLabel,
-            tableTitle: task.tableMetadata.tableTitle,
-            tableRole: task.tableMetadata.tableRole,
-            tableText: task.tableMetadata.tableText,
-          });
+          try {
+            classification = await classifyAndCaptionImageFromBase64({
+              base64: bytes.toString("base64"),
+              mimeType: task.image.mimeType,
+              nearbyText: task.nearbyText,
+              sourceKind: task.image.sourceKind ?? null,
+              candidateType: task.tableMetadata.candidateType,
+              tableLabel: task.tableMetadata.tableLabel,
+              tableTitle: task.tableMetadata.tableTitle,
+              tableRole: task.tableMetadata.tableRole,
+              tableText: task.tableMetadata.tableText,
+            });
+          } catch (error) {
+            // A non-retryable rejection of THIS image must not fail the whole
+            // document (audit L12). Anything else — rate limits, timeouts,
+            // provider outages, unknown faults — still propagates.
+            const skipReason = visionImageRejectionSkipReason(error);
+            if (!skipReason) throw error;
+            noteSkippedImage(skipReasons, skipReason);
+            return {
+              task,
+              classification: visionRejectedClassification({
+                skipReason,
+                tableMetadata: task.tableMetadata,
+                sourceKind: task.image.sourceKind ?? null,
+              }),
+              classificationCacheHit: false,
+            };
+          }
           await setCachedImageClassification({
             ownerId: job.documents.owner_id,
             imageHash: task.imageHash,

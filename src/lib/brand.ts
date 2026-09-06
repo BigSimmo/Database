@@ -62,7 +62,7 @@ export const BRAND_DESCRIPTION = `Private medical guideline knowledge base — $
 export const BRAND_INSTALL_TAGLINE = "Clinical guidelines on your home screen.";
 
 /**
- * What the Clinical Guide drawer *is*, for assistive technology.
+ * What the PsychSift navigation drawer *is*, for assistive technology.
  *
  * The phone drawer shows the catchphrase where this sentence used to sit, but a
  * screen-reader user arriving in the dialog needs to know what the dialog

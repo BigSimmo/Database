@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import { splitDuration, formatSheetMoment } from "@/components/ward-management/ward-clock";
 import {
-  destinationUnit,
   elapsedLabel,
   handoverSnapshot,
   stageCopy,
@@ -74,21 +73,70 @@ export function HandoverPage() {
           </button>
         </header>
 
-        <LongestWaitsSection snapshot={snapshot} />
+        <LongestWaitsSection snapshot={snapshot} units={units} />
         <PulledBedsSection snapshot={snapshot} />
         <InTransitSection snapshot={snapshot} units={units} />
         <PlacementGoneWrongSection snapshot={snapshot} />
 
+        {/*
+         * 🔴 **THIS LINKED AT A ROUTE THE REPOSITORY ITSELF CALLS "NOT A DESTINATION", UNTIL 2026-09-06.**
+         * It read "see the morning bed state" and pointed at `/mockups/ward-flow/morning`. MERGE 02
+         * folded that board into `CapacityScreen` the day before, owner-approved, and the old route
+         * survives ONLY as a redirect stub so an existing bookmark does not 404 — `ward-nav.ts` says
+         * exactly that about it.
+         *
+         * ⚠️ **IT DID NOT 404, WHICH IS WHY NOTHING CAUGHT IT.** The link worked. A reader clicked
+         * "morning bed state" and landed on a screen titled Capacity, so the failure was never a
+         * broken link — it was this screen promising a board the app no longer has under that name.
+         * `tests/ward-links-never-point-at-redirect-stubs.test.ts` now derives both halves from disk.
+         *
+         * The link TEXT moved with the href on purpose. Repointing alone would have left the
+         * sentence naming a retired board, which is the half a reader actually believes.
+         */}
         <p className={styles.crossLink}>
           This handover answers &quot;what do I need to hand over this shift?&quot; For &quot;what can I fill right now,
-          across the network?&quot;, see the <Link href="/mockups/ward-flow/morning">morning bed state</Link>.
+          across the network?&quot;, see the <Link href="/mockups/ward-flow/capacity">capacity board</Link>.
         </p>
       </main>
     </div>
   );
 }
 
-export function LongestWaitsSection({ snapshot }: { snapshot: HandoverSnapshot }) {
+/**
+ * WHAT TO PRINT IN A "DESTINATION" CELL, FOR ANY MOVEMENT, ON ANY SECTION OF THIS PAGE.
+ *
+ * ACCEPTED-ONLY, never `destinationUnit`. That helper is `acceptedUnitId ?? referredUnitIds[0]`, so
+ * on a movement with an open referral and no acceptance it names the FIRST WARD ASKED as though it
+ * were the destination — the same defect already repaired on the movement workspace, where the
+ * masthead read "Bound for FSH Older Adult" beside "No ward has accepted this patient".
+ *
+ * The three states are kept apart rather than collapsed into one fallback: a ward has accepted, or
+ * wards have been asked and none has answered, or nobody has been asked. The middle one is the one
+ * the old fallback erased, and it is the one a coordinator acts on differently — chase an answer,
+ * versus start asking. The wards are named for the same reason as `patient-search.tsx`'s own
+ * column: a status without the wards is honest and unhelpful, and this table is read at handover
+ * where "who has been asked" is the next question anybody has.
+ *
+ * ⚠️ **THIS IS A FUNCTION BECAUSE THE LAST FIX WAS NOT.** The identical logic was written inline in
+ * `InTransitSection` and repaired there, while `LongestWaitsSection` — seventy lines above, in this
+ * same file, under a column literally headed "Destination" — went on calling `destinationUnit()`
+ * and was never opened. **A fix applied to a page is not a fix applied to a page's sections.** One
+ * function is what makes the next section inherit the repair instead of re-earning it.
+ */
+export function destinationCell(movement: Movement, units: Unit[]): string {
+  const accepted = movement.acceptedUnitId
+    ? units.find((candidate) => candidate.id === movement.acceptedUnitId)
+    : undefined;
+  if (accepted) return accepted.name;
+  if (movement.referredUnitIds.length === 0) return "No destination unit recorded";
+  const askedNames = movement.referredUnitIds
+    .map((id) => units.find((candidate) => candidate.id === id)?.name)
+    .filter((name): name is string => name !== undefined);
+  const asked = `${movement.referredUnitIds.length} ward${movement.referredUnitIds.length === 1 ? "" : "s"} asked, none has accepted`;
+  return askedNames.length > 0 ? `${asked} — ${askedNames.join(", ")}` : asked;
+}
+
+export function LongestWaitsSection({ snapshot, units }: { snapshot: HandoverSnapshot; units: Unit[] }) {
   return (
     <section className={styles.section} data-testid="ward-handover-longest-waits">
       <h2 className={styles.sectionHeading}>Longest waits</h2>
@@ -116,7 +164,7 @@ export function LongestWaitsSection({ snapshot }: { snapshot: HandoverSnapshot }
                 <td>{elapsedLabel(entry.movement, snapshot.takenAt)}</td>
                 <td>{stageCopy[entry.movement.stage].label}</td>
                 <td>{departmentLabel(entry.movement)}</td>
-                <td>{entry.unit?.name ?? "No destination chosen"}</td>
+                <td>{destinationCell(entry.movement, units)}</td>
               </tr>
             ))}
           </tbody>
@@ -176,16 +224,13 @@ export function InTransitSection({ snapshot, units }: { snapshot: HandoverSnapsh
             </tr>
           </thead>
           <tbody>
-            {snapshot.inTransit.map((entry) => {
-              const unit = destinationUnit(entry.movement, units);
-              return (
-                <tr key={entry.movement.id}>
-                  <td>{entry.movement.id}</td>
-                  <td>{unit?.name ?? "No destination unit recorded"}</td>
-                  <td>{entry.leg ?? "No transport leg recorded"}</td>
-                </tr>
-              );
-            })}
+            {snapshot.inTransit.map((entry) => (
+              <tr key={entry.movement.id}>
+                <td>{entry.movement.id}</td>
+                <td>{destinationCell(entry.movement, units)}</td>
+                <td>{entry.leg ?? "No transport leg recorded"}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}

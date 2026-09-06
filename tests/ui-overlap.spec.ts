@@ -34,7 +34,7 @@ async function mockDemoDashboard(page: Page) {
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
-        appName: "Clinical Guide",
+        appName: "PsychSift",
         projectId: "test-project",
         identityPath: "/api/local-project-id",
         localServer: {
@@ -156,7 +156,7 @@ test.describe("Header element overlap coverage", () => {
       await mockDemoDashboard(page);
       await gotoHome(page);
 
-      const menu = page.getByRole("button", { name: "Open Clinical Guide menu" });
+      const menu = page.getByRole("button", { name: "Open PsychSift menu" });
       const newChat = page.getByRole("button", { name: "Start a new chat" });
       await expect(menu).toBeVisible();
       await expect(newChat).toBeVisible();
@@ -257,31 +257,46 @@ test.describe("Header element overlap coverage", () => {
     });
   }
 
-  test("desktop dormant search keeps prompts below the composer without a Smart promise", async ({ page }) => {
+  test("desktop dormant search keeps the example ticker and prompts around the composer without a Smart promise", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
-    const rotatingText = page.getByTestId("smart-search-rotating-text");
+    // Every mode home shares the same stack: "Try …" ticker line above the
+    // pill, prompt rail below. Answer is a dormant mode, so the ticker must
+    // read as an ordinary example search with no Smart wording.
+    const ticker = page.getByTestId("search-example-ticker");
     const promptRow = page.getByTestId("smart-search-prompt-row");
-    await expect(rotatingText).toHaveCount(0);
+    await expect(ticker).toBeVisible();
+    await expect(ticker).toContainText("in Answer.");
+    await expect(ticker).not.toContainText("Smart");
+    await expect(page.getByTestId("smart-search-intent-cue")).toHaveCount(0);
     await expect(promptRow).toBeVisible();
     await expect(promptRow.getByRole("button", { name: "lithium level timing" })).toBeVisible();
     await expect(promptRow.getByRole("button", { name: "clozapine ANC monitoring" })).toBeVisible();
 
     const geometry = await page.evaluate(() => {
+      const ticker = document.querySelector('[data-testid="search-example-ticker"]');
       const prompt = document.querySelector('[data-testid="smart-search-prompt-row"]');
       const pill = document.querySelector(".answer-footer-search-pill");
-      if (!prompt || !pill) return null;
+      if (!ticker || !prompt || !pill) return null;
+      const tickerRect = ticker.getBoundingClientRect();
       const promptRect = prompt.getBoundingClientRect();
       const pillRect = pill.getBoundingClientRect();
       return {
+        tickerBottom: tickerRect.bottom,
+        pillTop: pillRect.top,
         pillBottom: pillRect.bottom,
         promptTop: promptRect.top,
       };
     });
 
-    expect(geometry, "composer and prompt row must render").not.toBeNull();
+    expect(geometry, "composer, ticker, and prompt row must render").not.toBeNull();
+    expect(geometry!.tickerBottom, "the ticker should sit above the search bar").toBeLessThanOrEqual(
+      geometry!.pillTop + 1,
+    );
     expect(geometry!.promptTop, "prompts should sit below the search bar").toBeGreaterThanOrEqual(
       geometry!.pillBottom - 1,
     );
@@ -292,6 +307,115 @@ test.describe("Header element overlap coverage", () => {
     );
   });
 
+  // The mode-home Prompts rail must stay ONE scrolling line at every sm+ width.
+  // It was a single line only across 640-1279.98px, so above 1280px the chips
+  // were free to wrap. Fifteen modes hid that because their three prompts fit
+  // the rail; Specifiers' did not, so its home alone stood 39px taller than the
+  // stack the reserve token is sized for. Widths chosen either side of the old
+  // 1279.98px boundary, and Specifiers is named because it is the mode whose
+  // prompt copy actually overflows.
+  test("mode-home prompt rails stay on one line above the old tablet boundary", async ({ page }) => {
+    await mockDemoDashboard(page);
+
+    for (const width of [1280, 1920]) {
+      await page.setViewportSize({ width, height: 950 });
+      for (const mode of ["specifiers", "forms", "answer"]) {
+        const label = `/?mode=${mode} @ ${width}px`;
+        await page.goto(`/?mode=${mode}`, { waitUntil: "domcontentloaded" });
+        await expect(async () => {
+          await expect(page.locator("header#search")).toHaveCount(1);
+          await expect(page.getByTestId("smart-search-prompt-row")).toBeVisible();
+        }).toPass({ timeout: 30_000 });
+
+        const geometry = await page.evaluate(() => {
+          const slot = document.getElementById("mode-home-desktop-composer-slot");
+          const chips = slot?.querySelector('[data-testid="smart-search-prompt-row"] .answer-suggestion-chips');
+          if (!slot || !chips) return null;
+          const rows = new Set([...chips.children].map((chip) => Math.round(chip.getBoundingClientRect().top)));
+          return {
+            chipRows: rows.size,
+            chipCount: chips.children.length,
+            composerHeight: Math.round(slot.getBoundingClientRect().height),
+          };
+        });
+
+        expect(geometry, `${label}: home composer and prompt rail must render`).not.toBeNull();
+        expect(geometry!.chipCount, `${label}: the rail must carry prompts to be worth measuring`).toBeGreaterThan(1);
+        expect(geometry!.chipRows, `${label}: prompt chips must share one row`).toBe(1);
+        // 160px is the settled stack every mode home shares: 24px ticker line,
+        // the pill, gaps, the one-line rail and the privacy line.
+        expect(geometry!.composerHeight, `${label}: home composer must be the shared 160px stack`).toBe(160);
+      }
+    }
+  });
+
+  test("tablet and desktop result views render the compact pill alone in every mode", async ({ page }) => {
+    await mockDemoDashboard(page);
+
+    for (const width of [820, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      // Dictionary is in this list because it was the mode that fell out of it:
+      // its catalogue was wired to the mode-home composer slot, so it kept the
+      // hero ticker, Prompts rail and privacy line long after every other result
+      // view had dropped them. Select the slot by id, not by test id — the
+      // dictionary catalogue renders the same slot itself under its mode nav.
+      for (const route of [
+        "/forms/search?q=lithium&run=1",
+        "/services/search?q=crisis&run=1",
+        "/dictionary/search?q=lithium",
+      ]) {
+        const label = `${route} @ ${width}px`;
+        await page.goto(route, { waitUntil: "domcontentloaded" });
+        await expect(async () => {
+          const header = page.locator("header#search");
+          await expect(header).toHaveCount(1);
+          await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeVisible();
+        }).toPass({ timeout: 30_000 });
+
+        await expect(page.getByTestId("smart-search-prompt-row"), label).toHaveCount(0);
+        await expect(page.getByTestId("search-example-ticker"), label).toHaveCount(0);
+        await expect(page.getByTestId("smart-search-phone-ticker"), label).toHaveCount(0);
+        // Result composers are the compact pill alone: the APP-5 line lives on
+        // the mode-home hero and the answer dock, not under a result bar.
+        await expect(page.getByTestId("answer-composer-privacy-warning"), label).toHaveCount(0);
+
+        // The page slot reserves exactly the settled composer height, so no
+        // blank band sits between the pill and the results at any sm+ width.
+        const geometry = await page.evaluate(() => {
+          const slot = document.getElementById("desktop-page-search-composer-slot");
+          const form = slot?.querySelector('form[role="search"]');
+          if (!slot || !form) return null;
+          return { slot: slot.getBoundingClientRect().height, form: form.getBoundingClientRect().height };
+        });
+        expect(geometry, `${label}: page slot and composer must render`).not.toBeNull();
+        expect(
+          Math.abs(geometry!.slot - geometry!.form),
+          `${label}: page slot must hug the composer (slot ${geometry!.slot}px vs composer ${geometry!.form}px)`,
+        ).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  test("phone result views keep the single compact dock in every mode", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoDashboard(page);
+
+    for (const route of ["/forms/search?q=lithium&run=1", "/documents/search?q=lithium"]) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await expect(async () => {
+        await expect(page.locator("header#search")).toHaveCount(1);
+        await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeVisible();
+      }).toPass({ timeout: 30_000 });
+
+      const dock = page.locator('form[role="search"][data-footer-variant="compact"]');
+      await expect(dock, route).toHaveCount(1);
+      await expect(page.getByTestId("smart-search-phone-ticker"), route).toHaveCount(0);
+      await expect(page.getByTestId("smart-search-prompt-row"), route).toBeHidden();
+      // Phone result docks omit the privacy line so content keeps the screen.
+      await expect(page.getByTestId("answer-composer-privacy-warning"), route).toHaveCount(0);
+    }
+  });
+
   test("phone home keeps one tappable example ticker without a Smart promise", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
@@ -300,7 +424,7 @@ test.describe("Header element overlap coverage", () => {
     // The desktop prompt rail is display:none on a phone, so the ticker is the
     // only suggestion a phone home page carries. It offers an ordinary search,
     // which is why it stays while the Smart line does not.
-    await expect(page.getByTestId("smart-search-rotating-text")).toHaveCount(0);
+    await expect(page.getByTestId("search-example-ticker")).toBeHidden();
     await expect(page.getByTestId("smart-search-prompt-row")).toBeHidden();
 
     const ticker = page.getByTestId("smart-search-phone-ticker");
@@ -336,8 +460,9 @@ test.describe("Header element overlap coverage", () => {
     const ticker = page.getByTestId("smart-search-phone-ticker");
     await expect(ticker).toBeVisible();
     // Documents has no governed Smart answers, so the ticker must stay an
-    // ordinary example search — no "Smart search" line beside it.
-    await expect(page.getByTestId("smart-search-rotating-text")).toHaveCount(0);
+    // ordinary example search — no Smart wording anywhere on the composer.
+    await expect(page.getByTestId("search-example-ticker")).toBeHidden();
+    await expect(page.getByTestId("smart-search-intent-cue")).toHaveCount(0);
     const tickerBox = await ticker.boundingBox();
     expect(tickerBox, "phone suggestion ticker must render on /documents home").not.toBeNull();
     expect(tickerBox!.height, "phone ticker must meet the tap-target floor on /documents").toBeGreaterThanOrEqual(48);

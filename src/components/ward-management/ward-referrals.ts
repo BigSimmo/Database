@@ -320,12 +320,66 @@ export function referralPersonFacts(referral: Referral): string[] {
     : [referral.ageBand, referral.homeRegion];
 }
 
-/** The sex cell for a table with a fixed Sex column. An em dash where the fact is not held, which
- *  is a different statement from an empty cell and reads as one. */
+/**
+ * The same facts, with the absent sex STATED rather than dropped. For the referral board only.
+ *
+ * 🔴 **WHY THIS IS A SEPARATE FUNCTION AND NOT A FIX TO THE ONE ABOVE — the difference is a privacy
+ * ruling, not a style preference.**
+ *
+ * Ward Lead ruled on 2026-09-06 that the phone card must state the absence in words, the same way
+ * `referralSexCell` does for the table, because a shorter list hides the absence rather than
+ * reporting it. That ruling is right and is applied here.
+ *
+ * ⚠️ **BUT `referralPersonFacts` FEEDS FIVE SURFACES, AND ONE OF THEM IS AN EMERGENCY DEPARTMENT
+ * SCREEN CARRYING AN EXPLICIT OWNER RULING.** `ward-referral-visibility.ts` records it: because the
+ * helper returns a sex only when a ward arm exists, an ED rendering those facts already learns THAT
+ * a ward was asked — one bit, in shipped code, and *"the owner was told that when he was asked, and
+ * the ruling records it… No fix is scheduled for it and none should be opened."*
+ *
+ * **Emitting "not a ward referral" from the shared helper would not add a bit — it would turn a bit
+ * a careful reader could INFER into a sentence every reader is TOLD.** That is a change in what a
+ * department is disclosed, on the one surface whose disclosure the owner was consulted about, made
+ * as a side effect of a copy ruling about a phone card. So the board gets its own function and the
+ * ED screen keeps the behaviour the owner approved.
+ *
+ * If the two should converge, that is the owner's call and not an implementer's — the same shape as
+ * every other question on these screens.
+ */
+export function referralPersonFactsStatingSex(referral: Referral): string[] {
+  const ward = referral.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
+  return ward && ward.destination.kind === "psychiatric_ward"
+    ? [referral.ageBand, ward.destination.sex, referral.homeRegion]
+    : [referral.ageBand, SEX_NOT_HELD, referral.homeRegion];
+}
+
+/**
+ * The sex cell for a table with a fixed Sex column.
+ *
+ * ⚠️ **WORDS WHERE THE FACT IS NOT HELD, NOT AN EM DASH.** This returned `"—"` until 2026-09-05,
+ * with the reasoning that a dash *"is a different statement from an empty cell and reads as one"* —
+ * which is true as far as it goes, and stops one step short. **A dash says "nothing here" and this
+ * cell has a specific, explainable reason:** `sex` sits on the ward arm, to be matched against a
+ * bed's designation, so a referral that asks for no bed never carried one. That is a fact about the
+ * REQUEST, and a reader who sees a dash cannot tell it from missing data.
+ *
+ * ⚠️ **THE SAME RULE IS ALREADY ENFORCED ON THIS FUNCTION'S SIBLING, IN THIS FILE.**
+ * `tests/ward-referral-clocks.test.ts` asserts `REFERRAL_CLOCK_TERMS.notInDepartment` is neither a
+ * digit nor `"—"`, for the same reason — and its wording, `"not in department yet"`, is the idiom
+ * followed here: lower case, a term rather than a sentence, no full stop, screens compose the
+ * layout. **One screen family enforcing the rule on one absent value and printing a dash for the
+ * other is the drift a house rule exists to stop.**
+ *
+ * Pinned by `tests/ward-referral-sex-cell.test.ts`, which fails on a dash, on a blank, and on the
+ * ward case losing its real value.
+ */
 export function referralSexCell(referral: Referral): string {
   const ward = referral.destinations.find((addressing) => addressing.destination.kind === "psychiatric_ward");
-  return ward && ward.destination.kind === "psychiatric_ward" ? ward.destination.sex : "—";
+  return ward && ward.destination.kind === "psychiatric_ward" ? ward.destination.sex : SEX_NOT_HELD;
 }
+
+/** What the Sex column says when no bed was asked for, so the fact was never recorded. A term, in
+ *  the idiom of `REFERRAL_CLOCK_TERMS` — exported so a test and a screen cannot spell it apart. */
+export const SEX_NOT_HELD = "not a ward referral";
 
 export function referralCandidates(
   referral: Referral,

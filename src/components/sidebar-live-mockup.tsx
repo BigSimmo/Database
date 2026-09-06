@@ -462,7 +462,7 @@ export function SidebarLiveMockupPage() {
       ) : null}
       <aside
         data-testid="sidebar-live-rail"
-        aria-label="Clinical Guide sidebar mockup"
+        aria-label="PsychSift sidebar mockup"
         className={cn(
           styles.rail,
           "flex flex-col border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)]",
@@ -473,7 +473,7 @@ export function SidebarLiveMockupPage() {
             <div className="flex min-w-0 items-center gap-3">
               <BrandMark className="h-10 w-10" />
               <span className="truncate text-base font-semibold tracking-tight text-[color:var(--text-heading)]">
-                Clinical Guide
+                PsychSift
               </span>
             </div>
             <div className="shrink-0">
@@ -538,7 +538,7 @@ export function SidebarLiveMockupPage() {
               )}
             >
               <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
-              <span className="min-w-0 flex-1 truncate">Search Clinical Guide</span>
+              <span className="min-w-0 flex-1 truncate">Search PsychSift</span>
               <kbd className="hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 font-sans text-2xs font-semibold text-[color:var(--text-muted)] sm:inline">
                 Ctrl K
               </kbd>
@@ -1098,7 +1098,7 @@ export function SidebarLiveMockupPage() {
       >
         <header className="flex items-center justify-between gap-3">
           <div>
-            <p className={eyebrowText}>Clinical Guide</p>
+            <p className={eyebrowText}>PsychSift</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[color:var(--text-heading)]">Answer</h1>
           </div>
           <button
@@ -1125,7 +1125,7 @@ export function SidebarLiveMockupPage() {
         <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-8 py-8 xl:px-12 xl:py-10">
           <header className="mb-7 flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className={eyebrowText}>Clinical Guide</p>
+              <p className={eyebrowText}>PsychSift</p>
               <h1 className="mt-2 text-4xl font-semibold tracking-tight text-[color:var(--text-heading)]">
                 {activeModeData.label}
               </h1>
@@ -1212,7 +1212,7 @@ export function SidebarLiveMockupPage() {
         id="sidebar-universal-search"
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
-        title="Search Clinical Guide"
+        title="Search PsychSift"
         description="Search chats, modes, documents, and tools from one place."
         closeLabel="Close search"
         initialFocusRef={searchInputRef}

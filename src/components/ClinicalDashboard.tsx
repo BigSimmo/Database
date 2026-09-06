@@ -1515,11 +1515,16 @@ function ClinicalDashboardContent({
     };
   }, []);
 
+  // The URL sync reads the current mode to tell a stale UI-change flag from a
+  // genuine one, without the mode becoming one of its dependencies.
+  const searchModeRef = useRef(searchMode);
+  searchModeRef.current = searchMode;
   useHomeModeSeed({
     pathname,
     searchParams,
     lastAppMode,
     setSearchMode,
+    searchModeRef,
     setQuery,
     setQueryMode,
     setScopeFilters,
@@ -2992,6 +2997,15 @@ function ClinicalDashboardContent({
   // matches for the prior query do not compete with the new Drafting stepper.
   const showUniversalAlsoMatches =
     !showSharedHome &&
+    // Prescribing declares `resultKind: "documents"` on purpose (it searches the
+    // indexed sources, not a forms table), so the documents arm below matches it
+    // and this dashboard would mount a SECOND panel over the one
+    // MedicationPrescribingWorkspace already renders under the medication list.
+    // The workspace owns the mount, because only it knows where the result list
+    // ends; the mode is named here rather than the result kind, because the kind
+    // is shared and the ownership is not. `tests/ui-stress.spec.ts` pins the count
+    // at one on `/?mode=prescribing`, which is how the duplicate was caught.
+    searchMode !== "prescribing" &&
     Boolean(universalAlsoMatchesQuery.trim()) &&
     (activeModeResultKind === "tools" ||
       activeModeResultKind === "favourites" ||
@@ -3278,6 +3292,7 @@ function ClinicalDashboardContent({
         onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
         onOpenSearch={openSidebarSearch}
+        onSelectMode={selectSearchMode}
         showAccountLibrary={favouritesAccessible}
       />
       <PhoneFooterLayerFrame
@@ -3418,7 +3433,7 @@ function ClinicalDashboardContent({
                 : "mb-0",
           )}
         >
-          <h1 className="sr-only">Clinical Guide</h1>
+          <h1 className="sr-only">PsychSift</h1>
           {privateScopeStatus === "unavailable" ? (
             // Lives inside <main> (not as a header sibling): in the answer view
             // the header is absolute, so a sibling alert would reflow to the
@@ -4092,6 +4107,7 @@ function ClinicalDashboardContent({
           onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
           onOpenSearch={openSidebarSearch}
+          onSelectMode={selectSearchMode}
           showAccountLibrary={favouritesAccessible}
         />
       </PhoneFooterLayerFrame>

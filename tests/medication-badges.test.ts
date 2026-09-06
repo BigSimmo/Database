@@ -215,6 +215,119 @@ describe("controlled-drug (S8) schedule badge", () => {
   });
 });
 
+describe("formulation strength badge", () => {
+  // The hero identity badge is the glanceable strength on a medication record,
+  // so a number here is one a clinician can act on. Three token shapes broke it:
+  // a decimal strength read from its fractional digits ("0.5 mg" -> "5 mg"), a
+  // per-volume concentration read as a unit strength ("5 mg/mL" -> "5 mg"), and
+  // a combination product read as one of its parts ("2/0.5 mg" -> "5 mg").
+  const baseRecord: MedicationRecord = {
+    slug: "test-formulation",
+    name: "Test Formulation",
+    class: "",
+    subclass: "",
+    category: "",
+    accent: "#0f766e",
+    tag: "",
+    schedule: "",
+    stats: [],
+    sections: [],
+    quick: [],
+  };
+
+  function formulationBadge(routeFormulation: string) {
+    const badges = medicationIdentityBadges({
+      ...baseRecord,
+      quick: [{ label: "Route / Formulation", value: routeFormulation }],
+    });
+    return badges.find((badge) => badge.id === "identity-formulation")?.label ?? null;
+  }
+
+  function accessFormulationBadge(oralRoutes: string) {
+    const badges = medicationAccessBadges({
+      ...baseRecord,
+      sections: [{ title: "Formulation", type: "form", rows: [{ key: "Oral Routes", val: oralRoutes }] }],
+    });
+    return badges.find((badge) => badge.id === "access-formulation")?.label ?? null;
+  }
+
+  it("keeps the decimal point of a sub-milligram strength", () => {
+    expect(formulationBadge("Tablets (0.5 mg, 1 mg). Take strictly after food.")).toBe("0.5 mg tablet");
+  });
+
+  it("keeps the decimal point of a fractional strength", () => {
+    expect(formulationBadge("Tablets (7.5 mg, 15 mg).")).toBe("7.5 mg tablet");
+  });
+
+  it("skips a per-millilitre concentration and reads the unit strength that follows", () => {
+    expect(formulationBadge("Oral liquid syrup (5 mg/mL). Tablets (10 mg).")).toBe("10 mg tablet");
+  });
+
+  it("shows no strength badge when the only number is a concentration", () => {
+    expect(formulationBadge("Ampoules (80 mg/2 mL) for IV infusion.")).toBeNull();
+    expect(formulationBadge("Oral viscous solution (20 mg/mL).")).toBeNull();
+  });
+
+  it("shows no strength badge for a combination product's paired strengths", () => {
+    // Neither number in "2/0.5 mg" is the product's strength, so no badge is the
+    // only honest answer; the full formulation text stays in the sections below.
+    expect(formulationBadge("Sublingual/buccal films (2/0.5 mg and 8/2 mg supplied in Australia).")).toBeNull();
+    expect(formulationBadge("Tablets (500/125 mg, 875/125 mg).")).toBeNull();
+  });
+
+  it("still reads a plain integer strength, enteric coating included", () => {
+    expect(formulationBadge("Enteric-coated tablets (333 mg).")).toBe("333 mg EC tablet");
+    expect(accessFormulationBadge("Enteric-coated tablets (333 mg).")).toBe("333 mg EC tablet");
+  });
+
+  it("applies the same rules to the access badge's Oral routes row", () => {
+    expect(accessFormulationBadge("Tablets (0.5 mg, 1 mg).")).toBe("0.5 mg tablet");
+    expect(accessFormulationBadge("Oral liquid drops (7.5 mg/mL). Oral powder sachets (bowel prep).")).toBeNull();
+  });
+
+  it("reproduces the committed records the misread strength was found on", () => {
+    for (const [slug, expected] of [
+      ["varenicline", "0.5 mg tablet"],
+      ["meloxicam", "7.5 mg tablet"],
+      ["methadone", "10 mg tablet"],
+      ["nicotine-lozenge", "1.5 mg"],
+      ["colchicine", "0.5 mg tablet"],
+    ] as const) {
+      const record = getMedicationRecord(slug);
+      expect(record, `${slug} fixture missing`).toBeTruthy();
+      const badge = medicationIdentityBadges(record!).find((item) => item.id === "identity-formulation");
+      expect(badge?.label, slug).toBe(expected);
+    }
+  });
+
+  it("never invents a strength the source text does not state, across the whole corpus", () => {
+    for (const record of loadMedicationSnapshot()) {
+      const sources = [
+        record.quick.find((row) => row.label.toLowerCase().includes("route / formulation"))?.value ?? "",
+        record.sections
+          .find((section) => section.type === "form")
+          ?.rows.find((row) => row.key.toLowerCase().includes("oral routes"))?.val ?? "",
+      ].join(" ");
+
+      const badges = [...medicationIdentityBadges(record), ...medicationAccessBadges(record)].filter(
+        (badge) => badge.id === "identity-formulation" || badge.id === "access-formulation",
+      );
+
+      for (const badge of badges) {
+        const strength = badge.label.match(/^(\d+(?:\.\d+)?)\s*mg\b/);
+        if (!strength) continue;
+        // The badged number must appear as a whole strength token in the source:
+        // not as the tail of a longer number ("0.5 mg" badged as "5 mg"), and not
+        // as a per-volume concentration ("5 mg/mL") or one half of a combination.
+        const token = new RegExp(String.raw`(?<![\d./])${strength[1].replace(".", String.raw`\.`)}\s*mg\b(?!\s*/)`);
+        expect(token.test(sources), `${record.slug}: badge "${badge.label}" is not a strength in "${sources}"`).toBe(
+          true,
+        );
+      }
+    }
+  });
+});
+
 describe("medication governance date evaluation", () => {
   it("parses valid ISO dates and rejects negative phrases", () => {
     expect(parseSourceDate("checked 2026-06-30 for this entry")).toEqual(new Date("2026-06-30T00:00:00.000Z"));

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "4fb343b6-00a9-45d6-9b9a-536d32f43a74",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "A stored source_status of \"outdated\" on a medication, service or differential record can never be cleared — nothing writes that column back",
+    "detail": "PR #2536 deliberately preserves a stored \"outdated\" through read-time re-derivation, because supersession is a recorded clinical judgement that age can neither establish nor refute. That is correct, but it makes the value permanent: verified 2026-09-02 that no code path writes source_status back on medication_records, clinical_registry_records or differential_records — the only writers are the insert-time recordToRow/presentationToRow/diagnosisToRow paths, which derive from source text and can never emit \"outdated\", and grep for '\"outdated\"' across src, scripts, worker and supabase finds no update or upsert against any of those three tables. So a record that is legitimately re-sourced stays red forever. Stuck-red is the safe direction, but it is stuck, and it means the badge stops tracking reality. A precedent already exists for documents and is the shape to copy: supabase/migrations/20260711164441_domain_1_source_review_lifecycle.sql defines record_source_review(), which writes an immutable source_review_events row and then sets documents.metadata.document_status to \"outdated\" for rejected/decommissioned/superseded and back to \"current\"/\"review_due\" otherwise (lines 41-122). NEXT STEP: an equivalent recorded-supersession flow for the three record tables that can both set and clear the column, evidence-bearing in the same way, so clearing is a recorded decision rather than an age calculation.",
+    "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
+    "issueUlid": "01M1GA1CK1H3PXP04461F5SG03"
+  }
+}

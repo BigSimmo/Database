@@ -22,9 +22,8 @@
 /src/instrumentation.ts             @BigSimmo
 /src/instrumentation-client.ts      @BigSimmo
 
-# RAG / retrieval / search / ranking
-/src/lib/rag.ts                     @BigSimmo
-/src/lib/rag-*.ts                   @BigSimmo
+# RAG / retrieval / search / ranking (the stack moved to src/lib/rag/ in #994)
+/src/lib/rag/                       @BigSimmo
 /src/lib/retrieval-*.ts             @BigSimmo
 /src/lib/*search*.ts                @BigSimmo
 /src/lib/privacy.ts                 @BigSimmo

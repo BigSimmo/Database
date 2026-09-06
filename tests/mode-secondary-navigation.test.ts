@@ -29,6 +29,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   factsheets: ["Search", "Topics"],
   dictionary: ["Terms", "Topics", "Compare", "Sources"],
   sources: ["Catalogue", "Topics", "Publishers", "Method"],
+  "on-call": [],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -48,14 +49,23 @@ const cleanLandingPath: Record<AppModeId, string> = {
   factsheets: "/factsheets",
   dictionary: "/dictionary",
   sources: "/sources/search",
+  "on-call": "/on-call",
 };
 
 /**
- * The eight modes that register nothing. Each used to carry one
- * `action: "search"` entry rendering a lone <button> inside its own <nav>
- * landmark, whose only effect was focusing a composer already on screen. Every
- * one is genuinely single-surface, so the control was deleted rather than
- * ported to the shared bar.
+ * The nine modes that register nothing.
+ *
+ * Eight of them each used to carry one `action: "search"` entry rendering a
+ * lone <button> inside its own <nav> landmark, whose only effect was focusing a
+ * composer already on screen. Every one is genuinely single-surface, so the
+ * control was deleted rather than ported to the shared bar.
+ *
+ * On Call is the ninth, and it is here for a different reason: all six of its
+ * section routes are information pages, so `PageSecondaryNavigation` returns
+ * null on every one of them and the shared bar can never render. It briefly
+ * registered six destinations anyway, which `tests/ui-mode-nav-density.spec.ts`
+ * caught — the bar was missing at every width because nothing drew it. The mode
+ * navigates with `OnCallNavHeader` plus an in-flow section strip instead.
  */
 const emptyRegistryModes = [
   "answer",
@@ -66,12 +76,13 @@ const emptyRegistryModes = [
   "prescribing",
   "tools",
   "calculators",
+  "on-call",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 16 modes with the approved destinations and no Home item", () => {
+  it("covers all 17 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(16);
+    expect(appModeIds).toHaveLength(17);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);

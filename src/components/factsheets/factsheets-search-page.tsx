@@ -6,6 +6,7 @@ import { Info, LayoutGrid, List, SearchX } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
@@ -278,6 +279,8 @@ export function FactsheetsSearchPage({
           })}
         </section>
       )}
+
+      <UniversalSearchAlsoMatches modeId="factsheets" query={query} className="mt-5" />
 
       <aside className="mt-5 flex gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden="true" />

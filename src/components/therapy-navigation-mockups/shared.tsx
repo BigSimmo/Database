@@ -225,7 +225,9 @@ export function DeviceFrame({
   className?: string;
 }) {
   return (
-    <figure className={cn("m-0 min-w-0", device === "phone" ? "w-[340px] max-w-full" : "w-full", className)}>
+    <figure
+      className={cn("m-0 min-w-0", device === "phone" ? "w-[340px] max-w-full" : "w-full overflow-x-auto", className)}
+    >
       <figcaption className="mb-2 text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
         {label}
       </figcaption>
@@ -233,7 +235,12 @@ export function DeviceFrame({
         className={cn(
           "relative flex flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]",
           device === "phone" ? "h-[38rem]" : "h-[28rem]",
-          device === "tablet" && "mx-auto w-full max-w-[768px]",
+          // A desktop or tablet frame is a drawing of a wide layout, so it keeps
+          // its real proportions and scrolls sideways on a narrow page rather
+          // than reflowing. Without the floor, a 390px page squeezed the tablet
+          // frame's content column to 2px and clipped every label inside it.
+          device === "desktop" && "min-w-[44rem]",
+          device === "tablet" && "mx-auto w-full min-w-[32rem] max-w-[768px]",
         )}
       >
         {children}

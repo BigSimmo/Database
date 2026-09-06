@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   acquireLease,
   assertCommonTransitionSourceSha,
@@ -27,6 +27,7 @@ import {
   publishHandover,
   sha256,
   loadCommittedCriterion,
+  assertActivationTreeSignature,
   validateControlPlane,
   validateCurrentTruthManifest,
   validateHandoverDraft,
@@ -274,6 +275,31 @@ function childExit(child: ReturnType<typeof spawn>) {
   });
 }
 
+/*
+ * ⚠️ THE PER-TEST BUDGET IS RAISED BECAUSE OF LOAD, NOT BECAUSE THE WORK IS SLOW. Measured on a
+ * quiet machine, 2026-09-04, whole file 64.16s for 39 tests:
+ *
+ *   slowest ordinary test   9195 ms   "mechanically inventories Git documents, chat logs and
+ *                                      checkout sources"
+ *   next                    4822 ms
+ *   the 124 MB bundle test 13943 ms   and it already carries its own 300_000 override below
+ *
+ * So vitest's 5000 ms default was never matched to this file, and the 30_000 ms it was running
+ * under was only ~3x the slowest ordinary test. With four subagents running, seven tests in this
+ * file timed out at 30_000 ms — and A DIFFERENT SET FAILED ON EACH RUN, which is the signature of
+ * a clock rather than a defect.
+ *
+ * 🔴 THAT FAILURE MODE IS WHY THIS IS RAISED RATHER THAN THE ASSERTIONS WEAKENED. A gate that is
+ * red when the machine is busy and green when it is quiet teaches everyone to re-run it, and a
+ * passing re-run is indistinguishable from a real pass. Nobody would ever again be able to tell a
+ * genuine control-plane failure from a busy afternoon.
+ *
+ * 120_000 is ~13x the slowest ordinary test: ample headroom for load, while a genuinely hung test
+ * still fails in two minutes rather than five. Do not raise it further without measuring again —
+ * the number above is the justification, not the value.
+ */
+vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 });
+
 describe("Ward Flow compact chat control", () => {
   it("pins exactly three roles, one sole integrator and the activation gate the live state has reached", () => {
     const contract = validateRolesContract(readJson("roles.json"));
@@ -393,6 +419,168 @@ describe("Ward Flow compact chat control", () => {
         "recorded-source",
       ),
     ).toThrow(/checkout status drifted/);
+  });
+
+  /*
+   * 🔴 THE BRANCH IS THE INTEGRITY REQUIREMENT; THE PATH IS A CACHE. These three pin the rekey of
+   * 2026-09-04, after THREE OF THE FIVE recorded checkouts were found pointing at folders wiped by
+   * an unrelated cleanup session — while all five branches still resolved and every recorded head
+   * was still on its branch. Nothing had been lost; the validator was reporting a folder, not the work.
+   *
+   * ⚠️ THESE CALL THE VALIDATOR DIRECTLY, ON PURPOSE, AND THAT IS THE WHOLE POINT OF THEM.
+   * `validateControlPlane` reads the snapshot from a COMMITTED REF (`headFile(..., { ref: sourceSha })`),
+   * not from the working tree — so editing `live-state.json` on disk to test this proves NOTHING.
+   * The first attempt did exactly that, passed, and the mutant had never run.
+   */
+  it("treats a branch that no longer resolves as real loss, even with no worktree mounted", () => {
+    const missingPath = path.join(temporaryDirectory("ward-unmounted-"), "never-created");
+    expect(existsSync(missingPath), "this test needs a path that does NOT exist").toBe(false);
+    expect(() =>
+      assertCheckoutMatchesSnapshot(
+        { checkout: missingPath, branch: "claude/no-such-branch-anywhere", head: "2".repeat(40) },
+        { tracked: [], untrackedCount: 0 },
+        "recorded-source",
+      ),
+    ).toThrow(/branch claude\/no-such-branch-anywhere no longer resolves/);
+  });
+
+  it("treats a recorded head that is not on its branch as real loss, not merely unreachable", () => {
+    /*
+     * ⚠️ THE HEAD USED HERE MUST EXIST AS AN OBJECT AND NOT BE ON THE BRANCH. My first version of
+     * this test used a SHA of forty 2s, which exists nowhere — so it failed the ancestry check AND
+     * a mere object-existence check identically, and could not tell them apart. Weakening the
+     * validator to `cat-file -e` left it GREEN. Proved by mutation, not by reading it.
+     *
+     * So this walks the real branch graph for a commit that is genuinely present and genuinely not
+     * an ancestor, and SKIPS rather than pretends if this checkout has no such commit.
+     */
+    const missingPath = path.join(temporaryDirectory("ward-unmounted-"), "never-created");
+    const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+    }).trim();
+    /*
+     * 🔴 SYNTHESISED, NOT SCAVENGED — AND THAT CHANGE CAME FROM CI, NOT FROM REVIEW.
+     *
+     * The first version walked `refs/heads/` for a branch head that is not an ancestor of the
+     * current branch. That works in a development clone with many branches and FAILS IN CI, where
+     * the checkout carries one branch and there is no such head to find. The test then hit its own
+     * anti-vacuity assertion and went red — correctly. It refused to pass without being able to
+     * discriminate, which is exactly what it was written to do; the defect was that it depended on
+     * the ambient shape of the repository rather than on anything it controlled.
+     *
+     * `commit-tree` on the current tree with no parent produces a commit object that genuinely
+     * EXISTS and is genuinely NOT an ancestor of any branch — the two properties this test needs,
+     * in every checkout, deterministically. It is a dangling object and `gc` reclaims it.
+     *
+     * Both properties are asserted BEFORE use, because a fixture that silently lacks one of them
+     * would make this test pass against a validator that only calls `cat-file -e` — the precise
+     * weakening a SHA of forty 2s could not detect, recorded below.
+     */
+    /*
+     * ⚠️ THE IDENTITY IS SUPPLIED, NOT INHERITED — AND THIS IS THE SECOND ENVIRONMENT DEPENDENCY
+     * THIS ONE FIXTURE HAS HAD. Scavenging a branch head failed on a single-branch CI checkout;
+     * the replacement then failed on a CI runner for a different reason entirely:
+     *
+     *     Error: Command failed: git commit-tree HEAD^{tree} -m ward-flow ancestry fixture
+     *     Author identity unknown ... fatal: empty ident name (for <runner@...>) not allowed
+     *
+     * `commit-tree` writes a commit, and a commit needs an author. A development machine has one
+     * configured globally and a fresh runner does not. Passing all four variables explicitly makes
+     * the fixture depend on nothing outside this call — no global config, no repo config, no
+     * ambient branch topology.
+     */
+    const offBranch = execFileSync("git", ["commit-tree", `${branch}^{tree}`, "-m", "ward-flow ancestry fixture"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "ward-flow ancestry fixture",
+        GIT_AUTHOR_EMAIL: "ward-flow-fixture@invalid",
+        GIT_COMMITTER_NAME: "ward-flow ancestry fixture",
+        GIT_COMMITTER_EMAIL: "ward-flow-fixture@invalid",
+      },
+    }).trim();
+
+    expect(offBranch, "commit-tree produced no object, so there is no fixture to test with").toMatch(/^[0-9a-f]{40}$/u);
+    expect(
+      () => execFileSync("git", ["cat-file", "-e", `${offBranch}^{commit}`], { cwd: projectRoot, stdio: "ignore" }),
+      "the fixture commit must EXIST, or this test cannot tell ancestry from mere existence",
+    ).not.toThrow();
+    expect(
+      () =>
+        execFileSync("git", ["merge-base", "--is-ancestor", offBranch, branch], { cwd: projectRoot, stdio: "ignore" }),
+      "the fixture commit must NOT be an ancestor of the branch, or there is nothing to detect",
+    ).toThrow();
+    expect(() =>
+      assertCheckoutMatchesSnapshot(
+        { checkout: missingPath, branch, head: offBranch },
+        { tracked: [], untrackedCount: 0 },
+        "recorded-source",
+      ),
+    ).toThrow(/is not on/);
+  });
+
+  /**
+   * ⚠️ THE SIBLING OF THE TEST BELOW, AND THE REASON THAT ONE IS NOT ENOUGH. "Unmounted is an
+   * ordinary state" is true only for a snapshot with nothing uncommitted. With recorded dirty
+   * artifacts it is a positive claim — "there was no uncommitted work" — made from a directory
+   * that does not exist. The caller then reads those artifacts from the same missing path.
+   *
+   * Not hypothetical: `ward-board` records 139 untracked files, and three sibling checkouts under
+   * `.claude/worktrees/` were destroyed by unrelated cleanup on 2026-08-21.
+   */
+  it("refuses an unmounted checkout whose snapshot records uncommitted work, rather than calling it clean", () => {
+    const missingPath = path.join(temporaryDirectory("ward-unmounted-dirty-"), "never-created");
+    const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+    }).trim();
+    const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectRoot, encoding: "utf8" }).trim();
+
+    // CONTROL: the same unmounted source with a CLEAN snapshot must still be accepted, or this
+    // test would pass against a validator that simply rejects every unmounted checkout.
+    expect(
+      assertCheckoutMatchesSnapshot(
+        { checkout: missingPath, branch, head },
+        { tracked: [], untrackedCount: 0 },
+        "clean-source",
+      ).mounted,
+      "an unmounted checkout with a clean snapshot is still an ordinary state",
+    ).toBe(false);
+
+    expect(() =>
+      assertCheckoutMatchesSnapshot(
+        { checkout: missingPath, branch, head },
+        { tracked: [], untrackedCount: 139 },
+        "dirty-source",
+      ),
+    ).toThrow(/not mounted, but the recorded snapshot carries uncommitted work/);
+
+    expect(() =>
+      assertCheckoutMatchesSnapshot(
+        { checkout: missingPath, branch, head },
+        { tracked: ["src/x.ts"], untrackedCount: 0 },
+        "dirty-source",
+      ),
+    ).toThrow(/not mounted, but the recorded snapshot carries uncommitted work/);
+  });
+
+  it("accepts an intact branch with no worktree mounted, and says so rather than failing", () => {
+    const missingPath = path.join(temporaryDirectory("ward-unmounted-"), "never-created");
+    const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+    }).trim();
+    const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: projectRoot, encoding: "utf8" }).trim();
+    const result = assertCheckoutMatchesSnapshot(
+      { checkout: missingPath, branch, head },
+      { tracked: [], untrackedCount: 0 },
+      "recorded-source",
+    );
+    expect(result.mounted, "an unmounted checkout is an ordinary state, not an error").toBe(false);
+    expect(result.branch).toBe(branch);
+    expect(result.head).toBe(head);
   });
 
   it("requires the Verifier checkout itself to equal the frozen target", () => {
@@ -1736,4 +1924,166 @@ describe("Ward Flow compact chat control", () => {
     expect(result.certificateCount).toBeGreaterThanOrEqual(0);
     expect(sha256("stable")).toHaveLength(64);
   }, 300_000);
+
+  it("says on EVERY refusal path which stronger question the activation-tree check is not asking", () => {
+    /*
+     * 🔴 THE DISCLOSURE WAS PROSE, AND PROSE FAILING TO BEAR LOAD IS THE WHOLE SUBJECT OF THIS GATE.
+     *
+     * `assertActivationTreeSignature` replaced a check that required a receipt the TEST RUNNER
+     * produced. That check was unanswerable — its evidence lived in an eight-deep LRU shared by
+     * every vitest run — but it did attempt something this one does not: evidence that a human ran
+     * the command. The replacement therefore carries a disclaimer saying so, in the FAILURE MESSAGE
+     * rather than only a comment, because the message reaches the person the gate just stopped and a
+     * comment reaches only somebody already auditing it.
+     *
+     * ⚠️ **Ward Verifier predicted, before seeing the implementation, that the sentence would be
+     * present and NOT load-bearing — that deleting it would not go red.** It was right. So this
+     * asserts the property over EVERY refusal path rather than over one message: adding a fourth
+     * failure to that function without the disclaimer fails here, which is the realistic future
+     * edit. A guard that checked one message would pass while the new path said nothing.
+     *
+     * ⚠️ **THE MATCH IS DELIBERATELY LOOSE.** Pinning the exact sentence would make three harmless
+     * rewordings go red and teach the next person to delete the test — the shape that has bitten
+     * this repository repeatedly. What must survive is the CLAIM: that this does not evidence a
+     * human execution. Reword freely around it.
+     */
+    const NOT_HUMAN_RUN = /does not prove[\s\S]{0,60}human ran/i;
+    const snapshot = (readJson("system-state.json") as { activationSnapshot?: unknown }).activationSnapshot;
+    /*
+     * ⚠️ AN EXEMPTION REPORTED AS A PASS IS THE SHAPE WE HAVE BEEN CHASING ALL NIGHT, even where the
+     * exemption is correct. In recovery mode there is no frozen tree to attest, so this test has
+     * nothing to assert — but returning silently makes it report GREEN while asserting nothing, which
+     * is indistinguishable from a guard that ran. Ward Verifier's point. Assert the reason instead.
+     */
+    if (typeof snapshot !== "string" || snapshot.length === 0) {
+      expect(
+        (readJson("system-state.json") as { mode?: unknown }).mode,
+        "this test asserted nothing, and the only honest reason is recovery mode — where there is no " +
+          "frozen activation tree to attest. Any other mode reaching here means the snapshot went " +
+          "missing and this guard went quiet at the same moment.",
+      ).toBe("recovery");
+      return;
+    }
+    const sound = readJson("system-state.json") as Record<string, unknown>;
+
+    /*
+     * 🔴 EACH CASE CARRIES THE CLAIM ITS OWN BRANCH MAKES, BECAUSE THE DISCLOSURE ALONE CANNOT TELL
+     * THE BRANCHES APART — AND A MUTATION PROVED IT RATHER THAN A READING.
+     *
+     * Ward Verifier predicted that absence was caught by the wrong assertion. It was, and the first
+     * version of this test did not fix it: disabling the absence branch entirely
+     * (`if (false)`) left the mutant SURVIVING, because an absent hash then falls through to the
+     * comparison, where `undefined !== <hash>` refuses anyway — with a different message that also
+     * carries the disclosure. **The branch could be deleted and nothing here would notice.**
+     *
+     * A refusal for the wrong reason is a refusal, and a guard that only asks "did it refuse" cannot
+     * see the difference. So each case names the claim its branch exists to make. Loose matches, for
+     * the same reason as the disclosure: pin what must remain true, not the sentence.
+     */
+    const refusals = [
+      ["absent", { ...sound, activationTreeHash: undefined, activationTreeFileCount: undefined }],
+      ["hash", { ...sound, activationTreeHash: "0".repeat(64) }],
+      ["fileCount", { ...sound, activationTreeFileCount: 1 }],
+    ] as const;
+
+    /*
+     * 🔴 "EVERY REFUSAL PATH" WAS ENFORCED OVER A LIST I TYPED, WHICH IS THE DEFECT THIS TEST NAMES.
+     *
+     * The comment above says the realistic future edit is a fourth `fail(` added without the
+     * disclosure — and a fourth `fail(` does not appear in `refusals`, so the guard would have passed
+     * on exactly the edit it exists for. Complete today, and nothing kept it complete. Ward Verifier
+     * found it; it is the same shape as a single-source guard keyed to a class name while claiming to
+     * be keyed to a rule.
+     *
+     * **Floor the POPULATION, not the finding.** Counting the refusal paths in the shipped function
+     * and requiring the enumeration to match means a new path goes red here until somebody adds its
+     * case. Reading the function's own source is crude and it fails CLOSED, which is the direction
+     * that costs a minute rather than a guarantee.
+     */
+    const source = assertActivationTreeSignature.toString();
+    // Call sites only: the helper is declared as `const refuse = (cause, message) =>`, which carries
+    // no `refuse(`, so every match here is a refusal path rather than the definition.
+    const declaredPaths = [...source.matchAll(/\brefuse\(/g)].length;
+    expect(
+      refusals.length,
+      `assertActivationTreeSignature has ${declaredPaths} refusal paths and this test enumerates ` +
+        `${refusals.length}. A refusal path was added or removed without its case here, so the ` +
+        '"every path carries the disclosure" claim above is no longer being checked over every path. ' +
+        "Add the missing case — do not adjust this number to match.",
+    ).toBe(declaredPaths);
+    // Exactly one `fail(` — the one inside `refuse` itself. A second means a refusal bypassed the
+    // helper, and that path would carry neither the disclosure nor a cause.
+    expect(
+      [...source.matchAll(/\bfail\(/g)].length,
+      "a refusal in assertActivationTreeSignature calls fail() directly instead of going through the " +
+        "refuse() helper. That path gets no disclosure and no cause — which is exactly what routing " +
+        "every refusal through one helper exists to make impossible.",
+    ).toBe(1);
+
+    /*
+     * 🔴 **THE SNAPSHOT COMMIT IS NOT IN EVERY CHECKOUT, AND WITHOUT THIS ALL THREE CASES FAIL FOR
+     * A REASON THAT HAS NOTHING TO DO WITH THE DISCLOSURE.** Found on CI 2026-09-06: all six
+     * entries appeared in `missing` at once — every case reporting both "no disclosure" and
+     * "cause was undefined" — because `assertActivationTreeSignature` calls
+     * `committedTreeInputSignature(ref)` FIRST, and that throws a git error before any refusal path
+     * is reached when `ref` names an object the clone does not have.
+     *
+     * ⚠️ **THAT IS THE NORMAL STATE ON CI FOR THIS BRANCH, NOT A FAULT.** Ward Flow publishes as a
+     * rebuilt single commit with no ancestry, and CI clones shallowly, so the activation snapshot
+     * this record names is genuinely absent from the tree the job checks out. Six failures that all
+     * say "the disclosure is missing" while the disclosure is present is exactly the misdirection
+     * this file spends two hundred lines guarding against elsewhere.
+     *
+     * **So the reason is ASSERTED rather than the block returning quietly** — the same treatment
+     * the recovery-mode branch above gets, and for the same stated reason: a silent return reports
+     * green while asserting nothing, which is indistinguishable from a guard that ran.
+     */
+    const snapshotResolvable = (() => {
+      try {
+        execFileSync("git", ["cat-file", "-e", `${String(snapshot)}^{commit}`], {
+          cwd: projectRoot,
+          stdio: "ignore",
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+    if (!snapshotResolvable) {
+      expect(
+        typeof snapshot === "string" && /^[0-9a-f]{7,40}$/.test(snapshot),
+        "the activation snapshot is unreachable in this checkout, which is expected on a shallow " +
+          "clone of a rebuilt publication commit — but the recorded value must still LOOK like a " +
+          "commit. A record that is neither reachable nor well-formed is a broken record, not a " +
+          "shallow clone, and this is the branch where the two would otherwise be confused.",
+      ).toBe(true);
+      return;
+    }
+
+    const missing: string[] = [];
+    for (const [cause, state] of refusals) {
+      let message = "";
+      let seenCause: unknown;
+      try {
+        assertActivationTreeSignature(state, snapshot, projectRoot);
+        missing.push(`${cause}: did not refuse at all`);
+        continue;
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error);
+        seenCause = (error as { activationTreeCause?: unknown }).activationTreeCause;
+      }
+      if (!NOT_HUMAN_RUN.test(message)) missing.push(`${cause}: no disclosure — ${message.slice(0, 110)}`);
+      if (seenCause !== cause) {
+        missing.push(`${cause}: refused for a DIFFERENT reason than its own branch — cause was ${String(seenCause)}`);
+      }
+    }
+    expect(
+      missing,
+      "a refusal path of the activation-tree check no longer says that it does not evidence a human " +
+        "having run the command. That sentence is the only thing standing between this gate and being " +
+        "read as stronger than it is — it replaced a check that did attempt human-execution evidence. " +
+        "Reword it freely; do not remove it, and do not add a refusal path without it:\n" +
+        missing.join("\n"),
+    ).toEqual([]);
+  }, 120_000);
 });

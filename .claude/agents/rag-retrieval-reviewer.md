@@ -1,6 +1,6 @@
 ---
 name: rag-retrieval-reviewer
-description: Reviews retrieval, ranking, selection, answer generation/verification, and RAG provider/eval code for regressions and token/effort waste. Use when editing src/lib/rag*.ts, clinical-search/retrieval-selection/ranking, answer-*.ts, openai.ts, or the eval scripts and golden fixtures.
+description: Reviews retrieval, ranking, selection, answer generation/verification, and RAG provider/eval code for regressions and token/effort waste. Use when editing src/lib/rag/**, clinical-search/retrieval-selection/ranking, answer-*.ts, openai.ts, or the eval scripts and golden fixtures.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
@@ -15,11 +15,11 @@ Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before 
 
 ## Scope
 
-- `src/lib/rag*.ts`, `src/lib/smart-rag-api.ts`, `src/lib/corpus-grounding.ts`
+- `src/lib/rag/**` (the protected RAG tree per AGENTS.md "RAG ranking protection" — `rag.ts`, `rag-answer-*.ts`, `rag-quote-verification.ts`, `rag-source-block.ts`, `rag-eval-cases.ts`, ...), `src/lib/smart-rag-api.ts`, `src/lib/corpus-grounding.ts`
 - `src/lib/{clinical-search,retrieval-selection,ranking-config,answer-ranking,result-sort,evidence-relevance}.ts`
-- `src/lib/answer-*.ts`, `src/lib/rag-answer*.ts`, `src/lib/*verification.ts`, `src/lib/citations.ts`
+- `src/lib/answer-*.ts`, `src/lib/*verification.ts`, `src/lib/citations.ts`
 - `src/lib/openai.ts`, `src/lib/env.ts` (RAG provider / reasoning / token-budget config)
-- `scripts/eval-*.{ts,mjs}`, `scripts/*retrieval*.ts`, `scripts/fixtures/rag-*.json`, `src/lib/rag-eval-cases.ts`
+- `scripts/eval-*.{ts,mjs}`, `scripts/*retrieval*.ts`, `scripts/fixtures/rag-*.json`
 
 ## Provider boundary
 

@@ -1,17 +1,61 @@
 import type { ClinicalAskFinalPayload, ClinicalAskRequest, ClinicalAskStreamEvent } from "@/lib/clinical-ask/contracts";
 import { parseClinicalAskSseFrame } from "@/lib/clinical-ask-stream-contract";
 
-function failedPayload(request: ClinicalAskRequest, code: "aborted" | "internal_error"): ClinicalAskFinalPayload {
+type ClientFailureCode = "aborted" | "internal_error" | "unauthorized" | "rate_limited";
+
+const failureMessages: Record<ClientFailureCode, string> = {
+  aborted: "Clinical Ask was cancelled.",
+  internal_error: "Clinical Ask stream could not be read.",
+  unauthorized: "Sign in to use Clinical Ask.",
+  rate_limited: "Too many Clinical Ask requests.",
+};
+
+function failedPayload(
+  request: ClinicalAskRequest,
+  code: ClientFailureCode,
+  message?: string,
+): ClinicalAskFinalPayload {
   return {
     response: {
       state: "failed",
       mode: request.mode,
       code,
-      retryable: code !== "aborted",
-      message: code === "aborted" ? "Clinical Ask was cancelled." : "Clinical Ask stream could not be read.",
+      retryable: code === "internal_error" || code === "rate_limited",
+      message: message ?? failureMessages[code],
     },
     feedback: null,
   };
+}
+
+function retryAfterSeconds(response: Response, body: unknown) {
+  const header = Number(response.headers.get("Retry-After"));
+  if (Number.isFinite(header) && header > 0) return Math.ceil(header);
+  const details =
+    body && typeof body === "object" && "details" in body ? (body as { details?: unknown }).details : undefined;
+  const fromBody =
+    details && typeof details === "object" && "retryAfterSeconds" in details
+      ? (details as { retryAfterSeconds?: unknown }).retryAfterSeconds
+      : undefined;
+  return typeof fromBody === "number" && Number.isFinite(fromBody) && fromBody > 0 ? Math.ceil(fromBody) : null;
+}
+
+/**
+ * Map a non-OK JSON response from the route onto the contract's public error
+ * codes. The 401 and 429 envelopes are the server's own `jsonError` /
+ * `rateLimitJsonResponse` payloads, never provider text; any other status is a
+ * generic failure whose body is never surfaced (audit L17).
+ */
+async function rejectedPayload(request: ClinicalAskRequest, response: Response): Promise<ClinicalAskFinalPayload> {
+  if (response.status === 401) return failedPayload(request, "unauthorized");
+  if (response.status !== 429) return failedPayload(request, "internal_error");
+  const body: unknown = await response.json().catch(() => null);
+  const serverMessage =
+    body && typeof body === "object" && "message" in body && typeof (body as { message: unknown }).message === "string"
+      ? (body as { message: string }).message.trim()
+      : "";
+  const seconds = retryAfterSeconds(response, body);
+  const wait = seconds ? `Try again in ${seconds} seconds.` : "Try again shortly.";
+  return failedPayload(request, "rate_limited", `${serverMessage || failureMessages.rate_limited} ${wait}`);
 }
 
 export async function streamClinicalAsk(
@@ -29,7 +73,8 @@ export async function streamClinicalAsk(
       body: JSON.stringify(request),
       signal: controller.signal,
     });
-    if (!response.ok || !response.body) return failedPayload(request, "internal_error");
+    if (!response.ok) return await rejectedPayload(request, response);
+    if (!response.body) return failedPayload(request, "internal_error");
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";

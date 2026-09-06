@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "8ca993ef-0ea4-47d3-ac32-b870583b7e38",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Two high-severity production advisories sit on main and make the dependency audit blocking for any PR that touches package.json",
+    "detail": "npm audit --omit=dev on main reports browserslist <=4.28.6 (two high advisories) and fast-uri 3.0.0-3.1.5 (four high advisories). CI's Safety and config checks job runs the dependency audit as blocking only when a PR changes dependency files, so these are invisible until one does - audit remediation P3 hit exactly that and had to revert an otherwise-correct dependency declaration. Open Dependabot PRs #2568, #2570 and the combined #2616 fix both. Recorded 2026-09-04.",
+    "issueUlid": "01M1PW9PJBEWD0KH9MXBYPCH0V"
+  }
+}

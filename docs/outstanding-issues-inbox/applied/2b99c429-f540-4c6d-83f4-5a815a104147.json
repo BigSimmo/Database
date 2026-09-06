@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "2b99c429-f540-4c6d-83f4-5a815a104147",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Generated Supabase types were rebuilt from schema.sql, not the live database, and the escapes that hid drift are gone",
+    "detail": "PR #2629 (audit L118) adds five tables and nine callable RPCs to src/lib/supabase/database.types.ts, written by hand from supabase/schema.sql because the Supabase CLI is absent and the container Postgres has no pgvector. It also removes the as-never and as-unknown-as escapes at src/lib/ingestion-mutation-safety.ts:186,257 and scripts/check-drift.ts:537. If the live schema has drifted from schema.sql, a drifted column now surfaces as a runtime error rather than being swallowed - the safer direction, but a real behaviour change under drift. Only the post-merge live-drift workflow, with check:drift and check:migration-history both green, confirms the file matches production. Separately, document_corpus_access_snapshots carries owner_id so the tenancy scan now tiers it as direct: the first API route that queries it needs owner scoping. Recorded 2026-09-04.",
+    "issueUlid": "01M1PWA3BEY183KMGY5ZRD4H8B"
+  }
+}

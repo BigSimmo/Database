@@ -75,7 +75,7 @@ answer's treatment, and a partial answer must never render as a whole one._ Thes
 
 Full reasoning in DECISIONS §C5. The resolution:
 
-**Three semantically-named identity families cover the fifteen modes**, because the system has
+**Three semantically-named identity families cover the seventeen modes**, because the system has
 **three separate colour channels** that must never borrow from each other:
 
 | Channel             | Job                                                                                      | Tokens                                                      |

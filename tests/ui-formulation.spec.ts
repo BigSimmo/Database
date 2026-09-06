@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { readPrimaryScrollGeometry } from "./playwright-scroll";
+import { visibleByTestId, visibleByText } from "./playwright-settlement";
 
 const axeWcagTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const axeBlockingImpacts = new Set(["critical", "serious"]);
@@ -75,7 +76,7 @@ test("searches patient language, opens a mechanism guide, and carries it into th
   await expect(page).toHaveURL(
     /\/formulation\/search\?.*q=I(?:\+|%20)keep(?:\+|%20)going(?:\+|%20)over(?:\+|%20)it.*run=1/,
   );
-  const queryRibbon = page.getByTestId("search-query-ribbon");
+  const queryRibbon = visibleByTestId(page, "search-query-ribbon");
   await expect(queryRibbon.getByRole("heading", { level: 1, name: "I keep going over it" })).toBeVisible();
   await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Rumination", exact: true })).toBeVisible();
@@ -99,7 +100,7 @@ test("searches patient language, opens a mechanism guide, and carries it into th
   await page.getByRole("link", { name: "Use in formulation", exact: true }).first().click();
   await expect(page.getByRole("heading", { name: "Build a formulation that can be tested" })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /Rumination/ })).toBeChecked();
-  await expect(page.getByText(/Rumination appears to keep the patient caught/i).first()).toBeVisible();
+  await expect(visibleByText(page, /Rumination appears to keep the patient caught/i).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await expectNoBlockingAxeViolations(page, testInfo);
 });
@@ -110,7 +111,7 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoApp(page, "/formulation?q=What+if+something+goes+wrong&run=1");
 
-  const queryRibbon = page.getByTestId("search-query-ribbon");
+  const queryRibbon = visibleByTestId(page, "search-query-ribbon");
   await expect(queryRibbon.getByRole("heading", { level: 1, name: "What if something goes wrong" })).toBeVisible();
   await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Worry", exact: true })).toBeVisible();
@@ -285,27 +286,29 @@ test("keeps specifier and formulation route families clinically separate", async
 
   await expect(page).toHaveURL(/\/specifiers\/with-anxious-distress$/);
   await expect(page.getByRole("heading", { name: "With anxious distress", exact: true })).toBeVisible();
-  await expect(page.getByText("Psychiatric specifier", { exact: true })).toBeVisible();
+  await expect(visibleByText(page, "Psychiatric specifier", { exact: true })).toBeVisible();
   await expect(page.getByText(/Mechanisms matching/)).toHaveCount(0);
   await expect(page.getByText("Page not found", { exact: true })).toHaveCount(0);
 
   await gotoApp(page, "/formulation/rumination");
   await expect(page).toHaveURL(/\/formulation\/rumination$/);
   await expect(page.getByRole("heading", { name: "Rumination", exact: true })).toBeVisible();
-  await expect(page.getByText("Formulation mechanism", { exact: true }).first()).toBeVisible();
+  await expect(visibleByText(page, "Formulation mechanism", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("With anxious distress", { exact: true })).toHaveCount(0);
 });
 
 test("compares supported alternatives and groups mechanisms without implying causation", async ({ page }) => {
   await gotoApp(page, "/formulation/compare?a=rumination&b=worry");
   await expect(page.getByRole("heading", { name: "Compare mechanisms" })).toBeVisible();
-  await expect(page.getByText(/replaying what happened or trying to prevent what might happen next/i)).toBeVisible();
-  await expect(page.getByText("Most useful distinction", { exact: true })).toBeVisible();
+  await expect(
+    visibleByText(page, /replaying what happened or trying to prevent what might happen next/i),
+  ).toBeVisible();
+  await expect(visibleByText(page, "Most useful distinction", { exact: true })).toBeVisible();
 
   await gotoApp(page, "/formulation/map?mechanism=shame");
   await expect(page.getByRole("heading", { name: "Mechanism map" })).toBeVisible();
-  await expect(page.getByText(/does not assert causation/i)).toBeVisible();
-  await expect(page.getByText("Selected mechanism", { exact: true })).toBeVisible();
+  await expect(visibleByText(page, /does not assert causation/i)).toBeVisible();
+  await expect(visibleByText(page, "Selected mechanism", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Shame", exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

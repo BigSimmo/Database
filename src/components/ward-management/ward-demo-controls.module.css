@@ -12,8 +12,8 @@
  */
 .demo {
   composes: descendantKill from "./ward-reduced-motion.module.css";
-  --dc-warn: var(--warning-text);
-  --dc-warn-soft: var(--warning-bg);
+  --dc-warn: var(--ward-warning);
+  --dc-warn-soft: var(--ward-warning-soft);
   --dc-warn-border: var(--warning-border);
   --dc-canvas: var(--surface);
   --dc-raised: var(--surface-raised);
@@ -21,8 +21,8 @@
   --dc-border: var(--neutral-500);
   --dc-heading: var(--text-heading);
   --dc-muted: var(--text-muted);
-  --dc-danger: var(--danger-text);
-  --dc-danger-soft: var(--danger-bg);
+  --dc-danger: var(--ward-danger);
+  --dc-danger-soft: var(--ward-danger-soft);
   --dc-danger-border: var(--danger-border);
   --dc-space-4: 0.25rem;
   --dc-space-6: 0.375rem;

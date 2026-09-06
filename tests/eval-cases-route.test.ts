@@ -4,6 +4,8 @@ const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const documentId = "22222222-2222-4222-8222-222222222222";
 const validChunkId = "11111111-1111-4111-8111-111111111111";
 const unownedChunkId = "33333333-3333-4333-8333-333333333333";
+const unownedDocumentId = "44444444-4444-4444-8444-444444444444";
+const ownedFileName = "CG.MHSP.ClozapinePresAdminMonitor.pdf";
 
 function request(body: unknown) {
   return new Request("http://localhost/api/eval-cases", {
@@ -13,15 +15,30 @@ function request(body: unknown) {
   });
 }
 
-function createSelectMock<T>(resolver: (filters: Record<string, unknown>) => T | null) {
-  const filters: Record<string, unknown> = {};
+type SelectFilters = Record<string, unknown>;
+
+/**
+ * Minimal PostgREST builder double. `maybeSingle()` answers the single-row lookups; awaiting the
+ * builder itself answers the batched `.in()` lookups the ownership filter uses.
+ */
+function createSelectMock<T>(
+  resolver: (filters: SelectFilters) => T | null,
+  listResolver?: (filters: SelectFilters) => unknown[],
+) {
+  const filters: SelectFilters = {};
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn((column: string, value: unknown) => {
       filters[column] = value;
       return builder;
     }),
+    in: vi.fn((column: string, values: unknown[]) => {
+      filters[`in:${column}`] = values;
+      return builder;
+    }),
     maybeSingle: vi.fn(async () => ({ data: resolver(filters), error: null })),
+    then: (onFulfilled: (value: { data: unknown[]; error: null }) => unknown) =>
+      Promise.resolve({ data: listResolver ? listResolver(filters) : [], error: null }).then(onFulfilled),
   };
   return builder;
 }
@@ -30,6 +47,7 @@ function createInsertMock(
   options: {
     ownedDocumentIds?: string[];
     ownedChunks?: Record<string, string>;
+    documentFileNames?: Record<string, string>;
   } = {},
 ) {
   const insert = vi.fn((payload: unknown) => ({
@@ -42,20 +60,42 @@ function createInsertMock(
     insert,
     client: {
       from: vi.fn((table: string) => {
+        const ownedDocumentIds = options.ownedDocumentIds ?? [documentId];
+        const documentFileNames = options.documentFileNames ?? { [documentId]: ownedFileName };
+        const chunkDocument = (id: string) => options.ownedChunks?.[id] ?? (id === validChunkId ? documentId : null);
         if (table === "documents") {
-          return createSelectMock((filters) => {
-            const id = String(filters.id ?? "");
-            return filters.owner_id === userId && (options.ownedDocumentIds ?? [documentId]).includes(id)
-              ? { id }
-              : null;
-          });
+          return createSelectMock(
+            (filters) => {
+              const id = String(filters.id ?? "");
+              return filters.owner_id === userId && ownedDocumentIds.includes(id) ? { id } : null;
+            },
+            (filters) => {
+              if (filters.owner_id !== userId) return [];
+              const requestedIds = (filters["in:id"] as string[] | undefined) ?? null;
+              const requestedFileNames = (filters["in:file_name"] as string[] | undefined) ?? null;
+              return ownedDocumentIds
+                .filter((id) => (requestedIds ? requestedIds.includes(id) : true))
+                .map((id) => ({ id, file_name: documentFileNames[id] ?? null }))
+                .filter((row) =>
+                  requestedFileNames ? row.file_name !== null && requestedFileNames.includes(row.file_name) : true,
+                );
+            },
+          );
         }
         if (table === "document_chunks") {
-          return createSelectMock((filters) => {
-            const id = String(filters.id ?? "");
-            const chunkDocumentId = options.ownedChunks?.[id] ?? (id === validChunkId ? documentId : null);
-            return chunkDocumentId ? { id, document_id: chunkDocumentId } : null;
-          });
+          return createSelectMock(
+            (filters) => {
+              const id = String(filters.id ?? "");
+              const chunkDocumentId = chunkDocument(id);
+              return chunkDocumentId ? { id, document_id: chunkDocumentId } : null;
+            },
+            (filters) => {
+              const requestedIds = (filters["in:id"] as string[] | undefined) ?? [];
+              return requestedIds
+                .map((id) => ({ id, document_id: chunkDocument(id) }))
+                .filter((row) => row.document_id !== null);
+            },
+          );
         }
         expect(table).toBe("rag_query_misses");
         return { insert };
@@ -324,6 +364,60 @@ describe("/api/eval-cases", () => {
       unverified_numeric_tokens: ["15"],
       raw_query_retained: false,
     });
+  });
+
+  it("drops chunk ids whose document the caller does not own, and counts them as rejected", async () => {
+    const { client, insert } = createInsertMock({
+      ownedChunks: { [validChunkId]: documentId, [unownedChunkId]: unownedDocumentId },
+    });
+    vi.doMock("@/lib/env", () => mockEnv());
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/eval-cases/route");
+
+    const response = await POST(
+      request({
+        query: "Which chunks were cited?",
+        rating: "good",
+        sourceChunkIds: [validChunkId, unownedChunkId],
+        citedChunkIds: [unownedChunkId],
+      }),
+    );
+    const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
+
+    expect(response.status).toBe(201);
+    expect(payload.top_chunk_ids).toEqual([validChunkId]);
+    expect(payload.cited_chunk_ids).toEqual([]);
+    expect(payload.metadata).toMatchObject({ source_chunk_ids_rejected: 1, cited_chunk_ids_rejected: 1 });
+  });
+
+  it("drops file names that belong to no document the caller owns", async () => {
+    const { client, insert } = createInsertMock();
+    vi.doMock("@/lib/env", () => mockEnv());
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/eval-cases/route");
+
+    const response = await POST(
+      request({
+        query: "Which files were on top?",
+        rating: "good",
+        sourceFiles: [ownedFileName, "someone-elses-private-guideline.pdf"],
+      }),
+    );
+    const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
+
+    expect(response.status).toBe(201);
+    expect(payload.top_files).toEqual([ownedFileName]);
+    expect(payload.metadata).toMatchObject({ top_files_rejected: 1 });
   });
 
   it("nulls unowned expected document and chunk references", async () => {

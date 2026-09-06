@@ -23,8 +23,27 @@ import {
  * `UNEVIDENCED_CLAIMS` into `MODEL_CLAIMS` as `community-index/reachability/the-root-rail-links-this-index`,
  * carrying a real citation and a `falsifiedBy` edit instead of a reason no line could be cited.
  */
-const EXPECTED_MODEL_CLAIMS = 86;
-const EXPECTED_UNEVIDENCED_CLAIMS = 12;
+/*
+ * 86 -> 81 on 2026-09-05, for the reason this count names as legitimate: "the page sentence went
+ * with it". Five claims recorded that `wardStatistics()` DERIVES a figure while the page carried a
+ * paragraph saying those derivations existed and were surfaced nowhere; the page now shows the five
+ * figures, so that paragraph and its sentences are gone. A sixth said the module had no consumer in
+ * the app, which this change made false rather than moved.
+ *
+ * ⚠️ Lowering this number is exactly what the assertion warns against when it is done to clear a
+ * red. It is recorded here so the next reader can check the reason rather than the arithmetic: the
+ * six removals are enumerated in `statistics-claims-register.ts` beside the section they left.
+ */
+const EXPECTED_MODEL_CLAIMS = 81;
+/*
+ * 12 -> 11 on 2026-09-05. The admitted gap that left was
+ * `statistics-ward-screen/computed/ward-statistics-has-no-consumer-in-the-app`, and it left because
+ * it became FALSE: the ward statistics page now consumes that derivation. An admitted gap is an
+ * absence somebody chose not to evidence; when the absence ends, the entry is not evidence-less any
+ * more, it is simply wrong. Its own guard in `ward-statistics-sections.test.ts` fired on the
+ * commit that ended it and is inverted in the same change.
+ */
+const EXPECTED_UNEVIDENCED_CLAIMS = 11;
 const EXPECTED_REGISTERED_SURFACES = 9;
 
 /**
@@ -202,6 +221,48 @@ function isEntirelyComment(evidence: string): boolean {
  */
 type FalsifiabilityProblem = "anchor-missing" | "anchor-ambiguous" | "no-op" | "evidence-survives";
 
+/**
+ * 🔴 **WHAT THE FALSIFYING EDIT DOES AND DOES NOT CLOSE ABOUT COMMENTS. MEASURED, BOTH DIRECTIONS.**
+ *
+ * `readRepoFile` collapses whitespace and strips NOTHING, so every check here matches against a
+ * source in which comments are ordinary text. The obvious conclusion is that a comment can satisfy
+ * any of them. **That conclusion is half wrong, and the half that is wrong is not the half that
+ * matters.**
+ *
+ * | the comment | result |
+ * | --- | --- |
+ * | evidence copied into a comment BESIDE the live code | RED (`anchor-ambiguous`) |
+ * | watched code COMMENTED OUT, or deleted with a doc comment describing it | 🔴 **GREEN** |
+ *
+ * **Why the copy case is closed structurally rather than by luck.** A claim can only pass in the
+ * first place when its anchor lies INSIDE its own evidence — an anchor elsewhere in the file
+ * returns `evidence-survives`. So any faithful copy of the evidence necessarily duplicates the
+ * anchor, and `anchors > 1` is reported before anything else is considered. That is a real
+ * property of requiring a falsifying edit, and it holds without this file parsing the source
+ * correctly, or at all.
+ *
+ * ⚠️ **The green row is the one that actually happens.** Nobody writes prose that accidentally
+ * matches a citation. People comment a line out with a note saying why — an ordinary, careful,
+ * well-mannered act — and then `anchors` stays 1, because the only occurrence in the file is now
+ * inside that comment. The falsifying edit rewrites the comment, the evidence disappears, and no
+ * problem is reported. Both variants were tried: the line commented out in place with a "removed,
+ * see ruling" note, and the code deleted with a doc comment saying the derivation historically
+ * classified this way. Both green.
+ *
+ * `isEntirelyComment` does not save it. That asks whether the **claim's evidence string** opens as
+ * a comment, never whether the **match site** does, so code-shaped evidence walks past it — which
+ * is the same hole its own header already writes down, seen from the other end.
+ *
+ * ⚠️ **So never write "we tested comments and it holds."** It is true of the case somebody
+ * considered and false of the case that occurs. Say which direction was tested.
+ *
+ * HOW THIS WAS ESTABLISHED, because it bears on the next such question: `falsifiabilityProblem`,
+ * `collapseWhitespace`, `countOccurrences` and `isEntirelyComment` are pure functions of a source
+ * STRING. They were copied out and run over synthetic sources, control green and known-bad red, so
+ * nothing in the repository was mutated and no shared file was put in a broken state to learn this.
+ * **Before deciding a mutation is too risky to run, check whether the thing under test is a pure
+ * function.** A surprising amount of guard machinery is.
+ */
 function falsifiabilityProblem(source: string, claim: ModelClaim): FalsifiabilityProblem | null {
   const find = collapseWhitespace(claim.falsifiedBy.find);
   const replaceWith = collapseWhitespace(claim.falsifiedBy.replaceWith);

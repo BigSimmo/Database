@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "09170645-4b03-414b-b3cc-3bf5a640c497",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "e3133c1b-dd9c-483d-b05e-42a1cf006ea6",
+    "reason": "The detail asserted that disabled text extraction is 'exactly the condition that sends the worker down the OCR fallback path'. That is false, verified against the code Codex cited on PR #2544: worker/python/extract_pdf_assets.py should_ocr_page() (line 186) decides purely on extracted text length and image coverage ratio, never on the /P permission bits, and the extractor has no needs_pass or authenticate handling at all, so a user-password PDF fails before any OCR decision is reached. A wrong causal mechanism in a durable record is worse than no record, because the next person plans ingestion work from it. Cancelled and replaced by a corrected request carrying the same permission-bits finding without the OCR claim."
+  }
+}

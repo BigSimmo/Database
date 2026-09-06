@@ -36,6 +36,27 @@ export function ProductSection({
 
 export { SectionHeading, type SectionHeadingProps } from "@/components/ui/section-heading";
 
+/**
+ * The inset a card's own header needs, because neither of the two components involved supplies one.
+ *
+ * `ProductSection` above renders `cn(productSurface, className)` with no padding — deliberately, so
+ * a section can hold a full-bleed table or a divider that reaches the card edge. The shared
+ * `SectionHeading`'s DEFAULT branch has none either; only its `compact` variant carries `px-4 py-3`.
+ * Put the two together, as every screen here does, and the heading sits 1px from the card border
+ * while the body beneath it is inset 25px. Measured at 1280px on the Today screen before this
+ * constant existed: heading left offset 1px, body left offset 25px, on both of the first two cards
+ * a reader sees. Headings with an `icon` only LOOKED padded — the icon tile filled the space, and
+ * the icon itself was at 1px too.
+ *
+ * `px-5 py-5 sm:px-6` matches the body inset this file already uses (`px-5 py-5 sm:px-6`), so the
+ * heading and the content under it now share one left edge at every width.
+ *
+ * `SectionHeading` is shared with 40-odd other files app-wide, so the fix belongs here at the
+ * prototype's call sites rather than in that component: giving the default branch padding would
+ * move every other consumer of it in the app.
+ */
+export const productSectionHeadingPad = "px-5 py-5 sm:px-6";
+
 export function PersonAvatar({ initials, size = "md" }: { initials: string; size?: "sm" | "md" | "lg" }) {
   return (
     <span
@@ -52,9 +73,22 @@ export function PersonAvatar({ initials, size = "md" }: { initials: string; size
   );
 }
 
+/**
+ * A status pill hugs its label, including inside a grid cell.
+ *
+ * `Chip` is `inline-flex`, which is enough everywhere except a CSS grid: a grid item's default
+ * `justify-self` is `stretch`, so the pill silently grew to the width of its column. Three rows
+ * here stack into a single-column grid below `sm` and one of them is a four-column grid at every
+ * width, so the effect was a 316px-wide "Delivered" holding 67px of text on the phone Today
+ * screen, and a 262px "Requires action" on the desktop Schedule screen — a pill that reads as an
+ * empty input rather than a label. Measured before this line existed, on the built production app.
+ *
+ * `justify-self` has no meaning outside a grid, so this changes nothing in the flex rows the same
+ * chip appears in, and it fixes the call sites that do not exist yet as well as the three that do.
+ */
 export function StatusChip({ children, tone }: { children: ReactNode; tone: ChipStatusTone }) {
   return (
-    <Chip appearance={{ kind: "status", tone }} dot>
+    <Chip appearance={{ kind: "status", tone }} className="justify-self-start" dot>
       {children}
     </Chip>
   );

@@ -1,11 +1,10 @@
 "use client";
 
-import { Fragment, memo, useId, useState } from "react";
-import { CircleAlert, ChevronDown, Copy } from "lucide-react";
+import { Fragment, memo, type ReactNode } from "react";
+import { Copy } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
-import { chatActionRow, chatAnswerText, chatMicroAction, cn, textMuted } from "@/components/ui-primitives";
-import { compactVerificationWordingFor, type VerificationState } from "@/components/ui/verification-notice";
+import { chatActionRow, chatAnswerText, chatMicroAction, cn } from "@/components/ui-primitives";
 import {
   cleanDisplayTitle,
   comparableAnswerText,
@@ -367,8 +366,6 @@ export {
  * @param text - The raw answer text to display.
  * @param query - The user's query context for logging.
  * @param preformatted - Whether to preserve the supplied formatting during display processing.
- * @param sourceOnly - Whether to show a notice that the answer was assembled solely from source passages.
- * @param sourceOnlyVerificationState - The governed verification instruction folded into that notice.
  * @param bestSource - The highest-priority source recommendation, when available.
  * @param sources - Search results used to build the source preview.
  * @param sourceLinks - Source links and snippets associated with the answer.
@@ -382,8 +379,7 @@ export function NaturalLanguageAnswer({
   text,
   query,
   preformatted = false,
-  sourceOnly,
-  sourceOnlyVerificationState = "source_only",
+  clinicalPoints,
   bestSource,
   sources,
   sourceLinks,
@@ -401,9 +397,13 @@ export function NaturalLanguageAnswer({
   text: string;
   query?: string;
   preformatted?: boolean;
-  sourceOnly: boolean;
-  sourceOnlyVerificationState?: VerificationState;
-  /** The answer-level state shown beside Source-only when source currency is degraded. */
+  /**
+   * The Key points rail, rendered at the seam between the answer and its
+   * sources. Passed in rather than derived here because the surface owns the
+   * findings and the sheet they open; this component owns only where the seam
+   * is.
+   */
+  clinicalPoints?: ReactNode;
   /** Direct route used by expanded source-currency detail. */
   bestSource: BestSourceRecommendation | null;
   sources: SearchResult[];
@@ -441,8 +441,6 @@ export function NaturalLanguageAnswer({
   /** Historical turns keep their local copy action; the live turn renders the combined utility row outside. */
   showCopyAction?: boolean;
 }) {
-  const [sourceOnlyNoticeOpen, setSourceOnlyNoticeOpen] = useState(false);
-  const sourceOnlyDetailId = useId();
   const { preferences } = useAppPreferences();
   const fragments = primaryAnswerDisplayFragments(text, { preformatted, preserveBold: true });
   if (!fragments.length) return null;
@@ -502,73 +500,22 @@ export function NaturalLanguageAnswer({
             ))}
           </span>
         </p>
-        {/* No negative bottom margin. It pulled the rail up by 8px, and the rail
-            heading used to carry a top border — the two collided and drew a rule
-            straight through the Source-only pill. */}
-        {/* The stale-evidence banner is NOT here any more (owner decision,
-            2026-09-01). It names WHICH sources are overdue, which is a statement
-            about this answer's evidence, so it now lives inside the
-            evidence-gaps disclosure alongside the other such statements rather
-            than sitting in the answer body above it. Only the per-source detail
-            moved: that a source is overdue at all is still stated on the default
-            view, by `VerificationNotice` on a model-written answer and by the
-            evidence chip's `Review due` label on every answer — including the
-            source-only ones this row belongs to, where that notice is
-            `hidden print:flex` and this row's pill says only
-            "Source-only · verify passages". */}
-        {sourceOnly ? (
-          <div data-testid="answer-source-status-row" className="flex min-w-0 flex-wrap items-start gap-1 print:hidden">
-            {sourceOnly ? (
-              <section
-                data-testid="source-only-disclosure"
-                role="note"
-                className={cn(
-                  "w-fit max-w-full self-start overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-2xs transition-[border-radius] duration-[var(--duration-quick)]",
-                  sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
-                  textMuted,
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-                  // Compact-meta disclosure (not a primary CTA), TOKENS.md §2 "disclosure"
-                  // row: 40px `--spacing-compact-meta`, the floor the service owner ruled
-                  // acceptable for named compact roles on 2026-08-29. It was `min-h-7`
-                  // (28px), 12px under even that floor. The `::before` hit-expansion its
-                  // DocumentTagCloud siblings use is unavailable here: the wrapping
-                  // `<section>` is `overflow-hidden` (it clips the detail block to the
-                  // pill radius), and overflow clipping removes the expanded region from
-                  // hit testing as well as from paint — the classes would have read as
-                  // compliant while expanding nothing.
-                  className="inline-flex min-h-compact-meta w-full max-w-[68ch] items-center gap-1 px-2 py-0.5 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
-                  aria-expanded={sourceOnlyNoticeOpen}
-                  aria-controls={sourceOnlyDetailId}
-                >
-                  <CircleAlert className="h-3 w-3 shrink-0 text-[color:var(--warning)]" aria-hidden />
-                  <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
-                  <span className="hidden shrink-0 text-[color:var(--text-muted)] min-[360px]:inline">
-                    · verify passages
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "ml-auto h-3 w-3 shrink-0 text-[color:var(--text-muted)] transition-transform",
-                      sourceOnlyNoticeOpen && "rotate-180",
-                    )}
-                    aria-hidden
-                  />
-                </button>
-                {sourceOnlyNoticeOpen ? (
-                  <div
-                    id={sourceOnlyDetailId}
-                    className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
-                  >
-                    <p>{compactVerificationWordingFor(sourceOnlyVerificationState, "extractive")}</p>
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
-          </div>
-        ) : null}
+        {/* The Source-only pill is NOT here any more (owner decision,
+            2026-09-03). It sat below the prose, apart from the three status
+            chips above it and built from a third disclosure mechanism, so the
+            page carried four warning surfaces before the first cited passage.
+            Its governed wording now leads the Answer limitations disclosure in
+            `answer-result-surface.tsx`, which the chip row opens.
+
+            The stale-evidence banner moved into that same disclosure earlier
+            (2026-09-01) for the same reason: it names WHICH sources are overdue,
+            which is a statement about this answer's evidence.
+
+            Both facts still reach the default view. `VerificationNotice` stays
+            `hidden print:flex` on a source-only answer, so the limitations
+            chip's own label is what carries `Source-only` and `Review due`
+            there. Do not shorten that label to a bare count. */}
+        {clinicalPoints}
         <AnswerSourceRail
           sources={railSources}
           query={query}

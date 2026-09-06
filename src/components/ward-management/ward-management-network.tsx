@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, ChevronLeft, ChevronRight, Info, Network, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Info, ListChecks, Network } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
+import { designationSummary } from "@/components/ward-management/ward-bed-designation";
 import { eligibility, wardAddressing } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
-  destinationUnit,
   eligibleCandidatesAmong,
   elapsedLabel,
   isOpen,
@@ -62,7 +62,9 @@ type BedStateKey = "available" | "held" | "confirmed" | "expected" | "blocked";
 // Confirmed and Expected are read from `capacityBreakdown()` instead, the same figures the
 // capacity board and the ward screen already show, so this board can never disagree with them.
 const bedStateCopy: Record<BedStateKey, { label: string; detail: string }> = {
-  available: { label: "Ready", detail: "Available now" },
+  // ⚠️ Both halves say the ruled word (OWNER, 2026-09-04). The label already did; the detail said
+  // "Available now", so one chip carried two names for its own number.
+  available: { label: "Ready", detail: "Ready" },
   /*
    * ⚠️ **THIS LABEL IS KNOWINGLY WRONG AND IS OWED TO THE SIX-BED-STATES TASK.**
    *
@@ -156,14 +158,27 @@ type Candidate = { unit: Unit; rank: number; etaLabel: string; verdict: ReturnTy
 
 function capabilityLabel(unit: Unit) {
   const cohortLabel = unit.cohort === "Older adult" ? "Older" : unit.cohort;
-  return `${unit.security} · ${cohortLabel}`;
+  return `${designationSummary(unit)} · ${cohortLabel}`;
 }
 
 function candidatesFor(patient: Movement, units: Unit[], now: Instant): Candidate[] {
   // Only the movement's actual recorded destination may show a real transport state — the
   // other two candidates are computed shortlist entries the movement was never referred to,
   // and must not inherit a transport job that belongs to a different unit (Task 6 Important 3).
-  const recordedDestinationId = destinationUnit(patient, units)?.id;
+  /*
+   * ACCEPTED-ONLY, not `destinationUnit`. This id decides which candidate is allowed to display
+   * the movement's REAL transport state; every other candidate shows "Not yet booked". Because
+   * `destinationUnit` is `acceptedUnitId ?? referredUnitIds[0]`, a movement with an outstanding
+   * referral and no acceptance handed its transport job to the FIRST WARD ASKED — a ward with no
+   * claim on it at all, displayed beside that ward's name as though the vehicle were coming there.
+   *
+   * The rule cannot lose anything by narrowing: a transport job only exists on a movement at stage
+   * `pulled` or beyond, and `PULL_PATIENT` requires an `acceptedUnitId`. So a movement with a
+   * transport job ALWAYS has an accepted unit, and the fallback could only ever fire on a movement
+   * whose transport was `undefined` — where it labelled the wrong ward "Not yet requested" rather
+   * than leaving it as a plain candidate.
+   */
+  const recordedDestinationId = patient.acceptedUnitId;
   return eligibleCandidatesAmong(patient, units, now, 3).map((candidate, index) => ({
     unit: candidate.unit,
     verdict: candidate.verdict,
@@ -481,7 +496,7 @@ function ReferralPlacementSummary({ referral, now }: { referral: Referral; now: 
     <>
       <header className={styles.panelHeader}>
         <h2>
-          <Sparkles aria-hidden="true" /> Referral placement · {referral.id}
+          <ListChecks aria-hidden="true" /> Referral placement · {referral.id}
         </h2>
       </header>
       <p className={styles.patientLine} data-tier={referral.urgency} data-testid="ward-network-placement-tier">
@@ -1006,9 +1021,26 @@ export function WardNetworkWorkspace() {
                         <header className={styles.clusterHeader}>
                           <strong id={`ward-network-${service}`}>{service.toUpperCase()}</strong>
                           <span>
+                            {/*
+                              ⚠️ **THE HEADER MEANS WHAT ITS CARDS MEAN — OWNER RULING, 2026-09-04.**
+                              It summed raw `unit.allocatable.value` while every card beneath it
+                              showed `unitCapacity(...).available`, which is
+                              `min(allocatable, empty)` — two different quantities under one word,
+                              with the header being the sum of nothing on the screen.
+
+                              ⚠️ **NOT VISIBLE IN TODAY'S FIXTURE, AND THAT IS WHY IT NEEDED A
+                              RULING RATHER THAN A BUG REPORT.** Divergence needs
+                              `allocatable > empty`, and no seeded unit has that — a HELD bed puts
+                              allocatable BELOW empty, so it cannot cause this. `CONFIRM_CAPACITY`
+                              can raise allocatable above empty after arrivals have consumed the
+                              physically empty beds, which is the state
+                              `tests/ward-network-cluster-header.dom.test.tsx` drives before
+                              asserting. A test that merely compared header to cards would have
+                              passed against the unfixed code.
+                            */}
                             {units
                               .filter((unit) => siteByCode(unit.siteCode)?.service === service)
-                              .reduce((sum, unit) => sum + unit.allocatable.value, 0)}{" "}
+                              .reduce((sum, unit) => sum + unitCapacity(unit, bedReleases).available, 0)}{" "}
                             ready
                           </span>
                         </header>
@@ -1087,7 +1119,7 @@ export function WardNetworkWorkspace() {
             <>
               <header className={styles.panelHeader}>
                 <h2>
-                  <Sparkles aria-hidden="true" /> Explainable shortlist · {patient.id}
+                  <ListChecks aria-hidden="true" /> Explainable shortlist · {patient.id}
                 </h2>
               </header>
               {/* `data-label` is read by nothing on screen — same job as the bed chips' own

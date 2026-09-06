@@ -1,17 +1,9 @@
 import { expect, test, type Page } from "playwright/test";
+import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
 
 async function gotoLauncher(page: Page, path = "/tools") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
-}
-
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
 }
 
 test("Show all opens the unfiltered tools search mode", async ({ page }) => {

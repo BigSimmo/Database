@@ -78,6 +78,24 @@ create table if not exists public.documents (
   error_message text,
   metadata jsonb not null default '{}'::jsonb
     constraint documents_metadata_object_check check (jsonb_typeof(metadata) = 'object'),
+  -- #ZBAC9D: an ownerless document is either published or quarantined, never silently
+  -- unmarked and retrievable. This is what makes retrieval_owner_matches' public branch
+  -- (`row_owner_id is null`, with no marker check) equivalent to the application's
+  -- two-signal public test in src/lib/documents/is-public-document.ts, which tests the JSON
+  -- boolean rather than its text rendering. The status arm is the quarantine from
+  -- 20260826090000, widened by 20260902110200 to every ownerless landing state.
+  --
+  -- IS NOT DISTINCT FROM, not `=`. A CHECK constraint is satisfied when its expression is
+  -- true OR NULL, and `metadata->'public_corpus'` is NULL whenever the key is absent -- so
+  -- `= 'true'::jsonb` yields false-or-NULL-or-false = NULL for an ownerless, unmarked,
+  -- indexed row, and Postgres accepts precisely the row this constraint exists to reject.
+  -- Found in review on PR #2547; the preflight scan in 20260902110500 always used the
+  -- null-safe form, which is why it and the constraint disagreed.
+  constraint documents_ownerless_requires_publication_marker check (
+    owner_id is not null
+    or metadata->'public_corpus' is not distinct from 'true'::jsonb
+    or status = 'failed'
+  ),
   search_tsv tsvector generated always as (
     to_tsvector('english', coalesce(title, '') || ' ' || coalesce(file_name, ''))
   ) stored,
@@ -6690,6 +6708,7 @@ AS $function$
     ) as summary
   from public.documents d
   where d.id = any(document_ids)
+    and d.status = 'indexed'
     and public.retrieval_owner_matches(owner_filter, d.owner_id);
 $function$;
 
@@ -9767,8 +9786,21 @@ begin
     update public.documents d
     set
       owner_id = existing_owner.id,
+      -- Quarantine whenever the row LANDS ownerless without a true publication marker,
+      -- not only when its owner was deleted (#ZBAC9D, 20260902110200). The original
+      -- condition missed the row that was ALREADY ownerless and unmarked when public mode
+      -- was activated -- the population 20260825025032's header describes -- and restoring
+      -- such a row as ownerless-unmarked-indexed is what
+      -- documents_ownerless_requires_publication_marker forbids, so the whole
+      -- return-to-private call would abort.
       status = case
-        when snapshot.owner_id is not null and existing_owner.id is null then 'failed'
+        when existing_owner.id is null
+          and not (
+            snapshot.owner_id is null
+            and snapshot.public_corpus_present
+            and snapshot.public_corpus_value = 'true'::jsonb
+          )
+        then 'failed'
         else d.status
       end,
       metadata = case
@@ -9826,3 +9858,59 @@ comment on function public.set_document_corpus_access_mode(text) is
 revoke all on function public.set_document_corpus_access_mode(text)
   from public, anon, authenticated, service_role;
 grant execute on function public.set_document_corpus_access_mode(text) to service_role;
+
+-- The On Call mode's operational entries: orientation shelves, role-based
+-- contacts, referral pathways, teaching sessions, escalation playbook cards and
+-- site logistics. One table, discriminated by `section`, with the per-section
+-- fields in `details` and validated in the API layer by a Zod schema per
+-- section (src/lib/on-call/entry-model.ts).
+--
+-- `owner_id` is NOT NULL on purpose. Unlike `documents`, a null owner carries no
+-- visibility meaning here: this table has no public state and must never gain
+-- one, because its rows are a hospital's internal contact and orientation
+-- information. Ownership is enforced at the API layer via the service-role
+-- client, the same application-layer model as clinical_registry_records.
+create table if not exists public.on_call_entries (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  section text not null check (
+    section in ('contacts', 'playbook', 'referrals', 'orientation', 'education', 'logistics')
+  ),
+  slug text not null check (btrim(slug) <> ''),
+  title text not null check (btrim(title) <> ''),
+  subtitle text,
+  body text,
+  details jsonb not null default '{}'::jsonb,
+  linked_document_ids uuid[] not null default '{}',
+  tags text[] not null default '{}',
+  -- A personal direct number. Excluded from the printable card and from any
+  -- export; see src/lib/on-call/card-selection.ts.
+  is_personal boolean not null default false,
+  include_on_card boolean not null default false,
+  sort_order integer not null default 0,
+  -- When the owner last confirmed this entry is still correct. NULL means never.
+  -- There is deliberately no stored due date or stale flag: freshness is derived
+  -- at read time, so the twelve-month interval can change without a backfill.
+  last_verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (owner_id, section, slug)
+);
+
+create index if not exists on_call_entries_owner_section_idx
+  on public.on_call_entries(owner_id, section, sort_order, title);
+
+drop trigger if exists on_call_entries_updated_at on public.on_call_entries;
+create trigger on_call_entries_updated_at
+  before update on public.on_call_entries
+  for each row execute function public.set_updated_at();
+
+alter table public.on_call_entries enable row level security;
+
+revoke all on public.on_call_entries from anon, authenticated;
+
+grant select, insert, update, delete on table public.on_call_entries to service_role;
+
+drop policy if exists "on call entries service role all" on public.on_call_entries;
+create policy "on call entries service role all" on public.on_call_entries
+  for all to service_role using (true) with check (true);
