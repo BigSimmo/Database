@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "c5d59eb5a7783ccf2f7238ceb508802b6c4c9fb5",
-    "committed_at": "2026-09-06T01:39:18+00:00"
+    "sha": "2f4f345a9432601ecdb0bdbebab17ecc4828a4de",
+    "committed_at": "2026-09-06T05:06:06+00:00"
   },
   "routes": {
     "modes": [
@@ -323,11 +323,6 @@
       {
         "path": "/mockups/also-matches-accents",
         "file": "src/app/mockups/also-matches-accents/page.tsx",
-        "area": "mockup"
-      },
-      {
-        "path": "/mockups/also-matches-closed",
-        "file": "src/app/mockups/also-matches-closed/page.tsx",
         "area": "mockup"
       },
       {
@@ -1579,9 +1574,9 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 216,
+      "pages": 215,
       "product_pages": 74,
-      "mockup_pages": 142,
+      "mockup_pages": 141,
       "redirects": 26,
       "api": 63
     }
@@ -3640,6 +3635,11 @@
       },
       {
         "path": "docs/staging-setup.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/staging-shutdown-and-repo-review-handover-2026-09-06.md",
         "section": "root",
         "catalogued": true
       },
@@ -6173,8 +6173,8 @@
       }
     ],
     "counts": {
-      "documents": 903,
-      "catalogued": 590,
+      "documents": 904,
+      "catalogued": 591,
       "uncatalogued": 313,
       "sections": 22
     }

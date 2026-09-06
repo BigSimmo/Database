@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7498192b-e75f-479e-a7ce-43b44125c087",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#XFZX47",
+    "outcome": "Closed 2026-09-06 as a duplicate of #EV7RMQ, which records the same defect (vitest --reporter=basic does not exist, so the process dies before collecting and reports zero failures indistinguishably from a pass) and is graded P2 with the stronger evidence: two Ward Flow chats hit it independently and one would have reported three failing tests as fixed.",
+    "baseRowFingerprint": "d45a8068f864c18dc0edbee37d1552965d859751b1e913c90f4d6bf4aa9ce6a4"
+  }
+}
