@@ -85,6 +85,9 @@ describe("public content and account authorization model", () => {
     const tableFactsRoute = source("src/app/api/documents/[id]/table-facts/route.ts");
     const documentViewer = source("src/components/DocumentViewer.tsx");
     const documentRail = source("src/components/document-viewer/document-rail-panels.tsx");
+    // Table review moved with the visuals panel into the main reading column; the
+    // administrator gate on it must move too, not quietly disappear.
+    const documentVisuals = source("src/components/document-viewer/document-visuals-panel.tsx");
     expect(documentRoute).toContain("loadAuthorizedDocumentDetail({ request, rawId, query: detailQuery })");
     expect(documentRoute.match(/administrator: true/g)?.length).toBe(2);
     expect(tableFactsRoute).toContain("enforceDocumentReadRateLimit(request, supabase)");
@@ -94,7 +97,8 @@ describe("public content and account authorization model", () => {
     expect(documentViewer).toContain("canUseAdministrativeApis={canUseAdministrativeApis}");
     expect(documentRail).toContain("{canUseAdministrativeApis ? (");
     expect(documentRail).toContain("canManage={canUseAdministrativeApis}");
-    expect(documentRail).toContain("canReview={canUseAdministrativeApis}");
+    expect(documentVisuals).toContain("{canUseAdministrativeApis && tableFacts.length ? (");
+    expect(documentVisuals).toContain("canReview={canUseAdministrativeApis}");
   });
 
   it("does not turn an ordinary signed-in setup-status request into a server error", () => {

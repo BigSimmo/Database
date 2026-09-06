@@ -194,6 +194,16 @@
   --spacing-icon-lg: 1.25rem; /* 20px — header / primary controls */
   --spacing-icon-xl: 1.5rem; /* 24px — hero / composer emphasis */
 
+  /* Leading tile in a Disclosure row. A container tile, not a glyph, so per the
+     note above it deliberately sits off the icon scale — the glyph inside it is
+     `size-icon-sm`. It is a token rather than a literal because THREE places must
+     agree on it or the component's alignment silently breaks: the trigger's grid
+     column, the panel's grid column, and the tile itself. That agreement is what
+     puts the label, the collapsed preview and the expanded body on one left edge;
+     before it, the panel was `px-3` while the label sat behind a chevron and a
+     tile, so opening a row moved its copy sideways. */
+  --spacing-disclosure-icon: 1.75rem; /* 28px */
+
   /* Active-filter count bubble on the search band. 17px is deliberately off
      both the 4px grid and the icon scale above: it is a text-bearing box sized
      to its own --text-2xs numeral plus the tinted ring, not a glyph, so
@@ -447,8 +457,14 @@
      (#eff5fc) is within a hair of the white panel and simply disappears, so the
      wash is cut from the accent itself at a low percentage. In dark, the soft
      step is already a deep blue against a near-black panel and carries on its
-     own; cutting from the accent there would put a bright haze over the mark. */
-  --brand-band-wash: color-mix(in oklab, var(--clinical-accent) 13%, transparent);
+     own; cutting from the accent there would put a bright haze over the mark.
+
+     The light cut was raised 13% -> 18% on 2026-09-06: the band it grounds now
+     runs the full height of the drawer header (it paints the notch strip too,
+     so it is spread over roughly twice the area it was mixed for) and at 13%
+     the middle of the band had thinned to near-white. Dark is unchanged — its
+     mix is already near-opaque and gaining nothing from the same lift. */
+  --brand-band-wash: color-mix(in oklab, var(--clinical-accent) 18%, transparent);
   /* Tinted filter-count pill on the results band — quieter than a solid disc. */
   --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 

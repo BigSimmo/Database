@@ -191,6 +191,39 @@ describe("PsychSift Guide Centre", () => {
     expect(within(dialog).getByRole("button", { name: "Open full reference" })).toBeVisible();
   });
 
+  /**
+   * The Source rating topic is the published catalogue method, rendered from the
+   * SAME component `/sources/method` uses. Asserting its four sections here is
+   * what stops the guide quietly drifting into a second, hand-written account of
+   * how sources are scored.
+   */
+  it("renders the published rating method as its own guide page", async () => {
+    const user = userEvent.setup();
+    const { dialog, onClose } = renderGuide();
+
+    await user.click(within(dialog).getByRole("button", { name: "All topics" }));
+    await user.click(within(dialog).getByRole("button", { name: /Source rating/ }));
+
+    expect(within(dialog).getByRole("heading", { name: "How sources are rated" })).toBeVisible();
+    for (const section of [
+      "Rating dimensions",
+      "Quality bands",
+      "Boundaries and missing data",
+      "Catalogue status definitions",
+    ]) {
+      expect(within(dialog).getByRole("region", { name: section })).toBeVisible();
+    }
+
+    // The real weights and thresholds, not a paraphrase of them.
+    expect(within(dialog).getByText("Accuracy assurance")).toBeVisible();
+    expect(within(dialog).getByText("85–100")).toBeVisible();
+    expect(within(dialog).getByText(/not RAG relevance or patient-specific guidance/i)).toBeVisible();
+
+    await user.click(within(dialog).getByRole("button", { name: "Open the full method page" }));
+    expect(onClose).toHaveBeenCalled();
+    expect(routerPush).toHaveBeenCalledWith("/sources/method");
+  });
+
   it("wires the docked tour controls, including Previous on phones", async () => {
     const user = userEvent.setup();
     const { dialog } = renderGuide();
