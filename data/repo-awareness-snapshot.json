@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "b6f749f9b07db8b1032d1e1557c393d18ccad85c",
-    "committed_at": "2026-09-06T09:06:08+00:00"
+    "sha": "5c5d724512402dfed26dc9e3013c910b25876848",
+    "committed_at": "2026-09-06T09:24:49+00:00"
   },
   "routes": {
     "modes": [
@@ -796,11 +796,6 @@
         "area": "mockup"
       },
       {
-        "path": "/mockups/specifier-record-directions",
-        "file": "src/app/mockups/specifier-record-directions/page.tsx",
-        "area": "mockup"
-      },
-      {
         "path": "/mockups/therapy-navigation-context",
         "file": "src/app/mockups/therapy-navigation-context/page.tsx",
         "area": "mockup"
@@ -813,6 +808,36 @@
       {
         "path": "/mockups/therapy-navigation-rail",
         "file": "src/app/mockups/therapy-navigation-rail/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-recommend-popup-dossier",
+        "file": "src/app/mockups/therapy-recommend-popup-dossier/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-recommend-popup-triage",
+        "file": "src/app/mockups/therapy-recommend-popup-triage/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-recommend-popup-workbench",
+        "file": "src/app/mockups/therapy-recommend-popup-workbench/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-guided",
+        "file": "src/app/mockups/therapy-scenario-popup-guided/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-intake",
+        "file": "src/app/mockups/therapy-scenario-popup-intake/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-live",
+        "file": "src/app/mockups/therapy-scenario-popup-live/page.tsx",
         "area": "mockup"
       },
       {
@@ -1584,9 +1609,9 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 216,
+      "pages": 221,
       "product_pages": 73,
-      "mockup_pages": 143,
+      "mockup_pages": 148,
       "redirects": 27,
       "api": 63
     }
