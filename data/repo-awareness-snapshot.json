@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "8121565791f39180418764087062104b3b46b0e8",
-    "committed_at": "2026-09-06T08:34:14+08:00"
+    "sha": "25a999dbde480694ab4670801d8a8452c41c9f6a",
+    "committed_at": "2026-09-06T07:14:25+00:00"
   },
   "routes": {
     "modes": [
@@ -87,7 +87,7 @@
       {
         "id": "sources",
         "label": "Sources",
-        "home": "/sources",
+        "home": "/?mode=sources",
         "dev_only": false
       },
       {
@@ -1086,11 +1086,6 @@
         "area": "product"
       },
       {
-        "path": "/sources",
-        "file": "src/app/(search-app)/sources/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/sources/[sourceId]",
         "file": "src/app/(search-app)/sources/[sourceId]/page.tsx",
         "area": "product"
@@ -1306,6 +1301,11 @@
         "path": "/services",
         "file": "src/app/(search-app)/services/page.tsx",
         "target": "/?mode=services"
+      },
+      {
+        "path": "/sources",
+        "file": "src/app/(search-app)/sources/page.tsx",
+        "target": "/?mode=sources"
       },
       {
         "path": "/specifiers",
@@ -1574,10 +1574,10 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 215,
-      "product_pages": 74,
+      "pages": 214,
+      "product_pages": 73,
       "mockup_pages": 141,
-      "redirects": 26,
+      "redirects": 27,
       "api": 63
     }
   },
@@ -3635,6 +3635,11 @@
       },
       {
         "path": "docs/staging-setup.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/staging-shutdown-and-repo-review-handover-2026-09-06.md",
         "section": "root",
         "catalogued": true
       },
@@ -6168,8 +6173,8 @@
       }
     ],
     "counts": {
-      "documents": 903,
-      "catalogued": 590,
+      "documents": 904,
+      "catalogued": 591,
       "uncatalogued": 313,
       "sections": 22
     }

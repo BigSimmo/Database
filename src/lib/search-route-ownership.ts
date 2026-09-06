@@ -27,14 +27,19 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
  * navigation cannot flip the shell into dock reserve mid-transition.
  */
 export const standaloneModeHomePaths = [
-  // Modes that still own a home of their own. Consolidated modes use the shared
-  // home at `/?mode=<id>`, whose composer the dashboard owns; their bare paths
-  // redirect and render nothing to reserve geometry for
-  // (`consolidatedModeHomePaths`).
+  // The two modes that still own a home of their own. Every other mode uses the
+  // shared home at `/?mode=<id>`, whose composer the dashboard owns; their bare
+  // paths redirect and render nothing to reserve geometry for
+  // (`consolidatedModeHomePaths`, plus `/medications` through its own bespoke
+  // proxy fast-path).
+  //
+  // `/medications` and `/sources` were both listed here after they began
+  // redirecting, which could never take effect: detection is pathname-only, and
+  // no render happens at a path that 307s. `/sources` rendered a four-card home
+  // until that home was folded into the shared one; `/medications` has redirected
+  // on both branches since its own consolidation, as this file already says below.
   "/favourites",
   "/tools",
-  "/medications",
-  "/sources",
 ] as const;
 
 /**

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7ceec281-82f9-46c4-807f-a6751b5cbb17",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#C0CARS",
+    "detail": "RECONSTRUCTED 2026-09-06, partially verified. tests/ward-referral-matching.test.ts is the suite's gate-by-gate proof of referralCandidates and referralEligibility: it exercises each eligibility gate (age, cohort, security, sex designation and mix, forensic, legal status, authorisation) on constructed unit/referral pairs, and asserts that each gate's detail string differs between pass and fail. referralCandidates has three other test consumers (ward-referral-screens.dom.test.tsx, ward-travel-grouping.test.ts, ward-referral-model.test.ts), but those exercise it incidentally for screen rendering, travel grouping and model shape rather than asserting per-gate matching behaviour, which is the basis for the row's claim that deleting this one file would leave the property unprotected.\n\nNOT VERIFIED: whether every individual gate is genuinely uncovered elsewhere, which needs a gate-by-gate cross-check against those three files. NEXT ACTION: do that cross-check and record the result, then either accept the single point of coverage deliberately with a note in the file, or add the narrowest backstop for whichever gates prove to be single-covered. Related but distinct: #Q6WD1M needs a reducer-level cohort-only proof, which is about the state transition rather than about candidate matching.",
+    "baseRowFingerprint": "5f60c6a66cdeaa77c53da5963631e247eb5b323486b7a23724a81b06a5397ae5"
+  }
+}
