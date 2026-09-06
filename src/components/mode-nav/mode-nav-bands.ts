@@ -12,7 +12,13 @@ export type ModeNavBand = (typeof MODE_NAV_BANDS)[number];
  * declared destinations, never measured at runtime, so navigation stays stable
  * through hydration, rotation, and browser zoom.
  */
-export const MODE_NAV_DENSITY_PROFILES = ["two-item", "compact-four", "balanced-four", "extended"] as const;
+export const MODE_NAV_DENSITY_PROFILES = [
+  "two-item",
+  "compact-four",
+  "balanced-four",
+  "extended",
+  "extended-counted",
+] as const;
 
 export type ModeNavDensityProfile = (typeof MODE_NAV_DENSITY_PROFILES)[number];
 

@@ -3819,6 +3819,30 @@ td,
   display: none;
 }
 
+/* Words first; the icons once the container can pay for them.
+   ------------------------------------------------------------------------
+   The icon is `aria-hidden` decoration. The LABEL is the contract —
+   `ModeNavItem.label` is never abbreviated, a slot shows its real word or it
+   folds into More. So when width is short the decoration goes and the word
+   stays, which is the same trade the More slot has always made.
+
+   The glyph (`size-icon-md`, 1rem) plus the ink's `gap-2` is 24px of a slot
+   whose shortest label is ~40px: about a third of a short slot, and the only
+   lever this bar has that costs no information. The slot's `px-3` is NOT
+   available — it is half of `--mode-nav-ink-offset`, which is what lands the
+   first tab's ink on the header's content edge, and a container query cannot
+   compensate for it on the rail because the rail is this container's PARENT.
+
+   Active state survives the icon: the ink is `--text-heading` and the 2px
+   accent rule sits under it. Nothing that says "you are here" was in the glyph.
+
+   Scoped to `extended` deliberately. It is the only profile whose destinations
+   do not fit a phone wearing their icons; the other three were calibrated with
+   icons and keep them, so no other mode's bar moves. */
+.mode-nav[data-density-profile="extended"] .mode-nav__icon {
+  display: none;
+}
+
 /* Which page you are on, when its own slot is not on screen.
    ------------------------------------------------------------------------
    `data-active-from` is the band at which the current page's slot appears, or
@@ -3901,6 +3925,17 @@ td,
   .mode-nav[data-density-profile="extended"] .mode-nav__bar {
     display: flex;
   }
+
+  /* `extended-counted` shares this threshold with `extended` rather than
+     declaring a duplicate of it — see the profile's own note near the 33rem
+     band below. */
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__control {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__bar {
+    display: flex;
+  }
 }
 
 @container mode-nav (min-width: 23rem) {
@@ -3922,6 +3957,56 @@ td,
   }
 
   .mode-nav[data-density-profile="compact-four"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
+
+  /* `extended` shares this threshold rather than declaring a duplicate of it.
+     Without its icons a fourth Therapy slot costs ~80px, so the same 23rem that
+     carries Specifiers' fourth label carries this one. Retuning this block
+     retunes BOTH profiles — check the density spec's Therapy rows too. */
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="4"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="3"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
+}
+
+/* All five Therapy destinations, still without icons. Five wordmarks plus the
+   bar's own padding measure ~394px; 28rem (448px) keeps the ~1.14 font-metric
+   headroom the other profiles' top bands ship with. More is hidden here, so
+   the active page always owns its own slot and its own rule. */
+@container mode-nav (min-width: 28rem) {
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="5"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="4"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__rule {
     background-color: transparent;
   }
 }
@@ -3948,46 +4033,61 @@ td,
   }
 }
 
+/* The icons come back. Five slots wearing them measure ~514px, and 42rem
+   (672px) is the number this profile's top band already carried for exactly
+   that content — reused rather than re-derived. Below this the bar is words
+   only; see the note on `.mode-nav__icon` above. */
+/* `extended-counted`: the label family for a counted-label rail (icon + label +
+   count badge), currently only `InPageSectionRail`'s medication adopter. Its
+   bands are a fixed copy of `extended`'s pre-2026-09-06 thresholds — icons
+   always visible, band 4 at 33rem, band 5 at 42rem — kept as its own profile
+   so Therapy's icon-hiding trade-off above never reaches a rail that never
+   opted into it. Do not fold this back into `extended`; that coupling is the
+   exact bug this profile exists to prevent. */
 @container mode-nav (min-width: 33rem) {
-  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="4"] {
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__slot[data-band="4"] {
     display: flex;
   }
 
-  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="3"] {
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__slot[data-until="3"] {
     display: none;
   }
 
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
     display: none;
   }
 
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
     color: var(--text-muted);
   }
 
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
     background-color: transparent;
   }
 }
 
 @container mode-nav (min-width: 42rem) {
-  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-band="5"] {
+  .mode-nav[data-density-profile="extended"] .mode-nav__icon {
+    display: block;
+  }
+
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__slot[data-band="5"] {
     display: flex;
   }
 
-  .mode-nav[data-density-profile="extended"] .mode-nav__slot[data-until="4"] {
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__slot[data-until="4"] {
     display: none;
   }
 
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
     display: none;
   }
 
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__ink {
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="5"] .mode-nav__ink {
     color: var(--text-muted);
   }
 
-  .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__rule {
+  .mode-nav[data-density-profile="extended-counted"] .mode-nav__more[data-active-from="5"] .mode-nav__rule {
     background-color: transparent;
   }
 }
