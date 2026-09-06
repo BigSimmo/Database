@@ -1640,6 +1640,48 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("a forms result opens from anywhere in its row, and the Open button still opens it", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
+
+    // Clicking the row itself, not a control inside it. Playwright only allows
+    // this if the point actually hit the row or something inside it, so the
+    // click landing at all is the proof: the row's centre is the tags/match
+    // columns, nowhere near the Open button in the last column.
+    await page.getByTestId("form-search-result-transport-crisis-form").click();
+    await expect(page).toHaveURL(/\/forms\/transport-crisis-form/);
+
+    await page.goBack();
+    await expect(page.getByTestId("form-search-results")).toBeVisible();
+
+    // Widening the row must not have cost the button its own click.
+    await page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order").click();
+    await expect(page).toHaveURL(/\/forms\/transport-crisis-form/);
+  });
+
+  test("a forms result opens on a tablet tap anywhere in its row", async ({ browser, baseURL }) => {
+    // The results table renders from `md` up — a phone shows the mobile cards
+    // instead — so a tablet is the width where a touch user meets this table at
+    // all. Its own context because the desktop projects carry no touch.
+    const context = await browser.newContext({
+      ...(baseURL ? { baseURL } : {}),
+      hasTouch: true,
+      viewport: { width: 1024, height: 768 },
+    });
+    const page = await context.newPage();
+
+    try {
+      await mockAnswerDashboardApi(page);
+      await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
+
+      await page.getByTestId("form-search-result-transport-crisis-form").tap();
+      await expect(page).toHaveURL(/\/forms\/transport-crisis-form/);
+    } finally {
+      await context.close();
+    }
+  });
+
   test("result sorting persists in the URL and restores through browser history", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockAnswerDashboardApi(page);
