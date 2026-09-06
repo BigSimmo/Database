@@ -1736,6 +1736,7 @@
         "tests/eval-process-safety.test.ts",
         "tests/search-results-header-band.dom.test.tsx",
         "tests/ui-formulation.spec.ts",
+        "tests/ui-overlap.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx",
         "tests/ui-ward-coordinator.spec.ts",
