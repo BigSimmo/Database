@@ -124,14 +124,30 @@ export function CompareCatalogPicker({
                 aria-selected={activeSlot === index}
                 onClick={() => onActiveSlotChange(index)}
                 className={cn(
-                  "min-h-tap rounded-lg border px-3 text-left text-xs font-bold",
+                  "grid min-h-tap grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-xl border px-2.5 text-left text-xs font-bold transition-colors",
                   activeSlot === index
                     ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]"
-                    : "border-[color:var(--border)]",
+                    : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--clinical-accent-border)]",
                 )}
               >
-                <span className="block text-3xs text-[color:var(--text-muted)]">{label}</span>
-                {item?.title ?? "Choose"}
+                <span
+                  className={cn(
+                    "grid h-6 w-6 shrink-0 place-items-center rounded-full border text-2xs font-extrabold",
+                    activeSlot === index
+                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
+                      : "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]",
+                  )}
+                >
+                  {label}
+                </span>
+                <span
+                  className={cn(
+                    "truncate",
+                    item?.title ? "text-[color:var(--text-heading)]" : "text-[color:var(--text-muted)]",
+                  )}
+                >
+                  {item?.title ?? "Choose"}
+                </span>
               </button>
             );
           })}
@@ -163,7 +179,10 @@ export function CompareCatalogPicker({
           ))}
         </div>
       ) : null}
-      <div className="max-h-[24rem] overflow-y-auto border-y border-[color:var(--border)]" role="listbox">
+      <div
+        className="max-h-[24rem] overflow-y-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)]"
+        role="listbox"
+      >
         {hits.length === 0 ? (
           <p className="px-3 py-6 text-sm text-[color:var(--text-muted)]">{emptyHint ?? "No matching items."}</p>
         ) : (
@@ -178,47 +197,50 @@ export function CompareCatalogPicker({
                 onClick={() => choose(item.id)}
                 disabled={duplicate}
                 className={cn(
-                  "grid min-h-[4.5rem] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[color:var(--border)] px-2 py-2.5 text-left last:border-b-0 hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-45",
+                  "group grid min-h-[4.5rem] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-45",
                   highlight === index && !duplicate ? "bg-[color:var(--surface-subtle)]" : null,
                 )}
               >
-                <span>
-                  <strong className="block text-sm text-[color:var(--text-heading)]">{item.title}</strong>
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <strong className="text-sm text-[color:var(--text-heading)]">{item.title}</strong>
+                    {item.tag ? (
+                      <span className="inline-flex items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 py-0.5 text-3xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+                        {item.tag}
+                      </span>
+                    ) : null}
+                  </span>
                   {item.snippet ? (
-                    <span className="mt-0.5 line-clamp-2 block text-xs leading-4 text-[color:var(--text-muted)]">
+                    <span className="mt-1 line-clamp-2 block text-xs leading-4 text-[color:var(--text-muted)]">
                       {item.snippet}
                     </span>
                   ) : null}
-                  {item.tag ? (
-                    <span className="mt-1 block text-3xs font-bold text-[color:var(--clinical-accent)]">
-                      {item.tag}
-                    </span>
-                  ) : null}
                 </span>
-                <ArrowRight className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                <ArrowRight
+                  className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition-colors group-hover:text-[color:var(--clinical-accent)]"
+                  aria-hidden="true"
+                />
               </button>
             );
           })
         )}
       </div>
       {onDone || onReset ? (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-end gap-2">
           {onReset ? (
             <button
               type="button"
               onClick={onReset}
-              className="inline-flex min-h-tap items-center px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
+              className="mr-auto inline-flex min-h-tap items-center rounded-lg px-2 text-sm font-semibold text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]"
             >
               Reset
             </button>
-          ) : (
-            <span />
-          )}
+          ) : null}
           {onDone ? (
             <button
               type="button"
               onClick={onDone}
-              className="min-h-tap flex-1 rounded-lg bg-[color:var(--command)] px-4 text-sm font-extrabold text-[color:var(--command-contrast)]"
+              className="inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-6 text-sm font-bold text-[color:var(--command-contrast)] transition-colors hover:bg-[color:var(--command-hover)]"
             >
               Done
             </button>

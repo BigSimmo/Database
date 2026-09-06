@@ -17,7 +17,14 @@ import {
 import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn, pageContainer, toneSuccess, toneWarning } from "@/components/ui-primitives";
-import { CompareIdsChrome, slotLetters, type CompareCatalogItem, type CompareStarterChip } from "@/components/compare";
+import {
+  CompareIdsChrome,
+  compareSlotBadgeBase,
+  compareSlotBadgeClass,
+  slotLetters,
+  type CompareCatalogItem,
+  type CompareStarterChip,
+} from "@/components/compare";
 import { StatusMark, type DocumentStatus } from "@/components/ui/status-mark";
 import { Button } from "@/components/ui/button";
 import { missingValuePhrase } from "@/components/ui/missing-value";
@@ -48,13 +55,14 @@ const NOT_RECORDED = missingValuePhrase("not_recorded");
 /**
  * The round letter token, shared by the table header and the phone stack.
  *
- * It is deliberately the same shape and the same one accent as the selection
- * tile's pip: the letter is how a reader carries "the one I put in slot B" from
- * the tiles into a column of a table, and a second visual language for the same
- * identity would break that thread.
+ * Drawn from the same two exports the selection tile uses, at the same slot
+ * index, so a column carries the exact token of the tile it was chosen in. The
+ * letter is how a reader gets "the one I put in slot B" from the tiles into a
+ * table column, and a near-miss copy of the token breaks that thread.
  */
-const compareLetterPip =
-  "grid h-6 w-6 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-2xs font-bold tabular-nums text-[color:var(--clinical-accent-hover)]";
+function compareLetterPip(index: number, size = "h-6 w-6 text-2xs") {
+  return cn(compareSlotBadgeBase, compareSlotBadgeClass(index), size);
+}
 
 type Row = {
   key: string;
@@ -315,7 +323,7 @@ export function CompareScreen() {
                             therapy, so the icon distinguished nothing; the letter ties the
                             column to the selection tile the reader picked it in. */}
                         <div className="flex items-start gap-2.5">
-                          <span className={compareLetterPip}>{letters[index]}</span>
+                          <span className={compareLetterPip(index)}>{letters[index]}</span>
                           <span className="min-w-0">
                             <span className="block text-sm font-semibold leading-snug text-[color:var(--text-heading)]">
                               {t.name}
@@ -465,7 +473,7 @@ function TherapyCompareStack({
               {items.map((t, index) => (
                 <div key={t.slug} className={cn("px-3.5", dense ? "py-2.5" : "py-3")}>
                   <dt className="flex items-center gap-2 text-2xs font-bold text-[color:var(--text-heading)]">
-                    <span className={cn(compareLetterPip, "h-5 w-5 text-3xs")}>{letters[index]}</span>
+                    <span className={compareLetterPip(index, "h-5 w-5 text-3xs")}>{letters[index]}</span>
                     <span className="min-w-0 truncate">{t.name}</span>
                   </dt>
                   {/* Indented to the name's text, not the pip, so the value column lines up

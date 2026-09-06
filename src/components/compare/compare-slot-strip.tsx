@@ -9,37 +9,41 @@ import { usePhoneMedia } from "@/components/compare/use-phone-media";
 import { cn } from "@/components/ui-primitives";
 
 /**
- * Slot identity is carried by the LETTER, not by a hue.
+ * Shared A/B/C identity colours for compare surfaces — soft tint, never a solid block or edge strip.
  *
- * The previous tile encoded the same slot three times over: a saturated square
- * badge, a 3px coloured left edge, and the letter itself — and it drew the
- * first two from `--clinical-accent`, `--info` and `--text-muted`, so slot C
- * was grey while slot B was blue for no reason a reader could name. In a
- * clinical comparison that is worse than noise: colour on this page already
- * means review status and caution, so spending it on "this is the second thing
- * you picked" competes with the one signal that has to survive a glance.
- *
- * What replaced it: one neutral card at every slot, a round letter token, and
- * the accent reserved for two real states — the slot being edited, and a slot
- * still waiting to be filled. Colour returns to meaning something.
+ * Exported because the identity has to survive the trip from a selection tile to
+ * wherever that slot shows up again: the formulation results table, and the
+ * therapy comparison's column headers. A second local copy of these classes is
+ * how a column stops matching the tile it came from.
  */
-const slotPip = "grid shrink-0 place-items-center rounded-full border font-bold tabular-nums transition-colors";
+export function compareSlotBadgeClass(index: number, filled = true) {
+  if (!filled)
+    return "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]";
+  if (index === 0)
+    return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
+  if (index === 1) return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
+  return "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]";
+}
 
-const slotPipFilled =
-  "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)]";
-
-const slotPipEmpty =
-  "border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] text-[color:var(--text-muted)]";
+/**
+ * Everything about the letter token except its colours and its size.
+ *
+ * Exported alongside the colours so a caller outside this file draws the same
+ * token rather than approximating it — a circle that is nearly the tile's circle
+ * reads as a different thing, which defeats the point of carrying the letter.
+ */
+export const compareSlotBadgeBase =
+  "grid shrink-0 place-items-center rounded-full border font-extrabold tabular-nums transition-colors";
 
 /**
  * An empty slot must not look like a filled one that happens to be short. It is
- * an invitation, so it reads as an outline: dashed edge, recessive fill, and a
+ * an invitation, so it reads as an outline: dashed edge, flat fill, and a
  * trailing `+` sitting exactly where a filled tile's remove control sits, which
- * is what keeps the two states the same width and the text baselines aligned.
+ * is what keeps the two states the same width and their text on the same line.
  */
 const emptySlotSurface = cn(
-  "rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] transition",
-  "hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface)]",
+  "rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] transition",
+  "hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
   focusRing,
 );
 
@@ -58,6 +62,12 @@ function slotGridColumns(count: number) {
  * drifted — different surfaces, different shadows, different subtitle sizes —
  * which is the ordinary fate of a duplicated tile and the reason this one is
  * shared rather than copied.
+ *
+ * The filled surface comes from `card-recipes` rather than a hand-rolled class
+ * string, so the tile carries the same radius, border and resting elevation as
+ * every other card in the product and cannot drift from them on its own
+ * (card-recipes.ts: one radius decision, one resting elevation, one selected
+ * encoding).
  */
 function CompareSlotTile({
   slot,
@@ -91,23 +101,20 @@ function CompareSlotTile({
         className={cn(
           "grid h-full w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2.5 text-left",
           filled ? cardInteractive : emptySlotSurface,
-          compact ? "min-h-16 items-center p-2.5 pr-10" : "min-h-[4.75rem] p-3.5 pr-12",
+          compact ? "min-h-16 items-center p-2.5 pr-10" : "min-h-22 p-3.5 pr-12",
           active ? cardSelected : null,
         )}
       >
         <span
           className={cn(
-            slotPip,
+            compareSlotBadgeBase,
             "self-start",
-            filled ? slotPipFilled : slotPipEmpty,
+            compareSlotBadgeClass(index, filled),
             compact ? "h-6 w-6 text-2xs" : "h-7 w-7 text-xs",
           )}
         >
           {slot.label}
         </span>
-        {/* No `block` on either of the two clamped spans: `line-clamp-*` sets
-            `display:-webkit-box`, and a `block` utility beside it wins on cascade
-            order, so the clamp renders as no clamp at all. */}
         {/* Column, not a plain block: the subtitle is pushed to the bottom of the
             tile so the category line sits on one baseline across the row whether
             the name above it took one line or two. The tiles are already the same
@@ -118,11 +125,13 @@ function CompareSlotTile({
               // Two lines, not one truncated line. "Acceptance and Commitment
               // Therapy (ACT)" in a quarter-width column has nothing left after
               // the ellipsis, and the reader cannot tell two long therapy names
-              // apart from their first three words.
+              // apart from their first three words. No `block` beside the clamp:
+              // `line-clamp-*` sets `display:-webkit-box`, and a `block` utility
+              // next to it renders the clamp as no clamp at all.
               "text-sm font-semibold leading-snug",
               // Three lines on a phone, where a tile is ~170px wide and two lines
               // of "Cognitive Behavioural Therapy (CBT)" end at "Cognitive
-              // Behavioural…", which is the half the two candidates share.
+              // Behavioural…", which is the half the candidates share.
               compact ? "line-clamp-3" : "line-clamp-2",
               filled ? "text-[color:var(--text-heading)]" : "text-[color:var(--text-muted)]",
             )}
@@ -284,7 +293,11 @@ export function CompareSlotStrip({
             compactRail
               ? "flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               : "grid items-stretch gap-2.5",
-            !compactRail && (pair ? "grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)]" : slotGridColumns(slots.length)),
+            !compactRail &&
+              (pair
+                ? // Stack the pair on phones — a 3-column split truncates both titles to a few characters.
+                  "grid-cols-1 sm:grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)]"
+                : slotGridColumns(slots.length)),
           )}
         >
           {slots.map((slot, index) => (
