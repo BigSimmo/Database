@@ -3,44 +3,24 @@
 import Link from "next/link";
 import { ArrowRightLeft, Plus, Search, X } from "lucide-react";
 
-import { cardInteractive, cardSelected, focusRing } from "@/components/card-recipes";
 import type { ComparePhoneLayout, CompareSlot, CompareStarterChip } from "@/components/compare/types";
 import { usePhoneMedia } from "@/components/compare/use-phone-media";
 import { cn } from "@/components/ui-primitives";
 
 /**
- * Shared A/B/C/D identity colours for compare surfaces — soft tint, never a solid block or edge strip.
- *
- * Exported because the identity has to survive the trip from a selection tile to
- * wherever that slot shows up again: the formulation results table, and the
- * therapy comparison's column headers. A second local copy of these classes is
- * how a column stops matching the tile it came from.
- *
- * Two things decide the palette.
- *
- * **B is not another blue.** It was `--info`, which lands within a few degrees of
- * `--clinical-accent`; at a 24px pip on a pale fill the two were one colour, so
- * the hue distinguished nothing and the letter was doing all the work alone.
- * Hue separation matters most between A and B, because every two-slot compare
- * surface — dictionary, specifiers, formulation — only ever shows those two.
- *
- * **The tones are the non-semantic triads**, the same vocabulary `Chip` uses, not
- * the six-tone status palette. `--danger`, `--warning`, `--success` and `--info`
- * mean something on these pages — a caution row, a source that needs review — and
- * a slot letter must not spend them on "this is the one you added second"
- * (globals.css, category-accent block: a category is not a status).
- *
- * Every pairing is at least 5.6:1 in both themes.
+ * Shared A/B/C/D identity colours for compare surfaces — soft tint, never a solid
+ * block or edge strip. The tones are the non-semantic identity triads, so a slot
+ * letter never borrows the status palette: a category is not a status.
  */
 const SLOT_BADGE_TONES = [
   // A — the product accent, so the first slot reads as the page's own colour.
   "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-  // B — plum. The furthest non-semantic hue from the accent, for the pair surfaces.
+  // B — plum. The furthest non-semantic hue from the accent, so an A/B pair never
+  // reads as two shades of the same blue.
   "border-[color:var(--tone-rose-border)] bg-[color:var(--tone-rose-soft)] text-[color:var(--tone-rose)]",
   // C — violet.
   "border-[color:var(--tone-purple-border)] bg-[color:var(--tone-purple-soft)] text-[color:var(--tone-purple)]",
-  // D — slate, the quietest of the four, for the slot only the four-up therapy
-  // comparison ever fills.
+  // D — slate.
   "border-[color:var(--tone-slate-border)] bg-[color:var(--tone-slate-soft)] text-[color:var(--tone-slate)]",
 ] as const;
 
@@ -52,154 +32,104 @@ export function compareSlotBadgeClass(index: number, filled = true) {
   return SLOT_BADGE_TONES[index] ?? SLOT_BADGE_EMPTY;
 }
 
-/**
- * Everything about the letter token except its colours and its size.
- *
- * Exported alongside the colours so a caller outside this file draws the same
- * token rather than approximating it — a circle that is nearly the tile's circle
- * reads as a different thing, which defeats the point of carrying the letter.
- */
+/** Geometry for a slot letter, so pips outside the strip match the tiles exactly. */
 export const compareSlotBadgeBase =
   "grid shrink-0 place-items-center rounded-full border font-extrabold tabular-nums transition-colors";
 
 /**
- * An empty slot must not look like a filled one that happens to be short. It is
- * an invitation, so it reads as an outline: dashed edge, flat fill, and a
- * trailing `+` sitting exactly where a filled tile's remove control sits, which
- * is what keeps the two states the same width and their text on the same line.
+ * Slot columns follow the slot count, so three slots fill a row of three and four
+ * fill two rows of two. A fixed `lg:grid-cols-3` orphaned the fourth tile alone.
  */
-const emptySlotSurface = cn(
-  "rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] transition",
-  "hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
-  focusRing,
-);
-
-/** Column template per slot count, so four slots never leave one orphan on its own row. */
 function slotGridColumns(count: number) {
   if (count >= 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
   if (count === 3) return "grid-cols-1 sm:grid-cols-3";
   return "grid-cols-1 sm:grid-cols-2";
 }
 
-/**
- * The one tile, used by every layout.
- *
- * It was previously two: a `CompareSlotTile` for the phone 2x2 grid and a
- * byte-similar copy inlined in the default/rail branch below. They had already
- * drifted — different surfaces, different shadows, different subtitle sizes —
- * which is the ordinary fate of a duplicated tile and the reason this one is
- * shared rather than copied.
- *
- * The filled surface comes from `card-recipes` rather than a hand-rolled class
- * string, so the tile carries the same radius, border and resting elevation as
- * every other card in the product and cannot drift from them on its own
- * (card-recipes.ts: one radius decision, one resting elevation, one selected
- * encoding).
- */
 function CompareSlotTile({
   slot,
   index,
   activeIndex,
-  density = "standard",
+  compact,
   onSelectSlot,
   onClearSlot,
+  addHint = "Click to add",
 }: {
   slot: CompareSlot;
   index: number;
   activeIndex?: number | null;
-  density?: "standard" | "compact";
+  /** Phone-rail / 2x2 density. A `compact` tile relaxes back to full size from `sm`. */
+  compact?: boolean;
   onSelectSlot: (index: number) => void;
   onClearSlot?: (index: number) => void;
+  /** Hint shown inside an empty slot, so a placeholder reads as an add target. */
+  addHint?: string;
 }) {
-  const compact = density === "compact";
   const filled = Boolean(slot.id);
-  const active = activeIndex === index;
-  const clearable = Boolean(onClearSlot && slot.id);
-
   return (
     <div className="relative h-full min-w-0">
       <button
         type="button"
         onClick={() => onSelectSlot(index)}
-        aria-pressed={active}
+        aria-pressed={activeIndex === index}
         data-testid={compact ? "compare-slot-tile-compact" : "compare-slot-tile"}
-        data-slot-state={filled ? "filled" : "empty"}
-        title={filled ? slot.title : undefined}
         className={cn(
-          "grid h-full w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2.5 text-left",
-          filled ? cardInteractive : emptySlotSurface,
-          compact ? "min-h-16 items-center p-2.5 pr-10" : "min-h-22 p-3.5 pr-12",
-          active ? cardSelected : null,
+          "grid h-full w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2.5 rounded-xl border text-left transition-colors hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          compact ? "min-h-16 p-2.5 sm:min-h-22 sm:p-3.5" : "min-h-22 p-3.5",
+          // `sm:p-3.5` resets `pr-*`, so the clear-button gutter is restated there.
+          onClearSlot && filled ? "pr-12 sm:pr-14" : null,
+          filled
+            ? "border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--e1)]"
+            : "border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)]",
+          activeIndex === index ? "border-solid border-[color:var(--clinical-accent)]" : null,
         )}
       >
         <span
           className={cn(
             compareSlotBadgeBase,
-            "self-start",
+            compact ? "h-7 w-7 text-2xs sm:h-8 sm:w-8 sm:text-xs" : "h-8 w-8 text-xs",
             compareSlotBadgeClass(index, filled),
-            compact ? "h-6 w-6 text-2xs" : "h-7 w-7 text-xs",
           )}
         >
           {slot.label}
         </span>
-        {/* Column, not a plain block: the subtitle is pushed to the bottom of the
-            tile so the category line sits on one baseline across the row whether
-            the name above it took one line or two. The tiles are already the same
-            height (the grid stretches them), so nothing has to be reserved. */}
-        <span className="flex min-w-0 flex-col">
+        <span className="min-w-0">
           <strong
             className={cn(
-              // Two lines, not one truncated line. "Acceptance and Commitment
-              // Therapy (ACT)" in a quarter-width column has nothing left after
-              // the ellipsis, and the reader cannot tell two long therapy names
-              // apart from their first three words. No `block` beside the clamp:
-              // `line-clamp-*` sets `display:-webkit-box`, and a `block` utility
-              // next to it renders the clamp as no clamp at all.
-              "text-sm font-semibold leading-snug",
-              // Three lines on a phone, where a tile is ~170px wide and two lines
-              // of "Cognitive Behavioural Therapy (CBT)" end at "Cognitive
-              // Behavioural…", which is the half the candidates share.
-              compact ? "line-clamp-3" : "line-clamp-2",
-              filled ? "text-[color:var(--text-heading)]" : "text-[color:var(--text-muted)]",
+              // No `block` here: `display` and `line-clamp` are separate merge
+              // groups, so a stray `block` silently disables the clamp.
+              compact ? "line-clamp-3 text-sm sm:line-clamp-2 sm:text-base" : "line-clamp-2 text-base",
+              filled ? "text-[color:var(--text-heading)]" : "font-semibold text-[color:var(--text-muted)]",
             )}
           >
             {slot.title}
           </strong>
-          {/* No subtitle at compact density. On a 390px phone the tile is about
-              170px wide, and a category that reads the same on every tile bought
-              two wrapped lines while pushing the therapy name into an ellipsis —
-              it cost the one line that actually distinguishes the tiles. */}
-          {filled && slot.subtitle && !compact ? (
-            <span className="mt-auto line-clamp-2 pt-1.5 text-2xs leading-4 text-[color:var(--text-muted)]">
-              {slot.subtitle}
+          {filled ? (
+            slot.subtitle ? (
+              <span className="mt-0.5 block truncate text-xs leading-4 text-[color:var(--text-muted)]">
+                {slot.subtitle}
+              </span>
+            ) : null
+          ) : (
+            // Without this, an empty placeholder reads as a filled card and the
+            // surface offers no visible way to fill it (desktop has no dashed panel).
+            <span className="mt-1 flex items-center gap-1 text-2xs font-bold leading-4 text-[color:var(--clinical-accent)]">
+              <Plus className="size-icon-xs" aria-hidden="true" />
+              {addHint}
             </span>
-          ) : null}
+          )}
         </span>
       </button>
-      {clearable ? (
+      {onClearSlot && filled ? (
         <button
           type="button"
           aria-label={`Remove ${slot.title}`}
-          onClick={() => onClearSlot?.(index)}
-          className={cn(
-            // Centred on the right edge rather than pinned to the corner: at the
-            // corner its 48px tap area sat on top of the first line of the title,
-            // so a tap meant to open the picker removed the therapy instead.
-            "absolute right-0 top-1/2 grid h-tap w-tap -translate-y-1/2 place-items-center rounded-full",
-            "text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-inset)] hover:text-[color:var(--danger)]",
-            focusRing,
-          )}
+          onClick={() => onClearSlot(index)}
+          className="absolute right-1 top-1/2 grid h-tap w-tap -translate-y-1/2 place-items-center rounded-md text-[color:var(--text-muted)] hover:text-[color:var(--danger)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
-          <X className="size-icon-md" aria-hidden="true" />
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
-      ) : filled ? null : (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[color:var(--decoration-soft)]"
-        >
-          <Plus className="size-icon-md" aria-hidden="true" />
-        </span>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -221,9 +151,10 @@ export function CompareSlotStrip({
   slotSummaryLabel,
   starters,
   onPrimaryAction,
+  addHint,
 }: {
   slots: readonly CompareSlot[];
-  /** `compact` lays out slots in a horizontal snap-scroll phone rail instead of a vertical stack. */
+  /** `compact` lays slots out in a horizontal snap-scroll phone rail; from `sm` it becomes a grid. */
   layout?: "default" | "compact";
   activeIndex?: number | null;
   onSelectSlot: (index: number) => void;
@@ -240,6 +171,8 @@ export function CompareSlotStrip({
   slotSummaryLabel?: string;
   starters?: readonly CompareStarterChip[];
   onPrimaryAction?: () => void;
+  /** Hint shown inside an empty slot, e.g. "Click to add". */
+  addHint?: string;
 }) {
   const phone = usePhoneMedia();
   const pair = slots.length === 2;
@@ -252,6 +185,9 @@ export function CompareSlotStrip({
   const primaryAction = onPrimaryAction ?? onChange;
   const summaryLabel = slotSummaryLabel ?? `Up to ${slots.length} items`;
   const compactRail = layout === "compact" && !pair;
+  // "Change ..." reads wrong before anything is chosen, so an empty strip offers
+  // the action label instead. Both open the same picker.
+  const pickerButtonLabel = filledCount === 0 && actionLabel ? actionLabel : changeLabel;
 
   return (
     <div className={cn("grid gap-3", compactRail ? "mt-2" : "mt-4")} data-testid="compare-slot-strip">
@@ -306,9 +242,10 @@ export function CompareSlotStrip({
               slot={slot}
               index={index}
               activeIndex={activeIndex}
-              density="compact"
+              compact
               onSelectSlot={onSelectSlot}
               onClearSlot={onClearSlot}
+              addHint={addHint}
             />
           ))}
         </div>
@@ -317,9 +254,16 @@ export function CompareSlotStrip({
       {!showPipSummary && !showHybridGrid ? (
         <div
           className={cn(
+            "items-stretch",
             compactRail
-              ? "flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              : "grid items-stretch gap-2.5",
+              ? // Phone: a snap rail. From `sm` it relaxes into the same grid the
+                // default layout uses, so desktop never renders narrow, sideways
+                // scrolling slot cards with no room for their titles.
+                cn(
+                  "flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:gap-2 sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden",
+                  slotGridColumns(slots.length),
+                )
+              : "grid gap-2",
             !compactRail &&
               (pair
                 ? // Stack the pair on phones — a 3-column split truncates both titles to a few characters.
@@ -330,17 +274,19 @@ export function CompareSlotStrip({
           {slots.map((slot, index) => (
             <div
               key={`${slot.label}-${index}`}
-              className={
-                pair ? "contents" : compactRail ? "min-w-[9.75rem] max-w-[11.5rem] shrink-0 snap-start" : undefined
-              }
+              className={cn(
+                pair && "contents",
+                compactRail && "min-w-[9.75rem] max-w-[11.5rem] shrink-0 snap-start sm:min-w-0 sm:max-w-none",
+              )}
             >
               <CompareSlotTile
                 slot={slot}
                 index={index}
                 activeIndex={activeIndex}
-                density={compactRail ? "compact" : "standard"}
+                compact={compactRail}
                 onSelectSlot={onSelectSlot}
                 onClearSlot={onClearSlot}
+                addHint={addHint}
               />
               {pair && index === 0 ? (
                 <div className="grid place-items-center">
@@ -381,13 +327,15 @@ export function CompareSlotStrip({
         </p>
       ) : null}
 
-      {changeLabel && onChange && !showPipSummary ? (
+      {pickerButtonLabel && onChange && !showPipSummary ? (
         <button
           type="button"
           onClick={onChange}
-          className="inline-flex min-h-tap w-full items-center justify-center rounded-lg border border-[color:var(--border)] text-sm font-bold sm:hidden"
+          data-testid="compare-slot-strip-picker-button"
+          className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--e1)] transition-colors hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:justify-self-start"
         >
-          {changeLabel}
+          <Search className="size-icon-sm" aria-hidden="true" />
+          {pickerButtonLabel}
         </button>
       ) : null}
     </div>
