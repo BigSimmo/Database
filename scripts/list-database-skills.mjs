@@ -14,7 +14,7 @@ export const repositorySkillSurfaces = [
 ];
 export const expectedRepositorySkillSurfaceCounts = {
   Codex: 43,
-  Claude: 8,
+  Claude: 9,
   Cursor: 15,
   "PsychSift plugin": 1,
 };

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8c51406f-d53e-486c-aedf-b043bb00b952",
+  "createdOn": "2026-09-06",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Ward Flow lease acquisition lock is published non-atomically, so a competing process can read a half-written lock and fail outright",
+    "detail": "Failed Unit coverage on PR #2664 head e8bbcdba1 (run 34038808851, job 101501794483): tests/ward-flow-chat-control.test.ts > 'serializes cross-role lease acquisition across processes' expected stderr matching /already held|worktree already held/ but got 'lease acquisition lock is unreadable at /tmp/ward-chat-control-BzcaPW/.git/ward-flow-chat-control/acquire.lock.json; inspect it rather than bypassing custody'. ROOT CAUSE is in main's code, not the test. withLeaseAcquisitionLock in scripts/ward-flow/chat-control.mjs writes the lock with writeFileSync(lockPath, canonicalJson(owner), { encoding: 'utf8', flag: 'wx' }). The wx flag makes the CREATE exclusive, but creation and content are two steps, so a competitor can hit EEXIST in the window after the inode exists and before the holder's bytes are flushed, read the file back empty, and land in the catch at line 381. That branch calls fail() immediately with no retry, so a transient partial read is fatal, while the surrounding loop already retries the EEXIST path 200 times. Under CI load the window is wide enough to hit; the same test passed 3/3 locally on the same head, so it will not reproduce on a quiet machine. FIX: publish the lock atomically. Write a fully formed temp file at `${lockPath}.${owner.token}` then linkSync(staging, lockPath), which is atomic and throws EEXIST when already held, and rmSync the staging file in a finally. linkSync needs adding to the node:fs import; renameSync is already imported but is wrong here because it overwrites. The narrower alternative is to count unreadable reads and only fail() after a bounded number, but that leaves the race in place and only makes it rarer. Not fixed in PR #2664 because that PR is source-governance only and touches no Ward Flow file; the session branch constraint prevented opening a separate fix PR. Do not weaken or quarantine the test to clear it, the test is asserting the correct contract. Full diagnosis posted at https://github.com/BigSimmo/Database/pull/2664#issuecomment-5559938335",
+    "source": "PR #2664 CI run 34038808851 job 101501794483, 2026-09-06; scripts/ward-flow/chat-control.mjs:357-401",
+    "issueUlid": "01M1VJFJAYTJKFDRRQZ8940ENW"
+  }
+}
