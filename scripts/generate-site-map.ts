@@ -170,7 +170,6 @@ const routeDescriptions: Record<string, string> = {
   "/services/[slug]": "Registry-backed service detail.",
   "/services/search":
     "Services results surface: searches the private services registry by need, catchment, eligibility and referral route.",
-  "/sources": "Sources mode home; a submitted `?q=…&run=1` forwards to `/sources/search`, where the catalogue lives.",
   "/sources/[sourceId]": "Clinical source traceability record: identity, rating, canonical locations and usage.",
   "/sources/method": "How the catalogue rates, reviews and traces a source, and its stated limitations.",
   "/sources/publishers": "Publishing bodies grouped by jurisdiction scope.",
@@ -274,7 +273,12 @@ const routeOwnershipRows = [
   ["Dictionary", "src/app/(search-app)/dictionary, src/lib/dictionary.ts"],
   ["Safety Plan", "src/app/safety-plan, src/components/patient-safety-plan.tsx"],
   ["Privacy", "src/app/privacy"],
-  ["Tools", "src/components/applications-launcher-page.tsx"],
+  [
+    "Tools",
+    "src/app/(search-app)/tools, src/components/tools/tools-search-results-page.tsx, src/components/applications-launcher-page.tsx (the retained `/?mode=tools` alias)",
+  ],
+  ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
+  ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
   [
     "Caring Contacts workspace",
     "src/app/caring-contacts, src/components/caring-contacts/workspace, src/lib/caring-contacts-routes.ts",
@@ -556,14 +560,14 @@ function renderModePageIndex() {
       home: appModeHomeHref("sources"),
       search: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
       detail:
-        "`/sources` keeps a home of its own; `/sources/search` is the filterable catalogue. Also `/sources/topics`, `/sources/publishers`, `/sources/method`, and `/sources/[sourceId]` traceability records.",
+        "`/sources` redirects to the shared home, which carries a `Browse catalogue` chip; `/sources/search` is the filterable catalogue, and a submitted or filter-carrying deep link to `/sources` forwards there. Also `/sources/topics`, `/sources/publishers`, `/sources/method`, and `/sources/[sourceId]` traceability records.",
     },
     {
       mode: "Therapy Compass",
       home: appModeHomeHref("therapy-compass"),
       search: appModeHomeHref("therapy-compass", { query: "CBT", focus: true, run: true }),
       detail:
-        "Keeps a home of its own at `/therapy-compass`; `/search` (query-free browse), `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
+        "`/therapy-compass` redirects to the shared home; `/search` is a query-free browse. Also `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
     },
   ]);
 }

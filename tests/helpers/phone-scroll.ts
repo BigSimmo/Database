@@ -31,7 +31,10 @@ import { phoneHeaderCollapseAddonSlotId } from "../../src/lib/mode-home-composer
 // in-flow hero pill on phones (the composer sits in the hero and scrolls with the
 // content — no bottom dock), while the sticky header still collapses on scroll;
 // this sweep guards that the scroll geometry stays stable through that collapse.
-// (list mirrors isStandaloneModeHomePath in search-route-ownership.ts).
+// This list is NOT isStandaloneModeHomePath: most entries are consolidated bare
+// paths that redirect to the shared home, which is the surface being scrolled.
+// Keep it that way — the sweep is about the shared home's phone geometry per mode,
+// not about which routes own a hero composer.
 export const modeHomeRoutes = [
   "/formulation",
   "/dsm",
