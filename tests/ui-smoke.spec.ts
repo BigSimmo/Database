@@ -1363,10 +1363,23 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     // On the shared home a shortcut is the mode pill's in-place switch: the URL
     // is rewritten and the mode flips with no navigation request at all.
+    //
+    // Only a request for the shared home itself can be that navigation, so the
+    // filter is scoped to its pathname. Counting every RSC request on the page
+    // instead made this assertion fail on timing rather than on a regression:
+    // the sidebar deliberately warms `/tools` while the pointer crosses it
+    // (`ClinicalSidebar` renders that one item with `prefetch` and calls
+    // `prefetchApplications` from its `onPointerEnter`/`onFocus`), and such a
+    // warm-up was observed reaching the network without the prefetch header —
+    // a route this test never navigates to failing a claim about switching mode
+    // in place. Reproduced on main at fd81561, one failure in two runs.
+    const sharedHomePath = "/";
     const navigationRequests: string[] = [];
     page.on("request", (request) => {
       const headers = request.headers();
-      if (headers["rsc"] === "1" && headers["next-router-prefetch"] !== "1") navigationRequests.push(request.url());
+      if (headers["rsc"] !== "1" || headers["next-router-prefetch"] === "1") return;
+      if (new URL(request.url()).pathname !== sharedHomePath) return;
+      navigationRequests.push(request.url());
     });
     await documentsShortcut.click();
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
