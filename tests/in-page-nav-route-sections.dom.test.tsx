@@ -70,6 +70,13 @@ vi.mock("@/components/account-data-provider", () => ({
 vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
   useMedicationDetail: () => ({ data: null, loading: false, error: null }),
 }));
+// Same reasoning for the DSM diagnosis page: its cross-mode rail reads the
+// owner-scoped service/form registries through AuthProvider, which this file
+// does not mount. The rail renders nothing when no mode matches, so stubbing it
+// leaves the anchor set under test untouched.
+vi.mock("@/components/clinical-dashboard/cross-mode-links", () => ({
+  CrossModeLinksSection: () => null,
+}));
 vi.mock("@/components/clinical-dashboard/patient-profile-panel", () => ({ PatientProfilePanel: () => null }));
 vi.mock("@/components/clinical-dashboard/medication-considerations", () => ({
   MedicationConsiderations: () => null,
