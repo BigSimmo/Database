@@ -711,7 +711,8 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/forms-information-disclosure.dom.test.tsx",
-        "tests/ui-forms-section-nav.spec.ts"
+        "tests/ui-forms-section-nav.spec.ts",
+        "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
