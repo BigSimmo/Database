@@ -79,14 +79,15 @@ export function UniversalSearchAlsoMatches({
     typeof window === "undefined" ? null : window.location.search,
     trimmedQuery,
   );
-  // Collapsed by default on phones so this cross-mode panel does not push the
-  // primary results down; from sm upward the grid is always shown (see the sm:
-  // rules below), so the toggle state only governs the narrow-viewport disclosure.
+  // Collapsed by default at EVERY width, so this cross-mode panel never sits
+  // between the composer and the results the search actually asked for. It used
+  // to open itself from sm up.
   const [expanded, setExpanded] = useState(false);
-  // Track the sm breakpoint (640px) so the header's disclosure semantics match
-  // reality: from tablet width up the grid is always visible, so the button
-  // reports expanded and drops out of the interaction/tab flow rather than
-  // claiming to be a collapsed control the user can toggle to no effect.
+  // The sm breakpoint (640px) no longer decides whether the panel is open — the
+  // disclosure does, at every width. It still decides two things the disclosure
+  // cannot: whether the cross-mode lookup runs before the user opens anything
+  // (so the closed header can state a real count), and whether a no-match tray
+  // is dropped entirely rather than left as a header that opens onto nothing.
   const [isWide, setIsWide] = useState(false);
   const [viewportReady, setViewportReady] = useState(false);
   useEffect(() => {
@@ -104,6 +105,13 @@ export function UniversalSearchAlsoMatches({
   // stream. Once mounted, keep the panel eager and invisible until real matches
   // arrive; a speculative phone disclosure would add dead space to short
   // answers that have no cross-mode matches.
+  //
+  // Deliberately unchanged by the collapse: the lookup still runs on submit from
+  // sm up even while the tray is shut. That is what lets a closed header say
+  // "3 related modes" and lets the whole tray disappear when nothing matched. A
+  // closed control that cannot say what is behind it is a blind door, and
+  // making the fetch wait for the click would turn every desktop open into a
+  // spinner over a panel that may hold nothing.
   const searchActive = submissionActive && (isWide || modeId === "answer" || expanded);
   const universal = useUniversalSearch({
     query: trimmedQuery,
@@ -190,18 +198,18 @@ export function UniversalSearchAlsoMatches({
     >
       <button
         type="button"
-        onClick={() => {
-          if (!isWide) setExpanded((value) => !value);
-        }}
-        aria-expanded={isWide ? true : expanded}
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
         aria-controls={panelId}
-        tabIndex={isWide ? -1 : undefined}
         className={cn(
+          // A real disclosure at every width, matching the sibling cross-surface
+          // tray in `cross-mode-links.tsx` ("Also in your library", PR #2661).
+          // This header used to go inert from sm up because the panel was always
+          // open there, which put a grid of cross-mode suggestions between the
+          // composer and the results the search actually asked for.
           "flex min-h-tap w-full items-center gap-2.5 rounded-xl px-2 text-left transition-colors",
           "hover:bg-[color:var(--surface)]",
           focusRing,
-          // From sm up the panel is always open, so the header is inert copy rather than a control.
-          "sm:pointer-events-none sm:min-h-0 sm:cursor-default sm:gap-2.5 sm:px-1 sm:pb-2 sm:pt-0.5 sm:hover:bg-transparent",
         )}
       >
         {/* Quiet mark, not a second brand block. The glyph carries the accent and
@@ -231,7 +239,7 @@ export function UniversalSearchAlsoMatches({
         </span>
         <span
           className={cn(
-            "-mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-transform motion-reduce:transition-none sm:hidden",
+            "-mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-transform motion-reduce:transition-none",
             expanded && "rotate-180",
           )}
           aria-hidden
@@ -239,6 +247,15 @@ export function UniversalSearchAlsoMatches({
           <ChevronDown className="size-icon-md" aria-hidden="true" />
         </span>
       </button>
+      {/* The live region sits OUTSIDE the collapsible panel. SPEC §9.2 makes this
+          node the announcer and keeps the visible count `aria-hidden`; inside the
+          panel it would be `display: none` whenever the tray is closed, so from
+          the moment this became a real disclosure at every width the count would
+          have reached no screen reader at all — the closed control would be a
+          blind door for exactly the users who cannot see the number beside it. */}
+      <span className="sr-only" role="status">
+        {panelStatus}
+      </span>
       <div
         id={panelId}
         className={cn(
@@ -247,14 +264,19 @@ export function UniversalSearchAlsoMatches({
           // 1024px content well leaves each mode card too narrow for a
           // two-line clinical title, which is what forced the old single-line
           // truncation ("Mental Health Hospital in th…").
-          "grid-cols-1 gap-2 sm:grid sm:grid-cols-2 xl:grid-cols-4",
-          expanded ? "mt-1.5 grid sm:mt-0" : "hidden",
+          //
+          // EVERY display utility lives in the open branch, and that is
+          // load-bearing. A `sm:grid` sitting in the base list beside `hidden`
+          // does NOT collapse this panel from 640px up: both are display
+          // utilities of equal specificity and Tailwind emits the `sm:` rule
+          // later, inside a media query, so `display: grid` wins. The panel
+          // would sit open on every desktop while its own trigger reported
+          // `aria-expanded="false"`. `cross-mode-links.tsx` carries the same
+          // warning after hitting it.
+          "grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4",
+          expanded ? "mt-1.5 grid" : "hidden",
         )}
       >
-        {/* SPEC §9.2 — the live region is the announcer, never the visible content. */}
-        <span className="sr-only" role="status">
-          {panelStatus}
-        </span>
         {searchPending ? (
           <>
             <AlsoMatchesSkeletonCard />
