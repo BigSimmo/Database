@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "7b93086f13f006a4a629f7e36c682c826f8b9012",
-    "committed_at": "2026-09-06T01:40:00+00:00"
+    "sha": "52232c207bb393a335b46d563388ab2b2857ed15",
+    "committed_at": "2026-09-06T15:42:51+08:00"
   },
   "routes": {
     "modes": [
@@ -3644,6 +3644,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/staging-shutdown-and-repo-review-handover-2026-09-06.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/staging-tenancy-release-evidence.md",
         "section": "root",
         "catalogued": true
@@ -6173,8 +6178,8 @@
       }
     ],
     "counts": {
-      "documents": 903,
-      "catalogued": 590,
+      "documents": 904,
+      "catalogued": 591,
       "uncatalogued": 313,
       "sections": 22
     }
