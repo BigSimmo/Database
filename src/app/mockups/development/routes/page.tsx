@@ -10,6 +10,7 @@ import {
 } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
+import { routesCounts } from "@/lib/developer-area/repo-awareness-snapshot-counts";
 
 export const metadata: Metadata = {
   title: "Routes and modes · Developer · PsychSift",
@@ -54,7 +55,8 @@ function RoutePath({ path }: { path: string }) {
 export default function DeveloperRoutesPage() {
   const snapshot = loadRepoAwarenessSnapshot();
   const freshness = resolveRepoFreshness(snapshot, new Date());
-  const { modes, pages, redirects, api, counts } = snapshot.routes;
+  const { modes, pages, redirects, api } = snapshot.routes;
+  const counts = routesCounts(snapshot.routes);
   const productPages = pages.filter((page) => page.area === "product");
   const mockupPages = pages.filter((page) => page.area === "mockup");
 

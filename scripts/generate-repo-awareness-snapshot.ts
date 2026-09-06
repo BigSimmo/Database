@@ -82,14 +82,6 @@ export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData())
     pages,
     redirects,
     api,
-    counts: {
-      modes: modes.length,
-      pages: pages.length,
-      product_pages: pages.filter((page) => page.area === "product").length,
-      mockup_pages: pages.filter((page) => page.area === "mockup").length,
-      redirects: redirects.length,
-      api: api.length,
-    },
   };
 }
 
@@ -246,12 +238,6 @@ export function buildDocumentationSection(docPaths: readonly string[], readmeMar
   return {
     documents,
     sections,
-    counts: {
-      documents: documents.length,
-      catalogued: documents.filter((document) => document.catalogued).length,
-      uncatalogued: documents.filter((document) => !document.catalogued).length,
-      sections: sections.length,
-    },
   };
 }
 
@@ -297,7 +283,6 @@ export function buildTestHealthSection(ledger: FlakeLedgerFile): TestHealthSecti
   return {
     note: typeof ledger.$comment === "string" ? ledger.$comment : null,
     quarantined,
-    counts: { quarantined: quarantined.length },
   };
 }
 
@@ -558,11 +543,23 @@ const REVISION_INPUTS = [
   "scripts/generate-site-map.ts",
 ];
 
-export function readCommittedRevision(path = OUTPUT_PATH): { sha: string; committed_at: string } | null {
+/**
+ * The commit DATE, never a timestamp and never the sha — see `captured_revision`
+ * in `repo-awareness-types.ts`. `%cI` is read rather than `%cs` so that a
+ * snapshot written by an older generator, which stored the full ISO instant,
+ * still narrows to the same date here instead of being rejected outright.
+ */
+export function toRevisionDate(value: string): string | null {
+  const match = /^(\d{4}-\d{2}-\d{2})/u.exec(value);
+  return match ? match[1] : null;
+}
+
+export function readCommittedRevision(path = OUTPUT_PATH): { committed_at: string } | null {
   try {
     const revision = JSON.parse(readFileSync(path, "utf8")).captured_revision;
-    if (typeof revision?.sha !== "string" || typeof revision?.committed_at !== "string") return null;
-    return { sha: revision.sha, committed_at: revision.committed_at };
+    if (typeof revision?.committed_at !== "string") return null;
+    const committed_at = toRevisionDate(revision.committed_at);
+    return committed_at ? { committed_at } : null;
   } catch {
     return null;
   }
@@ -571,7 +568,7 @@ export function readCommittedRevision(path = OUTPUT_PATH): { sha: string; commit
 export function readCapturedRevision({
   cwd,
   snapshotPath = OUTPUT_PATH,
-}: { cwd?: string; snapshotPath?: string } = {}): { sha: string; committed_at: string } | null {
+}: { cwd?: string; snapshotPath?: string } = {}): { committed_at: string } | null {
   let output = "";
   try {
     output = execFileSync("git", ["log", "-1", "--format=%H%x09%cI", "--", ...REVISION_INPUTS], {
@@ -583,8 +580,9 @@ export function readCapturedRevision({
     // Git is unavailable or not a git repository; fall back to reading committed snapshot.
   }
   if (output) {
-    const [sha, committed_at] = output.split("\t");
-    if (sha && committed_at) return { sha, committed_at };
+    const [, committedAt] = output.split("\t");
+    const committed_at = committedAt ? toRevisionDate(committedAt) : null;
+    if (committed_at) return { committed_at };
   }
   const resolvedSnapshotPath = cwd ? path.join(cwd, snapshotPath) : snapshotPath;
   return readCommittedRevision(resolvedSnapshotPath);

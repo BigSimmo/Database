@@ -1,8 +1,7 @@
 {
-  "version": "repo-awareness-snapshot-v2",
+  "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "sha": "d51b8bba79e73e3b52d0ba831977ac1dc967ca0f",
-    "committed_at": "2026-09-06T08:37:09+00:00"
+    "committed_at": "2026-09-06"
   },
   "routes": {
     "modes": [
@@ -1576,15 +1575,7 @@
         "path": "/api/webhooks/supabase/document-change",
         "file": "src/app/api/webhooks/supabase/document-change/route.ts"
       }
-    ],
-    "counts": {
-      "modes": 17,
-      "pages": 215,
-      "product_pages": 73,
-      "mockup_pages": 142,
-      "redirects": 27,
-      "api": 63
-    }
+    ]
   },
   "documentation": {
     "documents": [
@@ -6176,20 +6167,11 @@
       {
         "name": "ward-flow-phase-3-workspace"
       }
-    ],
-    "counts": {
-      "documents": 904,
-      "catalogued": 591,
-      "uncatalogued": 313,
-      "sections": 22
-    }
+    ]
   },
   "test_health": {
     "note": "Only reproduced @quarantine Playwright tests belong here. Entries use an exact title and expire within 30 days. The ledger is intentionally empty after stale, non-reproducible entries were removed.",
-    "quarantined": [],
-    "counts": {
-      "quarantined": 0
-    }
+    "quarantined": []
   },
   "review_state": {
     "records": [
@@ -15592,6 +15574,14 @@
         "scope": "PR babysit: sync main, supersede stale READY row, close review thread",
         "outcome": "APPROVE pending hosted required CI. `git merge-tree --write-tree origin/main ba799d4a3cfdcb20eb1e040b5d6e328e2fbbc147` was clean, so GitHub DIRTY/CONFLICTING was stale branch drift after main advanced to `a9920e3fc29fce9ad2ffb547811e085a708680b9`; merged `origin/main` with no content conflicts. This supersedes the older 2026-07-25 READY row rather than editing append-only history; the remaining CodeRabbit ledger-check thread is dispositioned by this row and the final merge remains gated on exact-head required CI.",
         "checks": "`npm run check:branch-review-ledger` PASS; hosted PR required, PR policy, and GitGuardian to be waited on exact pushed head; no provider-backed evals/checks."
+      },
+      {
+        "date": "2026-09-06",
+        "ref": "claude/eager-euler-38s1yu",
+        "head": "72142455c3072d9e6e1aa5e4907bfc6170272957",
+        "scope": "prlanded",
+        "outcome": "Merged and verified: squash 7214245 content-identical to branch tip d8f2405 (empty two-dot diff), both work commits present, no orphaned late commit despite six main-merge syncs while auto-merge lost the race to five other PRs.",
+        "checks": "CI PR required green on head 3bf1d9e and again after each sync; local verify:cheap static+lint+typecheck green, 17119/17127 unit tests passed with 3 shallow-clone git-object artefacts; browser proof from CI Production UI shards plus a manual chromium capture of the rail."
       },
       {
         "date": "2026-07-31",
