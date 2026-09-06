@@ -3819,18 +3819,6 @@ td,
   display: none;
 }
 
-/* Pointer-only hover, and colour only. Never the rule: the density spec counts
-   PAINTED `.mode-nav__rule` elements and asserts exactly one, so a hovered rule
-   would make "which page am I on" depend on where the mouse came to rest. Kept
-   in CSS rather than as a utility because the ink's colour is set by an
-   arbitrary class on the element itself, and a descendant selector wins that
-   without an `!important`. */
-@media (hover: hover) and (pointer: fine) {
-  .mode-nav__slot:hover .mode-nav__ink {
-    color: var(--text);
-  }
-}
-
 /* Which page you are on, when its own slot is not on screen.
    ------------------------------------------------------------------------
    `data-active-from` is the band at which the current page's slot appears, or

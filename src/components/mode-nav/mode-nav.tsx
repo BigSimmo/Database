@@ -243,9 +243,13 @@ export function ModeNav({
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "flex h-full w-full items-center justify-center rounded-lg no-underline transition-colors motion-reduce:transition-none",
-                    // Pointer-only. On touch a hover fill sticks after a tap
-                    // until the next one, so it reads as a second active state
-                    // beside the real one. Same guard as `in-page-section-rail`.
+                    // Background only, and pointer-only. Never the rule: the
+                    // density spec counts PAINTED `.mode-nav__rule` elements and
+                    // asserts exactly one, so a hovered rule would make "which
+                    // page am I on" depend on where the mouse came to rest. And
+                    // on touch a hover fill sticks after a tap until the next
+                    // one, reading as a second active state beside the real one
+                    // — same `sm:` guard as `in-page-section-rail`.
                     !isActive && "sm:hover:bg-[color:var(--surface-subtle)]",
                     focusRing,
                   )}
