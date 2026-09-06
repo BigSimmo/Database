@@ -2,8 +2,15 @@ import type { CalculatorFixture } from "./calculator-fixtures";
 import type { DerivedCalculator } from "./calculator-ui";
 
 /**
- * Score-driven pathway content for the search/detail mockup: what to do next
- * at the current severity band, and which knowledge-base content to surface.
+ * Score-driven pathway content for the search/detail mockup: which knowledge-base
+ * content to surface at the current severity band.
+ *
+ * Band-driven action lists were removed here on clinical-safety grounds, mirroring
+ * PR #2491 in the production tree. The mockup must not carry directive prescribing,
+ * ECT or admission copy that production has already judged unsafe to give, so the
+ * band panel now shows the band's descriptive interpretation sentence only.
+ * `tests/calculator-mockup-clinical-safety.test.ts` holds both trees to that.
+ *
  * Mockup fixtures only — production would resolve `related` through the live
  * retrieval index instead of hand-authored hrefs.
  */
@@ -38,39 +45,11 @@ export const relatedKindLabels: Record<RelatedKind, string> = {
 };
 
 type CalculatorPathway = {
-  /** Parallel to calc.bands; falls back to the band guidance sentence. */
-  bandActions?: PathwayAction[][];
   related: RelatedItem[];
 };
 
 const pathways: Record<string, CalculatorPathway> = {
   phq9: {
-    bandActions: [
-      [
-        { label: "Reassure and reinforce sleep, activity, and alcohol basics" },
-        { label: "Rescreen if the clinical picture changes" },
-      ],
-      [
-        { label: "Watchful waiting with psychoeducation" },
-        { label: "Repeat PHQ-9 in 2–4 weeks", detail: "Track the trend, not the single score" },
-        { label: "Consider low-intensity psychological therapy" },
-      ],
-      [
-        { label: "Confirm DSM-5 criteria for a major depressive episode" },
-        { label: "Start psychological therapy; consider an SSRI" },
-        { label: "Screen for bipolarity before any antidepressant", detail: "Run the MDQ below" },
-      ],
-      [
-        { label: "Active treatment: pharmacotherapy and/or psychotherapy" },
-        { label: "Screen for bipolarity before prescribing", detail: "Run the MDQ below" },
-        { label: "Safety-net and book review within 1–2 weeks" },
-      ],
-      [
-        { label: "Initiate pharmacotherapy; consider psychiatry referral" },
-        { label: "Assess psychotic features and ECT indications" },
-        { label: "Complete a structured suicide-risk assessment now" },
-      ],
-    ],
     related: [
       {
         title: "Major depression — stepped treatment pathway",
@@ -101,20 +80,6 @@ const pathways: Record<string, CalculatorPathway> = {
     ],
   },
   gad7: {
-    bandActions: [
-      [{ label: "No action beyond routine care" }],
-      [{ label: "Psychoeducation and active monitoring" }, { label: "Repeat GAD-7 at next review" }],
-      [
-        { label: "Confirm the anxiety diagnosis and rule out mimics", detail: "Thyroid, stimulants, withdrawal" },
-        { label: "Refer for CBT; consider an SSRI" },
-        { label: "Co-screen for depression", detail: "Run the PHQ-9 below" },
-      ],
-      [
-        { label: "Active treatment: CBT and/or SSRI at adequate dose" },
-        { label: "Assess functional impact and comorbid depression" },
-        { label: "Avoid initiating benzodiazepines for chronic anxiety" },
-      ],
-    ],
     related: [
       {
         title: "Generalised anxiety — management pathway",
@@ -138,19 +103,6 @@ const pathways: Record<string, CalculatorPathway> = {
     ],
   },
   k10: {
-    bandActions: [
-      [{ label: "Likely well — no specific action" }],
-      [{ label: "Brief intervention and lifestyle advice" }, { label: "Repeat K10 at follow-up" }],
-      [
-        { label: "Structured assessment for anxiety and depression", detail: "PHQ-9 and GAD-7 below" },
-        { label: "Consider a mental health treatment plan" },
-      ],
-      [
-        { label: "Comprehensive assessment and active treatment" },
-        { label: "Prepare a mental health treatment plan and referral" },
-        { label: "Assess suicide risk directly" },
-      ],
-    ],
     related: [
       { title: "Mental health treatment plan", kind: "form", href: "/forms", minBandIndex: 2 },
       {
@@ -180,15 +132,6 @@ const pathways: Record<string, CalculatorPathway> = {
     ],
   },
   cage: {
-    bandActions: [
-      [{ label: "Reinforce low-risk drinking guidance" }, { label: "Rescreen opportunistically" }],
-      [
-        { label: "Take a full drinking history" },
-        { label: "Complete the full AUDIT", detail: "AUDIT-C below covers consumption only" },
-        { label: "Brief intervention; assess dependence and withdrawal risk" },
-        { label: "Consider thiamine if dependence is likely" },
-      ],
-    ],
     related: [
       { title: "AUDIT-C — consumption screen", kind: "calculator", calcId: "auditc" },
       {
@@ -202,18 +145,6 @@ const pathways: Record<string, CalculatorPathway> = {
     ],
   },
   auditc: {
-    bandActions: [
-      [{ label: "Below screening threshold — reinforce low-risk limits" }],
-      [
-        { label: "Positive for women at ≥3, men at ≥4 — brief intervention" },
-        { label: "Complete the full 10-item AUDIT" },
-      ],
-      [
-        { label: "Likely hazardous or harmful drinking — full AUDIT" },
-        { label: "Brief intervention; assess dependence and withdrawal risk" },
-        { label: "Consider drug and alcohol service referral" },
-      ],
-    ],
     related: [
       {
         title: "Alcohol — brief intervention guide",
@@ -230,22 +161,6 @@ const pathways: Record<string, CalculatorPathway> = {
     ],
   },
   sadpersons: {
-    bandActions: [
-      [
-        { label: "Complete a structured risk assessment regardless of score" },
-        { label: "Safety plan and follow-up if discharging" },
-      ],
-      [
-        { label: "Structured risk assessment now" },
-        { label: "Consider admission or intensive community follow-up" },
-        { label: "Involve family or carers where safe to do so" },
-      ],
-      [
-        { label: "Admission usually indicated — ensure immediate safety" },
-        { label: "Continuous observation while in the department" },
-        { label: "Structured risk assessment and psychiatry review" },
-      ],
-    ],
     related: [
       {
         title: "Suicide risk assessment framework",
@@ -284,8 +199,6 @@ const pathways: Record<string, CalculatorPathway> = {
 export function actionsForBand(calc: CalculatorFixture, derived: DerivedCalculator): PathwayAction[] {
   const bandIndex = derived.band ? calc.bands.indexOf(derived.band) : -1;
   if (bandIndex < 0) return [];
-  const custom = pathways[calc.id]?.bandActions?.[bandIndex];
-  if (custom?.length) return custom;
   return derived.result.guidance ? [{ label: derived.result.guidance }] : [];
 }
 
