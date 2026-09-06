@@ -89,10 +89,10 @@ describe("Database skill catalog", () => {
     const result = validateRepositorySkillPolicies(files);
 
     expect(result.errors).toEqual([]);
-    expect(files).toHaveLength(67);
+    expect(files).toHaveLength(68);
     expect(result.surfaceCounts).toEqual({
       Codex: 43,
-      Claude: 8,
+      Claude: 9,
       Cursor: 15,
       "PsychSift plugin": 1,
     });
