@@ -42,7 +42,9 @@
   display: grid;
   min-height: 100dvh;
   grid-template-columns: auto minmax(0, 1fr);
-  background: var(--surface);
+  /* No background. WardGround (ward-shell.module.css .shell) owns the page ground and paints
+     --ward-ground; this root painting --surface over it was the last of an eighteen-row
+     COVERING_THE_GROUND backlog, and its row goes in this same change. */
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -82,9 +84,9 @@
   flex-shrink: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ward-space-4) var(--ward-space-8);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-3xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -115,9 +117,9 @@
   margin: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-lg);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ward-space-10) var(--ward-space-12);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-xs);
   line-height: var(--ward-leading-relaxed);
 }
@@ -143,11 +145,29 @@
   padding: var(--ward-space-12) var(--ward-space-14);
 }
 
+/*
+ * 🔴 THIS COMPOSES `WardPanel`'S OWN TITLE STYLE RATHER THAN RESTATING IT, AND THAT IS THE FIX
+ * FOR THE OWNER'S WORD "INCONSISTENT".
+ *
+ * Measured on the hub before this change — three section headings, two treatments:
+ *
+ *     "Where to look"                  13px  weight 700  near-black  sentence case  no tracking
+ *     "How the system is performing"   13px  weight 600  muted       UPPERCASE      1.1px tracking
+ *     "What is happening to patients"  13px  weight 600  muted       UPPERCASE      1.1px tracking
+ *
+ * ⚠️ **I CAUSED IT.** On 2026-09-05 I moved this screen's two content sections onto `WardPanel`
+ * and left the index navigation with its own heading, because a nav needs its landmark role and
+ * `WardPanel` does not offer one. That reasoning was right and the consequence was two things
+ * doing the same job, side by side, in different type.
+ *
+ * ⚠️ **THE NAV STAYS A NAV.** Only the heading's LOOK is borrowed. `composes` puts both class
+ * names on the one element, so this is the panel's title treatment applied to a `<h2>` that is
+ * still the accessible name of a `<nav>` — not a panel pretending to be a nav, and not a nav
+ * pretending to be a panel.
+ */
 .indexHeading {
+  composes: panelTitle from "../ward-panel.module.css";
   margin: 0;
-  color: var(--text-heading);
-  font-size: var(--text-sm, 0.875rem);
-  font-weight: 700;
 }
 
 .indexIntro {
@@ -213,27 +233,6 @@
   line-height: var(--ward-leading-relaxed);
 }
 
-.section {
-  display: grid;
-  gap: var(--ward-space-12);
-  border: 0.0625rem solid var(--ward-border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-subtle);
-  padding: var(--ward-space-12) var(--ward-space-14);
-}
-
-.sectionHeader {
-  display: grid;
-  gap: var(--ward-space-4);
-}
-
-.sectionHeading {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: var(--text-sm, 0.875rem);
-  font-weight: 700;
-}
-
 /* Whose question this section answers. Never hidden behind a tooltip or an icon: the two
    audiences are the structure of the page, so the naming of them is body text. */
 .sectionAudience {
@@ -246,10 +245,14 @@
 .figure {
   display: grid;
   gap: var(--ward-space-8);
-  border: 0.0625rem solid var(--ward-border);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
-  padding: var(--ward-space-12) var(--ward-space-14);
+  padding: var(--ward-space-14) 0 0;
+  border-top: 0.0625rem solid var(--ward-border);
+}
+
+/* The first figure in a panel needs no rule above it: the panel's own header already draws one. */
+.figure:first-of-type {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .figureHeading {
@@ -310,9 +313,9 @@
   margin: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-md);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ward-space-10) var(--ward-space-12);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-xs);
   line-height: var(--ward-leading-relaxed);
 }
@@ -396,6 +399,289 @@
   padding: 0 var(--ward-space-4);
   font-family: var(--font-mono, monospace);
   font-size: var(--text-3xs);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+ * PROTOTYPE VOCABULARY, PORTED — statistics-primitives.tsx.
+ *
+ * Ported from `docs/ward-flow/design/prototypes/mockup-statistics-ward-v1.html` (`.panel`,
+ * `.kpis`/`.kpi`/`.figure`/`.caption`/`.kpi-delta`, `.chart-wrap`/`.chart-svg`/`.chart-caption`,
+ * `.table-wrap`/`.dtable`, `.fact`/`.facts`, `.stat-line`, `.eyebrow`, `.footnote`) and from
+ * `mockup-statistics-cmht-v1.html` (`.dist-bar`/`.dist-key`, which the ward file does not itself
+ * declare — verified by grep before porting rather than assumed present).
+ *
+ * ⚠️ REMOVED 2026-09-05, ON REVIEW: `.panel`/`.panelHead`/`.panelTitle`/`.panelCount`/
+ * `.panelBody`/`.panelFoot` (duplicated `WardPanel`, `../ward-panel.module.css`), `.kpis`/`.kpi`/
+ * `.kpiLabel`/`.kpiValue`/`.caption`/`.kpi[data-tone]`/`.kpiDelta`/`.kpiDeltaValue` (duplicated
+ * `WardFigureStrip`/`WardFigure`, `../ward-figure.module.css` — including its own 52rem/76rem
+ * `.kpis` reflow, which is why those two breakpoints are no longer pinned for this file in
+ * `tests/ward-primitives-shared.test.ts`), `.distBar`/`.distKey`/their tone variants and forced-
+ * colors override (duplicated `WardBar`, `../ward-bar.module.css`) and `.chip`/its tone variants
+ * (duplicated `WardChip`, `../ward-chip.module.css`). Each removed class had exactly one consumer
+ * — a component in `statistics-primitives.tsx` that this same removal deleted, and no screen
+ * imported it — so nothing else in this repository referenced any of them. See that file's own
+ * header comment for the full equivalence accounting, including the two real gaps found while
+ * confirming it (a KPI movement/delta slot, and a per-panel trailing footnote) and the finding
+ * that `.chip`'s generic five-tone vocabulary is exactly the kind of second implementation
+ * `WardChip`'s fixed six-level vocabulary exists to prevent.
+ *
+ * What survives below is what those four primitives do not provide: `.chartWrap`/`.chartSvg`/
+ * `.chartCaption` (no chart primitive exists anywhere in `ward-management/`), `.tableWrap`/
+ * `.tableCaption`/`.dtable` (a treatment that sits ON `WardTable` rather than replacing it —
+ * `WardTable` itself has no sticky header, no right-aligned numeral column, no flagged-row mark
+ * and no totals-row treatment), `.facts`/`.fact` (an inline rounded pill for a highlighted number,
+ * a different shape from any of the four bordered/tiled/labelled primitives above), `.statLine`
+ * (a compact inline ratio row, short of a full `WardFigure` tile), `.eyebrow` (the same small
+ * worded label already used as a per-screen idiom elsewhere in this codebase, e.g.
+ * `community-home.module.css`) and `.footnote` (a headed, grouped list of invented figures — no
+ * existing primitive renders that shape; every other per-screen "footnote" in this codebase is a
+ * single ungrouped `<p>`).
+ *
+ * Every colour below resolves through a `--ward-*` role from `../ward-tokens.module.css`
+ * (inherited via `.screen`, which already `composes: wardTokens` — no class here needs its own
+ * `composes` line, the same way `.figure`/`.tallyList` above never did) or a bare
+ * `--radius-*`/`--text-*` global, to match this file's own existing convention. No hex.
+ * ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── chartWrap / chartSvg / chartCaption: an inline SVG chart ───────────────────────────────
+ * ⚠️ THE CAPTION IS NOT DECORATION. A stroked line chart has no fill region for `forced-colors` to
+ * strip, but colour is still the only way to read a THIN LINE's trend at a glance — so the same
+ * numbers are always restated in the caption's own words, never left to the chart alone. */
+.chartWrap {
+  padding: var(--ward-space-14);
+}
+.chartSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.chartCaption {
+  margin-top: var(--ward-space-8);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ward-leading-relaxed);
+}
+.chartCaption b {
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+/* ─── tableWrap / dtable: sits ON TOP OF WardTable, never replaces it ────────────────────────
+ * ⚠️ NO SCROLL WRAPPER HERE. `WardTable` (`../ward-table/ward-table.module.css`) already owns the
+ * horizontal-scroll wrapper and its threshold border/notice; a second one here would be the
+ * redeclaration `tests/ward-table-single-source.test.ts` exists to catch. `.tableWrap` is only a
+ * spacing/caption wrapper a screen may place AROUND its own `<WardTable>` — it never wraps a
+ * `<table>` directly and never declares `overflow`.
+ *
+ * `.dtable` is meant to be added to a screen's own local table class alongside the shared one —
+ * `composes: table from "../ward-table/ward-table.module.css"; composes: dtable from
+ * "../statistics/statistics.module.css";` — the same "compose, do not copy" shape
+ * `statistics-sections.module.css`'s own `.compareWardTable`/`.compareEdTable` already use. It
+ * therefore declares NOTHING `WardTable`'s own `.table th`/`.table td` already declares — no
+ * `padding`, no `border` on a bare `th`/`td` — only what that block leaves unsaid: a sticky,
+ * small-caps header, right-aligned tabular figures, a flagged-row mark and a totals row. Row
+ * marks and the header's underline use `box-shadow`, never `border`, for the same reason
+ * `board.module.css` does: `box-shadow` cannot be mistaken by
+ * `tests/ward-table-single-source.test.ts` for the canonical `border`/`padding` redeclaration it
+ * scans for, and it is dropped cleanly (rather than left half-drawn) wherever `forced-colors`
+ * strips box-shadows outright.
+ */
+.tableWrap {
+  display: grid;
+  gap: var(--ward-space-8);
+}
+.tableCaption {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--ward-leading-relaxed);
+}
+
+.dtable {
+  font-size: var(--text-xs);
+}
+.dtable thead th {
+  position: sticky;
+  top: 0;
+  background: var(--ward-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: inset 0 -0.0625rem 0 var(--ward-border-strong);
+}
+.dtable tbody th {
+  color: var(--text-heading);
+  font-weight: 600;
+}
+.dtable .n {
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.dtable tbody tr[data-level="urgent"] th {
+  box-shadow: inset 0.1875rem 0 0 var(--ward-danger);
+}
+.dtable tbody tr[data-level="stalled"] th {
+  box-shadow: inset 0.1875rem 0 0 var(--ward-warning);
+}
+.dtable tbody tr[data-level="ok"] th {
+  box-shadow: inset 0.1875rem 0 0 var(--ward-success);
+}
+.dtable tfoot th,
+.dtable tfoot td {
+  font-weight: 700;
+  color: var(--text-heading);
+  background: var(--ward-subtle);
+  box-shadow: inset 0 0.0625rem 0 var(--ward-border-strong);
+}
+
+/* ─── fact / facts: an inline pill fact, above the figures ───────────────────────────────────── */
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ward-space-6);
+}
+.fact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ward-space-5);
+  font-size: var(--text-3xs);
+  font-weight: 500;
+  color: var(--text);
+  background: var(--ward-canvas);
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: 6.25rem;
+  padding: var(--ward-space-4) var(--ward-space-10);
+}
+.fact b {
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.fact[data-tone="accent"] {
+  color: var(--ward-blue);
+  border-color: var(--ward-blue-border);
+  background: var(--ward-blue-soft);
+}
+
+/* ─── statLine: a compact ratio fact, short of a full kpi tile ────────────────────────────────── */
+.statLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ward-space-6);
+  padding: var(--ward-space-10) 0;
+  border-bottom: 0.0625rem solid var(--ward-divider);
+}
+.statLine:last-child {
+  border-bottom: 0;
+}
+.statLineValue {
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: var(--text-lg, 1.125rem);
+  color: var(--text-heading);
+}
+.statLineLabel {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-copy);
+}
+
+/* ─── eyebrow: a small worded label above a heading ───────────────────────────────────────────── */
+.eyebrow {
+  display: block;
+  margin-bottom: var(--ward-space-4);
+  color: var(--ward-blue);
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ─── footnote: every invented figure, listed ─────────────────────────────────────────────────── */
+.footnote {
+  margin-top: var(--ward-space-24);
+  padding-top: var(--ward-space-14);
+  border-top: 0.0625rem solid var(--ward-border-strong);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-prose);
+}
+.footnote h2 {
+  margin: var(--ward-space-14) 0 var(--ward-space-6);
+  color: var(--text-heading);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.footnote h2:first-child {
+  margin-top: 0;
+}
+.footnote ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.footnote li {
+  position: relative;
+  margin-bottom: var(--ward-space-4);
+  padding-left: var(--ward-space-14);
+}
+.footnote li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: var(--ward-border-strong);
+}
+.footnote b {
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+/*
+ * ⚠️ SELF-DEFENDING ON PRINT, BELT-AND-BRACES. Both statistics screens (`statistics.module.css`'s
+ * own `.screen, .screen *` block below, and `statistics-sections.module.css`'s identical one)
+ * already flatten every descendant's colour to `CanvasText`/`Canvas` on print, `!important`, which
+ * beats any of this section's non-important tone colours regardless of specificity — so in
+ * practice `.fact` and `.eyebrow` are already covered whichever of the two screens hosts them.
+ * This block exists anyway, the same way `ward-chip.module.css` and `ward-figure.module.css` each
+ * carry their own: a primitive should not depend on an assumption about which screen renders it,
+ * and "the host already resets this" is exactly the assumption `ward-tokens.module.css`'s own
+ * long history of this defect warns against.
+ *
+ * `.panel`/`.kpi`/`.chip` and their tone variants were removed from this block along with their
+ * classes on 2026-09-05 (see this file's own header comment above).
+ */
+@media print {
+  /*
+   * `.fact` has element children, so the wildcard form reaches every one of them (the bold count,
+   * and the accent tone) rather than needing a new selector added here each time this file grows
+   * another tone or child. `background-color`, never the `background` shorthand: the shorthand
+   * also wipes `background-image`, which nothing here uses today but a future patterned fill
+   * might.
+   */
+  .fact,
+  .fact * {
+    color: CanvasText !important;
+    background-color: Canvas !important;
+  }
+  /*
+   * `.eyebrow` is a leaf element with no element children, so there is nothing for a wildcard to
+   * reach — its own colour is enumerated directly instead.
+   */
+  .eyebrow {
+    color: CanvasText !important;
+  }
 }
 
 /*
@@ -489,4 +775,39 @@
      */
     background-color: Canvas !important;
   }
+}
+
+/*
+ * 🔴 `.section`, `.sectionHeader` AND `.sectionHeading` WERE DELETED 2026-09-05 — see the note in
+ * `statistics-sections.module.css`, which carries the measurement. Both stylesheets held the same
+ * second panel, and this one held it twice over: `.figure` was a THIRD card, nested inside the
+ * second.
+ *
+ * ⚠️ `.figure` SURVIVES AND IS NO LONGER A CARD. A figure block is one item inside a panel, not a
+ * panel of its own, and a card inside a card was weak before the edge was ever measured. It is now
+ * separated from its siblings by the panel-internal rule, which is what `--ward-border` is for:
+ * `ward-tokens.module.css` records that `--border` failed a 2:1 floor in dark mode for exactly this
+ * job, so the lighter edge that is right for a panel is wrong for a divider between two rows.
+ *
+ * ⚠️ AND `.figure` IS NOT A `WardPanel` WITH `headingLevel={3}`, WHICH IS THE OBVIOUS MOVE. That
+ * primitive's title is an uppercase eyebrow at 0.085em tracking — right for "PEOPLE" or "BEDS",
+ * wrong for "From a bed being given away to the person arriving in it", which is twelve words and
+ * one of two headings on this page that long. The heading here is a sentence, so it stays
+ * sentence-case body-weight text. Reported rather than solved by adding a title-treatment prop to a
+ * shared primitive four ward branches read.
+ */
+
+/*
+ * ⚠️ `.panelBody` IS BACK, AND IT IS NOT THE ONE THAT WAS REMOVED. The class deleted above was a
+ * copy of `WardPanel`'s own body inside a duplicate panel. This one is the padding a CONSUMER of
+ * `WardPanel` supplies — the primitive gives the border, the radius and the header, and leaves the
+ * content's own padding to the screen, exactly as `community.module.css` records of its
+ * `.panelBody`. Without it the content sits one border-width from the panel edge, which is what it
+ * did for the first twenty minutes of this change: every test green, and obvious the moment the
+ * page was opened in a browser.
+ */
+.panelBody {
+  display: grid;
+  gap: var(--ward-space-12);
+  padding: var(--ward-space-12) var(--ward-space-14);
 }

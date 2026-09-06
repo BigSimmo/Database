@@ -8,6 +8,7 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 import { stripAllComments } from "./helpers/strip-source-comments";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * 🔴 EVERY FIELD ON A REFERRAL MUST HAVE SOMETHING THAT CAN WRITE IT.
  *
@@ -153,6 +154,7 @@ describe("every Referral field has something that can write it", () => {
       urgency: 2,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
       triagedAt: NOW_ANCHOR - 120,
     } as never);
 
@@ -175,6 +177,7 @@ describe("every Referral field has something that can write it", () => {
       urgency: 2,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
       triagedAt: NOW_ANCHOR + 30,
     } as never);
     expect(state.rejections.length).toBe(1);

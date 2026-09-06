@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useState } from "react";
-import { ChevronDown, Search, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Layers, Search, type LucideIcon } from "lucide-react";
 
 import { cn, eyebrowText, semanticChipTone, sourceCard, type SemanticChipTone } from "@/components/ui-primitives";
 import { logCrossModeLinkOpen } from "@/components/clinical-dashboard/source-actions";
@@ -23,6 +23,12 @@ function badgeChipTone(tone: CrossModeLinkBadge["tone"]): SemanticChipTone | nul
   if (!tone) return null;
   return tone === "clinical" ? "info" : tone;
 }
+
+// Both trailing controls on a card are the same 48px square so neither reads as
+// the primary one. `w-tap`/`h-tap` resolve to --spacing-tap (48px); the smoke
+// suite asserts that floor on every link and button inside the rail at 320px.
+const cardActionControl =
+  "grid h-tap w-tap shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--cat-border)] hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 type CrossModeLinksVariant = "card" | "compact" | "responsive-compact" | "line";
 
@@ -52,7 +58,11 @@ function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCar
       >
         <span className="truncate">{link.title}</span>
       </Link>
-      <span className="inline-flex min-h-6 shrink-0 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2 text-2xs font-semibold text-[color:var(--text-muted)]">
+      {/* Hidden below sm for the same reason as the badge under it: the card now
+          carries two 48px actions, and at 320px the chip plus both of them
+          leave the title nothing to truncate into. The accent-tinted icon tile
+          still carries the mode, and both action labels name it in full. */}
+      <span className="hidden min-h-6 shrink-0 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2 text-2xs font-semibold text-[color:var(--text-muted)] sm:inline-flex">
         {link.modeLabel}
       </span>
       {extraBadge ? (
@@ -66,17 +76,37 @@ function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCar
           {extraBadge.label}
         </span>
       ) : null}
-      <button
-        type="button"
-        onClick={() => {
-          onModeSearch(link.modeId, link.modeSearchQuery);
-        }}
-        aria-label={`Search ${link.title} in ${link.modeLabel}`}
-        title={`Search in ${link.modeLabel}`}
-        className="ml-auto grid h-tap w-tap shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--cat-border)] hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-      >
-        <Search className="h-4 w-4 shrink-0" aria-hidden />
-      </button>
+      {/* Two signposted actions rather than one magnifying glass that had to
+          stand for both. The glass alone did not say whether it searched or
+          opened, and the only route to the record itself was the title text. */}
+      <span className="ml-auto flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          // Re-runs the query inside the target mode. It must not emit a
+          // cross_mode_link_open (a detail-page open) — only the title link and
+          // the open control beside it do. Otherwise every "Search in …" click
+          // would corrupt retrieval-quality/click telemetry.
+          onClick={() => {
+            onModeSearch(link.modeId, link.modeSearchQuery);
+          }}
+          aria-label={`Search ${link.title} in ${link.modeLabel}`}
+          title={`Search in ${link.modeLabel}`}
+          className={cardActionControl}
+        >
+          <Search className="h-4 w-4 shrink-0" aria-hidden />
+        </button>
+        <Link
+          href={link.detailHref}
+          // Same destination and same telemetry as the title link above: this is
+          // a detail-page open, so it does emit cross_mode_link_open.
+          onClick={() => logCrossModeLinkOpen(query, link)}
+          aria-label={`Open ${link.title}`}
+          title="Open page"
+          className={cardActionControl}
+        >
+          <ArrowUpRight className="h-4 w-4 shrink-0" aria-hidden />
+        </Link>
+      </span>
     </article>
   );
 }
@@ -213,8 +243,20 @@ function CrossModeLinksLine({
   const panelId = useId();
   const preview = links.slice(0, 3).map((link) => link.title);
   const rest = links.length - preview.length;
+  const countLabel = links.length === 1 ? "1 match" : `${links.length} matches`;
   return (
-    <section aria-label="Related pages in other modes" data-testid="cross-mode-links" className="min-w-0">
+    <section
+      aria-label="Related pages in other modes"
+      data-testid="cross-mode-links"
+      className={cn(
+        // The recessed tray from `UniversalSearchAlsoMatches` — the "Also
+        // matches" panel on the mode search pages — so the two cross-surface
+        // suggestion panels read as one system rather than two inventions.
+        // Border only, no `--shadow-inset`: card-recipes.ts records that pairing
+        // a bevel with a border puts two edge treatments on one surface.
+        "min-w-0 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1.5 forced-colors:border sm:p-2",
+      )}
+    >
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -222,33 +264,71 @@ function CrossModeLinksLine({
         aria-controls={panelId}
         data-testid="cross-mode-links-line-trigger"
         className={cn(
-          "flex min-h-12 w-full items-center gap-2 rounded-xl border border-[color:var(--border)] px-3 text-left transition hover:bg-[color:var(--surface-subtle)]",
+          "flex min-h-12 w-full items-center gap-2.5 rounded-xl px-2 text-left transition-colors hover:bg-[color:var(--surface)]",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         )}
       >
-        <span className={cn(eyebrowText, "shrink-0")}>Also in your library</span>
-        <span className="min-w-0 flex-1 truncate text-2xs text-[color:var(--text-muted)]">
+        {/* Quiet mark, not a second brand block: the glyph carries the accent and
+            the tile is a hairline on the tray's own ground, so the eye lands on
+            the label rather than on a saturated square. */}
+        <span
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] forced-colors:border"
+          aria-hidden
+        >
+          <Layers className="size-icon-md" aria-hidden />
+        </span>
+        <span className={cn(eyebrowText, "shrink-0 text-[color:var(--text-heading)]")}>Also in your library</span>
+        {/* Label, rule, count — the editorial section-header device the "Also
+            matches" tray uses. The preview names replace the rule from sm up,
+            where there is room for them; at 320px the label plus both of them
+            would not fit, and the count is the half that still says something
+            when the names are gone. */}
+        <span
+          className="h-px min-w-3 flex-1 bg-[color:var(--border)] forced-colors:bg-[CanvasText] sm:hidden"
+          aria-hidden
+        />
+        <span className="hidden min-w-0 flex-1 truncate text-2xs text-[color:var(--text-muted)] sm:block">
           {preview.join(" · ")}
           {rest > 0 ? ` · +${rest}` : null}
         </span>
-        <ChevronDown
-          aria-hidden="true"
+        {/* Visual cue only — the button's accessible name stays the label above,
+            so a screen reader is not read the count twice. */}
+        <span
+          className="hidden shrink-0 text-2xs font-medium tabular-nums text-[color:var(--text-muted)] sm:inline"
+          aria-hidden
+        >
+          {countLabel}
+        </span>
+        <span
           className={cn(
-            "size-icon-xs shrink-0 text-[color:var(--text-muted)] transition-transform",
+            "-mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-transform motion-reduce:transition-none",
             open && "rotate-180",
           )}
-        />
+          aria-hidden
+        >
+          <ChevronDown className="size-icon-md" aria-hidden="true" />
+        </span>
       </button>
       {/* Always mounted, hidden with `display: none` when closed. Rendering it
           only while open left `aria-controls` pointing at nothing for the whole
           time the line was collapsed — a broken ARIA reference, which is what
-          the smoke suite's DOM-integrity audit caught. */}
+          the smoke suite's DOM-integrity audit caught.
+
+          Every display utility lives in the open branch, and that is load-bearing.
+          `hidden` sitting beside a `md:flex` in one class list does NOT collapse
+          this rail from 768px up: both are display utilities of equal specificity
+          and Tailwind emits the `md:` rule later, inside a media query, so
+          `display: flex` won. The panel then sat open on every desktop while its
+          own trigger reported `aria-expanded="false"`. (The same mechanic is used
+          deliberately in `universal-search-also-matches.tsx`, where the panel is
+          meant to be always-open from sm up and the header is made inert to
+          match. This one is a real disclosure at every width.) */}
       <div
         id={panelId}
         role="list"
         className={cn(
-          "cross-mode-links-rail mt-1.5 grid min-w-0 gap-1.5 md:flex md:max-w-full md:flex-wrap md:gap-2",
-          !open && "hidden",
+          "cross-mode-links-rail min-w-0",
+          open ? "mt-1.5 grid gap-1.5 md:flex md:max-w-full md:flex-wrap md:gap-2" : "hidden",
         )}
         data-testid="cross-mode-links-rail"
       >

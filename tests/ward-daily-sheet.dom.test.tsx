@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 import {
   asAtStamp,
@@ -10,7 +11,9 @@ import { WardBoard } from "@/components/ward-management/board/ward-board";
 import {
   admissionsForUnit,
   bedIsOccupied,
+  daysInBed,
   isPastExpectedDischarge,
+  stayDayNumber,
 } from "@/components/ward-management/ward-admissions";
 import { WARD_ADMISSIONS_ANCHOR, wardAdmissions } from "@/components/ward-management/ward-admissions-seed";
 import {
@@ -342,7 +345,7 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     // distinguishes two sheets from each other; it tells nobody which Tuesday either was. The
     // refusal therefore travels on every day, not only the opening one.
     for (const instant of [8 * 60 + 14, 8 * 60 + 14 + MINUTES_PER_DAY, 8 * 60 + 14 + 9 * MINUTES_PER_DAY]) {
-      expect(asAtStamp(instant).dayNote).toContain("not a record of any real day");
+      expectSays(asAtStamp(instant).dayNote, "the synthetic-day caveat", ["real day"]);
     }
   });
 
@@ -351,7 +354,7 @@ describe("the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot
     // on a sheet somebody pins to a wall, so time and day fail together on purpose.
     expect(asAtStamp(Number.NaN).time).toBeNull();
     expect(asAtStamp(Number.NaN).dayNote).not.toContain("NaN");
-    expect(asAtStamp(Number.NaN).dayNote).toContain("not a record of any real day");
+    expectSays(asAtStamp(Number.NaN).dayNote, "the synthetic-day caveat", ["real day"]);
   });
 
   it("yields no time at all for an unusable instant, never NaN", () => {
@@ -365,6 +368,7 @@ describe("dailySheetGroups — a partition of the board's rows, never a second d
   const base: DailySheetPerson = {
     key: "AD-1",
     days: 10,
+    dayNumber: 11,
     bandLabel: "Under 2 weeks",
     pastDate: false,
     sex: "Female",
@@ -592,5 +596,112 @@ describe("what the sheet may never show", () => {
     expect(screen.getByTestId("ward-board-headline").textContent).toContain(String(available));
     // A second copy on the sheet is a figure that can disagree with itself on one printed page.
     expect(screen.queryByTestId("ward-daily-sheet-headline")).toBeNull();
+  });
+});
+
+/**
+ * 🔴 THE SHEET'S LEAD IS AN ORDINAL AND `daysInBed` IS A DURATION, AND IT PRINTED ONE AS THE OTHER.
+ *
+ * `daysInBed` floors at zero, so anybody who arrived less than twenty-four hours ago is `0`. The
+ * board tile renders that correctly — "0 days", meaning no whole days in the bed yet. The sheet
+ * reused the same number as `Day ${days}` and printed **"Day 0"**, which is not a day of the
+ * admission: on a ward the day you arrive is Day 1. Same value, right on one screen and wrong on
+ * the other, because only the noun changed. Owner ruled it a defect, 2026-09-05.
+ *
+ * ⚠️ **THE SEEDED BOARD NEVER SHOWED IT, WHICH IS WHY IT SURVIVED.** Every occupied bed in the
+ * fixture is at least one day old at the anchor — the minimum of 259 occupants is 1 — so no
+ * rendered sheet has ever contained "Day 0", and a test that only walked the seed would have
+ * confirmed the bug was absent. It arrives through `PATIENT_ARRIVED`, which writes
+ * `arrivedAt: event.now`: the moment somebody arrives during a session their duration is 0. That is
+ * the row a handover is most likely to be about, and the one the sheet got wrong.
+ *
+ * So these guards are written over the DERIVATION, where zero is constructible, rather than over
+ * the rendered fixture, where it is not.
+ */
+describe("the day lead is an ordinal, never the duration", () => {
+  it("counts the day somebody arrives as Day 1, not Day 0", () => {
+    const occupant = wardAdmissions.find(bedIsOccupied);
+    expect(occupant, "no occupied bed in the fixture to base this on").toBeDefined();
+    // Exactly what PATIENT_ARRIVED writes: the person arrived at the instant being viewed.
+    const justArrived = { ...occupant!, arrivedAt: WARD_ADMISSIONS_ANCHOR };
+
+    // Anti-vacuity, and the whole premise: a duration of 0 is reachable. If this ever stops being
+    // 0 the guard below proves nothing, and the failure says so rather than passing quietly.
+    expect(daysInBed(justArrived, WARD_ADMISSIONS_ANCHOR), "a stay of zero whole days is no longer constructible").toBe(
+      0,
+    );
+
+    expect(stayDayNumber(daysInBed(justArrived, WARD_ADMISSIONS_ANCHOR))).toBe(1);
+  });
+
+  it("numbers every real stay in the fixture one higher than its duration, and never zero", () => {
+    const durations = wardAdmissions
+      .filter(bedIsOccupied)
+      .map((admission) => daysInBed(admission, WARD_ADMISSIONS_ANCHOR))
+      .filter((days): days is number => days !== null);
+    // Floor the population walked, not the failures found.
+    expect(durations.length, "no occupied beds walked — this guard would pass by looking at nothing").toBeGreaterThan(
+      50,
+    );
+    for (const days of durations) {
+      expect(stayDayNumber(days)).toBe(days + 1);
+      expect(stayDayNumber(days)).not.toBe(0);
+    }
+  });
+
+  it("has no day number at all when there is no stay, rather than Day 1", () => {
+    // A bed given away to somebody who has not arrived has no day of stay. Numbering it Day 1 would
+    // present a person as having arrived somewhere they have not reached.
+    expect(stayDayNumber(null)).toBeNull();
+  });
+});
+
+/**
+ * ⚠️ **THE GUARDS ABOVE COVER THE DERIVATION AND NOT THE SCREEN, WHICH IS HALF A FIX.**
+ *
+ * `stayDayNumber` being right does not stop the lead being pointed back at `person.days`: that is
+ * a one-word edit at the render site, it is exactly the edit that produced "Day 0" in the first
+ * place, and nothing above would go red for it. Ward Lead's ruling asked for a guard shaped over
+ * the property rather than the string, so this one reads what the sheet actually printed and
+ * compares it with the ordinal derived independently from the seed.
+ *
+ * Discriminating by construction: the ordinal is always exactly one greater than the duration, so
+ * a lead rendering the duration fails on **every** row rather than only on a zero-day one — which
+ * matters here, because the fixture has no zero-day occupant to catch it with.
+ */
+describe("the sheet's printed day number is the ordinal, checked against the seed", () => {
+  it("prints daysInBed + 1 for every row it renders, never daysInBed", () => {
+    renderWardBoard(UNIT_ID);
+    const sheet = screen.getByTestId("ward-daily-sheet");
+
+    const byKey = new Map(occupantsOf(UNIT_ID).map((admission) => [admission.id, admission]));
+    let checked = 0;
+
+    for (const row of Array.from(sheet.querySelectorAll<HTMLElement>("[data-testid]"))) {
+      const testId = row.getAttribute("data-testid") ?? "";
+      const admission = [...byKey.keys()].find((key) => testId.endsWith(`-${key}`));
+      if (admission === undefined) continue;
+      // ⚠️ The lead's OWN text node, never the row's `textContent`. The band label is a sibling
+      // span inside the same paragraph and some bands begin with a digit, so the concatenated row
+      // text reads "Day 411-3 months" and a naive match returns 411. That was a defect in the
+      // measurement, not on the screen, and it cost one red before I read what it had printed.
+      const lead = row.querySelector("p")?.childNodes[0]?.textContent ?? "";
+      const printed = /^\s*Day (\d+)\s*$/u.exec(lead);
+      if (printed === null) continue;
+
+      const duration = daysInBed(byKey.get(admission)!, WARD_ADMISSIONS_ANCHOR);
+      expect(duration, `${admission} has no stay but the sheet printed a day number`).not.toBeNull();
+      expect(
+        Number(printed[1]),
+        `${admission}: the sheet printed "Day ${printed[1]}" for a stay of ${duration} whole days. ` +
+          "The lead is an ordinal — arrival day is Day 1 — so it must be one greater than the duration. " +
+          'Printing the duration itself is the defect that put "Day 0" on the sheet.',
+      ).toBe(stayDayNumber(duration));
+      checked += 1;
+    }
+
+    // Floor the population walked, not the failures found: a selector that stopped matching rows
+    // would otherwise let this pass by reading nothing at all.
+    expect(checked, "no sheet row carried both an admission id and a printed day number").toBeGreaterThan(0);
   });
 });
