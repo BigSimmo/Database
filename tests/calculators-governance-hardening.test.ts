@@ -204,7 +204,7 @@ describe("calculator governance hardening", () => {
       expect(failure?.stderr).toContain("CALCULATOR_CONTENT_FAIL");
       expect(failure?.stderr).toContain("missing supersedes key");
     } finally {
-      fs.rmSync(tempRoot, { recursive: true, force: true });
+      fs.rmSync(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });
