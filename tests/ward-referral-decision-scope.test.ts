@@ -6,6 +6,7 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import type { WardFlowState } from "@/components/ward-management/ward-flow-reducer";
 import type { ReferralDestination } from "@/components/ward-management/ward-model";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * WHO MAY ANSWER WHICH DESTINATION — and it is a NARROWING and a widening at once.
  *
@@ -55,6 +56,7 @@ function referralAddressedTo(destinations: ReferralDestination[]): { state: Ward
     // name would be refused before the rule this file is actually testing was ever reached.
     suburb: { kind: "named", name: "Armadale" },
     urgency: 2,
+    ...FIXTURE_HISTORY,
     destinations,
   } as never);
   const referral = state.referrals[state.referrals.length - 1];

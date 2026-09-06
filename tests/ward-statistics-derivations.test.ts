@@ -441,8 +441,16 @@ describe("referralToBedJoin", () => {
    * `chronologicallyCoherentCount` stayed where it is — matched pairs that cannot carry a duration.
    * The two numbers below are asserted separately for that reason: they are what tells a real join
    * apart from a naming coincidence, and a single figure could not.
+   *
+   * ⚠️ **TEN SINCE 2026-09-05: `AD-LEFT-01` -> `RF-010` plus nine Midland DEMONSTRATION pairs**
+   * (`MIDLAND_DEMONSTRATION_ROWS`, `ward-movements.ts`), added at the owner's request so one
+   * community team's page has people on it. They are the manoeuvre the paragraph above warns about,
+   * done with the timing it says is the whole difference: each is raised AND accepted before its
+   * admission's bed was pulled, so both counts moved together. `tests/ward-community-demonstration-data.test.ts`
+   * is where that timing is guarded pair by pair. **If these two numbers ever disagree, the fixture's
+   * timing has drifted — repair the row, never the figure.**
    */
-  it("finds exactly one seeded pair, and that pair can carry a duration", () => {
+  it("finds ten seeded pairs, and every one of them can carry a duration", () => {
     const seeded = seedWardFlowState();
     const result = referralToBedJoin(seeded.admissions, seeded.referrals);
 
@@ -450,14 +458,14 @@ describe("referralToBedJoin", () => {
     expect(result.withReferralIdCount).toBeGreaterThan(0);
     expect(result.referralsSearchedCount).toBeGreaterThan(0);
 
-    // AD-LEFT-01 -> RF-010, and nothing else. Asserted exactly, so a fixture change that
-    // reintroduces a naming collision surfaces here rather than passing quietly.
-    expect(result.joinedCount).toBe(1);
+    // AD-LEFT-01 -> RF-010, plus the nine Midland demonstration pairs. Asserted exactly, so a
+    // fixture change that reintroduces a naming collision surfaces here rather than passing quietly.
+    expect(result.joinedCount).toBe(10);
 
     // ⚠️ AND THE SAME ONE, NOT A SECOND UNRELATED PAIR. Equality with `joinedCount` is the
     // assertion that matters: every match must be a match that could date a bed. If this ever
     // reads lower than the line above, some admission is in a bed before its referral existed.
-    expect(result.chronologicallyCoherentCount).toBe(1);
+    expect(result.chronologicallyCoherentCount).toBe(10);
     expect(result.chronologicallyCoherentCount).toBe(result.joinedCount);
   });
 });

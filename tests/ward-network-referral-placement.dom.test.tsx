@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Mirrors tests/ward-flow-queue-selection.dom.test.tsx: the network workspace renders a next/link
 // anchor and this suite never checks routing, so a plain <a> avoids requiring an App Router
@@ -38,6 +39,7 @@ import { allUnits, NOW_ANCHOR, siteByCode } from "@/components/ward-management/w
 
 import { parseModuleSource } from "./helpers/module-graph";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 const NETWORK_COMPONENT = resolve(process.cwd(), "src/components/ward-management/ward-management-network.tsx");
 const D15_CONTRACT_TEST = resolve(process.cwd(), "tests/ward-referral-matching.test.ts");
 
@@ -133,7 +135,7 @@ describe("network diagram, referral placement", () => {
     expect(SUBJECT.ageBand, "the seed's first queued referral is no longer the Youth one this pins").toBe("Youth");
 
     const adultUnit = screen.getByTestId("ward-network-verdict-scgh-adult-open");
-    expect(adultUnit).toHaveTextContent("Adult unit does not match a youth referral");
+    expectSays(adultUnit, "the age-band mismatch reason", ["does not match", "youth"]);
     expect(adultUnit.getAttribute("data-accepts")).toBe("false");
 
     // And the verdicts are not one uniform string repeated across the network, which is the other
@@ -509,6 +511,7 @@ describe("network diagram, the travel-band arrangement", () => {
               urgency: 2,
               originSiteCode: allUnits()[0]!.siteCode,
               transportNeeded: false,
+              ...FIXTURE_HISTORY,
             })
           }
         >

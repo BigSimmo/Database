@@ -386,7 +386,11 @@ describe("shared header hide/reveal wiring", () => {
     // let it escape to whichever ancestor happens to be positioned. `sm:sticky`
     // stays scoped to `sm+` because below that the portal hands the subtree to
     // the universal collapse row, which owns the motion.
-    expect(inPageNavHeaderSource).toContain("relative z-30 border-b");
+    // z-20, not z-30: this bar is a DOM sibling of MasterSearchHeader (it
+    // renders inside <main>, after the header), not nested inside its stacking
+    // context, so an equal z-30 would win same-index DOM-order ties on desktop
+    // and paint over (and swallow clicks meant for) the open Mode menu.
+    expect(inPageNavHeaderSource).toContain("relative z-20 border-b");
     expect(inPageNavHeaderSource).toContain("inpage-nav-header");
     expect(inPageNavHeaderSource).toContain("sm:sticky sm:top-0");
     expect(inPageNavHeaderSource).not.toContain("max-sm:static sm:sticky sm:top-0");

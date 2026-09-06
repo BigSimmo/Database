@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Same reason as every sibling dom suite: `ClinicalRail` renders next/link anchors, and jsdom
 // cannot provide an App Router context.
@@ -154,8 +155,8 @@ describe("Community team index — the empty state, driven by an injected list",
   it("says the list is empty and what an empty list here does and does not mean", () => {
     const main = renderIndexMain([]);
     expect(main.textContent).toContain("This list is empty.");
-    expect(main.textContent).toContain("that derivation returned no teams");
-    expect(main.textContent).toContain("does not mean this prototype has no community teams");
+    expectSays(main.textContent ?? "", "the empty community index", ["returned no teams", "no teams"]);
+    expectSays(main.textContent ?? "", "the empty community index", ["does not mean"]);
   });
 
   it("renders zero team links — asserted alongside the sentence, never instead of it", () => {

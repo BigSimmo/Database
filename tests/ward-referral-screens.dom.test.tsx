@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 import { vi } from "vitest";
 
 // Same reason as every sibling dom suite (ward-discharge-board.dom.test.tsx,
@@ -26,6 +27,7 @@ import {
   REQUIRED_FIELD_NAMES,
   UNANSWERED_OPTION_LABEL,
   UNANSWERED_VALUE,
+  HISTORY_FIELDS,
 } from "@/components/ward-management/referrals/referral-intake";
 import { ReferralMatchView } from "@/components/ward-management/referrals/referral-match";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
@@ -66,6 +68,7 @@ import {
   acceptedAddressing,
   declinedAddressings,
   referralAddressingStateLabel,
+  recentlyDecidedReferrals,
   referralState,
 } from "@/components/ward-management/ward-referrals";
 import { OVERRIDE_REASONS } from "@/components/ward-management/ward-change-reasons";
@@ -73,6 +76,7 @@ import { allEmergencyDepartments, allUnits, NOW_ANCHOR, wardSites } from "@/comp
 
 import { installMatchMediaStub } from "./setup/jsdom.setup";
 
+import { FIXTURE_HISTORY } from "./helpers/ward-referral-history";
 /**
  * Phase 8, Task 4. The order the match view renders units in once they are grouped by travel band:
  * the fixed band order (`TRAVEL_BANDS`, then not-recorded), and INSIDE each band the site table's
@@ -257,6 +261,18 @@ const REQUIRED_QUESTIONS: readonly { readonly name: string; readonly answer: () 
   { name: "Secure bed needed", answer: () => chooseNeed("secureBedNeeded", "no") },
   { name: "Involuntary bed needed", answer: () => chooseNeed("involuntaryBedNeeded", "no") },
   { name: "Transport needed", answer: () => chooseNeed("transportNeeded", "no") },
+  /*
+   * ⚠️ THE WRITTEN HISTORY IS NOT IN THIS LIST, AND ITS ABSENCE IS NOW THE POINT.
+   *
+   * "Why now" was here, required, from 2026-09-05 until the owner ruled the same day: ONE story
+   * box, OPTIONAL. This list drives a generated test per question — "will not send, and says so,
+   * while <question> alone is unanswered" — so **leaving the story here would assert that a blank
+   * story blocks Send, which is exactly the behaviour the ruling removed.** A test in this list is
+   * a claim that the form waits for the answer.
+   *
+   * The story's own behaviour is covered separately: that it sends when blank, that it sends when
+   * written, and that an over-long one is refused rather than trimmed.
+   */
   // FD-21. One kind is enough to make Send available; the picker's own suite
   // (`ward-referral-destinations.dom.test.tsx`) is what proves several can be chosen in one act,
   // that the cap holds, and that no kind can be chosen twice.
@@ -450,14 +466,68 @@ describe("ReferralIntakeForm", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("has no free-text input of any kind anywhere on the form", () => {
+  /*
+   * ⚠️ THIS TEST USED TO ASSERT ZERO FREE-TEXT CONTROLS, AND IT WAS RIGHT UNTIL 2026-09-05.
+   *
+   * The owner asked for a written patient history, so the form has a textarea for it — three
+   * until the ruling of 2026-09-05 collapsed them to one, optional. **The guard was NOT
+   * deleted.** Deleting it would have left nothing watching the one boundary that
+   * still matters — and a commit that removes a safety test reads, a year later, exactly like
+   * somebody clearing an obstacle.
+   *
+   * It is now a BOUNDARY guard: free text exists in exactly the named history fields and nowhere
+   * else on this form. That still catches everything the original caught — a stray text input for
+   * a name, a `contenteditable` note box, a second history field nobody discussed.
+   *
+   * ⚠️ **FLOORED ON THE FIELDS WALKED, NOT ON THE VIOLATIONS FOUND.** The `HISTORY_FIELDS.length`
+   * assertion is what makes DELETING the history go red rather than green. A guard written as
+   * "no unexpected textareas" is satisfied by a form with no textareas at all, so it would pass
+   * on the day somebody removed the feature — which is precisely when it most needs to speak.
+   */
+  it("has free text in exactly the named history fields and nowhere else on the form", () => {
     renderForm();
 
     const form = screen.getByTestId("ward-referral-intake-form");
-    const freeTextControls = form.querySelectorAll(
-      'input[type="text"], input[type="search"], input[type="email"], input:not([type]), textarea, [contenteditable="true"]',
+    const freeTextControls = Array.from(
+      form.querySelectorAll(
+        'input[type="text"], input[type="search"], input[type="email"], input:not([type]), textarea, [contenteditable="true"]',
+      ),
     );
-    expect(freeTextControls).toHaveLength(0);
+
+    // The population, so an empty form cannot pass this by walking nothing. ⚠️ A FLOOR, NOT A
+    // PINNED COUNT: it was `toBe(3)` and went red on the owner's ruling collapsing three boxes to
+    // one — a guard failing on a legitimate design decision, which is how guards get deleted. What
+    // it must catch is the history being REMOVED, so it asserts at least one.
+    expect(HISTORY_FIELDS.length).toBeGreaterThan(0);
+
+    // Identity, not just count: textareas with the wrong names would pass a count check.
+    expect(freeTextControls.map((el) => el.getAttribute("data-testid")).sort()).toEqual(
+      HISTORY_FIELDS.map((field) => `ward-referral-intake-${field.key}`).sort(),
+    );
+    // Every one of them is a textarea. An `input[type=text]` smuggled in under a history id would
+    // otherwise satisfy the line above while being a different control with different behaviour.
+    expect(freeTextControls.every((el) => el.tagName === "TEXTAREA")).toBe(true);
+  });
+
+  /*
+   * ⚠️ NO `maxLength` ON ANY OF THEM, AND THIS IS A SAFETY ASSERTION RATHER THAN A STYLE ONE.
+   *
+   * `maxLength` makes the browser swallow the keystroke past the limit. A referrer pasting a long
+   * account would watch the end of it disappear with no message — a silent truncation, performed
+   * by the browser rather than by anybody's decision. The form instead lets the text exceed the
+   * limit, says so, and refuses to send. `Referral.history` forbids the reducer from trimming for
+   * the same reason; this is the same rule one layer up.
+   */
+  it("puts no maxLength on any history box, so nothing is ever silently truncated as it is typed", () => {
+    renderForm();
+
+    // Floored, not pinned — see the boundary guard above for why a literal count is the wrong
+    // shape here. Zero boxes must fail; one, or three, must not.
+    expect(HISTORY_FIELDS.length).toBeGreaterThan(0);
+    for (const field of HISTORY_FIELDS) {
+      const box = screen.getByTestId(`ward-referral-intake-${field.key}`);
+      expect(box.hasAttribute("maxlength"), `${field.key} carries maxLength and would truncate silently`).toBe(false);
+    }
   });
 
   it("offers every age band from COHORTS — the four-time defect class this phase keeps hitting", () => {
@@ -727,7 +797,7 @@ describe("ReferralIntakeForm", () => {
    * so a ninth question, a removed one, a renamed one or a reordered one is a decision somebody
    * takes here rather than something a diff reveals later.
    */
-  it("waits on exactly these twelve questions, named in the order the form asks them", () => {
+  it("waits on exactly these thirteen questions, named in the order the form asks them", () => {
     expect([...REQUIRED_FIELD_NAMES]).toEqual([
       "Age band",
       "Sex",
@@ -748,16 +818,26 @@ describe("ReferralIntakeForm", () => {
       // question, or this one quietly dropped back to a default, is a decision somebody takes in
       // this test rather than something a diff reveals later.
       "Transport needed",
-      // Tenth, on FD-21: the referrer addresses the referral, choosing several destinations in one
+      // ⚠️ THE WRITTEN HISTORY WAS TENTH IN THIS LIST FOR PART OF 2026-09-05, AS "Why now", AND
+      // THE OWNER REMOVED IT THE SAME DAY: one story box, OPTIONAL. This list is the outstanding-
+      // questions sentence, so a question here is a claim that Send waits for it. It does not.
+      //
+      // Recorded rather than deleted, because the mechanism it needed is still live for whoever
+      // adds the next typed question: its blank state is `""` and NOT the sentinel, so it needed a
+      // per-field `unanswered` predicate on `REQUIRED_FIELDS`. Widening the shared `isUnanswered`
+      // to treat `""` as unanswered was the obvious alternative and would have reversed a recorded
+      // decision — see `UNANSWERED_VALUE`, which states that an origin site of `""` remains an
+      // ANSWER.
+      // Eleventh, on FD-21: the referrer addresses the referral, choosing several destinations in one
       // act. Last because the picker shows what each destination looks like FOR THIS REQUEST — how
       // much of the network accepts it, which team the catchment table names — so every answer
       // above it is what makes the question answerable.
       "Destination",
-      // Eleventh, 2026-08-30, when the emergency-department destination gained `edId`: an ED
+      // Twelfth, 2026-08-30, when the emergency-department destination gained `edId`: an ED
       // destination must name WHICH department, and this form is where the referrer answers that.
       // It is the FIRST conditional question on the form — see `CONDITIONAL_QUESTION_NAMES`.
       CONDITIONAL_QUESTION_NAMES[0],
-      // Twelfth, 2026-08-31, when the community destination gained `teamName`: a community
+      // Thirteenth, 2026-08-31, when the community destination gained `teamName`: a community
       // destination must name WHICH team, because the owner ruled that association comes from the
       // team named on the referral and not from the patient's home region. The SECOND conditional
       // question, and the reason the constant above is a list rather than a single name.
@@ -1104,6 +1184,50 @@ describe("ReferralBoard", () => {
   });
 
   /**
+   * 🔴 **THE ORDERING IS CORRECT AND LOOKS BROKEN, SO THE BOARD HAS TO SAY WHY.** Every queued row
+   * carries a prominent wait clock, and the queue sorts urgency FIRST — so the longest wait on the
+   * whole board can render at the very bottom. A coordinator finding the biggest number last has
+   * every reason to conclude the sort is broken and to work around it. Owner ruling, 2026-09-06:
+   * explain it; do not reorder.
+   *
+   * ⚠️ **THE FIRST ASSERTION IS AN ANTI-VACUITY FLOOR ON THE CLAIM ITSELF, not on the wording.**
+   * A sentence explaining an inversion is only honest if the fixture actually produces one, and a
+   * fixture where urgency and wait happen to agree would make this whole guard — and the sentence
+   * on the screen — describe nothing. So the inversion is measured from the rendered order before
+   * the wording is checked at all.
+   *
+   * The wording itself goes through `expectSays`, so a redesign may rephrase freely; what it may
+   * not do is stop naming both halves of the rule.
+   */
+  it("says why the longest wait can sit at the bottom, and only because it genuinely can", () => {
+    renderBoard();
+    const table = screen.getByTestId("ward-referral-board-queued-table");
+    const rendered = within(table)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelector("td button")?.textContent ?? "");
+
+    const raisedAtOf = (id: string) => referrals.find((referral) => referral.id === id)?.raisedAt;
+    const waits = rendered.map((id) => raisedAtOf(id));
+    expect(
+      waits.every((at) => at !== undefined),
+      `a rendered row is not in the fixture: ${rendered.join(", ")}`,
+    ).toBe(true);
+
+    // An inversion: a row BELOW another one was raised EARLIER, i.e. has waited longer.
+    const inverted = waits.some((at, index) => waits.slice(0, index).some((above) => above! > at!));
+    expect(
+      inverted,
+      "no queued row waits longer than one above it, so the board's explanation of that case describes " +
+        "nothing and this guard proves nothing. Restore a fixture where urgency and wait disagree.",
+    ).toBe(true);
+
+    const note = screen.getByTestId("ward-referral-board-order-note").textContent ?? "";
+    expectSays(note, "the queue-ordering note", ["urgent", "urgency"]);
+    expectSays(note, "the queue-ordering note", ["waited longer", "longest wait", "longer"]);
+  });
+
+  /**
    * Task 6. The intake form is deliberately absent from the rail (recorded against
    * `WARD_REFERRAL_INTAKE_HREF` in `WARD_NAV_INTENTIONALLY_UNLISTED`), which makes this board the
    * only way a coordinator reaches it. That makes the link load-bearing rather than decorative:
@@ -1199,7 +1323,27 @@ describe("ReferralBoard", () => {
       .getAllByRole("row")
       .slice(1)
       .map((row) => row.querySelector("td")?.textContent);
-    expect(ids).toEqual(["RF-006", "RF-007", "RF-002", "RF-003", "RF-004", "RF-008", "RF-012", "RF-013", "RF-010"]);
+    //
+    // ⚠️ `RF-RGHS-01` IS DEMONSTRATION DATA AND IT IS LAST FOR A REASON THAT MUST NOT BE "TIDIED".
+    // Nine referrals naming the community team "Midland" were added on 2026-09-05
+    // (`MIDLAND_DEMONSTRATION_ROWS`, `ward-movements.ts`) to populate one community hub page. This
+    // board keeps only `RECENTLY_DECIDED_DISPLAY_LIMIT` rows, newest decision first — so the first
+    // attempt, which accepted three of them 8 to 14 days before the anchor, PUSHED `RF-010` OFF THIS
+    // BOARD ENTIRELY. Real data evicted by fixture data, with the row count still looking right.
+    // Every demonstration acceptance is now older than RF-010's, so exactly one reaches this board
+    // and it reaches it last. Do not move them forward in time to make a page look busier.
+    expect(ids).toEqual([
+      "RF-006",
+      "RF-007",
+      "RF-002",
+      "RF-003",
+      "RF-004",
+      "RF-008",
+      "RF-012",
+      "RF-013",
+      "RF-010",
+      "RF-RGHS-01",
+    ]);
   });
 
   /**
@@ -1234,6 +1378,9 @@ describe("ReferralBoard", () => {
       "ward-referral-board-decided-card-RF-012",
       "ward-referral-board-decided-card-RF-013",
       "ward-referral-board-decided-card-RF-010",
+      // The one Midland demonstration referral this board keeps — see the table test above for why
+      // it is last and must stay last.
+      "ward-referral-board-decided-card-RF-RGHS-01",
     ]);
   });
 
@@ -1260,7 +1407,16 @@ describe("ReferralBoard", () => {
     const panel = screen.getByTestId("ward-referral-match-panel");
     const governance = within(panel).getByTestId("ward-referral-match-governance");
     expect(governance).toHaveTextContent(/not a medical device/i);
-    expect(governance).toHaveTextContent(/never ranks units by suitability/i);
+    /*
+     * WAS `/never ranks units by suitability/i` until 2026-09-04. Owner ruling: the product ranks
+     * wards by fit TODAY, so a screen promising it never ranks is false, and "does not yet rank" is
+     * equally false. The replacement gives a reason that survives matching shipping — the screen
+     * places nobody, and a human decides each placement — so this pins the REASON, and pins the
+     * withdrawn form as an absence so it cannot come back.
+     */
+    expect(governance).toHaveTextContent(/places nobody/i);
+    expect(governance).toHaveTextContent(/one at a time/i);
+    expect(governance.textContent ?? "").not.toMatch(/never ranks|never suggests|does not yet rank/i);
   });
 
   /**
@@ -1554,8 +1710,19 @@ describe("ReferralBoard", () => {
 
     // Non-vacuity, and the phone view too: every decided referral carries a detail on both
     // renderings, so a row that silently lost one cannot hide behind these two named cases.
-    const decided = referrals.filter((candidate) => referralState(candidate) !== "queued");
-    expect(decided.length).toBeGreaterThan(1);
+    //
+    // ⚠️ **WALKED OVER WHAT THE BOARD RENDERS, NOT OVER THE WHOLE FIXTURE, AND THAT IS A REPAIR
+    // RATHER THAN A RELAXATION.** This filtered the fixture until 2026-09-05, which was the same set
+    // only because the seed held nine decided referrals and the board keeps ten. Once the Midland
+    // demonstration referrals took the fixture past that limit, the loop began demanding a detail
+    // element for rows the board had correctly truncated — a red test reporting nothing wrong. The
+    // floor below is what keeps the narrowing honest.
+    const decided = recentlyDecidedReferrals(referrals);
+    expect(decided.length, "the decided board renders nothing to check").toBeGreaterThan(1);
+    expect(
+      referrals.filter((candidate) => referralState(candidate) !== "queued").length,
+      "the fixture holds no decided referrals at all, so this sweep proves nothing",
+    ).toBeGreaterThan(1);
     for (const referral of decided) {
       expect(screen.getByTestId(`ward-referral-board-decided-detail-${referral.id}`).textContent).not.toBe("");
       expect(screen.getByTestId(`ward-referral-board-decided-detail-card-${referral.id}`).textContent).not.toBe("");
@@ -1740,6 +1907,7 @@ function ManyDecidedHarness() {
       urgency: 3,
       originSiteCode: "RPH",
       transportNeeded: false,
+      ...FIXTURE_HISTORY,
     });
   }
 
@@ -1873,6 +2041,7 @@ function RaiseRefuseThenAcceptHarness({ acceptedBy }: { acceptedBy: "psychiatric
             urgency: 2,
             originSiteCode: "RPH",
             transportNeeded: false,
+            ...FIXTURE_HISTORY,
           })
         }
       >
@@ -2327,6 +2496,7 @@ const SYNTHETIC_YOUTH_REFERRAL: Referral = {
   urgency: 2,
   originSiteCode: "RPH",
   transportNeeded: false,
+  ...FIXTURE_HISTORY,
 };
 
 /** `ReferralMatchView` takes `units`/`referral` as explicit props (never reading them from
@@ -2354,7 +2524,7 @@ describe("ReferralMatchView — structural vs operational gap", () => {
     renderMatch(SYNTHETIC_YOUTH_REFERRAL, unitsWithoutYouth);
 
     const banner = screen.getByTestId("ward-referral-match-structural-gap");
-    expect(banner).toHaveTextContent("No youth unit exists in this network.");
+    expectSays(banner, "the no-youth-unit notice", ["no youth unit"]);
     expect(banner).not.toHaveTextContent(/no bed available/i);
     expect(screen.queryByTestId("ward-referral-match-no-bed")).not.toBeInTheDocument();
     // I3 (fix round C, F6): the accepting-count paragraph used to render unconditionally, so this
@@ -2408,6 +2578,7 @@ function RaiseAndReviewForensicHarness() {
             urgency: 2,
             originSiteCode: "BRM",
             transportNeeded: false,
+            ...FIXTURE_HISTORY,
           })
         }
       >
@@ -2489,6 +2660,7 @@ function bandReferral(overrides: Partial<Referral> = {}): Referral {
     urgency: 2,
     originSiteCode: "RPH",
     transportNeeded: false,
+    ...FIXTURE_HISTORY,
     ...overrides,
   };
 }
@@ -2729,18 +2901,28 @@ describe("ReferralMatchView — travel bands are grouped, and every group is on 
     const comparative =
       /nearest|closest|furthest|most remote|hardest to reach|\bbest\b|optimal|recommend|preferred|suggested/i;
 
-    // Applied to the WHOLE panel, minus exactly one paragraph: the governance disclaimer, which
-    // says this view "never suggests which bed is best". That sentence denies a comparative claim
-    // rather than making one, and it predates this phase — excluding it is what lets the rule be
-    // enforced over everything else instead of abandoned. The exclusion cannot quietly widen: the
-    // split proves that wording occurs exactly ONCE, so a second copy of it, or a band heading that
-    // borrowed it, lands back inside the assertion.
+    /*
+     * ⚠️ THE CARVE-OUT IS GONE, AND THIS IS NOW STRICTLY STRONGER. Until 2026-09-04 this assertion
+     * excluded exactly one paragraph — the governance disclaimer — because that disclaimer said the
+     * view "never suggests which bed is best" and therefore contained the word "best". It denied a
+     * comparative claim rather than making one, and excluding it was what let the rule be enforced
+     * over everything else instead of abandoned.
+     *
+     * The owner withdrew that sentence: the product ranks wards by fit today, so a screen promising
+     * it never does is false. Its replacement carries no comparative word at all, so the exception
+     * it existed for no longer exists — and the rule now covers the WHOLE panel, disclaimer
+     * included.
+     *
+     * Recorded rather than silently deleted, because an exception removed with no explanation is
+     * how the next person reinstates it while "fixing" a red.
+     */
     const panel = screen.getByTestId("ward-referral-match-panel");
     const governance = screen.getByTestId("ward-referral-match-governance").textContent ?? "";
-    expect(governance).toMatch(comparative);
-    const rest = (panel.textContent ?? "").split(governance);
-    expect(rest).toHaveLength(2);
-    expect(rest.join(" ")).not.toMatch(comparative);
+    expect(
+      governance,
+      "the governance paragraph must no longer need an exemption from the comparative rule",
+    ).not.toMatch(comparative);
+    expect(panel.textContent ?? "").not.toMatch(comparative);
 
     // And named individually, so no group heading, count, band label or the local-bed offer can
     // ever carry one.
@@ -2993,7 +3175,7 @@ describe("OutOfAreaBoard — what the screen says it is", () => {
   it("says the list is seeded and not a live count", () => {
     renderLedger();
     const provenance = screen.getByTestId("ward-out-of-area-provenance");
-    expect(provenance).toHaveTextContent("This is not a live statewide count.");
+    expectSays(provenance, "the not-a-statewide-count caveat", ["not a live statewide", "statewide"]);
     /*
      * CHANGED 2026-08-30 (Task 17). This asserted "this prototype does not record admissions as
      * they happen", and that sentence STOPPED BEING TRUE the moment arrival started creating a
@@ -3005,8 +3187,8 @@ describe("OutOfAreaBoard — what the screen says it is", () => {
      * statewide count. Asserted on that substance rather than on the old wording, and the "not a
      * live statewide count" line above is deliberately kept - the seed is still a seed.
      */
-    expect(provenance).toHaveTextContent("starts from this prototype");
-    expect(provenance).toHaveTextContent("ARRIVES during this session is added");
+    expectSays(provenance, "the not-a-statewide-count caveat", ["this prototype"]);
+    expectSays(provenance, "the session-arrivals note", ["during this session"]);
   });
 
   it("never claims that nobody leaves this ledger", () => {
