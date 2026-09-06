@@ -1366,7 +1366,24 @@ test.describe("PsychSift UI smoke coverage", () => {
     const navigationRequests: string[] = [];
     page.on("request", (request) => {
       const headers = request.headers();
-      if (headers["rsc"] === "1" && headers["next-router-prefetch"] !== "1") navigationRequests.push(request.url());
+      if (headers["rsc"] !== "1") return;
+      // Next 16 does NOT mark every prefetch with `next-router-prefetch: 1`.
+      // `fetchSegmentPrefetchesUsingDynamicRequest` in
+      // node_modules/next/dist/client/components/segment-cache/cache.js sets the
+      // header per fetch strategy — `1` loading-boundary, `2` PPR-runtime, `3`
+      // runtime-shell — and for `FetchStrategy.Full` it sets NO header at all.
+      // A `!== "1"` test therefore reads strategies 2 and 3 as navigations.
+      if (headers["next-router-prefetch"] !== undefined) return;
+      // A Full-strategy prefetch carries the same headers as a navigation, so
+      // headers alone cannot separate them. Scope by route instead, which is
+      // what this test actually asks: an in-place mode switch must not fetch
+      // the page it is switching to, and every mode here lives on the shared
+      // home. The sidebar deliberately prefetches /tools (the one link with
+      // `prefetch` plus focus/pointer warming, because Tools is browse-first
+      // and opens its own directory route) — a different route, and not a
+      // navigation caused by this click.
+      if (new URL(request.url()).pathname !== "/") return;
+      navigationRequests.push(request.url());
     });
     await documentsShortcut.click();
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();

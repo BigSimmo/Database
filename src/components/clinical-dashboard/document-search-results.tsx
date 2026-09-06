@@ -27,6 +27,7 @@ import {
   MoreHorizontal,
   Shield,
   ShieldAlert,
+  Sparkles,
   Target,
 } from "lucide-react";
 
@@ -1617,7 +1618,6 @@ function DocumentSearchResultsPanelImpl({
                         sourceCard,
                         "content-auto",
                         "relative overflow-visible p-0 shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none",
-                        index === 0 && "border-t-2 border-t-[color:var(--clinical-accent)]",
                       )}
                     >
                       <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-start gap-3 p-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4 sm:p-4">
@@ -1645,7 +1645,19 @@ function DocumentSearchResultsPanelImpl({
                           </h3>
                           <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-2.5">
                             {index === 0 ? (
-                              <DocumentBadge variant="best" className="min-h-7 rounded-lg px-2.5 text-2xs">
+                              // The top hit used to carry BOTH this chip and a 2px
+                              // saturated rail across the card's top edge — two accent
+                              // treatments on one card, which is exactly what the
+                              // "one accent per card" note above exists to prevent, and
+                              // the loudest block of colour in the results list. The rail
+                              // is gone; the chip says the same thing in the badge
+                              // language every other marker on this card already uses,
+                              // and takes an icon so it still reads at a glance.
+                              <DocumentBadge
+                                variant="best"
+                                icon={Sparkles}
+                                className="min-h-7 rounded-lg px-2.5 text-2xs"
+                              >
                                 Best match
                               </DocumentBadge>
                             ) : null}
