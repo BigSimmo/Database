@@ -1,81 +1,103 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRightLeft, Search, X } from "lucide-react";
+import { ArrowRightLeft, Plus, Search, X } from "lucide-react";
 
 import type { ComparePhoneLayout, CompareSlot, CompareStarterChip } from "@/components/compare/types";
 import { usePhoneMedia } from "@/components/compare/use-phone-media";
 import { cn } from "@/components/ui-primitives";
 
-function slotBadgeClass(index: number) {
-  if (index === 0) return "bg-[color:var(--clinical-accent)]";
-  if (index === 1) return "bg-[color:var(--info)]";
-  return "bg-[color:var(--text-muted)]";
-}
-
-function slotBorderAccent(index: number) {
-  if (index === 0) return "border-l-[3px] border-l-[color:var(--clinical-accent)]";
-  if (index === 1) return "border-l-[3px] border-l-[color:var(--info)]";
-  return "border-l-[3px] border-l-[color:var(--border-strong)]";
-}
-
-/** Used only by the hybrid phone 2x2 grid — the default/compact-rail layouts below keep their own tile markup. */
+/**
+ * One slot tile, used by every compare layout.
+ *
+ * Slot identity is carried by the letter badge alone. The earlier per-index
+ * accent rail (accent / info / muted stripes down the left edge) read as three
+ * unrelated statuses rather than three slots of one comparison, so filled tiles
+ * now share a single accent and empty tiles are drawn as dashed "add" targets.
+ */
 function CompareSlotTile({
   slot,
   index,
   activeIndex,
-  compact,
+  density = "default",
   onSelectSlot,
   onClearSlot,
+  addHint = "Click to add",
 }: {
   slot: CompareSlot;
   index: number;
   activeIndex?: number | null;
-  compact?: boolean;
+  /** `compact` is the phone rail / 2x2 grid density; it relaxes back to full size from `sm`. */
+  density?: "default" | "compact";
   onSelectSlot: (index: number) => void;
   onClearSlot?: (index: number) => void;
+  addHint?: string;
 }) {
+  const compact = density === "compact";
+  const filled = Boolean(slot.id);
+  const active = activeIndex === index;
+
   return (
-    <div className="relative min-w-0">
+    <div className="relative h-full min-w-0">
       <button
         type="button"
         onClick={() => onSelectSlot(index)}
-        aria-pressed={activeIndex === index}
+        aria-pressed={active}
         data-testid={compact ? "compare-slot-tile-compact" : "compare-slot-tile"}
+        data-filled={filled ? "true" : undefined}
         className={cn(
-          "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-lg border bg-[color:var(--surface)] text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-          compact ? "min-h-tap p-2.5" : "min-h-22 p-3",
-          onClearSlot && slot.id ? "pr-12" : null,
-          activeIndex === index ? "border-[color:var(--clinical-accent)]" : "border-[color:var(--border)]",
-          slotBorderAccent(index),
+          "grid h-full w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          compact ? "min-h-16 p-3 sm:min-h-20 sm:p-4" : "min-h-22 p-4",
+          // The `sm:` padding above resets `pr-*`, so the clear-button gutter is
+          // restated at that breakpoint.
+          onClearSlot && filled ? "pr-14 sm:pr-14" : null,
+          filled
+            ? "border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--e1)] hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--e2)]"
+            : "border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] hover:border-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+          active && "border-solid border-[color:var(--clinical-accent)] shadow-[var(--e2)]",
         )}
       >
         <span
           className={cn(
-            "grid place-items-center rounded-md font-extrabold text-[color:var(--command-contrast)]",
-            compact ? "h-7 w-7 text-xs" : "h-8 w-8 text-sm",
-            slotBadgeClass(index),
+            "grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-extrabold transition",
+            filled
+              ? "bg-[color:var(--clinical-accent)] text-[color:var(--command-contrast)]"
+              : "border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+            active && !filled && "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]",
           )}
         >
           {slot.label}
         </span>
         <span className="min-w-0">
-          <strong className={cn("block truncate text-[color:var(--text-heading)]", compact ? "text-sm" : "text-base")}>
+          <strong
+            className={cn(
+              "block truncate",
+              compact ? "text-sm sm:text-base" : "text-base",
+              filled ? "text-[color:var(--text-heading)]" : "text-[color:var(--text-muted)]",
+            )}
+          >
             {slot.title}
           </strong>
-          {slot.subtitle ? (
-            <span className="mt-0.5 block truncate text-xs leading-4 text-[color:var(--text-muted)]">
-              {slot.subtitle}
+          {filled ? (
+            slot.subtitle ? (
+              <span className="mt-0.5 block truncate text-2xs leading-4 text-[color:var(--text-muted)]">
+                {slot.subtitle}
+              </span>
+            ) : null
+          ) : (
+            <span className="mt-1 flex items-center gap-1 text-2xs font-bold leading-4 text-[color:var(--clinical-accent)]">
+              <Plus className="size-icon-xs" aria-hidden="true" />
+              {addHint}
             </span>
-          ) : null}
+          )}
         </span>
       </button>
-      {onClearSlot && slot.id ? (
+      {onClearSlot && filled ? (
         <button
           type="button"
           aria-label={`Remove ${slot.title}`}
           onClick={() => onClearSlot(index)}
-          className="absolute right-1 top-1 grid h-tap w-tap place-items-center rounded-md text-[color:var(--text-muted)] hover:text-[color:var(--danger)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="absolute right-1 top-1/2 grid h-tap w-tap -translate-y-1/2 place-items-center rounded-md text-[color:var(--text-muted)] hover:text-[color:var(--danger)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -101,9 +123,10 @@ export function CompareSlotStrip({
   slotSummaryLabel,
   starters,
   onPrimaryAction,
+  addHint,
 }: {
   slots: readonly CompareSlot[];
-  /** `compact` lays out slots in a horizontal snap-scroll phone rail instead of a vertical stack. */
+  /** `compact` lays slots out in a horizontal snap-scroll phone rail; from `sm` it becomes a grid. */
   layout?: "default" | "compact";
   activeIndex?: number | null;
   onSelectSlot: (index: number) => void;
@@ -120,6 +143,8 @@ export function CompareSlotStrip({
   slotSummaryLabel?: string;
   starters?: readonly CompareStarterChip[];
   onPrimaryAction?: () => void;
+  /** Hint shown inside an empty slot, e.g. "Click to add". */
+  addHint?: string;
 }) {
   const phone = usePhoneMedia();
   const pair = slots.length === 2;
@@ -132,6 +157,9 @@ export function CompareSlotStrip({
   const primaryAction = onPrimaryAction ?? onChange;
   const summaryLabel = slotSummaryLabel ?? `Up to ${slots.length} items`;
   const compactRail = layout === "compact" && !pair;
+  // "Change …" reads wrong before anything is chosen, so an empty strip offers
+  // the action label instead. Both open the same picker.
+  const pickerButtonLabel = filledCount === 0 && actionLabel ? actionLabel : changeLabel;
 
   return (
     <div className={cn("grid gap-3", compactRail ? "mt-2" : "mt-4")} data-testid="compare-slot-strip">
@@ -186,9 +214,10 @@ export function CompareSlotStrip({
               slot={slot}
               index={index}
               activeIndex={activeIndex}
-              compact
+              density="compact"
               onSelectSlot={onSelectSlot}
               onClearSlot={onClearSlot}
+              addHint={addHint}
             />
           ))}
         </div>
@@ -197,9 +226,13 @@ export function CompareSlotStrip({
       {!showPipSummary && !showHybridGrid ? (
         <div
           className={cn(
+            "items-stretch",
             compactRail
-              ? "flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              : "grid items-stretch gap-2",
+              ? // Phone: a snap rail. From `sm` the rail relaxes into the same
+                // full-width grid the default layout uses, so desktop never
+                // renders narrow, horizontally scrolling slot cards.
+                "flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:grid sm:grid-cols-2 sm:gap-3 sm:overflow-visible sm:pb-0 lg:grid-cols-3 [&::-webkit-scrollbar]:hidden"
+              : "grid gap-2",
             !compactRail &&
               (pair ? "grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)]" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"),
           )}
@@ -207,68 +240,20 @@ export function CompareSlotStrip({
           {slots.map((slot, index) => (
             <div
               key={`${slot.label}-${index}`}
-              className={
-                pair ? "contents" : compactRail ? "min-w-[9.75rem] max-w-[11.5rem] shrink-0 snap-start" : undefined
-              }
+              className={cn(
+                pair && "contents",
+                compactRail && "min-w-[9.75rem] max-w-[11.5rem] shrink-0 snap-start sm:min-w-0 sm:max-w-none",
+              )}
             >
-              <div className="relative min-w-0">
-                <button
-                  type="button"
-                  onClick={() => onSelectSlot(index)}
-                  aria-pressed={activeIndex === index}
-                  data-testid={compactRail ? "compare-slot-tile-compact" : "compare-slot-tile"}
-                  className={cn(
-                    "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-lg border bg-[color:var(--surface-raised)] text-left shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent-border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                    compactRail ? "min-h-16 p-2.5" : "min-h-22 p-3",
-                    onClearSlot && slot.id ? "pr-12" : null,
-                    activeIndex === index ? "border-[color:var(--clinical-accent)]" : "border-[color:var(--border)]",
-                    index === 0
-                      ? "border-l-[3px] border-l-[color:var(--clinical-accent)]"
-                      : index === 1
-                        ? "border-l-[3px] border-l-[color:var(--info)]"
-                        : "border-l-[3px] border-l-[color:var(--border-strong)]",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "grid place-items-center rounded-md text-sm font-extrabold text-[color:var(--command-contrast)]",
-                      compactRail ? "h-7 w-7" : "h-8 w-8",
-                      index === 0
-                        ? "bg-[color:var(--clinical-accent)]"
-                        : index === 1
-                          ? "bg-[color:var(--info)]"
-                          : "bg-[color:var(--text-muted)]",
-                    )}
-                  >
-                    {slot.label}
-                  </span>
-                  <span className="min-w-0">
-                    <strong
-                      className={cn(
-                        "block truncate text-[color:var(--text-heading)]",
-                        compactRail ? "text-sm" : "text-base",
-                      )}
-                    >
-                      {slot.title}
-                    </strong>
-                    {slot.subtitle ? (
-                      <span className="mt-0.5 block truncate text-2xs leading-4 text-[color:var(--text-muted)]">
-                        {slot.subtitle}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-                {onClearSlot && slot.id ? (
-                  <button
-                    type="button"
-                    aria-label={`Remove ${slot.title}`}
-                    onClick={() => onClearSlot(index)}
-                    className="absolute right-1 top-1 grid h-tap w-tap place-items-center rounded-md text-[color:var(--text-muted)] hover:text-[color:var(--danger)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  >
-                    <X className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                ) : null}
-              </div>
+              <CompareSlotTile
+                slot={slot}
+                index={index}
+                activeIndex={activeIndex}
+                density={compactRail ? "compact" : "default"}
+                onSelectSlot={onSelectSlot}
+                onClearSlot={onClearSlot}
+                addHint={addHint}
+              />
               {pair && index === 0 ? (
                 <div className="grid place-items-center">
                   {bothFilled && swapHref ? (
@@ -308,13 +293,15 @@ export function CompareSlotStrip({
         </p>
       ) : null}
 
-      {changeLabel && onChange && !showPipSummary ? (
+      {pickerButtonLabel && onChange && !showPipSummary ? (
         <button
           type="button"
           onClick={onChange}
-          className="inline-flex min-h-tap w-full items-center justify-center rounded-lg border border-[color:var(--border)] text-sm font-bold sm:hidden"
+          data-testid="compare-slot-strip-picker-button"
+          className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:justify-self-start"
         >
-          {changeLabel}
+          <Search className="size-icon-sm" aria-hidden="true" />
+          {pickerButtonLabel}
         </button>
       ) : null}
     </div>
