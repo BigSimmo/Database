@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "164826b6-46d4-4af4-b5de-2bd9369a0a38",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#S2741S",
+    "detail": "RECONSTRUCTED 2026-09-06, partially verified. tests/ward-screen-fd23-leaks.dom.test.tsx exists and its header documents its own purpose clearly: it enforces FD-23 (a ward-facing screen may not reveal where else a patient has been referred) on the ward screen, whose inbox reads referredUnitIds, a list that answers 'am I addressed?' while also carrying 'who else is?'. It asserts on rendered TEXT because, in its own words, the forbidden thing is a VALUE in a permitted place, so no structural or field-presence guard can see it. Both leaks it covers were live on the seeded fixture and confirmed on screen before being fixed, and the assertions are deliberately pinned to seeded movements rather than constructed ones.\n\nNOT VERIFIED: the specific blind spot the row refers to. The header explains the technique and its limits but does not name a gap, and no owner is recorded in the file. NEXT ACTION: two separable things. First, assign an owner, since an unowned test enforcing a privacy rule is the one nobody updates when the screen changes. Second, re-derive the blind spot by asking which other surfaces read referredUnitIds and are therefore capable of the same leak while being outside this file's scope, and record the answer here so it is not lost a second time.",
+    "baseRowFingerprint": "346113239408c962e5964b12f56edcafbbbe87d984fe363b7347fba0fab1e2e5"
+  }
+}
