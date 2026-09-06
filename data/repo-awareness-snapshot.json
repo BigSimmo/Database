@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "ad126f8a3abbd0c4f7a3689cf5faa1a7f5bbea86",
-    "committed_at": "2026-09-06T07:49:05+00:00"
+    "sha": "6e7735caa1dd18564a063ed811bec98b5abe2646",
+    "committed_at": "2026-09-06T08:16:50+00:00"
   },
   "routes": {
     "modes": [
@@ -87,7 +87,7 @@
       {
         "id": "sources",
         "label": "Sources",
-        "home": "/sources",
+        "home": "/?mode=sources",
         "dev_only": false
       },
       {
@@ -1086,11 +1086,6 @@
         "area": "product"
       },
       {
-        "path": "/sources",
-        "file": "src/app/(search-app)/sources/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/sources/[sourceId]",
         "file": "src/app/(search-app)/sources/[sourceId]/page.tsx",
         "area": "product"
@@ -1306,6 +1301,11 @@
         "path": "/services",
         "file": "src/app/(search-app)/services/page.tsx",
         "target": "/?mode=services"
+      },
+      {
+        "path": "/sources",
+        "file": "src/app/(search-app)/sources/page.tsx",
+        "target": "/?mode=sources"
       },
       {
         "path": "/specifiers",
@@ -1574,10 +1574,10 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 215,
-      "product_pages": 74,
+      "pages": 214,
+      "product_pages": 73,
       "mockup_pages": 141,
-      "redirects": 26,
+      "redirects": 27,
       "api": 63
     }
   },
