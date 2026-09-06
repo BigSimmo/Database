@@ -89,6 +89,7 @@ import type {
 } from "@/components/document-viewer/types";
 import { IndexedTextPanel, PinnedSourceEvidence } from "@/components/document-viewer/source-panels";
 import { DocumentViewerRail } from "@/components/document-viewer/document-rail-panels";
+import { DocumentVisualsPanel } from "@/components/document-viewer/document-visuals-panel";
 import { DocumentOverviewLanding } from "@/components/document-viewer/document-overview-landing";
 import { DocumentClinicalSummary } from "@/components/document-viewer/document-clinical-summary";
 import {
@@ -1562,7 +1563,10 @@ export function DocumentViewer({
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:gap-5">
+              {/* Explicit base track for the same reason as the rail and body grids:
+                  an implicit `auto` column is sized by its items' min-content, and this
+                  column now carries the wide table crops. */}
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-5">
                 <PinnedSourceEvidence
                   loading={effectiveLoadingDocument}
                   chunk={selectedChunk}
@@ -1595,6 +1599,18 @@ export function DocumentViewer({
                   compact={compactView}
                   revealRequest={inspectIndexedText || normalizedSourceSearch.length >= 2}
                 />
+                <DocumentVisualsPanel
+                  loading={effectiveLoadingDocument}
+                  document={document}
+                  canUseAdministrativeApis={canUseAdministrativeApis}
+                  clinicalImages={clinicalImages}
+                  auditImages={auditImages}
+                  tableFacts={tableFacts}
+                  reviewingTableFactId={reviewingTableFactId}
+                  onReviewTableFact={reviewTableFact}
+                  activePage={activePage}
+                  onSelectPage={navigateToPage}
+                />
               </div>
             </div>
 
@@ -1607,7 +1623,6 @@ export function DocumentViewer({
               compact={compactView}
               onCompactChange={setCompactView}
               indexWarnings={indexWarnings}
-              effectiveLoadingDocument={effectiveLoadingDocument}
               document={document}
               summaryBadges={summaryBadges}
               formattedStoredSummary={formattedStoredSummary}
@@ -1617,14 +1632,7 @@ export function DocumentViewer({
               onLabelsUpdated={handleDocumentLabelsUpdated}
               onUnauthorized={markSessionExpired}
               onSearchByTag={searchByTag}
-              clinicalImages={clinicalImages}
-              auditImages={auditImages}
-              tableFacts={tableFacts}
-              reviewingTableFactId={reviewingTableFactId}
-              onReviewTableFact={reviewTableFact}
               indexHealth={indexHealth}
-              activePage={activePage}
-              onSelectPage={navigateToPage}
             />
           </section>
           {readyDocument && documentSearchOpen ? (

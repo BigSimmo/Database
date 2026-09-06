@@ -1,7 +1,6 @@
 /** @vitest-environment jsdom */
 
 import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -40,13 +39,6 @@ vi.mock("@/lib/on-call/linked-documents", () => ({
   useOnCallLinkedDocuments: () => ({}),
 }));
 
-// The dialog's own contract (fields, submit, error/notice) is covered by its own
-// tests; this file only needs to know whether the "Sign in" action opens it.
-vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
-  AccountSetupDialog: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="on-call-account-setup-dialog-open" /> : null,
-}));
-
 import OnCallContactsRoute from "@/app/(search-app)/on-call/contacts/page";
 import OnCallEducationRoute from "@/app/(search-app)/on-call/education/page";
 import OnCallLogisticsRoute from "@/app/(search-app)/on-call/logistics/page";
@@ -75,6 +67,25 @@ const routes: RouteCase[] = [
   { section: "logistics", title: "Logistics", Route: OnCallLogisticsRoute },
 ];
 
+// A contact verified today, so it sorts into an area group rather than the
+// "needs checking" list and carries no verify control of its own. This fixture
+// exists to test the edit affordance, not freshness.
+const freshContact = {
+  id: "00000000-0000-4000-8000-0000000000a1",
+  section: "contacts" as const,
+  slug: "switchboard",
+  title: "Switchboard",
+  subtitle: null,
+  body: null,
+  details: { role: "Switchboard operator", phone: "9999 9999", area: "Hospital" },
+  linkedDocumentIds: [],
+  tags: [],
+  isPersonal: false,
+  includeOnCard: true,
+  sortOrder: 0,
+  lastVerifiedAt: new Date().toISOString(),
+};
+
 function jsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 }
@@ -89,6 +100,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   accountState.isAuthenticated = true;
+  storeState.entries = [];
 });
 
 describe("on-call section routes", () => {
@@ -155,25 +167,46 @@ describe("on-call section routes", () => {
     expect(screen.queryByTestId("on-call-contacts-signed-out")).toBeNull();
   });
 
+  // Signed out no longer means walled off. The API has served every shared
+  // (non-personal) entry to anonymous callers since the 2026-09-04 owner
+  // decision — `fetchSharedOnCallEntries` — and this client gate was the last
+  // thing still hiding them behind a "Sign in" empty state. Reading is open to
+  // any visitor. Writing is not: the write routes require an account.
   it.each(routes.map((route) => [route.title, route] as const))(
-    "%s names the generic section but renders no entry content when signed out",
-    async (_title, route) => {
+    "%s renders its own list to a signed-out reader, with no sign-in wall and nothing to edit",
+    (_title, route) => {
       accountState.isAuthenticated = false;
       render(<route.Route />);
 
-      // The generic section name is always shown — it is not entry content.
+      // The generic section name is still shown, as it always was.
       expect(screen.getByRole("heading", { level: 1, name: route.title })).toBeInTheDocument();
-      expect(screen.getAllByText(route.title).length).toBeGreaterThan(0);
+      expect(screen.queryByTestId(`on-call-${route.section}-signed-out`)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
 
-      const signedOut = screen.getByTestId(`on-call-${route.section}-signed-out`);
-      expect(screen.queryByTestId(`on-call-${route.section}-empty`)).toBeNull();
-
-      const signIn = within(signedOut).getByRole("button", { name: "Sign in" });
-      expect(screen.queryByTestId("on-call-account-setup-dialog-open")).toBeNull();
-
-      const user = userEvent.setup();
-      await user.click(signIn);
-      expect(screen.getByTestId("on-call-account-setup-dialog-open")).toBeInTheDocument();
+      // The section's own component renders, so an empty hub reads as empty
+      // rather than as locked.
+      expect(screen.getByTestId(`on-call-${route.section}-empty`)).toBeTruthy();
+      expect(screen.queryByTestId(`on-call-${route.section}-add`)).toBeNull();
     },
   );
+
+  it("Contacts shows an entry to a signed-out reader with no edit control on it", () => {
+    accountState.isAuthenticated = false;
+    storeState.entries = [freshContact];
+    render(<OnCallContactsRoute />);
+
+    expect(screen.getByTestId("on-call-contact-row-switchboard")).toBeInTheDocument();
+    expect(screen.queryByTestId("on-call-contact-edit-switchboard")).toBeNull();
+  });
+
+  // The paired assertion. Removing the wall must not remove editing for the
+  // owner, which is what an over-eager deletion of the gate would do.
+  it("Contacts offers the edit control on that same entry once signed in", () => {
+    accountState.isAuthenticated = true;
+    storeState.entries = [freshContact];
+    render(<OnCallContactsRoute />);
+
+    expect(screen.getByTestId("on-call-contact-row-switchboard")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-contact-edit-switchboard")).toBeInTheDocument();
+  });
 });

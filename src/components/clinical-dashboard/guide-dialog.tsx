@@ -16,6 +16,7 @@ import {
   Palette,
   PlayCircle,
   RotateCcw,
+  Scale,
   ShieldCheck,
   SlidersHorizontal,
   type LucideIcon,
@@ -43,7 +44,9 @@ import {
 } from "@/components/clinical-dashboard/guide-progress";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ColourCodingReferenceContent } from "@/components/reference/colour-coding-reference-content";
+import { SourceMethodReferenceContent } from "@/components/reference/source-method-reference-content";
 import { colourCodingReferenceHref } from "@/lib/reference-routes";
+import { SOURCE_METHOD_ROUTE } from "@/lib/sources/rating-method";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText, floatingControl, primaryControl, textMuted } from "@/components/ui-primitives";
 
@@ -55,6 +58,7 @@ const topicIcons: Record<GuideTopicId, LucideIcon> = {
   "document-scope": SlidersHorizontal,
   "answer-anatomy": ListChecks,
   "sources-citations": Library,
+  "source-rating": Scale,
   "colour-coding": Palette,
   "document-administration": FileSearch,
   "privacy-safe-use": ShieldCheck,
@@ -672,6 +676,11 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
     router.push(colourCodingReferenceHref());
   }
 
+  function openFullSourceMethodPage() {
+    onClose();
+    router.push(SOURCE_METHOD_ROUTE);
+  }
+
   function restartTour() {
     clearGuideProgress();
     setProgress(emptyGuideProgress);
@@ -874,6 +883,12 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
                 <div className="mx-auto max-w-[70ch]">
                   <ColourCodingReferenceContent variant="guide" onOpenFullReference={openFullColourCodingReference} />
                 </div>
+              ) : activeTopicId === "source-rating" ? (
+                // The published rating method, rendered from the same component
+                // `/sources/method` uses, so the guide cannot describe a method
+                // the catalogue no longer applies. Wider than the 70ch reading
+                // column: the weight bars and the band scale are tables, not prose.
+                <SourceMethodReferenceContent variant="guide" onOpenFullPage={openFullSourceMethodPage} />
               ) : (
                 <TopicArticle
                   topic={guideTopicById[activeTopicId]}

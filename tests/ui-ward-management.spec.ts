@@ -91,12 +91,16 @@ test.describe("@mockup Ward Flow command view", () => {
     // Only the id-to-testid mapping stays local, because a test hook is a test concern and is
     // genuinely not navigation data. `queue` maps to `ward-delays-page` because MERGE 01 pointed
     // that entry at `/delays`, a standalone route rather than a WardModeWorkspace mode.
+    // MERGE 02/03 (2026-09-05) moved two more entries off `WardModeWorkspace`. `capacity` and
+    // `movements` are standalone routes now — `CapacityScreen` and `MovementsScreen`, each with
+    // its own page testid — so neither carries a `ward-mode-*` id any more, exactly as `queue`
+    // stopped carrying one at MERGE 01. `transport` left `WARD_VIEWS` entirely when the tracker
+    // folded into Movements, so its mapping went with it rather than sitting here unused.
     const testIdByView: Record<string, string> = {
       network: "ward-mode-network",
       queue: "ward-delays-page",
-      capacity: "ward-mode-capacity",
-      movements: "ward-mode-movements",
-      transport: "ward-mode-transport",
+      capacity: "ward-capacity-page",
+      movements: "ward-movements-page",
       governance: "ward-mode-governance",
     };
     // "command" is the page this test already starts on, so it has no link to click here.
@@ -225,16 +229,23 @@ test.describe("@mockup Ward Flow command view", () => {
   // /mockups/ward-flow/queue for that chrome, but /queue now redirects to /delays, which is a
   // standalone route with none of this chrome (no WardModeWorkspace, no header, no sidebar) — so
   // this test is retargeted to a mode that still has it. /capacity survives the fold and its
-  // <h1> reads "Capacity" (modeCopy.capacity.title in ward-management-modes.tsx), so it stands in
-  // for "Priority queue" here.
+  // The subject here is `WardModeWorkspace`'s own chrome — `ModeHeader`'s brand against the
+  // `ClinicalRail` sidebar — so this needs a route that still MOUNTS that workspace. MERGE 02
+  // (2026-09-05) took `/capacity` off it: the route renders the standalone `CapacityScreen`,
+  // which has no `ModeHeader` and no remembered panel, so the header this test filters for
+  // stopped existing there and the assertion had nothing to stand on.
+  //
+  // `/governance` is still a `WardModeWorkspace mode`, and its <h1> reads "Governance"
+  // (modeCopy.governance.title in ward-management-modes.tsx). Nothing about what is being tested
+  // changes — only which surviving mode route it is tested on.
   test("keeps the header brand visible at tablet width when the remembered panel is hidden", async ({ page }) => {
     await page.setViewportSize({ width: 820, height: 900 });
     await page.addInitScript(() => {
       window.localStorage.setItem("ward-flow-sidebar-collapsed", "0");
     });
-    await page.goto("/mockups/ward-flow/capacity", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/governance", { waitUntil: "domcontentloaded" });
 
-    const header = page.locator("header").filter({ has: page.getByRole("heading", { name: "Capacity" }) });
+    const header = page.locator("header").filter({ has: page.getByRole("heading", { name: "Governance" }) });
     const sidebar = page.getByRole("complementary", { name: "Ward Flow sidebar", includeHidden: true });
     await expect(sidebar).toBeAttached({ timeout: 15_000 });
     await expect(sidebar).toBeHidden();

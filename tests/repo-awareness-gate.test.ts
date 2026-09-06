@@ -21,7 +21,7 @@ describe("compareSnapshots", () => {
 
   it("ignores captured_revision, which changes as a side effect of committing", () => {
     const committed = structuredClone(regenerated);
-    committed.captured_revision = { sha: "0".repeat(40), committed_at: "2020-01-01T00:00:00Z" };
+    committed.captured_revision = { committed_at: "2020-01-01" };
     expect(compareSnapshots(committed, regenerated)).toEqual([]);
   });
 
@@ -35,8 +35,13 @@ describe("compareSnapshots", () => {
     // A small change *inside* each compared section, proving the gate looks
     // within a section rather than merely comparing the top-level key set.
     const mutations: Record<string, (snapshot: typeof regenerated) => void> = {
-      routes: (snapshot) => void (snapshot.routes.counts.pages += 1),
-      documentation: (snapshot) => void (snapshot.documentation.counts.documents += 1),
+      // v3 removed the stored counts these two used to nudge. Adding an entry
+      // to the section's own list is the same probe and a stricter one: it is
+      // the content the gate exists to compare, not a total derived from it.
+      routes: (snapshot) =>
+        void snapshot.routes.pages.push({ path: "/gate-probe", file: "src/app/gate-probe/page.tsx", area: "product" }),
+      documentation: (snapshot) =>
+        void snapshot.documentation.documents.push({ path: "docs/gate-probe.md", section: "root", catalogued: false }),
       test_health: (snapshot) => void (snapshot.test_health.note = "changed"),
     };
 
