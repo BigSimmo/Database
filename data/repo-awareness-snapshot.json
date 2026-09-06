@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v2",
   "captured_revision": {
-    "sha": "d51b8bba79e73e3b52d0ba831977ac1dc967ca0f",
-    "committed_at": "2026-09-06T08:37:09+00:00"
+    "sha": "b847c39494ed07d373531f1bfc0817e4fac757f6",
+    "committed_at": "2026-09-06T13:27:11+00:00"
   },
   "routes": {
     "modes": [
@@ -323,6 +323,11 @@
       {
         "path": "/mockups/also-matches-accents",
         "file": "src/app/mockups/also-matches-accents/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/also-matches-closed",
+        "file": "src/app/mockups/also-matches-closed/page.tsx",
         "area": "mockup"
       },
       {
@@ -808,6 +813,36 @@
       {
         "path": "/mockups/therapy-navigation-rail",
         "file": "src/app/mockups/therapy-navigation-rail/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-recommend-popup-dossier",
+        "file": "src/app/mockups/therapy-recommend-popup-dossier/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-recommend-popup-triage",
+        "file": "src/app/mockups/therapy-recommend-popup-triage/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-recommend-popup-workbench",
+        "file": "src/app/mockups/therapy-recommend-popup-workbench/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-guided",
+        "file": "src/app/mockups/therapy-scenario-popup-guided/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-intake",
+        "file": "src/app/mockups/therapy-scenario-popup-intake/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-scenario-popup-live",
+        "file": "src/app/mockups/therapy-scenario-popup-live/page.tsx",
         "area": "mockup"
       },
       {
@@ -1579,9 +1614,9 @@
     ],
     "counts": {
       "modes": 17,
-      "pages": 215,
+      "pages": 222,
       "product_pages": 73,
-      "mockup_pages": 142,
+      "mockup_pages": 149,
       "redirects": 27,
       "api": 63
     }
@@ -7816,6 +7851,14 @@
         "scope": "CI fix + main sync + Bugbot",
         "outcome": "FIXED. Unit coverage failed because therapy-compass contract still asserted `lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]` after intentional `sm:` breakpoint change in mode-home-template. Updated contract to `sm:`. GitHub CONFLICTING/DIRTY was stale base (30 behind); merge-tree clean; merged origin/main (ledger union). Bugbot: zero cursor[bot] review findings/threads. No unresolved review comments to resolve.",
         "checks": "Focused vitest therapy-compass-responsive-contract 10/10; merge origin/main CLEAN; no provider-backed checks."
+      },
+      {
+        "date": "2026-09-06",
+        "ref": "claude/jolly-keller-vy36h2 (PR #2656)",
+        "head": "116663087d4bdd056f036e73f762c146bd71ac98",
+        "scope": "Run PR sweep: thread + drift",
+        "outcome": "Required checks were already green. One open review thread (Copilot): match count hidden from screen readers on the closed disclosure triggers. Found it already fixed on the branch itself, before this sweep (commit 610e8b0bc, pushed a few minutes after the review comment) — verified the current diff drops aria-hidden from the tray count and adds an sr-only phrase to the chip badge. Replied citing the fixing commit and resolved as obsolete. Synced origin/main in via GitHub (branch was cleanly behind, no conflict).",
+        "checks": "no code change needed; reviewed current diff and prior commit history directly; no provider-backed checks run"
       },
       {
         "date": "2026-07-26",
@@ -15592,6 +15635,14 @@
         "scope": "PR babysit: sync main, supersede stale READY row, close review thread",
         "outcome": "APPROVE pending hosted required CI. `git merge-tree --write-tree origin/main ba799d4a3cfdcb20eb1e040b5d6e328e2fbbc147` was clean, so GitHub DIRTY/CONFLICTING was stale branch drift after main advanced to `a9920e3fc29fce9ad2ffb547811e085a708680b9`; merged `origin/main` with no content conflicts. This supersedes the older 2026-07-25 READY row rather than editing append-only history; the remaining CodeRabbit ledger-check thread is dispositioned by this row and the final merge remains gated on exact-head required CI.",
         "checks": "`npm run check:branch-review-ledger` PASS; hosted PR required, PR policy, and GitGuardian to be waited on exact pushed head; no provider-backed evals/checks."
+      },
+      {
+        "date": "2026-09-06",
+        "ref": "claude/eager-euler-38s1yu",
+        "head": "72142455c3072d9e6e1aa5e4907bfc6170272957",
+        "scope": "prlanded",
+        "outcome": "Merged and verified: squash 7214245 content-identical to branch tip d8f2405 (empty two-dot diff), both work commits present, no orphaned late commit despite six main-merge syncs while auto-merge lost the race to five other PRs.",
+        "checks": "CI PR required green on head 3bf1d9e and again after each sync; local verify:cheap static+lint+typecheck green, 17119/17127 unit tests passed with 3 shallow-clone git-object artefacts; browser proof from CI Production UI shards plus a manual chromium capture of the rail."
       },
       {
         "date": "2026-07-31",
