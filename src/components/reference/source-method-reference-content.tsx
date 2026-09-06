@@ -133,27 +133,33 @@ function QualityBands() {
       title="Quality bands"
       intro="A clean score falls into one of three bands. The two below are not reached by score at all — they are applied first, on identity, lifecycle and governance grounds."
     >
+      {/*
+        The scale is drawn from the thresholds, not from hand-set widths: one grid
+        template built from the band windows sizes every segment, so moving a cut
+        point moves the picture. It is decoration — each band states its own range
+        in the list below — so it carries no text of its own.
+      */}
       <div className="mt-4">
         <div
           aria-hidden="true"
-          className="flex h-2 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
+          className="grid h-2 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
+          style={{
+            gridTemplateColumns: [
+              `${segments[0]?.minScore ?? 0}fr`,
+              ...segments.map((segment) => `${segment.upperEdge - segment.minScore}fr`),
+            ].join(" "),
+          }}
         >
-          <span style={{ width: `${segments[0]?.minScore ?? 0}%` }} />
+          <span />
           {segments.map((segment) => (
-            <span
-              key={segment.band}
-              className={BAND_SEGMENT_FILL[segment.tone]}
-              style={{ width: `${segment.upperEdge - segment.minScore}%` }}
-            />
+            <span key={segment.band} className={BAND_SEGMENT_FILL[segment.tone]} />
           ))}
         </div>
-        <div aria-hidden="true" className="nums mt-1.5 flex text-2xs font-medium text-[color:var(--text-muted)]">
-          <span style={{ width: `${segments[0]?.minScore ?? 0}%` }}>0</span>
-          {segments.map((segment) => (
-            <span key={segment.band} style={{ width: `${segment.upperEdge - segment.minScore}%` }}>
-              {segment.minScore}
-            </span>
-          ))}
+        <div
+          aria-hidden="true"
+          className="nums mt-1.5 flex justify-between text-2xs font-medium text-[color:var(--text-muted)]"
+        >
+          <span>0</span>
           <span>{SOURCE_RATING_TOTAL_POINTS}</span>
         </div>
       </div>
