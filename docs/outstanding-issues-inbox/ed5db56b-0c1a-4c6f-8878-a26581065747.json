@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ed5db56b-0c1a-4c6f-8878-a26581065747",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#B16HW8",
+    "detail": "CARRIED FORWARD 2026-09-06 from #A3AHCX, closed the same day as a duplicate of this row. That row (2026-08-24) held technical detail this one did not, preserved here so the merge loses nothing: validateGovernedMessage lives in src/lib/caring-contacts/message-policy.ts and enforces the segment limit, the prohibited vocabulary, the required support fragments and, from 2026-08-24, the fictional-contact check. A grep across src/ and worker/ finds no production caller; it is exercised only by tests. That is consistent with there being no send path in this prototype, and the checks are the mechanism a future sender must use. When a dispatch or preview path is built, wiring it to this validator is the first requirement. Recorded so nobody mistakes 'the validator refuses this' for 'the system refuses this'.\n\nPROCESS NOTE: this defect was recorded twice, eleven days apart, by two sessions that did not find each other's row, and graded P2 the first time and P1 the second. It is the clearest evidence for the ledger's missing dedupe-on-intake step.",
+    "baseRowFingerprint": "fab5ce9f702104624164e30d4436ddec20f030d6183be5d03001b0cfca5a690e"
+  }
+}
