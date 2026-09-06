@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { SourceMethodReferenceContent } from "@/components/reference/source-method-reference-content";
 import { SourcesBrowseClient } from "@/components/sources/sources-browse-client";
 import { SourcesCatalogueClient } from "@/components/sources/sources-catalogue-client";
 import { Chip } from "@/components/ui/chip";
@@ -19,6 +20,7 @@ import {
   type SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
 import { loadSourceCatalogue } from "@/lib/sources/load-source-catalogue";
+import { SOURCE_BAND_LABELS, SOURCE_BAND_TONES } from "@/lib/sources/rating-method";
 import { sourceAttentionFlags, sourceProvenanceNotes } from "@/lib/sources/source-status-presentation";
 import { groupSourceUsagesByMode } from "@/lib/sources/source-usage-presentation";
 
@@ -30,22 +32,6 @@ const PUBLISHER_SCOPES: readonly SourceGeographyScope[] = [
   "international",
   "unknown",
 ];
-
-const bandLabels: Record<SourceQualityBand, string> = {
-  A: "A · Preferred",
-  B: "B · Strong",
-  C: "C · Supplementary",
-  D: "D · Review required",
-  excluded: "Excluded",
-};
-
-const bandTone = {
-  A: "success",
-  B: "info",
-  C: "neutral",
-  D: "warning",
-  excluded: "danger",
-} as const satisfies Record<SourceQualityBand, "success" | "info" | "neutral" | "warning" | "danger">;
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -100,144 +86,10 @@ export async function SourcesPublishersPage(): Promise<ReactNode> {
 }
 
 export function SourcesMethodPage(): ReactNode {
-  const weights = [
-    ["Accuracy assurance", SOURCE_RATING_WEIGHTS.accuracyAssurance, "Version review, validation or an explicit check"],
-    ["Reliability", SOURCE_RATING_WEIGHTS.reliability, "Publisher authority, provenance and independence"],
-    ["Evidence quality", SOURCE_RATING_WEIGHTS.evidenceQuality, "The declared evidence or reference type"],
-    ["Currency", SOURCE_RATING_WEIGHTS.currency, "Publication, review, expiry and supersession state"],
-    [
-      "Australian applicability",
-      SOURCE_RATING_WEIGHTS.australianApplicability,
-      "WA, national, state or international applicability",
-    ],
-    ["Traceability", SOURCE_RATING_WEIGHTS.traceability, "Identity, version, dates, location and registered usage"],
-  ] as const;
-  const statusDefinitions = [
-    [
-      "Currentness",
-      [
-        ["Current", "The structured status says the source is within its current review period."],
-        ["Review due", "An explicit upstream status says the source is due for structured review."],
-        ["Outdated", "The source is past its structured expiry date or is explicitly marked outdated."],
-        ["Unknown currentness", "A malformed expiry does not establish currentness, so currentness remains unknown."],
-      ],
-    ],
-    [
-      "Validation",
-      [
-        ["Approved", "The source carries an explicit approved clinical validation status."],
-        ["Locally reviewed", "The source has a recorded local review but is not marked approved."],
-        ["Unverified", "The source is explicitly marked as not yet verified."],
-        ["Unknown validation", "No structured clinical validation status was supplied."],
-      ],
-    ],
-    [
-      "Lifecycle",
-      [
-        ["Active", "The source remains available for current catalogue use."],
-        ["Inactive", "The source is retained for traceability but is not currently active."],
-        ["Excluded", "A lifecycle or governance rule removes the source from normal catalogue use."],
-      ],
-    ],
-    [
-      "Content mode",
-      [
-        ["Indexed content", "The source content can be searched inside the application."],
-        ["Link only", "The catalogue stores a governed outbound location, not searchable source content."],
-        ["Metadata only", "Only structured identity and review metadata are available to the catalogue."],
-      ],
-    ],
-  ] as const;
   return (
     <InformationPageShell testId="sources-method-main" width="narrow">
       <PageName>Method</PageName>
-      <section className="grid gap-3" aria-labelledby="method-weights">
-        <h2 id="method-weights" className="text-xl font-semibold">
-          Rating dimensions
-        </h2>
-        <dl className="grid gap-2 sm:grid-cols-2">
-          {weights.map(([label, points, description]) => (
-            <div key={label} className="rounded-xl border border-[color:var(--border)] p-3">
-              <dt className="font-semibold">
-                {label} <span className="text-sm font-medium text-[color:var(--text-muted)]">{points} points</span>
-              </dt>
-              <dd className="mt-1 text-sm text-[color:var(--text-muted)]">{description}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-      <section className="grid gap-3" aria-labelledby="method-bands">
-        <h2 id="method-bands" className="text-xl font-semibold">
-          Quality bands
-        </h2>
-        <ul className="grid gap-2 text-sm leading-6">
-          <li>A · Preferred · 85–100</li>
-          <li>B · Strong · 70–84</li>
-          <li>C · Supplementary · 50–69</li>
-          <li>D · Review required · below 50, incomplete metadata, or material identity or verification uncertainty</li>
-          <li>
-            Excluded · applied before any score when lifecycle or governance rules reject the source, including an
-            identified replacement
-          </li>
-        </ul>
-        {/* A reader who has just learned what "D · Review required" means is
-            usually asking which sources are in it. The definitions stay prose;
-            the route to the sources is a separate row rather than a link
-            wrapped around a definition. */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-sm text-[color:var(--text-muted)]">Browse a band:</span>
-          {(["A", "B", "C", "D", "excluded"] as const).map((band) => (
-            <Link
-              key={band}
-              href={`/sources/search?band=${band}`}
-              className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-semibold text-[color:var(--primary)] hover:border-[color:var(--border-strong)] sm:min-h-compact-meta"
-            >
-              {bandLabels[band]}
-            </Link>
-          ))}
-        </div>
-      </section>
-      <section className="grid gap-3 text-sm leading-6" aria-labelledby="method-limits">
-        <h2 id="method-limits" className="text-xl font-semibold">
-          Boundaries and missing data
-        </h2>
-        <p>
-          Australian applicability is bounded within 15 points. Weak Australian material cannot bypass identity,
-          validation, lifecycle or evidence-quality controls.
-        </p>
-        <p>
-          Missing fields remain unknown. The catalogue does not infer publisher, jurisdiction, evidence type, version,
-          approval or currentness from titles or prose.
-        </p>
-        <p>
-          Missing publisher, version, dates, jurisdiction, evidence type or validation forces D · Review required. A
-          past expiry receives no current currency credit; a source with an identified replacement is excluded.
-        </p>
-        <p>
-          This organisational rating is not RAG relevance or patient-specific guidance, specialist sign-off, clinical
-          endorsement, or a measurement of factual truth.
-        </p>
-      </section>
-      <section className="grid gap-4" aria-labelledby="method-status-definitions">
-        <h2 id="method-status-definitions" className="text-xl font-semibold">
-          Catalogue status definitions
-        </h2>
-        <div className="grid gap-5">
-          {statusDefinitions.map(([group, definitions]) => (
-            <div key={group} className="grid gap-2">
-              <h3 className="font-semibold">{group}</h3>
-              <dl className="grid gap-2 sm:grid-cols-2">
-                {definitions.map(([label, definition]) => (
-                  <div key={label} className="rounded-xl border border-[color:var(--border)] p-3">
-                    <dt className="font-semibold">{label}</dt>
-                    <dd className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">{definition}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          ))}
-        </div>
-      </section>
+      <SourceMethodReferenceContent variant="page" />
     </InformationPageShell>
   );
 }
@@ -301,8 +153,8 @@ export async function SourceDetailPage({ sourceId }: { sourceId: string }): Prom
       />
       <InformationPageShell testId="source-detail-main">
         <div className="flex flex-wrap items-center gap-2">
-          <Chip appearance={{ kind: "status", tone: bandTone[entry.rating.band] }} dot>
-            {bandLabels[entry.rating.band]}
+          <Chip appearance={{ kind: "status", tone: SOURCE_BAND_TONES[entry.rating.band] }} dot>
+            {SOURCE_BAND_LABELS[entry.rating.band]}
           </Chip>
           <span className="text-sm font-semibold text-[color:var(--text-muted)]">
             Review score {entry.rating.score}/100
