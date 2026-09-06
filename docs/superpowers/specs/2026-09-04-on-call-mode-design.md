@@ -140,9 +140,19 @@ and are excluded from the printable card. A one-tap "still correct" action stamp
 Reads resolve the caller through `publicAccessContext` (the helper that already handles the
 anonymous case for the registry routes); writes require an authenticated user. Either way the
 owner comes from the validated session, never from the request body.
-Signed out, in production, GET returns an empty set with a `signedOut` marker and the writes
-return 401 — no fixtures, no sample entries. Demo mode (no Supabase configured) serves an
-obviously synthetic, non-clinical fixture set so the offline demo still shows a working mode.
+Signed out, in production, GET returns every shared (non-personal) entry with a `signedOut`
+marker, and the writes return 401 — no fixtures, no sample entries. The client uses that marker
+to decide whether to offer editing, not whether to render. Demo mode (no Supabase configured)
+serves an obviously synthetic, non-clinical fixture set so the offline demo still shows a
+working mode.
+
+> **Amendment — 2026-09-06, owner decision.** The client caught up with the read amendment
+> above. Until now the six section pages and the essentials card rendered a "Sign in to see
+> your …" empty state to a signed-out reader, so the shared entries the API had been serving
+> since 2026-09-04 were visible to nobody. Those walls are gone: every reader gets the section's
+> own list. Editing is unchanged and still needs an account — the add, edit and verify controls
+> are the only surfaces gated on it, and `is_personal` entries still never leave the account
+> that wrote them.
 
 ## 6. Client behaviour
 
@@ -308,11 +318,13 @@ Test-first, per the repository's TDD practice.
 
 **Unit** — per-section `details` validation; twelve-month staleness derivation including the
 null case and the exact boundary; personal and stale exclusion from the printable card;
-offline cache round-trip and its clear-on-sign-out; the signed-out empty payload.
+offline cache round-trip and its clear-on-sign-out; the shared read's exclusion of personal
+entries and its `signedOut` marker.
 
-**Component** — each of the six sections renders its entries; the signed-out state reveals no
-entry content; the stale badge appears at the boundary; the offline banner names its date;
-the playbook's "no local guideline" state; owner attribution on pinned summaries.
+**Component** — each of the six sections renders its entries; a signed-out reader gets the same
+list with no add, edit or verify control on it; the stale badge appears at the boundary; the
+offline banner names its date; the playbook's "no local guideline" state; owner attribution on
+pinned summaries.
 
 **Contract** — the mode-registry exhaustive lists; owner-scope proof for the new table and
 routes; the results-band adoption contract; route reachability; the site map matching its
