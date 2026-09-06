@@ -89,7 +89,10 @@ export const cardInteractive = cn(
  * Three things the caller must do:
  *
  * 1. The row container needs `relative` (and `group`, if the row hover-styles
- *    its children), or the stretch resolves against the wrong ancestor.
+ *    its children), or the stretch resolves against the wrong ancestor. Note
+ *    this is `after:` rather than `before:` on purpose — several row containers
+ *    already spend `before:` on a decorative accent rail, and reusing it would
+ *    silently delete the rail (`forms-search-results-page.tsx` is one).
  * 2. Every other control in the row needs `relative z-10`, or it falls under
  *    the stretch layer and stops being clickable.
  * 3. Do not paint a focus ring on the pseudo-element. The `:focus-visible`

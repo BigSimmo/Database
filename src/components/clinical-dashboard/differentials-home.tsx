@@ -348,7 +348,6 @@ function SelectionCheckbox({
   );
 }
 
-
 /**
  * The visible "click here" label for the stretched card link. It is text, not a
  * second anchor to the same href — duplicating the link would double every
