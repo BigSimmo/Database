@@ -74,9 +74,9 @@
   flex-shrink: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ward-space-4) var(--ward-space-8);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-3xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -142,27 +142,11 @@
   margin: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-lg);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ward-space-10) var(--ward-space-12);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-xs);
   line-height: var(--ward-leading-relaxed);
-}
-
-.section {
-  display: grid;
-  gap: var(--ward-space-12);
-  border: 0.0625rem solid var(--ward-border);
-  border-radius: var(--radius-lg);
-  background: var(--surface-subtle);
-  padding: var(--ward-space-12) var(--ward-space-14);
-}
-
-.sectionHeading {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: var(--text-sm, 0.875rem);
-  font-weight: 700;
 }
 
 /*
@@ -304,9 +288,9 @@
   margin: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-lg);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ward-space-10) var(--ward-space-12);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-xs);
   line-height: var(--ward-leading-relaxed);
 }
@@ -426,4 +410,160 @@
      */
     background-color: Canvas !important;
   }
+}
+
+/*
+ * The two comparison tables. Each composes the shared `WardTable` block rather than redeclaring it
+ * — see `ward-table.module.css` for the canonical rule and `tests/ward-table-single-source.test.ts`
+ * for the guard holding it to one declaration. `--ward-table-min-width` is the one thing this file
+ * owns for them, and both values were MEASURED on the running page rather than estimated.
+ */
+/*
+ * MEASURED on the running page at http://localhost:3911/mockups/ward-flow/statistics/compare,
+ * 2026-09-05, not estimated — 23 seeded wards, 8 departments, default font and zoom.
+ *
+ * Ward table: max-content 50.06rem, intrinsic minimum 44.59rem. Set just above max-content so the
+ * table never compresses at all, with a small margin because a longer ward name in real data moves
+ * that width RIGHT and never left.
+ */
+.compareWardTable {
+  composes: table from "../ward-table/ward-table.module.css";
+  --ward-table-min-width: 35rem;
+}
+
+/*
+ * ⚠️ THIS WAS 30rem AND 30rem DID NOTHING. Measured, the department table's intrinsic minimum
+ * and its max-content width are the SAME — 36.53rem — because every cell in it is either
+ * a `white-space: nowrap` header or a short figure, so nothing in it can wrap at all. A table
+ * that cannot compress ignores any threshold below its own content width: at 30rem it overflowed
+ * regardless, and the declaration read as a setting while changing nothing.
+ *
+ * ⚠️ A THRESHOLD BELOW A TABLE'S INTRINSIC MINIMUM IS INERT, AND LOOKS IDENTICAL TO A WORKING
+ * ONE in every place anybody would look — the stylesheet, the pin, and the rendered page at any
+ * width above it. Only measuring the table's own minimum tells the two apart.
+ */
+.compareEdTable {
+  composes: table from "../ward-table/ward-table.module.css";
+  --ward-table-min-width: 27.5rem;
+}
+
+/*
+ * ⚠️ ALIGNMENT AND FIGURE SHAPE ONLY — no padding and no border, deliberately. The shared block
+ * owns those, and `tests/ward-table-single-source.test.ts` reads any `.*[Tt]able*` selector
+ * followed by `th`/`td` as a redeclaration when its body carries either. Comparability down a
+ * column is the whole point of a statistics table and the extraction does not provide it, because
+ * none of the six tables it was extracted from had it.
+ */
+/*
+ * SCOPED TO THE TABLE SELECTORS ON PURPOSE, AND IT DID NOT WORK UNSCOPED. As a bare `.num` this
+ * rule lost every time: the shared block declares `.table th, .table td { text-align: left }` at
+ * specificity (0,2,0) and a lone class is (0,1,0), so the alignment silently did nothing and the
+ * figures rendered left-aligned while the stylesheet read as though they were right.
+ *
+ * Caught by looking at the rendered page, not by a test — which is why the alignment now has one.
+ *
+ * Still only alignment and figure shape: no padding, no border. The shared block owns those, and
+ * `tests/ward-table-single-source.test.ts` reads a table-ish selector followed by th/td as a
+ * redeclaration when its body carries either.
+ */
+/*
+ * 🔴 **THE IDENTITY COLUMN STAYS ON SCREEN WHILE THE FIGURES SCROLL PAST IT. THIS IS THE CLINICAL
+ * HALF OF THE NARROW-WIDTH RULING, NOT THE COSMETIC ONE.**
+ *
+ * Measured at 375px before this existed: every column but the first left the visible scroller, and
+ * on the department table **the row header left it too.** A reader scrolled three columns right,
+ * on a table whose row header is off screen, is looking at a figure they cannot attribute — and the
+ * adjacent row is a different ward. **A misattributed figure is worse than a hidden one, because a
+ * hidden figure announces itself.**
+ *
+ * ⚠️ **THE BACKGROUND IS NOT DECORATION, IT IS WHAT MAKES STICKY WORK.** A sticky cell with no
+ * background of its own is transparent, and the figures scroll underneath it in plain sight — which
+ * looks like a rendering fault rather than a pinned column. It is `--ward-subtle` because that is
+ * the token `.section` above paints, so the two move together rather than being two copies of one
+ * colour. Under `forced-colors: active` both resolve to `Canvas`, which is opaque, so the pinning
+ * survives the mode that erases a gradient.
+ *
+ * ⚠️ **AND NO DIVIDER LINE, DELIBERATELY.** A `border-right` here would be the obvious finish, and
+ * `tests/ward-table-single-source.test.ts` rejects any `.*[Tt]able*` selector followed by `th`/`td`
+ * whose body declares a border at all — a filter its own comment says is deliberately looser than
+ * the redeclaration it is written to catch. The guard would be firing on a new property rather than
+ * a redeclared one, and the answer to a guard firing on a case it did not intend is to raise it,
+ * never to reword the selector until it stops looking. The opaque background carries the meaning;
+ * the line is decoration.
+ */
+.compareWardTable thead th:first-child,
+.compareEdTable thead th:first-child,
+.compareWardTable th[scope="row"],
+.compareEdTable th[scope="row"] {
+  position: sticky;
+  left: 0;
+  background: var(--ward-subtle);
+  /*
+   * 🔴 **STICKY ALONE WAS NOT ENOUGH AND ONLY SCROLLING PROVED IT.** At 375px the department
+   * scroller is 305px and `Royal Perth Hospital Emergency Department` is 329px on one line, so the
+   * pinned cell was WIDER THAN THE VIEWPORT IT WAS PINNED TO: scrolled to the end it sat 24px off
+   * the left edge and ran 35px past the right, and the identity was unreadable at exactly the
+   * moment the figures needed attributing. **At rest it looked perfect**, which is why the guard
+   * scrolls first — Ward Lead named that before it was written and it caught this.
+   *
+   * The primitive sets `white-space: nowrap` on every `th`, which is right for a column header and
+   * wrong for a row header carrying a service's full name. Released here, and capped, so the
+   * identity column can never grow past a share of a phone screen.
+   */
+  white-space: normal;
+  max-width: 11rem;
+}
+
+.compareWardTable td.num,
+.compareEdTable td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * An absence, worded. Never a nought and never a dash: a nought that was never measured reads
+ * exactly like one that was, and a dash cannot say which of the two it means.
+ */
+.unmeasured {
+  color: var(--text-muted);
+  font-variant-numeric: normal;
+}
+
+/*
+ * 🔴 `.section` AND `.sectionHeading` WERE DELETED 2026-09-05. THEY WERE A SECOND PANEL.
+ *
+ * Both re-implemented what `WardPanel` (`../ward-panel.tsx`) already draws — a bordered card with
+ * its own header — and they drew it with the edge the design system moved AWAY from on the same
+ * day. `ward-panel.module.css` records the measurement: `--ward-border` is neutral-500 at 4.97:1
+ * on white, four times the contrast of PsychSift's own card edge, and "most of why the ward screens
+ * read as heavier than the rest of the app". The system's answer is a lighter line PLUS elevation
+ * (`--border` + `--e1`), and these four screens had adopted neither half because they had never
+ * adopted the primitive.
+ *
+ * So this is not a tidy-up. Every statistics section page was still painting the pre-2026-09-05
+ * ward edge, and nothing was going to report that: a duplicated card fails no test and conflicts
+ * with nothing.
+ *
+ * ⚠️ TWO SITES DELIBERATELY DID NOT BECOME PANELS, and both refusals are on the call site.
+ * The two "not found" blocks carry no heading on purpose — the frame's own `<h1>` already reads
+ * "Ward not found" — and `WardPanel` requires a title, so making them panels would restore the
+ * near-duplicate heading an earlier fix removed. `.notFoundBlock` below is what they use instead:
+ * no card, because they are the page's only content rather than one section of it.
+ */
+.notFoundBlock {
+  display: grid;
+  gap: var(--ward-space-12);
+}
+
+/*
+ * The padding a CONSUMER of `WardPanel` supplies. The primitive gives the border, the radius and the header, and leaves the
+ * content's own padding to the screen, exactly as `community.module.css` records of its
+ * `.panelBody`. Without it the content sits one border-width from the panel edge, which is what it
+ * did for the first twenty minutes of this change: every test green, and obvious the moment the
+ * page was opened in a browser.
+ */
+.panelBody {
+  display: grid;
+  gap: var(--ward-space-12);
+  padding: var(--ward-space-12) var(--ward-space-14);
 }

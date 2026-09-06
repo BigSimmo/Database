@@ -622,6 +622,31 @@ export function daysInBed(admission: Admission, now: Instant): number | null {
 }
 
 /**
+ * Which day of this stay today is, **counting the day of arrival as Day 1**. `null` when there is
+ * no stay to number.
+ *
+ * 🔴 **WHY THIS EXISTS: `daysInBed` IS A DURATION AND "Day N" IS AN ORDINAL, AND THE DAILY SHEET
+ * WAS PRINTING ONE AS THE OTHER.** `daysInBed` floors at zero, so everybody admitted in the last
+ * twenty-four hours is `0` — correct as a duration, and the board renders it correctly as
+ * "0 days", meaning they have been in the bed no whole days yet. The handover sheet reused the same
+ * number as `Day ${days}` and printed **"Day 0"**, which is not a day of the admission at all: on
+ * every ward the day somebody arrives is Day 1. Same value, right on one screen and wrong on the
+ * other, because only the noun changed.
+ *
+ * ⚠️ Reachable on any ordinary morning, not an edge case — it is every patient admitted since
+ * yesterday, and it is the row a handover is most likely to be about. Owner ruled it a defect on
+ * 2026-09-05.
+ *
+ * The `+ 1` is the same conversion `ward-daily-sheet.tsx` already makes with `dayOf(now) + 1` for
+ * the demonstration day: `dayOf` is a zero-based index and the printed day is one-based. It lives
+ * here, named, rather than at the call site, because a bare `+ 1` beside a rendered figure is the
+ * kind of thing the next reader removes as a typo.
+ */
+export function stayDayNumber(daysInBedValue: number | null): number | null {
+  return daysInBedValue === null ? null : daysInBedValue + 1;
+}
+
+/**
  * The band this stay falls in, or `null` when there is no stay to band.
  *
  * `null` for someone who has not arrived — a pulled-but-empty bed has no stay yet, and banding it

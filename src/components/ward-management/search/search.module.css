@@ -83,9 +83,9 @@
   flex-shrink: 0;
   border: 0.0625rem solid var(--warning-border);
   border-radius: var(--radius-sm);
-  background: var(--warning-bg);
+  background: var(--ward-warning-soft);
   padding: var(--ward-space-4) var(--ward-space-8);
-  color: var(--warning-text);
+  color: var(--ward-warning);
   font-size: var(--text-3xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -178,6 +178,25 @@
 }
 
 /*
+ * The note under a filter that explains why an option a reader might expect is not offered.
+ *
+ * ⚠️ NOT `.emptyNote`, DESPITE LOOKING LIKE ONE. That class carries panel padding because it sits
+ * inside a `WardPanel` where a panel's own edge is the surrounding whitespace; this sits directly
+ * under a `<select>` inside a `.field`, whose flex column already supplies the gap, so reusing it
+ * would inset the sentence by 16px from a control it belongs to. Same treatment, different box —
+ * and quietly reusing a class for its LOOK while its BOX is wrong is how a shared primitive stops
+ * meaning anything.
+ *
+ * Not italic either: this is a statement about what the filter can do, read at the moment somebody
+ * is choosing a value, rather than a comment on an empty result.
+ */
+.fieldNote {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--ward-leading-prose);
+}
+
+/*
  * The one link inside `.emptyNote`'s own sentence ("...they need adding before they can be
  * referred. Add this person"). Deliberately NOT `.personLink` (a block-level, 48px flex row built
  * for a list item, `min-height` and all) — this link sits inside a run of prose, not its own row,
@@ -197,34 +216,18 @@
   text-decoration-thickness: 0.125rem;
 }
 
+/*
+ * Composes the shared `WardTable` primitive's `.table` rule (`ward-table.module.css`) rather than
+ * redeclaring it — see that file for the canonical block and `tests/ward-table-single-source.test.ts`
+ * for the guard holding it to one declaration. `--ward-table-min-width` is set further down,
+ * beside the `.tableScroll` print override it was originally declared next to.
+ *
+ * (The pre-migration rule here used `--ward-border` for the cell divider rather than
+ * `--ward-divider`; both resolve to `var(--neutral-500)`, so the canonical block's
+ * `--ward-divider` renders identically — see `ward-tokens.module.css`.)
+ */
 .table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-xs);
-}
-
-.table th,
-.table td {
-  border-bottom: 0.0625rem solid var(--ward-border);
-  padding: var(--ward-space-6) var(--ward-space-8);
-  text-align: left;
-  vertical-align: top;
-}
-
-.table th {
-  color: var(--text-muted);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.table td {
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
-.table tbody tr:last-child th,
-.table tbody tr:last-child td {
-  border-bottom: none;
+  composes: table from "../ward-table/ward-table.module.css";
 }
 
 .resultLink {
@@ -308,12 +311,14 @@
   line-height: var(--ward-leading-prose);
 }
 
-.tableScroll {
-  overflow-x: auto;
-}
-
+/*
+ * `.tableScroll` no longer carries the base `overflow-x: auto` — `WardTable` (`ward-table.tsx`)
+ * already applies that unconditionally via `ward-table.module.css`. This local class exists only
+ * so the `@media print` override below still has a class to reach the actual scroll wrapper
+ * element, via `WardTable`'s `wrapperClassName` prop.
+ */
 .table {
-  min-width: 44rem;
+  --ward-table-min-width: 44rem;
 }
 
 /*
@@ -449,4 +454,44 @@
     background: none;
     color-scheme: light;
   }
+}
+
+/*
+ * The result summary. A quiet strip, not a panel — it counts what is already on the page and must
+ * not read as a finding of its own. Added 2026-09-05 with the patient typeahead.
+ */
+.summary {
+  margin: 0;
+  padding: var(--ward-space-10) var(--ward-space-12);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--ward-radius-pixel);
+  background: var(--surface-subtle);
+  color: var(--ward-muted);
+  font-size: 0.8125rem;
+  line-height: var(--ward-leading-prose);
+}
+
+.summary strong {
+  color: var(--ward-heading);
+  font-weight: 600;
+}
+
+.summaryPart {
+  color: var(--ward-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The typeahead's slot in the filter row.
+ *
+ * ⚠️ LAYOUT ONLY, AND DELIBERATELY NOT `.field`. `.field` styles its `input` and `select` children
+ * directly (border, min-height, padding), which is right for the two plain selects beside it and
+ * wrong for a composed control that owns its own field chrome — the two rules would fight over the
+ * same input and the winner would be decided by module source order rather than by intent.
+ * `min-width: 0` is the one thing this slot must carry: without it the grid item refuses to shrink
+ * and the row spills on a phone, which is the exact defect `.field`'s own comment records.
+ */
+.typeaheadSlot {
+  min-width: 0;
+  display: grid;
 }

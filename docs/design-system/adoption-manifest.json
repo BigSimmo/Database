@@ -805,7 +805,7 @@
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx"
       ],
@@ -821,7 +821,7 @@
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx"
       ],
@@ -1181,7 +1181,7 @@
         "src/components/clinical-dashboard/dashboard-nav.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/document-viewer/source-panels.tsx",
         "src/components/therapy-compass/ui.tsx"
       ],
@@ -1193,7 +1193,7 @@
         "src/components/clinical-dashboard/dashboard-nav.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/document-viewer/source-panels.tsx",
         "src/components/therapy-compass/ui.tsx"
       ],
@@ -1660,6 +1660,7 @@
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
@@ -1671,6 +1672,7 @@
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
@@ -1736,7 +1738,8 @@
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx",
         "tests/ui-ward-coordinator.spec.ts",
-        "tests/ui-ward-roles.spec.ts"
+        "tests/ui-ward-roles.spec.ts",
+        "tests/ward-delays-screen.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1847,6 +1850,7 @@
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
         "tests/factsheet-save.dom.test.tsx",
+        "tests/filter-contract.dom.test.tsx",
         "tests/guide-centre-design-contract.dom.test.tsx",
         "tests/header-scroll-hide-contract.test.ts",
         "tests/image-lightbox-geometry.test.ts",
@@ -1871,6 +1875,7 @@
         "tests/ui-smoke.spec.ts",
         "tests/ui-style-contract.spec.ts",
         "tests/viewport-fill-contract.test.ts",
+        "tests/ward-shell-print-ancestor.test.ts",
         "tests/xlsx-extraction-budget.test.ts"
       ],
       "baseline": {
