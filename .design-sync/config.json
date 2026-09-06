@@ -49,7 +49,7 @@
     "LoadingPanel": "label: string; layout?: \"panel\" | \"centered\"; lines?: number; variant?: \"spinner\" | \"skeleton\";",
     "MissingValue": "className?: string; density?: \"cell\" | \"inline\"; reason: MissingValueReason;",
     "OverlayRoot": "",
-    "PageHeader": "actions?: ReactNode; breadcrumb?: Crumb[]; className?: string; description?: ReactNode; eyebrow?: string; icon?: LucideIcon; meta?: ReactNode; title: string;",
+    "PageHeader": "actions?: ReactNode; breadcrumb?: Crumb[]; className?: string; description?: ReactNode; eyebrow?: string; icon?: LucideIcon; inlineMeta?: ReactNode; meta?: ReactNode; title: string;",
     "Pagination": "className?: string; label?: string; onPageChange: (page: number) => void; page: number; pageCount: number; summary?: string;",
     "PanelHeading": "description?: string; icon?: LucideIcon; title: string;",
     "Progress": "className?: string; detail?: ReactNode; label: string; value?: number;",

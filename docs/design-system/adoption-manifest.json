@@ -2074,11 +2074,18 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/differentials/differential-detail-page.tsx",
+        "src/components/differentials/differential-overview-rail.tsx",
         "src/components/ui/citation.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
       ],
-      "productImportFiles": ["src/components/ui/dose-line.tsx", "src/components/ui/retrieval-state-banner.tsx"],
+      "productImportFiles": [
+        "src/components/differentials/differential-detail-page.tsx",
+        "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/ui/dose-line.tsx",
+        "src/components/ui/retrieval-state-banner.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
