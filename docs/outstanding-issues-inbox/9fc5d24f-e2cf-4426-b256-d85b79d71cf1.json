@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "9fc5d24f-e2cf-4426-b256-d85b79d71cf1",
+  "createdOn": "2026-09-06",
+  "action": "cancel",
+  "payload": {
+    "requestId": "f5a49c37-5986-42cd-8e2d-7384645fca6b",
+    "reason": "Superseded by d5687849 on the same row. Both are updates to #RA0QAH queued in one session: this one recorded the reproduction while the fix was still open, and d5687849 records the same reproduction plus the root cause, the fix and its six-run verification. Two pending mutations on one row is an explicit-decision error, and keeping the later, self-contained one loses nothing."
+  }
+}
