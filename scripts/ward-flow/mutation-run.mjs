@@ -244,7 +244,7 @@ function ranEvidence(output) {
   return red.names.length > 0 || red.reasons.length > 0;
 }
 
-function didNotRun(output, status, commandText = "") {
+function didNotRun(output, status) {
   if (/reused receipt, not a fresh run|\[gate-receipts\] REUSED/.test(output)) {
     return "the command reused a recorded gate receipt and exited without running vitest";
   }
@@ -384,7 +384,7 @@ function runMutation({ file, find, replace, command }) {
     const { failed, summary } = failureSignal(output, run.status);
     console.log("\n──────── mutation result ────────");
 
-    const didNot = didNotRun(output, run.status, args.command ?? "");
+    const didNot = didNotRun(output, run.status);
     if (didNot) {
       console.log("⚠️  INDETERMINATE — THE MUTANT NEVER RAN.");
       console.log(`   ${didNot},`);

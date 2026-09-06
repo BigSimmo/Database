@@ -11,7 +11,6 @@ import type {
   MovementStage,
   Referral,
   Security,
-  Unit,
   UrgencyLevel,
 } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";

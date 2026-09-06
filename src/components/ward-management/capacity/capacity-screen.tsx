@@ -103,8 +103,8 @@ export function CapacityScreen() {
         <header className={styles.pageHeader}>
           <h1 className={styles.pageTitle}>Capacity</h1>
           <p className={styles.pageSubtitle}>
-            Where the network's bed kinds fall short of who is waiting for them — the whole board asked one question,
-            not one patient asked of the whole board.
+            Where the network&rsquo;s bed kinds fall short of who is waiting for them — the whole board asked one
+            question, not one patient asked of the whole board.
           </p>
         </header>
 

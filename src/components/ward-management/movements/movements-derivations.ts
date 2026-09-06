@@ -12,12 +12,7 @@
 // screens it replaces about what a given patient's state actually is.
 import { clockState, type Instant } from "@/components/ward-management/ward-clock";
 import { isOpen, stageCopy, transportLeg, type TransportLeg } from "@/components/ward-management/ward-derivations";
-import {
-  MOVEMENT_STAGES,
-  type Movement,
-  type MovementStage,
-  type TransportJob,
-} from "@/components/ward-management/ward-model";
+import { MOVEMENT_STAGES, type Movement, type MovementStage } from "@/components/ward-management/ward-model";
 
 /**
  * Plain-English gloss for each stage, one line, coordinator-facing. `stageCopy` (ward-derivations.ts)
