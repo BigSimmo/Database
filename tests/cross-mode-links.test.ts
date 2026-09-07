@@ -185,7 +185,9 @@ describe("crossModeUniversalExcludedDomains", () => {
     // domain is read by both the catalogue half and the universal half, and the
     // same record is printed twice on one line.
     expect([...crossModeUniversalExcludedDomains].sort()).toEqual(
-      universalSearchDomains.filter((domain) => !crossModeUniversalDomains.includes(domain)).sort(),
+      universalSearchDomains
+        .filter((domain) => !(crossModeUniversalDomains as readonly UniversalSearchDomain[]).includes(domain))
+        .sort(),
     );
     for (const domain of ["documents", "medications", "services", "forms", "differentials", "presentations"] as const) {
       expect(crossModeUniversalExcludedDomains, `${domain} is already resolved elsewhere`).toContain(domain);
@@ -296,6 +298,19 @@ describe("buildCrossModeLinksFromUniversalSearch", () => {
       ["dsm", "Bipolar I Disorder"],
       ["tools", "Bipolar Assessment Scale"],
     ]);
+  });
+
+  it("adds nothing once the caller has no room left on the line", () => {
+    // The section passes `crossModeLineMaxLinks - links.length`, so a thread whose
+    // catalogue half already filled the line asks for zero. It must not round up
+    // to the builder's own default of two.
+    expect(
+      buildCrossModeLinksFromUniversalSearch(
+        "bipolar disorder",
+        [universalGroup("dsm", [{ id: "bipolar-i", title: "Bipolar I Disorder", href: "/dsm/bipolar-i" }])],
+        { maxTotal: 0 },
+      ),
+    ).toEqual([]);
   });
 
   it("keeps a distinct key when a domain omits the record id", () => {

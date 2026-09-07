@@ -36,6 +36,12 @@ const cardActionControl =
 
 type CrossModeLinksVariant = "card" | "compact" | "responsive-compact" | "line";
 
+// The ceiling on one library line once both halves have contributed. Six rows of
+// 48px is a third of an 844px phone inside a tray the reader opened deliberately;
+// five keeps it under that without spending the widened reach on threads that
+// need it least.
+const crossModeLineMaxLinks = 5;
+
 type CrossModeLinkCardProps = {
   link: CrossModeLink;
   Icon: LucideIcon;
@@ -249,7 +255,15 @@ export function CrossModeLinksSection({
     // previous query's groups while the next request is in flight, and a card
     // answering the prior question is exactly the guess this surface must not make.
     if (!universalMode || universal.query !== universalQuery) return [];
-    return buildCrossModeLinksFromUniversalSearch(universalQuery, universal.groups, { existing: links });
+    return buildCrossModeLinksFromUniversalSearch(universalQuery, universal.groups, {
+      existing: links,
+      // The catalogue half caps itself at four. Filling to a combined five keeps
+      // the widened reach where it earns its place — the common answer, which
+      // names no medication, service, form or differential at all and would
+      // otherwise show nothing — while a thread that already resolved four
+      // clinical records grows by one row, not three.
+      maxTotal: Math.max(0, crossModeLineMaxLinks - links.length),
+    });
   }, [universalMode, universal.query, universal.groups, universalQuery, links]);
 
   const allLinks = universalLinks.length > 0 ? [...links, ...universalLinks] : links;
