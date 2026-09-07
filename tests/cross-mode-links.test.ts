@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { crossModeDifferentialCatalog } from "@/lib/cross-mode-differentials";
-import { buildCrossModeLinks, buildCrossModeLinksForThread } from "@/lib/cross-mode-links";
+import {
+  buildCrossModeLinks,
+  buildCrossModeLinksForThread,
+  buildCrossModeLinksFromUniversalSearch,
+  crossModeUniversalDomains,
+  crossModeUniversalExcludedDomains,
+  type CrossModeLink,
+} from "@/lib/cross-mode-links";
+import { universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search-domains";
+import type { UniversalSearchGroup, UniversalSearchItem } from "@/lib/universal-search";
 import { extractKeywordTerms, keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
 import { defaultMedicationRecords } from "@/lib/medication-fixtures";
 import type { ServiceRecord } from "@/lib/services";
@@ -148,5 +157,152 @@ describe("buildCrossModeLinks", () => {
     expect(buildCrossModeLinks("", { medications })).toEqual([]);
     expect(buildCrossModeLinks("the of and", { medications })).toEqual([]);
     expect(buildCrossModeLinks("clozapine dose", {})).toEqual([]);
+  });
+});
+
+function universalItem(overrides: Partial<UniversalSearchItem> & { kind: UniversalSearchDomain }): UniversalSearchItem {
+  return {
+    id: overrides.id ?? "record",
+    title: overrides.title ?? "Record",
+    href: overrides.href ?? "/record",
+    score: overrides.score ?? 1,
+    ...overrides,
+  };
+}
+
+function universalGroup(
+  kind: UniversalSearchDomain,
+  items: Array<Partial<UniversalSearchItem>>,
+  overrides: Partial<UniversalSearchGroup> = {},
+): UniversalSearchGroup {
+  const built = items.map((item) => universalItem({ ...item, kind }));
+  return { kind, total: built.length, items: built, latencyMs: 1, ...overrides };
+}
+
+describe("crossModeUniversalExcludedDomains", () => {
+  it("is exactly the complement of the domains the line consumes", () => {
+    // The two lists are derived from one array on purpose. If they ever drift, a
+    // domain is read by both the catalogue half and the universal half, and the
+    // same record is printed twice on one line.
+    expect([...crossModeUniversalExcludedDomains].sort()).toEqual(
+      universalSearchDomains.filter((domain) => !crossModeUniversalDomains.includes(domain)).sort(),
+    );
+    for (const domain of ["documents", "medications", "services", "forms", "differentials", "presentations"] as const) {
+      expect(crossModeUniversalExcludedDomains, `${domain} is already resolved elsewhere`).toContain(domain);
+    }
+  });
+});
+
+describe("buildCrossModeLinksFromUniversalSearch", () => {
+  it("reaches a mode no local catalogue can resolve", () => {
+    const links = buildCrossModeLinksFromUniversalSearch("criteria for bipolar disorder", [
+      universalGroup("dsm", [
+        { id: "bipolar-i-disorder", title: "Bipolar I Disorder", href: "/dsm/bipolar-i-disorder", subtitle: "296.4x" },
+      ]),
+    ]);
+
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({
+      modeId: "dsm",
+      modeLabel: "DSM-5 Diagnosis",
+      slug: "bipolar-i-disorder",
+      detailHref: "/dsm/bipolar-i-disorder",
+      subtitle: "296.4x",
+      modeSearchQuery: "Bipolar I Disorder",
+      matchReason: "title",
+    });
+  });
+
+  it("rejects an item the query does not name at a word boundary", () => {
+    // "renal" hides inside "adrenaline"; a content-ranked hit is not a named one.
+    expect(
+      buildCrossModeLinksFromUniversalSearch("renal impairment", [
+        universalGroup("dictionary", [{ id: "adrenaline", title: "Adrenaline", href: "/dictionary/adrenaline" }]),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("drops query filler shorter than the minimum term length", () => {
+    expect(
+      buildCrossModeLinksFromUniversalSearch("who is at risk", [
+        universalGroup("tools", [{ id: "who-5", title: "WHO Wellbeing Index", href: "/tools/who-5" }]),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("contributes nothing from an errored or empty group", () => {
+    // A failed adapter must leave the line exactly as the catalogue half left it.
+    expect(
+      buildCrossModeLinksFromUniversalSearch("bipolar disorder", [
+        universalGroup("dsm", [{ id: "bipolar-i", title: "Bipolar I Disorder", href: "/dsm/bipolar-i" }], {
+          error: true,
+        }),
+        universalGroup("dictionary", []),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("ignores domains the catalogue half already resolves", () => {
+    expect(
+      buildCrossModeLinksFromUniversalSearch("clozapine dosing", [
+        universalGroup("medications", [{ id: "clozapine", title: "Clozapine", href: "/medications/clozapine" }]),
+        universalGroup("documents", [{ id: "doc-1", title: "Clozapine Protocol", href: "/documents/doc-1" }]),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("never repeats a record the catalogue half already listed", () => {
+    const existing: CrossModeLink[] = [
+      {
+        modeId: "differentials",
+        modeLabel: "Differentials",
+        slug: "psychosis",
+        title: "Psychosis",
+        subtitle: "",
+        badges: [],
+        detailHref: "/dsm/psychosis",
+        modeSearchHref: "/differentials",
+        modeSearchQuery: "Psychosis",
+        score: 8,
+        matchReason: "title",
+      },
+    ];
+
+    expect(
+      buildCrossModeLinksFromUniversalSearch(
+        "psychosis assessment",
+        [universalGroup("dsm", [{ id: "psychosis", title: "Psychosis", href: "/dsm/psychosis" }])],
+        { existing },
+      ),
+    ).toEqual([]);
+  });
+
+  it("caps the added links at one per mode and two in total", () => {
+    const links = buildCrossModeLinksFromUniversalSearch("bipolar disorder assessment", [
+      universalGroup("dsm", [
+        { id: "bipolar-i", title: "Bipolar I Disorder", href: "/dsm/bipolar-i" },
+        { id: "bipolar-ii", title: "Bipolar II Disorder", href: "/dsm/bipolar-ii" },
+      ]),
+      universalGroup("dictionary", [{ id: "bipolar", title: "Bipolar", href: "/dictionary/bipolar" }]),
+      universalGroup("tools", [{ id: "bipolar-scale", title: "Bipolar Assessment Scale", href: "/tools/bipolar" }]),
+    ]);
+
+    expect(links).toHaveLength(2);
+    expect(new Set(links.map((link) => link.modeId)).size).toBe(2);
+    // Two matched terms beats one, whatever the domain's own (incomparable) score:
+    // the single-term Dictionary hit loses its place to the two-term Tools hit.
+    // DSM and Tools both match two terms, and that tie falls to mode priority.
+    expect(links.map((link) => [link.modeId, link.title])).toEqual([
+      ["dsm", "Bipolar I Disorder"],
+      ["tools", "Bipolar Assessment Scale"],
+    ]);
+  });
+
+  it("keeps a distinct key when a domain omits the record id", () => {
+    const links = buildCrossModeLinksFromUniversalSearch("bipolar disorder", [
+      universalGroup("dsm", [{ id: "", title: "Bipolar I Disorder", href: "/dsm/bipolar-i" }]),
+    ]);
+
+    expect(links[0]!.slug).toBe("/dsm/bipolar-i");
   });
 });
