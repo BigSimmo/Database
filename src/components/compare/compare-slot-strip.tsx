@@ -9,12 +9,18 @@ import { compareSlotBadgeBase, compareSlotBadgeClass } from "@/components/compar
 import { cn } from "@/components/ui-primitives";
 
 /**
- * Slot columns follow the slot count, so three slots fill a row of three and four
- * fill two rows of two. A fixed `lg:grid-cols-3` orphaned the fourth tile alone.
+ * Slot columns follow the slot count, so four slots fill two rows of two rather
+ * than leaving the fourth tile alone on a row of its own under `lg:grid-cols-3`.
+ *
+ * Three slots stay two-across until `lg`. Three-across from `sm` fits the tiles
+ * but not their titles: at ~660px each tile leaves about 100px for text, which
+ * truncates the very names this layout exists to keep readable ("Major
+ * depressive disorder" became "Major depressi..."). A third tile wrapping to its
+ * own row reads better than three clipped ones.
  */
 function slotGridColumns(count: number) {
   if (count >= 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
-  if (count === 3) return "grid-cols-1 sm:grid-cols-3";
+  if (count === 3) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
   return "grid-cols-1 sm:grid-cols-2";
 }
 
