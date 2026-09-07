@@ -7,12 +7,16 @@ import { ArrowUpRight, ChevronDown, Layers, Search, type LucideIcon } from "luci
 
 import { cn, eyebrowText, semanticChipTone, sourceCard, type SemanticChipTone } from "@/components/ui-primitives";
 import { logCrossModeLinkOpen } from "@/components/clinical-dashboard/source-actions";
+import { shouldRunUniversalAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches-state";
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
+import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { APP_MODE_ACCENT } from "@/lib/category-identity";
 import {
   buildCrossModeLinksForThread,
+  buildCrossModeLinksFromUniversalSearch,
+  crossModeUniversalExcludedDomains,
   type CrossModeDifferentialCatalog,
   type CrossModeLink,
   type CrossModeLinkBadge,
@@ -162,12 +166,25 @@ export function CrossModeLinksSection({
   enabled = true,
   onModeSearch,
   variant = "card",
+  universalMode,
 }: {
   queries: Array<string | null | undefined>;
   enabled?: boolean;
   // Defaults to navigating to the target mode with the search pre-run.
   onModeSearch?: (mode: AppModeId, query: string) => void;
   variant?: CrossModeLinksVariant;
+  /**
+   * Opt in to the cross-entity lookup that reaches DSM, Formulation, Specifiers,
+   * Therapy, Dictionary and Tools, naming the mode the surface belongs to.
+   *
+   * Off by default, and that default is load-bearing. A surface that already
+   * mounts `UniversalSearchAlsoMatches` (every mode but Answer) would otherwise
+   * run the same query against the same endpoint twice and print the results in
+   * two panels — the duplication removed on 2026-08-26. Pass it only from a
+   * surface that mounts no other cross-mode panel, and pass `undefined` while a
+   * generation is in flight so the lookup never races the answer stream.
+   */
+  universalMode?: AppModeId;
 }) {
   const router = useRouter();
   const services = useRegistryRecords("service", { enabled, view: "search" });
@@ -201,16 +218,52 @@ export function CrossModeLinksSection({
     });
   }, [enabled, queriesKey, medications.data, services.records, forms.records, differentials]);
 
-  if (links.length === 0) return null;
-
   const telemetryQuery = queriesKey.split("\u0000").at(-1) ?? "";
+  // The newest turn, not the turn the catalogue links came from. The catalogue
+  // path walks back through the thread on purpose, because a follow-up often
+  // drops the entity name; the cross-entity lookup follows the question on
+  // screen instead, which is the same query `ClinicalDashboard` already gives
+  // the sibling "Also matches" tray on this mode.
+  const universalQuery = universalMode ? telemetryQuery : "";
+  // Read during render rather than in an effect, which is safe here only because
+  // it changes no markup: the universal half starts empty on the server and on
+  // the first client paint either way, and this value reaches nothing but the
+  // hook's `enabled`. A restored answer thread sitting on an unsubmitted shared
+  // home must not fetch, which is the rule this helper owns.
+  const universalSubmitted =
+    Boolean(universalMode) &&
+    shouldRunUniversalAlsoMatches(
+      universalMode ?? "answer",
+      typeof window === "undefined" ? null : window.location.search,
+      universalQuery,
+    );
+  const universal = useUniversalSearch({
+    query: universalQuery,
+    enabled: enabled && universalSubmitted,
+    contextMode: universalMode ?? "answer",
+    excludeDomains: crossModeUniversalExcludedDomains,
+    limitPerDomain: 2,
+  });
+  const universalLinks = useMemo(() => {
+    // `universal.query !== universalQuery` is the stale guard: the hook keeps the
+    // previous query's groups while the next request is in flight, and a card
+    // answering the prior question is exactly the guess this surface must not make.
+    if (!universalMode || universal.query !== universalQuery) return [];
+    return buildCrossModeLinksFromUniversalSearch(universalQuery, universal.groups, { existing: links });
+  }, [universalMode, universal.query, universal.groups, universalQuery, links]);
+
+  const allLinks = universalLinks.length > 0 ? [...links, ...universalLinks] : links;
+
+  if (allLinks.length === 0) return null;
   const handleModeSearch =
     onModeSearch ??
     ((mode: AppModeId, query: string) => {
       router.push(appModeHomeHref(mode, { query, focus: true, run: true }));
     });
 
-  return <CrossModeLinksStrip links={links} onModeSearch={handleModeSearch} query={telemetryQuery} variant={variant} />;
+  return (
+    <CrossModeLinksStrip links={allLinks} onModeSearch={handleModeSearch} query={telemetryQuery} variant={variant} />
+  );
 }
 
 /**

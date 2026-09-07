@@ -3815,6 +3815,7 @@ function ClinicalDashboardContent({
                         followUpSuggestions={answerFollowUpSuggestions}
                         onPickFollowUpSuggestion={handleFollowUpSuggestionPick}
                         followUpSuggestionsDisabled={loading}
+                        generating={loading}
                         onScopeDocument={handleScopeDocument}
                       />
                     </>
