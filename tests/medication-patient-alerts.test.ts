@@ -416,8 +416,8 @@ describe("formatUnassessedSentence", () => {
   });
 
   it("formats multiple unassessed gates separated by comma", () => {
-    expect(formatUnassessedSentence(["eGFR", "hepatic function", "Qtc"])).toBe(
-      "Enter eGFR, hepatic function, Qtc to fully assess this medication's contraindications and clinical advisories.",
+    expect(formatUnassessedSentence(["eGFR", "hepatic function", "QTc"])).toBe(
+      "Enter eGFR, hepatic function, QTc to fully assess this medication's contraindications and clinical advisories.",
     );
   });
 });

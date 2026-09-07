@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "22e504b1-b9c8-4f51-8089-ad5effc65f38",
+  "createdOn": "2026-09-07",
+  "action": "cancel",
+  "payload": {
+    "requestId": "4057f884-2ca6-4b0b-8825-6e13fbaa1a43",
+    "reason": "#ZK460W is not fixed by this branch. The receipt claims src/lib/rag/rag.ts was changed so the extractive review fallback never flips a failed answer to grounded, but rag.ts is not in this diff at all, and both fallback branches (src/lib/rag/rag.ts around 3881 and 3911) still set grounded: true with a similarity-derived confidence. Archiving the row here would retire a clinical-safety defect without repairing it, so the row stays open."
+  }
+}
