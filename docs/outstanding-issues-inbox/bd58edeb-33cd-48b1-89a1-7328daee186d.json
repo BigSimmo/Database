@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "bd58edeb-33cd-48b1-89a1-7328daee186d",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#ZK460W",
+    "outcome": "Fixed in PR for branch claude/rag-review-fallback-grounded-flip (commit 78e520914). The defect was at three sites, not the one the row named: the extractive review fallback (rag.ts ~2845), the generation fallback (~3902) and the post-generation claim quality gate (~3937), all under SOURCE_BACKED_REVIEW_FALLBACK_REASON. All three now keep grounded false and confidence unsupported and relabel their citations provenance review_only. Two things the row did not anticipate had to be handled: finalizeRagAnswerQualityCore replaced any ungrounded unsupported answer with 'No current source ... was found' printed above the sources that were found, which is why the route flagged itself grounded in the first place, so the route now returns before those model-prose gates with responseMode forced to evidence_gap; and the fallback prose was rewritten from the clinician's query, which both asserted the corpus confirmed the question and carried query text into the answer body (measured: the adversarial case scope-other-owner-document leaked its planted patient-name canary through that sentence), so the pointer is now fixed text taking no query at all. Offline suite green 1266 files 18011 tests, verify:pr-local heavy scope 39/39 checks pass, each site mutation-proved. Live eval canary pair still outstanding at the time of this request.",
+    "baseRowFingerprint": "72d3ccd3d888d57d992d013b790d242e59ca4c0836593e1966547ed218130620"
+  }
+}
