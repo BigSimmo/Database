@@ -211,7 +211,7 @@ describe("audit navigation and auth regressions", () => {
 
     expect(masterSearchHeaderSource).toContain("function prefetchModeSelection(modeId: AppModeId)");
     expect(masterSearchHeaderSource).toContain(
-      'const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId)',
+      "const href = standaloneModeHomeHref(modeId) ?? appModeSelectionHref(modeId)",
     );
     expect(masterSearchHeaderSource).toContain("router.prefetch(href,");
     expect(masterSearchHeaderSource).toContain("onInvalidate:");
