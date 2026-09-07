@@ -44,7 +44,7 @@ describe("discardDevServerTypes", () => {
   const roots: string[] = [];
 
   afterEach(() => {
-    while (roots.length) rmSync(roots.pop()!, { recursive: true, force: true });
+    while (roots.length) rmSync(roots.pop()!, { recursive: true, force: true, maxRetries: 5 });
   });
 
   function scratchRoot() {
