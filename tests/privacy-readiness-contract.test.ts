@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
+import { shallowSkipDecision, validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
 
 const manifest = JSON.parse(
   readFileSync(new URL("../docs/governance/privacy-readiness.v1.json", import.meta.url), "utf8"),
@@ -40,30 +40,45 @@ function isCommitAvailable(commit: string): boolean {
   }
 }
 
-function ensureHistoryDeepened(depth = 2000): void {
-  if (!isShallowClone()) return;
-  try {
-    execFileSync("git", ["fetch", `--deepen=${depth}`], {
-      stdio: ["ignore", "ignore", "ignore"],
-    });
-  } catch {
-    // Ignore network or fetch failures
-  }
-}
-
 describe("privacy readiness contract", () => {
   it("accepts the honest structural register", () => {
+    // Probe only. The unit suite is offline, so this never fetches to deepen
+    // history the way the sibling governance specs do: `git fetch --deepen` is
+    // remote I/O and a repository mutation, and an unreachable or
+    // credential-prompting remote would stall the suite instead of failing.
+    // A truncated checkout simply skips the commit checks and says so.
     let checkGit = true;
-    if (!isCommitAvailable(manifest.reviewedCommit)) {
-      ensureHistoryDeepened(2000);
-      if (!isCommitAvailable(manifest.reviewedCommit) && isShallowClone()) {
-        console.warn(
-          `PRIVACY_READINESS_SHALLOW_CLONE: reviewedCommit ${manifest.reviewedCommit} is unavailable in shallow clone and history could not be deepened; skipping commit ancestry check.`,
-        );
-        checkGit = false;
-      }
+    if (!isCommitAvailable(manifest.reviewedCommit) && isShallowClone()) {
+      console.warn(
+        `PRIVACY_READINESS_SHALLOW_CLONE: reviewedCommit ${manifest.reviewedCommit} is unavailable in this shallow clone; skipping commit ancestry check. Run on a full-history checkout to prove it.`,
+      );
+      checkGit = false;
     }
     expect(validatePrivacyReadiness(manifest, { checkGit })).toEqual([]);
+  });
+
+  it("never skips the reviewedCommit checks in release mode, however shallow the checkout", () => {
+    // The release gate's repository binding is exactly these checks, so a
+    // truncated checkout must block the release rather than quietly pass it.
+    expect(shallowSkipDecision({ release: false, shallow: true, commitPresent: false })).toEqual({
+      skip: true,
+      blocked: false,
+    });
+    expect(shallowSkipDecision({ release: true, shallow: true, commitPresent: false })).toEqual({
+      skip: false,
+      blocked: true,
+    });
+    // A reachable commit or a full clone is proved, not skipped, in either mode.
+    for (const release of [false, true]) {
+      expect(shallowSkipDecision({ release, shallow: true, commitPresent: true })).toEqual({
+        skip: false,
+        blocked: false,
+      });
+      expect(shallowSkipDecision({ release, shallow: false, commitPresent: false })).toEqual({
+        skip: false,
+        blocked: false,
+      });
+    }
   });
 
   it("keeps Railway processor evidence linked to the privacy impact assessment", () => {
