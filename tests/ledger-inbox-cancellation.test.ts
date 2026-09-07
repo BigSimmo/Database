@@ -167,7 +167,7 @@ describe("ledger inbox cancellation planning", () => {
       payload: { id: "#001", outcome: "another done", baseRowFingerprint: "a".repeat(64) },
     };
 
-    expect(applyRequest(base, staleDone)).toBe(base);
+    expect(applyRequest(base, staleDone, { idempotent: true })).toBe(base);
     expect(applyRequestBatch(base, [staleDone]).markdown).toBe(base);
   });
 

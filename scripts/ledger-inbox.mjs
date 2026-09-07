@@ -125,13 +125,13 @@ export function validateRequest(request) {
   return problems;
 }
 
-export function applyRequest(markdown, request) {
+export function applyRequest(markdown, request, options = {}) {
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
   if (request.action === "cancel") {
     throw new Error("cancel requests must be applied through batch reconciliation");
   }
-  const options = { date: request.createdOn };
+  const dateOptions = { ...options, date: request.createdOn };
   if (request.action === "queue" && request.payload?.baseRowFingerprint) {
     const id = request.payload.id;
     const fingerprint = queueRowFingerprint(markdown, id);
@@ -146,7 +146,7 @@ export function applyRequest(markdown, request) {
       );
     }
   }
-  if (["done", "update"].includes(request.action)) {
+  if (options.idempotent && ["done", "update"].includes(request.action)) {
     const id = request.payload?.id;
     if (typeof id === "string") {
       const parsed = parseIssues(markdown);
@@ -170,10 +170,10 @@ export function applyRequest(markdown, request) {
   }
   if (request.action === "add") {
     const durableId = request.payload.issueUlid ?? issueUlidFromRequest(request.createdOn, request.id);
-    return addIssue(markdown, request.payload, { ...options, issueUlid: durableId });
+    return addIssue(markdown, request.payload, { ...dateOptions, issueUlid: durableId });
   }
   if (request.action === "done")
-    return resolveIssue(markdown, request.payload.id, request.payload.outcome, { ...options, idempotent: true });
+    return resolveIssue(markdown, request.payload.id, request.payload.outcome, dateOptions);
   if (request.action === "queue") return updateQueueRow(markdown, request.payload.id, request.payload);
   return updateIssue(markdown, request.payload.id, request.payload);
 }
@@ -294,10 +294,10 @@ export function planRequestBatch(requests, options = {}) {
   return { active, cancellations, cancelledIds: [...cancelledIds], ineffectiveCancellations: ineffective };
 }
 
-export function applyRequestBatch(markdown, requests) {
-  const plan = planRequestBatch(requests);
+export function applyRequestBatch(markdown, requests, options = {}) {
+  const plan = planRequestBatch(requests, options);
   let next = markdown;
-  for (const request of plan.active) next = applyRequest(next, request);
+  for (const request of plan.active) next = applyRequest(next, request, { ...options, idempotent: true });
   return { markdown: next, ...plan };
 }
 
