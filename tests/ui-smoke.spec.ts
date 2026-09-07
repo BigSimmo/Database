@@ -3990,22 +3990,29 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/dsm\/search\?q=major\+depressive&focus=1&run=1$/, {
       timeout: 30_000,
     });
-    await expect(visibleByTestId(page, "dsm-search-page")).toBeVisible();
-    const queryRibbon = page.getByTestId("search-query-ribbon");
+    // Own the visible page root and derive every in-page locator from it (#093).
+    // Scoping only the root assertion still leaves the ribbon and result rows
+    // resolving across both copies once a hidden streaming twin exists.
+    const dsmPage = visibleByTestId(page, "dsm-search-page");
+    await expect(dsmPage).toBeVisible();
+    const queryRibbon = dsmPage.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "major depressive" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter diagnoses by category" })).toBeVisible();
 
-    const result = page.getByTestId("dsm-search-result").filter({ hasText: "Major depressive disorder" });
+    const result = dsmPage.getByTestId("dsm-search-result").filter({ hasText: "Major depressive disorder" });
     await expect(result).toBeVisible();
     await expectMinTouchTarget(result.getByRole("button", { name: "Add Major depressive disorder to comparison" }));
     await expectMinTouchTarget(result.getByRole("link", { name: "Open Major depressive disorder" }));
 
     await result.getByRole("link", { name: "Open Major depressive disorder" }).click();
     await expect(page).toHaveURL(/\/dsm\/diagnoses\/major-depressive-disorder$/, { timeout: 30_000 });
-    await expect(page.getByTestId("dsm-diagnosis-page")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
+    const diagnosisPage = visibleByTestId(page, "dsm-diagnosis-page");
+    await expect(diagnosisPage).toBeVisible({ timeout: 30_000 });
+    await expect(diagnosisPage.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
     // The breadcrumb row went with the in-page header: its back control is the
     // one route out to the DSM search catalogue, not the shared home composer.
+    // It stays page-scoped because that header portals out of the page root,
+    // the same reason the filter panel below is not scoped either.
     await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm/search");
     await expectNoPageHorizontalOverflow(page);
   });
@@ -4051,8 +4058,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/dsm/search?q=depression");
 
-    await expect(visibleByTestId(page, "dsm-search-page")).toBeVisible();
-    const trigger = page.getByTestId("dsm-category-filter-desktop");
+    const dsmPage = visibleByTestId(page, "dsm-search-page");
+    await expect(dsmPage).toBeVisible();
+    // The trigger is rendered inside the page root, so it needs the same owner.
+    // The panel below deliberately stays page-scoped: `ResultFilterSheet`
+    // renders through `OverlayPortal`, so it lives outside this subtree.
+    const trigger = dsmPage.getByTestId("dsm-category-filter-desktop");
     await trigger.focus();
     await page.keyboard.press("Enter");
     const panel = page.getByTestId("dsm-category-filter-panel");
