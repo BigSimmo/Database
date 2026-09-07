@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "07fb8bac-3a22-4c68-868e-608db15ffa85",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#KMM6R6",
+    "outcome": "Enforced by singleton constraint in migration 0003",
+    "baseRowFingerprint": "db494b18dfb312940823af86795ba135c2fa4dd7ffd852ba6b28caee3e1a4a71"
+  }
+}
