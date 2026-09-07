@@ -413,6 +413,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
       <SearchResultsLayout
         testId="calculators-search-page"
         resultsLabel="Calculator results"
+        className="pb-6 sm:pb-7"
         footer={<UniversalSearchAlsoMatches modeId="calculators" query={query} />}
         header={
           <>
@@ -449,7 +450,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
                 </span>
               }
             />
-            <div className="pt-3">
+            <div className="pt-2.5">
               <ShowAllChip
                 href={consolidatedModeSearchPath("calculators")}
                 icon={appModeIcons.calculators}
