@@ -238,6 +238,7 @@ export default async function CaringContactsPatientsPage({
         mayViewPlans={mayViewPlans}
         mayViewPatientNames={mayViewPatientNames}
         savedSearchNotApplied={address.searchNotApplied}
+        initialSearchQuery={address.searchQuery}
       />
     </CaringContactsShell>
   );

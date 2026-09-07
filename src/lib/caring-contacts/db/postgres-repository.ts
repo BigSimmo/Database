@@ -354,9 +354,11 @@ function toPlanRecord(planRow: SqlRow, contactRows: readonly SqlRow[], assurance
 }
 
 function toAuditEvent(row: SqlRow): AuditEvent {
+  const roles = Object.freeze([...((row.actor_roles as string[] | null) ?? [])]);
   return {
     actorId: toActorId(textOf(row.actor_id)),
-    actorRoles: Object.freeze([...((row.actor_roles as string[] | null) ?? [])]),
+    actorRoles: roles,
+    actorRole: (row.actor_role as string | null) ?? roles[0] ?? "unknown",
     teamId: toTeamId(textOf(row.team_id)),
     action: textOf(row.action),
     objectType: textOf(row.object_type),

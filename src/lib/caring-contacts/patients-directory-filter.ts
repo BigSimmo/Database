@@ -1,3 +1,4 @@
+import { resolveSearchFilterToken } from "./caseload-search-token";
 import type { PlanState } from "./model";
 import {
   CARING_CONTACTS_OVERLAY_PARAM,
@@ -68,6 +69,14 @@ export const PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM = CARING_CONTACTS_SEARC
 export const PATIENTS_DIRECTORY_OVERLAY_PARAM = CARING_CONTACTS_OVERLAY_PARAM;
 
 /**
+ * Obfuscated session filter token parameter (#HDCF2B).
+ *
+ * Carries non-identifying tokens representing a session-scoped search without exposing
+ * patient names or PHI in the query string or proxy access logs.
+ */
+export const PATIENTS_DIRECTORY_FILTER_TOKEN_PARAM = "filterToken";
+
+/**
  * Every parameter this route understands. ANY other name on the address is dropped.
  *
  * Deliberately an allowlist rather than a `q` denylist. A bookmark can carry `?name=`, `?search=`
@@ -78,6 +87,7 @@ export const PATIENTS_DIRECTORY_RECOGNISED_PARAMS: readonly string[] = Object.fr
   CARING_CONTACTS_STATE_PARAM,
   PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM,
   PATIENTS_DIRECTORY_OVERLAY_PARAM,
+  PATIENTS_DIRECTORY_FILTER_TOKEN_PARAM,
 ]);
 
 /** What the address says, and what it should be rewritten to. Never carries a dropped VALUE. */
@@ -97,6 +107,10 @@ export type PatientsDirectoryAddress = {
    * may not, so a dropped value has no path into it even by accident.
    */
   canonicalQuery: string;
+  /** Resolved search query from an obfuscated session filter token (#HDCF2B), if present. */
+  searchQuery?: string;
+  /** The obfuscated filter token itself, if present. */
+  filterToken?: string;
 };
 
 /**
@@ -112,9 +126,13 @@ export function readPatientsDirectoryAddress(
   searchParams: Readonly<Record<string, string | string[] | undefined>>,
 ): PatientsDirectoryAddress {
   const filter = parsePatientsDirectoryFilter(searchParams);
-  const droppedUnrecognisedParams = Object.keys(searchParams).some(
-    (key) => !PATIENTS_DIRECTORY_RECOGNISED_PARAMS.includes(key),
-  );
+  const rawFilterToken = searchParams[PATIENTS_DIRECTORY_FILTER_TOKEN_PARAM];
+  const filterToken = typeof rawFilterToken === "string" ? rawFilterToken : undefined;
+  const searchQuery = filterToken ? (resolveSearchFilterToken(filterToken) ?? undefined) : undefined;
+  const invalidToken = Boolean(filterToken && !searchQuery);
+
+  const droppedUnrecognisedParams =
+    invalidToken || Object.keys(searchParams).some((key) => !PATIENTS_DIRECTORY_RECOGNISED_PARAMS.includes(key));
   const alreadyFlagged = typeof searchParams[PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM] === "string";
   const overlay = searchParams[PATIENTS_DIRECTORY_OVERLAY_PARAM];
 
@@ -123,6 +141,7 @@ export function readPatientsDirectoryAddress(
   const kept = new URLSearchParams();
   if (filter.state !== "all") kept.set(CARING_CONTACTS_STATE_PARAM, filter.state);
   if (typeof overlay === "string") kept.set(PATIENTS_DIRECTORY_OVERLAY_PARAM, overlay);
+  if (filterToken && searchQuery) kept.set(PATIENTS_DIRECTORY_FILTER_TOKEN_PARAM, filterToken);
   if (droppedUnrecognisedParams || alreadyFlagged) kept.set(PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM, "1");
 
   return {
@@ -130,5 +149,7 @@ export function readPatientsDirectoryAddress(
     droppedUnrecognisedParams,
     searchNotApplied: droppedUnrecognisedParams || alreadyFlagged,
     canonicalQuery: kept.toString(),
+    searchQuery,
+    filterToken: searchQuery ? filterToken : undefined,
   };
 }
