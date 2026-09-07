@@ -21,6 +21,7 @@ import {
   PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM,
   type PatientsDirectoryFilter,
 } from "./patients-directory-filter";
+import type { CaringContactActor } from "./permissions";
 import { CARING_CONTACTS_STATE_PARAM } from "./workspace-address";
 
 /** What the address says, and what it should be rewritten to. Never carries a dropped VALUE. */
@@ -54,14 +55,23 @@ export type PatientsDirectoryAddress = {
  * each history entry it pushes -- so an ignored name was re-written into a fresh history entry
  * every time a coordinator opened an overlay. Not reading a value is not the same as removing it,
  * and on this page not reading it actively multiplied it.
+ *
+ * `actor` is who is looking NOW, not who searched. A `filterToken` is still an opaque id in a URL,
+ * and a URL is exactly what a browser history entry, a Referer header, or a proxy access log
+ * retains -- so this function must not treat "the token resolves" as "the current viewer may see
+ * the query it names". `resolveSearchFilterToken` checks that `actor` is the one the token was
+ * minted for AND currently holds `viewPatientRecord`; anyone else redeeming a replayed token gets
+ * exactly the same outcome as an expired one -- `searchQuery` stays absent and the address is
+ * rewritten to say a saved search term was not applied, never why.
  */
 export function readPatientsDirectoryAddress(
   searchParams: Readonly<Record<string, string | string[] | undefined>>,
+  actor: CaringContactActor,
 ): PatientsDirectoryAddress {
   const filter = parsePatientsDirectoryFilter(searchParams);
   const rawFilterToken = searchParams[PATIENTS_DIRECTORY_FILTER_TOKEN_PARAM];
   const filterToken = typeof rawFilterToken === "string" ? rawFilterToken : undefined;
-  const searchQuery = filterToken ? (resolveSearchFilterToken(filterToken) ?? undefined) : undefined;
+  const searchQuery = filterToken ? (resolveSearchFilterToken(filterToken, actor) ?? undefined) : undefined;
   const invalidToken = Boolean(filterToken && !searchQuery);
 
   const droppedUnrecognisedParams =

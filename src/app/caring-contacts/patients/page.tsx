@@ -101,11 +101,18 @@ const CaringContactsShell = dynamic(() =>
  * search term was not applied without ever echoing it.
  *
  * THE REDIRECT IS THE FIRST THING THIS PAGE DOES, and that placement is the guarantee rather than a
- * tidiness preference: it happens before `resolveDemoActor`, before the store is opened and before
- * every `auditedRead` below, so a dropped value cannot reach an access-trail record, an error
- * message or a thrown `Error` on its way through. `redirect()` in a Server Component is a 307 that
- * REPLACES the history entry (Next 16 `redirect` reference), so the bookmarked address carrying the
- * name is not left behind as an entry of its own.
+ * tidiness preference: it happens before the store is opened and before every `auditedRead` below,
+ * so a dropped value cannot reach an access-trail record, an error message or a thrown `Error` on
+ * its way through. `redirect()` in a Server Component is a 307 that REPLACES the history entry
+ * (Next 16 `redirect` reference), so the bookmarked address carrying the name is not left behind as
+ * an entry of its own.
+ *
+ * `resolveDemoActor()` now runs BEFORE the address is read, not after -- `readPatientsDirectoryAddress`
+ * needs the actor to decide whether a `filterToken` in the address may be redeemed for THIS viewer at
+ * all (see that function's module note). That is still safe to do ahead of the redirect: it is a
+ * cookie read, not a store read, and records nothing to an access trail, so the property above --
+ * nothing crosses into the store or an audited read before a dropped value has been caught -- holds
+ * exactly as before.
  */
 export default async function CaringContactsPatientsPage({
   searchParams,
@@ -114,8 +121,10 @@ export default async function CaringContactsPatientsPage({
 }) {
   if (!isCaringContactsDemoEnabled()) notFound();
 
+  const actor = await resolveDemoActor();
+
   // Before anything is read, audited or thrown. See "IGNORING A BOOKMARKED ?q= WAS NOT ENOUGH".
-  const address = readPatientsDirectoryAddress(await searchParams);
+  const address = readPatientsDirectoryAddress(await searchParams, actor);
   if (address.droppedUnrecognisedParams) {
     redirect(
       address.canonicalQuery === ""
@@ -125,7 +134,6 @@ export default async function CaringContactsPatientsPage({
   }
   const filter = address.filter;
 
-  const actor = await resolveDemoActor();
   const store = await caringContactsStore();
 
   // "service" names the one service-wide record, matching the object id the API route records
