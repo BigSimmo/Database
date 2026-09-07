@@ -1078,6 +1078,7 @@ function factSupportsAnswerIntent(
   sentence: string,
   query: string,
   intent: AnswerIntent,
+  allowPassiveObligations = false,
 ) {
   const text = normalizeSectionText(sentence);
   const normalizedQuery = normalizeSectionText(query).toLowerCase();
@@ -1168,8 +1169,11 @@ function factSupportsAnswerIntent(
       if (/^what\s+is\b/i.test(query)) {
         return /\b(?:is|are|means|defined|characteri[sz]ed|involves|refers\s+to)\b/i.test(text);
       }
-      return /\b(?:assess|arrange|check|collaborat\w*|complete|conduct|continue|develop|diagnos\w*|document|dose|ensure|identify|include|incorporate|involve|link|manage|monitor|provide|record|refer|revise|review\w*|risk|share|therapy|treat|update)\b/i.test(
-        text,
+      return (
+        /\b(?:assess|arrange|check|collaborat\w*|complete|conduct|continue|develop|diagnos\w*|document|dose|ensure|identify|include|incorporate|involve|link|manage|monitor|provide|record|refer|revise|review\w*|risk|share|therapy|treat|update)\b/i.test(
+          text,
+        ) ||
+        (allowPassiveObligations && /\b(?:must|should|will)\s+be\s+(?:completed|recorded|documented)\b/i.test(text))
       );
   }
 }
@@ -1396,7 +1400,7 @@ function extractClinicalFactsFromResults(
       if (!factSentenceMatchesQueryFromResult(sentence, result, query, intent)) continue;
       const kind = factKindForSentence(sentence, query, intent);
       if (!kind) continue;
-      if (!factSupportsAnswerIntent(kind, sentence, query, intent)) continue;
+      if (!factSupportsAnswerIntent(kind, sentence, query, intent, sourceProseOnly)) continue;
       const cleaned = sentence.length <= 280 ? sentence : `${sentence.slice(0, 277).trim()}...`;
       const key = `${kind}:${normalizeSectionText(cleaned).toLowerCase().slice(0, 160)}`;
       if (seen.has(key)) continue;
@@ -2315,6 +2319,7 @@ function buildFactSynthesizedAnswer(args: {
   queryClass: RagQueryClass;
   intent: AnswerIntent;
   results: SearchResult[];
+  allowSourceProseRecovery?: boolean;
 }) {
   if (isSourceBoundBestPracticePrescriptionRequirementsQuery(args.query, args.queryClass)) {
     const requirementsAnswer = buildBestPracticePrescriptionRequirementsAnswer({
@@ -2358,7 +2363,11 @@ function buildFactSynthesizedAnswer(args: {
 
   let facts = extractClinicalFactsFromResults(args.results, args.query, args.intent);
   let recoveredSourceProse = false;
-  if (facts.length && isLaunderedGuidanceWrapperAnswer(sentenceFromFact(facts[0], args.query))) {
+  if (
+    args.allowSourceProseRecovery &&
+    facts.length &&
+    isLaunderedGuidanceWrapperAnswer(sentenceFromFact(facts[0], args.query))
+  ) {
     const sourceFacts = extractClinicalFactsFromResults(args.results, args.query, args.intent, 8, true);
     if (sourceFacts.length) {
       facts = sourceFacts;
@@ -2385,7 +2394,9 @@ function buildFactSynthesizedAnswer(args: {
     };
   }
 
-  let leadFacts = facts.slice(0, args.intent === "dose" ? 2 : 1);
+  // General requirements recovery must deliver both supported obligations; a section
+  // containing the first lead is otherwise removed as duplicate by the finalizer.
+  let leadFacts = facts.slice(0, args.intent === "dose" || (recoveredSourceProse && args.intent === "general") ? 2 : 1);
   if (args.intent === "dose" || args.intent === "monitoring_schedule") {
     leadFacts = promoteIntentFigureLeadFacts(leadFacts, facts, args.intent, args.results, args.query);
   }
@@ -2708,6 +2719,8 @@ export function buildExtractiveAnswer(args: {
   relatedDocuments: RagAnswer["relatedDocuments"];
   routeReason: string;
   timings: RagAnswer["latencyTimings"];
+  /** Enable only after routing, so recovery cannot preempt a valid generated answer. */
+  allowSourceProseRecovery?: boolean;
 }) {
   const results = args.results.filter((result) => !resultContainsProceduralFlowEdgeArtifact(result));
   const removedProceduralArtifact = results.length !== args.results.length;
@@ -2771,6 +2784,7 @@ export function buildExtractiveAnswer(args: {
           queryClass: args.queryClass,
           intent: answerIntent,
           results,
+          allowSourceProseRecovery: args.allowSourceProseRecovery,
         });
 
   // Fact synthesis is the production extractive path. If no clean fact survives
@@ -3941,6 +3955,7 @@ function recoverFinalGateGapExtractively(
     relatedDocuments: answer.relatedDocuments ?? [],
     routeReason: recoveryRouteReason,
     timings: answer.latencyTimings,
+    allowSourceProseRecovery: true,
   });
   if (!candidate.grounded || candidate.confidence === "unsupported" || candidate.citations.length === 0) return null;
   if (isBareCrossReferenceAnswer(candidate.answer ?? "")) return null;

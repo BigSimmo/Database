@@ -43,7 +43,7 @@ function noccSource(id: string, content: string, overrides: Partial<SearchResult
   });
 }
 
-function answerFor(query: string, results: SearchResult[]) {
+function answerFor(query: string, results: SearchResult[], allowSourceProseRecovery = true) {
   const queryClass = classifyRagQuery(query).queryClass;
   const answer = buildExtractiveAnswer({
     query,
@@ -60,6 +60,7 @@ function answerFor(query: string, results: SearchResult[]) {
     relatedDocuments: [],
     routeReason: "high_confidence_extractive_retrieval",
     timings: {},
+    allowSourceProseRecovery,
   });
   return finalizeRagAnswerQuality(answer, query, queryClass, results);
 }
@@ -97,12 +98,24 @@ describe("source-prose recovery after a rejected guidance wrapper", () => {
 
   it("recovers the NOCC recording obligation across its wrapped proper name", () => {
     const policy = noccSource("nocc-policy", NOCC_DIRECTIVE);
-    const answer = answerFor(NOCC_QUERY, [noccHeading(), policy]);
+    const measures = noccSource(
+      "nocc-measures",
+      "Measures will be completed by clinicians in accordance with the requirement of the NOCC\n" +
+        "protocol identified above and at times identified by Appendix 2.",
+    );
+    const answer = answerFor(NOCC_QUERY, [noccHeading(), policy, measures]);
     expect(answer.grounded, JSON.stringify({ answer: answer.answer, reason: answer.routingReason })).toBe(true);
-    expect(answer.answer).toBe(NOCC_DIRECTIVE.replace("\n", " "));
-    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([policy.id]);
-    expect(answer.sources.map((result) => result.id)).toEqual([policy.id]);
+    expect(answer.answer.replace(/\*\*/g, "")).toContain(NOCC_DIRECTIVE.replace("\n", " "));
+    expect(answer.answer.replace(/\*\*/g, "")).toContain(measures.content.replace("\n", " "));
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([policy.id, measures.id]);
+    expect(answer.sources.map((result) => result.id)).toEqual([policy.id, measures.id]);
     expect(generatedAnswerQualityFailureReason(answer, NOCC_QUERY, "document_lookup")).toBeNull();
+  });
+
+  it("leaves the routing probe unchanged until fallback recovery is explicitly enabled", () => {
+    const answer = answerFor(NOCC_QUERY, [noccHeading(), noccSource("nocc-policy", NOCC_DIRECTIVE)], false);
+    expect(answer.grounded).toBe(false);
+    expect(answer.routingReason).not.toContain("source_prose_recovery");
   });
 
   it.each([
