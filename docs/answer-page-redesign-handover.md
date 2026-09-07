@@ -731,3 +731,48 @@ panel:
 card, the rail cards, the drawer and print are fixed together. Display only.
 
 ---
+
+### 12.9 What direction B cost, and how it was repaid (2026-09-07)
+
+Keeping one panel was right. Keeping the narrower one was a coverage loss nobody wrote down at
+the time, and it is invisible from a screenshot.
+
+`UniversalSearchAlsoMatches` is fed by `/api/search/universal` and reaches twelve domains.
+`CrossModeLinksSection` was fed by four catalogues loaded in the browser — medications,
+services, forms, differentials. So from 2026-08-26 a clinician who asked a question in Answer
+mode could never be shown a matching DSM diagnosis, dictionary term, formulation, specifier,
+therapy or tool, though all sixteen other modes could. The register in
+`tests/universal-also-matches-mode-coverage.test.ts` recorded the exemption honestly and
+recorded the wrong thing about it: that Answer answers cross-mode discovery elsewhere, without
+saying that "elsewhere" reached a third of the surface the tray reached.
+
+**Widened rather than replaced.** The line keeps its disclosure, its place inside the answer
+thread between the governed caution and the follow-ups, its walk back through earlier turns when
+a follow-up drops the entity name, and the per-record `Search in <mode>` control and
+`cross_mode_link_open` telemetry the mode-level tray has never had. What changed is only where
+the links come from: `buildCrossModeLinksFromUniversalSearch` maps universal-search groups into
+the same `CrossModeLink` shape, gated on a query term naming the record at a word boundary — the
+same weight and minimum term length the differentials path already used, because a content-only
+score cannot be trusted on a question full of filler.
+
+Three things hold it inside the 12.8 decision rather than undoing it:
+
+- The lookup is opt-in per surface (`universalMode`) and off by default. Every mode but Answer
+  mounts the tray, so a surface that ran this too would print one record twice — which is what
+  §12.8 removed, and what the prescribing page later shipped anyway.
+- The consumed domains and their complement come from one array. `documents` is excluded because
+  an answer already cites its documents in the evidence rail and the drawer, and the four
+  catalogue domains are excluded because the local half already resolves them.
+- It is withdrawn while a generation is in flight, matching `answer && !loading` on the tray, so
+  the lookup never races the answer stream and an open tray never holds matches for the question
+  being replaced. An errored or empty group contributes nothing.
+
+The line now fills to five links rather than four. That ceiling is deliberate: the widened reach
+keeps both its rows on the common answer, which names no medication, service, form or
+differential at all, while a thread that already resolved four clinical records grows by one row.
+
+Calculators, Factsheets, Sources, On Call and Favourites are still unreachable from here, and
+not by omission — they contribute no cross-entity search domain at all
+(`universal-search-mode-context.ts`), so nothing can resolve a link to them from any surface.
+
+---
