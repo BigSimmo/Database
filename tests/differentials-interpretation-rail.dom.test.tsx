@@ -12,6 +12,8 @@ import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differenti
  *    rail that must stay readable at a glance.
  * 2. "Check next" aggregates the investigations the ranked differentials name,
  *    most-shared first, and never invents one of its own.
+ * 3. Both cards read the filtered result set, so the rail never describes a
+ *    wider list than the one on screen.
  */
 
 const catalogState = vi.hoisted(() => ({
@@ -141,27 +143,30 @@ describe("differentials interpretation rail", () => {
     expect(within(card).getByText("ECG / QT assessment")).toBeVisible();
   });
 
-  it("follows the urgency lens for check next while highest urgency keeps its safety-net rows", async () => {
+  it("makes both rail cards follow the urgency lens", async () => {
     renderWith(["lithium-adverse-effects-toxicity", "acute-dystonia"]);
 
     const card = await screen.findByTestId("differentials-shared-next-steps");
     expect(within(card).getByText("Thyroid function tests")).toBeVisible();
+    expect(within(card).getByText("ECG / QT assessment")).toBeVisible();
+    expect(screen.getByTestId("differentials-highest-urgency")).toBeVisible();
 
+    // Narrowing to High leaves only the urgent differential, so the rail must
+    // describe that list alone: the emergent row goes, and so does the
+    // investigation only the emergent differential named.
     await act(async () => {
       screen.getByTestId("differential-filter-trigger-phone").click();
     });
     await act(async () => {
-      screen.getByRole("radio", { name: "Emergent (1)" }).click();
+      screen.getByRole("radio", { name: "High (1)" }).click();
     });
     await act(async () => {
       screen.getByTestId("differential-filter-panel-done").click();
     });
 
-    // Thyroid function tests belonged to the filtered-out urgent differential.
-    expect(within(card).queryByText("Thyroid function tests")).not.toBeInTheDocument();
-    expect(within(card).getByText("ECG / QT assessment")).toBeVisible();
-    // The emergent safety net is not a lens result and stays put.
-    expect(screen.getByTestId("differentials-highest-urgency")).toBeVisible();
+    expect(screen.queryByTestId("differentials-highest-urgency")).not.toBeInTheDocument();
+    expect(within(card).getByText("Thyroid function tests")).toBeVisible();
+    expect(within(card).queryByText("ECG / QT assessment")).not.toBeInTheDocument();
   });
 
   it("hides the check-next card when no ranked differential names an investigation", async () => {
