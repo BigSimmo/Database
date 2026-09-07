@@ -9,7 +9,7 @@ import {
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import { onCallDetailsSchemaFor, onCallEntrySchema } from "@/lib/on-call/entry-model";
-import { onCallEntryToRow, rowToOnCallEntry } from "@/lib/on-call/repository";
+import { assertValidLinkedDocumentIds, onCallEntryToRow, rowToOnCallEntry } from "@/lib/on-call/repository";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -62,6 +62,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const entry = onCallEntrySchema.parse({ ...parsedEntry.data, id, details: parsedDetails.data });
     const row = onCallEntryToRow(entry, user.id);
+
+    await assertValidLinkedDocumentIds(supabase, entry.linkedDocumentIds, user.id);
 
     // Scoped by id AND owner_id on the same chain: a row that exists but belongs to another
     // owner returns no row here, identically to a row that does not exist at all — this

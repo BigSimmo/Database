@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "1f5a2893-bd6e-4811-af85-1d01032568d0",
+  "createdOn": "2026-09-07",
+  "action": "cancel",
+  "payload": {
+    "requestId": "372fd777-a0ec-43f1-b501-c5dc6fe65a20",
+    "reason": "The change this receipt records is reverted, and the row's premise is wrong. supabase/schema.sql deliberately never declares pg_cron: the migration chain creates it (20260901033250_enable_staging_privacy_retention_schedules.sql) and the mirror does not, so the chain-mirror parity checker reports it as an unexpected_live divergence rather than normalising it away. tests/chain-mirror-parity.test.ts pins exactly that, asserting the committed drift-manifest.json does not list pg_cron, and it went red on this branch. Declaring the extension turned a deliberately reported live divergence into a fixture. #XGKJ8D should be re-read against that contract before any further attempt."
+  }
+}
