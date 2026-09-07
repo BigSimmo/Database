@@ -8,7 +8,8 @@ export { CompareCatalogPicker } from "@/components/compare/compare-catalog-picke
 export { CompareEmptyState } from "@/components/compare/compare-empty-state";
 export { CompareIdsChrome } from "@/components/compare/compare-ids-chrome";
 export { ComparePickerShell } from "@/components/compare/compare-picker-shell";
-export { CompareSlotStrip, compareSlotBadgeClass } from "@/components/compare/compare-slot-strip";
+export { CompareSlotStrip } from "@/components/compare/compare-slot-strip";
+export { compareSlotBadgeBase, compareSlotBadgeClass } from "@/components/compare/compare-slot-badge";
 export {
   assignCompareId,
   filterCompareCatalog,

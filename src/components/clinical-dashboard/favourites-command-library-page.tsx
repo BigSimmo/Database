@@ -65,6 +65,7 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeComposerReservePendingValue, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { sharedHomePresentation } from "@/lib/ui-copy";
@@ -947,7 +948,11 @@ function FavouritesTable({
                     <Link
                       href={item.href}
                       onClick={() => onOpen(item)}
-                      className={cn("block min-w-0 max-w-full rounded-md text-left xl:hidden", focusRing)}
+                      className={cn(
+                        "block min-w-0 max-w-full rounded-md text-left xl:hidden",
+                        focusRing,
+                        stretchedRowLinkClass,
+                      )}
                     >
                       <span className="line-clamp-1 block text-sm-minus font-bold text-[color:var(--text-heading)]">
                         {item.title}
@@ -983,7 +988,7 @@ function FavouritesTable({
                       {item.lastUsed}
                     </span>
                   </td>
-                  <td className="px-3 align-middle" onClick={(event) => event.stopPropagation()}>
+                  <td className="relative z-10 px-3 align-middle" onClick={(event) => event.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={item.href}

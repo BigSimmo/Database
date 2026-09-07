@@ -888,6 +888,28 @@ describe("Tabs", () => {
     expect(screen.getByRole("tab", { name: "Audit" })).toHaveAttribute("aria-selected", "true");
   });
 
+  // Regression guard for the phantom vertical scrollbar on desktop. The tabs use
+  // `-mb-px` so the selected underline covers the strip's bottom border, which puts
+  // their painted box 1px below the tablist's content box. `overflow-x: auto` computes
+  // the other axis to `auto`, so while the tablist itself was the scroller that 1px
+  // became real vertical scrollable overflow and a classic-scrollbar desktop drew a
+  // full vertical scrollbar beside the tabs. jsdom has no layout, so the contract that
+  // is actually assertable is the structural one: the scroller is the wrapper, and the
+  // element that carries the border and the overhanging tabs never scrolls.
+  it("scrolls from a wrapper so the tabs' 1px underline overhang cannot draw a vertical scrollbar", () => {
+    render(<Harness />);
+    const tablist = screen.getByRole("tablist");
+
+    expect(tablist.className).not.toMatch(/overflow-/);
+    expect(tablist.className).toContain("border-b");
+    expect(tablist.parentElement?.className).toContain("overflow-x-auto");
+    // The strip stretches to its content so the border spans the full scroll width.
+    expect(tablist.className).toContain("w-max");
+    expect(tablist.className).toContain("min-w-full");
+    // The overlap the overhang exists for is still in place.
+    expect(screen.getByRole("tab", { name: "Answer" }).className).toContain("-mb-px");
+  });
+
   it("links the panel back to its tab", () => {
     render(<Harness />);
     const panel = screen.getByRole("tabpanel");

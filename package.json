@@ -153,6 +153,7 @@
     "check:forms-pdf-manifest": "node scripts/build-forms-pdf-manifest.mjs --check",
     "check:runtime": "node scripts/run-tsx.mjs scripts/check-runtime.ts",
     "check:source-catalogue": "node scripts/run-tsx.mjs scripts/check-source-catalogue.ts",
+    "check:source-acquisitions": "node scripts/run-tsx.mjs scripts/check-source-acquisitions.ts",
     "check:installed-lock-parity": "node scripts/check-installed-lock-parity.mjs",
     "check:upload-limit-parity": "node scripts/check-upload-limit-parity.mjs --self-test && node scripts/check-upload-limit-parity.mjs",
     "check:codex-cloud": "node scripts/check-codex-cloud-setup.mjs",

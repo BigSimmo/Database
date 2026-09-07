@@ -236,7 +236,9 @@ Two things not to undo:
   intentions. Therapy-compass now uses the shared sheet's filter-only clear; the composer's
   explicit "Clear search" action remains responsible for deleting the query.
 - **One trigger component.** `ResultFilterTrigger`. Therapy-compass now uses the shared trigger
-  at the phone breakpoint and the shared facet chips on desktop.
+  at every breakpoint, both slots rendered from one helper, as forms, on-call and documents do.
+  Its former desktop facet rail is gone: an always-open rail made Therapy the only mode whose
+  filters were expanded by default, and it pushed the first result below the fold.
 - **Tap targets are `min-h-tap` (48px) on phone.** Do not relax to 44px for generic WCAG
   guidance; it reintroduces a known `ui-smoke` flake.
 
@@ -265,10 +267,13 @@ Contract first, then one PR per mode:
    Services is also the first mode dense enough (6 facet groups) to exercise the
    `> 3 groups` chrome added to the shared sheet for this — see section 5.
 4. **Therapy-compass** — converge runtime use of the bespoke phone-only filter sheet and trigger
-   onto `ResultFilterSheet`, `ResultFilterTrigger`, and `ResultFilterFacetChips`. Topics are OR
+   onto `ResultFilterSheet` and `ResultFilterTrigger`. Topics are OR
    within their group. Review status and handout availability are independent one-option groups
    that AND with Topics and with each other. Option counts and filtering share
-   `matchesTopics`/`matchesAvailability`, and Clear filters preserves the query.
+   `matchesTopics`/`matchesAvailability`, and Clear filters preserves the query. The desktop
+   `ResultFilterFacetChips` rail this mode carried through the migration has since been retired
+   for the shared trigger, so both breakpoints now open the same sheet and only one copy of each
+   facet group is ever in the document.
 5. **Documents last** — converged onto the shared component. Its needle and collapse-by-default
    mechanics moved up into `ResultFilterSheet` first, as part of services (§5); documents itself
    deleted its ~500-line bespoke `DocumentFilterPanel` and rebuilt on `ResultFilterSheet` with
