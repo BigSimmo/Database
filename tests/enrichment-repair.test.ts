@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   assessEnrichmentHealth,
   formatStrictGateRepairRows,
@@ -120,136 +120,80 @@ describe("assessEnrichmentHealth", () => {
   });
 });
 
-// The operator script's dry run is the safety property the whole thing rests on, so its
-// candidate set has to be the function's candidate set and not an approximation. The obvious
-// preview — "every indexed document, count the gate-failing ones" — is a different set in
-// both directions, which is worse than no preview.
+// SQL owns candidate filtering; callers must preserve its ordered, bounded result.
 describe("selectStrictGateRepairCandidates", () => {
-  const row = (overrides: Partial<StrictGateStatusRow> = {}): StrictGateStatusRow => ({
+  const candidate = (overrides: Partial<StrictGateStatusRow> = {}): StrictGateStatusRow => ({
     document_id: "11111111-1111-1111-1111-111111111111",
-    gate_passed: true,
-    missing: [],
-    enrichment_status: "completed",
-    indexing_v3_agent_status: "completed",
-    quality_extraction_quality: "good",
+    gate_passed: false,
+    missing: ["memory_cards"],
+    enrichment_status: "pending",
+    indexing_v3_agent_status: "needs_enrichment_artifacts",
+    quality_extraction_quality: "unknown",
     ...overrides,
   });
-
-  it("skips a gate-passing document whose recorded state already agrees", () => {
-    expect(selectStrictGateRepairCandidates([row()], 50)).toEqual([]);
+  const client = (data: unknown = [], error: { message: string } | null = null) => ({
+    rpc: vi.fn().mockResolvedValue({ data, error }),
   });
 
-  // The direction the naive preview gets wrong first: this document passes the gate, so a
-  // "count the gate-failing ones" preview reports zero, and apply repairs it.
+  it("preserves terminal jobs and stale open jobs that metadata-only filters miss", async () => {
+    const rows = [
+      candidate(),
+      candidate({
+        document_id: "2",
+        gate_passed: true,
+        missing: [],
+        enrichment_status: "completed",
+        indexing_v3_agent_status: "completed",
+        quality_extraction_quality: "good",
+      }),
+    ];
+    const db = client(rows);
+    expect(await selectStrictGateRepairCandidates(db, 50)).toEqual(rows);
+    expect(db.rpc).toHaveBeenCalledExactlyOnceWith("preview_strict_enrichment_gate_repair", { p_limit: 50 });
+  });
+
+  it("returns an empty server verdict without a second local query", async () => {
+    const db = client([]);
+    expect(await selectStrictGateRepairCandidates(db, 50)).toEqual([]);
+    expect(db.rpc).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
-    ["enrichment_status", { enrichment_status: "pending" }],
-    ["indexing_v3_agent_status", { indexing_v3_agent_status: "processing" }],
-    ["quality_extraction_quality", { quality_extraction_quality: "unknown" }],
-  ])("selects a gate-passing document whose %s disagrees", (_label, overrides) => {
-    expect(selectStrictGateRepairCandidates([row(overrides)], 50)).toHaveLength(1);
+    [0, 1],
+    [-3, 1],
+    [1, 1],
+    [50, 50],
+    [500, 500],
+    [501, 500],
+    [1.9, 1],
+    [NaN, 50],
+    [Infinity, 50],
+  ])("normalizes limit %s to %s before preview", async (input, expected) => {
+    const db = client();
+    await selectStrictGateRepairCandidates(db, input);
+    expect(db.rpc).toHaveBeenCalledWith("preview_strict_enrichment_gate_repair", { p_limit: expected });
   });
 
-  // And the other direction: this one fails the gate, so the naive preview counts it, but
-  // its recorded state is already correct so apply leaves it alone.
-  it("skips a gate-failing document whose recorded state is already correct", () => {
-    const candidates = selectStrictGateRepairCandidates(
-      [row({ gate_passed: false, enrichment_status: "pending", indexing_v3_agent_status: "pending" })],
-      50,
-    );
-    expect(candidates).toEqual([]);
-  });
-
-  it("selects a gate-failing document still recorded as completed", () => {
-    expect(selectStrictGateRepairCandidates([row({ gate_passed: false, missing: ["memory_cards"] })], 50)).toHaveLength(
-      1,
+  it("fails closed when the deployed database lacks the preview migration", async () => {
+    await expect(selectStrictGateRepairCandidates(client(null, { message: "function not found" }), 50)).rejects.toThrow(
+      "function not found",
     );
   });
 
-  // Mirrors greatest(1, least(coalesce(p_limit, 50), 500)) in the SQL.
-  it("clamps the limit the way the function does", () => {
-    const many = Array.from({ length: 600 }, (_, index) =>
-      row({ document_id: String(index), gate_passed: false, missing: ["index_units"] }),
-    );
-    expect(selectStrictGateRepairCandidates(many, 50)).toHaveLength(50);
-    expect(selectStrictGateRepairCandidates(many, 5000)).toHaveLength(500);
-    expect(selectStrictGateRepairCandidates(many, 0)).toHaveLength(1);
+  it.each([null, undefined, {}, "unavailable"])("rejects a malformed RPC response %s", async (data) => {
+    const db = client();
+    db.rpc.mockResolvedValue({ data, error: null });
+    await expect(selectStrictGateRepairCandidates(db, 50)).rejects.toThrow("no candidate list");
   });
 
-  it("treats a null recorded status as not-completed rather than throwing", () => {
-    expect(
-      selectStrictGateRepairCandidates([row({ enrichment_status: null, indexing_v3_agent_status: null })], 50),
-    ).toHaveLength(1);
+  it("propagates a rejected request without inventing a zero-candidate verdict", async () => {
+    const db = client();
+    db.rpc.mockRejectedValue(new Error("network unavailable"));
+    await expect(selectStrictGateRepairCandidates(db, 50)).rejects.toThrow("network unavailable");
   });
 });
 
-// Found in review on PR #2548. The dry run used to read one bounded page (the 500 oldest
-// indexed documents) and filter it locally, while apply calls the RPC, which filters the
-// whole corpus and only then applies the limit. So a corpus whose oldest 500 rows are healthy
-// previewed as "0 candidates" and then queued real re-ingestions — OpenAI spend against live
-// clinical documents — that the operator was never shown. Dry-run-by-default is the only
-// safety property this script has, so the preview must be a superset of apply, never a sample.
-describe("repair script preview scans before it limits", () => {
-  const source = readFileSync(new URL("../scripts/repair-strict-enrichment-gate.ts", import.meta.url), "utf8");
-
-  const statusRow = (overrides: Partial<StrictGateStatusRow> = {}): StrictGateStatusRow => ({
-    document_id: "11111111-1111-1111-1111-111111111111",
-    gate_passed: true,
-    missing: [],
-    enrichment_status: "completed",
-    indexing_v3_agent_status: "completed",
-    quality_extraction_quality: "good",
-    ...overrides,
-  });
-
-  it("pages the view instead of reading one bounded slice", () => {
-    expect(source).toContain(".range(offset, offset + PAGE_SIZE - 1)");
-    // A bare .limit() on the preview query is the exact defect: it truncates before the
-    // predicate runs. The RPC's own p_limit is passed separately and is not this.
-    expect(source).not.toMatch(/\.eq\("document_status", "indexed"\)[\s\S]{0,200}?\.limit\(/);
-  });
-
-  it("stops early rather than walking the corpus once the limit is met", () => {
-    expect(source).toContain("candidates.length < limit");
-    expect(source).toContain("if (rows.length < PAGE_SIZE) break;");
-  });
-
-  // Found in review on PR #2548, same failure shape as the bounded-page defect above but from
-  // the other direction: --limit=0 or a negative --limit was accepted as finite, so the
-  // paging loop's own exit condition (`candidates.length < limit`) was already true before
-  // its first iteration — 0 < 0, or 0 < a negative number — and selectStrictGateRepairCandidates'
-  // internal clamp never ran, because the loop that calls it never ran. The preview reported
-  // zero candidates while the RPC's own `greatest(1, ...)` still clamped p_limit to at least
-  // one and applied to a document the operator was never shown.
-  it("clamps a zero or negative --limit before the paging loop can skip it", () => {
-    expect(source).toContain("Math.min(500, Math.max(1, args.limit))");
-  });
-
-  // The predicate stays in one place. Reimplementing it as PostgREST filters would change its
-  // null handling (`neq` drops NULLs; the TS reads NULL as not-completed), and that direction
-  // undercounts — which is the direction that costs money.
-  it("keeps the candidate predicate in selectStrictGateRepairCandidates", () => {
-    expect(source).toContain("selectStrictGateRepairCandidates(rows, limit - candidates.length)");
-    expect(source).not.toMatch(/\.neq\("(?:enrichment_status|indexing_v3_agent_status|quality_extraction_quality)"/);
-  });
-
-  it("finds a candidate that sits past the old 500-row window", () => {
-    const healthy = Array.from({ length: 500 }, (_, index) => statusRow({ document_id: `healthy-${index}` }));
-    const failing = statusRow({
-      document_id: "failing-501",
-      gate_passed: false,
-      missing: ["index_units"],
-    });
-    expect(selectStrictGateRepairCandidates([...healthy, failing], 50)).toEqual([failing]);
-  });
-});
-
-// Found in review on PR #2548. The processing-lease guard on completed_open_jobs and
-// deferred_open_jobs exempts only a fresh `processing` row, so a `pending` row queued moments
-// ago by a concurrent atomic reindex was still matched: gate_passed can be true while the OLD
-// generation's artifacts are still live, so a just-queued reindex job sits in `pending` for
-// the instant before a worker claims it, and a repair run landing in that window marked it
-// completed (or relabelled it deferred) instead of leaving it for the worker to perform.
-describe("repair migration guards a freshly queued pending job, not only a locked processing one", () => {
+describe("repair deployment contract", () => {
   const migration = readFileSync(
     new URL(
       "../supabase/migrations/20260907041700_repair_strict_enrichment_gate_unsticks_agent_jobs.sql",
@@ -258,24 +202,17 @@ describe("repair migration guards a freshly queued pending job, not only a locke
     "utf8",
   );
   const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8");
-  const pendingGuard = "j.status = 'pending'\n        and j.created_at >= now() - make_interval(mins => 45)";
+  const script = readFileSync(new URL("../scripts/repair-strict-enrichment-gate.ts", import.meta.url), "utf8");
 
-  it("excludes a pending row created within the same 45-minute window the lease guards use", () => {
-    // created_at is set once at insert and never touched again, so it is a safe freshness
-    // signal here — unlike locked_at, which the worker can refresh while a job is legitimately
-    // in flight.
-    const occurrences = migration.split(pendingGuard).length - 1;
-    expect(occurrences).toBe(2); // completed_open_jobs and deferred_open_jobs, once each.
+  it("keeps the deployed repair body and preview identical to the forward migration", () => {
+    const start = migration.indexOf("create or replace function public.preview_strict_enrichment_gate_repair");
+    const end = migration.indexOf("$function$;") + "$function$;".length;
+    expect(schema).toContain(migration.slice(start, end));
   });
 
-  it("keeps supabase/schema.sql's deployed copy byte-identical to the migration for this guard", () => {
-    expect(schema).toContain(pendingGuard);
-  });
-
-  it("also preserves an indexing-v3 agent job that was just reset to pending", () => {
-    const agentPendingGuard = "a.status = 'pending'\n        and a.updated_at >= now() - make_interval(mins => 45)";
-
-    expect(migration).toContain(agentPendingGuard);
-    expect(schema).toContain(agentPendingGuard);
+  it("uses the same preview RPC boundary before operator apply", () => {
+    expect(script).toContain("await selectStrictGateRepairCandidates(supabase, limit)");
+    expect(script).not.toContain(".range(");
+    expect(migration).toContain("from public.preview_strict_enrichment_gate_repair(p_limit) g");
   });
 });

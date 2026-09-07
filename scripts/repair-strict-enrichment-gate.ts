@@ -6,7 +6,6 @@ import {
   selectStrictGateRepairCandidates,
   strictGateRepairSummary,
   type StrictGateRepairRow,
-  type StrictGateStatusRow,
 } from "@/lib/enrichment-repair";
 import { confirm } from "./cli-utils";
 
@@ -35,10 +34,10 @@ loadEnvConfig(process.cwd());
  * (isAtomicReindexCandidate is `status === "indexed"`, which every candidate is), so the old
  * generation stays live until the new one commits and no document is unsearchable in between.
  *
- * The RPC has no dry-run parameter, so the preview reruns the function's own candidate
- * predicate rather than approximating it (see selectStrictGateRepairCandidates). It is still
- * a separate read: the corpus can change between the two, so the apply output is
- * authoritative and is printed in full.
+ * Preview and apply share a read-only database candidate function. It selects terminal or
+ * exhausted agent jobs and preserves pending work regardless of age. The preview remains
+ * a separate read; apply rechecks eligibility and skips documents locked by a concurrent
+ * worker, so its output is authoritative and is printed in full.
  */
 function parseArgs(argv: string[]) {
   const valueFor = (name: string) => {
@@ -62,14 +61,7 @@ async function main() {
   requireServerEnv();
 
   const args = parseArgs(process.argv.slice(2));
-  // Mirror the RPC's own clamp (`greatest(1, least(coalesce(p_limit, 50), 500))`) here, not
-  // just inside selectStrictGateRepairCandidates: that function's internal clamp never runs
-  // for --limit=0 or a negative value, because the paging loop below exits before its first
-  // iteration on `candidates.length < limit`, which is already true at `0 < 0` or `0 < -5`.
-  // The preview would then report zero candidates while the RPC still clamps p_limit to at
-  // least 1 and applies to one unpreviewed document — exactly the blind mutation this script
-  // exists to prevent. Clamping the raw arg here keeps the preview and the RPC's own floor
-  // in agreement regardless of what was typed.
+  // Use the same finite 1..500 limit for preview and apply.
   const limit = Number.isFinite(args.limit) ? Math.min(500, Math.max(1, args.limit)) : 50;
   const supabase = createAdminClient();
 
@@ -81,45 +73,17 @@ async function main() {
 
   assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Strict enrichment gate repair");
 
-  // Scan the WHOLE indexed corpus, then take the limit -- the order the RPC uses. Reading one
-  // bounded page and filtering it locally inverts that: if the oldest page happens to be
-  // healthy, the preview reports zero candidates and apply then queues real re-ingestions the
-  // operator was never shown. Dry-run-by-default is this script's entire safety property, so
-  // the preview has to be a superset of what apply touches, not a sample of it.
-  //
-  // The predicate deliberately stays in selectStrictGateRepairCandidates rather than moving
-  // into the PostgREST filter: `neq` drops NULLs under SQL three-valued logic while the TS
-  // predicate reads NULL as "not completed", and that difference would UNDERCOUNT -- the one
-  // direction that costs money. Paging a 2851-row view a thousand at a time is cheap; getting
-  // the null semantics subtly wrong is not.
-  const PAGE_SIZE = 1000;
-  const candidates: StrictGateStatusRow[] = [];
-  for (let offset = 0; candidates.length < limit; offset += PAGE_SIZE) {
-    const page = await supabase
-      .from("document_strict_gate_status")
-      .select(
-        "document_id, gate_passed, missing, enrichment_status, indexing_v3_agent_status, quality_extraction_quality",
-      )
-      .eq("document_status", "indexed")
-      .order("document_updated_at", { ascending: true, nullsFirst: true })
-      .order("document_id", { ascending: true })
-      .range(offset, offset + PAGE_SIZE - 1);
-    if (page.error) throw new Error(page.error.message);
-
-    const rows = (page.data ?? []) as StrictGateStatusRow[];
-    if (rows.length === 0) break;
-    candidates.push(...selectStrictGateRepairCandidates(rows, limit - candidates.length));
-    if (rows.length < PAGE_SIZE) break;
-  }
+  const candidates = await selectStrictGateRepairCandidates(supabase, limit);
   const failing = candidates.filter((row) => row.gate_passed !== true).length;
   console.log(`Repair candidates: ${candidates.length}`);
   console.log(`  gate-failing   : ${failing}  (each queues a full re-ingestion)`);
   console.log(`  gate-passing   : ${candidates.length - failing}  (recorded state reconciled only)`);
-  console.log("  note           : the whole indexed corpus is scanned before the limit is applied,");
-  console.log("                   so this is never a sample. It remains a lower bound on the");
-  console.log("                   gate-passing side — the open-ingestion-job disjunct is not");
-  console.log("                   visible from this view. Never an undercount of the gate-failing");
-  console.log("                   side, which is the one that costs money.");
+  for (const candidate of candidates) {
+    console.log(
+      `  ${candidate.document_id}  ${candidate.gate_passed ? "reconcile" : "re-ingest"}  missing=${(candidate.missing ?? []).join(",") || "none"}`,
+    );
+  }
+  console.log("Preview and apply share the SQL candidate query; concurrent changes can reduce or change the batch.");
 
   if (!args.apply) {
     console.log("\nDry run only. Re-run with --apply to reconcile these documents.");

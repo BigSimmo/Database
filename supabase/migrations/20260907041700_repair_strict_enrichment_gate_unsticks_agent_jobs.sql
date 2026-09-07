@@ -1,73 +1,60 @@
--- Let repair_strict_enrichment_gate_batch actually unstick a document (#W98GR7).
---
--- The function reconciles documents.metadata, document_index_quality and ingestion_jobs. It
--- does not touch public.indexing_v3_agent_jobs, which is the table
--- claim_indexing_v3_agent_jobs reads: 20260724060000 excludes 'needs_enrichment_artifacts'
--- by name and excludes 'failed' through `attempt_count < max_attempts`, and nothing in the
--- codebase resets either. A document that exhausted its attempts or reached the terminal
--- deferral state is therefore unclaimable forever, and the repair function -- the one piece
--- of machinery designed to recover it -- could not, even if something had called it. Nothing
--- did: a repo-wide search for the function name finds the migration, the schema mirror,
--- generated types, docs and a schema-text assertion, and no invocation at all.
---
--- BASELINE. This is a delta on the body currently deployed, which is the one codified by
--- 20260712171500_codify_live_ahead_functions.sql and mirrored at supabase/schema.sql's
--- LATER (uppercase) copy -- NOT the original 20260625033425 body, which schema.sql still
--- carries earlier in the file as a superseded copy. Those two differ by more than
--- whitespace: the original declares v_processing_lock_timeout and keeps a processing row's
--- metadata when its lock is fresh, and the deployed one does neither. Rebuilding from the
--- wrong copy would have shipped that difference as an undeclared second behaviour change and
--- moved the def_hash 20260819110500 pins for reasons unrelated to this issue.
---
--- Five changes, not one. The reset_agent_jobs CTE and its 'agent_job_reset' element in the
--- returned `repaired` array are new. The third is a lease-age guard added to the two
--- PRE-EXISTING CTEs completed_open_jobs and deferred_open_jobs, so those two are no longer
--- byte-identical to the deployed body; everything else still is.
---
--- The deployed body has no lease-age guard anywhere. That was survivable while the function
--- had no caller. This change gives it one, so the hazard stops being latent and the guard has
--- to go on every CTE that writes a lock column, not only the new one:
---
---   * reset_agent_jobs would match a document mid-run without it. gate_passed is a structural
---     fact about the artifacts present, and request_indexing_v3_enrichment re-queues a
---     document without clearing them, so it stays true for the whole of the new run. Clearing
---     status/locked_by/locked_at underneath that run would make
---     request_ingestion_reindex_if_agent_idle read the agent as idle and approve a concurrent
---     reindex over the same artifact tables.
---   * completed_open_jobs has the same exposure for a different reason. During an atomic
---     reindex the OLD artifact generation deliberately stays live (reindex-pipeline.ts commits
---     per generation), so gate_passed can be true while an ingestion job is actively
---     processing. Marking that job 'completed' and clearing its lease lets the worker keep
---     mutating artifacts after it has lost ownership of them.
---   * deferred_open_jobs clears the same lease columns on the not-gate_passed side and needs
---     the guard for the same reason.
---
--- All three use the same 45-minute window, so a stale lease is still recoverable and a live
--- one is never taken. Found in review on PR #2548; the fix is deliberately the same predicate
--- in all three places rather than three variants.
---
--- FOURTH change, found in a second round of review on the same PR: completed_open_jobs and
--- deferred_open_jobs also match a `pending` ingestion_jobs row unconditionally -- the guard
--- above only exempts `processing` rows with a fresh lock. A `pending` row is not only a stuck
--- one: an atomic reindex queues its new job while the OLD generation's artifacts (and so
--- gate_passed) are still live, so a just-queued, entirely legitimate reindex sits in `pending`
--- for the instant before a worker claims it. Without a guard, a repair run landing in that
--- window marks the fresh job 'completed' (or relabels it 'strict_gate_deferred') and the
--- worker never performs it. Both CTEs now also exclude a `pending` row whose `created_at` --
--- set once at insert, never touched again -- is within the same 45-minute window.
---
--- FIFTH change, found while superseding the stale PR: reset_agent_jobs had the same pending
--- race on public.indexing_v3_agent_jobs. request_indexing_v3_enrichment resets that row in
--- place, so created_at cannot distinguish a new request from the old row; updated_at can.
--- A pending agent row refreshed within 45 minutes is therefore preserved before the repair
--- is allowed to complete it from artifacts belonging to the prior generation.
---
--- Applying this changes no behaviour on its own: the function is invoked by nothing
--- automatically, and the operator script added alongside it is dry-run by default.
-
+-- Recover terminal and exhausted enrichment jobs without cancelling queued work.
+-- Installing these functions does not invoke repair or queue provider work.
+-- Operator apply can queue full re-ingestion; it remains a separate explicit decision.
 set local search_path = public, extensions, pg_catalog;
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
+
+-- Shared read-only selection for preview and repair. Both use the same order and limit.
+-- Pending ingestion work is valid regardless of its age. Agent pending work is valid
+-- while it still has attempts. Fresh processing leases exclude the entire document,
+-- including its metadata, rather than only excluding a job-row update.
+create or replace function public.preview_strict_enrichment_gate_repair(p_limit integer default 50)
+returns setof public.document_strict_gate_status
+language sql
+stable
+security invoker
+set search_path = ''
+as $preview$
+  select g.*
+  from public.document_strict_gate_status g
+  left join public.indexing_v3_agent_jobs a on a.document_id = g.document_id
+  where g.document_status = 'indexed'
+    and not exists (
+      select 1 from public.ingestion_jobs j
+      where j.document_id = g.document_id
+        and (
+          j.status = 'pending'
+          or (j.status = 'processing' and j.locked_at >= now() - interval '45 minutes')
+        )
+    )
+    and not (
+      coalesce(a.status = 'pending' and a.attempt_count < a.max_attempts, false)
+      or coalesce(a.status = 'processing' and a.locked_at >= now() - interval '45 minutes', false)
+    )
+    and (
+      (g.gate_passed and (
+        coalesce(g.enrichment_status, '') <> 'completed'
+        or coalesce(g.indexing_v3_agent_status, '') <> 'completed'
+        or coalesce(g.quality_extraction_quality, '') <> 'good'
+        or (a.id is not null and (a.status <> 'completed' or a.enrichment_status <> 'completed'))
+        or exists (
+          select 1 from public.ingestion_jobs j
+          where j.document_id = g.document_id and j.status = 'processing'
+        )
+      ))
+      or (not g.gate_passed and (
+        coalesce(g.enrichment_status, '') = 'completed'
+        or coalesce(g.indexing_v3_agent_status, '') = 'completed'
+        or a.status in ('failed', 'needs_enrichment_artifacts')
+        or a.attempt_count >= a.max_attempts
+      ))
+    )
+  order by g.document_updated_at asc nulls first, g.document_id
+  limit greatest(1, least(coalesce(p_limit, 50), 500));
+$preview$;
+revoke execute on function public.preview_strict_enrichment_gate_repair(integer) from public, anon, authenticated;
+grant execute on function public.preview_strict_enrichment_gate_repair(integer) to service_role;
 
 CREATE OR REPLACE FUNCTION public.repair_strict_enrichment_gate_batch(p_limit integer DEFAULT 50)
  RETURNS TABLE(document_id uuid, missing text[], repaired text[], status text, counts jsonb, presence jsonb)
@@ -76,35 +63,12 @@ CREATE OR REPLACE FUNCTION public.repair_strict_enrichment_gate_batch(p_limit in
 AS $function$
 begin
   return query
-  with candidates as (
+  with candidates as materialized (
     select g.*
-    from public.document_strict_gate_status g
-    where g.document_status = 'indexed'
-      and (
-        (
-          g.gate_passed
-          and (
-            coalesce(g.enrichment_status, '') <> 'completed'
-            or coalesce(g.indexing_v3_agent_status, '') <> 'completed'
-            or coalesce(g.quality_extraction_quality, '') <> 'good'
-            or exists (
-              select 1
-              from public.ingestion_jobs j
-              where j.document_id = g.document_id
-                and j.status in ('pending', 'processing')
-            )
-          )
-        )
-        or (
-          not g.gate_passed
-          and (
-            coalesce(g.enrichment_status, '') = 'completed'
-            or coalesce(g.indexing_v3_agent_status, '') = 'completed'
-          )
-        )
-      )
-    order by g.document_updated_at asc nulls first, g.document_id
-    limit greatest(1, least(coalesce(p_limit, 50), 500))
+    from public.preview_strict_enrichment_gate_repair(p_limit) g
+    join public.documents d on d.id = g.document_id
+    -- Claims and reindex requests lock the same document. Skip a concurrent owner.
+    for update of d skip locked
   ),
   updated_documents as (
     update public.documents d
@@ -141,6 +105,7 @@ begin
               - 'indexing_v3_agent_last_error')
             || jsonb_build_object(
               'indexing_v3_agent_status', 'deferred',
+              'indexing_v3_agent_deferral_count', 0,
               'indexing_v3_agent_updated_at', now(),
               'completion_gate_missing', to_jsonb(c.missing),
               'completion_gate', jsonb_build_object(
@@ -186,13 +151,13 @@ begin
       now()
     from candidates c
     where c.gate_passed
-    on conflict (document_id)
+    on conflict on constraint document_index_quality_pkey
     do update set
       quality_score = greatest(public.document_index_quality.quality_score, excluded.quality_score),
       extraction_quality = 'good',
       metrics = coalesce(public.document_index_quality.metrics, '{}'::jsonb) || excluded.metrics,
       updated_at = now()
-    returning document_id
+    returning public.document_index_quality.document_id
   ),
   completed_open_jobs as (
     update public.ingestion_jobs j
@@ -208,22 +173,11 @@ begin
     from candidates c
     where c.gate_passed
       and j.document_id = c.document_id
-      and j.status in ('pending', 'processing')
+      and j.status = 'processing'
       and not (
         j.status = 'processing'
         and j.locked_at is not null
         and j.locked_at >= now() - make_interval(mins => 45)
-      )
-      -- A `pending` row is not only a stuck one: an atomic reindex queues its new job while
-      -- the OLD generation's artifacts (and so gate_passed) are still live, so a fresh,
-      -- legitimate reindex can sit in `pending` for the instant before a worker claims it.
-      -- The processing-lease guard above does not cover that window at all. created_at is
-      -- set once at insert and never touched again, so it is a safe freshness signal here;
-      -- same 45-minute window as the lease guards, so a stale pending row is still
-      -- recoverable and a just-queued one is never taken. Found in review on PR #2548.
-      and not (
-        j.status = 'pending'
-        and j.created_at >= now() - make_interval(mins => 45)
       )
     returning j.document_id
   ),
@@ -242,18 +196,11 @@ begin
     from candidates c
     where not c.gate_passed
       and j.document_id = c.document_id
-      and j.status in ('pending', 'processing')
+      and j.status = 'processing'
       and not (
         j.status = 'processing'
         and j.locked_at is not null
         and j.locked_at >= now() - make_interval(mins => 45)
-      )
-      -- Same freshness gap as completed_open_jobs above, on the not-gate_passed side: a
-      -- pending row queued moments ago should not be relabelled 'strict_gate_deferred'
-      -- out from under whatever queued it.
-      and not (
-        j.status = 'pending'
-        and j.created_at >= now() - make_interval(mins => 45)
       )
     returning j.document_id
   ),
@@ -281,28 +228,9 @@ begin
         where j.document_id = c.document_id
           and j.status in ('pending', 'processing')
       )
-    returning document_id
+    returning public.ingestion_jobs.document_id
   ),
-  -- The half this function was missing (#W98GR7). Everything above reconciles
-  -- documents.metadata, document_index_quality and ingestion_jobs. None of it touches
-  -- indexing_v3_agent_jobs, which is the table claim_indexing_v3_agent_jobs actually reads:
-  -- that RPC excludes 'needs_enrichment_artifacts' by name and excludes 'failed' via
-  -- `attempt_count < max_attempts`, and nothing anywhere resets either. So a document could
-  -- be "repaired" into a completed metadata state while remaining permanently unclaimable,
-  -- or be re-queued for enrichment that the agent could never pick up.
-  --
-  -- gate_passed: the artifacts are present, so the row is completed, not retried.
-  -- not gate_passed: the row goes back to claimable with a fresh attempt budget. That reset
-  -- is deliberate and only ever happens under an explicit operator run; the deferral budget
-  -- (INDEXING_V3_MAX_DEFERRALS, default 6) still bounds the agent's own retries, and each
-  -- repair stamps a counter so a document being repaired again and again is visible rather
-  -- than looping silently.
-  --
-  -- A row the agent currently holds is left alone: `locked_at` within the lease window is
-  -- excluded, so a repair cannot pull the lease out from under a live claim. A freshly
-  -- pending row is also left alone. request_indexing_v3_enrichment resets an existing row
-  -- in place and refreshes updated_at without clearing the old artifact generation, so
-  -- gate_passed can remain true while that legitimate run waits to be claimed.
+  -- Reset terminal/exhausted jobs only after shared candidate and lease checks.
   reset_agent_jobs as (
     update public.indexing_v3_agent_jobs a
     set
@@ -336,7 +264,7 @@ begin
       )
       and not (
         a.status = 'pending'
-        and a.updated_at >= now() - make_interval(mins => 45)
+        and a.attempt_count < a.max_attempts
       )
       and (
         c.gate_passed

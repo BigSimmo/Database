@@ -1,8 +1,11 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
+
 /**
- * Pure shaping for the enrichment repair and health surfaces (#W98GR7).
+ * Preview query and result shaping for the enrichment repair and health surfaces (#W98GR7).
  *
  * Kept out of the scripts so the decision logic is unit-testable without a database. The
- * scripts own the provider I/O; everything that decides what a number MEANS lives here.
+ * Scripts supply the client; the query can be tested without loading provider configuration.
  */
 
 /** One row of `public.repair_strict_enrichment_gate_batch`'s result set. */
@@ -111,34 +114,14 @@ export type StrictGateStatusRow = {
   quality_extraction_quality: string | null;
 };
 
-/**
- * The `candidates` predicate from `repair_strict_enrichment_gate_batch`, reimplemented so the
- * operator script's dry run previews what apply will actually touch.
- *
- * The obvious preview — every indexed document, counting the gate-failing ones — is a
- * different and much coarser set: a gate-failing document whose recorded state already
- * correctly says `pending` is NOT a repair candidate, and a gate-passing document whose
- * recorded state disagrees IS one. A preview that reports "0 failing" while apply repairs 50
- * documents is worse than no preview, because dry-run-by-default is the safety property the
- * whole script rests on.
- *
- * ONE DISJUNCT IS NOT REPRODUCED: the SQL also treats a gate-passing document with an open
- * `ingestion_jobs` row as a candidate. That table is not in the view, so this is a LOWER
- * BOUND on the gate-passing side — apply may touch a few more than the preview shows, never
- * fewer, and never a gate-failing document the preview did not list. Callers say so.
- */
-export function selectStrictGateRepairCandidates(
-  rows: readonly StrictGateStatusRow[],
+/** Read the same SQL candidate query used by apply, including authoritative job state. */
+export async function selectStrictGateRepairCandidates(
+  client: Pick<SupabaseClient<Database>, "rpc">,
   limit: number,
-): StrictGateStatusRow[] {
-  const recorded = (value: string | null) => value ?? "";
-  return rows
-    .filter((row) =>
-      row.gate_passed
-        ? recorded(row.enrichment_status) !== "completed" ||
-          recorded(row.indexing_v3_agent_status) !== "completed" ||
-          recorded(row.quality_extraction_quality) !== "good"
-        : recorded(row.enrichment_status) === "completed" || recorded(row.indexing_v3_agent_status) === "completed",
-    )
-    .slice(0, Math.max(1, Math.min(limit, 500)));
+): Promise<StrictGateStatusRow[]> {
+  const boundedLimit = Number.isFinite(limit) ? Math.max(1, Math.min(Math.trunc(limit), 500)) : 50;
+  const result = await client.rpc("preview_strict_enrichment_gate_repair", { p_limit: boundedLimit });
+  if (result.error) throw new Error(result.error.message);
+  if (!Array.isArray(result.data)) throw new Error("Enrichment repair preview returned no candidate list.");
+  return result.data as StrictGateStatusRow[];
 }
