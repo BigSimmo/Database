@@ -8,10 +8,10 @@ import {
   isSearchFilterToken,
   resolveSearchFilterToken,
 } from "@/lib/caring-contacts/caseload-search-token";
+import { readPatientsDirectoryAddress } from "@/lib/caring-contacts/patients-directory-address";
 import {
   PATIENTS_DIRECTORY_FILTER_TOKEN_PARAM,
   PATIENTS_DIRECTORY_RECOGNISED_PARAMS,
-  readPatientsDirectoryAddress,
 } from "@/lib/caring-contacts/patients-directory-filter";
 import { POST as searchRoutePost } from "@/app/api/caring-contacts/patients/search/route";
 

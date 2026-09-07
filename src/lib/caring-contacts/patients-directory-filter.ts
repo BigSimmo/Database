@@ -1,10 +1,22 @@
-import { resolveSearchFilterToken } from "./caseload-search-token";
 import type { PlanState } from "./model";
 import {
   CARING_CONTACTS_OVERLAY_PARAM,
   CARING_CONTACTS_SEARCH_NOT_APPLIED_PARAM,
   CARING_CONTACTS_STATE_PARAM,
 } from "./workspace-address";
+
+/**
+ * CLIENT-SAFE BY CONSTRUCTION.
+ *
+ * `patients-directory-client.tsx` (a `"use client"` component) imports
+ * `PATIENTS_DIRECTORY_STATE_ORDER` and `PatientsDirectoryFilter` from this file, so nothing here
+ * may import `node:crypto` or anything that transitively does. `readPatientsDirectoryAddress` --
+ * the one piece of this domain that resolves an obfuscated `sft_` token and therefore needs the
+ * server-only token store -- lives in `patients-directory-address.ts` instead, which imports the
+ * client-safe declarations below rather than the other way around. Keep it that way: pulling
+ * `caseload-search-token.ts` back into this file re-creates webpack's
+ * `UnhandledSchemeError: Reading from "node:crypto"` for every client bundle that reaches here.
+ */
 
 /** Every plan state, in lifecycle order, as the directory filter offers them. */
 export const PATIENTS_DIRECTORY_STATE_ORDER: readonly PlanState[] = Object.freeze([
@@ -90,66 +102,7 @@ export const PATIENTS_DIRECTORY_RECOGNISED_PARAMS: readonly string[] = Object.fr
   PATIENTS_DIRECTORY_FILTER_TOKEN_PARAM,
 ]);
 
-/** What the address says, and what it should be rewritten to. Never carries a dropped VALUE. */
-export type PatientsDirectoryAddress = {
-  filter: PatientsDirectoryFilter;
-  /**
-   * True when the address carried at least one parameter this route does not understand. A
-   * BOOLEAN, deliberately: not the name, not the value, not a count, not a length. Nothing that
-   * narrows what the dropped term was may travel any further than this function.
-   */
-  droppedUnrecognisedParams: boolean;
-  /** True when the address records that a saved search term was dropped on the way here. */
-  searchNotApplied: boolean;
-  /**
-   * The query string this address should have had: recognised parameters only, in a fixed order,
-   * `""` when there are none. It is built by NAMING what may be kept rather than by deleting what
-   * may not, so a dropped value has no path into it even by accident.
-   */
-  canonicalQuery: string;
-  /** Resolved search query from an obfuscated session filter token (#HDCF2B), if present. */
-  searchQuery?: string;
-  /** The obfuscated filter token itself, if present. */
-  filterToken?: string;
-};
-
-/**
- * Read the address, and say what it should be rewritten to.
- *
- * WHY IGNORING THE PARAMETER WAS NOT ENOUGH. Declining to honour `?q=<name>` leaves the name in the
- * address bar, and `overlayUrl()` in `workspace-overlays.tsx` copies EVERY existing parameter into
- * each history entry it pushes -- so an ignored name was re-written into a fresh history entry
- * every time a coordinator opened an overlay. Not reading a value is not the same as removing it,
- * and on this page not reading it actively multiplied it.
- */
-export function readPatientsDirectoryAddress(
-  searchParams: Readonly<Record<string, string | string[] | undefined>>,
-): PatientsDirectoryAddress {
-  const filter = parsePatientsDirectoryFilter(searchParams);
-  const rawFilterToken = searchParams[PATIENTS_DIRECTORY_FILTER_TOKEN_PARAM];
-  const filterToken = typeof rawFilterToken === "string" ? rawFilterToken : undefined;
-  const searchQuery = filterToken ? (resolveSearchFilterToken(filterToken) ?? undefined) : undefined;
-  const invalidToken = Boolean(filterToken && !searchQuery);
-
-  const droppedUnrecognisedParams =
-    invalidToken || Object.keys(searchParams).some((key) => !PATIENTS_DIRECTORY_RECOGNISED_PARAMS.includes(key));
-  const alreadyFlagged = typeof searchParams[PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM] === "string";
-  const overlay = searchParams[PATIENTS_DIRECTORY_OVERLAY_PARAM];
-
-  // Built from named recognised values only. `searchParams` is never spread, filtered or copied
-  // into this, because a copy is how a value ends up somewhere nobody meant it to be.
-  const kept = new URLSearchParams();
-  if (filter.state !== "all") kept.set(CARING_CONTACTS_STATE_PARAM, filter.state);
-  if (typeof overlay === "string") kept.set(PATIENTS_DIRECTORY_OVERLAY_PARAM, overlay);
-  if (filterToken && searchQuery) kept.set(PATIENTS_DIRECTORY_FILTER_TOKEN_PARAM, filterToken);
-  if (droppedUnrecognisedParams || alreadyFlagged) kept.set(PATIENTS_DIRECTORY_SEARCH_NOT_APPLIED_PARAM, "1");
-
-  return {
-    filter,
-    droppedUnrecognisedParams,
-    searchNotApplied: droppedUnrecognisedParams || alreadyFlagged,
-    canonicalQuery: kept.toString(),
-    searchQuery,
-    filterToken: searchQuery ? filterToken : undefined,
-  };
-}
+// `PatientsDirectoryAddress` and `readPatientsDirectoryAddress` live in `patients-directory-address.ts`.
+// That function resolves an obfuscated `sft_` filter token, which needs the server-only token store in
+// `caseload-search-token.ts` (`node:crypto`) -- and this file must stay importable from
+// `patients-directory-client.tsx`, a `"use client"` component. See the module note above.

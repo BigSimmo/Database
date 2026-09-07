@@ -6,7 +6,7 @@ import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
-import { readPatientsDirectoryAddress } from "@/lib/caring-contacts/patients-directory-filter";
+import { readPatientsDirectoryAddress } from "@/lib/caring-contacts/patients-directory-address";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS, type PatientNameProjection, type PlanRecord } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";

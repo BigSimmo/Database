@@ -31,10 +31,8 @@ import { PatientsDirectory } from "@/components/caring-contacts/workspace/patien
 import { CARING_CONTACTS_ROUTES, patientRoute } from "@/lib/caring-contacts-routes";
 import { contactId, pathwayVersionId, patientId, planId, referralId, teamId } from "@/lib/caring-contacts/ids";
 import type { PlanState } from "@/lib/caring-contacts/model";
-import {
-  parsePatientsDirectoryFilter,
-  readPatientsDirectoryAddress,
-} from "@/lib/caring-contacts/patients-directory-filter";
+import { readPatientsDirectoryAddress } from "@/lib/caring-contacts/patients-directory-address";
+import { parsePatientsDirectoryFilter } from "@/lib/caring-contacts/patients-directory-filter";
 import type { PatientNameProjection, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
 
 const TEAM = teamId("demo-team");
