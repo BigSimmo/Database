@@ -128,7 +128,7 @@ function catalogStep(group: BuilderCatalogGroup, index: number): BuilderStep {
     title: group.selection === "single" ? `Choose the ${label}` : `Add ${label}`,
     body:
       group.selection === "single"
-        ? "Select one option, and only when it is established. These are offered as one-of because the group reads as a single graded axis, which is an aide-memoire grouping rather than a verified manual rule."
+        ? "Select one option, and only when it is established. Treating this group as one-of is an aide-memoire grouping, not a verified manual rule."
         : "Select only what the current presentation supports.",
   };
 }
@@ -705,6 +705,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                           type={single ? "radio" : "checkbox"}
                           name={single ? activeStep.group.id : undefined}
                           aria-label={item.label}
+                          aria-describedby={`${item.slug}-review-status`}
                           checked={checked}
                           onChange={() =>
                             single ? chooseCatalogSingle(activeStep.group, item.slug) : toggle(item.slug)
@@ -738,8 +739,12 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                             </span>
                             {/* The detail and reference pages already carry this badge. Carrying it here too
                                 means the clinician sees an item's source-review state at the point of choosing
-                                it, not only if they open its record afterwards. */}
-                            <ReviewStatusBadge status={item.src} />
+                                it, not only if they open its record afterwards. The input sets aria-label, which
+                                overrides the label's descendant text, so the status reaches assistive tech only
+                                through the aria-describedby wired to this id. */}
+                            <span id={`${item.slug}-review-status`}>
+                              <ReviewStatusBadge status={item.src} />
+                            </span>
                           </span>
                           <span className="mt-1 block text-xs font-medium leading-5 break-words text-[color:var(--text-muted)]">
                             Recorded for {item.disorder}. Confirm the wording against the current manual before
