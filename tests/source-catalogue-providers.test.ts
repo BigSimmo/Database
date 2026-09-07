@@ -6,7 +6,8 @@ import formsPdfManifest from "../data/forms-pdf-manifest.json";
 import formsSnapshot from "../data/forms-page-snapshot.json";
 import dsmClinicalContent from "../src/data/dsm-clinical-content.json";
 import therapies from "../src/data/therapies-source.json";
-import { calculators } from "@/components/calculators/calculator-fixtures";
+import { calculatorEvidence } from "@/components/calculators/calculator-evidence";
+import { allCalculatorFixtures } from "@/components/calculators/calculator-fixtures";
 import { factsheets } from "@/components/factsheets/factsheets-data";
 import { dictionarySources } from "@/lib/dictionary-data";
 import { formulationMechanisms, formulationSourceLibrary } from "@/lib/formulation";
@@ -41,7 +42,7 @@ const expectedProviders = {
   medications: ["data/medications-snapshot.json"],
   services: ["data/services-snapshot.json"],
   dsm: ["src/data/dsm-clinical-content.json"],
-  calculators: ["src/components/calculators/calculator-fixtures.ts"],
+  calculators: ["data/calculators/evidence.json", "src/components/calculators/calculator-fixtures.ts"],
   acquisitions: ["src/data/source-acquisitions.json"],
 } as const;
 
@@ -80,7 +81,7 @@ describe("repository source providers", () => {
     );
   });
 
-  it("pins the 50 currently governed structured source hosts without deriving trust at runtime", () => {
+  it("pins every emitted structured source host without deriving trust at runtime", () => {
     const emittedHosts = new Set(
       repositorySourceReferences()
         .map((reference) => reference.canonicalUrl)
@@ -88,7 +89,6 @@ describe("repository source providers", () => {
         .map((value) => new URL(value).hostname),
     );
 
-    expect(GOVERNED_SOURCE_HOSTS).toHaveLength(50);
     expect(new Set(GOVERNED_SOURCE_HOSTS)).toEqual(emittedHosts);
   });
 
@@ -221,7 +221,56 @@ describe("repository source providers", () => {
       new Set([dsmClinicalContent.source_repository]),
     );
 
-    expect(provider("calculators").references()).toHaveLength(calculators.length);
+    expect(provider("calculators").references()).toHaveLength(8);
+  });
+
+  it("catalogues every academic calculator evidence source with its structured provenance", () => {
+    const references = provider("calculators").references();
+    const academicEvidence = calculatorEvidence.sources.filter(
+      (source) => source.type !== "internal_governance_record" && source.type !== "rights_statement",
+    );
+
+    expect(academicEvidence.map((source) => source.id)).toEqual([
+      "source:phq9",
+      "source:gad7",
+      "source:k10",
+      "source:cage",
+      "source:auditc",
+      "source:mdq",
+      "source:sadpersons",
+      "source:ybocs",
+    ]);
+    expect(new Set(references.map((reference) => reference.sourceId))).toEqual(
+      new Set(academicEvidence.map((source) => source.id)),
+    );
+    expect(references).not.toContainEqual(expect.objectContaining({ sourceId: "source:governance" }));
+    expect(references).toContainEqual(
+      expect.objectContaining({
+        sourceId: "source:phq9",
+        publisher: "Kroenke, Spitzer & Williams",
+        canonicalUrl: "https://pmc.ncbi.nlm.nih.gov/articles/PMC1495268/",
+        version: "2001 validation study",
+        evidenceType: "primary_study",
+        validationStatus: "locally_reviewed",
+        lifecycleStatus: "active",
+        usage: expect.objectContaining({ modeId: "calculators", recordId: "phq9", field: "sourceIds" }),
+      }),
+    );
+    expect(references).toContainEqual(expect.objectContaining({ sourceId: "source:mdq", lifecycleStatus: "inactive" }));
+    expect(references).toContainEqual(
+      expect.objectContaining({ sourceId: "source:sadpersons", lifecycleStatus: "excluded" }),
+    );
+
+    for (const calculator of allCalculatorFixtures) {
+      const academicSourceIds = calculator.sourceIds.filter((sourceId) => sourceId !== "source:governance");
+      expect(
+        new Set(
+          references
+            .filter((reference) => reference.usage.recordId === calculator.id)
+            .map((reference) => reference.sourceId),
+        ),
+      ).toEqual(new Set(academicSourceIds));
+    }
   });
 
   it("keeps specifier authoritative-source usage IDs stable across insertion and reordering", () => {
