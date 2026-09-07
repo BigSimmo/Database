@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3c0b6354-a44c-4003-aa08-a1277f3f7d22",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Main CI runs are cancelled during high merge churn even though the per-run concurrency fix is in place, so most main commits land unverified",
+    "detail": "Of the last 8 completed CI runs on main, 6 concluded cancelled and 2 failed; none succeeded. The cancellations are NOT the 2026-08-20 queue-eviction mechanism the ci.yml concurrency comment documents: that fix is present and correct. Verified on commit 19ee948, which carries group: CI-${{ github.run_id }} for push events plus cancel-in-progress: ${{ github.event_name != 'push' }}, so a main push run has a unique group and cannot be superseded or evicted by concurrency. Something outside the workflow is cancelling them. TEMPORAL PATTERN: every run before 22:37 UTC on 2026-09-06 was cancelled; the two after it completed. That boundary coincides with merge churn stopping. Volume context: 132 merge commits to main in 24 hours, 19 in one 3-hour window, against a roughly 65-minute run that includes a roughly 50-minute release-browser-matrix. LEADING HYPOTHESIS, unproven from inside a container: the account is hitting a GitHub Actions spending or concurrency cap and GitHub is cancelling queued runs. Supporting circumstantial evidence: two other services on the same account hit usage limits the same day (Cursor Bugbot 'usage limit reached', Codex 'reached your usage limits for code reviews'). NEXT ACTION: read Actions usage and spending limits in the org settings to confirm or eliminate the cap hypothesis. If confirmed, the choice is to raise the cap or cut per-run cost (the 50-minute browser matrix on every main push is the dominant consumer, and could move to a schedule). If eliminated, capture the true cancellation source before assuming main is verified.",
+    "source": "session 2026-09-06 diagnosis of main CI; runs 34042148454, 34042968846, 34043792758, 34045811456, 34062428577, 34063663969",
+    "issueUlid": "01M1XFW8TMYSKD8JMVH02ZTV0C"
+  }
+}
