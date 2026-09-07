@@ -59,6 +59,108 @@ describe("/auth/callback", () => {
     expect(response.headers.get("pragma")).toBe("no-cache");
   });
 
+  /*
+   * ⚠️ **EVERY `Location` ASSERTION ABOVE PASSES BY CONSTRUCTION, AND THAT IS WHY THIS DEFECT
+   * SURVIVED.** `callbackRequest` builds `new Request("https://clinical.example/auth/callback?…")`
+   * with no headers, so the redirect origin the route derives from `request.url` is trivially the
+   * origin the test wrote into the URL. A real request does not look like that.
+   *
+   * Measured 2026-09-07 against this project's live `next dev` on port 4215:
+   *
+   *     curl -s -D - http://localhost:4215/auth/callback
+   *     location: http://0.0.0.0:4215/?auth_error=missing_auth_code
+   *
+   * Next builds `request.url` as `${protocol}://${routerServerContext?.hostname}${req.url}`
+   * (`node_modules/next/dist/server/route-modules/route-module.js:384`) unless
+   * `experimental.trustHostHeader` is set, which this project does not set. The dev server binds
+   * `0.0.0.0` and the container runs `next start -H 0.0.0.0`, so `request.url` carries the address
+   * the server BOUND to and never the host the browser asked for. Sign-in therefore redirects the
+   * browser to a non-browsable address.
+   *
+   * These cases use the live shape: bind address in the URL, real host in `Host`.
+   */
+  describe("redirects to the host the browser asked for, not the address the server bound to", () => {
+    async function callbackWithHeaders(url: string, headers: Record<string, string>, query: string) {
+      const exchangeCodeForSession = vi.fn(async () => ({ error: null }));
+      vi.doMock("@/lib/supabase/server", () => ({
+        createSupabaseServerClient: vi.fn(async () => ({ auth: { exchangeCodeForSession } })),
+      }));
+      const { GET } = await import("../src/app/auth/callback/route");
+      return GET(new Request(`${url}?${query}`, { headers }));
+    }
+
+    it("uses the Host header when request.url carries the bind address", async () => {
+      const response = await callbackWithHeaders(
+        "http://0.0.0.0:4215/auth/callback",
+        { host: "localhost:4215" },
+        "code=pkce-code&next=%2Fdocuments",
+      );
+
+      expect(response.headers.get("location")).toBe("http://localhost:4215/documents");
+    });
+
+    it("keeps the caller's host on the error paths too, which is where a dead redirect strands you", async () => {
+      // The failure redirect matters more than the success one: it is the path a user hits when
+      // sign-in has already gone wrong, and sending them to 0.0.0.0 removes the error message too.
+      const response = await callbackWithHeaders(
+        "http://0.0.0.0:4215/auth/callback",
+        { host: "127.0.0.1:4215" },
+        "error=access_denied",
+      );
+
+      expect(response.headers.get("location")).toBe("http://127.0.0.1:4215/?auth_error=access_denied");
+    });
+
+    it("prefers X-Forwarded-Host and X-Forwarded-Proto, which is the deployed shape", async () => {
+      // Railway terminates TLS in front of the app, so the browser's host and scheme arrive in the
+      // forwarded headers rather than on the socket. Same reasoning as src/lib/api-csrf.ts.
+      const response = await callbackWithHeaders(
+        "http://0.0.0.0:8080/auth/callback",
+        {
+          host: "0.0.0.0:8080",
+          "x-forwarded-host": "psychiatry.tools",
+          "x-forwarded-proto": "https",
+        },
+        "code=pkce-code&next=%2Fdocuments",
+      );
+
+      expect(response.headers.get("location")).toBe("https://psychiatry.tools/documents");
+    });
+
+    it("takes only the first entry of a forwarded-host chain", async () => {
+      const response = await callbackWithHeaders(
+        "http://0.0.0.0:8080/auth/callback",
+        { "x-forwarded-host": "psychiatry.tools, internal.railway", "x-forwarded-proto": "https, http" },
+        "code=pkce-code&next=%2F",
+      );
+
+      expect(response.headers.get("location")).toBe("https://psychiatry.tools/");
+    });
+
+    it("still refuses an off-site next even when the origin comes from a header", async () => {
+      // The open-redirect guard must not be weakened by the new origin source.
+      const response = await callbackWithHeaders(
+        "http://0.0.0.0:4215/auth/callback",
+        { host: "localhost:4215" },
+        "code=pkce-code&next=%2F%2Fevil.example%2Fsteal",
+      );
+
+      expect(response.headers.get("location")).toBe("http://localhost:4215/");
+    });
+
+    it("falls back to the request URL when no host header is present", async () => {
+      // Pins the behaviour the cases above this block rely on, so their green stops being an
+      // accident of the fixture and becomes a stated contract.
+      const response = await callbackWithHeaders(
+        "https://clinical.example/auth/callback",
+        {},
+        "code=pkce-code&next=%2Fdocuments",
+      );
+
+      expect(response.headers.get("location")).toBe("https://clinical.example/documents");
+    });
+  });
+
   it.each(["https://evil.example/steal", "//evil.example/steal"])("rejects unsafe redirect target %s", async (next) => {
     const exchangeCodeForSession = vi.fn(async () => ({ error: null }));
     vi.doMock("@/lib/supabase/server", () => ({
