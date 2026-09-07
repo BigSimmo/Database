@@ -227,16 +227,28 @@ describe("audit navigation and auth regressions", () => {
     );
   });
 
-  it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
+  it("runs cross-mode search on submission at every width, so a closed tray can state its count", () => {
     // `prescribing` was excluded here while the panel mounted ABOVE the medication
     // results; the mount moved below them, so the mode is no longer suppressed and
-    // the deferral contract is the plain submission gate. tests/ui-stress.spec.ts
-    // pins the panel's position under those results.
-    expect(universalAlsoMatchesSource).toContain("const searchActive = submissionActive &&");
+    // the gate is plain submission. tests/ui-stress.spec.ts pins the panel's
+    // position under those results.
+    //
+    // The narrow-screen deferral this contract used to pin is gone deliberately.
+    // Waiting for the click meant the phone header could only say "Tap to open"
+    // and the tray was still rendered when nothing was behind it — a blind door.
+    // The lookup is eager at every width and an empty tray is dropped instead.
+    expect(universalAlsoMatchesSource).toContain("const searchActive = submissionActive;");
     expect(universalAlsoMatchesSource).not.toContain('modeId !== "prescribing"');
-    expect(universalAlsoMatchesSource).toContain('(isWide || modeId === "answer" || expanded)');
+    expect(universalAlsoMatchesSource).not.toContain('(isWide || modeId === "answer" || expanded)');
+    // The header now says pending / a count / nothing found. The "Tap to open"
+    // arm it replaced survives only in the comment above the searchActive gate,
+    // which is why this pins the expression rather than searching for the string.
+    expect(universalAlsoMatchesSource).toContain(
+      'const headerMeta = searchPending ? "Searching…" : matchCount > 0 ? matchCountLabel(matchCount) : "No other matches";',
+    );
     expect(universalAlsoMatchesSource).toContain("enabled: trimmedQuery.length >= 2 && searchActive");
     expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
+    expect(universalAlsoMatchesSource).toContain("if (!searchPending && currentGroups.length === 0) return null;");
     expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
     expect(universalAlsoMatchesSource).toContain("setViewportReady(true);");
     // The panel status is a three-way now — pending / a count / nothing found —
