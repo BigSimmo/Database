@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { rmSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import os from "node:os";
@@ -93,6 +94,24 @@ export async function findRunningProjectServer(rootDir = projectRoot) {
   return null;
 }
 
+/**
+ * Remove `.next/dev`, the dev server's own output, before a production build.
+ *
+ * A dev server stopped mid-write leaves a truncated `.next/dev/types/validator.ts`
+ * behind, and `next build` type-checks it: the build then fails with a syntax
+ * error in a generated file nobody wrote, on a tree where nothing is wrong. That
+ * cost a full `verify:pr-local` run on 2026-09-06. `guard-push.mjs` already works
+ * around the same artefact for Prettier; this closes it for the build.
+ *
+ * Only reached once the checks above have established no dev server is running,
+ * so nothing is reading or rewriting the directory as it is removed. Production
+ * output lives in `.next/server`, `.next/static` and `.next/types`, none of which
+ * are touched — the cost of being wrong is one slower dev start, not a rebuild.
+ */
+export function discardDevServerTypes(rootDir = projectRoot) {
+  rmSync(path.join(rootDir, ".next", "dev"), { recursive: true, force: true });
+}
+
 async function main() {
   const ramDecision = evaluateNextBuildRamGuard();
   if (ramDecision === "fail") {
@@ -124,6 +143,8 @@ async function main() {
     );
     process.exit(DEV_SERVER_BUILD_REFUSED_EXIT_CODE);
   }
+
+  discardDevServerTypes();
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(modulePath);
