@@ -7,11 +7,17 @@
 // This is split out of `patients-directory-filter.ts` deliberately: that module is imported by
 // `patients-directory-client.tsx`, a `"use client"` component, and a client bundle that reaches
 // `node:crypto` fails webpack outright (`UnhandledSchemeError: Reading from "node:crypto" is not
-// handled by plugins`). `import "server-only"` below turns that failure mode into a clear build
-// error at the actual import site if this file is ever reached from a client component, rather
-// than the confusing "why is Node core code in my browser bundle" trace this split replaces.
-import "server-only";
-
+// handled by plugins`).
+//
+// This file deliberately does NOT depend on the "server" + "only" marker package used elsewhere
+// in the repo, matching `caseload-search-token.ts` itself. `tests/caring-contacts-domain-
+// isolation.test.ts` holds every file under this directory to an ALLOWLIST of import specifiers --
+// relative imports and bare `node:` builtins only -- as proof that the whole `caring-contacts`
+// domain is self-contained and provider-free. That marker package is neither, so adding it here
+// would fail that test for no safety gain: the boundary this file exists to enforce is already
+// structural. `patients-directory-filter.ts` never imports this module or
+// `caseload-search-token.ts`, so nothing under `src/components/**` can reach `node:crypto` through
+// this file no matter what marks it -- the import graph itself is the guard.
 import { resolveSearchFilterToken } from "./caseload-search-token";
 import {
   parsePatientsDirectoryFilter,
