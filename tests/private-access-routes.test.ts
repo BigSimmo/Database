@@ -1219,6 +1219,39 @@ describe("private document API access", () => {
     expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`${userId}/images/${imageId}.png`, 600);
   });
 
+  it("fails with 500 when storage createSignedUrl returns a missing signedUrl", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok({
+          document_id: documentId,
+          storage_path: `${userId}/images/${imageId}.png`,
+          mime_type: "image/png",
+          caption: "Legacy indexed image",
+          metadata: {},
+        });
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        return ok({ id: documentId, metadata: {} });
+      }
+      return ok(null);
+    });
+    client.storageMocks.createSignedUrl.mockResolvedValueOnce({
+      data: { signedUrl: "" },
+      error: null,
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/images/[id]/signed-url/route");
+
+    const response = await GET(authenticatedRequest(`/api/images/${imageId}/signed-url`), {
+      params: Promise.resolve({ id: imageId }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await payload(response)).toMatchObject({
+      error: "Failed to generate signed URL for image.",
+    });
+  });
+
   /*
    * Audit L11. This case previously asserted 200 and named itself "legacy", but its
    * fixture is not a legacy image: the image CARRIES a generation while its parent
@@ -1381,6 +1414,22 @@ describe("private document API access", () => {
       [imageId]: { url: `https://signed.local/${userId}/images/${imageId}.png`, mimeType: "image/png" },
     });
     expect(client.storageMocks.createSignedUrls).toHaveBeenCalledWith([`${userId}/images/${imageId}.png`], 600);
+  });
+
+  it("fails with 500 when storage createSignedUrls returns a per-item error", async () => {
+    const client = createBatchImageMock();
+    client.storageMocks.createSignedUrls.mockResolvedValueOnce({
+      data: [{ path: `${userId}/images/${imageId}.png`, signedUrl: "", error: "Object not found" as never }],
+      error: null,
+    } as never);
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId]));
+    const body = await payload(response);
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe("Failed to generate signed URL for image: Object not found");
   });
 
   it("omits images whose parent document belongs to another user", async () => {

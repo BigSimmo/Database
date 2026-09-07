@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redirect";
+import { appModeIds } from "@/lib/app-modes";
+import { isInformationPage } from "@/lib/information-pages";
 
 import {
   isAlwaysStandaloneShellPath,
@@ -15,6 +17,7 @@ import {
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
+  standaloneModeHomeHref,
 } from "@/lib/search-route-ownership";
 
 describe("shared-search route ownership", () => {
@@ -206,10 +209,11 @@ describe("shared-search route ownership", () => {
     expect(shellSource).toContain("isStandaloneModeHomePath(pathname)");
     expect(shellSource).not.toMatch(/searchMode === "services" && pathname === "\/services"/);
     // changeMode must not optimistic-set searchMode before navigation.
-    // The pill always returns to the shared home. A current query is carried only
-    // as a draft, never as `run=1`; pending state still guards the push.
+    // Dedicated modes return to their dedicated standalone home, while remaining modes
+    // return to the shared home. A current query is carried only as a draft, never as
+    // `run=1`; pending state still guards the push.
     expect(shellSource).toMatch(
-      /function changeMode\(mode: AppModeId\) \{[\s\S]*?const carriedQuery = query\.trim\(\) \|\| requestedQuery\.trim\(\);[\s\S]*?const href = appModeSelectionHref\(mode, \{[\s\S]*?query: carriedQuery \|\| undefined,[\s\S]*?router\.push\(href\);\n  \}/,
+      /function changeMode\(mode: AppModeId\) \{[\s\S]*?const carriedQuery = query\.trim\(\) \|\| requestedQuery\.trim\(\);[\s\S]*?const standaloneHome = standaloneModeHomeHref\(mode\);[\s\S]*?const href =\s*standaloneHome \?\?\s*appModeSelectionHref\(mode, \{[\s\S]*?query: carriedQuery \|\| undefined,[\s\S]*?router\.push\(href\);\n  \}/,
     );
     const changeMode = shellSource.slice(
       shellSource.indexOf("function changeMode("),
@@ -516,13 +520,21 @@ describe("shared-search route ownership", () => {
     expect(ask).not.toContain("submitSmartSearch");
   });
 
-  it("does not treat catalogue search docks as tool-detail footer-search pages", () => {
+  it("does not treat catalogue search docks as information pages", () => {
     const shellSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
       "utf8",
     );
-    expect(shellSource).toContain("isToolDetailWithFooterSearch");
+    // The shell suppresses the composer on every information page with no
+    // per-mode exception, so the submitted docks must stay outside that set:
+    // `isSlugDetail` excludes the reserved `search` suffix, which is what keeps
+    // a submitted search refinable.
+    expect(isInformationPage("/services/search")).toBe(false);
+    expect(isInformationPage("/forms/search")).toBe(false);
+    expect(isInformationPage("/services/13yarn")).toBe(true);
     expect(shellSource).toContain('from "@/lib/information-pages"');
+    // A hand-rolled slug test in the shell is how that shared classification
+    // would silently diverge from the predicate above.
     expect(shellSource).not.toMatch(/pathname\.startsWith\("\/services\/"\) && pathname !== "\/services"/);
   });
 
@@ -640,5 +652,41 @@ describe("shared-search route ownership", () => {
       /const isPageDesktopComposerPending =\s*isDefaultComposer && Boolean\(desktopPageComposerSlotId\) && !desktopComposerPortalFallback/,
     );
     expect(headerSource).toContain('isPageDesktopComposerPending && "sm:hidden"');
+  });
+
+  it("routes dedicated modes to their standalone homes and shared modes to null", () => {
+    expect(standaloneModeHomeHref("tools")).toBe("/tools");
+    expect(standaloneModeHomeHref("favourites")).toBe("/favourites");
+    // `documents` and `prescribing` are NOT standalone homes, however much their bare paths
+    // look like one: /documents 307s to the shared home via consolidatedModeHomePaths and
+    // /medications 307s through its own proxy fast-path. Returning either would cost a
+    // redirect round trip and drop the draft query, query mode and scope filters that
+    // appModeSelectionHref carries — landing the user back on the shared home with their
+    // context gone. isStandaloneModeHomePath already says both are false, above.
+    expect(standaloneModeHomeHref("prescribing")).toBeNull();
+    expect(standaloneModeHomeHref("documents")).toBeNull();
+    expect(standaloneModeHomeHref("answer")).toBeNull();
+    expect(standaloneModeHomeHref("services")).toBeNull();
+    expect(standaloneModeHomeHref("forms")).toBeNull();
+    expect(standaloneModeHomeHref("differentials")).toBeNull();
+    expect(standaloneModeHomeHref("dsm")).toBeNull();
+    expect(standaloneModeHomeHref("specifiers")).toBeNull();
+    expect(standaloneModeHomeHref("formulation")).toBeNull();
+    expect(standaloneModeHomeHref("therapy-compass")).toBeNull();
+    expect(standaloneModeHomeHref("factsheets")).toBeNull();
+    expect(standaloneModeHomeHref("dictionary")).toBeNull();
+    expect(standaloneModeHomeHref("sources")).toBeNull();
+    expect(standaloneModeHomeHref("calculators")).toBeNull();
+  });
+
+  // One source of truth: every href the helper hands back must be a path this module already
+  // recognises as standalone. Without this, a mode could be pointed at a path that redirects
+  // and nothing offline would notice.
+  it("only ever returns a path standaloneModeHomePaths already owns", () => {
+    for (const modeId of appModeIds) {
+      const href = standaloneModeHomeHref(modeId);
+      if (href === null) continue;
+      expect(isStandaloneModeHomePath(href), `${modeId} -> ${href}`).toBe(true);
+    }
   });
 });

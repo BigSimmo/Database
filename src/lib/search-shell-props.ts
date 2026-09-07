@@ -1,4 +1,11 @@
 import type { AppModeId } from "@/lib/app-modes";
+import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation";
+
+const reservedSourcesSubroutes = new Set(
+  modeSecondaryNavigationRegistry.sources
+    .map((item) => (item.href?.startsWith("/sources/") ? item.href.slice("/sources/".length) : undefined))
+    .filter((subpath): subpath is string => Boolean(subpath)),
+);
 
 export type SearchShellPathProps = {
   initialMode: AppModeId;
@@ -86,7 +93,7 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
 
   if (pathname.startsWith("/sources")) {
     const rest = pathname.slice("/sources/".length);
-    const isDetail = pathname.startsWith("/sources/") && !["search", "topics", "publishers", "method"].includes(rest);
+    const isDetail = pathname.startsWith("/sources/") && !reservedSourcesSubroutes.has(rest);
     return {
       initialMode: "sources",
       desktopSearchPlacement: "hero",

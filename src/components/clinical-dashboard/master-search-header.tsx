@@ -88,6 +88,7 @@ import { useCommandDropdownDisplayableByPlacement } from "@/components/clinical-
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
+import { standaloneModeHomeHref } from "@/lib/search-route-ownership";
 
 // Shared between the composer input's aria-describedby and the rendered
 // PrivacyInputNotice id/testId so the wiring cannot drift apart.
@@ -900,14 +901,15 @@ export function MasterSearchHeader({
   function selectAppMode(mode: (typeof appModeDefinitions)[number]) {
     setModeMenuOpen(false);
     setModeMenuQuery("");
-    if (mode.id === "tools" && "href" in mode && mode.href) {
-      // Tools is a browse-first directory: selecting it opens the canonical
-      // all-tools page instead of retargeting the shared-home composer.
+    const standaloneHref = standaloneModeHomeHref(mode.id as AppModeId);
+    if (standaloneHref) {
+      // Dedicated modes navigate to their canonical standalone homes
+      // instead of retargeting the shared-home composer.
       // Persist the selection here rather than via onSearchModeChange: that
       // callback owns shared-home navigation and would race this canonical push.
-      setLastAppMode(mode.id);
+      setLastAppMode(mode.id as AppModeId);
       pendingModeSelectionFocusRef.current = mode.id;
-      router.push(mode.href);
+      router.push(standaloneHref);
       if (mode.id === searchMode) {
         const restoreSameModeFocus = () => {
           if (pendingModeSelectionFocusRef.current !== mode.id) return;
@@ -1029,11 +1031,11 @@ export function MasterSearchHeader({
   // Prefetch only the mode the user is about to choose — the highlighted option
   // on open, then whichever option receives focus/pointer while scanning.
   //
-  // Most picks return to the shared home. Tools is browse-first and opens its
-  // canonical all-results directory, so warm that route instead.
+  // Most picks return to the shared home. Dedicated modes open their
+  // canonical standalone directory/home, so warm that route instead.
   function prefetchModeSelection(modeId: AppModeId) {
     if (modeId === searchMode) return;
-    const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId);
+    const href = standaloneModeHomeHref(modeId) ?? appModeSelectionHref(modeId);
     if (prefetchedModeHrefsRef.current.has(href)) return;
     prefetchedModeHrefsRef.current.add(href);
     router.prefetch(href, {

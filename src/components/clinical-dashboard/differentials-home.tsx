@@ -33,6 +33,7 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { Chip as DesignChip } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
@@ -348,23 +349,6 @@ function SelectionCheckbox({
 }
 
 /**
- * Stretches the card's title link across the whole card, so anywhere that is
- * not another control opens the record. It stays a pseudo-element on the single
- * existing link rather than a second overlay anchor, so assistive technology
- * still hears one link named by the title.
- *
- * The hit area is widened but the focus ring is deliberately NOT: the shared
- * `:focus-visible` rule in `globals.css` is unlayered, so it wins over any
- * `outline-none` utility here, and painting a second ring on the pseudo-element
- * would leave two rings stacked — exactly what the "focus is singular"
- * assertion in `tests/ui-smoke.spec.ts` forbids. Focus stays on the title.
- */
-// The pseudo-element paints nothing, so it needs no radius of its own — and a
-// `rounded-[inherit]` arbitrary value is a raw radius literal the design-system
-// contract ratchet counts against this file.
-const stretchedOpenLinkClass = "after:absolute after:inset-0 after:z-0 after:content-['']";
-
-/**
  * The visible "click here" label for the stretched card link. It is text, not a
  * second anchor to the same href — duplicating the link would double every
  * result in a screen-reader link list.
@@ -431,7 +415,7 @@ function DesktopResultRow({
           href={result.href}
           className={cn(
             "block min-w-0 rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]",
-            stretchedOpenLinkClass,
+            stretchedRowLinkClass,
           )}
         >
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -500,7 +484,7 @@ function MobileResultCard({
           href={result.href}
           className={cn(
             "block min-w-0 flex-1 rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)]",
-            stretchedOpenLinkClass,
+            stretchedRowLinkClass,
           )}
         >
           <span className="line-clamp-2">{result.title}</span>
@@ -637,7 +621,7 @@ function BestAnswerCard({
       ) : null}
       <Link
         href={best.href}
-        className={cn("block min-w-0 self-center rounded-md", stretchedOpenLinkClass, compact && "self-start")}
+        className={cn("block min-w-0 self-center rounded-md", stretchedRowLinkClass, compact && "self-start")}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {compact ? (

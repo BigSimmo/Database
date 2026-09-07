@@ -1031,4 +1031,25 @@ describe("provider-safe test environment", () => {
     expect(devRunner).toContain('return dependenciesAreExternal ? ["--webpack"] : [];');
     expect(devRunner).toContain('args.some((arg) => ["--webpack", "--turbopack", "--turbo"].includes(arg))');
   });
+
+  describe("vitest reporter safety (#EV7RMQ)", () => {
+    it("rejects unknown reporters at startup before acquiring run lock or memoising", async () => {
+      const { validateReporters } = await import("../scripts/run-vitest.mjs");
+      expect(validateReporters(["--reporter=dot"]).valid).toBe(true);
+      expect(validateReporters(["-r", "json"]).valid).toBe(true);
+      expect(validateReporters(["--reporter=./custom-reporter.mjs"]).valid).toBe(true);
+      expect(validateReporters(["--reporter=default,json"]).valid).toBe(true);
+
+      const invalid = validateReporters(["--reporter=basic"]);
+      expect(invalid.valid).toBe(false);
+      expect(invalid.error).toContain("Unrecognized Vitest reporter(s): basic");
+
+      const processResult = spawnSync(process.execPath, ["scripts/run-vitest.mjs", "--reporter=basic"], {
+        cwd: process.cwd(),
+        encoding: "utf8",
+      });
+      expect(processResult.status).toBe(1);
+      expect(processResult.stderr).toContain("Unrecognized Vitest reporter(s): basic");
+    });
+  });
 });

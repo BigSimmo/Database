@@ -1,17 +1,17 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "71009eb9b4f2cc0575b55760cd70ff4d400c1fc6",
-    "committed_at": "2026-09-06T15:19:59+00:00"
+    "sha": "4fe1131ebb326209fd5d7d379253de9ffb061ae2",
+    "committed_at": "2026-09-07T04:17:48+00:00"
   },
   "counts": {
-    "open": 132,
+    "open": 121,
     "p1": 7,
-    "p2": 85,
-    "p3": 40,
+    "p2": 78,
+    "p3": 36,
     "queued": 7,
     "pending": 0,
-    "resolved": 487
+    "resolved": 501
   },
   "queue": [
     {
@@ -274,15 +274,6 @@
       "added": "2026-08-23"
     },
     {
-      "id": "#5PQRSW",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Patient-profile alerts surface unassessed gates only for contraindication rows, so 266 caution, dose-adjust and monitor gates silently no-op",
-      "detail": "medication-patient-alerts.ts:344-358 collects missingGates for every gated row but the consumer discards them unless patient.action is contraindication. Counted from data/medications-snapshot.json: 256 caution, 145 dose-adjust and 62 monitor rows, 266 of them gated on a numeric or categorical input (eGFR, CrCl, QTc, age, hepatic). A clinician entering a partial profile without eGFR gets no considerations from a renal DOSE REDUCTION row and an empty panel indistinguishable from an all-clear; the UI sentence that would warn is scoped to contraindications only. FIX: include dose-adjust at minimum in the unassessed set and widen the UI copy.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
       "id": "#ZK460W",
       "priority": "P2",
       "type": "issue",
@@ -389,15 +380,6 @@
       "detail": "docs/caring-contacts/hazard-log.md records H-00 (no named clinical safety officer, so nobody owns clinical risk), H-04 (the message set has never been read by anyone with lived experience) and H-05 (no Aboriginal cultural safety review, in a WA suicide-aftercare service). All three are Open with no control. None blocks the synthetic build; every one blocks a pilot. H-04 is ready to run today: docs/caring-contacts/message-review-pack.md is a complete facilitation pack. Owner Josh for H-00 and H-04; Aboriginal health governance for H-05.",
       "source": "Caring Contacts design session 2026-08-19; hazard log H-00/H-04/H-05",
       "added": "2026-08-18"
-    },
-    {
-      "id": "#Q4Y7TR",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "No automated reaper for abandoned reindex generations, so crashed mid-builds leak rows and storage indefinitely",
-      "detail": "cleanup_abandoned_document_index_generations is called from exactly one place, scripts/cleanup-abandoned-reindex-generations.ts via npm run reindex:cleanup-staged. No cron.schedule, Railway cron, or CI job references it. Any crash mid-build, or the empty-generation guard at worker/main.ts throwing, leaves staged rows under a never-committed index_generation_id and storage objects under {owner}/images/{doc}/{generation}/ that nothing revisits. Unbounded Postgres row and Storage growth, dependent on an operator remembering to run a janitor. FIX: write storage_cleanup_jobs rows for superseded generations at commit time, where the commit RPC already knows both generation ids.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
     },
     {
       "id": "#J43Z6B",
@@ -512,7 +494,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Lighthouse desktop-root LCP reads 100-175ms above main on a feature branch, decays run over run, and reddened PR #2422 once",
-      "detail": "Six CI readings on 2026-08-27 against the same 786ms baseline (tolerance: breach needs BOTH >20% and >100ms). PR #2422 branch: 961 (FAILED, reported 2/3 samples breached), 925, 900, 852. main: 748 (603da96), 705 (be65b8a1). NOT ROOT-CAUSED; recorded so the next occurrence is not re-investigated from scratch. Evidence AGAINST a real code regression: (a) mobile-root - the SAME page - measured 2293/2305/2314 against its 2274 baseline across the same runs, i.e. unchanged, and a genuine slowdown in that page would show on both form factors; (b) desktop-documents-search measured FASTER than main on the same runners (745/806 vs main 828/841); (c) the monotone decay 961->925->900->852 is regression-to-mean of a noisy metric, not a fixed cost a diff adds; (d) reading the 11-file diff line by line, nothing alters the desktop root cold render - the only new guard (!showAnswerCancelledNotice on showAnswerPending) is a no-op when nothing was cancelled, and pb-4->pb-10 requires an answer to be present. ONE TESTABLE MECHANISM REMAINS: PR #2422 split src/components/clinical-dashboard/answer-cancelled-notice.tsx out of ClinicalDashboard (forced by the 4140-line maintainability budget), and a new client module can become a separate chunk on /. Next: rm -rf .next FIRST (AGENTS.md: a cached build reports stale byte-identical numbers and will wrongly pass), npm run build, then npm run check:bundle-budget, which attributes chunks per route and reports / separately; compare against main. If / gained a chunk, move AnswerCancelledNotice into src/components/clinical-dashboard/dashboard-notices.tsx, which ClinicalDashboard already imports - same budget relief, no new module boundary. GATE CAVEAT worth knowing: majorityBreachDecision in scripts/check-lighthouse-budget.mjs takes its 3 samples within ONE job on ONE runner, so it guards against a single outlier but not against a slow runner. Stop: do not raise the baseline or the tolerance to clear this; do not re-run the job to chase a better number. Related but distinct: #GQ5X8T (mobile-root timing, needs a synchronized control).",
+      "detail": "NEW INSTANCE 2026-09-06 on PR #2664, desktop-root, same 785.647ms baseline and same +20%/+100ms tolerance (effective ceiling 943ms). Seven runs of code that cannot reach the measured route: 997 FAIL, PASS, PASS, PASS, 989 FAIL, PASS, PASS. The two failures sit 8ms apart, which is runner-class spread rather than a decaying regression, so this reading is closer in shape to #4TXR6Z (bimodal between runners) than to the monotone 961->925->900->852 decay this row originally recorded. Import-reachability was traced for PR #2664: the diff is 16 files of source-governance data, a gate script, a catalogue provider and docs, and nothing on it is imported by the desktop root render. main passed the same check on the same day. The one permitted CI re-run was spent and passed. RESOLUTION TAKEN: the owner authorised the skip-lighthouse-budget label on PR #2664 rather than touching the baseline or the tolerance, which the pr-required aggregate accepts because it calls require_skipped_or_success 'lighthouse-budget'. Label semantics worth recording: on.pull_request.types has no 'labeled' entry, so the label is only read at synchronize and takes effect on the next push, not when applied. Stop rules from this row are unchanged - do not raise the baseline or tolerance to clear a red PR.",
       "source": "PR #2422 CI runs 33067093750 (attempts 1-2), 33070896021, 33072264164; main runs 33063088413, 33065297542",
       "added": "2026-08-27"
     },
@@ -580,15 +562,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#8TKTV6",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "The scheduled bundle-budget refresh workflow is never parsed by GitHub until its first scheduled run, so a YAML fault would surface in a non-blocking run rather than at merge",
-      "detail": "Raised while landing PR #2527, which added .github/workflows/bundle-budget-refresh.yml for #QSHHGK. The workflow is schedule- plus workflow_dispatch-only, so no pull_request CI run ever invokes it. It is covered offline by tests/bundle-budget-refresh-workflow.test.ts (17 assertions on schedule, cold-build ordering, the refresh flag, permissions, and the absence of any push or branch mutation) and by check:github-actions for pins and runs-on. None of those is GitHub's own workflow-syntax parser, which runs only when a workflow first executes. The known failure shape is the one recorded in tests/ci-cache-safety.test.ts around line 551: a workflow that fails to parse is named after its file path, creates ZERO jobs, and reports a bare failure that nothing local catches. Here that would land in an isolated scheduled run that blocks nothing, so it could sit unnoticed until someone wondered why no baseline report had appeared. Cheap close: trigger it once by workflow_dispatch after merge and confirm it creates jobs and posts to the rolling issue. That single dispatch also produces the first measurement with a resolvable baselineSource that #QSHHGK is waiting on, so the two close together.",
-      "source": "session 2026-09-02, PR #2527",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#0JGJTK",
       "priority": "P2",
       "type": "issue",
@@ -625,15 +598,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#686WHW",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Two sessions closing the same ledger row is a race the loser cannot lose gracefully: it hard-fails the planner, its outcome text is discarded, and the archived row cannot then be corrected",
-      "detail": "Hit and worked through on PR #2521, 2026-09-02, and recorded because the cost fell entirely on the session that did the larger piece of work. THE RACE: two sessions independently queued done requests for #0HYHTH (mine 2a381215, the other 59f035ef) and update-then-done for #AGRAKQ. The reconciliation on main (#2542) applied the other session's requests first. THREE CONSEQUENCES, in increasing order of how badly they behave. (1) The loser does not merely lose. My done for #0HYHTH threw '#0HYHTH is no longer open' and my done for #AGRAKQ threw 'is stale: the ledger row changed after this request was queued', and because docs:check-links runs the planner, BOTH hard-failed an unrelated CI check on a PR whose diff had nothing to do with either row. The branch was blocked until each was cancelled or reissued by hand. (2) A cancel queued against a request that has already been applied silently becomes a no-op: both fd9de7fe and 1e305210 now report 'did not take effect -- the cancellation is recorded but changed nothing; correct the affected row with a new update request'. So an attempt to supersede another session's close leaves a record that reads as an action but is not one. (3) That suggested remedy does not exist for a closed row. issues:update rejects with '#0HYHTH is not in Open items' (scripts/ledger-inbox.mjs, the fingerprint branch requires the row be in Open items), so once the race is lost the winning outcome text is final and the archive cannot be corrected through the tooling at all. CONCRETE DAMAGE, which is also the correction this row exists to carry: #0HYHTH is archived with an outcome describing the interface vocabulary scan as it stood at B3 -- two roots, src/components/caring-contacts/workspace and src/app/caring-contacts -- and naming the sealed domain as outstanding residue. PR #2521 took that scan to FIVE roots, adding src/lib/caring-contacts/**, src/lib/caring-contacts-server/** and src/app/api/caring-contacts/**, which closes the residue the archived text still describes as open. A reader of the archive today would conclude the sealed domain is unwatched. It is not. Treat this row as the correction to that archived outcome, since the archived row itself cannot be amended. CANDIDATE FIXES: make a done request against an already-closed row a warning that no-ops, like the cancel case, rather than a throw, so one session's race loss cannot red an unrelated PR's CI; allow update on an archived row, or provide an explicit amend-outcome action, so a superseded outcome can be corrected rather than being final by accident; and consider having reconcile prefer the LATER of two competing closes for the same row, or at least surface both outcomes, since the second is usually the better-informed one. Related but distinct from #Y090R5, which covers the generated snapshot file conflicting between concurrent inbox PRs.",
-      "source": "PR #2521 vs reconciliation #2542, 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#9ZGNW7",
       "priority": "P3",
       "type": "issue",
@@ -658,15 +622,6 @@
       "summary": "A change that WEAKENS a clinical safety guard living under tests/ escapes the governance preflight gate, and PR #2521 demonstrated it rather than hypothesised it",
       "detail": "Raised by the clinical-governance-reviewer on PR #2521, 2026-09-02, and then demonstrated by that same PR one commit later. scripts/pr-policy.mjs decides whether a PR must carry a completed '## Clinical Governance Preflight' by matching changed paths against clinicalRiskPatterns, which covers src/lib/*clinical*, src/app/api/, supabase/, src/data/ and similar. It has no pattern for tests/**. But several of this repository's clinical safety guards ARE tests: tests/caring-contacts-interface-vocabulary.test.ts is the only software check on prohibited wording across five source trees; tests/helpers/caring-contacts-prohibited-language.ts is the single shared definition of that vocabulary; tests/caring-contacts-overlay-definitions.test.ts holds the 24 frozen overlay rows against docs/caring-contacts/interaction-matrix.md; and the Ruling [143] parity block is what stops the message-side 'lead' rule drifting looser than the screen's. THE GATE IS DIRECTION-BLIND: it reads paths, not intent, so it cannot tell strengthening a guard from removing one. THIS IS DEMONSTRATED, NOT HYPOTHESISED. An earlier version of this row listed 'relaxing the lead lookbehind' among the changes that would slip through. The next commit on that same branch, 33e1ffd, did exactly that: it loosened the interface prohibited-language rule so plural job titles are permitted on screen, which is a deliberate owner-approved change to clinical-copy wording, and classifyPullRequestFiles returned clinicalRisk:false for it, so no preflight was required and no reviewer was prompted to look for clinical consequences. The preflight was completed voluntarily and the change was reviewed by a subagent, both by choice; nothing in the required checks asked for either. A second near miss on the same PR: its first draft exempted src/lib/caring-contacts/message-rules.ts as a whole file, which would have put the five sentences a discharged patient reads by SMS permanently outside the scan. A subagent review caught it. Nothing in the required checks would have. CANDIDATE FIXES, increasing cost: name the specific guard test files in clinicalRiskPatterns, cheap and precise but needs maintaining as guards are added; or match tests/** paths that import CARING_CONTACTS_PROHIBITED_LANGUAGE or the message rules, self-maintaining but needs an import scan in pr-policy; or a narrower gate firing only when such a file's diff is net-deleting. Prefer whichever keeps a false positive cheap: the cost of a wrong classification is one preflight section a human fills in, and the cost of the current gap is an unreviewed weakening of a patient-facing safety guard.",
       "source": "clinical-governance-reviewer on PR #2521, 2026-09-02; demonstrated by commit 33e1ffd on the same PR",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#1M0J6D",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Web-container sessions start on a shallow clone, so two committed specs fail with messages that read as content errors",
-      "detail": "INDEPENDENTLY REPRODUCED 2026-09-06 in a Claude Code cloud session, which is a third occurrence and confirms this is environmental rather than intermittent. The checkout arrived as a shallow clone of 187 commits. tests/rag-plan-package-parity.test.ts failed with 'manifest reconciledBase is unavailable locally: f3d1a3cce2c943ad3083425ed9c7c46dbef23087' and npm run check:stale-docs refused outright with 'Refusing to run on a shallow clone'. Three test files reported failing in total. After 'git fetch --deepen=3000' restored full history (5707 commits) the same suite passed with zero failures: 1177 files, 17116 tests. The cost is not the failure but the misreading: the messages name a manifest and a missing commit, so the first reasonable interpretation is a real governance or content problem, and a session that trusts it either chases a non-existent defect or, worse, reports the suite as broken. This strengthens the case for the remedy already tracked as #FP62K4.",
-      "source": "session 2026-09-02, PR #2530 verification",
       "added": "2026-09-02"
     },
     {
@@ -733,33 +688,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#AQXXD8",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "Audit double casts by target type, not by operator: as unknown as onto a domain model defeats every shape check",
-      "detail": "as unknown as suppresses excess-property AND missing-property checking, so an object literal asserted through it can carry fields the type does not have and omit fields it requires, with tsc clean and every test green. Searching by the operator is useless: it appears 228 times across tests/ (counted at 268fcd6a8, control run both ways) and almost all are legitimate, since a Request or IntersectionObserver cannot be hand-built. The dangerous subset is a double cast whose TARGET is a repo-defined domain model. One live instance found at tests/ward-release-band-day-boundary.test.ts:34, hiding 3 phantom and 6 absent required fields. Filter comment lines: such casts appear in mutation notes precisely because they are the strongest suppressor.",
-      "source": "Ward Builder One closing sweep 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#2MTYDV",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The generated counts sentence in docs/scripts-index.md conflicts on every concurrent PR, the same failure #Y090R5 describes for the issues snapshot",
-      "detail": "docs/scripts-index.md opens with a machine-written sentence counting script files and npm scripts; scripts/update-docs-inventory.mjs rewrites it by regex and docs:check-inventory fails if it drifts. Because every change to the script surface rewrites that one line, any two concurrent PRs collide on it. Measured on PR #2531 five times in about three hours, at main c0ee4ddd, ff37de6d, 59b3490e, 88ffbdb9 and 4dcd8dde: each time the whole conflict was that single line, with both sides correct about their own half. Twice it came bundled with a real package.json conflict on verify:cheap:internal, where two PRs each inserted a different gate into the same chain -- resolvable only as a union, and it silently desynchronises the gate counts that check:gate-manifest reads from CLAUDE.md and .claude/skills/gates/SKILL.md, so those must be re-derived after every such merge. This is the same root cause as #Y090R5 (data/outstanding-issues-snapshot.json): a single-line generated artefact that every PR must regenerate. PR #2530 has now fixed the snapshot half by moving regeneration into the serialised reconcile step; the scripts-index half is untouched. Two traps for whoever resolves it: taking main's whole file silently deletes the branch's own new script entry (hit once on #2531), and after resolving you must re-run scripts/update-docs-inventory.mjs rather than picking a side. Worth either moving the counts out of the prose sentence into a generated block with a union merge strategy, or regenerating them in a serialised step as #2530 did for the snapshot.",
-      "source": "PRs #2531 and #2544, session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#A2AV7P",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "Subagent-driven-development workspaces are git-ignored, so a session's triage and review artefacts vanish at cleanup",
-      "detail": "The SDD skill writes its ledger, briefs, reports and review packages under .superpowers/sdd/, which .gitignore:175 ignores wholesale. Observed 2026-09-02: 1,853 lines of triage (24 findings with executable mutation specs) existed only there and would not have survived a clean; it was rescued by hand to docs/ward-flow/triage/ at 38f90d138. Two other chats reported the same exposure, one losing nine recorded rulings. Recommendation: either the skill's close-down step copies durable artefacts into a tracked path, or the workspace path is documented as ephemeral where sessions will actually read it. Not a defect in the skill; a mismatch between where it writes and how long its output is expected to matter.",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#72282V",
       "priority": "P2",
       "type": "issue",
@@ -814,30 +742,12 @@
       "added": "2026-08-29"
     },
     {
-      "id": "#4BE39H",
-      "priority": "P2",
-      "type": "task",
-      "summary": "Audit remediation leftovers: findings deferred on file ownership or blocked tooling",
-      "detail": "From the 2026-09-02 full-repository audit remediation programme (packages P1-P21, 2026-09-04). Deferred on file ownership, unblocked once P8a (PR #2634) merges: L45 specifiers search-index generator and freshness check; L131 pdfjs-dist and ZIP de-duplication plus the undeclared playwright-core import; the proper @sentry/core devDependency declaration that replaces the knip ignoreDependencies entry added in P3. Blocked on tooling this environment cannot run: L49 docling model revision pin (needs a pip install or a huggingface.co read - the exact command is in PR #2629's body); the drift-manifest regeneration P16 (PR #2628) needs, which requires a Docker image the network policy refuses. Left for an owner decision: L5 fonts and noindex change, which must be applied identically to both public/brand/preview.html and docs/brand/preview.html because tests/developer-hub-panels.test.ts pins byte-identity; L126's public/offline.html brand mark and its CACHE_VERSION bump, owned by no package; the calculators Governance reference link, which points at a github.com blob URL an end user cannot open.",
-      "source": "session 2026-09-04",
-      "added": "2026-09-04"
-    },
-    {
       "id": "#X9ZHET",
       "priority": "P3",
       "type": "issue",
       "summary": "Two ward docs send a session onto branches without saying whether those branches are still live",
       "detail": "docs/ward-flow-coordination-rules.md and docs/ward-flow-fold-manifest-2026-08-31.md instruct a session onto claude/Wardquestions and claude/Ward-design with no status marker, flagged by tests/stale-resume-instructions.test.ts. Both branches are currently UNMERGED (merge-base --is-ancestor exit 1), so the correct marker says they are live, not merged. claude/Wardquestions holds the orchestrator handover and ten ward documents that exist on no other branch, so marking it merged would be worse than the present silence. Measured at fb17db7b1.",
       "source": "Ward Builder One closing sweep 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#EV7RMQ",
-      "priority": "P2",
-      "type": "rec",
-      "summary": "A vitest run with an unrecognised --reporter dies at startup, runs zero tests, and reports no failures",
-      "detail": "INDEPENDENTLY REPRODUCED 2026-09-06 in a Claude Code cloud session, a third occurrence after the two Ward Flow chats of 2026-09-02. 'npx vitest run --reporter=basic' was run to list failing test files and returned NO OUTPUT AT ALL and a zero exit. Nothing in the result distinguished it from a suite with no failures; the run was only recognised as void because the output was expected to contain file names and did not. This is the precise hazard the row describes, and it happened again to a session that had not read this row. It argues for a hard fix rather than documentation: make an unrecognised --reporter value exit non-zero with a message naming the valid reporters, so a void run can never be mistaken for a clean one.",
-      "source": "session 2026-09-02",
       "added": "2026-09-02"
     },
     {
@@ -940,15 +850,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#WRZJVR",
-      "priority": "P2",
-      "type": "rec",
-      "summary": "No gate detects a test fixture that lies about its type: casts defeat tsc and vitest runs none",
-      "detail": "A cast on a fixture suppresses the only check that would catch a missing or phantom field, because vitest runs no typecheck and a cast silences tsc. Search by TARGET type, not by operator: 'as unknown as' appears 228 times in tests/ and almost all are legitimate (you cannot hand-construct a Request or an IntersectionObserver). Dangerous only when the target is a domain-model type. Filter comment lines: 'as' appearing is not 'as' being used. A 90-file sweep of ward tests never mentioned casts once - grep for cast across that document returns zero.",
-      "source": "Ward Builder Three, class handed over by Ward Builder One, measured at adcd8bcb5",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#YJGWDZ",
       "priority": "P3",
       "type": "issue",
@@ -1001,15 +902,6 @@
       "detail": "Observed across four graded runs of PR #2536 on the pinned Chromium (chromium-1234, HeadlessChrome/151), baseline LCP 2282ms with a tolerance of +20% AND +100ms. BREACHED: head 30afc398 measured 2748ms (+466ms, +20.4%) in run 33628667758 attempt 1; head cda377fb measured 2753ms (+471ms, +20.6%) in run 33681754629. PASSED: the attempt-2 re-run of 30afc398 (number not read); head 957a0387 measured 2323ms (+41ms) in run 33684986161, which reported 'Every graded route is within tolerance of the committed baseline.' The gate samples each cell three times and calls a regression at 2 of 3, so it is already noise-tolerant within a run; the split here is BETWEEN runs, which that design does not cover. A 2323 vs 2750 spread on identical browser, identical route and near-identical code is about 18%, and the +20%/+100ms tolerance sits inside that gap, so the same commit can grade either way depending on the runner it lands on. NOT ESTABLISHED: which mode is the true one, whether the slow mode correlates with runner class, concurrent jobs on the host, or the isolated production build's cold start, and whether main alone reproduces it. main was never measured directly; the job is path-scoped and rarely runs on main pushes. WHY IT MATTERS: an intermittent red on a required check trains reviewers to re-run rather than read, and it lands on PRs whose diff cannot reach the failing page — #2536 changes only medication files, while src/app/(search-app)/documents/search/page.tsx imports one symbol (Metadata from next) and nothing outside medication-named files calls /api/medications. NEXT STEP: characterise the cell before changing anything. Run the dispatch-only 'Refresh Lighthouse baseline' job (workflow_dispatch on ci.yml with refresh_lighthouse_baseline=true) two or three times against main, which measures the same routes on the pinned Chromium and commits nothing, and compare the spread. If the slow mode reproduces on main, attribute it before touching lighthouse-budget.json; if it does not, the fix is in how the cell is measured, not in the baseline. Do not refresh the baseline reactively to clear a red PR.",
       "source": "PR #2536 Lighthouse runs 33628667758, 33681754629 and 33684986161, 2026-09-02",
       "added": "2026-09-02"
-    },
-    {
-      "id": "#EWD0KH",
-      "priority": "P2",
-      "type": "rec",
-      "summary": "Two high-severity production advisories sit on main and make the dependency audit blocking for any PR that touches package.json",
-      "detail": "npm audit --omit=dev on main reports browserslist <=4.28.6 (two high advisories) and fast-uri 3.0.0-3.1.5 (four high advisories). CI's Safety and config checks job runs the dependency audit as blocking only when a PR changes dependency files, so these are invisible until one does - audit remediation P3 hit exactly that and had to revert an otherwise-correct dependency declaration. Open Dependabot PRs #2568, #2570 and the combined #2616 fix both. Recorded 2026-09-04.",
-      "source": "session 2026-09-04",
-      "added": "2026-09-04"
     },
     {
       "id": "#Y2E4DX",
@@ -1093,15 +985,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#AGBNBV",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "ledger-inbox.mjs add silently ignores --dry-run and writes a real queue entry",
-      "detail": "RECONSTRUCTED AND CONFIRMED 2026-09-06 by reading scripts/ledger-inbox.mjs. --dry-run is parsed once, at line 781, inside the RECONCILE path only, and is consulted at lines 801, 839 and 841. No other subcommand reads it. So 'issues:add -- --dry-run', and likewise done, update, queue and cancel, silently write a real immutable request file into docs/outstanding-issues-inbox/ while the operator believes nothing was written. The failure is silent in both directions: no warning that the flag is unsupported, and no output distinguishing a rehearsal from a real write. NEXT ACTION: either honour --dry-run in the shared request-writing helper (print the request that would be written and exit 0 without writing), or reject the flag with a non-zero exit on the subcommands that do not support it. Rejecting is the safer of the two, because a flag that is accepted and ignored is what caused this. Verify by running an add with --dry-run and confirming the inbox file count is unchanged.",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#GCTFD7",
       "priority": "P2",
       "type": "issue",
@@ -1133,8 +1016,8 @@
       "priority": "P1",
       "type": "issue",
       "summary": "Caring Contacts message-content controls are unreachable: validateGovernedMessage has no production caller",
-      "detail": "CARRIED FORWARD 2026-09-06 from #A3AHCX, closed the same day as a duplicate of this row. That row (2026-08-24) held technical detail this one did not, preserved here so the merge loses nothing: validateGovernedMessage lives in src/lib/caring-contacts/message-policy.ts and enforces the segment limit, the prohibited vocabulary, the required support fragments and, from 2026-08-24, the fictional-contact check. A grep across src/ and worker/ finds no production caller; it is exercised only by tests. That is consistent with there being no send path in this prototype, and the checks are the mechanism a future sender must use. When a dispatch or preview path is built, wiring it to this validator is the first requirement. Recorded so nobody mistakes 'the validator refuses this' for 'the system refuses this'. PROCESS NOTE: this defect was recorded twice, eleven days apart, by two sessions that did not find each other's row, and graded P2 the first time and P1 the second. It is the clearest evidence for the ledger's missing dedupe-on-intake step.",
-      "source": "session 2026-09-04",
+      "detail": "CARRIED FORWARD 2026-09-06 from #A3AHCX, closed the same day as a duplicate of this row. That row (2026-08-24) held technical detail this one did not, preserved here so the merge loses nothing: validateGovernedMessage lives in src/lib/caring-contacts/message-policy.ts and enforces the segment limit, the prohibited vocabulary, the required support fragments and, from 2026-08-24, the fictional-contact check. When a dispatch or preview path is built, wiring it to this validator is the first requirement. Recorded so nobody mistakes 'the validator refuses this' for 'the system refuses this'. PROCESS NOTE: this defect was recorded twice, eleven days apart, by two sessions that did not find each other's row, and graded P2 the first time and P1 the second. It is the clearest evidence for the ledger's missing dedupe-on-intake step. CORRECTED AND GUARDED 2026-09-07, verified against main at fe8db888d. Two claims carried forward above are now out of date and are struck here rather than left to mislead a later reader - which is precisely the failure mode this row itself documents. (1) 'A grep across src/ and worker/ finds no production caller; it is exercised only by tests' is FALSE as of 2026-09-02. resolveClosingContactMessageBody at message-policy.ts:320 calls validateGovernedMessage in production code. It arrived with #59JT7W, which deliberately moved the unauthored-body rule INTO the chokepoint so that a sender obtaining a body by some other route could not meet no refusal at all. (2) The domain does carry dispatch scaffolding this row does not mention: DispatchRecord, dispatchKey and sendableContacts all exist. THE ROW STAYS OPEN AND P1 BECAUSE THE SUBSTANTIVE POINT HOLDS. No message body exists anywhere in the domain for a sender to send. PlannedContact (schedule.ts:23) names a messageType but holds no text, and DispatchRecord (repository.ts:730) tracks attempt number and provider status but no content. Nothing outbound is gated because nothing is outbound. The validator is the mechanism a future sender must use, not a control that is currently failing open. NOW GUARDED: tests/caring-contacts-message-body-chokepoint.test.ts, merged in PR #2690, pins both shapes as bodyless with exact-key type assertions. A message body can only reach a recipient by first riding one of those two shapes, so adding a body field to either is the exact moment the wiring becomes required, and it now fails typecheck naming the offending field instead of passing silently. Verified by mutation rather than by a green run: adding 'body?: string' to PlannedContact produces TS2322, 'Type boolean is not assignable to type { unexpectedOnActual: \"body\" }'. NEXT ACTION unchanged: when a dispatch or preview path is built, route its body through validateGovernedMessage before anything can send it, and widen the pinned key lists only as part of that same change.",
+      "source": "session 2026-09-07; verified against main fe8db888d; guard merged in PR #2690",
       "added": "2026-09-04"
     },
     {
@@ -1198,15 +1081,6 @@
       "summary": "Reindex reaper: the storage-object half of the abandoned-generation cleanup is still missing",
       "detail": "PARTIAL PROGRESS, recorded here so it is not tracked only in code comments. The DETECTION half landed on branch claude/reindex-reaper: scripts/cleanup-abandoned-reindex-generations.ts gained a read-only --alert-on-abandoned flag whose pure decision function (abandonedReindexGenerationAlertExitCode in src/lib/reindex-pipeline.ts) exits 2 when a dry run finds abandoned staged rows, and .github/workflows/reindex-reaper.yml runs it as a weekly read-only probe that opens or updates an alert issue. That workflow ships INERT (repo variable REINDEX_REAPER_ENABLED is unset) and its destructive apply path is triple-gated and statically guarded by scripts/check-github-action-pins.mjs. WHAT REMAINS, and what this row exists for: the storage-object half. cleanup_abandoned_document_index_generations deletes generation-bearing rows across seven artifact tables, but nothing enqueues storage_cleanup_jobs rows for the objects those generations left behind, so a crash mid-reindex still leaks Storage objects that no schedule revisits. The recorded fix is for the commit RPC to enqueue storage_cleanup_jobs rows for superseded generations at commit time. That is a migration, it deploys to the live clinical database on merge, and it was deliberately excluded from the detection batch. THREE PREREQUISITES the same review recorded, all of which should land before the repo variable REINDEX_REAPER_APPLY is ever set: (1) the RPC has no owner scoping and no row ceiling -- seven deletes in one transaction under a 180s statement timeout -- so a migration adding a row ceiling and a keep-most-recent-generation guard should come first; (2) the RPC's predicate makes every generation-bearing row eligible on any document whose metadata.index_generation_id is absent, so documents predating generation stamping will register as abandoned forever and the weekly probe will very likely be permanently red until either a backfill migration lands or the probe alerts on a delta rather than an absolute count; (3) arming the apply path safely needs a GitHub Environment with required reviewers on a separate apply job, because two of the three gates are standing repository variables and only client_payload.apply is per-run. Full reasoning is in the header of .github/workflows/reindex-reaper.yml.",
       "source": "review of branch claude/reindex-reaper, 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#FP62K4",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Two verify:cheap gates fail on a shallow clone with a message that reads like a governance breach",
-      "detail": "Have tests/rag-plan-package-parity.test.ts and tests/clinical-hazard-controls.test.ts detect a shallow clone and skip with an explicit reason, or deepen the clone in the cloud session-start hook. Why: both resolve commits that a shallow clone does not contain, and fail with 'reviewedCommit does not exist <sha>' and 'manifest reconciledBase is unavailable locally' - which reads as a real hazard-control or plan-package violation rather than a missing object. Context: observed in a Claude Code cloud session on 2026-09-02; verify:cheap reported 4 failing files, two of which were this. Both passed unchanged after git fetch --deepen=500, confirming the diff was never at fault. Cloud sessions clone shallow by default, so this costs a diagnosis every time. Confidence: high, reproduced and then cleared by deepening. Owner: repo tooling.",
-      "source": "session 2026-09-02, Sources mode-home PR (claude/sources-mode-dropdown-home-mzw4f5)",
       "added": "2026-09-02"
     },
     {
@@ -1280,6 +1154,33 @@
       "detail": "Unchanged and unchangeable from inside the project: it requires Aboriginal health practitioners. Recorded here as a Ward Flow gate in its own right rather than relying on the Caring Contacts entry (#1S81R8), because Ward Flow is a separate surface — bed allocation, transport and detention-adjacent legal status — with its own cultural safety questions, and an item filed under another feature will not be found by someone preparing Ward Flow for use. HARD GATE BEFORE ANY REAL-PATIENT USE. Not a blocker on further prototype building.",
       "source": "Ward Lead, 2026-09-04",
       "added": "2026-09-04"
+    },
+    {
+      "id": "#AY4KKK",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Playwright flake: 'mode menu dismisses when keyboard focus leaves its wrapper' failed on a head whose application code is byte-identical to one that passed 20 minutes earlier",
+      "detail": "tests/ui-accessibility.spec.ts :: PsychSift accessibility coverage > mode menu dismisses when keyboard focus leaves its wrapper failed the Production UI shard 2 job on PR #2664 head d73389889 (run 34044159807, job 101516153464, 16:14 on 2026-09-06). The ci-triage classifier called it 'needs investigation'. PROOF THIS IS A FLAKE, NOT A REGRESSION: the immediately preceding head 25cb63bd8 ran the whole pr-required set GREEN at 15:54:58 (run 34043035023), including this same shard, and git diff --name-only 25cb63bd8 d73389889 returns ONLY data/outstanding-issues-snapshot.json, one docs/branch-review-records file, and the docs/outstanding-issues-inbox moves from PR #2678's reconcile. No file under src/, tests/ or public/ differs at all, so the application code, the spec and the fixtures under test were byte-identical across the pass and the fail. PR #2664 itself changes no component, route or styling. NOT ROOT-CAUSED. The test asserts that the mode menu closes once keyboard focus leaves its wrapper, which is a focus/blur timing assertion and therefore sensitive to runner load, and this repo already carries two focus-and-hydration timing notes on the same spec file (#093 on Next streaming clone strict-mode violations, and #WJDQ0X on landmark rules that cleared only at a 9s settle). Next step: run the single test repeatedly on one SHA per docs/testing.md flake policy. It needs three reproductions on the same SHA before tests/flake-ledger.json quarantine is even permitted, and the better outcome is hardening the dismissal assertion to wait for the menu's own closed state rather than for a focus event. Do NOT weaken or delete the assertion to clear a red PR. Related but distinct: #1BHXEF (ward demo clock, Advisory UI), and the ward-flow lease-lock race captured earlier this session.",
+      "source": "PR #2664 run 34044159807 job 101516153464 vs green run 34043035023, 2026-09-06",
+      "added": "2026-09-06"
+    },
+    {
+      "id": "#WE5G2C",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Strict status checks plus a fast-moving main make PRs unmergeable by attrition; a merge queue would end the behind-branch race",
+      "detail": "Observed on PR #2664 across 2026-09-06, roughly twelve hours from open to merge with no review objection and no real defect in the diff. Mechanism: branch protection requires the branch to be level with main, so a PR that goes green while main has moved reads mergeable_state 'behind' and cannot merge. CI on this repo takes about 12 to 18 minutes for the pr-required set. Main merged roughly every 15 to 20 minutes that day, at one point taking nine commits within four minutes. Every sync push also cancels the in-flight run through cancel-in-progress, which surfaces as a 'PR required' failure carrying the literal line 'CANCELLED with no failing job', so the loop both restarts and looks red while doing it. Auto-merge SQUASH was armed from PR creation and updated the branch only intermittently, firing at 09:57, 12:45 and 13:14 but not at 09:59 or 10:18, so it cannot be relied on to win the race by itself. NET EFFECT: whichever PR is slowest to draw a quiet window on main pays for everyone else's merges, and the cost falls on correctness-neutral work. RECOMMENDATION: enable a GitHub merge queue on main. The queue builds each candidate against the head it will actually land on, so a PR never needs hand-syncing and CI is never cancelled by a competitor's merge. AGENTS.md already instructs sessions to treat merge queue state as read-only, so the operating rules anticipate one. Alternatives if a queue is unwanted: drop the strict up-to-date requirement for PRs whose changed paths cannot interact with main's recent commits, or narrow required checks so the green window is shorter than the average gap between merges to main. This is an owner and repository-settings decision, not a code change.",
+      "source": "PR #2664 session 2026-09-06; observed sync pushes 9dbdaa6, da8d0f6d2, e8bbcdba1 and CI runs 34023575924, 34036592050, 34038115122, 34038808851",
+      "added": "2026-09-06"
+    },
+    {
+      "id": "#TJKFDR",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Ward Flow lease acquisition lock is published non-atomically, so a competing process can read a half-written lock and fail outright",
+      "detail": "Failed Unit coverage on PR #2664 head e8bbcdba1 (run 34038808851, job 101501794483): tests/ward-flow-chat-control.test.ts > 'serializes cross-role lease acquisition across processes' expected stderr matching /already held|worktree already held/ but got 'lease acquisition lock is unreadable at /tmp/ward-chat-control-BzcaPW/.git/ward-flow-chat-control/acquire.lock.json; inspect it rather than bypassing custody'. ROOT CAUSE is in main's code, not the test. withLeaseAcquisitionLock in scripts/ward-flow/chat-control.mjs writes the lock with writeFileSync(lockPath, canonicalJson(owner), { encoding: 'utf8', flag: 'wx' }). The wx flag makes the CREATE exclusive, but creation and content are two steps, so a competitor can hit EEXIST in the window after the inode exists and before the holder's bytes are flushed, read the file back empty, and land in the catch at line 381. That branch calls fail() immediately with no retry, so a transient partial read is fatal, while the surrounding loop already retries the EEXIST path 200 times. Under CI load the window is wide enough to hit; the same test passed 3/3 locally on the same head, so it will not reproduce on a quiet machine. FIX: publish the lock atomically. Write a fully formed temp file at `${lockPath}.${owner.token}` then linkSync(staging, lockPath), which is atomic and throws EEXIST when already held, and rmSync the staging file in a finally. linkSync needs adding to the node:fs import; renameSync is already imported but is wrong here because it overwrites. The narrower alternative is to count unreadable reads and only fail() after a bounded number, but that leaves the race in place and only makes it rarer. Not fixed in PR #2664 because that PR is source-governance only and touches no Ward Flow file; the session branch constraint prevented opening a separate fix PR. Do not weaken or quarantine the test to clear it, the test is asserting the correct contract. Full diagnosis posted at https://github.com/BigSimmo/Database/pull/2664#issuecomment-5559938335",
+      "source": "PR #2664 CI run 34038808851 job 101501794483, 2026-09-06; scripts/ward-flow/chat-control.mjs:357-401",
+      "added": "2026-09-06"
     }
   ],
   "pending": []

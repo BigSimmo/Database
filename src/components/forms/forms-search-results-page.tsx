@@ -44,6 +44,7 @@ import {
   ResultFilterTrigger,
   resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { FormCodeBadge } from "@/components/forms/form-code-badge";
 import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
 import { replaceResultFilterUrl } from "@/lib/result-filter-url";
@@ -240,6 +241,10 @@ function ResultsTable({
                 aria-label={`Open ${form.title}`}
                 className={cn(
                   "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] group-hover:border-[color:var(--clinical-accent-border)] group-hover:bg-[color:var(--clinical-accent-soft)] md:justify-self-end",
+                  // The whole row opens the form, matching the phone card above
+                  // and the Open button's own `aria-label`, which already names
+                  // the form rather than the button.
+                  stretchedRowLinkClass,
                   searchFocusRing,
                 )}
               >
