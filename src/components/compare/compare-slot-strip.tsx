@@ -258,7 +258,15 @@ export function CompareSlotStrip({
               key={`${slot.label}-${index}`}
               className={cn(
                 pair && "contents",
-                compactRail && "min-w-[9.75rem] max-w-[11.5rem] shrink-0 snap-start sm:min-w-0 sm:max-w-none",
+                compactRail &&
+                  // Phone rail tile width. 11.5rem left the title 86px once the
+                  // badge and the 48px clear-button gutter were taken out, which
+                  // clipped "Persistent depressive disorder (dysthymia)" even at
+                  // three lines. Measured on `/dsm/compare` at 390px: 224px of
+                  // tile still clips, 248px does not. 15.5rem is the first clean
+                  // width, and a 358px strip still shows ~110px of the next tile,
+                  // so the rail keeps its scroll affordance.
+                  "min-w-[15.5rem] max-w-[17rem] shrink-0 snap-start sm:min-w-0 sm:max-w-none",
               )}
             >
               <CompareSlotTile
