@@ -15,6 +15,7 @@ import {
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
+  standaloneModeHomeHref,
 } from "@/lib/search-route-ownership";
 
 describe("shared-search route ownership", () => {
@@ -206,10 +207,11 @@ describe("shared-search route ownership", () => {
     expect(shellSource).toContain("isStandaloneModeHomePath(pathname)");
     expect(shellSource).not.toMatch(/searchMode === "services" && pathname === "\/services"/);
     // changeMode must not optimistic-set searchMode before navigation.
-    // The pill always returns to the shared home. A current query is carried only
-    // as a draft, never as `run=1`; pending state still guards the push.
+    // Dedicated modes return to their dedicated standalone home, while remaining modes
+    // return to the shared home. A current query is carried only as a draft, never as
+    // `run=1`; pending state still guards the push.
     expect(shellSource).toMatch(
-      /function changeMode\(mode: AppModeId\) \{[\s\S]*?const carriedQuery = query\.trim\(\) \|\| requestedQuery\.trim\(\);[\s\S]*?const href = appModeSelectionHref\(mode, \{[\s\S]*?query: carriedQuery \|\| undefined,[\s\S]*?router\.push\(href\);\n  \}/,
+      /function changeMode\(mode: AppModeId\) \{[\s\S]*?const carriedQuery = query\.trim\(\) \|\| requestedQuery\.trim\(\);[\s\S]*?const standaloneHome = standaloneModeHomeHref\(mode\);[\s\S]*?const href =\s*standaloneHome \?\?\s*appModeSelectionHref\(mode, \{[\s\S]*?query: carriedQuery \|\| undefined,[\s\S]*?router\.push\(href\);\n  \}/,
     );
     const changeMode = shellSource.slice(
       shellSource.indexOf("function changeMode("),
@@ -609,5 +611,24 @@ describe("shared-search route ownership", () => {
       /const isPageDesktopComposerPending =\s*isDefaultComposer && Boolean\(desktopPageComposerSlotId\) && !desktopComposerPortalFallback/,
     );
     expect(headerSource).toContain('isPageDesktopComposerPending && "sm:hidden"');
+  });
+
+  it("routes dedicated modes to their standalone homes and shared modes to null", () => {
+    expect(standaloneModeHomeHref("tools")).toBe("/tools");
+    expect(standaloneModeHomeHref("prescribing")).toBe("/medications");
+    expect(standaloneModeHomeHref("documents")).toBe("/documents");
+    expect(standaloneModeHomeHref("favourites")).toBe("/favourites");
+    expect(standaloneModeHomeHref("answer")).toBeNull();
+    expect(standaloneModeHomeHref("services")).toBeNull();
+    expect(standaloneModeHomeHref("forms")).toBeNull();
+    expect(standaloneModeHomeHref("differentials")).toBeNull();
+    expect(standaloneModeHomeHref("dsm")).toBeNull();
+    expect(standaloneModeHomeHref("specifiers")).toBeNull();
+    expect(standaloneModeHomeHref("formulation")).toBeNull();
+    expect(standaloneModeHomeHref("therapy-compass")).toBeNull();
+    expect(standaloneModeHomeHref("factsheets")).toBeNull();
+    expect(standaloneModeHomeHref("dictionary")).toBeNull();
+    expect(standaloneModeHomeHref("sources")).toBeNull();
+    expect(standaloneModeHomeHref("calculators")).toBeNull();
   });
 });

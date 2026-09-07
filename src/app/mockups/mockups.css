@@ -5,6 +5,7 @@
    Tailwind's responsive ordering when a mockup shares shell components with
    production. The complete theme-aware sheet retains Tailwind's own base and
    responsive ordering without overriding inline theming on later live routes. */
+@source "./";
 @source "../";
 @source "../../components";
 
@@ -44,6 +45,7 @@
    covers the same ground. `tests/mockup-utility-emission.test.ts` compiles this sheet
    and fails if any mockup utility stops being emitted, which is what makes the numbers
    above a standing check rather than a note about one afternoon. */
+@source "../../components/**/*mockup*";
 @source "../../components/*-mockup.tsx";
 @source "../../components/*-mockups.tsx";
 @source "../../components/*/*-mockup.tsx";

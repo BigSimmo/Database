@@ -206,7 +206,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
-import { isDashboardModeHref } from "@/lib/search-route-ownership";
+import { isDashboardModeHref, standaloneModeHomeHref } from "@/lib/search-route-ownership";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
   privateScopeReadyForRoute,
@@ -2636,6 +2636,12 @@ function ClinicalDashboardContent({
       return;
     }
     setLastAppMode(mode);
+
+    const standaloneHome = standaloneModeHomeHref(mode);
+    if (standaloneHome) {
+      router.push(standaloneHome);
+      return;
+    }
 
     // On the shared home the pill is NOT navigation — it only decides where the
     // composer will send you. Keep the page, the draft query and the scroll

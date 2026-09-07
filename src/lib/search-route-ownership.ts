@@ -62,6 +62,21 @@ export const standaloneModeHomePaths = [
  */
 const dashboardOwnedModeHomePaths = {} as const satisfies Record<string, AppModeId>;
 
+export function standaloneModeHomeHref(mode: AppModeId): string | null {
+  switch (mode) {
+    case "tools":
+      return "/tools";
+    case "prescribing":
+      return "/medications";
+    case "documents":
+      return "/documents";
+    case "favourites":
+      return "/favourites";
+    default:
+      return null;
+  }
+}
+
 export function isStandaloneModeHomePath(pathname: string): boolean {
   return standaloneModeHomePaths.includes(pathname as (typeof standaloneModeHomePaths)[number]);
 }

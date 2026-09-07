@@ -119,6 +119,7 @@ import {
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
+  standaloneModeHomeHref,
 } from "@/lib/search-route-ownership";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
@@ -727,15 +728,19 @@ function GlobalStandaloneSearchShellBody({
     }
     setLastAppMode(mode);
 
-    // The mode pill always returns to the shared home. Preserve any current query
-    // as an unsubmitted draft, but omit `run=1`; only an explicit submit may open
-    // the selected mode's dedicated search/results surface.
+    // Dedicated modes return to their dedicated standalone home. Remaining modes
+    // return to the shared home. Preserve any current query as an unsubmitted draft,
+    // but omit `run=1`; only an explicit submit may open the selected mode's
+    // dedicated search/results surface.
     const carriedQuery = query.trim() || requestedQuery.trim();
-    const href = appModeSelectionHref(mode, {
-      query: carriedQuery || undefined,
-      queryMode,
-      scopeFilters,
-    });
+    const standaloneHome = standaloneModeHomeHref(mode);
+    const href =
+      standaloneHome ??
+      appModeSelectionHref(mode, {
+        query: carriedQuery || undefined,
+        queryMode,
+        scopeFilters,
+      });
     const destination = new URL(href, window.location.origin);
     const destinationSearch = destination.search.startsWith("?") ? destination.search.slice(1) : destination.search;
     const alreadyOnDestination = pathname === destination.pathname && searchParamString === destinationSearch;

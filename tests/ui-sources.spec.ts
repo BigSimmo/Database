@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "playwright/test";
-import { expectSingleSettledOwner } from "./playwright-settlement";
+import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 async function blockExternalRequests(page: Page) {
   await page.route("**/*", async (route) => {
@@ -99,7 +99,7 @@ test("@critical Sources browse tabs carry the results band and reach the filtere
   await page.setViewportSize({ width: 390, height: 820 });
   await page.goto("/sources/topics", { waitUntil: "domcontentloaded" });
 
-  const topics = await expectSingleSettledOwner(page.getByTestId("sources-topics-main"));
+  const topics = await expectSingleSettledOwner(visibleByTestId(page, "sources-topics-main"));
   // The same band the Catalogue shows, counting topics rather than sources.
   await expect(page.getByTestId("search-query-ribbon")).toBeVisible();
   await expect(page.getByRole("status")).toContainText("topic");

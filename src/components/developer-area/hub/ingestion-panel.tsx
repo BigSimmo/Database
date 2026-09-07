@@ -263,7 +263,8 @@ export function IngestionPanel() {
       setState({
         kind: "fetch-error",
         fetchedAt,
-        message: "The ingestion jobs endpoint returned an unparseable response body that could not be parsed as JSON.",
+        message:
+          "Malformed response from ingestion endpoint: the ingestion jobs endpoint returned an unparseable response body that could not be parsed as JSON.",
       });
       return;
     }

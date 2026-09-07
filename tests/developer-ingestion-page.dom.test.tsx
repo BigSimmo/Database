@@ -150,6 +150,7 @@ describe("developer ingestion page — the four states (plan §4)", () => {
     );
     render(<DeveloperIngestionPage />);
     const errorState = await screen.findByTestId("developer-ingestion-fetch-error");
+    expect(errorState).toHaveTextContent("Malformed response from ingestion endpoint");
     expect(errorState).toHaveTextContent(/could not be parsed as json/i);
     expect(errorState).not.toHaveTextContent(/could not reach the ingestion jobs endpoint/i);
   });

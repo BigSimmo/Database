@@ -404,6 +404,8 @@ const perfExclusionPatterns = [
   // (`#EFETZT`, whose measured cost is "one full CI round trip" per
   // occurrence).
   "data/repo-awareness-snapshot.json",
+  "src/components/developer-area/hub",
+  "src/lib/developer-area",
 ];
 
 function isPerfChangedPath(filePath) {
@@ -1111,6 +1113,12 @@ function selfTest() {
   assertScope("perf-off-for-docs", ["docs/testing.md"], { docs_only: true, perf_changed: false });
   assertScope("perf-off-for-supabase", ["supabase/migrations/20260101000000_example.sql"], {
     db_changed: true,
+    perf_changed: false,
+  });
+  assertScope("perf-off-for-developer-hub-components", ["src/components/developer-area/hub/ingestion-panel.tsx"], {
+    perf_changed: false,
+  });
+  assertScope("perf-off-for-developer-hub-lib", ["src/lib/developer-area/repo-awareness-snapshot.ts"], {
     perf_changed: false,
   });
 

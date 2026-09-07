@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "07b99ccd-1ea8-481d-8fb6-b008dec8bffa",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#MPZTBR",
+    "outcome": "Resolved scope-statement footer documentation contradiction",
+    "baseRowFingerprint": "794789458bb6334674f30af965574e9dfd459a385b236bd338fa483bd011dae9"
+  }
+}

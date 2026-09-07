@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "77c1617b-9ad2-43af-9eeb-200edb5eb56d",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#JAEKM4",
+    "outcome": "Applied visibleByTestId to service-actions-trigger and sources-topics-main",
+    "baseRowFingerprint": "007f3994205d1b9f8565499a663a88da7c05c4a13956d4e659e7322eb4ce7e3c"
+  }
+}

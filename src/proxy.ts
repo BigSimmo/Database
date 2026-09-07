@@ -49,7 +49,6 @@ export const PROXY_AUTH_USER_HEADER = "x-proxy-auth-user";
  * redirect as a backstop for anything the matcher misses.
  */
 const staticRouteRedirects: Record<string, string> = {
-  "/mockups/document-search-command": "/documents/search",
   // Dictionary's Search and Browse were one catalogue behind two destinations
   // and are now one route; `view`, `letter`, `topic` and `kind` mean the same
   // thing there, so the query string travels unchanged.
