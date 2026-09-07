@@ -201,13 +201,26 @@ describe("corpus flip aligns the retrieval-scoped derived owners", () => {
     // at the ceiling, and refuses before touching a row.
     expect(childOwnerFunction.match(/limit v_max_child_rows \+ 1/g)?.length).toBe(2);
     expect(childOwnerFunction.match(/if v_child_row_probe > v_max_child_rows then/g)?.length).toBe(2);
-    // Each of the six updates then adds its real row_count, and the branch
-    // raises -- rolling the whole flip back -- if a concurrent insert pushed the
-    // total past the ceiling.
-    expect(childOwnerFunction.match(/get diagnostics v_updated = row_count;/g)?.length).toBe(6);
+    // Publication counts UPDATE RETURNING rows while recording their identities;
+    // restoration counts the three actual updates. Both refuse an oversized flip.
+    expect(childOwnerFunction.match(/select count\(\*\)::integer into v_updated from published;/g)?.length).toBe(3);
+    expect(childOwnerFunction.match(/get diagnostics v_updated = row_count;/g)?.length).toBe(3);
     expect(childOwnerFunction.match(/if v_child_rows > v_max_child_rows then/g)?.length).toBe(2);
     expect(childOwnerFunction.match(/using errcode = '54000'/g)?.length).toBe(4);
     expect(childOwnerMigration).toContain("publish in batches through public.publish_approved_documents instead");
+  });
+
+  it("restores only child identities actually changed by this activation", () => {
+    for (const [alias, column] of [
+      ["l", "published_label_ids"],
+      ["s", "published_summary_ids"],
+      ["f", "published_table_fact_ids"],
+    ]) {
+      expect(childOwnerFunction).toContain(`returning ${alias}.id, ${alias}.document_id`);
+      expect(childOwnerFunction).toContain(`set ${column} = snapshot.${column} || changed.ids`);
+      expect(childOwnerFunction.split(`${alias}.id = any(snapshot.${column})`)).toHaveLength(3);
+      expect(childOwnerGuardMigration).toContain(`${alias}.id = any(snapshot.${column})`);
+    }
   });
 
   it("carries the #ZBAC9D quarantine widening forward rather than reverting it", () => {

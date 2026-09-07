@@ -68,8 +68,17 @@ set local role service_role;
 select public.set_document_corpus_access_mode('public');
 reset role;
 insert into public.document_labels(document_id, owner_id, label, label_type)
-select '22222222-2222-4222-8222-222222222222', null, 'ceiling-' || n, 'custom'
-from generate_series(1, 200001) n;
+select '22222222-2222-4222-8222-222222222222', '22222222-2222-4222-8222-222222222222', 'ceiling-' || n, 'custom'
+from generate_series(1, 100001) n;
+set local role service_role;
+select public.set_document_corpus_access_mode('public');
+reset role;
+insert into public.document_labels(document_id, owner_id, label, label_type)
+select '22222222-2222-4222-8222-222222222222', '22222222-2222-4222-8222-222222222222', 'ceiling-' || n, 'custom'
+from generate_series(100002, 200002) n;
+set local role service_role;
+select public.set_document_corpus_access_mode('public');
+reset role;
 set local role service_role;
 do $$ begin
   begin

@@ -68,6 +68,10 @@ begin
           ('limit v_max_child_rows + 1'),
           ('if v_child_row_probe > v_max_child_rows then'),
           ('get diagnostics v_updated = row_count'),
+          ('select count(*)::integer into v_updated from published'),
+          ('l.id = any(snapshot.published_label_ids)'),
+          ('s.id = any(snapshot.published_summary_ids)'),
+          ('f.id = any(snapshot.published_table_fact_ids)'),
           ('if v_child_rows > v_max_child_rows then'),
           ('using errcode = ''54000'''),
           ('status = case when existing_owner.id is null and not ( snapshot.owner_id is null and snapshot.public_corpus_present and snapshot.public_corpus_value = ''true''::jsonb ) then ''failed'' else d.status end')

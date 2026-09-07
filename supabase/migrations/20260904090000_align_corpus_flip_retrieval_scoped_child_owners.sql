@@ -17,9 +17,8 @@
 -- summaries and table facts of those documents stayed owner-scoped, so the
 -- public sentinel ('00000000-0000-0000-0000-000000000000' -> row_owner_id is
 -- null) matched none of them. Answer context silently lost that evidence. The
--- degradation fails closed, and no live row is affected today (every document
--- currently has owner_id null), but it lands the first time the switch is used
--- for its purpose.
+-- degradation fails closed. Installing this definition does not invoke the
+-- switch; an operator invocation changes visibility and needs the canary protocol.
 --
 -- Scope and reversibility:
 --   * The publish updates are bounded to child rows whose owner still equals
@@ -27,7 +26,9 @@
 --     public.publish_approved_documents enforces before it nulls the same
 --     columns. A child row that disagrees with its document is left alone
 --     rather than published on a guess.
---   * The private branch restores those rows from the same snapshot, joined to
+--   * Actual updated child IDs are captured atomically in the activation snapshot.
+--     Pre-existing ownerless children and new ownerless children are never claimed
+--     during rollback. The private branch restores only recorded IDs, joined to
 --     auth.users so a deleted owner is never re-attached. Those columns are
 --     `on delete restrict` (20260901120000), so the stale uuid cannot be
 --     written back; the rows stay ownerless beside the document that the
@@ -65,9 +66,9 @@
 --     public.set_document_corpus_access_mode(...)` call, which is the only place
 --     that value can take effect.
 --
--- Retrieval predicates, ranking, ordering and selection are unchanged: this
--- migration only moves rows to the side of the existing public predicate where
--- their parent document already sits.
+-- RAG behavior changes: publishing child owners expands the public evidence set.
+-- Predicates and ranking code are unchanged, but rollout requires a baseline/post
+-- retrieval canary with document/content recall 1.0 and no per-case rank regression.
 --
 -- Ordering, and why this version number and not an earlier one. This migration
 -- REPLACES the whole function, so it must be the last migration that does. It
@@ -85,6 +86,13 @@
 --
 -- Replaces the function through a new version because every earlier version was
 -- already recorded by the hosted migration operation.
+
+alter table public.document_corpus_access_snapshots
+  add column if not exists published_label_ids uuid[] not null default '{}';
+alter table public.document_corpus_access_snapshots
+  add column if not exists published_summary_ids uuid[] not null default '{}';
+alter table public.document_corpus_access_snapshots
+  add column if not exists published_table_fact_ids uuid[] not null default '{}';
 
 create or replace function public.set_document_corpus_access_mode(p_mode text)
 returns jsonb
@@ -207,31 +215,61 @@ begin
     -- The three derived tables whose own owner_id reaches a retrieval owner
     -- predicate. Bounded to rows that still carry the snapshotted document
     -- owner, so the private branch restores exactly this set.
-    update public.document_labels l
-    set owner_id = null, updated_at = now()
-    from public.document_corpus_access_snapshots snapshot
-    where snapshot.activation_id = v_activation_id
-      and snapshot.document_id = l.document_id
-      and l.owner_id = snapshot.owner_id;
-    get diagnostics v_updated = row_count;
+    with published as (
+      update public.document_labels l
+      set owner_id = null, updated_at = now()
+      from public.document_corpus_access_snapshots snapshot
+      where snapshot.activation_id = v_activation_id
+        and snapshot.document_id = l.document_id
+        and l.owner_id = snapshot.owner_id
+      returning l.id, l.document_id
+    ), recorded as (
+      update public.document_corpus_access_snapshots snapshot
+      set published_label_ids = snapshot.published_label_ids || changed.ids
+      from (select document_id, array_agg(id) as ids from published group by document_id) changed
+      where snapshot.activation_id = v_activation_id
+        and snapshot.document_id = changed.document_id
+      returning snapshot.document_id
+    )
+    select count(*)::integer into v_updated from published;
     v_child_rows := v_child_rows + v_updated;
 
-    update public.document_summaries s
-    set owner_id = null, updated_at = now()
-    from public.document_corpus_access_snapshots snapshot
-    where snapshot.activation_id = v_activation_id
-      and snapshot.document_id = s.document_id
-      and s.owner_id = snapshot.owner_id;
-    get diagnostics v_updated = row_count;
+    with published as (
+      update public.document_summaries s
+      set owner_id = null, updated_at = now()
+      from public.document_corpus_access_snapshots snapshot
+      where snapshot.activation_id = v_activation_id
+        and snapshot.document_id = s.document_id
+        and s.owner_id = snapshot.owner_id
+      returning s.id, s.document_id
+    ), recorded as (
+      update public.document_corpus_access_snapshots snapshot
+      set published_summary_ids = snapshot.published_summary_ids || changed.ids
+      from (select document_id, array_agg(id) as ids from published group by document_id) changed
+      where snapshot.activation_id = v_activation_id
+        and snapshot.document_id = changed.document_id
+      returning snapshot.document_id
+    )
+    select count(*)::integer into v_updated from published;
     v_child_rows := v_child_rows + v_updated;
 
-    update public.document_table_facts f
-    set owner_id = null
-    from public.document_corpus_access_snapshots snapshot
-    where snapshot.activation_id = v_activation_id
-      and snapshot.document_id = f.document_id
-      and f.owner_id = snapshot.owner_id;
-    get diagnostics v_updated = row_count;
+    with published as (
+      update public.document_table_facts f
+      set owner_id = null
+      from public.document_corpus_access_snapshots snapshot
+      where snapshot.activation_id = v_activation_id
+        and snapshot.document_id = f.document_id
+        and f.owner_id = snapshot.owner_id
+      returning f.id, f.document_id
+    ), recorded as (
+      update public.document_corpus_access_snapshots snapshot
+      set published_table_fact_ids = snapshot.published_table_fact_ids || changed.ids
+      from (select document_id, array_agg(id) as ids from published group by document_id) changed
+      where snapshot.activation_id = v_activation_id
+        and snapshot.document_id = changed.document_id
+      returning snapshot.document_id
+    )
+    select count(*)::integer into v_updated from published;
     v_child_rows := v_child_rows + v_updated;
 
     if v_child_rows > v_max_child_rows then
@@ -269,6 +307,7 @@ begin
       join auth.users existing_owner on existing_owner.id = snapshot.owner_id
       join public.document_labels l
         on l.document_id = snapshot.document_id and l.owner_id is null
+          and l.id = any(snapshot.published_label_ids)
       where snapshot.activation_id = v_activation_id
       union all
       select 1
@@ -276,6 +315,7 @@ begin
       join auth.users existing_owner on existing_owner.id = snapshot.owner_id
       join public.document_summaries s
         on s.document_id = snapshot.document_id and s.owner_id is null
+          and s.id = any(snapshot.published_summary_ids)
       where snapshot.activation_id = v_activation_id
       union all
       select 1
@@ -283,6 +323,7 @@ begin
       join auth.users existing_owner on existing_owner.id = snapshot.owner_id
       join public.document_table_facts f
         on f.document_id = snapshot.document_id and f.owner_id is null
+          and f.id = any(snapshot.published_table_fact_ids)
       where snapshot.activation_id = v_activation_id
       limit v_max_child_rows + 1
     ) bounded_probe;
@@ -345,7 +386,8 @@ begin
     join auth.users existing_owner on existing_owner.id = snapshot.owner_id
     where snapshot.activation_id = v_activation_id
       and snapshot.document_id = l.document_id
-      and l.owner_id is null;
+      and l.owner_id is null
+      and l.id = any(snapshot.published_label_ids);
     get diagnostics v_updated = row_count;
     v_child_rows := v_child_rows + v_updated;
 
@@ -355,7 +397,8 @@ begin
     join auth.users existing_owner on existing_owner.id = snapshot.owner_id
     where snapshot.activation_id = v_activation_id
       and snapshot.document_id = s.document_id
-      and s.owner_id is null;
+      and s.owner_id is null
+      and s.id = any(snapshot.published_summary_ids);
     get diagnostics v_updated = row_count;
     v_child_rows := v_child_rows + v_updated;
 
@@ -365,7 +408,8 @@ begin
     join auth.users existing_owner on existing_owner.id = snapshot.owner_id
     where snapshot.activation_id = v_activation_id
       and snapshot.document_id = f.document_id
-      and f.owner_id is null;
+      and f.owner_id is null
+      and f.id = any(snapshot.published_table_fact_ids);
     get diagnostics v_updated = row_count;
     v_child_rows := v_child_rows + v_updated;
 
@@ -406,7 +450,7 @@ end;
 $$;
 
 comment on function public.set_document_corpus_access_mode(text) is
-  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows together with the three derived owner columns that are themselves retrieval visibility decisions (document_labels, document_summaries, document_table_facts); private mode restores surviving owners and quarantines deleted-owner rows from document and retrieval reads. Derived artifacts filtered through their parent document owner are never rewritten. Each branch refuses, and rolls the whole flip back, rather than rewriting more than 200000 of those derived rows in one synchronous call; publish a larger corpus in batches through public.publish_approved_documents. Wall-clock bounding belongs to the caller: issue set local statement_timeout in the same transaction, because a function-level setting cannot re-arm a timer the running statement already started.';
+  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows together with the three derived owner columns that are themselves retrieval visibility decisions (document_labels, document_summaries, document_table_facts); private mode restores only child IDs actually published by that activation to surviving owners and quarantines deleted-owner rows from document and retrieval reads. Derived artifacts filtered through their parent document owner are never rewritten. Each branch refuses, and rolls the whole flip back, rather than rewriting more than 200000 of those derived rows in one synchronous call; publish a larger corpus in batches through public.publish_approved_documents. Wall-clock bounding belongs to the caller: issue set local statement_timeout in the same transaction, because a function-level setting cannot re-arm a timer the running statement already started.';
 
 revoke all on function public.set_document_corpus_access_mode(text)
   from public, anon, authenticated, service_role;
