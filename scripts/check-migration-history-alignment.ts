@@ -127,7 +127,8 @@ export async function resolveAlignment(args: {
   );
 
   for (let attempt = 1; attempt < attempts; attempt += 1) {
-    if (args.allowPending || diff.localOnly.length === 0) break;
+    // Waiting can settle pending applies, but cannot supply missing local files.
+    if (args.allowPending || diff.remoteOnly.length > 0 || diff.localOnly.length === 0) break;
     log(
       `${diff.localOnly.length} version(s) not yet in live history; re-reading in ${Math.round(waitMs / 1000)}s ` +
         `(attempt ${attempt + 1}/${attempts}) in case the Supabase integration is still applying them.`,

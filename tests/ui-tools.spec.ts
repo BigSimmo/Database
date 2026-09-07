@@ -3079,7 +3079,7 @@ test.describe("PsychSift service detail page", () => {
       // the header is a sibling of the shell rather than inside it — one page
       // header per route, portaled into the phone collapse row below `sm`.
       await expect(page.getByRole("link", { name: "Back to services" })).toBeVisible();
-      await page.getByTestId("service-actions-trigger").click();
+      await visibleByTestId(page, "service-actions-trigger").click();
       const actions = page.getByTestId("service-actions-sheet");
       await expect(actions.getByRole("button", { name: "Save service" })).toBeVisible();
       await expect(actions.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:139276");
@@ -3183,7 +3183,7 @@ test.describe("PsychSift service detail page", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
-    await page.getByTestId("service-actions-trigger").click();
+    await visibleByTestId(page, "service-actions-trigger").click();
     await page.getByTestId("service-actions-sheet").getByRole("button", { name: "Use in navigator" }).click();
     await expect(page).toHaveURL(/\/services\/search\?/);
     await expect(page).toHaveURL(/run=1/);
@@ -3195,7 +3195,7 @@ test.describe("PsychSift service detail page", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services/adult-home-treatment-team");
 
-    await page.getByTestId("service-actions-trigger").click();
+    await visibleByTestId(page, "service-actions-trigger").click();
     const actions = page.getByTestId("service-actions-sheet");
     await expect(actions.getByRole("link", { name: "Call" })).toBeVisible();
     await expect(actions.getByRole("link", { name: "Open source" })).toHaveAttribute("href", /^https?:\/\//);
@@ -3207,7 +3207,7 @@ test.describe("PsychSift service detail page", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
-    const actionsTrigger = page.getByTestId("service-actions-trigger");
+    const actionsTrigger = visibleByTestId(page, "service-actions-trigger");
     const actions = page.getByTestId("service-actions-sheet");
 
     // The action closes the sheet, so the feedback banner it writes has to stay

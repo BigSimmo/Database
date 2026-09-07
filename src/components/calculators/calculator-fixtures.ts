@@ -86,7 +86,28 @@ export type CalculatorFixture = {
   interpretationPolicy: string;
   sourceIds: string[];
   claimIds: string[];
-  rights: { status: "available" | "permission_review_required" | "unknown" };
+  /**
+   * Reproduction/use rights for the instrument itself, distinct from the review-workflow
+   * `rights.status` used elsewhere to gate release. `holder`, `digitalUseAllowed`,
+   * `modificationAllowed`, `attributionRequired` and `verifiedAt` are populated only for
+   * instruments whose rights position has actually been checked against a public source —
+   * see `rightsInfo` below.
+   */
+  rights: CalculatorRights;
+  /**
+   * SHA-256 fingerprint (see `computeResponseAnchorFingerprint`-equivalent generation) of
+   * this fixture's response anchors — every item's kind plus its option labels and point
+   * values, or its checkbox point value, in item order. Pinned by hand at authoring time so
+   * an anchor edited without updating this ID goes red in
+   * `tests/calculators-governance-hardening.test.ts`, rather than silently drifting.
+   */
+  responseAnchorSetId: string;
+  /**
+   * SHA-256 fingerprint of the administered name, stem, item wording, details and safety flags.
+   * This is separate from `responseAnchorSetId` so wording and scoring-anchor reviews cannot
+   * accidentally stand in for one another.
+   */
+  wordingSetId: string;
   jurisdiction: string;
   lastReviewed: string;
   nextReview: string;
@@ -98,6 +119,30 @@ export type CalculatorFixture = {
   releaseStatus: "available" | "quarantined";
   limitations: string[];
   unresolvedIssues: string[];
+};
+
+/**
+ * Reproduction/use rights for an instrument. `status` mirrors the release-gating union used
+ * elsewhere (`available` | `permission_review_required` | `unknown`); the remaining fields
+ * are populated only once a source stating the position has actually been checked — see
+ * `rightsInfo` below and the calculator governance hardening PR notes for what was verified.
+ */
+export type CalculatorRights = {
+  status: "available" | "permission_review_required" | "unknown";
+  /** Copyright/rights holder, or "Public domain" plus the originating author when applicable. */
+  holder?: string;
+  /** Whether the holder's stated policy covers reproducing the instrument in a digital tool. */
+  digitalUseAllowed?: boolean;
+  /** Whether wording/item changes are permitted — false unless a source explicitly allows it. */
+  modificationAllowed?: boolean;
+  /** Whether the holder's policy (or ordinary academic practice) requires citing the source. */
+  attributionRequired?: boolean;
+  /** Date (YYYY-MM-DD) this rights position was last checked against a public source. */
+  verifiedAt?: string;
+  /** Evidence-registry source that directly states the permission represented here. */
+  sourceId?: string;
+  /** Human-readable boundary on the permission, including non-commercial restrictions. */
+  permissionScope?: string;
 };
 
 type RawScoreBand = Omit<ScoreBand, "interpretation"> & { guidance: string };
@@ -113,6 +158,8 @@ type RawCalculatorFixture = Omit<
   | "sourceIds"
   | "claimIds"
   | "rights"
+  | "responseAnchorSetId"
+  | "wordingSetId"
   | "jurisdiction"
   | "lastReviewed"
   | "nextReview"
@@ -731,6 +778,112 @@ const calculatorFixtures: RawCalculatorFixture[] = [
 
 const activeCalculatorIds = new Set(["phq9", "gad7", "k10", "cage", "auditc"]);
 
+/**
+ * SHA-256 response-anchor fingerprints, pinned by hand from each fixture's current items
+ * (kind, options label+points, or checkbox point value, in item order). Regenerate a value
+ * here — do not hand-edit the hex — whenever the corresponding fixture's items change; the
+ * governance test recomputes the fingerprint from the live items and fails on any mismatch.
+ */
+const responseAnchorSetIds: Record<string, string> = {
+  phq9: "rax-b9f706a1a226d782",
+  gad7: "rax-761ef68846c9a4d2",
+  k10: "rax-f16ed6eed3763e0d",
+  mdq: "rax-22ff4ff2e31ba1b2",
+  cage: "rax-a9efad27e70f3351",
+  auditc: "rax-2542f10c0cd037e1",
+  sadpersons: "rax-d3e9691eb7b40e58",
+  ybocs: "rax-127633983e754a29",
+};
+
+/**
+ * Independently pinned wording fingerprints. The governance test recomputes each value from the
+ * instrument name, stem, item text, item detail and safety-flag wording. Response options remain
+ * pinned separately by `responseAnchorSetIds`.
+ */
+const wordingSetIds: Record<string, string> = {
+  phq9: "wrx-bd754250f996e7e2",
+  gad7: "wrx-a40cb4434a309c68",
+  k10: "wrx-beff4c4323324b73",
+  mdq: "wrx-7cb67e4100d0172a",
+  cage: "wrx-682d12e6df5ac388",
+  auditc: "wrx-fe367617c29c4429",
+  sadpersons: "wrx-2d468bed49cc9495",
+  ybocs: "wrx-be0333b17ced1d1b",
+};
+
+/**
+ * Rights positions checked against the reviewed source identified by each record's `sourceId`.
+ * Every value below reflects what that source documents as of the `verifiedAt` date:
+ *
+ * - PHQ-9 / GAD-7: the official Pfizer instrument sheets state "No permission required to
+ *   reproduce, translate, display or distribute" for clinical, educational and research use.
+ * - K10: Ronald C. Kessler permits use without formal approval, while retaining copyright and
+ *   requiring citation and copyright acknowledgement.
+ * - CAGE: Dr John Ewing's permission statement allows clinical and research use but requires a
+ *   negotiated payment for a profit-making endeavour.
+ * - AUDIT-C: the first three items of WHO AUDIT; the reviewed AUDIT rights statement permits
+ *   non-commercial use without material change and requires WHO acknowledgement.
+ *
+ * `modificationAllowed` is conservatively `false` for every instrument here: none of the
+ * above sources grants permission to alter item wording or scoring, and altering a validated
+ * instrument's wording invalidates its psychometrics regardless of the rights position.
+ */
+const rightsInfo: Record<string, CalculatorRights> = {
+  phq9: {
+    status: "available",
+    holder: "Pfizer Inc.",
+    digitalUseAllowed: true,
+    modificationAllowed: false,
+    attributionRequired: true,
+    verifiedAt: "2026-09-04",
+    sourceId: "source:rights:phq-gad7",
+    permissionScope: "Unrestricted access and reproduction under Pfizer's published statement.",
+  },
+  gad7: {
+    status: "available",
+    holder: "Pfizer Inc.",
+    digitalUseAllowed: true,
+    modificationAllowed: false,
+    attributionRequired: true,
+    verifiedAt: "2026-09-04",
+    sourceId: "source:rights:phq-gad7",
+    permissionScope: "Unrestricted access and reproduction under Pfizer's published statement.",
+  },
+  k10: {
+    status: "available",
+    holder: "Ronald C. Kessler, PhD",
+    digitalUseAllowed: true,
+    modificationAllowed: false,
+    attributionRequired: true,
+    verifiedAt: "2026-09-04",
+    sourceId: "source:rights:k10",
+    permissionScope: "Free use without formal approval; citation and copyright acknowledgement required.",
+  },
+  cage: {
+    status: "available",
+    holder: "John A. Ewing / Bowles Center for Alcohol Studies",
+    digitalUseAllowed: true,
+    modificationAllowed: false,
+    attributionRequired: true,
+    verifiedAt: "2026-09-04",
+    sourceId: "source:rights:cage",
+    permissionScope: "Clinical and research use; profit-making use requires negotiated permission.",
+  },
+  auditc: {
+    status: "available",
+    holder: "World Health Organization (WHO) — derived from the AUDIT instrument",
+    digitalUseAllowed: true,
+    modificationAllowed: false,
+    attributionRequired: true,
+    verifiedAt: "2026-09-04",
+    sourceId: "source:rights:audit",
+    permissionScope: "Non-commercial use without material change; identify it as a WHO-approved instrument.",
+  },
+  mdq: { status: "permission_review_required" },
+  sadpersons: { status: "unknown" },
+  ybocs: { status: "unknown" },
+};
+
 function sourceIdFor(id: string) {
   return `source:${id}`;
 }
@@ -741,7 +894,6 @@ function claimIdFor(id: string) {
 
 function metadataFor(id: string): Omit<CalculatorFixture, keyof RawCalculatorFixture | "bands"> {
   const active = activeCalculatorIds.has(id);
-  const rightsStatus = id === "mdq" ? "permission_review_required" : active ? "available" : "unknown";
 
   return {
     instrumentVersion: `${id.toUpperCase()} catalogue fixture v1`,
@@ -754,7 +906,9 @@ function metadataFor(id: string): Omit<CalculatorFixture, keyof RawCalculatorFix
       "Interpretation describes the completed instrument result only and does not determine management.",
     sourceIds: [sourceIdFor(id), "source:governance"],
     claimIds: [claimIdFor(id), ...(id === "phq9" ? ["claim:phq9:safety-flag"] : [])],
-    rights: { status: rightsStatus },
+    rights: rightsInfo[id] ?? { status: "unknown" },
+    responseAnchorSetId: responseAnchorSetIds[id] ?? "",
+    wordingSetId: wordingSetIds[id] ?? "",
     jurisdiction:
       id === "k10" || id === "auditc" ? "Australia" : "International instrument with Australian use context",
     lastReviewed: "2026-09-01",

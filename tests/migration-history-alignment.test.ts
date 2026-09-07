@@ -221,6 +221,26 @@ describe("merged-but-unapplied migrations fail the post-merge gate", () => {
     expect(slept).toEqual([1_000, 1_000]);
   });
 
+  it("fails immediately when remote-only versions cannot be repaired by waiting", async () => {
+    const readRemote = vi.fn(async () => ({
+      rows: [{ version: "20260103000000", name: null }],
+      source: "rpc" as const,
+    }));
+    const sleep = vi.fn(async () => {});
+    const result = await resolveAlignment({
+      localVersions: ["20260101000000"],
+      readRemote,
+      allowPending: false,
+      sleep,
+      log: () => {},
+    });
+
+    expect(result.diff).toEqual({ remoteOnly: ["20260103000000"], localOnly: ["20260101000000"] });
+    expect(alignmentFailureMessage(result.diff, { allowPending: false })).not.toBeNull();
+    expect(readRemote).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
   it("does not wait at all when pending versions are explicitly allowed", async () => {
     const slept: number[] = [];
 
