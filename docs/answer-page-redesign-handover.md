@@ -775,4 +775,24 @@ Calculators, Factsheets, Sources, On Call and Favourites are still unreachable f
 not by omission — they contribute no cross-entity search domain at all
 (`universal-search-mode-context.ts`), so nothing can resolve a link to them from any surface.
 
+**The collapsed line itself is gone (owner decision, 2026-09-07).** Direction B's one-line
+disclosure was reversed on the same day the data was widened, on the owner's read of the built
+surface: the answer page should not carry a control that behaves unlike the same block
+everywhere else in the product. The answer surface now renders `variant="card"`, the open strip
+the DSM diagnosis page and the mockups already used, so §12.8's "one panel, not two" holds while
+its "one collapsed line" does not.
+
+What that costs is roughly 90px of resting height on a phone, which is the trade §12.8 made in
+the other direction. What it buys is that the matches can be read rather than opened, and that
+one component has one behaviour. `CrossModeLinksLine` is left in `cross-mode-links.tsx` with no
+consumer — deleting it would throw away a considered design that is one prop away from
+returning, and the `line` variant remains part of the component's public shape.
+
+Three browser tests carried the disclosure as their contract and were updated rather than
+dropped. Each now asserts a visible rail _and_ the absence of a trigger, so a disclosure
+reappearing under an answer fails the suite. The 1280px case keeps its computed-display
+assertion on the rail: width is where the previous design broke, when a `hidden` beside a
+`md:flex` in one class list lost to the media-query rule from 768px up and left a rail painted
+open while its own trigger reported it closed.
+
 ---
