@@ -7,6 +7,7 @@ import {
   serializeGitHubOutputs,
   updateHybridRpcHourlyEvidence,
 } from "../scripts/ops-digest.mjs";
+import { evaluateOperationalAlerts, summarizeOperationalAlerts } from "../scripts/lib/operational-alerts.mjs";
 
 describe("resolveHealthUrl", () => {
   it("appends the deep health path to a bare base URL", () => {
@@ -93,6 +94,61 @@ describe("hybrid RPC hourly evidence", () => {
 });
 
 describe("renderDigest", () => {
+  it("distinguishes an empty hourly window without clearing its unknown-quality alert", () => {
+    const health = {
+      status: "ok",
+      slo: {
+        windowMinutes: 60,
+        totalQueries: 0,
+        hybridRpcErrorRate: 0,
+        degradedRate: 0,
+        truncationFallbackRate: 0,
+        timeoutFallbackRate: 0,
+      },
+    };
+    const md = renderDigest(health);
+    expect(md).toContain("**Service readiness:** 🟢 ok");
+    expect(md).toContain("No answered queries observed—answer quality not assessed.");
+    for (const label of ["hybrid RPC errors", "degraded/source-only", "truncation fallbacks", "timeout fallbacks"]) {
+      expect(md).toContain(`${label}: 0 (N/A)`);
+    }
+    expect(md).not.toContain("0.0%");
+    expect(md).toContain("**Alert state:** unknown (1)");
+    const summary = summarizeOperationalAlerts(evaluateOperationalAlerts(health));
+    expect(summary).toEqual({
+      alerting: true,
+      severity: "unknown",
+      count: 1,
+      codes: ["OPS_ANSWER_SLO_UNKNOWN"],
+    });
+    expect(serializeGitHubOutputs(health.status, summary)).toContain("alerting=true\nseverity=unknown\n");
+  });
+
+  it.each([undefined, {}, { windowMinutes: 60 }, { windowMinutes: 30, totalQueries: 0 }])(
+    "does not describe missing or invalid hourly telemetry as no answer activity: %j",
+    (slo) => {
+      const md = renderDigest({ status: "ok", slo });
+      expect(md).not.toContain("No answered queries observed—answer quality not assessed.");
+      expect(md).toContain("**Alert state:** unknown (1)");
+      expect(md).toContain("OPS_ANSWER_SLO_UNKNOWN");
+    },
+  );
+
+  it.each([
+    [0.3, "warning", "OPS_DEGRADED_ANSWER_RATE_WARNING"],
+    [0.6, "page", "OPS_DEGRADED_ANSWER_RATE_PAGE"],
+  ] as const)("preserves measured degradation at rate %s", (degradedRate, severity, code) => {
+    const md = renderDigest({
+      status: "ok",
+      slo: { windowMinutes: 60, totalQueries: 10, hybridRpcErrorRate: 0, degradedRate },
+    });
+    expect(md).not.toContain("No answered queries observed—answer quality not assessed.");
+    expect(md).not.toContain("N/A");
+    expect(md).toContain(`(${(degradedRate * 100).toFixed(1)}%)`);
+    expect(md).toContain(`**Alert state:** ${severity} (1)`);
+    expect(md).toContain(code);
+  });
+
   it("renders an unreachable digest when the probe failed", () => {
     const md = renderDigest(null, { error: "timeout after 20000ms" });
     expect(md).toContain("unreachable");
