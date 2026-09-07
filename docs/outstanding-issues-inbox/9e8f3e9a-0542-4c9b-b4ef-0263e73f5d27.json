@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "9e8f3e9a-0542-4c9b-b4ef-0263e73f5d27",
+  "createdOn": "2026-09-07",
+  "action": "update",
+  "payload": {
+    "id": "#KHTTW4",
+    "detail": "ASSESSED AND LARGELY OVERTAKEN 2026-09-07, on a fresh worktree at origin/main 0177bed. FIRST HALF IS FIXED, NOT BY THIS ROW: npm run test:e2e:ward-journeys now reports 71 passed, 3 skipped, 0 failed. The eight failures this row recorded are gone. Two of the three skips are the ui-ward-morning pair, and their skip is a documented owner-approved decision rather than a silencing: MERGE 02 (2026-09-05) folded the morning board into CapacityScreen, /mockups/ward-flow/morning is now a redirect stub, MorningPage is unmounted, and morning-page.tsx's own doc comment forbids retargeting the spec at CapacityScreen or re-mounting the component pending the owner's ruling on spec D9. Component-level coverage continues in tests/ward-morning-page.dom.test.tsx (20 cases) and tests/ward-morning-print.test.ts. SECOND HALF IS BUILT BUT INERT, AND THAT IS THE ONLY REMAINING ACTION. The blocking lane ui-ward-journeys in .github/workflows/ci.yml no longer scopes on ward paths - it now gates on needs.changes.outputs.ui_changed - so the path-scoped blind spot this row named is designed out. But the job also requires vars.WARD_JOURNEYS_BLOCKING == 'true', which is unset by default, so it is skipped and pr-required records it skipped-and-fine. That inertness is deliberate and documented in the workflow: a lane that is already red, made blocking, stops every UI pull request in the repository, so the author required one deliberate act in repository settings at the moment somebody has a green run of the journeys in front of them. THAT PRECONDITION IS NOW MET and the green run is quoted above. NEXT ACTION, owner only: set repository variable WARD_JOURNEYS_BLOCKING to true. It is a GitHub settings change, not a code change, so no PR can do it. Close this row once it is set and one PR has shown the lane reporting.",
+    "source": "Assessment session 2026-09-07: fresh origin/main worktree, local chromium-mockups run, and a read of ci.yml plus ui-ward-morning.spec.ts",
+    "baseRowFingerprint": "119605ea523b039ea176fbbc0860e20492b68c77669a199d3c341b9c7046dc3f"
+  }
+}
