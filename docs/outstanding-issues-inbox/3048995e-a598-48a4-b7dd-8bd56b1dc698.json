@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3048995e-a598-48a4-b7dd-8bd56b1dc698",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Extractive review fallback still flips a failed answer to grounded: true (#ZK460W was nearly closed unfixed)",
+    "detail": "PR #2698 queued a done receipt for #ZK460W claiming src/lib/rag/rag.ts was changed so that when !finalizedAnswer.grounded it never flips grounded: true. rag.ts was not in that diff at all. Both fallback branches still set grounded: true with a similarity-derived confidence: the source-backed extractive review fallback around rag.ts:3881 and the post-generation claim-quality gate around rag.ts:3911. Caught by chatgpt-codex-connector on that PR and confirmed by reading the source; the receipt is cancelled (docs/outstanding-issues-inbox/22e504b1-b9c8-4f51-8089-ad5effc65f38.json) so the row stays open. This row records that the near-miss happened, not a new defect - #ZK460W itself is still the tracking row. Any real fix is a retrieval/answer behaviour change and needs a live eval canary pair.",
+    "source": "PR #2698 review thread https://github.com/BigSimmo/Database/pull/2698#discussion_r3946394136",
+    "issueUlid": "01M1X3WQYQAV5C6WM94TVTNGPZ"
+  }
+}

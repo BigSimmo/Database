@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2b026c1b-28ed-46e5-967c-b832ee2acd26",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The ui-tools forms-sorting spec ranks with interpretNaturalLanguage off while the page ranks with it on",
+    "detail": "tests/ui-tools.spec.ts 'result sorting persists in the URL and restores through browser history' is red on main. It built its relevance expectation as the hardcoded slug 'transport-crisis-form' and its A-Z expectation from rankFormRecords(formRecords, 'transport forms') - the four-argument form, leaving interpretNaturalLanguage at its false default. Every production caller passes true (src/components/forms/forms-search-results-page.tsx:634, src/components/clinical-dashboard/use-deferred-registry-search.ts:44, src/app/api/registry/records/route.ts:53), so page and spec ranked the same query by different rules. Reproduced against the isolated production build: expected form-search-result-transport-crisis-form, received form-search-result-detention-examination-movement. It failed identically on PRs #2697, #2698 and #2699, none of which touch forms search. The fix (derive both expectations from the same five-argument call) is carried by all three; close this row once whichever lands first carries it to main.",
+    "source": "reproduced locally 2026-09-07; PRs #2697 #2698 #2699",
+    "issueUlid": "01M1X3WQX76QN9KZHPSZMN5VWE"
+  }
+}
