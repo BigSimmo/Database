@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { invalidRequestResponse } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { createSearchFilterToken } from "@/lib/caring-contacts/caseload-search-token";
@@ -42,7 +43,11 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     body = await parseJsonBody(request, searchRequestSchema);
   } catch {
-    return NextResponse.json({ error: "invalid-request-payload" }, { status: 400 });
+    // The schema-validated helper every sibling Caring Contacts route uses for an unparseable
+    // body (see access-trail/route.ts) rather than a route-local `NextResponse.json({ error })`
+    // envelope -- `tests/api-validation-contract.test.ts` holds every route under `src/app/api`
+    // to that boundary.
+    return invalidRequestResponse();
   }
 
   const actor = await resolveDemoActor();
