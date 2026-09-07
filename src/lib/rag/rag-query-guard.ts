@@ -36,7 +36,10 @@ const clearlyNonClinicalConsumerPattern =
  * so the raw path also catches an en dash, a non-breaking hyphen, or a double space.
  */
 export const clearlyOutsideCorpusMedicalPattern =
-  /\b(?:diabetic ketoacidosis|community[^a-z0-9]{1,3}acquired pneumonia|adolescent depression|hyperkalaemia|hyperkalemia)\b/i;
+  /\b(?:diabetic ketoacidosis|community[^a-z0-9]{1,3}acquired pneumonia)\b/i;
+
+const psychiatricOrClinicalContextPattern =
+  /\b(?:ssri|antidepressant|antipsychotic|lithium|bipolar|depression|depressive|anxiety|psychiatry|psychiatric|triage|crisis|consultation|therapy|dose|dosage|medication|hyperkalaemia|hyperkalemia|schizophrenia|catatonia)\b/i;
 
 export const unavailableDocumentNoisePattern =
   /\b(?:newly uploaded|future synthetic|not been uploaded|not uploaded|2027 revised|airport travel policy|gardening equipment checklist)\b/i;
@@ -81,12 +84,21 @@ export function normalizeGuardQuery(text: string) {
     .trim();
 }
 
+function isNonClinicalConsumerQuery(query: string, analysis: ClinicalQueryAnalysis): boolean {
+  if (!clearlyNonClinicalConsumerPattern.test(query)) return false;
+  if (psychiatricOrClinicalContextPattern.test(query)) return false;
+  if (analysis.medications.length > 0 || analysis.thresholdTerms.length > 0 || analysis.documentTitleTerms.length > 0) {
+    return false;
+  }
+  return true;
+}
+
 export function shouldShortCircuitUnsupportedSearch(query: string, analysis: ClinicalQueryAnalysis) {
   if (unavailableDocumentNoisePattern.test(query)) return true;
   if (clearlyOutsideCorpusMedicalPattern.test(normalizeGuardQuery(query)) && analysis.documentTitleTerms.length === 0)
     return true;
   if (!unsupportedSoftTailEligible(analysis)) return false;
-  if (clearlyNonClinicalConsumerPattern.test(query)) return true;
+  if (isNonClinicalConsumerQuery(query, analysis)) return true;
   return analysis.confidence <= DEFAULT_SOFT_TAIL_CONFIDENCE_THRESHOLD && analysis.expandedTerms.length <= 5;
 }
 
@@ -96,7 +108,7 @@ export function isUnsupportedSoftTailAnalysis(query: string, analysis: ClinicalQ
   if (clearlyOutsideCorpusMedicalPattern.test(normalizeGuardQuery(query)) && analysis.documentTitleTerms.length === 0)
     return false;
   if (!unsupportedSoftTailEligible(analysis)) return false;
-  if (clearlyNonClinicalConsumerPattern.test(query)) return false;
+  if (isNonClinicalConsumerQuery(query, analysis)) return false;
   return analysis.confidence <= DEFAULT_SOFT_TAIL_CONFIDENCE_THRESHOLD && analysis.expandedTerms.length <= 5;
 }
 

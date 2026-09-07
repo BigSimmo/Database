@@ -88,15 +88,16 @@ Drugs a selector would otherwise have swept in. Each is a clinical claim worth c
 
 Records where a term is present in the text but is **not** read as naming a counterparty — usually
 because the record is using the class word for its own drug. Every interaction row on the record is
-affected, so each of these is a clinical claim worth checking.
+affected, so each of these is a clinical claim worth checking. Each exclusion requires an authored
+clinical rationale.
 
-| Term       | Not read as a counterparty on | Rows affected | The wording it appears in                                                                                                                    |
-| ---------- | ----------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `opioids`  | Loperamide                    | 1 of 1        | MODERATE — P-gp inhibitors (e.g., Verapamil, Ketoconazole) can theoretically push loperamide across the blood-brain barrier, causing opioid… |
-| `statins`  | Simvastatin                   | 1 of 3        | HIGH — Gemfibrozil (Fibrate) blocks statin glucuronidation and uptake, drastically increasing blood levels. Contraindicated combo.           |
-| `statins`  | Atorvastatin                  | 1 of 2        | HIGH — Gemfibrozil (Fibrate) blocks statin uptake, drastically increasing blood levels. Avoid combo.                                         |
-| `fibrates` | Simvastatin                   | 1 of 3        | HIGH — Gemfibrozil (Fibrate) blocks statin glucuronidation and uptake, drastically increasing blood levels. Contraindicated combo.           |
-| `fibrates` | Atorvastatin                  | 1 of 2        | HIGH — Gemfibrozil (Fibrate) blocks statin uptake, drastically increasing blood levels. Avoid combo.                                         |
+| Term       | Not read as a counterparty on | Rows affected | The wording it appears in                                                                                                                    | Clinical rationale                                                                                                         |
+| ---------- | ----------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `opioids`  | Loperamide                    | 1 of 1        | MODERATE — P-gp inhibitors (e.g., Verapamil, Ketoconazole) can theoretically push loperamide across the blood-brain barrier, causing opioid… | Peripheral opioid agonist with CNS restriction via P-gp; does not declare broad drug-drug interaction against all opioids. |
+| `statins`  | Simvastatin                   | 1 of 3        | HIGH — Gemfibrozil (Fibrate) blocks statin glucuronidation and uptake, drastically increasing blood levels. Contraindicated combo.           | Own-class mechanism notes ('blocks statin glucuronidation/uptake') rather than cross-drug interactions with other statins. |
+| `statins`  | Atorvastatin                  | 1 of 2        | HIGH — Gemfibrozil (Fibrate) blocks statin uptake, drastically increasing blood levels. Avoid combo.                                         | Own-class mechanism notes ('blocks statin glucuronidation/uptake') rather than cross-drug interactions with other statins. |
+| `fibrates` | Simvastatin                   | 1 of 3        | HIGH — Gemfibrozil (Fibrate) blocks statin glucuronidation and uptake, drastically increasing blood levels. Contraindicated combo.           | Refers specifically to uncatalogued gemfibrozil rather than general fibrates (fenofibrate).                                |
+| `fibrates` | Atorvastatin                  | 1 of 2        | HIGH — Gemfibrozil (Fibrate) blocks statin uptake, drastically increasing blood levels. Avoid combo.                                         | Refers specifically to uncatalogued gemfibrozil rather than general fibrates (fenofibrate).                                |
 
 ## Terms that resolve to no catalogue drug
 
