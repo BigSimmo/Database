@@ -11,6 +11,7 @@ const tc = vi.hoisted(() => ({
   removeCompare: vi.fn(),
   goCompare: vi.fn(),
   open: vi.fn(),
+  workspaceHref: (href: string) => href,
   openSheet: vi.fn(),
 }));
 
@@ -23,6 +24,7 @@ vi.mock("@/components/therapy-compass/bindings", () => ({
     removeCompare: tc.removeCompare,
     goCompare: tc.goCompare,
     open: tc.open,
+    workspaceHref: tc.workspaceHref,
     openSheet: tc.openSheet,
   }),
 }));

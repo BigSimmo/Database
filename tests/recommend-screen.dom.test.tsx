@@ -14,6 +14,7 @@ const bindings = vi.hoisted(() => ({
   loading: false,
   goSearch: vi.fn(),
   open: vi.fn(),
+  workspaceHref: (href: string) => href,
   openSheet: vi.fn(),
   isInCompare: () => false,
   compareSlugs: [],

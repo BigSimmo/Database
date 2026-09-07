@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9b6b0bdf-1833-4cd1-92f3-143ccbec4ea2",
+  "createdOn": "2026-09-06",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "repo-awareness snapshot and docs/site-map.md still conflict on the routes/documents half that #EFETZT did not disperse: two merge conflicts on one PR within an hour",
+    "detail": "#EFETZT (resolved 2026-09-02) fixed the REVIEW-RECORDS half of this: review_state.records is ordered by head sha so concurrent appends land far apart, review_state.counts was deleted, and REVISION_INPUTS stopped tracking branch-review-records. That work is intact and is not what fails here. The half still open is the ROUTE and DOCUMENT arrays plus the snapshot header. Any PR that adds or removes a page regenerates data/repo-awareness-snapshot.json with a new sha/committed_at and a new routes entry, and docs/site-map.md with a new row, so any two such PRs collide - and docs/site-map.md was never in #EFETZT's scope at all. MEASURED 2026-09-06 on PR #2674 (a single design-mockup route, zero production code): conflicted against main TWICE inside one hour, first on data/repo-awareness-snapshot.json alone (main 0ee6816), then on BOTH that and docs/site-map.md (main 0c7fb8b). Each resolution is the same mechanical loop - regenerate with npm run snapshot:repo-awareness and npm run sitemap:update, never resolve by hand - and it teaches nobody anything. A THIRD trap sits behind it: the pre-commit hook regenerates docs after the snapshot is written, so a snapshot generated before committing is stale the moment the merge commit exists, and check:repo-awareness-snapshot went red on exactly that. The regenerate step must come AFTER the merge commit, or the hook must own it. Sibling row #Y090R5 records the identical failure for data/outstanding-issues-snapshot.json, which suggests the general fix is a merge driver or a generated-file-rebuild commit hook covering all three files rather than three separate dispersals. Cost is paid by every page-adding PR while main is busy.",
+    "source": "session 2026-09-06, PR #2674; two live merge conflicts, both resolved by regeneration",
+    "issueUlid": "01M1V10DP2X2FP2R980K80S944"
+  }
+}

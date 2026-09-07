@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d5687849-5276-43a6-bb05-fb1897aba556",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#RA0QAH",
+    "detail": "ONE MEMBER FIXED 2026-09-06; the row stays open for the rest of the family. tests/ui-smoke.spec.ts:1354 'sidebar shortcuts switch mode in place' is resolved at root cause, not quarantined. ROOT CAUSE: the request listener classified a prefetch as a navigation. Next 16's fetchSegmentPrefetchesUsingDynamicRequest (node_modules/next/dist/client/components/segment-cache/cache.js) sets next-router-prefetch PER FETCH STRATEGY - '1' loading-boundary, '2' PPR-runtime, '3' runtime-shell - and for FetchStrategy.Full it sets NO header at all. The listener excluded only the exact value \"1\", so a full-strategy prefetch counted as a navigation. Always /tools because that is the single sidebar link deliberately warmed (prefetch on the Link plus onFocus/onPointerEnter warming in ClinicalSidebar, since Tools is browse-first and opens its own directory route); whether it lands inside the assertion window is timing, which is the intermittency. The APP was correct throughout - only the test's discriminator was wrong. FIX: treat any next-router-prefetch value as a prefetch, and scope the assertion to the route being switched to, because a full-strategy prefetch carries the same headers as a navigation and headers alone cannot separate them. The assertion keeps its force: a real navigation to the shared home still fails it. VERIFIED: --repeat-each=6 all six passed, against a pre-fix rate of 2/3 failing on unmodified main. Nothing added to tests/flake-ledger.json. STILL OPEN: the other three single-spec Production UI failures this row recorded were different specs and are not explained by this fix - but the same faulty assumption is worth grepping for if another one appears, since the header-value trap is generic to any Playwright assertion that tries to tell a Next 16 prefetch from a navigation.",
+    "baseRowFingerprint": "66d64d52cf191d08f62cb599be4d9832cfe45d5b48b7ea8143f0b94c807accda"
+  }
+}
