@@ -10,6 +10,7 @@ import {
   catalogWordingSegment,
   findBuilderDiagnosis,
   guidedBuilderDiagnoses,
+  relaxBuilderGroups,
   resolveInitialBuilderState,
   stripSpecifierOptionList,
   toggleBuilderCatalogSlug,
@@ -89,6 +90,51 @@ describe("specifier builder base diagnoses", () => {
     expect(builderGroupSelection("Features")).toBe("multiple");
     expect(builderGroupSelection("Episode Specifiers")).toBe("multiple");
     expect(builderGroupSelection("Co-occurring")).toBe("multiple");
+  });
+
+  it("leaves a group multi-select where the manual allows the combination", () => {
+    // Each of these was a single-select label until review. A radio there makes an
+    // ordinary presentation unrecordable rather than merely awkward.
+    expect(builderGroupSelection("Classes")).toBe("multiple");
+    expect(builderGroupSelection("Clusters")).toBe("multiple");
+    expect(builderGroupSelection("Aetiology")).toBe("multiple");
+    expect(builderGroupSelection("Attraction")).toBe("multiple");
+  });
+
+  it("lets one disorder opt out of a label-wide one-of rule", () => {
+    expect(builderGroupSelection("Type", "Specific Phobia")).toBe("multiple");
+    expect(builderGroupSelection("Type", "Delusional Disorder")).toBe("single");
+    expect(builderGroupSelection("Type")).toBe("single");
+
+    const phobia = builderCatalogGroups(catalogDiagnosisId("anx", "Specific Phobia"));
+    const type = phobia.find((group) => group.label === "Type")!;
+    expect(type.selection).toBe("multiple");
+    const both = applyBuilderGroupRules(phobia, [type.items[0].slug, type.items[1].slug]);
+    expect(both).toHaveLength(2);
+  });
+
+  it("records concurrent substance use disorders instead of replacing the last one", () => {
+    const classes = builderCatalogGroups(catalogDiagnosisId("sub", "Substance Classes with Use Disorders"));
+    const group = classes.find((entry) => entry.label === "Classes")!;
+    let selected = toggleBuilderCatalogSlug(classes, [], group.items[0].slug);
+    selected = toggleBuilderCatalogSlug(classes, selected, group.items[1].slug);
+    expect(selected).toEqual([group.items[0].slug, group.items[1].slug]);
+  });
+
+  it("reopens a single-select group on request so no combination is unreachable", () => {
+    const asd = catalogDiagnosisId("ndv", "Autism Spectrum Disorder");
+    const groups = builderCatalogGroups(asd);
+    const severity = groups.find((group) => group.label === "Severity")!;
+
+    const relaxed = relaxBuilderGroups(groups, new Set([severity.id]));
+    expect(relaxed.find((group) => group.label === "Severity")!.selection).toBe("multiple");
+    // Every other group keeps its own rule, and the original list is not mutated.
+    expect(relaxed.find((group) => group.label === "Co-occurring")!.selection).toBe("multiple");
+    expect(severity.selection).toBe("single");
+
+    let selected = toggleBuilderCatalogSlug(relaxed, [], severity.items[0].slug);
+    selected = toggleBuilderCatalogSlug(relaxed, selected, severity.items[1].slug);
+    expect(selected).toHaveLength(2);
   });
 
   it("keeps one pick inside a single-select group and many inside the rest", () => {
