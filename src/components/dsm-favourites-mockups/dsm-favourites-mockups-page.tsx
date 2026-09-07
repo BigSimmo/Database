@@ -59,7 +59,7 @@ function Panel({ n, title, children }: { n: number; title: string; children: Rea
   return (
     <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-sm">
       <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold text-[color:var(--text-heading)]">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[11px] text-[color:var(--clinical-accent-contrast)]">
+        <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-2xs text-[color:var(--clinical-accent-contrast)]">
           {n}
         </span>
         {title}
@@ -86,9 +86,7 @@ export function DsmFavouritesMockupsPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-4 bg-[color:var(--surface-wash)] p-4 sm:p-6">
       <header className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
-          Mockup · not wired
-        </p>
+        <p className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Mockup · not wired</p>
         <h1 className="mt-1 text-xl font-extrabold text-[color:var(--text-heading)]">
           Save a DSM diagnosis to favourites
         </h1>
@@ -182,7 +180,7 @@ export function DsmFavouritesMockupsPage() {
               className={`flex items-center gap-3 px-3 py-3 ${row.isNew ? "bg-[color:var(--clinical-accent-soft)]" : "bg-[color:var(--surface)]"}`}
             >
               <span
-                className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                className={`shrink-0 rounded-md px-2 py-0.5 text-2xs font-bold ${
                   row.isNew
                     ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                     : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
