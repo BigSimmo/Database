@@ -3990,7 +3990,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/dsm\/search\?q=major\+depressive&focus=1&run=1$/, {
       timeout: 30_000,
     });
-    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
+    await expect(visibleByTestId(page, "dsm-search-page")).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "major depressive" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter diagnoses by category" })).toBeVisible();
@@ -4051,7 +4051,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/dsm/search?q=depression");
 
-    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
+    await expect(visibleByTestId(page, "dsm-search-page")).toBeVisible();
     const trigger = page.getByTestId("dsm-category-filter-desktop");
     await trigger.focus();
     await page.keyboard.press("Enter");
