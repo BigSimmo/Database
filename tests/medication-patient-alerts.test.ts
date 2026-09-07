@@ -4,6 +4,7 @@ import { composeMedicationVerdict } from "@/lib/medication-interactions";
 import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import {
   evaluatePatientAlerts,
+  formatUnassessedSentence,
   isProfileEmpty,
   noticeToneForSemanticTone,
   type MedicationConsideration,
@@ -285,6 +286,7 @@ describe("evaluatePatientAlerts — partial / empty profile and unassessed", () 
     expect(isProfileEmpty({ scrUnit: "umol/L", allergies: [] })).toBe(true);
     expect(isProfileEmpty({ pregnant: true })).toBe(false);
     expect(isProfileEmpty({ egfr: 40 })).toBe(false);
+    expect(isProfileEmpty({ hepatic: "none" })).toBe(false);
     const record = getMedicationRecord("acamprosate");
     expect(evaluatePatientAlerts(record!, {}).considerations).toHaveLength(0);
   });
@@ -330,6 +332,14 @@ describe("evaluatePatientAlerts — bare-renal fail-safe (no false all-clear on 
     const both = evaluatePatientAlerts(record, { egfr: 90, crcl: 90 });
     expect(both.unassessed).toHaveLength(0);
     expect(both.unassessedAdvisory).toHaveLength(0);
+  });
+
+  it("never surfaces unassessed for info rows", () => {
+    const record = recordWith({ factors: ["renal"], action: "info", match: { egfr: { lt: 30 } } });
+    const result = evaluatePatientAlerts(record, { ageYears: 40 });
+    expect(result.considerations).toHaveLength(0);
+    expect(result.unassessed).toHaveLength(0);
+    expect(result.unassessedAdvisory).toHaveLength(0);
   });
 });
 
@@ -391,5 +401,23 @@ describe("noticeToneForSemanticTone", () => {
     expect(noticeToneForSemanticTone("success")).toBe("success");
     expect(noticeToneForSemanticTone("info")).toBe("info");
     expect(noticeToneForSemanticTone("neutral")).toBe("neutral");
+  });
+});
+
+describe("formatUnassessedSentence", () => {
+  it("returns empty string for empty unassessed list", () => {
+    expect(formatUnassessedSentence([])).toBe("");
+  });
+
+  it("formats single unassessed gate into sentence", () => {
+    expect(formatUnassessedSentence(["eGFR"])).toBe(
+      "Enter eGFR to fully assess this medication's contraindications and clinical advisories.",
+    );
+  });
+
+  it("formats multiple unassessed gates separated by comma", () => {
+    expect(formatUnassessedSentence(["eGFR", "hepatic function", "QTc"])).toBe(
+      "Enter eGFR, hepatic function, QTc to fully assess this medication's contraindications and clinical advisories.",
+    );
   });
 });

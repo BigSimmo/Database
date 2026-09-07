@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "68165d49-89c4-4e74-8f43-715d0e2e95e8",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#000GN4",
+    "outcome": "Refactored query guard to preserve psychiatric clinical terms",
+    "baseRowFingerprint": "3de6bf2a0d5dc2ddb1f1b7f9934167e2ad99a6d1f5616518b456f7ea637a8241"
+  }
+}

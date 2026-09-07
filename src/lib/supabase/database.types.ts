@@ -3358,6 +3358,10 @@ export type Database = {
         Args: { p_limit?: number };
         Returns: Json;
       };
+      preview_strict_enrichment_gate_repair: {
+        Args: { p_limit?: number };
+        Returns: Database["public"]["Views"]["document_strict_gate_status"]["Row"][];
+      };
       repair_strict_enrichment_gate_batch: {
         Args: { p_limit?: number };
         Returns: {
