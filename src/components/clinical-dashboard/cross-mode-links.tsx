@@ -308,7 +308,13 @@ function CrossModeLinksLine({
   onModeSearch: (mode: AppModeId, query: string) => void;
   query: string;
 }) {
-  const [open, setOpen] = useState(false);
+  // Open on arrival, and still collapsible — the hybrid the owner asked for on
+  // 2026-09-07, after seeing both ends of it. Closed-by-default hid the matches
+  // behind a tap nobody had a reason to take, since a closed tray cannot show
+  // what it holds. No toggle at all put four unconditional rows into the
+  // answer's evidence stack with no way to put them away. One control, already
+  // open, gives the reader the matches for free and the space back on request.
+  const [open, setOpen] = useState(true);
   // `useId`, not a constant: two of these can mount at once (the answer thread
   // and a historical turn), and a duplicate id is a DOM-integrity failure the
   // smoke audit fails on.

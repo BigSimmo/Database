@@ -557,6 +557,8 @@ test.describe("universal search smart affordances", () => {
     await expect(line).toHaveCount(1);
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
 
+    // Open on arrival: no tap needed to reach the widened half.
+    await expect(page.getByTestId("cross-mode-links-line-trigger")).toHaveAttribute("aria-expanded", "true");
     const rail = page.getByTestId("cross-mode-links-rail");
     await expect(rail.getByRole("link", { name: "Open Bipolar I Disorder" })).toBeVisible();
     await expect(rail.getByRole("button", { name: /Search Bipolar I Disorder in DSM-5 Diagnosis/ })).toBeVisible();
@@ -656,10 +658,7 @@ test.describe("universal search smart affordances", () => {
     await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
 
     await expect(page.getByTestId("cross-mode-links")).toBeVisible({ timeout: 15_000 });
-    // Open on arrival, no disclosure: the same card strip the rest of the app
-    // renders (owner decision, 2026-09-07).
-    await expect(page.getByTestId("cross-mode-links-rail")).toBeVisible();
-    await expect(page.getByTestId("cross-mode-links-line-trigger")).toHaveCount(0);
+    await expect(page.getByTestId("cross-mode-links-line-trigger")).toBeVisible();
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
   });
 

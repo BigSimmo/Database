@@ -779,29 +779,32 @@ Calculators, Factsheets, Sources, On Call and Favourites are still unreachable f
 not by omission — they contribute no cross-entity search domain at all
 (`universal-search-mode-context.ts`), so nothing can resolve a link to them from any surface.
 
-**The collapsed line itself is gone (owner decision, 2026-09-07).** Direction B's one-line
-disclosure was reversed on the same day the data was widened, on the owner's read of the built
-surface: the answer page should not carry a control that behaves unlike the same block
-everywhere else in the product. The answer surface now renders `variant="card"`, the open strip
-the DSM diagnosis page and the mockups already used, so §12.8's "one panel, not two" holds while
-its "one collapsed line" does not.
+**The line keeps its single toggle, and now rests open (owner decision, 2026-09-07).** Both ends
+of this were built and looked at on the day the data was widened, and both were wrong.
 
-What that costs is roughly 90px of resting height on a phone, which is the trade §12.8 made in
-the other direction. What it buys is that the matches can be read rather than opened, and that
-one component has one behaviour. `CrossModeLinksLine` is left in `cross-mode-links.tsx` with no
-consumer, and not by preference: the owner asked for it to be deleted on 2026-09-07 and
-`check:dead-code-candidate` refused the removal, because the symbol was introduced on
-2026-08-26 and sits inside the gate's 30-day window ("likely awaiting its consumer"). The
-heuristic is wrong in this particular case — the consumer existed and was deliberately removed
-the same day — but tuning the threshold to pass a diff is exactly what that gate exists to stop,
-so the code stays until the window lapses after 2026-09-25. The `line` variant remains part of
-the component's public shape until then.
+Closed by default, as direction B shipped it, hides the matches behind a tap nobody has a reason
+to take: a closed tray cannot show what it holds, so the reader has to spend the tap to find out
+whether it was worth spending. Removing the toggle entirely, which was the first correction, put
+four unconditional rows into the answer's evidence stack with no way to put them away — roughly
+90px of resting height on a phone, on the densest surface in the product, which is the trade
+§12.8 made in the other direction for a reason.
 
-Three browser tests carried the disclosure as their contract and were updated rather than
-dropped. Each now asserts a visible rail _and_ the absence of a trigger, so a disclosure
-reappearing under an answer fails the suite. The 1280px case keeps its computed-display
-assertion on the rail: width is where the previous design broke, when a `hidden` beside a
-`md:flex` in one class list lost to the media-query rule from 768px up and left a rail painted
-open while its own trigger reported it closed.
+The hybrid is one control that starts open. The matches are there to be read without a tap, and
+the space is one tap away for a reader who wants the answer and the follow-ups closer together.
+`variant="line"` and `CrossModeLinksLine` are the presentation again, so the `card` strip stays
+what the DSM diagnosis page and the mockups use.
+
+Worth recording because it nearly went the other way: `CrossModeLinksLine` was almost deleted
+while it briefly had no consumer. `check:dead-code-candidate` refused the removal — the symbol
+was introduced on 2026-08-26, inside the gate's 30-day window ("likely awaiting its consumer") —
+and the deletion was dropped rather than forced past the threshold. A day later it was the
+presentation again. The gate's heuristic looked wrong at the time and was right in substance.
+
+Three browser tests carry the disclosure as their contract. The 1280px case asserts the rail's
+own computed display in both states rather than the trigger's word for it: width is where this
+broke before, when a `hidden` beside a `md:flex` in one class list lost to the media-query rule
+from 768px up and left a rail painted open while its trigger reported it closed. Now that the
+line rests open, the same mechanic would hide a broken collapse instead, which is why the closed
+state is the one pinned on computed display.
 
 ---
