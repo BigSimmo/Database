@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4036f064-f46e-4542-9bd5-f0af6a05de45",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#ZKR5YK",
+    "outcome": "Updated mode pill navigation to route to dedicated mode homes where applicable",
+    "baseRowFingerprint": "4a2c45298f781607394bb54bdde280518d7e1e6c1706ae00e2b05526613fa232"
+  }
+}
