@@ -56,24 +56,38 @@ export type EnqueueRetryParams = {
  * Calculates backoff delay in milliseconds for a given retry attempt.
  *
  * Handles 0-retry queue records gracefully by assigning the first backoff step (1m).
- * Returns `null` when max retries (5) have been exhausted.
+ * Returns `null` when the ladder's attempts (5, by default) have been exhausted.
+ *
+ * `ladder` defaults to `RETRY_BACKOFF_LADDER_MS` but is a parameter, not a hard-coded read of it,
+ * so a caller governed by a DIFFERENT backoff sequence -- `driveTwelveMonthSimulation`'s contact
+ * retry policy, whose ladder length also sets its own effective cap -- goes through this exact
+ * function rather than a second copy of the same arithmetic. See `service-rules.ts`'s
+ * `ContactRetryPolicy` for that caller.
  */
-export function calculateRetryDelayMs(attemptCount: number): number | null {
+export function calculateRetryDelayMs(
+  attemptCount: number,
+  ladder: readonly number[] = RETRY_BACKOFF_LADDER_MS,
+): number | null {
   if (!Number.isFinite(attemptCount) || attemptCount < 0) {
-    return RETRY_BACKOFF_LADDER_MS[0];
+    return ladder[0] ?? null;
   }
   const index = Math.floor(attemptCount);
-  if (index >= MAX_RETRY_ATTEMPTS) return null;
-  return RETRY_BACKOFF_LADDER_MS[index];
+  if (index >= ladder.length) return null;
+  return ladder[index];
 }
 
 /**
  * Calculates the next retry timestamp for a given attempt count.
  *
- * Prevents negative epoch or invalid date calculations.
+ * Prevents negative epoch or invalid date calculations. `ladder` is threaded through to
+ * `calculateRetryDelayMs` unchanged -- see that function's note on why it is a parameter.
  */
-export function calculateNextRetryTime(attemptCount: number, baseDate: Date = new Date()): Date | null {
-  const delayMs = calculateRetryDelayMs(attemptCount);
+export function calculateNextRetryTime(
+  attemptCount: number,
+  baseDate: Date = new Date(),
+  ladder: readonly number[] = RETRY_BACKOFF_LADDER_MS,
+): Date | null {
+  const delayMs = calculateRetryDelayMs(attemptCount, ladder);
   if (delayMs === null) return null;
   const baseTime =
     baseDate instanceof Date && Number.isFinite(baseDate.getTime()) ? Math.max(0, baseDate.getTime()) : Date.now();
