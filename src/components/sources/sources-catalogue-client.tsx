@@ -31,6 +31,7 @@ import {
   formatCatalogueMonth,
   parseSourceCatalogueFilters,
 } from "@/lib/sources/catalogue-view";
+import { SOURCE_BAND_LABELS, SOURCE_BAND_TONES } from "@/lib/sources/rating-method";
 import { sourceAttentionFlags } from "@/lib/sources/source-status-presentation";
 import { groupSourceUsagesByMode } from "@/lib/sources/source-usage-presentation";
 
@@ -51,22 +52,6 @@ import { groupSourceUsagesByMode } from "@/lib/sources/source-usage-presentation
  * parse, so a deep link from Publishers or a saved catalogue link keeps working
  * and shows up as a removable applied chip.
  */
-
-const bandLabels: Record<SourceQualityBand, string> = {
-  A: "A · Preferred",
-  B: "B · Strong",
-  C: "C · Supplementary",
-  D: "D · Review required",
-  excluded: "Excluded",
-};
-
-const bandTone = {
-  A: "success",
-  B: "info",
-  C: "neutral",
-  D: "warning",
-  excluded: "danger",
-} as const satisfies Record<SourceQualityBand, "success" | "info" | "neutral" | "warning" | "danger">;
 
 const jurisdictionLabels: Record<string, string> = {
   wa: "Western Australia",
@@ -146,8 +131,8 @@ function SourceTile({ entry }: { entry: ClinicalSourceCatalogueEntry }) {
     >
       <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-1.5">
-          <Chip size="compact" appearance={{ kind: "status", tone: bandTone[entry.rating.band] }} dot>
-            {bandLabels[entry.rating.band]}
+          <Chip size="compact" appearance={{ kind: "status", tone: SOURCE_BAND_TONES[entry.rating.band] }} dot>
+            {SOURCE_BAND_LABELS[entry.rating.band]}
           </Chip>
           {flags.map((flag) => (
             <Chip key={flag.label} size="compact" appearance={{ kind: "status", tone: flag.tone }}>
@@ -189,7 +174,7 @@ const chipGroups = [
     key: "band",
     label: "Quality band",
     field: "bands",
-    format: (value: string) => bandLabels[value as SourceQualityBand],
+    format: (value: string) => SOURCE_BAND_LABELS[value as SourceQualityBand],
   },
   { key: "jurisdiction", label: "Jurisdiction", field: "jurisdictions", format: jurisdictionLabel },
   { key: "topic", label: "Topic", field: "topics", format: titleCase },
@@ -290,7 +275,7 @@ export function SourcesCatalogueClient({
     options: facetOptions(
       "band",
       uniqueSorted(entries.map((entry) => entry.rating.band)),
-      (value) => bandLabels[value as SourceQualityBand] ?? titleCase(value),
+      (value) => SOURCE_BAND_LABELS[value as SourceQualityBand] ?? titleCase(value),
     ),
     onToggle: (value) => toggleFacet("band", value),
   });
@@ -349,6 +334,22 @@ export function SourcesCatalogueClient({
   });
 
   const activeFilterCount = appliedFilters.length;
+
+  // Drops the query and keeps every filter — the mirror of `clearFilters`, which
+  // keeps the query. The empty state offers both as separate controls, so a
+  // "Clear search" that also silently wiped band, jurisdiction and usage would make
+  // one of those controls a lie. It used to `router.push(appModeHomeHref("sources"))`,
+  // which left the catalogue entirely and dropped every filter with it — the same
+  // reasoning already applied to the Topics and Publishers browse view.
+  const clearQuery = () => {
+    const next = new URLSearchParams();
+    for (const [candidateKey, candidateValue] of searchParams.entries()) {
+      if (candidateKey !== "q") next.append(candidateKey, candidateValue);
+    }
+    const suffix = next.toString();
+    router.push(`${pathname}${suffix ? `?${suffix}` : ""}`);
+  };
+
   const clearFilters = () => {
     const next = new URLSearchParams();
     const query = searchParams.get("q");
@@ -436,7 +437,7 @@ export function SourcesCatalogueClient({
           query={filters.q}
           appliedFilters={appliedFilters}
           onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
-          onClearSearch={() => router.push(appModeHomeHref("sources", { focus: true }))}
+          onClearSearch={filters.q ? clearQuery : undefined}
           onTryExample={(example) => router.push(appModeHomeHref("sources", { query: example, run: true }))}
         />
       )}

@@ -1366,7 +1366,24 @@ test.describe("PsychSift UI smoke coverage", () => {
     const navigationRequests: string[] = [];
     page.on("request", (request) => {
       const headers = request.headers();
-      if (headers["rsc"] === "1" && headers["next-router-prefetch"] !== "1") navigationRequests.push(request.url());
+      if (headers["rsc"] !== "1") return;
+      // Next 16 does NOT mark every prefetch with `next-router-prefetch: 1`.
+      // `fetchSegmentPrefetchesUsingDynamicRequest` in
+      // node_modules/next/dist/client/components/segment-cache/cache.js sets the
+      // header per fetch strategy — `1` loading-boundary, `2` PPR-runtime, `3`
+      // runtime-shell — and for `FetchStrategy.Full` it sets NO header at all.
+      // A `!== "1"` test therefore reads strategies 2 and 3 as navigations.
+      if (headers["next-router-prefetch"] !== undefined) return;
+      // A Full-strategy prefetch carries the same headers as a navigation, so
+      // headers alone cannot separate them. Scope by route instead, which is
+      // what this test actually asks: an in-place mode switch must not fetch
+      // the page it is switching to, and every mode here lives on the shared
+      // home. The sidebar deliberately prefetches /tools (the one link with
+      // `prefetch` plus focus/pointer warming, because Tools is browse-first
+      // and opens its own directory route) — a different route, and not a
+      // navigation caused by this click.
+      if (new URL(request.url()).pathname !== "/") return;
+      navigationRequests.push(request.url());
     });
     await documentsShortcut.click();
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
@@ -3251,14 +3268,37 @@ test.describe("PsychSift UI smoke coverage", () => {
     // One collapsed line under the answer, opened on demand (owner decision,
     // 2026-08-26, "direction B"). Everything below still has to work through it,
     // so the test opens it rather than dropping the coverage.
-    await strip.getByTestId("cross-mode-links-line-trigger").click();
+    //
+    // The closed state is asserted here at 1280px, not only at phone width. It
+    // shipped broken on desktop precisely because the one test that checked the
+    // collapse ran at 390px: `hidden` beside a `md:flex` in the same class list
+    // loses to the media-query rule from 768px up, so the rail stayed open while
+    // its trigger reported `aria-expanded="false"`.
+    const trigger = strip.getByTestId("cross-mode-links-line-trigger");
     const rail = strip.getByTestId("cross-mode-links-rail");
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(rail).toBeHidden();
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(rail).toBeVisible();
     await expect(rail).toHaveCSS("display", "flex");
+    // Close and re-open: the collapse is the half that regressed.
+    await trigger.click();
+    await expect(rail).toBeHidden();
+    await trigger.click();
+    await expect(rail).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true }).filter({ visible: true })).toBeVisible();
     const medicationSearch = strip.getByRole("button", { name: "Search Clozapine in Medication" });
     await expect(medicationSearch).toBeVisible();
+    // Two signposted actions per card: search inside the mode, and open the
+    // record itself. The open control shares the title link's destination and
+    // telemetry, so it must not collide with the title's accessible name.
+    // `exact`: the rail also carries "Open Clozapine-specific adverse effects",
+    // and a substring name matches both.
+    const medicationOpen = strip.getByRole("link", { name: "Open Clozapine", exact: true });
+    await expect(medicationOpen).toBeVisible();
+    await expect(medicationOpen).toHaveAttribute("href", /./);
     await expect(strip.getByText("SGA / TRS", { exact: true }).filter({ visible: true })).toBeVisible();
 
     const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useCallback, useDeferredValue, useId, useMemo, useRef, useState } from "react";
 
-import { cardSelected, cardSurface } from "@/components/card-recipes";
+import { cardSelected, cardSurface, stretchedRowLinkClass } from "@/components/card-recipes";
 import { useAccountData } from "@/components/account-data-provider";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
@@ -120,7 +120,7 @@ function ServiceCard({
       data-testid={`service-search-result-${service.slug}`}
       className={cn(
         cardSurface,
-        "p-3 sm:p-4",
+        "relative p-3 sm:p-4",
         // One selected encoding, shared with every other card. The old
         // `ring-1 …/35` was a fourth way of saying "this one" and put an alpha
         // on a token colour, so what it actually contrasted against depended on
@@ -211,7 +211,7 @@ function ServiceCard({
                 : `Loading saved state for ${service.title}`
           }
           className={cn(
-            "grid min-h-12 min-w-12 place-items-center rounded-lg border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:min-w-10",
+            "relative z-10 grid min-h-12 min-w-12 place-items-center rounded-lg border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:min-w-10",
             savedStateReady && !savedStateLoadFailed && saved
               ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
               : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] enabled:hover:bg-[color:var(--surface-subtle)]",
@@ -234,7 +234,12 @@ function ServiceCard({
         <Link
           href={`/services/${service.slug}`}
           aria-label={`Review referral for ${service.title}`}
-          className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+          className={cn(
+            "inline-flex min-h-12 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
+            // The whole row reviews the referral, which is the one thing this
+            // list exists to do. Save and shortlist stay their own controls.
+            stretchedRowLinkClass,
+          )}
         >
           <ExternalLink className="h-3.5 w-3.5" aria-hidden />
           Review referral
@@ -245,7 +250,7 @@ function ServiceCard({
           aria-pressed={selected}
           aria-label={selected ? `Remove ${service.title} from shortlist` : `Add ${service.title} to shortlist`}
           className={cn(
-            "inline-flex min-h-12 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
+            "relative z-10 inline-flex min-h-12 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
             selected
               ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
               : "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] hover:bg-[color:var(--clinical-accent-hover)]",

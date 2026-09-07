@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e8527234-b50e-48ad-b282-7025457fc7c5",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#52HN6Z",
+    "outcome": "Closed 2026-09-06 as a duplicate of #78MRNJ, which names the same unbounded recursive delete in tests/ward-flow-chat-control.test.ts and additionally records the fix (copy the retry-bounded rmSync shape the same file already uses elsewhere). Both added 2026-09-02; this row carried no detail.",
+    "baseRowFingerprint": "8047775cb39275b4c092a42bc8d4907aba18f8ed210bcc3e65d338f0a44e118c"
+  }
+}

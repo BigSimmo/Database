@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "76dbc249-926f-42b1-98b3-0bf99cc49de9",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#EWD0KH",
+    "outcome": "Resolved on main by PR #2616 lockfile bump (fast-uri 3.1.7, browserslist 4.28.8)",
+    "baseRowFingerprint": "357ea2f1c81438b18fb0bbb1b18b13adf50d5aa16f6024ef67c42cd13bef7d39"
+  }
+}

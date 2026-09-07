@@ -122,7 +122,7 @@ function lastRowIndex(parsed, table) {
   return rows[rows.length - 1].line - 1;
 }
 
-function findRow(parsed, id) {
+export function findRow(parsed, id) {
   return parsed.rows.find((row) => row.id === id) ?? null;
 }
 
@@ -245,7 +245,10 @@ export function resolveIssue(markdown, id, outcome, options = {}) {
     const parsed = parseIssues(current);
     const row = findRow(parsed, id);
     if (!row) throw new Error(`${id} is not in ${ISSUES_PATH}`);
-    if (row.table === "archive") throw new Error(`${id} is already archived`);
+    if (row.table === "archive") {
+      if (options.idempotent) return current;
+      throw new Error(`${id} is already archived`);
+    }
 
     const cells = splitCells(row.raw);
     // Open is ID|Pri|Type|Summary|Detail|Source|Added; archive drops Pri,
@@ -697,7 +700,9 @@ function main() {
         source: argValue(argv, "source"),
       });
     } else if (command === "done") {
-      next = resolveIssue(markdown, positional, argValue(argv, "outcome"));
+      next = resolveIssue(markdown, positional, argValue(argv, "outcome"), {
+        idempotent: argv.includes("--idempotent"),
+      });
     } else if (command === "update") {
       next = updateIssue(markdown, positional, {
         pri: argValue(argv, "pri"),

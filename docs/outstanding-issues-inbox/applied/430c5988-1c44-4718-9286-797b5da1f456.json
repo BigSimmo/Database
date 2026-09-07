@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "430c5988-1c44-4718-9286-797b5da1f456",
+  "createdOn": "2026-09-06",
+  "action": "cancel",
+  "payload": {
+    "requestId": "78b333a8-e256-4f60-9ebe-7a2243c59f75",
+    "reason": "Withdrawn 2026-09-06, before landing, because both halves are now covered elsewhere. THE SPEC BREAKAGE IS FIXED: main carries 18a42d232 'fix(tests): retarget ward-flow specs to post-MERGE-02 reality', which applies exactly the patch this request proposed - ward-capacity-view becomes ward-capacity-page in tests/ui-ward-discharges.spec.ts, and the two ui-ward-morning.spec.ts tests are skipped with a documented reason naming tests/ward-morning-page.dom.test.tsx and tests/ward-morning-print.test.ts as the coverage that remains. Recording it as an open issue would describe a defect that no longer exists. THE VISIBILITY GAP IS ALREADY RECORDED: open row #1BHXEF (P3) states it in almost the same terms, that Advisory UI is not among the jobs pr-required depends on and never runs on main pushes because it is gated on advisory_ui_changed, so it only surfaces on PRs touching a mockup surface and can rot unnoticed. Adding a second row would recreate the duplicate-row problem the 2026-09-06 dedupe pass existed to clear. Nothing is lost: the diagnosis stands in the comment on PR #2690, and #1BHXEF carries the durable finding."
+  }
+}

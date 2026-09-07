@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d1a2de2a-15ef-4449-9dba-b2ce3724ab1e",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#0ZTPX9",
+    "outcome": "Resolved by design token contract in PR #2654",
+    "baseRowFingerprint": "a8c10c8d18e85ac582a13eb7d024957cc5809aba778e5f9074ab87e244481c03"
+  }
+}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity,
@@ -33,6 +33,7 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { Chip as DesignChip } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
@@ -348,23 +349,6 @@ function SelectionCheckbox({
 }
 
 /**
- * Stretches the card's title link across the whole card, so anywhere that is
- * not another control opens the record. It stays a pseudo-element on the single
- * existing link rather than a second overlay anchor, so assistive technology
- * still hears one link named by the title.
- *
- * The hit area is widened but the focus ring is deliberately NOT: the shared
- * `:focus-visible` rule in `globals.css` is unlayered, so it wins over any
- * `outline-none` utility here, and painting a second ring on the pseudo-element
- * would leave two rings stacked — exactly what the "focus is singular"
- * assertion in `tests/ui-smoke.spec.ts` forbids. Focus stays on the title.
- */
-// The pseudo-element paints nothing, so it needs no radius of its own — and a
-// `rounded-[inherit]` arbitrary value is a raw radius literal the design-system
-// contract ratchet counts against this file.
-const stretchedOpenLinkClass = "after:absolute after:inset-0 after:z-0 after:content-['']";
-
-/**
  * The visible "click here" label for the stretched card link. It is text, not a
  * second anchor to the same href — duplicating the link would double every
  * result in a screen-reader link list.
@@ -431,7 +415,7 @@ function DesktopResultRow({
           href={result.href}
           className={cn(
             "block min-w-0 rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]",
-            stretchedOpenLinkClass,
+            stretchedRowLinkClass,
           )}
         >
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -500,7 +484,7 @@ function MobileResultCard({
           href={result.href}
           className={cn(
             "block min-w-0 flex-1 rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)]",
-            stretchedOpenLinkClass,
+            stretchedRowLinkClass,
           )}
         >
           <span className="line-clamp-2">{result.title}</span>
@@ -637,7 +621,7 @@ function BestAnswerCard({
       ) : null}
       <Link
         href={best.href}
-        className={cn("block min-w-0 self-center rounded-md", stretchedOpenLinkClass, compact && "self-start")}
+        className={cn("block min-w-0 self-center rounded-md", stretchedRowLinkClass, compact && "self-start")}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {compact ? (
@@ -717,8 +701,15 @@ function LikelyPresentationCard({ lead }: { lead: DifferentialResult }) {
 function UrgencyCard({ results }: { results: DifferentialResult[] }) {
   const urgentResults = results.filter((result) => result.status === "emergent").slice(0, 3);
 
+  // Nothing emergent in the result set is a real answer, but an empty bordered
+  // card reads as a failed load. Drop the card instead.
+  if (urgentResults.length === 0) return null;
+
   return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
+    <section
+      data-testid="differentials-highest-urgency"
+      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
+    >
       <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Highest urgency
       </h2>
@@ -727,14 +718,85 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
           <Link
             key={result.id}
             href={result.href}
-            className="grid min-h-tap grid-cols-[5.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] px-2 text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+            // The badge track is content-sized, never a fixed width. A fixed
+            // 5.25rem track clipped "Emergent" mid-word in this narrow rail,
+            // which is the one label that must stay readable.
+            className="grid min-h-tap grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] px-2 text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
           >
             <StatusBadge status={result.status} />
             <span className="truncate">{result.title}</span>
-            <ChevronRight className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
+            <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
           </Link>
         ))}
       </div>
+    </section>
+  );
+}
+
+type SharedNextStep = { text: string; sources: string[] };
+
+/**
+ * The workup the ranked differentials agree on, most-shared first.
+ *
+ * Diagnoses only. A presentation's `nextSteps` come from its review checklist,
+ * which is the same five workflow stages ("Stabilise and rule out immediate
+ * threats", …) on every presentation in the catalogue, so including them would
+ * out-count the actual investigations without discriminating between anything.
+ */
+function sharedNextSteps(results: DifferentialResult[], limit = 5): SharedNextStep[] {
+  const byText = new Map<string, SharedNextStep>();
+  for (const result of results) {
+    if (result.kind !== "diagnosis") continue;
+    for (const step of result.nextSteps) {
+      const text = step.trim();
+      if (!text) continue;
+      const key = text.toLocaleLowerCase("en-AU");
+      const existing = byText.get(key);
+      if (existing) {
+        if (!existing.sources.includes(result.title)) existing.sources.push(result.title);
+        continue;
+      }
+      byText.set(key, { text, sources: [result.title] });
+    }
+  }
+  // Stable sort: differentials that share an investigation lift it to the top,
+  // and everything else holds the ranked order it arrived in.
+  return [...byText.values()].sort((a, b) => b.sources.length - a.sources.length).slice(0, limit);
+}
+
+/**
+ * Highest urgency answers "what must I not miss". This answers the question a
+ * clinician asks straight after it — "what do I order" — from the investigations
+ * the ranked differentials already name on their own cards. It derives nothing
+ * new: every line here is visible on a result card below.
+ */
+function NextStepsCard({ results }: { results: DifferentialResult[] }) {
+  const steps = sharedNextSteps(results);
+
+  if (steps.length === 0) return null;
+
+  return (
+    <section
+      data-testid="differentials-shared-next-steps"
+      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
+    >
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Check next</h2>
+      <p className="mt-1 text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
+        Investigations named by the ranked differentials
+      </p>
+      <ul className="mt-3 grid gap-2.5">
+        {steps.map((step) => (
+          <li key={step.text} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
+            <FlaskConical className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-sm font-bold leading-5 text-[color:var(--text-heading)]">{step.text}</p>
+              <p className="mt-0.5 truncate text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
+                {step.sources.length > 1 ? `Shared by ${step.sources.length} differentials` : `From ${step.sources[0]}`}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -809,7 +871,21 @@ function SourceStatusBanner({
   );
 }
 
-function InterpretationRail({ best, results }: { best: DifferentialResult; results: DifferentialResult[] }) {
+/**
+ * The two cards read different lists on purpose. Highest urgency is a safety net
+ * over the whole result set, so a result-type or urgency lens must not hide an
+ * emergent differential from it. Check next describes the list the clinician is
+ * actually reading, so it follows the lens.
+ */
+function InterpretationRail({
+  best,
+  results,
+  filteredResults,
+}: {
+  best: DifferentialResult;
+  results: DifferentialResult[];
+  filteredResults: DifferentialResult[];
+}) {
   return (
     <aside className="hidden min-w-0 gap-3 lg:grid" aria-label="Differential interpretation">
       <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
@@ -818,6 +894,7 @@ function InterpretationRail({ best, results }: { best: DifferentialResult; resul
       </h2>
       {best.kind === "presentation" ? <LikelyPresentationCard lead={best} /> : null}
       <UrgencyCard results={results} />
+      <NextStepsCard results={filteredResults} />
     </aside>
   );
 }
@@ -847,6 +924,13 @@ function SearchResultsView({
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>("all");
   const filterPanelId = useId();
+  // Anchor for the tablet/desktop filter panel. Only the wide trigger carries
+  // it: the phone trigger opens the bottom sheet, which anchors to the
+  // viewport rather than to a control.
+  const desktopFilterTriggerRef = useRef<HTMLButtonElement>(null);
+  // The browse links in this view are `Link`s; the filter's reach action is a
+  // button inside the panel footer, so it needs the router directly.
+  const filterReachRouter = useRouter();
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   // Capture cold-load URL ids in state so a loading catalogue cannot wipe `ids`
@@ -1084,6 +1168,7 @@ function SearchResultsView({
         }
         filterControls={
           <ResultFilterTrigger
+            ref={desktopFilterTriggerRef}
             panelId={filterPanelId}
             testId="differential-filter-trigger-desktop"
             title="Filter differentials"
@@ -1101,22 +1186,33 @@ function SearchResultsView({
         hasCatalogueResults={!catalogFailed && results.length > 0}
         onRunSourceSearch={rerunSearch}
       />
-      {/* Phone-only by construction: the trigger that opens it lives in the
-          ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
+      {/* One panel, two presentations. Both triggers above open this: the phone
+          one from the ribbon's `mobileControls` slot, the wide one from
+          `filterControls`, which the band renders from `sm` up. Passing
+          `anchorRef` is what makes the wide case a panel under that trigger
+          instead of a full-height right rail — two short groups left roughly
+          85% of the rail empty, and gave a 768px tablet two thirds of its
+          screen to a refinement of the list behind it. */}
       <ResultFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
+        anchorRef={desktopFilterTriggerRef}
         panelId={filterPanelId}
         testId="differential-filter-panel"
         title="Filter differentials"
         description="Narrow by result type, then by clinical urgency. Both narrow the same list together."
         groups={[
+          // Both dimensions are exact partitions carrying counts, which is the
+          // case `ChoiceChip` itself sends to `SegmentedControl`: a counted
+          // chip is wide enough that four of them wrap one per line and leave
+          // most of each row empty.
           resultFilterGroup({
             id: "result-type",
             label: "Show",
             value: kindFilter,
             options: kindFilterOptions,
             onChange: setKindFilter,
+            renderAs: "segmented",
           }),
           resultFilterGroup({
             id: "urgency",
@@ -1124,12 +1220,29 @@ function SearchResultsView({
             value: urgencyFilter,
             options: urgencyFilterOptions,
             onChange: setUrgencyFilter,
+            renderAs: "segmented",
           }),
         ]}
         onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
         summary={{
           count: visibleResults.length,
           noun: visibleResults.length === 1 ? "result" : "results",
+        }}
+        // Reach, not refinement — the filter-contract framing for an action
+        // that leaves the result set rather than narrowing it, which is why it
+        // is the footer's secondary action and not a group option (there is
+        // deliberately no `navigate` kind).
+        //
+        // This is the way out of a filtered-to-zero state that does not throw
+        // the query away: `differentialRouteWithQuery` carries `q` across.
+        // Deliberately uncounted. The page cannot state the catalogue size
+        // honestly — the snapshot is a megabyte this client bundle must not
+        // import, and `/api/differentials` returns `total` as the *match* count
+        // once `q` is present, not the catalogue's. A number here would be
+        // wrong more often than right.
+        secondaryAction={{
+          label: "Browse the full differentials catalogue",
+          onClick: () => filterReachRouter.push(differentialRouteWithQuery("/differentials/diagnoses", query)),
         }}
       />
       {catalogLoading ? (
@@ -1321,7 +1434,7 @@ function SearchResultsView({
               )}
             </section>
 
-            <InterpretationRail best={best} results={results} />
+            <InterpretationRail best={best} results={results} filteredResults={relevanceResults} />
           </div>
         </div>
       )}

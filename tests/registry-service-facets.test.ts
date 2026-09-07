@@ -14,7 +14,7 @@ function roundTrip(record: ServiceRecord): ServiceRecord {
 }
 
 describe("registry service facet payloads", () => {
-  it("preserves all six tag dimensions for the 227 default service records", () => {
+  it("preserves all seven tag dimensions for the 227 default service records", () => {
     const records = defaultServiceRecords();
 
     expect(records).toHaveLength(227);
@@ -25,7 +25,7 @@ describe("registry service facet payloads", () => {
       expect(row.catalog_payload).toEqual(record.catalogPayload);
       // Compare with the raw fixture payload rather than parsing both sides
       // through the same helper, which could let a parser regression agree
-      // with itself. Facets intentionally project only their six supported
+      // with itself. Facets intentionally project only their seven supported
       // dimensions; governance-only tag metadata remains in catalog_payload.
       const rawTags = (record.catalogPayload?.tags ?? {}) as Record<string, string[]>;
       expect(serviceCatalogTags(restored)).toEqual({
@@ -35,6 +35,7 @@ describe("registry service facet payloads", () => {
         acuity_flags: rawTags.acuity_flags ?? [],
         substance_flags: rawTags.substance_flags ?? [],
         housing_flags: rawTags.housing_flags ?? [],
+        specialist_groups: rawTags.specialist_groups ?? [],
       });
     }
   });
@@ -72,6 +73,7 @@ describe("registry service facet payloads", () => {
       acuity_flags: [],
       substance_flags: ["aod"],
       housing_flags: ["home_based"],
+      specialist_groups: [],
     });
   });
 });

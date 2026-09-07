@@ -13,6 +13,7 @@ import {
   loadRepoAwarenessSnapshot,
   resolveRepoFreshness,
 } from "@/lib/developer-area/repo-awareness-snapshot";
+import { documentationCounts } from "@/lib/developer-area/repo-awareness-snapshot-counts";
 
 export const metadata: Metadata = {
   title: "Documentation · Developer · PsychSift",
@@ -33,7 +34,7 @@ function DocumentRow({ path, catalogued }: { path: string; catalogued: boolean }
 export default function DeveloperDocumentationPage() {
   const snapshot = loadRepoAwarenessSnapshot();
   const freshness = resolveRepoFreshness(snapshot, new Date());
-  const { counts } = snapshot.documentation;
+  const counts = documentationCounts(snapshot.documentation);
   const uncatalogued = snapshot.documentation.documents.filter((document) => !document.catalogued);
   // `documentsBySection` pre-seeds one bucket per section
   // `documentation.sections` names, then falls back to a bucket keyed by the

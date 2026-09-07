@@ -78,48 +78,63 @@ export function Tabs({ items, value, onChange, label, className, children }: Tab
 
   return (
     <div className={cn("min-w-0", className)}>
-      <div
-        role="tablist"
-        aria-label={label}
-        aria-orientation="horizontal"
-        onKeyDown={onKeyDown}
-        className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-[color:var(--border)]"
-      >
-        {items.map((item) => {
-          const selected = item.id === selectedId;
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              ref={(node) => {
-                refs.current[item.id] = node;
-              }}
-              type="button"
-              role="tab"
-              id={`${baseId}-tab-${item.id}`}
-              aria-selected={selected}
-              // Only the tab that owns the rendered panel points at it. Other
-              // tabs must not aria-controls missing IDs (APG / a11y tree).
-              aria-controls={children && item.id === fallbackTabId ? `${baseId}-panel-${fallbackTabId}` : undefined}
-              tabIndex={item.id === fallbackTabId ? 0 : -1}
-              disabled={item.disabled}
-              onClick={() => onChange(item.id)}
-              className={cn(
-                "inline-flex min-h-tap shrink-0 items-center gap-2 whitespace-nowrap px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--disabled)] disabled:shadow-none",
-                "-mb-px rounded-t-md border-b-2",
-                selected
-                  ? "border-[color:var(--command)] text-[color:var(--text-heading)]"
-                  : "border-transparent text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-              )}
-            >
-              {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
-              {item.label}
-              {typeof item.count === "number" ? (
-                <span className="nums text-xs font-semibold text-[color:var(--text-muted)]">{item.count}</span>
-              ) : null}
-            </button>
-          );
-        })}
+      {/*
+       * The horizontal scroller is a wrapper, not the tablist itself, and that split is
+       * load-bearing. Tabs carry `-mb-px` so the selected tab's 2px underline covers the
+       * strip's own bottom border, which paints their box 1px below the tablist's content
+       * box. `overflow-x: auto` computes the other axis to `auto` rather than `visible`, so
+       * while the tablist was the scroller that 1px was real vertical scrollable overflow
+       * (clientHeight 47 against scrollHeight 48) and desktop browsers with classic
+       * scrollbars drew a full vertical scrollbar beside the tabs. Scrolling from the
+       * wrapper keeps the overhang inside the wrapper's content box, so only the intended
+       * horizontal scrollbar can ever appear. Clipping it instead (`overflow-y-hidden`)
+       * would have shaved the selected underline back to 1px, which is the thing the
+       * negative margin exists to prevent.
+       */}
+      <div className="overflow-x-auto">
+        <div
+          role="tablist"
+          aria-label={label}
+          aria-orientation="horizontal"
+          onKeyDown={onKeyDown}
+          className="flex w-max min-w-full items-center gap-1 border-b border-[color:var(--border)]"
+        >
+          {items.map((item) => {
+            const selected = item.id === selectedId;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                ref={(node) => {
+                  refs.current[item.id] = node;
+                }}
+                type="button"
+                role="tab"
+                id={`${baseId}-tab-${item.id}`}
+                aria-selected={selected}
+                // Only the tab that owns the rendered panel points at it. Other
+                // tabs must not aria-controls missing IDs (APG / a11y tree).
+                aria-controls={children && item.id === fallbackTabId ? `${baseId}-panel-${fallbackTabId}` : undefined}
+                tabIndex={item.id === fallbackTabId ? 0 : -1}
+                disabled={item.disabled}
+                onClick={() => onChange(item.id)}
+                className={cn(
+                  "inline-flex min-h-tap shrink-0 items-center gap-2 whitespace-nowrap px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--disabled)] disabled:shadow-none",
+                  "-mb-px rounded-t-md border-b-2",
+                  selected
+                    ? "border-[color:var(--command)] text-[color:var(--text-heading)]"
+                    : "border-transparent text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                )}
+              >
+                {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
+                {item.label}
+                {typeof item.count === "number" ? (
+                  <span className="nums text-xs font-semibold text-[color:var(--text-muted)]">{item.count}</span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       </div>
       {children ? (
         <div

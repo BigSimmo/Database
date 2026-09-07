@@ -10,7 +10,7 @@ import { Citation, CitationList } from "@/components/ui/citation";
 import { Chip, ChoiceChip } from "@/components/ui/chip";
 import { Checkbox, RadioGroup } from "@/components/ui/choice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Disclosure } from "@/components/ui/disclosure";
+import { Disclosure, DisclosureGroup, disclosureBodyText } from "@/components/ui/disclosure";
 import { DownloadLink, ExternalTextLink, LinkAction, TextLink, type LinkActionProps } from "@/components/ui/link";
 import { OverlayPortal, OverlayRoot } from "@/components/ui/overlay-root";
 import { PageHeader } from "@/components/ui/page-header";
@@ -396,6 +396,77 @@ describe("Disclosure / Progress", () => {
     expect(
       within(panel).getByText("Treatment, detention, transport, restraint, seclusion or force by itself."),
     ).toBeVisible();
+  });
+
+  it("keeps a leading icon out of the accessible name and out of the title's truncate box", () => {
+    render(
+      <Disclosure title="Pre-use checks" icon={<svg data-testid="row-glyph" />} headingLevel={4}>
+        Confirm the linked authority.
+      </Disclosure>,
+    );
+
+    const trigger = screen.getByRole("button", { name: "Pre-use checks" });
+    // The glyph renders inside the trigger but contributes no accessible name: the
+    // row is named by its label alone, as it was when the tile lived in `title`.
+    expect(within(trigger).getByTestId("row-glyph")).toBeInTheDocument();
+    expect(trigger).toHaveAccessibleName("Pre-use checks");
+
+    // The tile is a sibling of the title, not a child of it. Nested inside the
+    // title's `truncate` box it was clipped along with a long label.
+    const tile = trigger.querySelector('[data-testid="row-glyph"]')?.parentElement;
+    expect(tile).toHaveAttribute("aria-hidden", "true");
+    expect(tile?.className).toContain("size-disclosure-icon");
+    expect(tile?.parentElement).toBe(trigger);
+  });
+
+  it("sets an extended preview in the panel's own type so opening a row cannot re-size it", () => {
+    const { rerender } = render(
+      <Disclosure title="Does not authorise" description="Psychiatric treatment." extendDescription headingLevel={4}>
+        <p className={disclosureBodyText}>Psychiatric treatment.</p>
+      </Disclosure>,
+    );
+
+    const preview = () => screen.getByRole("button").querySelector('span[aria-hidden="true"]');
+    for (const token of disclosureBodyText.split(" ")) {
+      expect(preview()?.className, `extended preview must carry ${token}`).toContain(token);
+    }
+
+    // A description that is merely a subtitle is NOT the body, so it keeps the
+    // quieter treatment the on-call, medication and provenance rows rely on.
+    rerender(
+      <Disclosure title="Referral" description="After hours only." headingLevel={4}>
+        <p>Body copy.</p>
+      </Disclosure>,
+    );
+    expect(preview()?.className).toContain("text-xs");
+    expect(preview()?.className).not.toContain("text-sm");
+  });
+
+  it("draws a list group as one bordered container with flush rows", () => {
+    const items = [
+      { id: "a", title: "Purpose", content: <p>Convey a person.</p> },
+      { id: "b", title: "Authorises", content: <p>Transport.</p> },
+    ];
+
+    const { rerender } = render(<DisclosureGroup variant="list" items={items} />);
+    const group = screen.getByTestId("disclosure-group");
+    expect(group.className).toContain("divide-y");
+    expect(group.className).toContain("border");
+    // The container owns the edge — SPEC 4.7, one edge owner — so no row draws a
+    // second border inside it.
+    for (const row of screen.getAllByTestId("disclosure")) {
+      expect(row).toHaveAttribute("data-surface", "flush");
+      expect(row.className).not.toContain("rounded-lg");
+      expect(row.className).not.toContain("border");
+    }
+
+    // The default is unchanged, so the three existing consumers do not move.
+    rerender(<DisclosureGroup items={items} />);
+    expect(screen.getByTestId("disclosure-group").className).toContain("gap-2");
+    for (const row of screen.getAllByTestId("disclosure")) {
+      expect(row).toHaveAttribute("data-surface", "card");
+      expect(row.className).toContain("border");
+    }
   });
 
   it("animates determinate progress with scaleX rather than width", () => {
@@ -815,6 +886,28 @@ describe("Tabs", () => {
 
     await userEvent.keyboard("{End}");
     expect(screen.getByRole("tab", { name: "Audit" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  // Regression guard for the phantom vertical scrollbar on desktop. The tabs use
+  // `-mb-px` so the selected underline covers the strip's bottom border, which puts
+  // their painted box 1px below the tablist's content box. `overflow-x: auto` computes
+  // the other axis to `auto`, so while the tablist itself was the scroller that 1px
+  // became real vertical scrollable overflow and a classic-scrollbar desktop drew a
+  // full vertical scrollbar beside the tabs. jsdom has no layout, so the contract that
+  // is actually assertable is the structural one: the scroller is the wrapper, and the
+  // element that carries the border and the overhanging tabs never scrolls.
+  it("scrolls from a wrapper so the tabs' 1px underline overhang cannot draw a vertical scrollbar", () => {
+    render(<Harness />);
+    const tablist = screen.getByRole("tablist");
+
+    expect(tablist.className).not.toMatch(/overflow-/);
+    expect(tablist.className).toContain("border-b");
+    expect(tablist.parentElement?.className).toContain("overflow-x-auto");
+    // The strip stretches to its content so the border spans the full scroll width.
+    expect(tablist.className).toContain("w-max");
+    expect(tablist.className).toContain("min-w-full");
+    // The overlap the overhang exists for is still in place.
+    expect(screen.getByRole("tab", { name: "Answer" }).className).toContain("-mb-px");
   });
 
   it("links the panel back to its tab", () => {
