@@ -62,6 +62,7 @@ const operationalTemplate = JSON.parse(
   readFileSync("docs/superpowers/rag-upgrade/canonical/operational-receipt.template.json", "utf8"),
 );
 type ProgrammeManifest = {
+  reconciledBase: string;
   phases: Array<{ id: string }>;
   localPhases: Array<{ id: string; closesGate?: string | null }>;
   requiredResidualGates: Array<{ id: string }>;
@@ -74,8 +75,52 @@ const manifest = JSON.parse(
   readFileSync("docs/superpowers/rag-upgrade/canonical/programme-manifest.json", "utf8"),
 ) as ProgrammeManifest;
 
+function isShallowClone(): boolean {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isCommitAvailable(commit: string): boolean {
+  try {
+    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ensureHistoryDeepened(depth = 2000): void {
+  if (!isShallowClone()) return;
+  try {
+    execFileSync("git", ["fetch", `--deepen=${depth}`], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+  } catch {
+    // Ignore network or fetch failures
+  }
+}
+
 describe("RAG plan execution packages", () => {
   it("keeps Local and Cloud task bodies identical and executable", () => {
+    if (!isCommitAvailable(manifest.reconciledBase)) {
+      ensureHistoryDeepened(2000);
+      if (!isCommitAvailable(manifest.reconciledBase) && isShallowClone()) {
+        console.warn(
+          `RAG_PLAN_PACKAGE_PARITY_SHALLOW_CLONE: reconciledBase ${manifest.reconciledBase} is unavailable in shallow clone and history could not be deepened; skipping package parity check.`,
+        );
+        return;
+      }
+    }
     expect(() =>
       execFileSync(process.execPath, ["scripts/build-rag-plan-packages.mjs", "--check", "--require-origin-main"], {
         cwd: process.cwd(),

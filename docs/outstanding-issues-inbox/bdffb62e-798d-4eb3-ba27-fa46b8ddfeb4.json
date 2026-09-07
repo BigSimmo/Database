@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "bdffb62e-798d-4eb3-ba27-fa46b8ddfeb4",
+  "createdOn": "2026-09-06",
+  "action": "cancel",
+  "payload": {
+    "requestId": "5a085bc0-5c7c-40e9-8848-f736e2501f36",
+    "reason": "Superseded by resolution of #AGBNBV in Package 4"
+  }
+}

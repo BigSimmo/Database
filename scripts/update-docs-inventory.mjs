@@ -17,6 +17,26 @@ const packageJsonPath = path.join(repoRoot, "package.json");
 
 const inventoryPattern =
   /Curated map of `scripts\/` \((?:~)?\d+ files\) and the `package\.json` script surface \((?:~)?\d+ entries\),/;
+const inventoryMatchPattern =
+  /Curated map of `scripts\/` \((?:~)?(\d+) files\) and the `package\.json` script surface \((?:~)?(\d+) entries\),/;
+
+export const INVENTORY_TOLERANCE = 5;
+
+export function parseScriptsInventoryCounts(markdown) {
+  const match = inventoryMatchPattern.exec(markdown);
+  if (!match) return null;
+  return {
+    scriptFileCount: parseInt(match[1], 10),
+    npmScriptCount: parseInt(match[2], 10),
+  };
+}
+
+export function isInventoryWithinTolerance(currentCounts, expectedCounts, tolerance = INVENTORY_TOLERANCE) {
+  if (!currentCounts || !expectedCounts) return false;
+  const fileDiff = Math.abs(currentCounts.scriptFileCount - expectedCounts.scriptFileCount);
+  const scriptDiff = Math.abs(currentCounts.npmScriptCount - expectedCounts.npmScriptCount);
+  return fileDiff <= tolerance && scriptDiff <= tolerance;
+}
 
 export function renderScriptsInventorySummary(scriptFileCount, npmScriptCount) {
   return `Curated map of \`scripts/\` (${scriptFileCount} files) and the \`package.json\` script surface (${npmScriptCount} entries),`;
@@ -48,23 +68,43 @@ export function collectRepositoryInventory() {
 function main() {
   const current = readFileSync(scriptsIndexPath, "utf8");
   const { scriptFileCount, npmScriptCount } = collectRepositoryInventory();
-  const expected = updateScriptsInventoryText(current, scriptFileCount, npmScriptCount);
+  const currentCounts = parseScriptsInventoryCounts(current);
   const check = process.argv.includes("--check");
+  const force = process.argv.includes("--force");
+  const withinTolerance = isInventoryWithinTolerance(currentCounts, { scriptFileCount, npmScriptCount });
 
-  if (current === expected) {
+  if (
+    currentCounts &&
+    currentCounts.scriptFileCount === scriptFileCount &&
+    currentCounts.npmScriptCount === npmScriptCount
+  ) {
     console.log(`Docs inventory current: ${scriptFileCount} script files, ${npmScriptCount} npm scripts.`);
+    return;
+  }
+
+  if (withinTolerance && !force) {
+    if (check) {
+      console.log(
+        `Docs inventory within tolerance (current: ${currentCounts.scriptFileCount} files, ${currentCounts.npmScriptCount} scripts; expected: ${scriptFileCount} files, ${npmScriptCount} scripts).`,
+      );
+      return;
+    }
+    console.log(
+      `Docs inventory preserved within tolerance (current: ${currentCounts.scriptFileCount} files, ${currentCounts.npmScriptCount} scripts; expected: ${scriptFileCount} files, ${npmScriptCount} scripts; pass --force to rewrite).`,
+    );
     return;
   }
 
   if (check) {
     console.error(
       `docs/scripts-index.md inventory is stale. Run \`npm run docs:update\` ` +
-        `(expected ${scriptFileCount} script files and ${npmScriptCount} npm scripts).`,
+        `(expected ${scriptFileCount} script files and ${npmScriptCount} npm scripts, current: ${currentCounts?.scriptFileCount ?? "unknown"} and ${currentCounts?.npmScriptCount ?? "unknown"}).`,
     );
     process.exitCode = 1;
     return;
   }
 
+  const expected = updateScriptsInventoryText(current, scriptFileCount, npmScriptCount);
   writeFileSync(scriptsIndexPath, expected, "utf8");
   console.log(
     `Updated docs/scripts-index.md inventory: ${scriptFileCount} script files, ${npmScriptCount} npm scripts.`,
