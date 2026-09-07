@@ -292,12 +292,14 @@ export function CrossModeLinksSection({
  * Under an answer this block used to be a permanently expanded rail sitting
  * directly above a second, near-identical panel of mode matches. Two panels
  * asking the same question ("where else does this appear") read as one panel
- * repeated. This collapses to a single row carrying a preview of what is inside,
- * closes the answer's evidence/safety stack, and opens to exactly the rail it
- * always was before the follow-up conversation begins.
+ * repeated. This is the single row that replaced them: it closes the answer's
+ * evidence/safety stack and collapses to give the space back before the
+ * follow-up conversation begins.
  *
- * The preview names come from the resolved links, so the line can never
- * advertise a match the expanded rail does not list.
+ * The header carries the label, a rule and the count — no preview of the record
+ * names (owner decision, 2026-09-07). The names were there to tell a closed line
+ * what it held, and the line rests open, so they were repeating the cards
+ * directly beneath them.
  */
 function CrossModeLinksLine({
   links,
@@ -319,8 +321,6 @@ function CrossModeLinksLine({
   // and a historical turn), and a duplicate id is a DOM-integrity failure the
   // smoke audit fails on.
   const panelId = useId();
-  const preview = links.slice(0, 3).map((link) => link.title);
-  const rest = links.length - preview.length;
   const countLabel = links.length === 1 ? "1 match" : `${links.length} matches`;
   return (
     <section
@@ -356,19 +356,13 @@ function CrossModeLinksLine({
           <Layers className="size-icon-md" aria-hidden />
         </span>
         <span className={cn(eyebrowText, "shrink-0 text-[color:var(--text-heading)]")}>Also in your library</span>
-        {/* Label, rule, count — the editorial section-header device the "Also
-            matches" tray uses. The preview names replace the rule from sm up,
-            where there is room for them; at 320px the label plus both of them
-            would not fit, and the count is the half that still says something
-            when the names are gone. */}
-        <span
-          className="h-px min-w-3 flex-1 bg-[color:var(--border)] forced-colors:bg-[CanvasText] sm:hidden"
-          aria-hidden
-        />
-        <span className="hidden min-w-0 flex-1 truncate text-2xs text-[color:var(--text-muted)] sm:block">
-          {preview.join(" · ")}
-          {rest > 0 ? ` · +${rest}` : null}
-        </span>
+        {/* Label, rule, count — the same editorial section-header device the
+            "Also matches" tray uses, and now at every width. A preview of the
+            first three record names used to take the rule's place from sm up;
+            it earned that room while the line rested closed and had no other
+            way to say what it held. Resting open, it was naming the cards
+            immediately below it. */}
+        <span className="h-px min-w-3 flex-1 bg-[color:var(--border)] forced-colors:bg-[CanvasText]" aria-hidden />
         {/* Visual cue only — the button's accessible name stays the label above,
             so a screen reader is not read the count twice. */}
         <span

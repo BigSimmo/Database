@@ -794,6 +794,11 @@ the space is one tap away for a reader who wants the answer and the follow-ups c
 `variant="line"` and `CrossModeLinksLine` are the presentation again, so the `card` strip stays
 what the DSM diagnosis page and the mockups use.
 
+The header lost its preview of the first three record names in the same change. Those names
+earned their room while the line rested closed and had no other way to say what it held; open,
+they were naming the cards immediately below them. The header is label, rule and count now, at
+every width, which is the device the "Also matches" tray already uses.
+
 Worth recording because it nearly went the other way: `CrossModeLinksLine` was almost deleted
 while it briefly had no consumer. `check:dead-code-candidate` refused the removal — the symbol
 was introduced on 2026-08-26, inside the gate's 30-day window ("likely awaiting its consumer") —
