@@ -1,0 +1,65 @@
+/* WardFilters and WardSegmented — the two control shapes the merged screens share.
+ * Every value resolves through a --ward-* token declared in ward-tokens.module.css. */
+.filters {
+  composes: wardTokens from "./ward-tokens.module.css";
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ward-space-5);
+}
+
+.pill {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: var(--ward-leading-ui);
+  padding: var(--ward-space-5) var(--ward-space-10);
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--ward-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--ward-radius-pixel);
+}
+.pill:hover {
+  background: var(--ward-chrome);
+}
+.pill[aria-pressed="true"] {
+  color: var(--ward-blue);
+  background: var(--ward-blue-soft);
+  border-color: var(--ward-blue-border);
+}
+
+.pillCount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6875rem;
+}
+
+.segmented {
+  display: inline-flex;
+  overflow: hidden;
+  background: var(--ward-canvas);
+  border: 1px solid var(--ward-border);
+  border-radius: var(--ward-radius-pixel);
+}
+
+.segment {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: var(--ward-leading-ui);
+  padding: var(--ward-space-6) var(--ward-space-12);
+  cursor: pointer;
+  color: var(--ward-muted);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--ward-divider);
+}
+.segment:last-child {
+  border-right: 0;
+}
+.segment[aria-pressed="true"] {
+  color: var(--ward-blue);
+  background: var(--ward-blue-soft);
+}

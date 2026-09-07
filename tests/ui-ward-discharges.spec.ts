@@ -4,25 +4,45 @@ import { unitById } from "@/components/ward-management/ward-sites";
 
 /**
  * Task 8 (Phase 5). One journey: a ward flags a bed coming free, confirms it, blocks it with a
- * reason from the fixed list, then releases it — and the coordinator's capacity board
- * (`CapacityView` in `ward-management-modes.tsx`, reachable at `/mockups/ward-flow/capacity`)
- * reflects each of those four changes on the very next render, with no `page.goto()` anywhere
- * after the first navigation. Modelled on `tests/ui-ward-roles.spec.ts`'s "a ward confirming
- * zero allocatable beds updates its own screen, then the coordinator" journey — the same
- * discipline applies here for the same reason: a `goto` is a full page load that re-mounts
- * `WardFlowProvider` and resets every unit and bed release back to the seed fixture, which would
- * make every assertion below pass whether or not a ward's own bed-release action actually reaches
- * the coordinator's board.
+ * reason from the fixed list, then releases it — and the coordinator's capacity board reflects
+ * each of those changes on the very next render, with no `page.goto()` anywhere after the first
+ * navigation. Modelled on `tests/ui-ward-roles.spec.ts`'s "a ward confirming zero allocatable
+ * beds updates its own screen, then the coordinator" journey — the same discipline applies here
+ * for the same reason: a `goto` is a full page load that re-mounts `WardFlowProvider` and resets
+ * every unit and bed release back to the seed fixture, which would make every assertion below
+ * pass whether or not a ward's own bed-release action actually reaches the coordinator's board.
+ *
+ * ⚠️ **RETARGETED 2026-09-06.** This journey used to read six per-unit bed-state spans off the
+ * old `CapacityView` (`ward-management-modes.tsx`, `data-testid="ward-capacity-view"`), reached
+ * by clicking the rail's "Capacity" link. MERGE 02 (owner-approved 2026-09-05) repointed that
+ * same link at a real route, `/mockups/ward-flow/capacity` → `CapacityScreen`
+ * (`capacity-screen.tsx`, `data-testid="ward-capacity-page"`) — confirmed nothing routes
+ * `mode === "capacity"` into `ModeBody` any more (`ward-management-modes.tsx`; only `network` and
+ * `governance` still reach `WardModeWorkspace`), so `CapacityView` and its old testid are
+ * unreachable by any URL a user can open.
+ *
+ * `CapacityScreen` does not carry that old Ready/Held/Confirmed/Expected/Blocked/Occupied
+ * breakdown — its "Every ward in the network" table reads a different, coarser pair of live
+ * per-unit figures instead (`capacity-derivations.ts`'s `networkWardRows`):
+ * `ward-capacity-network-ready` (`lockedBedsFree(unit) + openBedsFree(unit)`, which reduces to
+ * exactly `unit.allocatable.value` — the same figure `unitCapacity().available` reads on the
+ * ward's own screen, and the one that only moves once a bed is truly, physically released) and
+ * `ward-capacity-network-freeing` (every one of this unit's bed releases still due today and not
+ * yet discharged, confirmed or expected alike — it rises the moment a release is flagged for
+ * today, holds through confirm/block/unblock, and falls the moment the release is discharged).
+ * Those two are what this journey now checks on the board; the release's own stage and blocked
+ * flag are checked where they always were, on `releaseRow` a few lines below each board check.
  *
  * The round trip between the ward screen and the capacity board uses the icon rail's own
  * `<Link>`s (`ClinicalRail` in `ward-management-navigation.tsx`, sourced from `ward-nav.ts`),
  * which are mounted on every Ward Flow route rather than only the coordinator's — "Capacity" is
- * one of the eight `WARD_VIEWS`, and "Ward — RPH Adult Secure" is `WARD_NAV`'s one named,
+ * one of the six listed `WARD_VIEWS`, and "Ward — RPH Adult Secure" is `WARD_NAV`'s one named,
  * always-present entry point back into this unit's own screen (`exampleOnly: true`). Neither is
  * the `WardRoleSwitcher` this file's model test uses, because that control's own "Ward" menu
  * group is driven by `focusMovementId` (a selected coordinator movement) and stays disabled with
  * no movement selected — this journey never selects one, so the rail's static links are the real
- * way back, not a substitute for one.
+ * way back, not a substitute for one. `CapacityScreen` reads the same `useWardFlow()` state, so
+ * the client-side navigation this helper drives does not remount it or reset anything.
  */
 
 const UNIT_ID = "rph-adult-secure";
@@ -48,7 +68,7 @@ async function gotoWard(page: Page) {
 
 async function goToCapacityBoard(page: Page) {
   await page.getByRole("link", { name: "Capacity", exact: true }).click();
-  await expect(page.getByTestId("ward-capacity-view")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("ward-capacity-page")).toBeVisible({ timeout: 15_000 });
   await page.waitForLoadState("networkidle");
 }
 
@@ -58,12 +78,38 @@ async function goBackToWard(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 
-/** The capacity board's per-unit row renders six `<span>`s in this fixed order — Now, Held,
- *  Confirmed, Expected, Blocked, Occupied (`CapacityView`'s own JSX in
- *  `ward-management-modes.tsx`) — each rendering as e.g. `"1Now"` with no space between the
- *  number and its label, so `toHaveText` matches the literal concatenation. */
-function bedStateCells(page: Page) {
-  return page.getByTestId(`ward-capacity-bed-states-${UNIT_ID}`).locator("span");
+/** This unit's one row in `CapacityScreen`'s "Every ward in the network" table
+ *  (`ward-capacity-network-row-${UNIT_ID}`, `capacity-screen.tsx`). Both `ward-capacity-network-*`
+ *  testids this journey reads are unsuffixed, so every row in the table repeats them — scoping to
+ *  this row is what stops a locator resolving to whichever ward's row happens to render first. */
+function networkRow(page: Page) {
+  return page.getByTestId(`ward-capacity-network-row-${UNIT_ID}`);
+}
+
+/**
+ * The Ready cell's number, read out rather than matched with `toHaveText` on the whole cell:
+ * `NetworkRow` (`capacity-screen.tsx`) renders a `data-testid="ward-capacity-mid-update-…"` note
+ * as a sibling of the number whenever a unit's recorded sex mix disagrees with its occupancy — a
+ * `RELEASE_BED` side effect this journey's own release step can legitimately trigger — and a
+ * `toHaveText` match on the whole cell would break the moment that sibling note appears. Reading
+ * just the leading integer keeps the assertion about the one count this journey actually watches.
+ */
+async function readyCount(page: Page): Promise<number> {
+  const text = await networkRow(page).getByTestId("ward-capacity-network-ready").textContent();
+  const match = text?.match(/^-?\d+/);
+  expect(match, `the Ready cell for ${UNIT_ID} did not start with a number: "${text}"`).not.toBeNull();
+  return Number(match![0]);
+}
+
+/**
+ * How many of this unit's bed releases are due today and not yet discharged
+ * (`freeingCellText`/`networkWardRows` in `capacity-derivations.ts`) — confirmed and expected
+ * alike, which is why this rises on FLAG and holds flat through CONFIRM/BLOCK/UNBLOCK, only
+ * falling once the release actually reaches `discharged`. Unlike the Ready cell this one has no
+ * sibling content, so a plain `toHaveText` is exact.
+ */
+function freeingCell(page: Page) {
+  return networkRow(page).getByTestId("ward-capacity-network-freeing");
 }
 
 /**
@@ -131,22 +177,24 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     const releaseRow = page.getByTestId(newRowTestId!);
     await expect(releaseStateLabel(releaseRow)).toHaveText("Expected");
 
-    // --- The coordinator's capacity board reflects the flag: Expected +1, Confirmed unmoved. ---
+    // --- The coordinator's capacity board reflects the flag: Freeing rises to 2 (WR-001, seeded
+    // confirmed and due today, plus the release just flagged), Ready stays put — flagging a
+    // release is a record about a future bed, not the bed becoming physically free yet. ---
     await goToCapacityBoard(page);
-    const cells = bedStateCells(page);
-    await expect(cells.nth(0)).toHaveText("1Now");
-    await expect(cells.nth(2)).toHaveText("1Confirmed"); // WR-001, seeded confirmed
-    await expect(cells.nth(3)).toHaveText("1Expected"); // the release just flagged
+    expect(await readyCount(page)).toBe(1);
+    await expect(freeingCell(page)).toHaveText("2");
 
     // --- Step 2: back to the ward, confirm the release. ---
     await goBackToWard(page);
     await page.getByTestId(`ward-bed-release-confirm-${releaseId}`).click();
     await expect(releaseStateLabel(releaseRow)).toHaveText("Confirmed");
 
-    // --- The board reflects the confirm: Confirmed +1, Expected back to 0. ---
+    // --- The board still reflects both releases due today: confirming one does not change
+    // whether it counts, and Confirmed/Expected is no longer a figure this board carries (the
+    // release's own stage is asserted on the ward's own row, immediately above). ---
     await goToCapacityBoard(page);
-    await expect(cells.nth(2)).toHaveText("2Confirmed");
-    await expect(cells.nth(3)).toHaveText("0Expected");
+    expect(await readyCount(page)).toBe(1);
+    await expect(freeingCell(page)).toHaveText("2");
 
     // --- Step 3: back to the ward, block the release with a reason from the fixed list —
     // never free text (binding spec §4). ---
@@ -162,15 +210,16 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     await expect(page.getByTestId(`ward-bed-release-blocked-flag-${releaseId}`)).toHaveText("Blocked");
     await expect(releaseRow).toContainText("Awaiting clean");
 
-    // --- The board reflects the block WITHOUT losing the confirmed discharge. This assertion
-    // used to read "1Confirmed" and was the browser-level statement of the defect the rework
-    // exists to close: marking a confirmed discharge blocked dropped the ward's confirmed count
-    // by one, so the figures improved at the exact moment the ward got stuck. The bed is still a
-    // confirmed discharge — it is simply also stuck, and the stuck-ness is now its own figure. ---
+    // --- The board reflects the block WITHOUT losing the release from "freeing today": blocking
+    // is a flag on a release that is still `confirmed` (asserted on the ward's own row just
+    // above), and `networkWardRows` only drops a release out of Freeing once it is `discharged` —
+    // so this figure must hold at 2, not fall as it would if blocking silently reclassified the
+    // release as no longer due. There is no board-level "Blocked releases" headline any more
+    // (that was `CapacityView`'s own, per this file's header); the blocked flag itself is already
+    // asserted above, on the ward's own row. ---
     await goToCapacityBoard(page);
-    await expect(cells.nth(2)).toHaveText("2Confirmed");
-    await expect(cells.nth(3)).toHaveText("0Expected");
-    await expect(page.getByTestId("ward-capacity-headline-blocked-releases")).toContainText("Blocked releases");
+    expect(await readyCount(page)).toBe(1);
+    await expect(freeingCell(page)).toHaveText("2");
 
     // --- Step 3b: the flag comes off again without touching the stage. A flag that can only ever
     // be set is not a flag, and under the four-stage model the only way out of "blocked" was a
@@ -180,7 +229,8 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     await expect(page.getByTestId(`ward-bed-release-blocked-flag-${releaseId}`)).toHaveCount(0);
     await expect(releaseStateLabel(releaseRow)).toHaveText("Confirmed");
     await goToCapacityBoard(page);
-    await expect(cells.nth(2)).toHaveText("2Confirmed");
+    expect(await readyCount(page)).toBe(1);
+    await expect(freeingCell(page)).toHaveText("2");
 
     // --- Step 4: back to the ward, release the bed — the one transition in this lifecycle that
     // changes a real, physical bed count rather than just a record about one. ---
@@ -189,12 +239,13 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
     // `discharged` is terminal and drops off the ward's own pending list (spec D10).
     await expect(releaseRow).toHaveCount(0);
 
-    // --- The board reflects the release: Now (`availableNow`) rises by one — the single number
-    // this whole phase exists to protect, moving only once the bed is truly, physically free. ---
+    // --- The board reflects the release: Ready rises by one — the single number this whole
+    // phase exists to protect, moving only once the bed is truly, physically free — and Freeing
+    // today falls back to 1 (WR-001 only), because a discharged release is already counted in
+    // Ready and `networkWardRows` excludes it from Freeing to avoid double-counting the same bed. ---
     await goToCapacityBoard(page);
-    await expect(cells.nth(0)).toHaveText("2Now");
-    await expect(cells.nth(2)).toHaveText("1Confirmed");
-    await expect(cells.nth(3)).toHaveText("0Expected");
+    expect(await readyCount(page)).toBe(2);
+    await expect(freeingCell(page)).toHaveText("1");
   });
 
   /**
@@ -262,21 +313,45 @@ test.describe("@mockup Ward discharges — a bed release's whole lifecycle reach
      * passed. `toBeVisible` is the matcher that fails for `display: none`, `visibility: hidden` and
      * a zero-size box alike, which is the whole class the geometric loop cannot see.
      *
-     * Pinned on the first table rather than all four: every group renders the same `<thead>` from
-     * one component, so one is the header contract and four would be the same assertion written
-     * four times. Nothing below is relaxed to make room for these.
+     * ⚠️ **THIS WAS PINNED ON THE FIRST TABLE ONLY, AND THE REASON GIVEN STOPPED BEING TRUE ON
+     * 2026-09-05.** The comment here read: *"every group renders the same `<thead>` from one
+     * component, so one is the header contract and four would be the same assertion written four
+     * times."* Ward Lead ruling E16 dropped the `Blocker` column from the three non-blocked groups
+     * — `groupDischarges` routes every release with a blocker into `blocked`, so the cell said
+     * "Not applicable" on every row elsewhere — and the four `<thead>`s stopped agreeing. **The
+     * assertion would have gone on passing, still green, still measuring the blocked table, while
+     * three tables it silently claimed to cover went unpinned.** A guard that keeps asking its
+     * original question after the answer has changed shape is the failure this file's own W1 note
+     * is about, one layer up.
+     *
+     * Both shapes are pinned now, and each is checked on the group it belongs to. Nothing below is
+     * relaxed to make room for these.
      */
     const DISCHARGE_COLUMNS = ["Unit", "Health service", "Expected", "Stage", "Blocker", "Freshness"];
-    const dischargeHeaders = scrollers.first().locator("thead th");
-    await expect(
-      dischargeHeaders,
-      "the discharges board's table no longer carries exactly these six columns, in this order",
-    ).toHaveText(DISCHARGE_COLUMNS);
-    for (const [index, column] of DISCHARGE_COLUMNS.entries()) {
+    const DISCHARGE_COLUMNS_NO_BLOCKER = ["Unit", "Health service", "Expected", "Stage", "Freshness"];
+    const columnsByGroup: ReadonlyArray<readonly [string, readonly string[]]> = [
+      ["blocked", DISCHARGE_COLUMNS],
+      ["confirmed", DISCHARGE_COLUMNS_NO_BLOCKER],
+      ["expected", DISCHARGE_COLUMNS_NO_BLOCKER],
+      ["discharged-today", DISCHARGE_COLUMNS_NO_BLOCKER],
+    ];
+    for (const [groupKey, columns] of columnsByGroup) {
+      const table = page.getByTestId(`ward-discharge-table-${groupKey}`);
       await expect(
-        dischargeHeaders.nth(index),
-        `the discharges board's \`${column}\` column is in the document but not on the screen`,
+        table,
+        `the discharges board renders no table for \`${groupKey}\`, so its column contract went unchecked`,
       ).toBeVisible();
+      const headers = table.locator("thead th");
+      await expect(
+        headers,
+        `the \`${groupKey}\` group no longer carries exactly these columns, in this order`,
+      ).toHaveText([...columns]);
+      for (const [index, column] of columns.entries()) {
+        await expect(
+          headers.nth(index),
+          `the \`${groupKey}\` group's \`${column}\` column is in the document but not on the screen`,
+        ).toBeVisible();
+      }
     }
 
     for (const width of [641, 700, 760, 820]) {

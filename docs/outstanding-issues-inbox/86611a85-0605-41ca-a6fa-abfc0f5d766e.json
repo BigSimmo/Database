@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "86611a85-0605-41ca-a6fa-abfc0f5d766e",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#RBK2J7",
+    "detail": "NEW INSTANCE 2026-09-06 on PR #2664, desktop-root, same 785.647ms baseline and same +20%/+100ms tolerance (effective ceiling 943ms). Seven runs of code that cannot reach the measured route: 997 FAIL, PASS, PASS, PASS, 989 FAIL, PASS, PASS. The two failures sit 8ms apart, which is runner-class spread rather than a decaying regression, so this reading is closer in shape to #4TXR6Z (bimodal between runners) than to the monotone 961->925->900->852 decay this row originally recorded. Import-reachability was traced for PR #2664: the diff is 16 files of source-governance data, a gate script, a catalogue provider and docs, and nothing on it is imported by the desktop root render. main passed the same check on the same day. The one permitted CI re-run was spent and passed. RESOLUTION TAKEN: the owner authorised the skip-lighthouse-budget label on PR #2664 rather than touching the baseline or the tolerance, which the pr-required aggregate accepts because it calls require_skipped_or_success 'lighthouse-budget'. Label semantics worth recording: on.pull_request.types has no 'labeled' entry, so the label is only read at synchronize and takes effect on the next push, not when applied. Stop rules from this row are unchanged - do not raise the baseline or tolerance to clear a red PR.",
+    "baseRowFingerprint": "7dd39c737947c51f4d2bfdc93f008991be1a4aa2e13ddf550724bba9057a5b99"
+  }
+}

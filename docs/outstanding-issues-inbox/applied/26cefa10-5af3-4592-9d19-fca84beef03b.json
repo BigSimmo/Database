@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "26cefa10-5af3-4592-9d19-fca84beef03b",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Ward Flow: decide the ward index design — strict index, or cards with per-ward bed numbers",
+    "detail": "NOT a cleanup item, and an earlier entry wrongly framed it as one. wards/ward-overview.module.css has no importer and no composes edge, but it is retained on purpose: ward-index.tsx lines 33-49 record that a card layout using it was built to match mockup-ward-home.html, was refused outright by tests/ward-nav.test.ts:1251 — that test pins the literal 'All wards', an exhaustive allowlist of every text fragment the page may render, a hard ban on any digit in its copy, and a blocklist of capacity words, all guarding a deliberate 'not a second bed board' restraint decision — and was reverted rather than overridden, because overriding a test fortified that deliberately needs the owner rather than an implementer. THE REAL DECISION: should the ward index stay a strict index answering 'what is this ward and how do I get to it', or become a card grid showing each ward's free beds? Settling it also settles 'All wards' versus 'Ward overview' and whether the digit ban stands. The CSS is the prepared answer to one branch and should not be deleted until the branch is chosen. ⚠️ Two surfaces answering one question in wording that can drift is named in that file as this project's most reliable defect, which is the argument the restraint decision rests on.",
+    "source": "Ward Lead, 2026-09-04, correcting an earlier entry of my own",
+    "issueUlid": "01M1NWXKM4CCK6050KCV03FK4C"
+  }
+}

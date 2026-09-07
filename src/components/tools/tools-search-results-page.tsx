@@ -22,7 +22,7 @@ import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favouri
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
-import { cardPadding, cardSelected, cardSurface, focusRing } from "@/components/card-recipes";
+import { cardPadding, cardSelected, cardSurface, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
@@ -150,7 +150,14 @@ function ToolResultCard({
           aria-label={`Open ${tool.title}`}
           target={tool.external ? "_blank" : undefined}
           rel={tool.external ? "noreferrer" : undefined}
-          className={cn(primaryControl, "w-full min-w-0 px-3 text-xs")}
+          className={cn(
+            primaryControl,
+            "w-full min-w-0 px-3 text-xs",
+            // The whole row opens the tool. Deliberately not for an external
+            // tool: the row gives no hint that a tap would leave the app, so
+            // the new tab stays behind the explicit Open button.
+            !tool.external && stretchedRowLinkClass,
+          )}
         >
           Open
         </Link>
@@ -162,6 +169,7 @@ function ToolResultCard({
           variant="secondary"
           size="sm"
           block
+          className="relative z-10"
           aria-label={`View details for ${tool.title}`}
           trailingIcon={ChevronRight}
           onClick={(event) => onOpenDetails(tool, event.currentTarget)}

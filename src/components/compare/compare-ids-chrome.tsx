@@ -84,7 +84,12 @@ export function CompareIdsChrome({
       id,
       label: labels[index] ?? String(index + 1),
       title: item?.title ?? slotPlaceholder,
-      subtitle: item?.snippet ?? item?.tag,
+      // The tag first, the snippet only as a fallback. A tile is 200-300px wide
+      // and its job is "which one is this" — a category ("Skills based") answers
+      // that in one short line, while a clinical summary opens by repeating the
+      // title and then clips mid-sentence. The full snippet is still the
+      // picker's job, where there is room to read it.
+      subtitle: item?.tag ?? item?.snippet,
     };
   });
   const suppressEmptyState = phoneLayout === "hybrid" && phone && filled < minCount;
@@ -162,7 +167,9 @@ export function CompareIdsChrome({
           starters={starters}
         />
       </ComparePickerShell>
-      {showEmptyState && filled < minCount && !suppressEmptyState ? (
+      {/* The open picker already carries the same title, description and starters — do not stack a
+          second empty panel underneath it. */}
+      {showEmptyState && filled < minCount && !suppressEmptyState && !picker.open ? (
         <CompareEmptyState
           icon={icon}
           title={emptyTitle}

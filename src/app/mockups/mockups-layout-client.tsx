@@ -58,6 +58,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Owns the also-matches panel as the subject; shared composer chrome would
   // sit on top of a study about results-card identity.
   const isAlsoMatchesAccentMockup = pathname === "/mockups/also-matches-accents";
+  // The closed-state study draws its own results band and meta row inside every
+  // device frame, because the whole question is what sits between the composer
+  // and the results. Shared chrome would read as a second real composer above it.
+  const isAlsoMatchesClosedMockup = pathname === "/mockups/also-matches-closed";
   // Every direction in this study draws its own top bar, transcript and
   // composer inside phone/desktop frames — the reference system under review
   // sits directly between them, so shared chrome would read as a second real
@@ -70,6 +74,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // column before the answer. Shared chrome above those frames would read as a
   // second real header and a second real search bar over the study.
   const isAnswerLoadingRedesignMockup = pathname === "/mockups/answer-loading-redesign";
+  // Draws its own answer card in every frame, and the subject is the source rail
+  // inside it. Shared chrome would put a second real header and a second real
+  // search bar over a study about one row of that answer.
+  const isSourceRailDesktopScrollMockup = pathname === "/mockups/source-rail-desktop-scroll";
   // Draws its own sticky chrome + device frames for /privacy; shared shell would
   // read as a second real header over the study.
   const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
@@ -88,6 +96,15 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
+  // Same reason: each Recommend-popup direction draws the universal top bar,
+  // the scenario box and the ranked list inside its own device frames, and the
+  // popup under study opens over them. Shared chrome would read as a second
+  // real header and a second real search bar above every frame.
+  const isTherapyRecommendPopupMockup = pathname.startsWith("/mockups/therapy-recommend-popup");
+  // The scenario-popup study draws the Recommend page and its own universal
+  // top bar inside every frame, with the clinical-situation popup over them.
+  // Shared chrome would read as a second real header and a second search bar.
+  const isTherapyScenarioPopupMockup = pathname.startsWith("/mockups/therapy-scenario-popup");
   // The calculators search page owns its own search input (top on desktop, docked
   // at the bottom on phones), so the shared universal composer is suppressed here
   // to avoid a second, floating search bar.
@@ -152,6 +169,12 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // whole argument of the study. The `favourites-` prefix above already hides
   // the shared composer; the shared header still has to go or it reads as a
   // second real header above nine phone frames that each have their own.
+  // Every direction draws its own record nav bar inside phone and desktop frames,
+  // and the study's whole argument is what occupies the record page beneath that
+  // bar. Shared chrome above the frames would read as a second real header and a
+  // second real search bar over the page under review.
+  const isSpecifierRecordDirectionsMockup = pathname === "/mockups/specifier-record-directions";
+
   const isFavouritesPhonePerfectedMockup = pathname === "/mockups/favourites-phone-perfected";
 
   return (
@@ -186,12 +209,16 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isServicesFilterOptionsMockup &&
         !isFilterSheetRestyleMockup &&
         !isTherapyNavigationMockup &&
+        !isTherapyRecommendPopupMockup &&
+        !isTherapyScenarioPopupMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
+        !isAlsoMatchesClosedMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
         !isAnswerLoadingRedesignMockup &&
+        !isSourceRailDesktopScrollMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
@@ -204,7 +231,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup &&
         !isFactsheetsTopicsPhoneMockup &&
-        !isFavouritesPhonePerfectedMockup
+        !isFavouritesPhonePerfectedMockup &&
+        !isSpecifierRecordDirectionsMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -218,12 +246,16 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFilterSheetRestyleMockup &&
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup &&
+        !isTherapyRecommendPopupMockup &&
+        !isTherapyScenarioPopupMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAlsoMatchesAccentMockup &&
+        !isAlsoMatchesClosedMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
         !isAnswerLoadingRedesignMockup &&
+        !isSourceRailDesktopScrollMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
@@ -236,7 +268,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup &&
         !isFactsheetsTopicsPhoneMockup &&
-        !isFavouritesPhonePerfectedMockup
+        !isFavouritesPhonePerfectedMockup &&
+        !isSpecifierRecordDirectionsMockup
       }
     >
       {children}
