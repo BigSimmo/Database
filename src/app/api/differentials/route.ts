@@ -76,7 +76,14 @@ function publicDifferentialPayload(kind: DifferentialRecordKind, q: string | und
   return {
     records,
     matches: ranked ? recordMatchesPayload(ranked) : undefined,
-    total: records.length,
+    // The catalogue size, not `records.length`. With `q` present `records` holds
+    // the ranked matches, so measuring it made `total` the match count — which is
+    // already in `records`/`matches` — while the other three branches here report
+    // the catalogue (`snapshot.presentations.length` above, `rows.length` on both
+    // owner paths). A caller asking "how many differentials are there" got the
+    // size of its own result set back, so the differentials filter could not
+    // state the catalogue figure and had to omit it.
+    total: differentialRecords.length,
     governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
   };
 }

@@ -1200,19 +1200,17 @@ function SearchResultsView({
         panelId={filterPanelId}
         testId="differential-filter-panel"
         title="Filter differentials"
-        description="Narrow by result type, then by clinical urgency. Both narrow the same list together."
+        description="Narrow by result type, then by clinical urgency. Both narrow the same list."
         groups={[
-          // Both dimensions are exact partitions carrying counts, which is the
-          // case `ChoiceChip` itself sends to `SegmentedControl`: a counted
-          // chip is wide enough that four of them wrap one per line and leave
-          // most of each row empty.
+          // Both dimensions are exact partitions carrying counts, so the sheet
+          // derives the segmented bar for them — see docs/filter-contract.md
+          // section 5. Nothing here selects a renderer.
           resultFilterGroup({
             id: "result-type",
             label: "Show",
             value: kindFilter,
             options: kindFilterOptions,
             onChange: setKindFilter,
-            renderAs: "segmented",
           }),
           resultFilterGroup({
             id: "urgency",
@@ -1220,7 +1218,6 @@ function SearchResultsView({
             value: urgencyFilter,
             options: urgencyFilterOptions,
             onChange: setUrgencyFilter,
-            renderAs: "segmented",
           }),
         ]}
         onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
