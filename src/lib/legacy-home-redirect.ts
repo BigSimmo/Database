@@ -4,6 +4,25 @@ const legacyModePaths = {
   specifiers: "/specifiers",
 } as const;
 
+/**
+ * Modes whose `/?mode=…` alias redirects unconditionally, submitted or not.
+ *
+ * Tools is the only one, and it differs from the map above because it has no shared
+ * home to fall back to: `shouldShowSharedHome` excludes `tools` outright, so
+ * `/?mode=tools` used to render a second, hub-shaped launcher instead. That gave Tools
+ * two different surfaces depending on how a clinician arrived — the mode pill served
+ * the hub, every other link served the canonical directory at `/tools`. The hub's one
+ * unique feature, its verb shortcut row, moved to `/tools`
+ * (`components/tools/tool-quick-actions.tsx`), so this alias now has nothing of its own
+ * left to show and forwards.
+ *
+ * Unconditional on purpose: unlike the submitted-only map above, there is no state in
+ * which rendering `/` for `mode=tools` is correct.
+ */
+const aliasOnlyModePaths = {
+  tools: "/tools",
+} as const;
+
 type LegacyHomeRequestUrl = Pick<URL, "pathname" | "searchParams" | "toString">;
 
 /**
@@ -17,6 +36,19 @@ export function legacyHomeRedirectUrl(requestUrl: LegacyHomeRequestUrl, method: 
   if ((method !== "GET" && method !== "HEAD") || requestUrl.pathname !== "/") return null;
 
   const mode = requestUrl.searchParams.get("mode");
+
+  const aliasOnlyPath = mode ? aliasOnlyModePaths[mode as keyof typeof aliasOnlyModePaths] : undefined;
+  if (aliasOnlyPath) {
+    const aliasDestination = new URL(requestUrl.toString());
+    aliasDestination.pathname = aliasOnlyPath;
+    aliasDestination.hash = "";
+    // `mode` is consumed by the destination pathname; everything else (a query, a
+    // submitted `run=1`, navigation context) rides along, because `/tools` reads the
+    // same query string the alias carried.
+    aliasDestination.searchParams.delete("mode");
+    return aliasDestination;
+  }
+
   const destinationPath = mode ? legacyModePaths[mode as keyof typeof legacyModePaths] : undefined;
   if (!destinationPath) return null;
 

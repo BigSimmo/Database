@@ -120,6 +120,25 @@ describe("audit navigation and auth regressions", () => {
     expect(source("src/proxy.ts")).toContain("legacyHomeRedirectUrl(request.nextUrl, request.method)");
   });
 
+  // Tools is the one alias that forwards whether or not the URL is submitted. It has no
+  // shared home to fall back to (`shouldShowSharedHome` excludes `tools`), so `/?mode=tools`
+  // used to render a second, hub-shaped launcher and Tools had two surfaces depending on how
+  // the clinician arrived. The hub's verb shortcut row moved to `/tools`, so the alias has
+  // nothing of its own left to show.
+  it("forwards the tools alias to the canonical directory whether or not it is submitted", () => {
+    expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=tools"), "GET")?.toString()).toBe(
+      "https://clinical-kb.test/tools",
+    );
+    expect(
+      legacyHomeRedirectUrl(
+        new URL("https://clinical-kb.test/?mode=tools&q=medications&focus=1&run=1#detail"),
+        "GET",
+      )?.toString(),
+    ).toBe("https://clinical-kb.test/tools?q=medications&focus=1&run=1");
+    // A non-navigation method still falls through, same as every other alias.
+    expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=tools"), "POST")).toBeNull();
+  });
+
   // This redirect used to rebuild the destination from scratch (`destination.search = ""`,
   // then only q/focus/run re-added), so `queryMode` and the scope filters were already gone
   // one hop before `consolidatedModeHomeTarget` — whose own doc promises "every other query

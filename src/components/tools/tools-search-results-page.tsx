@@ -22,6 +22,7 @@ import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favouri
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { ToolQuickActions } from "@/components/tools/tool-quick-actions";
 import { cardPadding, cardSelected, cardSurface, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
@@ -37,7 +38,9 @@ import { interpretSmartSearch, smartSearchExpansions } from "@/lib/smart-search-
 import { useAuthSession } from "@/lib/supabase/client";
 import {
   rankToolRecords,
+  localSmartExcludedToolIds,
   toolCatalogRecordsForSession,
+  type ToolCatalogId,
   type ToolCatalogArea,
   type ToolCatalogRecord,
 } from "@/lib/tools-catalog";
@@ -60,8 +63,6 @@ const filterOptions = [
 
 type FilterId = (typeof filterOptions)[number]["id"];
 type DetailSectionId = "check-first" | "needed-input" | "output";
-
-const localSmartExcludedToolIds = new Set(["clinical-kb-search", "documents", "favourites"]);
 
 function subscribeNoop() {
   return () => undefined;
@@ -433,6 +434,14 @@ export function ToolsSearchResultsPage({
     setOpenSection((current) => (current === section ? null : section));
   }
 
+  // The quick-action row selects by id; `openTool` wants the record. Resolved against
+  // `accessibleTools` rather than `filteredTools` so a shortcut still opens its tool
+  // when a category filter has excluded it from the visible list.
+  function openToolById(id: ToolCatalogId) {
+    const tool = accessibleTools.find((candidate) => candidate.id === id);
+    if (tool) openTool(tool);
+  }
+
   function openTool(tool: ToolCatalogRecord, opener?: HTMLElement | null) {
     setSelectedId(tool.id);
     setOpenSection(null);
@@ -464,6 +473,32 @@ export function ToolsSearchResultsPage({
         )}
       >
         <div className="min-w-0">
+          {/* The verb shortcut row carried over from the retired `/?mode=tools` hub.
+              Sourced from `accessibleTools`, not `filteredTools`: the shortcuts are a
+              fixed way in, so a query or category filter must not empty the row. Hidden
+              once a query is running, where the ranked results are the answer and a
+              static row above them is just noise. */}
+          {query.trim() ? null : (
+            <div className="mb-4" data-testid="tools-shortcuts">
+              <div className="hidden sm:block">
+                <ToolQuickActions
+                  onSelect={openToolById}
+                  tools={accessibleTools}
+                  canAccessFavourites={canAccessFavourites}
+                  naturalSmartSearch={naturalSmartSearch}
+                />
+              </div>
+              <div className="sm:hidden">
+                <ToolQuickActions
+                  onSelect={openToolById}
+                  tools={accessibleTools}
+                  canAccessFavourites={canAccessFavourites}
+                  naturalSmartSearch={naturalSmartSearch}
+                  mobile
+                />
+              </div>
+            </div>
+          )}
           <SearchResultsHeaderBand
             modeId="tools"
             query={query.trim() || "All tools"}

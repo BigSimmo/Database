@@ -3014,11 +3014,10 @@ function ClinicalDashboardContent({
         activeModeResultKind === "services" ||
         activeModeResultKind === "forms") &&
         modeSearchSubmitted));
-  // `/tools` owns the tools catalogue, but the legacy `/?mode=tools` entry
-  // still renders this dashboard path. Keep both entry points composer-free so
-  // the alias cannot mount a second ownership model (hero/page/dock) behind
-  // the canonical route's no-composer contract. Modes that only borrow the
-  // `tools` result kind remain on the shared home and are intentionally exempt.
+  // `/tools` owns the tools catalogue and stays composer-free, so a dashboard
+  // path reaching the tools result kind must not mount a second ownership model
+  // (hero/page/dock) behind it. Modes that only borrow the `tools` result kind
+  // remain on the shared home and are intentionally exempt.
   const toolsDirectoryWithoutComposer = activeModeResultKind === "tools" && !showSharedHome;
   const showDesktopHomeComposer =
     !error &&

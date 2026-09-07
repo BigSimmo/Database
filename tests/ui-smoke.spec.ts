@@ -5128,28 +5128,27 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(requestCounts.quality).toBe(0);
   });
 
-  test("tools mode searches the existing applications registry inside the dashboard", async ({ page }) => {
+  // The legacy `/?mode=tools` URL used to render a second, hub-shaped launcher. It now
+  // redirects to `/tools`, so the query it carries has to survive the hop and land on
+  // the one tools directory with the same registry search behind it.
+  test("the legacy tools URL carries its query to the tools directory", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/?mode=tools&q=medications&focus=1&run=1");
 
+    await page.waitForURL(/\/tools\?/);
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
-    await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medications");
-    await expect(page.getByTestId("tools-hub")).toBeVisible();
-    const queryRibbon = page.getByTestId("tools-hub").getByTestId("search-query-ribbon");
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results).toBeVisible();
+    const queryRibbon = results.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "medications" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
-    await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toContainText(
-      "Medication Prescribing",
-    );
-    await expect(page.getByTestId("tools-hub").getByText("Selected tool")).toHaveCount(0);
-    const detailsButton = page
-      .getByTestId("tools-hub")
-      .getByRole("button", { name: "View details for Medication Prescribing" });
-    await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
-    await detailsButton.click();
+    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
+    // The verb shortcut row is for an unqueried catalogue, so a running query hides it.
+    await expect(page.getByTestId("tools-shortcuts")).toHaveCount(0);
+    await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
     await expect(
-      page.getByRole("dialog", { name: "Medication Prescribing" }).locator('a[href="/medications"]').first(),
+      results.getByRole("complementary", { name: "Medication Prescribing" }).locator('a[href="/medications"]').first(),
     ).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });

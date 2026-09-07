@@ -275,7 +275,7 @@ const routeOwnershipRows = [
   ["Privacy", "src/app/privacy"],
   [
     "Tools",
-    "src/app/(search-app)/tools, src/components/tools/tools-search-results-page.tsx, src/components/applications-launcher-page.tsx (the retained `/?mode=tools` alias)",
+    "src/app/(search-app)/tools, src/components/tools/tools-search-results-page.tsx, src/components/tools/tool-quick-actions.tsx",
   ],
   ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
   ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
@@ -532,7 +532,7 @@ function renderModePageIndex() {
       home: appModeHomeHref("tools"),
       search: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
       detail:
-        "Canonical all-tools results directory at `/tools`; the universal mode picker opens it directly. `/?mode=tools` remains a dashboard-mode alias.",
+        "Canonical all-tools results directory at `/tools`; the universal mode picker opens it directly. `/?mode=tools` redirects here, so Tools has one surface.",
     },
     {
       mode: "Calculators",
