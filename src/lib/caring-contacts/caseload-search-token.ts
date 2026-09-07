@@ -143,11 +143,7 @@ export function resolveSearchFilterToken(
  * Returns true if a string matches the format of an obfuscated search filter token
  * and resolves to a valid active search query for `actor`.
  */
-export function isSearchFilterToken(
-  value: unknown,
-  actor: CaringContactActor,
-  options?: { now?: number },
-): boolean {
+export function isSearchFilterToken(value: unknown, actor: CaringContactActor, options?: { now?: number }): boolean {
   if (typeof value !== "string" || !value.startsWith(TOKEN_PREFIX)) return false;
   return resolveSearchFilterToken(value, actor, options) !== null;
 }

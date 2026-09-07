@@ -902,13 +902,16 @@ describe("Patients directory - a bookmarked search term is stripped from the add
     expect(readPatientsDirectoryAddress({}, ACTOR).droppedUnrecognisedParams).toBe(false);
     expect(readPatientsDirectoryAddress({ state: "active" }, ACTOR).droppedUnrecognisedParams).toBe(false);
     expect(readPatientsDirectoryAddress({ searchNotApplied: "1" }, ACTOR).droppedUnrecognisedParams).toBe(false);
-    expect(
-      readPatientsDirectoryAddress({ overlay: "consent-and-withdrawal" }, ACTOR).droppedUnrecognisedParams,
-    ).toBe(false);
+    expect(readPatientsDirectoryAddress({ overlay: "consent-and-withdrawal" }, ACTOR).droppedUnrecognisedParams).toBe(
+      false,
+    );
   });
 
   it("produces a rewrite target that is itself clean, so the redirect cannot loop", () => {
-    const address = readPatientsDirectoryAddress({ state: "paused", overlay: "consent-and-withdrawal", q: NAME }, ACTOR);
+    const address = readPatientsDirectoryAddress(
+      { state: "paused", overlay: "consent-and-withdrawal", q: NAME },
+      ACTOR,
+    );
     const rewritten = Object.fromEntries(new URLSearchParams(address.canonicalQuery));
 
     // Feed the target back through the same reader: it must ask for no further rewrite.
@@ -926,7 +929,10 @@ describe("Patients directory - a bookmarked search term is stripped from the add
     // cannot fail, and an assertion that cannot fail is worse than none. What can still go wrong is
     // this route dropping the parameter the writer uses, which is what is asserted instead: a
     // deep-linked overlay must survive the caseload's own address rewrite.
-    const address = readPatientsDirectoryAddress({ [WORKSPACE_OVERLAY_PARAM]: "consent-and-withdrawal", q: "x" }, ACTOR);
+    const address = readPatientsDirectoryAddress(
+      { [WORKSPACE_OVERLAY_PARAM]: "consent-and-withdrawal", q: "x" },
+      ACTOR,
+    );
     expect(address.droppedUnrecognisedParams).toBe(true);
     expect(new URLSearchParams(address.canonicalQuery).get(WORKSPACE_OVERLAY_PARAM)).toBe("consent-and-withdrawal");
   });

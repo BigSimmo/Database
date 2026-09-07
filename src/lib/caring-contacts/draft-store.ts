@@ -18,12 +18,23 @@ export type DraftMessage = {
   updatedAt: string;
 };
 
-export class DraftConcurrencyError extends Error {
+/**
+ * Generic over the stored draft's own shape, defaulting to `DraftMessage` so every existing caller
+ * in this file keeps resolving without naming the parameter.
+ *
+ * #M6P1QQ follow-up: this error, and the version check that throws it, are the optimistic-locking
+ * PATTERN this module exists to provide -- not a `DraftMessage`-only mechanism. The real clinical
+ * draft path this was meant to guard (`writePlanDraft` in
+ * `src/components/caring-contacts/workspace/plan-wizard/plan-draft.ts`) stores a `PlanDraft`, which
+ * shares no fields with `DraftMessage` beyond a version number, so a caller there needs the SAME
+ * class with a DIFFERENT `currentDraft` shape rather than a hand-rolled duplicate of this one.
+ */
+export class DraftConcurrencyError<TDraft = DraftMessage> extends Error {
   readonly code = "stale_draft_conflict" as const;
   readonly draftId: string;
   readonly expectedVersion: number;
   readonly currentVersion: number | null;
-  readonly currentDraft: DraftMessage | null;
+  readonly currentDraft: TDraft | null;
   /** Preserves the clinician's attempted edit text during conflicts to prevent data loss. */
   readonly attemptedContent?: string;
 
@@ -31,7 +42,7 @@ export class DraftConcurrencyError extends Error {
     draftId: string,
     expectedVersion: number,
     currentVersion: number | null,
-    currentDraft: DraftMessage | null,
+    currentDraft: TDraft | null,
     attemptedContent?: string,
   ) {
     super(

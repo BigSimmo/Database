@@ -17,6 +17,7 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react
 
 import { floatingControl, primaryControl } from "@/components/ui-primitives";
 import { CARING_CONTACTS_ROUTES, patientPlanRoute } from "@/lib/caring-contacts-routes";
+import { DraftConcurrencyError } from "@/lib/caring-contacts/draft-store";
 import type { SendingPreference } from "@/lib/caring-contacts/model";
 import {
   firstContactDayBounds,
@@ -418,6 +419,30 @@ export function PlanWizard({
   const draft =
     stored !== null && stored.referralId === referralId ? stored : emptyPlanDraft(referralId, referralPathwayVersionId);
 
+  /**
+   * Writes `change` applied to `base`, re-based onto whatever is ACTUALLY held if a conflicting
+   * write landed first (#M6P1QQ). `base` is normally a closure-captured render value, which is
+   * exactly what can go stale between two writes React flushes from the same commit -- see
+   * `PlanDraft.version`'s own note for the shape of the race this catches.
+   *
+   * One retry, never a loop: `writePlanDraft` is synchronous start to finish and reads the live
+   * draft itself before writing, so nothing else can interleave between the retry's read and its
+   * write. A second conflict on the retry would mean a write happened DURING this synchronous call,
+   * which cannot happen in this single-threaded flow.
+   */
+  function writeDraftWithRetry(base: PlanDraft, change: (current: PlanDraft) => PlanDraft): void {
+    try {
+      writePlanDraft(change(base), { expectedVersion: base.version });
+    } catch (error) {
+      if (!(error instanceof DraftConcurrencyError)) throw error;
+      // Cast rather than re-derive: this module is the only thing that can have thrown from the
+      // call above, and it always throws `DraftConcurrencyError<PlanDraft>` -- see writePlanDraft.
+      const conflict = error as DraftConcurrencyError<PlanDraft>;
+      const live = conflict.currentDraft ?? emptyPlanDraft(base.referralId, base.pathwayVersionId);
+      writePlanDraft(change(live), { expectedVersion: live.version });
+    }
+  }
+
   // RULING [120]: minted at the moment stage 4 is REACHED, not at the moment it is confirmed.
   //
   // Two ways to arrive, so two call sites for one function. `goTo("review")` covers the ordinary
@@ -428,13 +453,17 @@ export function PlanWizard({
   useEffect(() => {
     if (draft.stage !== "review") return;
     if (draft.submission !== null) return;
-    writePlanDraft({ ...draft, submission: mintPlanSubmissionIdentity() });
+    // Minted ONCE per effect run, outside the retry closure -- a retry must re-apply this SAME
+    // identity onto whatever is actually held, never mint a second one, or a re-based write could
+    // hand one patient two plan identities from one effect firing.
+    const submission = mintPlanSubmissionIdentity();
+    writeDraftWithRetry(draft, (current) => ({ ...current, submission }));
   }, [draft]);
 
   /** Every change goes through here, so nothing can update the screen without updating the draft. */
   function update(change: (current: PlanDraft) => PlanDraft) {
     setDiscarded(false);
-    writePlanDraft(change(draft));
+    writeDraftWithRetry(draft, change);
   }
 
   function discard() {
@@ -519,7 +548,7 @@ export function PlanWizard({
     const base =
       held !== null && held.referralId === referralId ? held : emptyPlanDraft(referralId, referralPathwayVersionId);
     setDiscarded(false);
-    writePlanDraft(change(base));
+    writeDraftWithRetry(base, change);
   }
 
   /**
