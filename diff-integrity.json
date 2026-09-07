@@ -38,6 +38,13 @@
       "after": 0,
       "reason": "Deliberate retirement of useDocumentCoverImageId hook test suite under #HDAP8N. The answer source drawer stopped rendering a front-page thumbnail, leaving useDocumentCoverImageId without product consumers. Hook, route, and DOM tests were retired together.",
       "approvedOn": "2026-09-06"
+    },
+    {
+      "path": "tests/ui-ward-morning.spec.ts",
+      "before": 2,
+      "after": 1,
+      "reason": "MERGE 02 (owner-approved 2026-09-05) folded the morning bed-state board into CapacityScreen and turned /mockups/ward-flow/morning into a real HTTP redirect to /capacity, removing the rail's 'Morning bed state' entry at the same time. RETARGETED, not dropped: the render-and-rail test now proves the redirect lands on the real Capacity page and that the rail can leave and return to it, in place of a headline and a link label that no longer exist. RETIRED: the print test, because CapacityScreen carries no print media rule and no per-site print testid at all - capacity.module.css has none - so there is no real print output left to assert against; inventing print assertions for a screen that renders none would fabricate coverage rather than describe it. The underlying MorningPage component and its print CSS are not left unguarded: tests/ward-morning-page.dom.test.tsx still renders MorningPage directly (not via a route) and covers its print label/note and per-site figure grids at the component level (named in morning-page.tsx's own doc comment as still passing all 20 cases), and tests/ward-morning-print.test.ts still guards the CSS text. Only the real-Chromium, real-PDF-page-count proof this browser test gave (page.pdf() measured with pdf-parse) is lost, because no route can mount the component that behaviour belongs to any more. NOTE: 1 of 2 is exactly this file's own perFileMaxRemovedFraction ceiling of 0.5, and the file's case count is below its perFileMinRemovedCases floor of 3, so check:diff-integrity would never have demanded this entry on the per-file rule either - it is recorded on the same convention the entries above set for themselves: a retirement that leaves no trace is indistinguishable from a deletion nobody noticed.",
+      "approvedOn": "2026-09-06"
     }
   ]
 }

@@ -3,6 +3,7 @@ import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { documentationCounts, routesCounts } from "@/lib/developer-area/repo-awareness-snapshot-counts";
 import type { RepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-types";
 
 import { generate, OUTPUT_PATH } from "./generate-repo-awareness-snapshot";
@@ -203,8 +204,8 @@ export function checkRepoAwarenessSnapshot(options: CheckSnapshotOptions = {}): 
   }
 
   log(
-    `[repo-awareness] in step with ${outputPath} (${regenerated.routes.counts.pages} pages, ` +
-      `${regenerated.documentation.counts.documents} documents, ` +
+    `[repo-awareness] in step with ${outputPath} (${routesCounts(regenerated.routes).pages} pages, ` +
+      `${documentationCounts(regenerated.documentation).documents} documents, ` +
       `${regenerated.review_state.records.length} reviews)`,
   );
   return 0;

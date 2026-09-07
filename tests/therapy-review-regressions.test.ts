@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -56,19 +56,20 @@ describe("Therapy review regression contracts", () => {
     expect(therapies).toContain("export function therapyNeedsReview");
   });
 
-  it("keeps the catalogue-wide review notice on the Therapy library, above the search band", () => {
-    const notice = source("src/components/therapy-compass/therapy-review-notice.tsx");
+  // The catalogue-wide banner is gone. The owner's decision (2026-09-06) is
+  // that a caveat repeated above every search is read past, while the state
+  // that governs a decision is the state of the record in front of the reader.
+  // So the disclosure is not weakened, it is carried entirely by the per-record
+  // badge — which is what the next case pins across all six record surfaces.
+  // This one pins the other half: the banner cannot drift back in, and the row
+  // it used to sit above still states its own review status.
+  it("states Therapy's review status per record, with no catalogue-wide banner above the search band", () => {
     const search = source("src/components/therapy-compass/screens/search-screen.tsx");
+    const card = source("src/components/therapy-compass/therapy-card.tsx");
 
-    expect(notice).toContain('role="note"');
-    expect(notice).toContain("THERAPY_CATALOGUE_SUMMARY.needsReviewCount");
-    expect(notice).toContain("No therapy record in this library has completed clinician review yet.");
-    // Non-interactive: a caveat the reader can dismiss is not a caveat.
-    expect(notice).not.toContain("<button");
-    expect(notice).not.toContain("onClick");
-    // Live library surface is `/therapy-compass/search`, not a retired tile home.
-    expect(search).toContain("<TherapyReviewNotice");
-    expect(search.indexOf("<TherapyReviewNotice")).toBeLessThan(search.indexOf("<SearchResultsHeaderBand"));
+    expect(search).not.toContain("TherapyReviewNotice");
+    expect(existsSync(resolve(process.cwd(), "src/components/therapy-compass/therapy-review-notice.tsx"))).toBe(false);
+    expect(card).toContain("<StatusBadge status={therapy.reviewStatus} />");
   });
 
   it("keeps the per-record review badge on every Therapy surface that shows a record", () => {
