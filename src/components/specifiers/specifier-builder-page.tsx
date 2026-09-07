@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { InformationPageHeader } from "@/components/information-page-shell";
 import {
   CategoryTag,
+  ReviewStatusBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
   specifierCard,
@@ -127,7 +128,7 @@ function catalogStep(group: BuilderCatalogGroup, index: number): BuilderStep {
     title: group.selection === "single" ? `Choose the ${label}` : `Add ${label}`,
     body:
       group.selection === "single"
-        ? "Select one option, and only when it is established."
+        ? "Select one option, and only when it is established. These are offered as one-of because the group reads as a single graded axis, which is an aide-memoire grouping rather than a verified manual rule."
         : "Select only what the current presentation supports.",
   };
 }
@@ -731,8 +732,14 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                           )}
                         </span>
                         <span className="min-w-0">
-                          <span className="block text-sm font-extrabold break-words text-[color:var(--text-heading)]">
-                            {item.label}
+                          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="text-sm font-extrabold break-words text-[color:var(--text-heading)]">
+                              {item.label}
+                            </span>
+                            {/* The detail and reference pages already carry this badge. Carrying it here too
+                                means the clinician sees an item's source-review state at the point of choosing
+                                it, not only if they open its record afterwards. */}
+                            <ReviewStatusBadge status={item.src} />
                           </span>
                           <span className="mt-1 block text-xs font-medium leading-5 break-words text-[color:var(--text-muted)]">
                             Recorded for {item.disorder}. Confirm the wording against the current manual before

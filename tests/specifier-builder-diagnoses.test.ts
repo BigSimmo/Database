@@ -127,6 +127,18 @@ describe("specifier builder base diagnoses", () => {
     });
   });
 
+  it("carries a source-review status on every catalogue option the builder can offer", () => {
+    // The builder shows these rows at the moment of choosing, so each must have a status
+    // the ReviewStatusBadge can render. Most of the catalogue is still awaiting formal
+    // source review, and that has to stay visible rather than being implied as verified.
+    const statuses = new Set(specifierIndexItems.map((item) => item.src));
+    for (const status of statuses) {
+      expect(["source-verified", "source-needs-formal-review", "source-not-applicable"]).toContain(status);
+    }
+    expect(specifierIndexItems.every((item) => Boolean(item.src))).toBe(true);
+    expect(statuses.has("source-needs-formal-review")).toBe(true);
+  });
+
   it("lowers an ordinary leading capital for the wording line but leaves structured labels alone", () => {
     expect(catalogWordingSegment("With catatonia")).toBe("with catatonia");
     expect(catalogWordingSegment("Mild (BMI 17 or above)")).toBe("mild (BMI 17 or above)");
