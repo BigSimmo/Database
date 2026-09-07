@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "94c31907-2905-4cde-92df-df4a7255e3d4",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Audit remediation leftovers still open after #4BE39H's archival: Docling model pin, preview font/noindex, offline-page branding, calculator governance link",
+    "detail": "Correction to #4BE39H (issue-ulid 01M1PW9PQG4BE39HC59GZ0B8NR), archived 2026-09-06 with outcome 'Completed unblocked audit leftovers L45, L131, and sentry dependency.' That outcome text only covers 3 of the 7 items the row's own prior detail named, and the row was fully archived anyway. The 4 not covered by the outcome are still unresolved at 2026-09-07: (1) L49 Docling model revision pin — Dockerfile.worker:86 (docling-tools models download --output-dir /opt/docling-models) and eval/docling/Dockerfile:44 run the same command with no --revision/pin argument, so the models fetched at build time are unpinned; the fix is in PR #2629's body per the original request. (2) L5 fonts/noindex owner decision — public/brand/preview.html and docs/brand/preview.html are still byte-identical (no change applied), so the decision remains unmade. (3) L126 offline-page branding + CACHE_VERSION bump — public/offline.html brand mark is unchanged and public/sw.js CACHE_VERSION is still 2026-08-28-v1, so no bump has occurred. (4) Calculator governance link — data/calculators/evidence.json:9 still points source:governance.url at the github.com blob URL (https://github.com/BigSimmo/Database/blob/main/docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md), which an end user cannot open, per the original request's exact concern. Flagged by Codex review (discussion_r3946596430) on PR #2701; the archived #4BE39H row cannot itself be amended (see #686WHW), which is why this is a new row rather than an edit.",
+    "source": "Codex review PR #2701 discussion_r3946596430; corrects #4BE39H",
+    "issueUlid": "01M1X8YZXQXSZ4XVP2H0P1RMQZ"
+  }
+}

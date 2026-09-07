@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-06"
+    "committed_at": "2026-09-07"
   },
   "routes": {
     "modes": [
@@ -1530,10 +1530,6 @@
       {
         "path": "/api/setup-status",
         "file": "src/app/api/setup-status/route.ts"
-      },
-      {
-        "path": "/api/documents/[id]/cover",
-        "file": "src/app/api/documents/[id]/cover/route.ts"
       },
       {
         "path": "/api/documents/bulk",

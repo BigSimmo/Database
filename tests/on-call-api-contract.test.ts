@@ -41,6 +41,15 @@ describe("On Call entries route", () => {
     expect(list).toContain("unauthorizedResponse()");
     expect(list).toContain("jsonError(error)");
   });
+
+  it("validates linked document IDs before inserting into the database", () => {
+    expect(list).toContain("assertValidLinkedDocumentIds");
+    const callIndex = list.indexOf("assertValidLinkedDocumentIds(supabase");
+    const insertIndex = list.indexOf('.from("on_call_entries")');
+    expect(callIndex).toBeGreaterThan(0);
+    expect(insertIndex).toBeGreaterThan(0);
+    expect(callIndex).toBeLessThan(insertIndex);
+  });
 });
 
 describe("On Call entry [id] route", () => {
@@ -50,6 +59,15 @@ describe("On Call entry [id] route", () => {
       expect(source).not.toMatch(/searchParams\.get\(\s*["']owner/);
       expect(source).toContain("requireAuthenticatedUser");
     }
+  });
+
+  it("validates linked document IDs before updating the database", () => {
+    expect(detail).toContain("assertValidLinkedDocumentIds");
+    const callIndex = detail.indexOf("assertValidLinkedDocumentIds(supabase");
+    const updateIndex = detail.indexOf('.from("on_call_entries")');
+    expect(callIndex).toBeGreaterThan(0);
+    expect(updateIndex).toBeGreaterThan(0);
+    expect(callIndex).toBeLessThan(updateIndex);
   });
 
   it('scopes every mutation by id AND owner_id on the same chain as .from("on_call_entries")', () => {

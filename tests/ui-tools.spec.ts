@@ -1690,13 +1690,14 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     // than a select value, including after history navigation.
     const visibleSort = page.locator('[role="group"][aria-label="Sort results"]:visible');
     const sortOption = (name: string) => visibleSort.getByRole("button", { name });
+    const rankedResults = rankFormRecords(formRecords, "transport forms", formRecords.length, [], true);
+    const expectedRelevanceFirstTestId = `form-search-result-${rankedResults[0]?.service.slug}`;
     const expectedAlphaFirstTestId = `form-search-result-${
-      sortResultItems(rankFormRecords(formRecords, "transport forms"), "alpha", (match) => match.service.title)[0]
-        ?.service.slug
+      sortResultItems(rankedResults, "alpha", (match) => match.service.title)[0]?.service.slug
     }`;
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
-      "form-search-result-transport-crisis-form",
+      expectedRelevanceFirstTestId,
     );
 
     await sortOption("A–Z").click();
@@ -1710,7 +1711,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(sortOption("Relevance")).toHaveAttribute("aria-pressed", "true");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
-      "form-search-result-transport-crisis-form",
+      expectedRelevanceFirstTestId,
     );
 
     await page.goForward();
@@ -3078,7 +3079,7 @@ test.describe("PsychSift service detail page", () => {
       // the header is a sibling of the shell rather than inside it — one page
       // header per route, portaled into the phone collapse row below `sm`.
       await expect(page.getByRole("link", { name: "Back to services" })).toBeVisible();
-      await page.getByTestId("service-actions-trigger").click();
+      await visibleByTestId(page, "service-actions-trigger").click();
       const actions = page.getByTestId("service-actions-sheet");
       await expect(actions.getByRole("button", { name: "Save service" })).toBeVisible();
       await expect(actions.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:139276");
@@ -3182,7 +3183,7 @@ test.describe("PsychSift service detail page", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
-    await page.getByTestId("service-actions-trigger").click();
+    await visibleByTestId(page, "service-actions-trigger").click();
     await page.getByTestId("service-actions-sheet").getByRole("button", { name: "Use in navigator" }).click();
     await expect(page).toHaveURL(/\/services\/search\?/);
     await expect(page).toHaveURL(/run=1/);
@@ -3194,7 +3195,7 @@ test.describe("PsychSift service detail page", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services/adult-home-treatment-team");
 
-    await page.getByTestId("service-actions-trigger").click();
+    await visibleByTestId(page, "service-actions-trigger").click();
     const actions = page.getByTestId("service-actions-sheet");
     await expect(actions.getByRole("link", { name: "Call" })).toBeVisible();
     await expect(actions.getByRole("link", { name: "Open source" })).toHaveAttribute("href", /^https?:\/\//);
@@ -3206,7 +3207,7 @@ test.describe("PsychSift service detail page", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
-    const actionsTrigger = page.getByTestId("service-actions-trigger");
+    const actionsTrigger = visibleByTestId(page, "service-actions-trigger");
     const actions = page.getByTestId("service-actions-sheet");
 
     // The action closes the sheet, so the feedback banner it writes has to stay
