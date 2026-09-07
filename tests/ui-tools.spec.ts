@@ -1690,15 +1690,10 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     // than a select value, including after history navigation.
     const visibleSort = page.locator('[role="group"][aria-label="Sort results"]:visible');
     const sortOption = (name: string) => visibleSort.getByRole("button", { name });
-    const expectedRelevanceFirstTestId = `form-search-result-${
-      rankFormRecords(formRecords, "transport forms", formRecords.length, [], true)[0]?.service.slug
-    }`;
+    const rankedResults = rankFormRecords(formRecords, "transport forms", formRecords.length, [], true);
+    const expectedRelevanceFirstTestId = `form-search-result-${rankedResults[0]?.service.slug}`;
     const expectedAlphaFirstTestId = `form-search-result-${
-      sortResultItems(
-        rankFormRecords(formRecords, "transport forms", formRecords.length, [], true),
-        "alpha",
-        (match) => match.service.title,
-      )[0]?.service.slug
+      sortResultItems(rankedResults, "alpha", (match) => match.service.title)[0]?.service.slug
     }`;
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
