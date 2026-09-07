@@ -1,17 +1,17 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "1f6998c3b5bd85a698a26aaa3de5ded7b665b307",
-    "committed_at": "2026-09-05T13:34:38+00:00"
+    "sha": "4fe1131ebb326209fd5d7d379253de9ffb061ae2",
+    "committed_at": "2026-09-07T04:17:48+00:00"
   },
   "counts": {
-    "open": 132,
-    "p1": 4,
-    "p2": 85,
-    "p3": 43,
+    "open": 121,
+    "p1": 7,
+    "p2": 78,
+    "p3": 36,
     "queued": 7,
     "pending": 0,
-    "resolved": 479
+    "resolved": 501
   },
   "queue": [
     {
@@ -274,24 +274,6 @@
       "added": "2026-08-23"
     },
     {
-      "id": "#A3AHCX",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Caring Contacts: the governed-message validator has zero production callers",
-      "detail": "validateGovernedMessage in src/lib/caring-contacts/message-policy.ts enforces the segment limit, the prohibited vocabulary, the required support fragments and (from 2026-08-24) the fictional-contact check, but grep across src/ and worker/ finds NO production caller -- it is exercised only by tests. That is consistent with there being no send path in this prototype, and the checks are the mechanism a future sender must use. Recorded so nobody mistakes 'the validator refuses this' for 'the system refuses this'. When a dispatch or preview path is built, wiring it to this validator is the first requirement.",
-      "source": "Task C implementer concern 1, independently confirmed by grep 2026-08-24",
-      "added": "2026-08-24"
-    },
-    {
-      "id": "#5PQRSW",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Patient-profile alerts surface unassessed gates only for contraindication rows, so 266 caution, dose-adjust and monitor gates silently no-op",
-      "detail": "medication-patient-alerts.ts:344-358 collects missingGates for every gated row but the consumer discards them unless patient.action is contraindication. Counted from data/medications-snapshot.json: 256 caution, 145 dose-adjust and 62 monitor rows, 266 of them gated on a numeric or categorical input (eGFR, CrCl, QTc, age, hepatic). A clinician entering a partial profile without eGFR gets no considerations from a renal DOSE REDUCTION row and an empty panel indistinguishable from an all-clear; the UI sentence that would warn is scoped to contraindications only. FIX: include dose-adjust at minimum in the unassessed set and widen the UI copy.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
       "id": "#ZK460W",
       "priority": "P2",
       "type": "issue",
@@ -398,15 +380,6 @@
       "detail": "docs/caring-contacts/hazard-log.md records H-00 (no named clinical safety officer, so nobody owns clinical risk), H-04 (the message set has never been read by anyone with lived experience) and H-05 (no Aboriginal cultural safety review, in a WA suicide-aftercare service). All three are Open with no control. None blocks the synthetic build; every one blocks a pilot. H-04 is ready to run today: docs/caring-contacts/message-review-pack.md is a complete facilitation pack. Owner Josh for H-00 and H-04; Aboriginal health governance for H-05.",
       "source": "Caring Contacts design session 2026-08-19; hazard log H-00/H-04/H-05",
       "added": "2026-08-18"
-    },
-    {
-      "id": "#Q4Y7TR",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "No automated reaper for abandoned reindex generations, so crashed mid-builds leak rows and storage indefinitely",
-      "detail": "cleanup_abandoned_document_index_generations is called from exactly one place, scripts/cleanup-abandoned-reindex-generations.ts via npm run reindex:cleanup-staged. No cron.schedule, Railway cron, or CI job references it. Any crash mid-build, or the empty-generation guard at worker/main.ts throwing, leaves staged rows under a never-committed index_generation_id and storage objects under {owner}/images/{doc}/{generation}/ that nothing revisits. Unbounded Postgres row and Storage growth, dependent on an operator remembering to run a janitor. FIX: write storage_cleanup_jobs rows for superseded generations at commit time, where the commit RPC already knows both generation ids.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
     },
     {
       "id": "#J43Z6B",
@@ -521,7 +494,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Lighthouse desktop-root LCP reads 100-175ms above main on a feature branch, decays run over run, and reddened PR #2422 once",
-      "detail": "Six CI readings on 2026-08-27 against the same 786ms baseline (tolerance: breach needs BOTH >20% and >100ms). PR #2422 branch: 961 (FAILED, reported 2/3 samples breached), 925, 900, 852. main: 748 (603da96), 705 (be65b8a1). NOT ROOT-CAUSED; recorded so the next occurrence is not re-investigated from scratch. Evidence AGAINST a real code regression: (a) mobile-root - the SAME page - measured 2293/2305/2314 against its 2274 baseline across the same runs, i.e. unchanged, and a genuine slowdown in that page would show on both form factors; (b) desktop-documents-search measured FASTER than main on the same runners (745/806 vs main 828/841); (c) the monotone decay 961->925->900->852 is regression-to-mean of a noisy metric, not a fixed cost a diff adds; (d) reading the 11-file diff line by line, nothing alters the desktop root cold render - the only new guard (!showAnswerCancelledNotice on showAnswerPending) is a no-op when nothing was cancelled, and pb-4->pb-10 requires an answer to be present. ONE TESTABLE MECHANISM REMAINS: PR #2422 split src/components/clinical-dashboard/answer-cancelled-notice.tsx out of ClinicalDashboard (forced by the 4140-line maintainability budget), and a new client module can become a separate chunk on /. Next: rm -rf .next FIRST (AGENTS.md: a cached build reports stale byte-identical numbers and will wrongly pass), npm run build, then npm run check:bundle-budget, which attributes chunks per route and reports / separately; compare against main. If / gained a chunk, move AnswerCancelledNotice into src/components/clinical-dashboard/dashboard-notices.tsx, which ClinicalDashboard already imports - same budget relief, no new module boundary. GATE CAVEAT worth knowing: majorityBreachDecision in scripts/check-lighthouse-budget.mjs takes its 3 samples within ONE job on ONE runner, so it guards against a single outlier but not against a slow runner. Stop: do not raise the baseline or the tolerance to clear this; do not re-run the job to chase a better number. Related but distinct: #GQ5X8T (mobile-root timing, needs a synchronized control).",
+      "detail": "NEW INSTANCE 2026-09-06 on PR #2664, desktop-root, same 785.647ms baseline and same +20%/+100ms tolerance (effective ceiling 943ms). Seven runs of code that cannot reach the measured route: 997 FAIL, PASS, PASS, PASS, 989 FAIL, PASS, PASS. The two failures sit 8ms apart, which is runner-class spread rather than a decaying regression, so this reading is closer in shape to #4TXR6Z (bimodal between runners) than to the monotone 961->925->900->852 decay this row originally recorded. Import-reachability was traced for PR #2664: the diff is 16 files of source-governance data, a gate script, a catalogue provider and docs, and nothing on it is imported by the desktop root render. main passed the same check on the same day. The one permitted CI re-run was spent and passed. RESOLUTION TAKEN: the owner authorised the skip-lighthouse-budget label on PR #2664 rather than touching the baseline or the tolerance, which the pr-required aggregate accepts because it calls require_skipped_or_success 'lighthouse-budget'. Label semantics worth recording: on.pull_request.types has no 'labeled' entry, so the label is only read at synchronize and takes effect on the next push, not when applied. Stop rules from this row are unchanged - do not raise the baseline or tolerance to clear a red PR.",
       "source": "PR #2422 CI runs 33067093750 (attempts 1-2), 33070896021, 33072264164; main runs 33063088413, 33065297542",
       "added": "2026-08-27"
     },
@@ -557,7 +530,7 @@
       "priority": "P3",
       "type": "issue",
       "summary": "Caring Contacts createPlan accepts a blank patient name in both stores, so '' remains a legal stored value",
-      "detail": "",
+      "detail": "RECONSTRUCTED 2026-09-06 from the module comment at src/lib/caring-contacts/episode.ts:70-90, which states it directly: 'Neither store's createPlan validates a non-blank name, and the stored column is not null with no CHECK against the empty string, so ``''`` is a legal value that means two different things at once.' The only thing enforcing a non-blank name is z.string().min(1) in the plans API route, so any writer that does not go through that route can store a blank name in either store. WHY IT IS NOT COSMETIC. The repository uses '' as the sentinel for 'cleared by a policy write no ordinary caller can produce'. Because createPlan never established that precondition for patientName, the same '' carries two meanings, and #J7PZQP (2026-09-02) records the consequence: the patient overview read a blank name as a completed clearance and told a clinician, in as many words, that a first-contact reason had been given, that a clearance had since removed it, and that a clearance is not reversible. All three were false, about a live record. NEXT ACTION: enforce non-blank in both stores' createPlan rather than only at the route, and add a CHECK constraint against the empty string on the column, so the sentinel keeps one meaning. Consider whether P3 still fits given the false-statement-to-a-clinician path above.",
       "source": "session 2026-09-02",
       "added": "2026-09-02"
     },
@@ -566,7 +539,7 @@
       "priority": "P3",
       "type": "issue",
       "summary": "Production UI browser jobs failed four times on 2026-09-02 across four unrelated PRs, each a different single spec, each passing on re-run of the identical commit",
-      "detail": "Observed while babysitting PRs #2549, #2550, #2551 and #2552. Each failure was 1 of about 200 tests in a different feature area (the decisive case: run 33610490607 attempt 2 passed on the same commit that attempt 1 failed). Nothing was skipped or quarantined: the repo's flake policy requires three reproductions of the SAME test on the SAME SHA before a tests/flake-ledger.json entry, and no test reproduced even twice. This is recorded as an observation, not a quarantine request. What would close it is either a stability measurement across repeated runs on one commit, or evidence that the shared Playwright fixtures/server startup are the common factor rather than four independent product bugs. Until then, expect roughly one spurious Production UI failure per PR and treat a single red browser shard as unproven rather than either real or flake.",
+      "detail": "ONE MEMBER FIXED 2026-09-06; the row stays open for the rest of the family. tests/ui-smoke.spec.ts:1354 'sidebar shortcuts switch mode in place' is resolved at root cause, not quarantined. ROOT CAUSE: the request listener classified a prefetch as a navigation. Next 16's fetchSegmentPrefetchesUsingDynamicRequest (node_modules/next/dist/client/components/segment-cache/cache.js) sets next-router-prefetch PER FETCH STRATEGY - '1' loading-boundary, '2' PPR-runtime, '3' runtime-shell - and for FetchStrategy.Full it sets NO header at all. The listener excluded only the exact value \"1\", so a full-strategy prefetch counted as a navigation. Always /tools because that is the single sidebar link deliberately warmed (prefetch on the Link plus onFocus/onPointerEnter warming in ClinicalSidebar, since Tools is browse-first and opens its own directory route); whether it lands inside the assertion window is timing, which is the intermittency. The APP was correct throughout - only the test's discriminator was wrong. FIX: treat any next-router-prefetch value as a prefetch, and scope the assertion to the route being switched to, because a full-strategy prefetch carries the same headers as a navigation and headers alone cannot separate them. The assertion keeps its force: a real navigation to the shared home still fails it. VERIFIED: --repeat-each=6 all six passed, against a pre-fix rate of 2/3 failing on unmodified main. Nothing added to tests/flake-ledger.json. STILL OPEN: the other three single-spec Production UI failures this row recorded were different specs and are not explained by this fix - but the same faulty assumption is worth grepping for if another one appears, since the header-value trap is generic to any Playwright assertion that tries to tell a Next 16 prefetch from a navigation.",
       "source": "CI runs 33610490607, 33613433031 and siblings, 2026-09-02",
       "added": "2026-09-02"
     },
@@ -584,17 +557,8 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Two clinical-risk Caring Contacts fixes merged with no automated review, because the Cursor spend limit silently downgraded the approval agent and Bugbot to neutral",
-      "detail": "",
+      "detail": "RECONSTRUCTED 2026-09-06, and corroborated the same day on PR #2668. The pattern is that a review agent which cannot run reports a NEUTRAL or informational result rather than a failure, so a PR presents as having been reviewed when no review happened. Observed on #2668: the Cursor Approval Agent and the Cursor Security Agent both completed with conclusion 'neutral'; Bugbot posted 'Bugbot couldn't run - usage limit reached'; the Codex connector posted 'You have reached your Codex usage limits for code reviews'; and CodeRabbit posted that the repository receives no automatic review because it has fewer than 10 stars. Four of the repository's review surfaces were therefore silently absent on a single PR, none of them as a failing check. WHY IT MATTERS BEYOND COST: a neutral conclusion satisfies branch protection, so on a clinical-risk change the absence of review is invisible at merge time. NEXT ACTION: decide whether an unavailable review agent should block a clinical-risk PR or merely be reported, and if it should block, make the absence a failing required check rather than a neutral one. The CodeRabbit star-count gate is a separate and already-tracked premise failure (#3F76JZ).",
       "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#8TKTV6",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "The scheduled bundle-budget refresh workflow is never parsed by GitHub until its first scheduled run, so a YAML fault would surface in a non-blocking run rather than at merge",
-      "detail": "Raised while landing PR #2527, which added .github/workflows/bundle-budget-refresh.yml for #QSHHGK. The workflow is schedule- plus workflow_dispatch-only, so no pull_request CI run ever invokes it. It is covered offline by tests/bundle-budget-refresh-workflow.test.ts (17 assertions on schedule, cold-build ordering, the refresh flag, permissions, and the absence of any push or branch mutation) and by check:github-actions for pins and runs-on. None of those is GitHub's own workflow-syntax parser, which runs only when a workflow first executes. The known failure shape is the one recorded in tests/ci-cache-safety.test.ts around line 551: a workflow that fails to parse is named after its file path, creates ZERO jobs, and reports a bare failure that nothing local catches. Here that would land in an isolated scheduled run that blocks nothing, so it could sit unnoticed until someone wondered why no baseline report had appeared. Cheap close: trigger it once by workflow_dispatch after merge and confirm it creates jobs and posts to the rolling issue. That single dispatch also produces the first measurement with a resolvable baselineSource that #QSHHGK is waiting on, so the two close together.",
-      "source": "session 2026-09-02, PR #2527",
       "added": "2026-09-02"
     },
     {
@@ -602,7 +566,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "The calculators mockup still serves prescribing, ECT and admission directives that PR #2491 removed from production on clinical-safety grounds",
-      "detail": "",
+      "detail": "RECONSTRUCTED AND CONFIRMED 2026-09-06. src/components/calculator-mockups/calculator-pathways.ts still carries directive clinical instructions of the three kinds PR #2491 removed from the production calculators on clinical-safety grounds. Present today: line 65 'Screen for bipolarity before prescribing' with detail 'Run the MDQ below'; line 70 'Assess psychotic features and ECT indications'; line 240 'Consider admission or intensive community follow-up'; line 244 'Admission usually indicated - ensure immediate safety'. Production and mockup calculators are separate trees (src/components/calculators and src/components/calculator-mockups), which is how the removal reached one and not the other. WHY IT MATTERS: the mockup routes are developer-gated rather than unreachable, and the text is indistinguishable in tone from the production copy that was judged unsafe. A reader who lands on the mockup gets guidance the repository has already decided not to give. NEXT ACTION: apply the same removal to calculator-pathways.ts that #2491 applied to production, or, if these pathways are wanted as design fixtures, replace the directive wording with plainly non-clinical placeholder text. A gate that keeps the two trees aligned on this specific class of copy would stop it recurring.",
       "source": "session 2026-09-02",
       "added": "2026-09-02"
     },
@@ -625,30 +589,12 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#77NJE2",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Two test suites fail on a shallow clone, and the failure names a manifest rather than the clone depth",
-      "detail": "",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#XGKJ8D",
       "priority": "P2",
       "type": "issue",
       "summary": "pg_cron is created by migration 20260901033250 but never declared in supabase/schema.sql, so the mirror understates the live extension set",
       "detail": "Found by the first real CI run of the new chain/mirror parity gate (PR #2550, Migration replay run 33599464239). The gate now promotes chain-only extensions to unexpected_live findings and prints '### Divergence (1) - [extensions] unexpected_live pg_cron'. pg_cron is deliberately NOT allowlisted in supabase/chain-mirror-allowlist.json because it is a genuine mirror gap, not the emulator-image asymmetry that pg_net is. Fixing it means adding the extension declaration to supabase/schema.sql and regenerating supabase/drift-manifest.json, whose embedded sha256 the edit invalidates; regeneration needs Docker, so this is owner/migration-batch work rather than something an offline session can do. Until it lands, the parity gate reports one known divergence on every database-touching PR.",
       "source": "PR #2550 (claude/drift-semantics); Codex review finding on the chain/mirror parity gate",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#686WHW",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Two sessions closing the same ledger row is a race the loser cannot lose gracefully: it hard-fails the planner, its outcome text is discarded, and the archived row cannot then be corrected",
-      "detail": "Hit and worked through on PR #2521, 2026-09-02, and recorded because the cost fell entirely on the session that did the larger piece of work. THE RACE: two sessions independently queued done requests for #0HYHTH (mine 2a381215, the other 59f035ef) and update-then-done for #AGRAKQ. The reconciliation on main (#2542) applied the other session's requests first. THREE CONSEQUENCES, in increasing order of how badly they behave. (1) The loser does not merely lose. My done for #0HYHTH threw '#0HYHTH is no longer open' and my done for #AGRAKQ threw 'is stale: the ledger row changed after this request was queued', and because docs:check-links runs the planner, BOTH hard-failed an unrelated CI check on a PR whose diff had nothing to do with either row. The branch was blocked until each was cancelled or reissued by hand. (2) A cancel queued against a request that has already been applied silently becomes a no-op: both fd9de7fe and 1e305210 now report 'did not take effect -- the cancellation is recorded but changed nothing; correct the affected row with a new update request'. So an attempt to supersede another session's close leaves a record that reads as an action but is not one. (3) That suggested remedy does not exist for a closed row. issues:update rejects with '#0HYHTH is not in Open items' (scripts/ledger-inbox.mjs, the fingerprint branch requires the row be in Open items), so once the race is lost the winning outcome text is final and the archive cannot be corrected through the tooling at all. CONCRETE DAMAGE, which is also the correction this row exists to carry: #0HYHTH is archived with an outcome describing the interface vocabulary scan as it stood at B3 -- two roots, src/components/caring-contacts/workspace and src/app/caring-contacts -- and naming the sealed domain as outstanding residue. PR #2521 took that scan to FIVE roots, adding src/lib/caring-contacts/**, src/lib/caring-contacts-server/** and src/app/api/caring-contacts/**, which closes the residue the archived text still describes as open. A reader of the archive today would conclude the sealed domain is unwatched. It is not. Treat this row as the correction to that archived outcome, since the archived row itself cannot be amended. CANDIDATE FIXES: make a done request against an already-closed row a warning that no-ops, like the cancel case, rather than a throw, so one session's race loss cannot red an unrelated PR's CI; allow update on an archived row, or provide an explicit amend-outcome action, so a superseded outcome can be corrected rather than being final by accident; and consider having reconcile prefer the LATER of two competing closes for the same row, or at least surface both outcomes, since the second is usually the better-informed one. Related but distinct from #Y090R5, which covers the generated snapshot file conflicting between concurrent inbox PRs.",
-      "source": "PR #2521 vs reconciliation #2542, 2026-09-02",
       "added": "2026-09-02"
     },
     {
@@ -679,15 +625,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#1M0J6D",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Web-container sessions start on a shallow clone, so two committed specs fail with messages that read as content errors",
-      "detail": "Measured 2026-09-02 in a Claude Code web container on origin/main 45a3dcacb. The session's checkout is a SHALLOW CLONE (depth 102). Two specs in the committed suite then fail, stably across two full runs, and neither message says anything about history depth: tests/clinical-hazard-controls.test.ts fails with 'CLINICAL-TRUTH-AUTHORITY: reviewedCommit does not exist 883f1007a85cd4e02198f39c12c4a4e467d4b89e' plus 'path is absent from reviewedCommit', and tests/rag-plan-package-parity.test.ts fails with 'manifest reconciledBase is unavailable locally: f3d1a3cce2c943ad3083425ed9c7c46dbef23087' from scripts/build-rag-plan-packages.mjs --check --require-origin-main. Both read as governance-manifest corruption, which is exactly the wrong conclusion: the commits are real and simply absent from a truncated history. PROOF: git fetch --deepen=2000 takes the clone from 102 to 5462 commits, both commits then resolve under git cat-file -e, and the two specs pass 27/27 with no code change. AGENTS.md already prescribes this remedy under 'Deleting code you believe is dead' for check:dead-code-candidate ('assessed on a shallow clone, where nothing can be dated - run git fetch --deepen=2000 first'), so the fix is known; it is simply not applied at session start and these two specs are not covered by that note. COST: a full npm run test is about six minutes, so a session can burn two of them before recognising the pattern, and the plausible-looking failure text invites someone to 'fix' a hazard manifest that is not broken. OPTIONS, cheapest first: have .claude/hooks/session-start.sh deepen the clone when git rev-parse --is-shallow-repository reports true (it already provisions Node and runs npm ci, so it is the natural place and the cost is one fetch); or make the two checks detect a shallow repository and fail with that as the stated reason rather than naming the commit; or document it in docs/testing.md. The first is preferred because it fixes the dead-code gate's known problem at the same time.",
-      "source": "session 2026-09-02, PR #2530 verification",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#ZWJ71W",
       "priority": "P3",
       "type": "issue",
@@ -701,7 +638,7 @@
       "priority": "P3",
       "type": "issue",
       "summary": "Retiring answer-evidence-popups removed the repo's only source-text heading-hierarchy contract, and the DOM-level coverage does not reach mockup gallery pages",
-      "detail": "",
+      "detail": "RECONSTRUCTED 2026-09-06, partially verified. answer-evidence-popups is confirmed gone: it survives only as references in docs/outstanding-issues.md, the archived q3 branch-review ledger and two applied inbox records, with no occurrence anywhere in src/ or tests/. Heading-hierarchy assertions now exist only in tests/ward-community-index.test.ts and tests/ward-referral-screens.dom.test.tsx, both Ward Flow surfaces, so the claim that no coverage reaches mockup gallery pages or source-text rendering matches what is in the suite today. NOT VERIFIED: the exact contract the retired component asserted, which was not recorded before it was deleted. NEXT ACTION: decide whether a source-text heading-hierarchy contract is still wanted. If it is, write it fresh against the surface that renders source text today rather than trying to recover the retired component's version, and point it at the mockup gallery pages the row says were never covered.",
       "source": "session 2026-09-02",
       "added": "2026-09-02"
     },
@@ -719,7 +656,7 @@
       "priority": "P3",
       "type": "issue",
       "summary": "Two pieces of dead wiring found beside the mockup surface: an orphaned production component and a proxy redirect for a route that no longer exists",
-      "detail": "",
+      "detail": "RECONSTRUCTED 2026-09-06, and this one could NOT be re-derived from the row. The summary names two artefacts, an orphaned production component and a proxy redirect for a route that no longer exists, without naming either, and the detail field was empty, so the specifics are not recoverable from the ledger. next.config.ts does carry header/rewrite rules including a /mockups/:path* entry and a therapy-compass-data rewrite block, but nothing there could be matched to the row's claim with confidence, and guessing at it would be worse than recording the gap. NEXT ACTION: re-run the discovery rather than trying to recall it. npm run check:knip reports unimported and unused exports and is the tool most likely to surface the orphaned component; the redirect half needs the rewrite and redirect entries in next.config.ts checked one by one against the routes in docs/site-map.md, which is generated and therefore current. Record whatever the sweep finds here, with names this time. If the sweep finds nothing, close this row as not reproducible rather than leaving it open indefinitely. PROCESS NOTE: this row is the clearest example of the cost of an empty detail field. Everything the finder knew was lost at the moment of recording, and the work now has to be done again from scratch.",
       "source": "session 2026-09-02",
       "added": "2026-09-02"
     },
@@ -748,33 +685,6 @@
       "summary": "match_document_embedding_fields_text bypasses retrieval_owner_matches and is fail-open on a null owner_filter",
       "detail": "Found while fixing #ZBAC9D (2026-09-02, offline schema read at 45a3dcacb54a). public.match_document_embedding_fields_text (supabase/schema.sql:6845-6860) does not call public.retrieval_owner_matches at all. Its owner predicate is 'and (owner_filter is null or d.owner_id = owner_filter)', which is fail-OPEN on a null owner_filter - it returns every owner's rows - and which returns nothing for the public sentinel, because no real row has owner_id equal to the all-zeroes uuid. That is the exact shape migration 20260708160001_retrieval_owner_matches_fail_closed.sql removed from retrieval_owner_matches ('fail CLOSED (was: true) - no DB-level global escape hatch'), reintroduced in a sibling function. It currently has NO application caller: a grep over src/, worker/ and scripts/ finds none, so it is live-codified dead code rather than an active exposure. It was left out of the #ZBAC9D PR deliberately to keep that diff to the write-side invariant plus the one reachable read-side hole. FIX: either drop the function, or re-scope it to public.retrieval_owner_matches(owner_filter, d.owner_id) like its siblings. Either way it is a retrieval-surface migration and needs the same approved live-database window and a schema-contract pin.",
       "source": "supabase/schema.sql:6845-6860; supabase/migrations/20260708160001_retrieval_owner_matches_fail_closed.sql:20-32; offline audit during #ZBAC9D, 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#AQXXD8",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "Audit double casts by target type, not by operator: as unknown as onto a domain model defeats every shape check",
-      "detail": "as unknown as suppresses excess-property AND missing-property checking, so an object literal asserted through it can carry fields the type does not have and omit fields it requires, with tsc clean and every test green. Searching by the operator is useless: it appears 228 times across tests/ (counted at 268fcd6a8, control run both ways) and almost all are legitimate, since a Request or IntersectionObserver cannot be hand-built. The dangerous subset is a double cast whose TARGET is a repo-defined domain model. One live instance found at tests/ward-release-band-day-boundary.test.ts:34, hiding 3 phantom and 6 absent required fields. Filter comment lines: such casts appear in mutation notes precisely because they are the strongest suppressor.",
-      "source": "Ward Builder One closing sweep 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#2MTYDV",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The generated counts sentence in docs/scripts-index.md conflicts on every concurrent PR, the same failure #Y090R5 describes for the issues snapshot",
-      "detail": "docs/scripts-index.md opens with a machine-written sentence counting script files and npm scripts; scripts/update-docs-inventory.mjs rewrites it by regex and docs:check-inventory fails if it drifts. Because every change to the script surface rewrites that one line, any two concurrent PRs collide on it. Measured on PR #2531 five times in about three hours, at main c0ee4ddd, ff37de6d, 59b3490e, 88ffbdb9 and 4dcd8dde: each time the whole conflict was that single line, with both sides correct about their own half. Twice it came bundled with a real package.json conflict on verify:cheap:internal, where two PRs each inserted a different gate into the same chain -- resolvable only as a union, and it silently desynchronises the gate counts that check:gate-manifest reads from CLAUDE.md and .claude/skills/gates/SKILL.md, so those must be re-derived after every such merge. This is the same root cause as #Y090R5 (data/outstanding-issues-snapshot.json): a single-line generated artefact that every PR must regenerate. PR #2530 has now fixed the snapshot half by moving regeneration into the serialised reconcile step; the scripts-index half is untouched. Two traps for whoever resolves it: taking main's whole file silently deletes the branch's own new script entry (hit once on #2531), and after resolving you must re-run scripts/update-docs-inventory.mjs rather than picking a side. Worth either moving the counts out of the prose sentence into a generated block with a union merge strategy, or regenerating them in a serialised step as #2530 did for the snapshot.",
-      "source": "PRs #2531 and #2544, session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#A2AV7P",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "Subagent-driven-development workspaces are git-ignored, so a session's triage and review artefacts vanish at cleanup",
-      "detail": "The SDD skill writes its ledger, briefs, reports and review packages under .superpowers/sdd/, which .gitignore:175 ignores wholesale. Observed 2026-09-02: 1,853 lines of triage (24 findings with executable mutation specs) existed only there and would not have survived a clean; it was rescued by hand to docs/ward-flow/triage/ at 38f90d138. Two other chats reported the same exposure, one losing nine recorded rulings. Recommendation: either the skill's close-down step copies durable artefacts into a tracked path, or the workspace path is documented as ephemeral where sessions will actually read it. Not a defect in the skill; a mismatch between where it writes and how long its output is expected to matter.",
-      "source": "session 2026-09-02",
       "added": "2026-09-02"
     },
     {
@@ -832,48 +742,12 @@
       "added": "2026-08-29"
     },
     {
-      "id": "#4BE39H",
-      "priority": "P2",
-      "type": "task",
-      "summary": "Audit remediation leftovers: findings deferred on file ownership or blocked tooling",
-      "detail": "From the 2026-09-02 full-repository audit remediation programme (packages P1-P21, 2026-09-04). Deferred on file ownership, unblocked once P8a (PR #2634) merges: L45 specifiers search-index generator and freshness check; L131 pdfjs-dist and ZIP de-duplication plus the undeclared playwright-core import; the proper @sentry/core devDependency declaration that replaces the knip ignoreDependencies entry added in P3. Blocked on tooling this environment cannot run: L49 docling model revision pin (needs a pip install or a huggingface.co read - the exact command is in PR #2629's body); the drift-manifest regeneration P16 (PR #2628) needs, which requires a Docker image the network policy refuses. Left for an owner decision: L5 fonts and noindex change, which must be applied identically to both public/brand/preview.html and docs/brand/preview.html because tests/developer-hub-panels.test.ts pins byte-identity; L126's public/offline.html brand mark and its CACHE_VERSION bump, owned by no package; the calculators Governance reference link, which points at a github.com blob URL an end user cannot open.",
-      "source": "session 2026-09-04",
-      "added": "2026-09-04"
-    },
-    {
-      "id": "#2VX8AZ",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Six undeclared CSS custom properties leave two ward-board controls with no background or border",
-      "detail": "",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#X9ZHET",
       "priority": "P3",
       "type": "issue",
       "summary": "Two ward docs send a session onto branches without saying whether those branches are still live",
       "detail": "docs/ward-flow-coordination-rules.md and docs/ward-flow-fold-manifest-2026-08-31.md instruct a session onto claude/Wardquestions and claude/Ward-design with no status marker, flagged by tests/stale-resume-instructions.test.ts. Both branches are currently UNMERGED (merge-base --is-ancestor exit 1), so the correct marker says they are live, not merged. claude/Wardquestions holds the orchestrator handover and ten ward documents that exist on no other branch, so marking it merged would be worse than the present silence. Measured at fb17db7b1.",
       "source": "Ward Builder One closing sweep 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#EV7RMQ",
-      "priority": "P2",
-      "type": "rec",
-      "summary": "A vitest run with an unrecognised --reporter dies at startup, runs zero tests, and reports no failures",
-      "detail": "Observed 2026-09-02 by two Ward Flow chats independently; one would have reported three failing tests as fixed. 'npm run test -- --reporter=basic' is not a valid reporter in this vitest: the process exits before collecting, so there is no 'Test Files' line and no failure count, which is visually indistinguishable from a clean pass in a scrollback. Recommendation: a wrapper assertion that a run reporting zero failures also reports a NONZERO number of tests RAN, and that the run emitted a summary line at all. Same family as the existing 'checks that cannot fail' work — a gate whose silence is read as success.",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#93Y88G",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "A double cast hides three phantom and six missing fields on a BedRelease fixture",
-      "detail": "",
-      "source": "session 2026-09-02",
       "added": "2026-09-02"
     },
     {
@@ -884,15 +758,6 @@
       "detail": "PREMISE VERIFIED ON MAIN, not assumed. PR #2580 merged as 60eca45 on 2026-09-03, and origin/main now carries H1's fix: src/lib/medication-badges.ts:120 reads matchAll(/(\\d+(?:\\.\\d+)?)\\s*mg\\b/gi), so the decimal case (varenicline \"Tablets (0.5 mg, 1 mg)\" formerly badging as \"5 mg\", a tenfold misread) and the concentration case are closed. This row is the remainder H1 deliberately did not touch, which #2580's own reviewer flagged as pre-existing rather than introduced. H1 is an audit finding in docs/audit/full-repository-audit-2026-09-02.md, not a row in this ledger, so nothing here closes it; it is recorded as landed only so this row's premise is checkable. THE DEFECT: morphine's \"Tablets IR (10, 20 mg)\" badges as \"20 mg tablet\". The number is a real strength of a real product, so this is not H1's tenfold misread, but the choice of which strength to show is arbitrary and a clinician glancing at the badge is given no signal that 10 mg also exists. SCOPE NOT YET MEASURED: only the morphine case is confirmed. First step is to count how many of the 328 catalogue records state a comma-separated or hyphenated strength list in their formulation text. FIX candidates, in preference order: (a) render the full range when a formulation states more than one strength, so the badge reads the same as the source, (b) suppress the badge for multi-strength products, matching the conservative choice H1 already made for concentration-only and combination products. Do NOT simply switch the regex from the last match to the first without deciding the question, since that is equally arbitrary in the other direction. GUARD: the corpus-wide invariant that a badged number must be a whole strength token and not a concentration is now on main in tests/medication-badges.test.ts, arriving with #2580. It constrains any change here but does NOT by itself pin which of several listed strengths is chosen, so this work needs its own focused assertion on the multi-strength shape.",
       "source": "Reviewer note on PR #2580 (audit fixes P1, finding H1), recorded 2026-09-03; the same PR body carries it as a suggested follow-up finding. Codex's P2 review of PR #2585 correctly caught that this row originally asserted H1's fix as present while it was still unmerged, and that it cited a guard main did not yet have. Both were re-verified against origin/main after #2580 merged as 60eca45, and the row now states the evidence rather than the assumption.",
       "added": "2026-09-03"
-    },
-    {
-      "id": "#6ETV64",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Two Ward Flow documents name live branches without saying they are live",
-      "detail": "",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
     },
     {
       "id": "#NHGFXR",
@@ -940,15 +805,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#XFZX47",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "vitest --reporter=basic does not exist and dies at startup reporting zero failures",
-      "detail": "Running any vitest invocation with --reporter=basic in this repo fails with 'Error: Failed to load custom Reporter from basic'. Zero tests run, zero failures are reported, and the run is indistinguishable from a clean pass unless the output is read rather than the exit code. Two chats hit this on 2026-09-02 and one would have reported three failing tests as fixed. Consider either a wrapper that rejects unknown reporter names, or a line in docs/testing.md. Observed at fb17db7b1.",
-      "source": "Ward Builder One closing sweep 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#2NRB8V",
       "priority": "P3",
       "type": "issue",
@@ -980,7 +836,7 @@
       "priority": "P1",
       "type": "issue",
       "summary": "Ward Flow places patients with no eligibility check in the reducer at all",
-      "detail": "",
+      "detail": "RECONSTRUCTED 2026-09-06. This row was recorded on 2026-09-02 with an EMPTY detail field, so as written nobody could act on it. What follows was rebuilt from the code and its history. ORIGINAL FINDING: the coordinator's placement path in src/components/ward-management/ward-flow-reducer.ts applied no eligibility judgement gate at all, while ACCEPT_REFERRAL at the other end rejected on the first failing gate of any kind. One end refused everything, the other refused nothing. THAT ASYMMETRY IS CLOSED. PR #2571 (commit b401b65cc, 2026-09-03, the day after this row was raised) introduced SUITABILITY_GATES and eligibilityRefusal(), now called on three paths: REFER_TO_UNITS (~line 1075), ACCEPT_REFERRAL (~1158) and the coordinator pull (~1365). A failing gate inside SUITABILITY_GATES refuses unless a reason from OVERRIDE_REASONS is recorded; the physical gates (allocatable_bed, capacity_freshness, specialling) refuse outright and are deliberately not overridable. WHY THIS ROW MUST STAY OPEN ANYWAY. The reducer's own comment above the pull-path call (~1355-1363) warns that a red there proves nothing on its own: the specialling refusal immediately above fires for a patient who fails both checks, and reading that as 'the engine now enforces eligibility' NEARLY CLOSED THIS FINDING FALSELY once already. It asks for proof on a pair whose ONLY failing gate is a judgement gate. That proof does not exist today. The only reducer-level suitability assertion is tests/ward-referral-reducer.test.ts:451, which exercises ACCEPT_REFERRAL rather than the pull path, on fixture RF-001 where BOTH age and security fail. tests/ward-eligibility.test.ts does cover cohort, but tests the pure eligibility() function, not the state transition. NEXT ACTION: add one reducer-level test on the coordinator pull path using a movement/unit pair whose only failing gate is cohort, asserting the transition is refused and the rejection contains 'failed gate cohort:'. Then close. Do not close on the wiring alone. GRADING NOTE FOR THE OWNER: the live hazard this P1 named is fixed; what remains is a missing proof. That arguably makes it P2 rather than P1, but a clinical-safety regrade is the owner's call, so the grade is left as recorded and flagged here.",
       "source": "session 2026-09-02",
       "added": "2026-09-02"
     },
@@ -991,15 +847,6 @@
       "summary": "Medication considerations panel formats its two not-assessed sentences differently — the contraindication one uses a bare comma join, the advisory one a serial-and helper",
       "detail": "In src/components/clinical-dashboard/medication-considerations.tsx as landed in PR #2538 (head ef7c55ab), the advisory not-assessed sentence renders its input list through formatInputList(), a helper added in that PR which produces \"eGFR\", \"eGFR and QTc\", \"eGFR, QTc and hepatic status\". The contraindication sentence one InlineNotice above still renders result.unassessed.join(\", \"). With a single missing input the two read identically; with two or more they read inconsistently, and the bare join is the case formatInputList's own doc comment argues against, because the sentence continues into a relative clause (\"which this profile does not include\") that a comma-only list runs straight into. NEXT STEP: apply formatInputList() to the contraindication sentence too. It is identity for a single input (it returns items.join(\"\") when length <= 1), so no existing assertion in tests/medication-interaction-surfaces.dom.test.tsx breaks; add a two-input case for the contraindication tier so the shared formatting is pinned rather than incidental.",
       "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#WRZJVR",
-      "priority": "P2",
-      "type": "rec",
-      "summary": "No gate detects a test fixture that lies about its type: casts defeat tsc and vitest runs none",
-      "detail": "A cast on a fixture suppresses the only check that would catch a missing or phantom field, because vitest runs no typecheck and a cast silences tsc. Search by TARGET type, not by operator: 'as unknown as' appears 228 times in tests/ and almost all are legitimate (you cannot hand-construct a Request or an IntersectionObserver). Dangerous only when the target is a domain-model type. Filter comment lines: 'as' appearing is not 'as' being used. A 90-file sweep of ward tests never mentioned casts once - grep for cast across that document returns zero.",
-      "source": "Ward Builder Three, class handed over by Ward Builder One, measured at adcd8bcb5",
       "added": "2026-09-02"
     },
     {
@@ -1048,15 +895,6 @@
       "added": "2026-09-04"
     },
     {
-      "id": "#52HN6Z",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "An unbounded recursive delete in a ward test's cleanup",
-      "detail": "",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#4TXR6Z",
       "priority": "P2",
       "type": "issue",
@@ -1064,15 +902,6 @@
       "detail": "Observed across four graded runs of PR #2536 on the pinned Chromium (chromium-1234, HeadlessChrome/151), baseline LCP 2282ms with a tolerance of +20% AND +100ms. BREACHED: head 30afc398 measured 2748ms (+466ms, +20.4%) in run 33628667758 attempt 1; head cda377fb measured 2753ms (+471ms, +20.6%) in run 33681754629. PASSED: the attempt-2 re-run of 30afc398 (number not read); head 957a0387 measured 2323ms (+41ms) in run 33684986161, which reported 'Every graded route is within tolerance of the committed baseline.' The gate samples each cell three times and calls a regression at 2 of 3, so it is already noise-tolerant within a run; the split here is BETWEEN runs, which that design does not cover. A 2323 vs 2750 spread on identical browser, identical route and near-identical code is about 18%, and the +20%/+100ms tolerance sits inside that gap, so the same commit can grade either way depending on the runner it lands on. NOT ESTABLISHED: which mode is the true one, whether the slow mode correlates with runner class, concurrent jobs on the host, or the isolated production build's cold start, and whether main alone reproduces it. main was never measured directly; the job is path-scoped and rarely runs on main pushes. WHY IT MATTERS: an intermittent red on a required check trains reviewers to re-run rather than read, and it lands on PRs whose diff cannot reach the failing page — #2536 changes only medication files, while src/app/(search-app)/documents/search/page.tsx imports one symbol (Metadata from next) and nothing outside medication-named files calls /api/medications. NEXT STEP: characterise the cell before changing anything. Run the dispatch-only 'Refresh Lighthouse baseline' job (workflow_dispatch on ci.yml with refresh_lighthouse_baseline=true) two or three times against main, which measures the same routes on the pinned Chromium and commits nothing, and compare the spread. If the slow mode reproduces on main, attribute it before touching lighthouse-budget.json; if it does not, the fix is in how the cell is measured, not in the baseline. Do not refresh the baseline reactively to clear a red PR.",
       "source": "PR #2536 Lighthouse runs 33628667758, 33681754629 and 33684986161, 2026-09-02",
       "added": "2026-09-02"
-    },
-    {
-      "id": "#EWD0KH",
-      "priority": "P2",
-      "type": "rec",
-      "summary": "Two high-severity production advisories sit on main and make the dependency audit blocking for any PR that touches package.json",
-      "detail": "npm audit --omit=dev on main reports browserslist <=4.28.6 (two high advisories) and fast-uri 3.0.0-3.1.5 (four high advisories). CI's Safety and config checks job runs the dependency audit as blocking only when a PR changes dependency files, so these are invisible until one does - audit remediation P3 hit exactly that and had to revert an otherwise-correct dependency declaration. Open Dependabot PRs #2568, #2570 and the combined #2616 fix both. Recorded 2026-09-04.",
-      "source": "session 2026-09-04",
-      "added": "2026-09-04"
     },
     {
       "id": "#Y2E4DX",
@@ -1120,15 +949,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#V70WH9",
-      "priority": "P3",
-      "type": "task",
-      "summary": "53 of 61 findings from the ward DOM test sweep exist nowhere and cannot be re-checked",
-      "detail": "",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#XXH42K",
       "priority": "P2",
       "type": "issue",
@@ -1142,7 +962,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "The property ward-referral-matching.test.ts protects has no backstop anywhere in the suite",
-      "detail": "",
+      "detail": "RECONSTRUCTED 2026-09-06, partially verified. tests/ward-referral-matching.test.ts is the suite's gate-by-gate proof of referralCandidates and referralEligibility: it exercises each eligibility gate (age, cohort, security, sex designation and mix, forensic, legal status, authorisation) on constructed unit/referral pairs, and asserts that each gate's detail string differs between pass and fail. referralCandidates has three other test consumers (ward-referral-screens.dom.test.tsx, ward-travel-grouping.test.ts, ward-referral-model.test.ts), but those exercise it incidentally for screen rendering, travel grouping and model shape rather than asserting per-gate matching behaviour, which is the basis for the row's claim that deleting this one file would leave the property unprotected. NOT VERIFIED: whether every individual gate is genuinely uncovered elsewhere, which needs a gate-by-gate cross-check against those three files. NEXT ACTION: do that cross-check and record the result, then either accept the single point of coverage deliberately with a note in the file, or add the narrowest backstop for whichever gates prove to be single-covered. Related but distinct: #Q6WD1M needs a reducer-level cohort-only proof, which is about the state transition rather than about candidate matching.",
       "source": "session 2026-09-02",
       "added": "2026-09-02"
     },
@@ -1165,15 +985,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#AGBNBV",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "ledger-inbox.mjs add silently ignores --dry-run and writes a real queue entry",
-      "detail": "",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#GCTFD7",
       "priority": "P2",
       "type": "issue",
@@ -1187,7 +998,7 @@
       "priority": "P2",
       "type": "task",
       "summary": "tests/ward-screen-fd23-leaks.dom.test.tsx is unowned and carries a known blind spot",
-      "detail": "",
+      "detail": "RECONSTRUCTED 2026-09-06, partially verified. tests/ward-screen-fd23-leaks.dom.test.tsx exists and its header documents its own purpose clearly: it enforces FD-23 (a ward-facing screen may not reveal where else a patient has been referred) on the ward screen, whose inbox reads referredUnitIds, a list that answers 'am I addressed?' while also carrying 'who else is?'. It asserts on rendered TEXT because, in its own words, the forbidden thing is a VALUE in a permitted place, so no structural or field-presence guard can see it. Both leaks it covers were live on the seeded fixture and confirmed on screen before being fixed, and the assertions are deliberately pinned to seeded movements rather than constructed ones. NOT VERIFIED: the specific blind spot the row refers to. The header explains the technique and its limits but does not name a gap, and no owner is recorded in the file. NEXT ACTION: two separable things. First, assign an owner, since an unowned test enforcing a privacy rule is the one nobody updates when the screen changes. Second, re-derive the blind spot by asking which other surfaces read referredUnitIds and are therefore capable of the same leak while being outside this file's scope, and record the answer here so it is not lost a second time.",
       "source": "session 2026-09-02",
       "added": "2026-09-02"
     },
@@ -1205,8 +1016,8 @@
       "priority": "P1",
       "type": "issue",
       "summary": "Caring Contacts message-content controls are unreachable: validateGovernedMessage has no production caller",
-      "detail": "grep -rn \"validateGovernedMessage\" src worker scripts returns only message-copy.ts and the module itself. Every message-content policy control the new docs/caring-contacts/message-review-pack.md documents is therefore proof about a function, not about a delivered message. No present risk (nothing is being sent), but it must be treated as blocking for a real-patient pilot alongside the three unmitigated hazards in #1S81R8. Found while drafting the hazard log and review pack (audit remediation P21, PR #2626, 2026-09-04).",
-      "source": "session 2026-09-04",
+      "detail": "CARRIED FORWARD 2026-09-06 from #A3AHCX, closed the same day as a duplicate of this row. That row (2026-08-24) held technical detail this one did not, preserved here so the merge loses nothing: validateGovernedMessage lives in src/lib/caring-contacts/message-policy.ts and enforces the segment limit, the prohibited vocabulary, the required support fragments and, from 2026-08-24, the fictional-contact check. When a dispatch or preview path is built, wiring it to this validator is the first requirement. Recorded so nobody mistakes 'the validator refuses this' for 'the system refuses this'. PROCESS NOTE: this defect was recorded twice, eleven days apart, by two sessions that did not find each other's row, and graded P2 the first time and P1 the second. It is the clearest evidence for the ledger's missing dedupe-on-intake step. CORRECTED AND GUARDED 2026-09-07, verified against main at fe8db888d. Two claims carried forward above are now out of date and are struck here rather than left to mislead a later reader - which is precisely the failure mode this row itself documents. (1) 'A grep across src/ and worker/ finds no production caller; it is exercised only by tests' is FALSE as of 2026-09-02. resolveClosingContactMessageBody at message-policy.ts:320 calls validateGovernedMessage in production code. It arrived with #59JT7W, which deliberately moved the unauthored-body rule INTO the chokepoint so that a sender obtaining a body by some other route could not meet no refusal at all. (2) The domain does carry dispatch scaffolding this row does not mention: DispatchRecord, dispatchKey and sendableContacts all exist. THE ROW STAYS OPEN AND P1 BECAUSE THE SUBSTANTIVE POINT HOLDS. No message body exists anywhere in the domain for a sender to send. PlannedContact (schedule.ts:23) names a messageType but holds no text, and DispatchRecord (repository.ts:730) tracks attempt number and provider status but no content. Nothing outbound is gated because nothing is outbound. The validator is the mechanism a future sender must use, not a control that is currently failing open. NOW GUARDED: tests/caring-contacts-message-body-chokepoint.test.ts, merged in PR #2690, pins both shapes as bodyless with exact-key type assertions. A message body can only reach a recipient by first riding one of those two shapes, so adding a body field to either is the exact moment the wiring becomes required, and it now fails typecheck naming the offending field instead of passing silently. Verified by mutation rather than by a green run: adding 'body?: string' to PlannedContact produces TS2322, 'Type boolean is not assignable to type { unexpectedOnActual: \"body\" }'. NEXT ACTION unchanged: when a dispatch or preview path is built, route its body through validateGovernedMessage before anything can send it, and widen the pinned key lists only as part of that same change.",
+      "source": "session 2026-09-07; verified against main fe8db888d; guard merged in PR #2690",
       "added": "2026-09-04"
     },
     {
@@ -1273,13 +1084,103 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#FP62K4",
+      "id": "#CCK605",
       "priority": "P3",
       "type": "task",
-      "summary": "Two verify:cheap gates fail on a shallow clone with a message that reads like a governance breach",
-      "detail": "Have tests/rag-plan-package-parity.test.ts and tests/clinical-hazard-controls.test.ts detect a shallow clone and skip with an explicit reason, or deepen the clone in the cloud session-start hook. Why: both resolve commits that a shallow clone does not contain, and fail with 'reviewedCommit does not exist <sha>' and 'manifest reconciledBase is unavailable locally' - which reads as a real hazard-control or plan-package violation rather than a missing object. Context: observed in a Claude Code cloud session on 2026-09-02; verify:cheap reported 4 failing files, two of which were this. Both passed unchanged after git fetch --deepen=500, confirming the diff was never at fault. Cloud sessions clone shallow by default, so this costs a diagnosis every time. Confidence: high, reproduced and then cleared by deepening. Owner: repo tooling.",
-      "source": "session 2026-09-02, Sources mode-home PR (claude/sources-mode-dropdown-home-mzw4f5)",
-      "added": "2026-09-02"
+      "summary": "Ward Flow: decide the ward index design — strict index, or cards with per-ward bed numbers",
+      "detail": "NOT a cleanup item, and an earlier entry wrongly framed it as one. wards/ward-overview.module.css has no importer and no composes edge, but it is retained on purpose: ward-index.tsx lines 33-49 record that a card layout using it was built to match mockup-ward-home.html, was refused outright by tests/ward-nav.test.ts:1251 — that test pins the literal 'All wards', an exhaustive allowlist of every text fragment the page may render, a hard ban on any digit in its copy, and a blocklist of capacity words, all guarding a deliberate 'not a second bed board' restraint decision — and was reverted rather than overridden, because overriding a test fortified that deliberately needs the owner rather than an implementer. THE REAL DECISION: should the ward index stay a strict index answering 'what is this ward and how do I get to it', or become a card grid showing each ward's free beds? Settling it also settles 'All wards' versus 'Ward overview' and whether the digit ban stands. The CSS is the prepared answer to one branch and should not be deleted until the branch is chosen. ⚠️ Two surfaces answering one question in wording that can drift is named in that file as this project's most reliable defect, which is the argument the restraint decision rests on.",
+      "source": "Ward Lead, 2026-09-04, correcting an earlier entry of my own",
+      "added": "2026-09-04"
+    },
+    {
+      "id": "#BAY1TY",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Ward Flow: sex and gender identity are one field, and that single field drives bed matching",
+      "detail": "MEASURED 2026-09-04: ward-model.ts declares 'sex: Sex' and no gender field anywhere. ward-eligibility.ts consumes it directly — unit.sexMix[movement.sex] and sexDesignationAccepts(unit.sexDesignation, movement.sex) — so a patient's bed eligibility is computed from that one value. There is currently no way to record that a patient's gender identity differs from their recorded sex, and therefore no way for the board to represent, let alone match on, that distinction. Harmless today (synthetic prototype, no real patients) and expensive later: the data model is the costly thing to change, the matching rule is cheap. Ward Builder Two relayed the owner's view that this goes to a clinician who works in this area rather than being settled internally, and that is right. TREAT AS A GATE BEFORE ANY REAL-PATIENT USE, not as an emergency.",
+      "source": "Ward Lead, 2026-09-04",
+      "added": "2026-09-04"
+    },
+    {
+      "id": "#6DT5K7",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Ward Flow: the 'it suggests nothing' rule may be reversed, and the reversal is written down nowhere",
+      "detail": "MEASURED 2026-09-04: the rule is live in 8 files, 4 of them source — escalation/page.tsx, escalation-board.tsx, referrals/referral-destination-options.ts, ward-derivations.ts — plus four planning documents. It is written in capitals with reasoning ('THIS BOARD RECORDS AND SHOWS. IT SUGGESTS NOTHING — no least-bad options, no ranking of wards the patient does not fit, no near-miss computation') and reads exactly like a safety principle, so every session that meets it obeys it. Ward Builder Two reports the owner reversed it in conversation, wanting active patient-to-bed matching with the clinician making the final acceptance. THE REVERSAL IS NOT IN docs/ward-flow/owner-rulings-2026-09-04.md, whose last change predates the conversation, so it exists only in one chat transcript. WHY THIS IS P1: the cost is not the unbuilt feature, it is that the codebase actively instructs the next session to build the opposite, confidently. Also note the regulatory dimension flagged on PR #2597 and left unresolved there: a board that ranks wards for a patient is closer to clinical decision support than one that records, which is the TGA/SaMD classification question. Needs an owner decision, not an integrator's.",
+      "source": "Ward Lead, PR #2597 aftermath, 2026-09-04",
+      "added": "2026-09-04"
+    },
+    {
+      "id": "#CNCB0W",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Ward Flow: a coordinator can no longer see sex mix or specialling headroom when placing a patient, and the test that held that question visible has been retired",
+      "detail": "OWNER QUESTION, NOT A DEFECT. When the capacity board moved from the shared mode surface to its own CapacityScreen, two figures stopped being shown: each ward's sex mix, and its specialling (one-to-one nursing) headroom. Both are hard constraints in the eligibility engine, so the engine uses them while the coordinator making the placement cannot see them. capacity-screen.tsx (the sex-mix signal comment) states the position at the render site: no sex mix appears on the network view and none should for now, because whether those counts belong there is an open question for the owner. WHAT CHANGED 2026-09-06: the last test asserting those figures rendered against the retired surface, so it could never fail for the right reason, and it was retired to clear a red before publication of PR 2654. Three sessions independently flagged that the retirement removed the one mechanism that kept the question in front of somebody every run, and diff-integrity.json had recorded in its own words that building it would answer the question on the owner's behalf. The question is now recorded at the render site, in the retirement comment in tests/ward-capacity-view.dom.test.tsx, in the PR body, and here. WHAT IS NEEDED: the owner decides whether sex mix and specialling headroom belong as figures on a network capacity view, and if so which source is honest for sex mix (Unit.sexMix or derivedSexMix). Nothing should be built before that ruling; building it answers the question by default.",
+      "source": "session 2026-09-05",
+      "added": "2026-09-05"
+    },
+    {
+      "id": "#KHTTW4",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Eight ui-ward-* browser journeys fail on main, and the blocking Ward Flow lane is path-scoped so it will not report them until someone next edits Ward Flow",
+      "detail": "REPRODUCED ON UNMODIFIED main 2026-09-06: a worktree checked out at origin/main 0ee6816, with no feature branch commits present, running npm run test:e2e:ward-journeys fails eight tests - ui-ward-discharges.spec.ts:92; ui-ward-management.spec.ts:71 and :230; ui-ward-morning.spec.ts:55 and :105; ui-ward-roles.spec.ts:227, :253 and :269. Not a flake and not one spec: eight, in four files, in one run. Likely origin is the Ward Flow second edition (#2654, commit 408c2c5), which landed shortly before. The SECOND HALF is the part that outlives the fix and is the reason this is filed separately from the existing per-spec rows (#ZWJ71W ui-ward-morning, #1BHXEF ui-ward-roles demo clock): the BLOCKING lane ui-ward-journeys ('Ward Flow browser journeys') is gated on needs.changes ward scope, so with these red on main it stays SKIPPED on every PR that does not touch Ward Flow files - it skipped on PR #2674 while the advisory lane ran the same specs and went red. A path-scoped gate cannot report a break in the code it guards once that code is already broken on the base branch; it only speaks again when someone edits the area, which is exactly when they will be blamed for it. The advisory lane is continue-on-error and not in pr-required, so nothing blocking sees this at all. Two things to settle: fix the eight (owner is whoever holds #2654), and decide whether ward-journeys should also run on a schedule or on base-branch pushes so a broken base cannot hide behind its own path filter. Reproduce with: git worktree add <dir> origin/main && cd <dir> && npm run test:e2e:ward-journeys",
+      "source": "session 2026-09-06, PR #2674; eight failures reproduced on an unmodified origin/main worktree",
+      "added": "2026-09-06"
+    },
+    {
+      "id": "#X2FP2R",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "repo-awareness snapshot and docs/site-map.md still conflict on the routes/documents half that #EFETZT did not disperse: two merge conflicts on one PR within an hour",
+      "detail": "#EFETZT (resolved 2026-09-02) fixed the REVIEW-RECORDS half of this: review_state.records is ordered by head sha so concurrent appends land far apart, review_state.counts was deleted, and REVISION_INPUTS stopped tracking branch-review-records. That work is intact and is not what fails here. The half still open is the ROUTE and DOCUMENT arrays plus the snapshot header. Any PR that adds or removes a page regenerates data/repo-awareness-snapshot.json with a new sha/committed_at and a new routes entry, and docs/site-map.md with a new row, so any two such PRs collide - and docs/site-map.md was never in #EFETZT's scope at all. MEASURED 2026-09-06 on PR #2674 (a single design-mockup route, zero production code): conflicted against main TWICE inside one hour, first on data/repo-awareness-snapshot.json alone (main 0ee6816), then on BOTH that and docs/site-map.md (main 0c7fb8b). Each resolution is the same mechanical loop - regenerate with npm run snapshot:repo-awareness and npm run sitemap:update, never resolve by hand - and it teaches nobody anything. A THIRD trap sits behind it: the pre-commit hook regenerates docs after the snapshot is written, so a snapshot generated before committing is stale the moment the merge commit exists, and check:repo-awareness-snapshot went red on exactly that. The regenerate step must come AFTER the merge commit, or the hook must own it. Sibling row #Y090R5 records the identical failure for data/outstanding-issues-snapshot.json, which suggests the general fix is a merge driver or a generated-file-rebuild commit hook covering all three files rather than three separate dispersals. Cost is paid by every page-adding PR while main is busy.",
+      "source": "session 2026-09-06, PR #2674; two live merge conflicts, both resolved by regeneration",
+      "added": "2026-09-06"
+    },
+    {
+      "id": "#4HCENS",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Ward Flow: the ward index renders 'no bed numbers' to a clinician, on a restraint with no recorded ruling",
+      "detail": "THIRD SUB-QUESTION under inbox request 26cefa10-5af3-4592-9d19-fca84beef03b (issueUlid 01M1NWXKM4CCK6050KCV03FK4C), same owner, same page, same sitting. Do not treat as separate work. (1) PROVENANCE, settled: the ward-index restraint — the digit ban, the 'All wards' wording, and 'not a second bed board' — has NO recorded owner ruling. Verdict UNTRACEABLE, deliberately NOT inferred: what is traced is where the CLAIM first appears (e06427196, 2026-08-29, one uncited sentence in the commit that built the page and its guarding test together), not where the BELIEF came from. A session may have been given an instruction and failed to cite it. Corrected in ward-index.tsx and tests/ward-nav.test.ts at 8c142a55f and b83ec642a; ENFORCEMENT UNCHANGED. Method calibrated first on a known-inferred rule (spec D4, withdrawn as R-2026-09-04-G) and a known-ruled one (coordinator override, recorded in a file with no owner- prefix) and got both right. Citing nothing predicts nothing: two rules in ui-ward-coordinator.spec.ts both cite no authority and one is RULED. (2) THE NEW SUB-QUESTION: the page RENDERS the phrase 'no bed numbers' to the clinician — it is in the test's fixed-copy allowlist. That is a page telling a clinician what it does not show, on the authority of a rule with no recorded ruling behind it. Milder than a banner asserting future behaviour, but the same shape, and it is rendered copy, so changing it is the owner's. NOT EDITED. (3) WHAT THE DECISION SHOULD ANSWER FIRST, and this reorders the two sub-questions already filed: the board renders '1 bed you can fill today' for headlineAvailable = min(allocatable, empty); mockup-ward-home.html renders '1 free of 20 beds' for the same figure. A bed can be empty and NOT fillable — the board's own comment records min(1,2). So the restraint's stated fear, wording that drifts, is ALREADY REALISED inside the artefact meant to resolve it. Ask 'free' or 'you can fill today' BEFORE 'strict index or card grid', because the wording question must be answered whichever way the layout goes. RECOMMENDED SHAPE, a recommendation and not a decision: if a figure lands on the index, share both the derivation and the SENTENCE — headlineAvailable() is already exported and read by the board, and constraintSentence() is exported and read by one surface. Single-sourcing the figure fixes the number and leaves the words free to drift, which is the half the restraint was actually about. A census of which surfaces state a bed figure in which words, and whether those words are derived from the figure or merely written beside it, is in flight and will size this.",
+      "source": "Ward Builder One, 2026-09-04, at Ward Lead's request — third sub-question on the ward-index sitting",
+      "added": "2026-09-04"
+    },
+    {
+      "id": "#G4YPNE",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Ward Flow: Aboriginal cultural safety review is unstarted and cannot be done by this team",
+      "detail": "Unchanged and unchangeable from inside the project: it requires Aboriginal health practitioners. Recorded here as a Ward Flow gate in its own right rather than relying on the Caring Contacts entry (#1S81R8), because Ward Flow is a separate surface — bed allocation, transport and detention-adjacent legal status — with its own cultural safety questions, and an item filed under another feature will not be found by someone preparing Ward Flow for use. HARD GATE BEFORE ANY REAL-PATIENT USE. Not a blocker on further prototype building.",
+      "source": "Ward Lead, 2026-09-04",
+      "added": "2026-09-04"
+    },
+    {
+      "id": "#AY4KKK",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Playwright flake: 'mode menu dismisses when keyboard focus leaves its wrapper' failed on a head whose application code is byte-identical to one that passed 20 minutes earlier",
+      "detail": "tests/ui-accessibility.spec.ts :: PsychSift accessibility coverage > mode menu dismisses when keyboard focus leaves its wrapper failed the Production UI shard 2 job on PR #2664 head d73389889 (run 34044159807, job 101516153464, 16:14 on 2026-09-06). The ci-triage classifier called it 'needs investigation'. PROOF THIS IS A FLAKE, NOT A REGRESSION: the immediately preceding head 25cb63bd8 ran the whole pr-required set GREEN at 15:54:58 (run 34043035023), including this same shard, and git diff --name-only 25cb63bd8 d73389889 returns ONLY data/outstanding-issues-snapshot.json, one docs/branch-review-records file, and the docs/outstanding-issues-inbox moves from PR #2678's reconcile. No file under src/, tests/ or public/ differs at all, so the application code, the spec and the fixtures under test were byte-identical across the pass and the fail. PR #2664 itself changes no component, route or styling. NOT ROOT-CAUSED. The test asserts that the mode menu closes once keyboard focus leaves its wrapper, which is a focus/blur timing assertion and therefore sensitive to runner load, and this repo already carries two focus-and-hydration timing notes on the same spec file (#093 on Next streaming clone strict-mode violations, and #WJDQ0X on landmark rules that cleared only at a 9s settle). Next step: run the single test repeatedly on one SHA per docs/testing.md flake policy. It needs three reproductions on the same SHA before tests/flake-ledger.json quarantine is even permitted, and the better outcome is hardening the dismissal assertion to wait for the menu's own closed state rather than for a focus event. Do NOT weaken or delete the assertion to clear a red PR. Related but distinct: #1BHXEF (ward demo clock, Advisory UI), and the ward-flow lease-lock race captured earlier this session.",
+      "source": "PR #2664 run 34044159807 job 101516153464 vs green run 34043035023, 2026-09-06",
+      "added": "2026-09-06"
+    },
+    {
+      "id": "#WE5G2C",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Strict status checks plus a fast-moving main make PRs unmergeable by attrition; a merge queue would end the behind-branch race",
+      "detail": "Observed on PR #2664 across 2026-09-06, roughly twelve hours from open to merge with no review objection and no real defect in the diff. Mechanism: branch protection requires the branch to be level with main, so a PR that goes green while main has moved reads mergeable_state 'behind' and cannot merge. CI on this repo takes about 12 to 18 minutes for the pr-required set. Main merged roughly every 15 to 20 minutes that day, at one point taking nine commits within four minutes. Every sync push also cancels the in-flight run through cancel-in-progress, which surfaces as a 'PR required' failure carrying the literal line 'CANCELLED with no failing job', so the loop both restarts and looks red while doing it. Auto-merge SQUASH was armed from PR creation and updated the branch only intermittently, firing at 09:57, 12:45 and 13:14 but not at 09:59 or 10:18, so it cannot be relied on to win the race by itself. NET EFFECT: whichever PR is slowest to draw a quiet window on main pays for everyone else's merges, and the cost falls on correctness-neutral work. RECOMMENDATION: enable a GitHub merge queue on main. The queue builds each candidate against the head it will actually land on, so a PR never needs hand-syncing and CI is never cancelled by a competitor's merge. AGENTS.md already instructs sessions to treat merge queue state as read-only, so the operating rules anticipate one. Alternatives if a queue is unwanted: drop the strict up-to-date requirement for PRs whose changed paths cannot interact with main's recent commits, or narrow required checks so the green window is shorter than the average gap between merges to main. This is an owner and repository-settings decision, not a code change.",
+      "source": "PR #2664 session 2026-09-06; observed sync pushes 9dbdaa6, da8d0f6d2, e8bbcdba1 and CI runs 34023575924, 34036592050, 34038115122, 34038808851",
+      "added": "2026-09-06"
+    },
+    {
+      "id": "#TJKFDR",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Ward Flow lease acquisition lock is published non-atomically, so a competing process can read a half-written lock and fail outright",
+      "detail": "Failed Unit coverage on PR #2664 head e8bbcdba1 (run 34038808851, job 101501794483): tests/ward-flow-chat-control.test.ts > 'serializes cross-role lease acquisition across processes' expected stderr matching /already held|worktree already held/ but got 'lease acquisition lock is unreadable at /tmp/ward-chat-control-BzcaPW/.git/ward-flow-chat-control/acquire.lock.json; inspect it rather than bypassing custody'. ROOT CAUSE is in main's code, not the test. withLeaseAcquisitionLock in scripts/ward-flow/chat-control.mjs writes the lock with writeFileSync(lockPath, canonicalJson(owner), { encoding: 'utf8', flag: 'wx' }). The wx flag makes the CREATE exclusive, but creation and content are two steps, so a competitor can hit EEXIST in the window after the inode exists and before the holder's bytes are flushed, read the file back empty, and land in the catch at line 381. That branch calls fail() immediately with no retry, so a transient partial read is fatal, while the surrounding loop already retries the EEXIST path 200 times. Under CI load the window is wide enough to hit; the same test passed 3/3 locally on the same head, so it will not reproduce on a quiet machine. FIX: publish the lock atomically. Write a fully formed temp file at `${lockPath}.${owner.token}` then linkSync(staging, lockPath), which is atomic and throws EEXIST when already held, and rmSync the staging file in a finally. linkSync needs adding to the node:fs import; renameSync is already imported but is wrong here because it overwrites. The narrower alternative is to count unreadable reads and only fail() after a bounded number, but that leaves the race in place and only makes it rarer. Not fixed in PR #2664 because that PR is source-governance only and touches no Ward Flow file; the session branch constraint prevented opening a separate fix PR. Do not weaken or quarantine the test to clear it, the test is asserting the correct contract. Full diagnosis posted at https://github.com/BigSimmo/Database/pull/2664#issuecomment-5559938335",
+      "source": "PR #2664 CI run 34038808851 job 101501794483, 2026-09-06; scripts/ward-flow/chat-control.mjs:357-401",
+      "added": "2026-09-06"
     }
   ],
   "pending": []

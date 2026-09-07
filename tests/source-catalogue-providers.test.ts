@@ -42,6 +42,7 @@ const expectedProviders = {
   services: ["data/services-snapshot.json"],
   dsm: ["src/data/dsm-clinical-content.json"],
   calculators: ["src/components/calculators/calculator-fixtures.ts"],
+  acquisitions: ["src/data/source-acquisitions.json"],
 } as const;
 
 function provider(id: keyof typeof expectedProviders) {

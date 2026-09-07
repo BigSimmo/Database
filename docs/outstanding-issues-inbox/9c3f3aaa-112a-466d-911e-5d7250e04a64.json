@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9c3f3aaa-112a-466d-911e-5d7250e04a64",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#1NMMZS",
+    "outcome": "Resolved by Ruling 143 in message-rules.ts and vocabulary tests",
+    "baseRowFingerprint": "cb09bcb5843b78f50c2199370d386c15dde8e0ccc11ae005410c73441c8ba1ff"
+  }
+}
