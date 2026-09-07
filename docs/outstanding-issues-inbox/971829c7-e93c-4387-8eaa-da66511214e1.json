@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "971829c7-e93c-4387-8eaa-da66511214e1",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#5ECZQA",
+    "outcome": "Inspected per-item signing errors in batch signed-urls API",
+    "baseRowFingerprint": "88409292c3ae5c274a605f61984255928bf7d6702cfc0a42cdf2b9701d93e97c"
+  }
+}

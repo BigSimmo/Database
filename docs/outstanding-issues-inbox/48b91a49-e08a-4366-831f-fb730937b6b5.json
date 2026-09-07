@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "48b91a49-e08a-4366-831f-fb730937b6b5",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#ZBAC9D",
+    "outcome": "Closed owner_id null leak in retrieval RPC",
+    "baseRowFingerprint": "4af4494465ef155154588f197e64afd21595d80343aa0ee7ccaf1e5adfb75c47"
+  }
+}
