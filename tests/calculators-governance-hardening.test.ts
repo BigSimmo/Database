@@ -23,13 +23,18 @@ type RightsRecord = {
   modificationAllowed?: boolean | null;
   attributionRequired?: boolean | null;
   verifiedAt?: string;
+  sourceId?: string;
+  permissionScope?: string;
 };
 
 type GovernanceFixture = {
   id: string;
   responseAnchorSetId?: string;
+  wordingSetId?: string;
   rights?: RightsRecord;
   items: CalculatorItem[];
+  name: string;
+  stem?: string;
 };
 
 /**
@@ -56,6 +61,40 @@ function computeResponseAnchorFingerprint(items: CalculatorItem[]): string {
     })
     .join(";");
   return `rax-${createHash("sha256").update(canonical, "utf8").digest("hex").slice(0, 16)}`;
+}
+
+function computeWordingFingerprint(calc: GovernanceFixture): string {
+  const canonical = [
+    calc.name,
+    calc.stem ?? "",
+    ...calc.items.map((item) => [item.id, item.text, item.detail ?? "", item.flag ?? ""].join(":")),
+  ].join(";");
+  return `wrx-${createHash("sha256").update(canonical, "utf8").digest("hex").slice(0, 16)}`;
+}
+
+function validateVectorAnswers(calc: GovernanceFixture, answers: Record<string, number>): string[] {
+  const errors: string[] = [];
+  const expectedIds = calc.items.map((item) => item.id).sort();
+  const actualIds = Object.keys(answers).sort();
+  if (actualIds.join("\0") !== expectedIds.join("\0")) {
+    errors.push(`answer ids must exactly match ${expectedIds.join(", ")}`);
+  }
+
+  for (const item of calc.items) {
+    const answer = answers[item.id];
+    if (!Number.isInteger(answer)) {
+      errors.push(`${item.id} must be an integer answer value`);
+      continue;
+    }
+    if (item.kind === "checkbox") {
+      if (answer !== 0 && answer !== 1) errors.push(`${item.id} must be 0 or 1`);
+      continue;
+    }
+    if (answer < 0 || answer >= (item.options?.length ?? 0)) {
+      errors.push(`${item.id} must select an existing response option`);
+    }
+  }
+  return errors;
 }
 
 type GovernanceSource = {
@@ -93,7 +132,18 @@ describe("calculator governance hardening", () => {
     }
   });
 
+  it("pins the administered instrument wording independently of response anchors", () => {
+    for (const calc of allCalculatorFixtures as GovernanceFixture[]) {
+      expect(calc.wordingSetId, `${calc.id} wordingSetId`).toMatch(/^wrx-[a-f0-9]{16}$/);
+      expect(
+        calc.wordingSetId,
+        `${calc.id} wordingSetId must match its name, stem, item wording, details and safety flags`,
+      ).toBe(computeWordingFingerprint(calc));
+    }
+  });
+
   it("records explicit rights metadata for every active calculator", () => {
+    const evidenceById = new Map(calculatorEvidence.sources.map((source) => [source.id, source]));
     for (const calc of calculators as GovernanceFixture[]) {
       expect(calc.rights?.status, `${calc.id} rights status`).toBe("available");
       expect(calc.rights?.holder, `${calc.id} rights holder`).toBeTruthy();
@@ -101,6 +151,13 @@ describe("calculator governance hardening", () => {
       expect(calc.rights?.modificationAllowed, `${calc.id} modification permission`).not.toBeUndefined();
       expect(calc.rights?.attributionRequired, `${calc.id} attribution requirement`).not.toBeUndefined();
       expect(calc.rights?.verifiedAt, `${calc.id} rights verification date`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(calc.rights?.permissionScope, `${calc.id} rights permission scope`).toBeTruthy();
+      const rightsSource = evidenceById.get(calc.rights?.sourceId ?? "");
+      expect(rightsSource, `${calc.id} rights source`).toBeTruthy();
+      expect(rightsSource?.type, `${calc.id} rights source type`).toBe("rights_statement");
+      expect(rightsSource?.status, `${calc.id} rights source review status`).toBe("reviewed");
+      expect(rightsSource?.url, `${calc.id} rights source URL`).toMatch(/^https:\/\//);
+      expect(rightsSource?.claimsSupported, `${calc.id} rights source claim`).toContain(`claim:${calc.id}:rights`);
     }
   });
 
@@ -139,15 +196,39 @@ describe("calculator governance hardening", () => {
         expect(vector?.expectedScore, `${vectorLabel} expectedScore`).toBeTypeOf("number");
         expect(vector?.expectedBand, `${vectorLabel} expectedBand`).toBeTypeOf("string");
 
+        const answers = vector?.answers ?? {};
+        expect(validateVectorAnswers(calc as GovernanceFixture, answers), `${vectorLabel} answer schema`).toEqual([]);
+
         // Run the vector's answers through the real scoring/banding derivation
         // used by every calculator mockup, so a registry entry can no longer
         // go green while claiming a score or band the fixture would not
         // actually produce.
-        const derived = deriveCalculator(calc, (vector?.answers ?? {}) as AnswerMap);
+        const derived = deriveCalculator(calc, answers as AnswerMap);
         expect(derived.score, `${vectorLabel} derived score`).toBe(vector?.expectedScore);
         expect(derived.band?.label, `${vectorLabel} derived band`).toBe(vector?.expectedBand);
       });
     }
+  });
+
+  it("rejects extra, missing, fractional and out-of-range golden-vector answers before scoring", () => {
+    const calc = calculators.find((fixture) => fixture.id === "phq9") as GovernanceFixture | undefined;
+    expect(calc).toBeTruthy();
+    if (!calc) return;
+
+    const invalidAnswers = Object.fromEntries(calc.items.map((item) => [item.id, 0])) as Record<string, number>;
+    invalidAnswers.p1 = 99;
+    invalidAnswers.p2 = 1.5;
+    delete invalidAnswers.p9;
+    invalidAnswers.notAnItem = 0;
+
+    expect(validateVectorAnswers(calc, invalidAnswers)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("answer ids must exactly match"),
+        "p1 must select an existing response option",
+        "p2 must be an integer answer value",
+        "p9 must be an integer answer value",
+      ]),
+    );
   });
 
   it("wires the calculator governance checker into verify:cheap", () => {

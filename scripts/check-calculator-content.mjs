@@ -18,8 +18,10 @@
  *    calculator-fixtures.ts, so the two files cannot silently drift apart.
  *  - every calculator fixture's active-instrument id has a rights record with status
  *    "available", a rights holder, digitalUseAllowed true, and explicit
- *    modificationAllowed/attributionRequired/verifiedAt fields.
+ *    modificationAllowed/attributionRequired/verifiedAt fields, plus a permission scope and
+ *    a reviewed rights-statement source that supports that calculator's rights claim.
  *  - every active calculator has a golden-vector registry entry.
+ *  - every active calculator has a separately pinned wordingSetId.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -68,6 +70,7 @@ function extractRightsBlocks(source) {
 
 function main() {
   const errors = [];
+  const evidenceById = new Map();
 
   if (!existsSync(evidencePath)) {
     errors.push(`missing ${evidencePath}`);
@@ -75,6 +78,7 @@ function main() {
     const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
     for (const source of evidence.sources ?? []) {
       const label = source.id ?? "<missing-id>";
+      if (source.id) evidenceById.set(source.id, source);
       if (!validDate(source.accessedAt)) errors.push(`${label}: accessedAt must be an ISO date`);
       if (!validDate(source.lastReviewed)) errors.push(`${label}: lastReviewed must be an ISO date`);
       if (!validDate(source.nextReview)) errors.push(`${label}: nextReview must be an ISO date`);
@@ -121,10 +125,12 @@ function main() {
     const source = readFileSync(fixturesPath, "utf8");
     const activeIds = extractActiveCalculatorIds(source);
     const responseAnchorSetIds = extractStringRecord(source, "responseAnchorSetIds");
+    const wordingSetIds = extractStringRecord(source, "wordingSetIds");
     const rightsBlocks = extractRightsBlocks(source);
 
     if (!activeIds) errors.push("could not find activeCalculatorIds in calculator-fixtures.ts");
     if (!responseAnchorSetIds) errors.push("could not find responseAnchorSetIds in calculator-fixtures.ts");
+    if (!wordingSetIds) errors.push("could not find wordingSetIds in calculator-fixtures.ts");
     if (!rightsBlocks) errors.push("could not find rightsInfo in calculator-fixtures.ts");
 
     for (const id of activeIds ?? []) {
@@ -136,6 +142,7 @@ function main() {
           `${id}: golden-vector responseAnchorSetId (${entry.responseAnchorSetId}) does not match the pinned fixture ID (${responseAnchorSetIds[id]})`,
         );
       }
+      if (!wordingSetIds?.[id]) errors.push(`${id}: no pinned wordingSetId`);
 
       const rights = rightsBlocks?.[id];
       if (!rights) {
@@ -148,6 +155,30 @@ function main() {
       if (!/modificationAllowed:\s*(true|false)/.test(rights)) errors.push(`${id}: modificationAllowed must be set`);
       if (!/attributionRequired:\s*(true|false)/.test(rights)) errors.push(`${id}: attributionRequired must be set`);
       if (!/verifiedAt:\s*"\d{4}-\d{2}-\d{2}"/.test(rights)) errors.push(`${id}: verifiedAt must be an ISO date`);
+      if (!/permissionScope:\s*"[^"]+"/.test(rights)) errors.push(`${id}: permissionScope must be set`);
+
+      const rightsSourceId = rights.match(/sourceId:\s*"([^"]+)"/)?.[1];
+      if (!rightsSourceId) {
+        errors.push(`${id}: sourceId must identify a reviewed rights statement`);
+        continue;
+      }
+      const rightsSource = evidenceById.get(rightsSourceId);
+      if (!rightsSource) {
+        errors.push(`${id}: rights source ${rightsSourceId} is missing from evidence.json`);
+        continue;
+      }
+      if (rightsSource.type !== "rights_statement") {
+        errors.push(`${id}: rights source ${rightsSourceId} must have type rights_statement`);
+      }
+      if (rightsSource.status !== "reviewed") {
+        errors.push(`${id}: rights source ${rightsSourceId} must have reviewed status`);
+      }
+      if (typeof rightsSource.url !== "string" || !rightsSource.url.startsWith("https://")) {
+        errors.push(`${id}: rights source ${rightsSourceId} must have an HTTPS URL`);
+      }
+      if (!rightsSource.claimsSupported?.includes(`claim:${id}:rights`)) {
+        errors.push(`${id}: rights source ${rightsSourceId} does not support claim:${id}:rights`);
+      }
     }
   }
 

@@ -102,6 +102,12 @@ export type CalculatorFixture = {
    * `tests/calculators-governance-hardening.test.ts`, rather than silently drifting.
    */
   responseAnchorSetId: string;
+  /**
+   * SHA-256 fingerprint of the administered name, stem, item wording, details and safety flags.
+   * This is separate from `responseAnchorSetId` so wording and scoring-anchor reviews cannot
+   * accidentally stand in for one another.
+   */
+  wordingSetId: string;
   jurisdiction: string;
   lastReviewed: string;
   nextReview: string;
@@ -133,6 +139,10 @@ export type CalculatorRights = {
   attributionRequired?: boolean;
   /** Date (YYYY-MM-DD) this rights position was last checked against a public source. */
   verifiedAt?: string;
+  /** Evidence-registry source that directly states the permission represented here. */
+  sourceId?: string;
+  /** Human-readable boundary on the permission, including non-commercial restrictions. */
+  permissionScope?: string;
 };
 
 type RawScoreBand = Omit<ScoreBand, "interpretation"> & { guidance: string };
@@ -149,6 +159,7 @@ type RawCalculatorFixture = Omit<
   | "claimIds"
   | "rights"
   | "responseAnchorSetId"
+  | "wordingSetId"
   | "jurisdiction"
   | "lastReviewed"
   | "nextReview"
@@ -785,19 +796,33 @@ const responseAnchorSetIds: Record<string, string> = {
 };
 
 /**
- * Rights positions checked against a public statement from the rights holder (or, for
- * public-domain instruments, the absence of any restriction in the literature). Every value
- * below reflects what is publicly documented as of the `verifiedAt` date, not an assumption:
+ * Independently pinned wording fingerprints. The governance test recomputes each value from the
+ * instrument name, stem, item text, item detail and safety-flag wording. Response options remain
+ * pinned separately by `responseAnchorSetIds`.
+ */
+const wordingSetIds: Record<string, string> = {
+  phq9: "wrx-bd754250f996e7e2",
+  gad7: "wrx-a40cb4434a309c68",
+  k10: "wrx-beff4c4323324b73",
+  mdq: "wrx-7cb67e4100d0172a",
+  cage: "wrx-682d12e6df5ac388",
+  auditc: "wrx-fe367617c29c4429",
+  sadpersons: "wrx-2d468bed49cc9495",
+  ybocs: "wrx-be0333b17ced1d1b",
+};
+
+/**
+ * Rights positions checked against the reviewed source identified by each record's `sourceId`.
+ * Every value below reflects what that source documents as of the `verifiedAt` date:
  *
  * - PHQ-9 / GAD-7: the official Pfizer instrument sheets state "No permission required to
  *   reproduce, translate, display or distribute" for clinical, educational and research use.
- * - K10: the Kessler Psychological Distress Scale is public domain (developed with U.S. NIH
- *   support) and is reproduced without restriction by the Australian Bureau of Statistics and
- *   AIHW.
- * - CAGE: Ewing's 1984 questionnaire is public domain and freely reproduced throughout
- *   clinical screening literature with no license or permission requirement.
- * - AUDIT-C: derived from the WHO AUDIT instrument; WHO permits free reproduction and use for
- *   non-commercial clinical, training and research purposes.
+ * - K10: Ronald C. Kessler permits use without formal approval, while retaining copyright and
+ *   requiring citation and copyright acknowledgement.
+ * - CAGE: Dr John Ewing's permission statement allows clinical and research use but requires a
+ *   negotiated payment for a profit-making endeavour.
+ * - AUDIT-C: the first three items of WHO AUDIT; the reviewed AUDIT rights statement permits
+ *   non-commercial use without material change and requires WHO acknowledgement.
  *
  * `modificationAllowed` is conservatively `false` for every instrument here: none of the
  * above sources grants permission to alter item wording or scoring, and altering a validated
@@ -811,6 +836,8 @@ const rightsInfo: Record<string, CalculatorRights> = {
     modificationAllowed: false,
     attributionRequired: true,
     verifiedAt: "2026-09-04",
+    sourceId: "source:rights:phq-gad7",
+    permissionScope: "Unrestricted access and reproduction under Pfizer's published statement.",
   },
   gad7: {
     status: "available",
@@ -819,22 +846,28 @@ const rightsInfo: Record<string, CalculatorRights> = {
     modificationAllowed: false,
     attributionRequired: true,
     verifiedAt: "2026-09-04",
+    sourceId: "source:rights:phq-gad7",
+    permissionScope: "Unrestricted access and reproduction under Pfizer's published statement.",
   },
   k10: {
     status: "available",
-    holder: "Public domain (Ronald C. Kessler; developed with U.S. National Institutes of Health support)",
+    holder: "Ronald C. Kessler, PhD",
     digitalUseAllowed: true,
     modificationAllowed: false,
     attributionRequired: true,
     verifiedAt: "2026-09-04",
+    sourceId: "source:rights:k10",
+    permissionScope: "Free use without formal approval; citation and copyright acknowledgement required.",
   },
   cage: {
     status: "available",
-    holder: "Public domain (John A. Ewing, 1984)",
+    holder: "John A. Ewing / Bowles Center for Alcohol Studies",
     digitalUseAllowed: true,
     modificationAllowed: false,
     attributionRequired: true,
     verifiedAt: "2026-09-04",
+    sourceId: "source:rights:cage",
+    permissionScope: "Clinical and research use; profit-making use requires negotiated permission.",
   },
   auditc: {
     status: "available",
@@ -843,6 +876,8 @@ const rightsInfo: Record<string, CalculatorRights> = {
     modificationAllowed: false,
     attributionRequired: true,
     verifiedAt: "2026-09-04",
+    sourceId: "source:rights:audit",
+    permissionScope: "Non-commercial use without material change; identify it as a WHO-approved instrument.",
   },
   mdq: { status: "permission_review_required" },
   sadpersons: { status: "unknown" },
@@ -873,6 +908,7 @@ function metadataFor(id: string): Omit<CalculatorFixture, keyof RawCalculatorFix
     claimIds: [claimIdFor(id), ...(id === "phq9" ? ["claim:phq9:safety-flag"] : [])],
     rights: rightsInfo[id] ?? { status: "unknown" },
     responseAnchorSetId: responseAnchorSetIds[id] ?? "",
+    wordingSetId: wordingSetIds[id] ?? "",
     jurisdiction:
       id === "k10" || id === "auditc" ? "Australia" : "International instrument with Australian use context",
     lastReviewed: "2026-09-01",

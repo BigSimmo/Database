@@ -155,6 +155,78 @@
       "lastReviewed": "2026-09-01",
       "nextReview": "2027-09-01",
       "supersedes": null
+    },
+    {
+      "id": "source:rights:phq-gad7",
+      "issuer": "Pfizer Inc.",
+      "title": "Pfizer to offer free public access to mental health assessment tools",
+      "type": "rights_statement",
+      "version": "2010-07-21 press release",
+      "url": "https://www.pfizer.com/news/press-release/press-release-detail/pfizer_to_offer_free_public_access_to_mental_health_assessment_tools_to_improve_diagnosis_and_patient_care",
+      "jurisdiction": "International",
+      "status": "reviewed",
+      "claimsSupported": ["claim:phq9:rights", "claim:gad7:rights"],
+      "limitations": [
+        "States that PHQ and GAD-7 are available without copyright restriction and at no charge; does not permit changing validated wording or scoring."
+      ],
+      "accessedAt": "2026-09-07",
+      "lastReviewed": "2026-09-07",
+      "nextReview": "2027-09-07",
+      "supersedes": null
+    },
+    {
+      "id": "source:rights:k10",
+      "issuer": "Ronald C. Kessler, PhD",
+      "title": "K10 and K6 Scales — permission requests",
+      "type": "rights_statement",
+      "version": "Current author rights statement",
+      "url": "https://rckessler.scholars.harvard.edu/k10-and-k6-scales",
+      "jurisdiction": "International",
+      "status": "reviewed",
+      "claimsSupported": ["claim:k10:rights"],
+      "limitations": [
+        "Use is free without formal permission, but the author retains copyright and requests citation plus copyright acknowledgement."
+      ],
+      "accessedAt": "2026-09-07",
+      "lastReviewed": "2026-09-07",
+      "nextReview": "2027-09-07",
+      "supersedes": null
+    },
+    {
+      "id": "source:rights:cage",
+      "issuer": "John A. Ewing / Bowles Center for Alcohol Studies",
+      "title": "CAGE Questionnaire permission statement",
+      "type": "rights_statement",
+      "version": "2004 questionnaire sheet",
+      "url": "https://www.uspreventiveservicestaskforce.org/home/getfilebytoken/QETZFZLBsJbtPmVNVCgA7Z",
+      "jurisdiction": "International",
+      "status": "reviewed",
+      "claimsSupported": ["claim:cage:rights"],
+      "limitations": [
+        "Allows clinical and research use with citation; a profit-making endeavour requires a negotiated payment with the Center."
+      ],
+      "accessedAt": "2026-09-07",
+      "lastReviewed": "2026-09-07",
+      "nextReview": "2027-09-07",
+      "supersedes": null
+    },
+    {
+      "id": "source:rights:audit",
+      "issuer": "John B. Saunders / AUDITscreen.org",
+      "title": "AUDIT use-rights frequently asked questions",
+      "type": "rights_statement",
+      "version": "Current AUDIT developer rights statement",
+      "url": "https://auditscreen.org/about/faqs",
+      "jurisdiction": "International",
+      "status": "reviewed",
+      "claimsSupported": ["claim:auditc:rights"],
+      "limitations": [
+        "No permission is needed only for non-commercial use; the questionnaire must not be materially changed and must be identified as WHO-approved."
+      ],
+      "accessedAt": "2026-09-07",
+      "lastReviewed": "2026-09-07",
+      "nextReview": "2027-09-07",
+      "supersedes": null
     }
   ],
   "claims": [
@@ -166,6 +238,11 @@
     { "id": "claim:auditc:interpretation", "sourceIds": ["source:auditc", "source:governance"] },
     { "id": "claim:mdq:interpretation", "sourceIds": ["source:mdq", "source:governance"] },
     { "id": "claim:sadpersons:interpretation", "sourceIds": ["source:sadpersons", "source:governance"] },
-    { "id": "claim:ybocs:interpretation", "sourceIds": ["source:ybocs", "source:governance"] }
+    { "id": "claim:ybocs:interpretation", "sourceIds": ["source:ybocs", "source:governance"] },
+    { "id": "claim:phq9:rights", "sourceIds": ["source:rights:phq-gad7"] },
+    { "id": "claim:gad7:rights", "sourceIds": ["source:rights:phq-gad7"] },
+    { "id": "claim:k10:rights", "sourceIds": ["source:rights:k10"] },
+    { "id": "claim:cage:rights", "sourceIds": ["source:rights:cage"] },
+    { "id": "claim:auditc:rights", "sourceIds": ["source:rights:audit"] }
   ]
 }
