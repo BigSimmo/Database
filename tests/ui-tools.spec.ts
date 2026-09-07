@@ -3040,6 +3040,40 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
   });
 });
 
+/**
+ * Wait for the ONE settled `service-actions-trigger`.
+ *
+ * Ledger #JAEKM4 / #093, root-caused 2026-09-07. This is a page-root streaming
+ * clone, not a second header. Proof, in three parts:
+ *
+ *  1. The served HTML carries exactly ONE `service-actions-trigger`. Measured on
+ *     `/services/adult-home-treatment-team`: `header-collapse-addon` at byte
+ *     31071, the streaming holder `<div hidden id="S:1">` at 41007, the trigger
+ *     inside it at 42555, and the `$RC(` script that places that holder ~52KB
+ *     later at 93058. So the duplicate is created in the browser, never served.
+ *  2. `data-testid={`${testIdPrefix}-actions-trigger`}` has exactly one render
+ *     site (`in-page-nav-header.tsx`), inside one `InPageNavHeader`, inside one
+ *     `PhoneHeaderCollapsePortal`. The header cannot double-render it.
+ *  3. CI run 33868983554 caught the same defect on a plain page root with no
+ *     header involvement — `sources-topics-main` resolved to 2 `<main>`s with
+ *     byte-identical class strings, "one aka
+ *     mobile-composer-reserve-pad.getByTestId(...)", the other outside that pad,
+ *     and the call log's first resolution was `unexpected value "hidden"`.
+ *     Identical markup plus a hidden twin is a clone of the page subtree; a real
+ *     double-render would differ somewhere and would not be hidden.
+ *
+ * Below `sm` the live copy is portaled into the collapse addon while the staged
+ * copy is still in flow, which is why the two land in different parents. So wait
+ * for the single settled owner rather than filtering the clone out: a genuine
+ * permanent double-render must still fail here, which `.first()` would hide.
+ */
+async function settledServiceActionsTrigger(page: Page) {
+  return expectSingleSettledOwner(page.getByTestId("service-actions-trigger"), {
+    message: "service actions trigger owner",
+    timeout: 30_000,
+  });
+}
+
 test.describe("PsychSift service detail page", () => {
   test.describe.configure({ timeout: 60_000 });
 
@@ -3063,7 +3097,7 @@ test.describe("PsychSift service detail page", () => {
       // the header is a sibling of the shell rather than inside it — one page
       // header per route, portaled into the phone collapse row below `sm`.
       await expect(page.getByRole("link", { name: "Back to services" })).toBeVisible();
-      await page.getByTestId("service-actions-trigger").click();
+      await (await settledServiceActionsTrigger(page)).click();
       const actions = page.getByTestId("service-actions-sheet");
       await expect(actions.getByRole("button", { name: "Save service" })).toBeVisible();
       await expect(actions.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:139276");
@@ -3164,7 +3198,7 @@ test.describe("PsychSift service detail page", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
-    await page.getByTestId("service-actions-trigger").click();
+    await (await settledServiceActionsTrigger(page)).click();
     await page.getByTestId("service-actions-sheet").getByRole("button", { name: "Use in navigator" }).click();
     await expect(page).toHaveURL(/\/services\/search\?/);
     await expect(page).toHaveURL(/run=1/);
@@ -3176,7 +3210,7 @@ test.describe("PsychSift service detail page", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services/adult-home-treatment-team");
 
-    await page.getByTestId("service-actions-trigger").click();
+    await (await settledServiceActionsTrigger(page)).click();
     const actions = page.getByTestId("service-actions-sheet");
     await expect(actions.getByRole("link", { name: "Call" })).toBeVisible();
     await expect(actions.getByRole("link", { name: "Open source" })).toHaveAttribute("href", /^https?:\/\//);
@@ -3188,7 +3222,7 @@ test.describe("PsychSift service detail page", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
-    const actionsTrigger = page.getByTestId("service-actions-trigger");
+    const actionsTrigger = await settledServiceActionsTrigger(page);
     const actions = page.getByTestId("service-actions-sheet");
 
     // The action closes the sheet, so the feedback banner it writes has to stay
