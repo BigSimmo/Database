@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4057f884-2ca6-4b0b-8825-6e13fbaa1a43",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#ZK460W",
+    "outcome": "Fixed extractive fallback grounded re-derivation bug",
+    "baseRowFingerprint": "72d3ccd3d888d57d992d013b790d242e59ca4c0836593e1966547ed218130620"
+  }
+}
