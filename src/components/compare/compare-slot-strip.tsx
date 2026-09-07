@@ -9,19 +9,23 @@ import { compareSlotBadgeBase, compareSlotBadgeClass } from "@/components/compar
 import { cn } from "@/components/ui-primitives";
 
 /**
- * Slot columns follow the slot count, so four slots fill two rows of two rather
- * than leaving the fourth tile alone on a row of its own under `lg:grid-cols-3`.
+ * Slot columns follow the slot count against the strip's own width, not the
+ * viewport's. A viewport breakpoint is the wrong signal here because the desktop
+ * sidebar takes 20rem when expanded and 5.25rem when collapsed, so the same
+ * `lg` viewport hands this strip either ~876px or ~640px. Keying off `lg`
+ * truncated titles in the expanded state — the fault this layout exists to
+ * prevent.
  *
- * Three slots stay two-across until `lg`. Three-across from `sm` fits the tiles
- * but not their titles: at ~660px each tile leaves about 100px for text, which
- * truncates the very names this layout exists to keep readable ("Major
- * depressive disorder" became "Major depressi..."). A third tile wrapping to its
- * own row reads better than three clipped ones.
+ * Thresholds are measured, not guessed. Forcing each column count and sweeping
+ * the strip width on `/dsm/compare` (longest title "Persistent depressive
+ * disorder (dysthymia)"), the last width that clips a title is 560px at two
+ * columns, 864px at three and 1152px at four. Each breakpoint below sits just
+ * above its measured floor, so a tile always has room for two lines of title.
  */
 function slotGridColumns(count: number) {
-  if (count >= 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
-  if (count === 3) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
-  return "grid-cols-1 sm:grid-cols-2";
+  if (count >= 4) return "grid-cols-1 @min-[38rem]:grid-cols-2 @min-[74rem]:grid-cols-4";
+  if (count === 3) return "grid-cols-1 @min-[38rem]:grid-cols-2 @min-[55rem]:grid-cols-3";
+  return "grid-cols-1 @min-[38rem]:grid-cols-2";
 }
 
 function CompareSlotTile({
@@ -168,7 +172,7 @@ export function CompareSlotStrip({
   const pickerButtonLabel = filledCount === 0 && actionLabel ? actionLabel : changeLabel;
 
   return (
-    <div className={cn("grid gap-3", compactRail ? "mt-2" : "mt-4")} data-testid="compare-slot-strip">
+    <div className={cn("@container grid gap-3", compactRail ? "mt-2" : "mt-4")} data-testid="compare-slot-strip">
       {showPipSummary ? (
         <div
           data-testid="compare-slot-strip-pip-summary"
