@@ -27,6 +27,7 @@ import {
   writeResultFilterValue,
   writeResultFilterValues,
 } from "@/lib/result-filter-url";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import type {
@@ -191,7 +192,7 @@ function StreamCard({
       data-highlight={highlight}
       data-match={item.isMatch ? "true" : "false"}
       data-status={item.status}
-      className={`rounded-lg border p-4 transition ${cardTone}`}
+      className={`relative rounded-lg border p-4 transition ${cardTone}`}
       onFocus={onFocus}
     >
       <div className="flex items-start justify-between gap-3">
@@ -212,7 +213,7 @@ function StreamCard({
           ) : null}
         </div>
         {showSelect ? (
-          <label className="inline-flex min-h-12 min-w-12 shrink-0 cursor-pointer items-center justify-center">
+          <label className="relative z-10 inline-flex min-h-12 min-w-12 shrink-0 cursor-pointer items-center justify-center">
             <span className="sr-only">
               {selected ? `Remove ${item.title} from comparison` : `Add ${item.title} to comparison`}
             </span>
@@ -275,7 +276,7 @@ function StreamCard({
         <Link
           href={isPresentation ? differentialRouteWithQuery(item.href, query) : item.href}
           onClick={onFocus}
-          className="inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] hover:opacity-90"
+          className={`inline-flex min-h-12 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] hover:opacity-90 ${stretchedRowLinkClass}`}
         >
           {isPresentation ? "Open pathway" : "Open"}
           <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -287,7 +288,7 @@ function StreamCard({
               onFocus();
               onShowConnections();
             }}
-            className="inline-flex min-h-12 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface)]"
+            className="relative z-10 inline-flex min-h-12 items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface)]"
           >
             {isPresentation
               ? focusMode

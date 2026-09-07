@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "be2a6a87-4059-4bd5-a0a3-5feeb4e0ab96",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#2MTYDV",
+    "outcome": "Decoupled script count rewriting from concurrent docs edits",
+    "baseRowFingerprint": "3693835c5f0d704d7a872ea931f6969697d8d8158ff95b7dd585ddcd8e977d46"
+  }
+}

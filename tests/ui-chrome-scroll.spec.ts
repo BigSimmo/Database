@@ -31,13 +31,11 @@ const breakpoints = [
 // These result/detail pages own the generic page-flow slot on desktop.
 const surfaces: Array<{ name: string; route: string; minimumRunway?: number }> = [
   { name: "shell results", route: "/forms?q=form%201A&run=1" },
-  // A long detail record on purpose. The 13YARN page used to carry this
-  // surface with a lowered 650px floor, but once result composers became the
-  // compact pill alone (no hint, prompt rail, or privacy line) its desktop
-  // range fell to ~600px, too short to scroll down, come back 360px, and still
-  // be > 200px from the top. This record measures ~1200px at 1440x900 and
-  // ~2000px at 834x1112, so it proves the mid-page reveal with the default floor.
-  { name: "shell service detail", route: "/services/mother-and-baby-mental-health-unit-fiona-stanley-hospital" },
+  // A long service record used to carry a fourth surface here, back when detail
+  // pages owned the page-flow composer. Information pages no longer render one
+  // in any mode, so a record page cannot satisfy this loop's slot assertions —
+  // its hide/reveal proof moved to the dedicated information-page test below,
+  // which keeps the same long record and drops only the composer expectations.
   { name: "dashboard results", route: "/?mode=prescribing&q=a&run=1" },
   // Therapy search carries the shared `ModeNav` inside the collapse row. The
   // phone case is covered by ui-phone-scroll; this is the tablet/desktop proof
@@ -279,6 +277,52 @@ for (const { name: sizeName, viewport } of breakpoints) {
       expect(scrolledDown.searchVisible, "page search scrolls away with page content").toBe(false);
     });
   }
+
+  /**
+   * Information pages own no composer in any mode, at any breakpoint. That is a
+   * different contract from the surfaces above, not a variant of it: there is no
+   * page slot to sit in and nothing to scroll away, so the loop's search
+   * assertions cannot express it. What still has to hold is the top bar's own
+   * hide-and-return, which is what the retired "shell service detail" surface
+   * was really proving. This record measures ~2000px of runway at 834x1112 and
+   * ~1300px at 1440x900, both clear of the 700px floor.
+   */
+  test(`${sizeName}: a record page hides the top bar on scroll and returns it mid-page with no composer`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/services/mother-and-baby-mental-health-unit-fiona-stanley-hospital", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
+    await waitForRunway(page, requiredRunway);
+    await page.waitForTimeout(400);
+
+    await expect(page.getByTestId("global-search-input")).toHaveCount(0);
+    await expect(page.getByTestId("desktop-page-search-composer-slot")).toHaveCount(0);
+
+    const atTop = await readChromeState(page);
+    expect(atTop.hidden, "top bar visible at the top").toBe(false);
+    expect(atTop.headerTop, "top bar starts at the viewport top").toBeLessThanOrEqual(8);
+
+    await scrollBy(page, atTop.maxOffset + 320, 160);
+    await page.waitForTimeout(300);
+
+    const scrolledDown = await readChromeState(page);
+    expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(requiredRunway - 200);
+    expect(scrolledDown.hidden, "top bar hides on a deliberate scroll down").toBe(true);
+    expect(scrolledDown.headerBottom, "hidden top bar is off the top of the viewport").toBeLessThanOrEqual(0);
+
+    // Three deliberate upward steps — nowhere near the top of the page.
+    await scrollBy(page, -360, 120);
+    await page.waitForTimeout(300);
+
+    const scrolledUp = await readChromeState(page);
+    expect(scrolledUp.offset, "the reveal happens well short of the top").toBeGreaterThan(200);
+    expect(scrolledUp.hidden, "top bar returns on a deliberate scroll up").toBe(false);
+    expect(scrolledUp.headerTop, "returned top bar sits at the viewport top").toBeLessThanOrEqual(8);
+    expect(scrolledUp.searchVisible, "a record page never grows a composer on reveal").toBe(false);
+  });
 }
 
 /**

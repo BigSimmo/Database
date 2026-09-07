@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "59341692-923c-4058-8ceb-daf11396d27d",
+  "createdOn": "2026-09-06",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Strict status checks plus a fast-moving main make PRs unmergeable by attrition; a merge queue would end the behind-branch race",
+    "detail": "Observed on PR #2664 across 2026-09-06, roughly twelve hours from open to merge with no review objection and no real defect in the diff. Mechanism: branch protection requires the branch to be level with main, so a PR that goes green while main has moved reads mergeable_state 'behind' and cannot merge. CI on this repo takes about 12 to 18 minutes for the pr-required set. Main merged roughly every 15 to 20 minutes that day, at one point taking nine commits within four minutes. Every sync push also cancels the in-flight run through cancel-in-progress, which surfaces as a 'PR required' failure carrying the literal line 'CANCELLED with no failing job', so the loop both restarts and looks red while doing it. Auto-merge SQUASH was armed from PR creation and updated the branch only intermittently, firing at 09:57, 12:45 and 13:14 but not at 09:59 or 10:18, so it cannot be relied on to win the race by itself. NET EFFECT: whichever PR is slowest to draw a quiet window on main pays for everyone else's merges, and the cost falls on correctness-neutral work. RECOMMENDATION: enable a GitHub merge queue on main. The queue builds each candidate against the head it will actually land on, so a PR never needs hand-syncing and CI is never cancelled by a competitor's merge. AGENTS.md already instructs sessions to treat merge queue state as read-only, so the operating rules anticipate one. Alternatives if a queue is unwanted: drop the strict up-to-date requirement for PRs whose changed paths cannot interact with main's recent commits, or narrow required checks so the green window is shorter than the average gap between merges to main. This is an owner and repository-settings decision, not a code change.",
+    "source": "PR #2664 session 2026-09-06; observed sync pushes 9dbdaa6, da8d0f6d2, e8bbcdba1 and CI runs 34023575924, 34036592050, 34038115122, 34038808851",
+    "issueUlid": "01M1VJGF7EWE5G2CPT3N1WR10H"
+  }
+}
