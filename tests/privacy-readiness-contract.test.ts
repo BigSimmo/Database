@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
+import { resolveReviewedCommitHistory, warnReviewedCommitSkipped } from "./helpers/reviewed-commit-history";
 
 const manifest = JSON.parse(
   readFileSync(new URL("../docs/governance/privacy-readiness.v1.json", import.meta.url), "utf8"),
@@ -13,7 +14,13 @@ const retentionParityMigration = readFileSync(
 
 describe("privacy readiness contract", () => {
   it("accepts the honest structural register", () => {
-    expect(validatePrivacyReadiness(manifest)).toEqual([]);
+    // This suite had no shallow-checkout handling at all, so on a partial clone it failed with
+    // "reviewedCommit does not exist" — a statement about the checkout being read as a statement
+    // about the register. Its sibling hazard suite had a guard; this one did not. See
+    // tests/helpers/reviewed-commit-history.ts for the 2026-09-07 incident.
+    const { checkGit, skipReason } = resolveReviewedCommitHistory(manifest.reviewedCommit);
+    if (skipReason) warnReviewedCommitSkipped("privacy readiness", skipReason);
+    expect(validatePrivacyReadiness(manifest, { checkGit })).toEqual([]);
   });
 
   it("keeps Railway processor evidence linked to the privacy impact assessment", () => {
