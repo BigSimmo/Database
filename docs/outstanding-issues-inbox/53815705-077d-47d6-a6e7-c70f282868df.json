@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "53815705-077d-47d6-a6e7-c70f282868df",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "#686WHW closed early: an archived ledger row still cannot be corrected, and a competing close still loses its outcome text silently",
+    "detail": "Correction to #686WHW (issue-ulid 01M1GFJ8FM686WHWQXSYTSBJGT), archived 2026-09-06 with outcome 'Handled concurrent issue row closure idempotently in reconcile.' The original request (2026-09-02, PR #2521 vs reconciliation #2542) named three candidate fixes; only the first is implemented. Verified in scripts/ledger-inbox.mjs at 2026-09-07: (1) FIXED — applyRequest's idempotent path (around line 147-156) now returns the markdown unchanged instead of throwing when a done/update request targets a row already in the archive table, so a losing session's CI no longer reds on an unrelated PR. (2) NOT FIXED — the CLI's own fingerprint check for the update action (around line 727-744) still throws 'ledger request rejected: <id> is not in Open items' whenever the target row is archived; only the done action gets the archived-row no-op branch, so there is still no way to queue a correction against an archived row's outcome text at all. (3) NOT FIXED — the idempotent no-op in (1) silently keeps whichever outcome text reconciliation applied first and discards the second session's request outright; it does not compare, merge, or prefer the later/more-accurate outcome, so a more accurate second close is still lost exactly as the original row described. Net effect: an archived row's outcome remains permanently uncorrectable through the tooling, and a race's loser still loses its findings, just without the CI failure. Flagged by Codex review (discussion_r3946596431) on PR #2701. Candidate fix carried over from the original row: add an explicit amend-outcome action (or allow update to target archive rows) so a later, more accurate outcome can be applied to an already-archived row.",
+    "source": "Codex review PR #2701 discussion_r3946596431; corrects #686WHW",
+    "issueUlid": "01M1X8ZATK1BKK79H4FNR79WY5"
+  }
+}
