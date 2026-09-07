@@ -199,10 +199,18 @@ export function isProfileEmpty(profile: PatientProfile | null | undefined): bool
     return false;
   }
   if (profile.pregnant || profile.breastfeeding) return false;
-  if (profile.hepatic && profile.hepatic !== "none") return false;
+  if (profile.hepatic) return false;
   if (profile.allergies && profile.allergies.length > 0) return false;
   if (profile.medications && profile.medications.length > 0) return false;
   return true;
+}
+
+/**
+ * Harmonized sentence formatting for unassessed gates across contraindications and advisories.
+ */
+export function formatUnassessedSentence(unassessed: string[]): string {
+  if (unassessed.length === 0) return "";
+  return `Enter ${unassessed.join(", ")} to fully assess this medication's contraindications and clinical advisories.`;
 }
 
 /** Map an engine tone to an `InlineNotice` tone (no "clinical" notice tone). */
