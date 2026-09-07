@@ -61,6 +61,7 @@ const staticHeavyGuards = [
   "check:migration-role",
   "check:function-grants",
   "check:owner-scope",
+  "check:calculator-content",
 ];
 const staticHeavyScripts = ["lint", "typecheck", "test"];
 
