@@ -371,14 +371,24 @@ export function buildCrossModeLinksFromUniversalSearch(
   if (terms.length === 0 || maxTotal <= 0) return [];
 
   const allowedDomains = new Set<string>(crossModeUniversalDomains);
-  const candidates: CrossModeLink[] = [];
+  // `rank` is the item's position in the group the server returned it in, kept
+  // so the domain's own ranking survives this mapper. Within a domain that
+  // ranking is the only trustworthy order: the term-count score below is a
+  // filter, not a ranker, and it ties constantly (most matches hit exactly one
+  // term). Falling through to alphabetical order there let an earlier title
+  // displace the domain's actual top result, which `maxPerMode` of 1 then made
+  // the only result. `item.score` is deliberately not used: the type says it is
+  // comparable within a group only.
+  const candidates: Array<{ link: CrossModeLink; rank: number }> = [];
 
   for (const group of groups) {
     if (group.error || !allowedDomains.has(group.kind)) continue;
     const modeId = universalSearchModeForDomain(group.kind);
     if (!isCrossModeLinkModeId(modeId)) continue;
 
+    let rank = 0;
     for (const item of group.items) {
+      rank += 1;
       const title = item.title?.trim();
       const detailHref = item.href?.trim();
       if (!title || !detailHref) continue;
@@ -386,24 +396,30 @@ export function buildCrossModeLinksFromUniversalSearch(
       if (matched.length === 0) continue;
       const badge = item.badge?.trim();
       candidates.push({
-        ...crossModeLinkBase(modeId, title),
-        // `id` is the domain's own record id; the href is the fallback so a
-        // domain that omits one cannot collapse two records onto one React key.
-        slug: item.id?.trim() || detailHref,
-        subtitle: item.subtitle?.trim() ?? "",
-        badges: badge ? [{ label: badge }] : [],
-        detailHref,
-        score: matched.length * UNIVERSAL_TITLE_TERM_SCORE,
-        matchReason: "title",
+        rank,
+        link: {
+          ...crossModeLinkBase(modeId, title),
+          // `id` is the domain's own record id; the href is the fallback so a
+          // domain that omits one cannot collapse two records onto one React key.
+          slug: item.id?.trim() || detailHref,
+          subtitle: item.subtitle?.trim() ?? "",
+          badges: badge ? [{ label: badge }] : [],
+          detailHref,
+          score: matched.length * UNIVERSAL_TITLE_TERM_SCORE,
+          matchReason: "title",
+        },
       });
     }
   }
 
+  // Equal score and equal mode priority means the same domain, so `rank` here is
+  // always a within-domain comparison and never an incomparable cross-domain one.
   candidates.sort(
     (left, right) =>
-      right.score - left.score ||
-      modePriority[left.modeId] - modePriority[right.modeId] ||
-      left.title.localeCompare(right.title),
+      right.link.score - left.link.score ||
+      modePriority[left.link.modeId] - modePriority[right.link.modeId] ||
+      left.rank - right.rank ||
+      left.link.title.localeCompare(right.link.title),
   );
 
   const existing = options.existing ?? [];
@@ -412,7 +428,7 @@ export function buildCrossModeLinksFromUniversalSearch(
   const perModeCounts: Partial<Record<CrossModeLinkModeId, number>> = {};
   const links: CrossModeLink[] = [];
 
-  for (const candidate of candidates) {
+  for (const { link: candidate } of candidates) {
     if (links.length >= maxTotal) break;
     const key = `${candidate.modeId}:${candidate.slug}`;
     if (seenKeys.has(key) || seenHrefs.has(candidate.detailHref)) continue;

@@ -300,6 +300,21 @@ describe("buildCrossModeLinksFromUniversalSearch", () => {
     ]);
   });
 
+  it("keeps the domain's own ranking when two items match the same terms", () => {
+    // The term-count score is a filter, not a ranker, and it ties constantly.
+    // With one link per mode, an alphabetical tiebreak would hand the slot to
+    // the domain's second-best result and silently drop its first.
+    const links = buildCrossModeLinksFromUniversalSearch("bipolar disorder", [
+      universalGroup("dsm", [
+        { id: "z-record", title: "Zzz Bipolar Disorder", href: "/dsm/z-record", score: 90 },
+        { id: "a-record", title: "Aaa Bipolar Disorder", href: "/dsm/a-record", score: 10 },
+      ]),
+    ]);
+
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({ slug: "z-record", title: "Zzz Bipolar Disorder" });
+  });
+
   it("adds nothing once the caller has no room left on the line", () => {
     // The section passes `crossModeLineMaxLinks - links.length`, so a thread whose
     // catalogue half already filled the line asks for zero. It must not round up
