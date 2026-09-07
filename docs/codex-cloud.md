@@ -268,23 +268,46 @@ bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command
 ```
 
 For the explicitly authorised GitHub shell fallback, store the credential only as the encrypted
-setup secret named `CODEX_CLOUD_GITHUB_PAT` and use these complete commands instead. Keep the
-single quotes around `printf` and never substitute a literal credential. The token must carry
+setup secret named `CODEX_CLOUD_GITHUB_PAT`, select `CODEX_CLOUD_ACCESS_PROFILE=connected`, and use
+the tracked lifecycle wrapper below. Never substitute a literal credential. The token must carry
 `repo`, `workflow`, `read:org`, and `gist`: `gh auth login --with-token` requires the latter two in
 addition to the repository scope, while failed-job reruns require `workflow`.
 
 ```bash
-bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh && test -n "${CODEX_CLOUD_GITHUB_PAT:-}" && printf '%s' "$CODEX_CLOUD_GITHUB_PAT" | GH_PROMPT_DISABLED=1 gh auth login --hostname github.com --git-protocol https --with-token && unset CODEX_CLOUD_GITHUB_PAT && gh auth setup-git --hostname github.com && npm run check:github-shell-access:live
+bash scripts/run-codex-cloud-github.sh setup
 ```
 
 ```bash
-bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh && test -n "${CODEX_CLOUD_GITHUB_PAT:-}" && printf '%s' "$CODEX_CLOUD_GITHUB_PAT" | GH_PROMPT_DISABLED=1 gh auth login --hostname github.com --git-protocol https --with-token && unset CODEX_CLOUD_GITHUB_PAT && gh auth setup-git --hostname github.com && npm run check:github-shell-access:live
+bash scripts/run-codex-cloud-github.sh maintenance
 ```
+
+The repaired hosted environments use these commands when the checked-out branch contains the
+wrapper, retaining the prior working inline commands for older branches. After this change is
+merged, new `main` tasks adopt the tracked implementation automatically; opening a PR alone does
+not change the scripts present on `main`.
 
 The final command is a fail-closed task admission gate, not an optional diagnostic. A cache hit,
 accepted OAuth token, repository listing, or connected-environment label is insufficient by itself.
-After changing the setup command or encrypted secret, reset the Cloud environment cache and obtain
-fresh-task proof. Existing tasks do not retroactively acquire authentication.
+The wrapper validates authentication, identity and scopes before installing dependencies, suppresses
+login output and shell tracing, and removes the setup-secret variable before invoking repository
+setup. It deliberately uses `gh`'s standard credential store for this owner-authorized shell
+capability; the credential must never be copied into repository files, shell profiles, remote URLs,
+ordinary environment variables, or prompts. This is an explicit exception for GitHub shell
+authentication, not authorization to persist OpenAI, Supabase, Railway or other provider secrets.
+Maintenance reuses valid stored authentication when setup-only secrets are absent, and fails closed
+if it is missing, expired, or insufficient. The full final gate still verifies PR/Actions reads and
+the Git transport dry run after toolchain repair. An authentication-only PASS is not that verdict.
+
+After changing configuration or credentials, obtain fresh-task proof. Reset the environment cache
+only if a new task still uses stale setup. Resume older tasks and verify them individually; a running
+agent does not acquire changes automatically. Cloud may reconstruct a local commit under a different
+SHA when resuming: verify the current diff, actual HEAD, destination branch, and remote PR before
+publishing instead of trusting a SHA from an earlier answer.
+
+Credentials can expire or be revoked; no setup script can prevent that. Replace the encrypted secret,
+then rerun the same live gate. Keep clinical providers offline and use an appropriate network
+allowlist. See [the Cloud reliability audit](audit/codex-cloud-reliability-20260907.md) for the
+verified environments and remaining capability boundaries.
 
 The maintenance command reasserts the safe `origin`, runs static/effective environment
 acceptance, then runtime acceptance. The shim installer runs after either lifecycle command and
