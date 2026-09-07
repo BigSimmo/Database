@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "204114bb-0149-4156-8313-f44677f2b2d8",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#VK8ZYY",
+    "outcome": "Replaced substring source_status checks with parsed dates",
+    "baseRowFingerprint": "1c2e6069a3aaef4086f73857bf355147bbb78e14ec947b872106ee3138d252b9"
+  }
+}
