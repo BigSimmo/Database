@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  INVENTORY_TOLERANCE,
   countTrackedScriptFiles,
+  isInventoryWithinTolerance,
+  parseScriptsInventoryCounts,
   renderScriptsInventorySummary,
   updateScriptsInventoryText,
 } from "../scripts/update-docs-inventory.mjs";
@@ -65,5 +68,19 @@ describe("scripts documentation inventory", () => {
     expect(hook.indexOf("dirty_generated_docs=")).toBeLessThan(hook.indexOf("npm run sitemap:update"));
     expect(hook).not.toMatch(/\bgit\s+add\b/);
     expect(installer).toContain('["pre-commit", "pre-push"]');
+  });
+
+  it("parses inventory counts and checks tolerance window (#2MTYDV)", () => {
+    const text = "Curated map of `scripts/` (306 files) and the `package.json` script surface (299 entries),";
+    const parsed = parseScriptsInventoryCounts(text);
+    expect(parsed).toEqual({ scriptFileCount: 306, npmScriptCount: 299 });
+
+    expect(isInventoryWithinTolerance(parsed, { scriptFileCount: 308, npmScriptCount: 298 })).toBe(true);
+    expect(
+      isInventoryWithinTolerance(parsed, { scriptFileCount: 306 + INVENTORY_TOLERANCE, npmScriptCount: 299 }),
+    ).toBe(true);
+    expect(
+      isInventoryWithinTolerance(parsed, { scriptFileCount: 306 + INVENTORY_TOLERANCE + 1, npmScriptCount: 299 }),
+    ).toBe(false);
   });
 });
