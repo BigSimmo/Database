@@ -30,13 +30,28 @@ const clearlyNonClinicalConsumerPattern =
  * refuses by pattern and falls to the weak-support route gate. The control spells the
  * disease out, so no eval gate depends on the abbreviation.
  *
- * Matched against BOTH the raw query (here) and `normalizeAnalysisText`'s output
- * (`clinical-search.ts`), which folds any non-alphanumeric run to a single space. The one
- * hyphenated phrase therefore uses a bounded character class rather than a literal hyphen,
- * so the raw path also catches an en dash, a non-breaking hyphen, or a double space.
+ * Matched against normalized text at BOTH call sites: `normalizeGuardQuery`'s output here and
+ * `normalizeAnalysisText`'s output in `clinical-search.ts`, each of which folds any
+ * non-alphanumeric run to a single space. The one hyphenated phrase still uses a bounded
+ * character class rather than a literal hyphen, so an en dash, a non-breaking hyphen or a
+ * double space in a pasted question behaves like the plain form on either path.
  */
 export const clearlyOutsideCorpusMedicalPattern =
   /\b(?:diabetic ketoacidosis|community[^a-z0-9]{1,3}acquired pneumonia|adolescent depression|hyperkalaemia|hyperkalemia)\b/i;
+
+/**
+ * In-corpus signal that stops the CONSUMER heuristic (a "best/cheap/near me" shape) from
+ * refusing a real clinical question. It deliberately does not gate
+ * `clearlyOutsideCorpusMedicalPattern`: that pattern names phrases the corpus provably does
+ * not cover, and two of the four eval controls in `src/lib/rag/rag-eval-cases.ts`
+ * ("What SSRI dose is recommended for adolescent depression?" and "What insulin dose should
+ * be used for hyperkalaemia?") carry `ssri`, `depression` and `dose` themselves — so keying
+ * an outside-corpus override on those tokens would let exactly the queries the corpus cannot
+ * answer through to a guess. `hyperkalaemia`/`hyperkalemia` are likewise NOT listed here:
+ * they are the out-of-corpus token, not psychiatric context.
+ */
+const psychiatricOrClinicalContextPattern =
+  /\b(?:ssri|antidepressant|antipsychotic|lithium|bipolar|depression|depressive|anxiety|psychiatry|psychiatric|triage|crisis|consultation|therapy|dose|dosage|medication|schizophrenia|catatonia)\b/i;
 
 export const unavailableDocumentNoisePattern =
   /\b(?:newly uploaded|future synthetic|not been uploaded|not uploaded|2027 revised|airport travel policy|gardening equipment checklist)\b/i;
@@ -81,12 +96,21 @@ export function normalizeGuardQuery(text: string) {
     .trim();
 }
 
+function isNonClinicalConsumerQuery(query: string, analysis: ClinicalQueryAnalysis): boolean {
+  if (!clearlyNonClinicalConsumerPattern.test(query)) return false;
+  if (psychiatricOrClinicalContextPattern.test(query)) return false;
+  if (analysis.medications.length > 0 || analysis.thresholdTerms.length > 0 || analysis.documentTitleTerms.length > 0) {
+    return false;
+  }
+  return true;
+}
+
 export function shouldShortCircuitUnsupportedSearch(query: string, analysis: ClinicalQueryAnalysis) {
   if (unavailableDocumentNoisePattern.test(query)) return true;
   if (clearlyOutsideCorpusMedicalPattern.test(normalizeGuardQuery(query)) && analysis.documentTitleTerms.length === 0)
     return true;
   if (!unsupportedSoftTailEligible(analysis)) return false;
-  if (clearlyNonClinicalConsumerPattern.test(query)) return true;
+  if (isNonClinicalConsumerQuery(query, analysis)) return true;
   return analysis.confidence <= DEFAULT_SOFT_TAIL_CONFIDENCE_THRESHOLD && analysis.expandedTerms.length <= 5;
 }
 
@@ -96,7 +120,7 @@ export function isUnsupportedSoftTailAnalysis(query: string, analysis: ClinicalQ
   if (clearlyOutsideCorpusMedicalPattern.test(normalizeGuardQuery(query)) && analysis.documentTitleTerms.length === 0)
     return false;
   if (!unsupportedSoftTailEligible(analysis)) return false;
-  if (clearlyNonClinicalConsumerPattern.test(query)) return false;
+  if (isNonClinicalConsumerQuery(query, analysis)) return false;
   return analysis.confidence <= DEFAULT_SOFT_TAIL_CONFIDENCE_THRESHOLD && analysis.expandedTerms.length <= 5;
 }
 
