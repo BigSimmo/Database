@@ -243,7 +243,18 @@ This audit found no P0/P1 issues.
 This finding was recorded by a static, code-only pass and explicitly deferred its own
 verification ("Measurement needed: Chrome DevTools Performance recording during scroll, hover, and
 theme toggle"). That measurement has now been taken, and it splits the finding three ways. The
-line numbers above are stale; current locations are given below.
+line numbers above are stale; current locations are given below and were re-checked against
+`origin/main` at `0177bed`.
+
+**Measurement conditions, so the numbers are read for what they are.** Headless Chromium **1194**
+(this container's build, against the repo's pinned 1234 — the #255 drift) driving the **dev**
+server at 1440x900 on cloud hardware, three runs per condition, sampling every
+`requestAnimationFrame`. Absolute frame times are therefore not a production figure and no
+production claim is made from them. What the method does support is the **relative** comparison,
+which is what both closures rest on: identical page, identical hardware, one property changed
+between conditions. A dev build is the slower case, so it biases _towards_ exposing a paint cost —
+and none appeared. A production-build or real-device run would only widen the margin. Anyone
+re-opening these should reproduce the tables below rather than a code read.
 
 - **`html.theme-transitioning *` — REAL, and worse than P3. FIXED** in PR #2653 (`globals.css`
   now at 5024-5062). The universal selector started a colour transition on every node at once:
