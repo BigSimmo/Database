@@ -75,7 +75,7 @@ function fixture(
     '[[ "$GATE_FAILURE" != 1 ]]',
   ]);
   if (options.cached) writeFileSync(path.join(root, "authenticated"), "");
-  const environment: Record<string, string | undefined> = {
+  const environment: NodeJS.ProcessEnv = {
     ...process.env,
     HOME: bashPath(root),
     FIXTURE_ROOT: bashPath(root),
