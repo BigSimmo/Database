@@ -13,6 +13,7 @@ import {
   sourceAcquisitionRecords,
   type SourceAcquisitionRecord,
 } from "@/lib/sources/acquisition-ledger";
+import { sourceAuthorityForPublisher } from "@/lib/source-authority-registry";
 import { canonicalizeSourceReferences } from "@/lib/sources/catalogue-core";
 import type { ClinicalSourceReferenceInput } from "@/lib/sources/catalogue-types";
 
@@ -41,6 +42,10 @@ const baseRecord: SourceAcquisitionRecord = {
   supersededBy: [],
   notes: null,
 };
+
+// A real Australian clinical publisher that is deliberately absent from the source authority
+// register, so the "unrecognised publisher" path has a genuine example to exercise.
+const unregisteredPublisher = "Beyond Blue";
 
 function record(overrides: Partial<SourceAcquisitionRecord> = {}): SourceAcquisitionRecord {
   return { ...baseRecord, ...overrides };
@@ -113,7 +118,11 @@ describe("source acquisition rungs", () => {
   });
 
   it("names the register as the blocker when a publisher is not recognised, and warns that fixing it moves retrieval", () => {
-    const [issue] = issuesFor({ publisher: "Therapeutic Guidelines Limited", publisherCode: null, canonicalUrl: null });
+    // The example publisher has to be one the register genuinely does not carry, so assert that
+    // here rather than trusting the constant: Therapeutic Guidelines used to sit in this slot and
+    // the premise silently went false the day it was registered.
+    expect(sourceAuthorityForPublisher(unregisteredPublisher)).toBeNull();
+    const [issue] = issuesFor({ publisher: unregisteredPublisher, publisherCode: null, canonicalUrl: null });
     expect(issue).toContain("is not in the source authority register");
     expect(issue).toContain("can never leave D band");
     expect(issue).toContain("changes retrieval selection");
