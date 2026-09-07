@@ -402,6 +402,88 @@ describe("SessionStart registration", () => {
   });
 });
 
+describe("setup-claude-cloud apt serialisation", () => {
+  // The browsers tier shells out to `playwright install --with-deps` and the python tier calls
+  // apt_install for tesseract. Both drive apt, and the per-tier lock deliberately does not serialise
+  // across tiers, so on 2026-09-06 the documented confirmation command
+  // (`bash scripts/setup-claude-cloud.sh browsers python`) collided with the session hook's own
+  // background child: the browsers tier died with Playwright's opaque "Installation process exited
+  // with code: 100" while the log carried apt's real explanation, "E: dpkg was interrupted".
+  //
+  // `with_apt_lock` is extracted from the real script rather than restated here, so these tests
+  // cannot pass against a copy that has drifted from the code that ships.
+  function aptLockHarness(home: string, body: string) {
+    const source = readFileSync(provisioner, "utf8");
+    const start = source.indexOf("with_apt_lock() {");
+    expect(start).toBeGreaterThan(-1);
+    const end = source.indexOf("\n}\n", start) + 3;
+    const fn = source.slice(start, end);
+    expect(fn).toContain('mkdir "$lock"');
+
+    const harness = join(home, "harness.sh");
+    writeFileSync(harness, ['marker_dir="$1"', "log() { :; }", "warn() { :; }", fn, body].join("\n") + "\n", "utf8");
+    return harness;
+  }
+
+  it("fails the caller instead of running the command unlocked when the wait expires", () => {
+    const home = makeSandboxHome();
+    const markers = join(home, "markers");
+    mkdirSync(join(markers, "apt.lock"), { recursive: true });
+    const ran = join(home, "ran");
+    const harness = aptLockHarness(home, `with_apt_lock touch "${ran.replace(/\\/g, "/")}"; echo "status=$?"`);
+
+    const result = spawnSync(bashCommand, [harness, markers], {
+      encoding: "utf8",
+      env: { ...process.env, CLAUDE_CLOUD_APT_LOCK_TIMEOUT: "0" },
+    });
+
+    // Falling through to an unlocked run is the whole bug: it would reproduce the concurrent dpkg
+    // access precisely when the other holder is provably still working.
+    expect(result.stdout).toContain("status=1");
+    expect(existsSync(ran)).toBe(false);
+  });
+
+  it("serialises two concurrent callers rather than letting them overlap", () => {
+    const home = makeSandboxHome();
+    const markers = join(home, "markers");
+    mkdirSync(markers, { recursive: true });
+    const out = join(home, "out").replace(/\\/g, "/");
+    const harness = aptLockHarness(
+      home,
+      `with_apt_lock sh -c 'echo "START $2" >> "$1"; sleep 1; echo "END $2" >> "$1"' _ "${out}" "$2"`,
+    );
+
+    const runs = ["A", "B"].map((label) =>
+      spawnSync(
+        bashCommand,
+        ["-c", `bash "${harness.replace(/\\/g, "/")}" "${markers.replace(/\\/g, "/")}" ${label} &`],
+        {
+          encoding: "utf8",
+          env: { ...process.env, CLAUDE_CLOUD_APT_LOCK_TIMEOUT: "60" },
+        },
+      ),
+    );
+    for (const run of runs) expect(run.status).toBe(0);
+
+    // Give both detached callers time to finish their 1s critical sections plus the 5s poll.
+    const deadline = Date.now() + 30_000;
+    let lines: string[] = [];
+    while (Date.now() < deadline) {
+      lines = existsSync(out) ? readFileSync(out, "utf8").trim().split(/\r?\n/).filter(Boolean) : [];
+      if (lines.length >= 4) break;
+      spawnSync(bashCommand, ["-c", "sleep 0.5"]);
+    }
+
+    expect(lines).toHaveLength(4);
+    // Whichever won, its END must precede the other's START; interleaving is the failure.
+    expect(lines[0]).toMatch(/^START /);
+    expect(lines[1]).toBe(lines[0].replace("START", "END"));
+    expect(lines[2]).toMatch(/^START /);
+    expect(lines[2]).not.toBe(lines[0]);
+    expect(lines[3]).toBe(lines[2].replace("START", "END"));
+  });
+});
+
 describe("profile snapshot fidelity", () => {
   it.skipIf(!hasVendoredSkills)("copies skills as real directories, not as the workstation's symlinks", () => {
     // ~/.claude/skills is mostly symlinks into ~/.agents/skills. A snapshot that preserved them would

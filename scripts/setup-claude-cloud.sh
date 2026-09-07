@@ -134,18 +134,27 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # Waiting rather than failing is the point: apt is genuinely busy for a bounded time, so a caller that
 # waits gets the install it asked for. Ten minutes is well past the slowest observed apt step and short
 # enough that a truly wedged lock still surfaces instead of hanging the container.
+#
+# The timeout FAILS THE TIER; it never runs the command unlocked. Falling through to an unlocked run
+# would recreate the exact concurrent dpkg access this function exists to prevent, and it would do so
+# in the one situation where the other holder is provably still working — turning a bounded wait back
+# into the interrupted-dpkg state, with the tier reported as attempted. A tier that fails saying "apt
+# was busy, re-run this" is recoverable in one command; a corrupted package state is not. The two-hour
+# stale sweep above is the separate, safe case: a lock that old belongs to a run that is gone, so it is
+# reclaimed and then acquired properly rather than bypassed.
 with_apt_lock() {
   local lock="$marker_dir/apt.lock" waited=0
+  local timeout="${CLAUDE_CLOUD_APT_LOCK_TIMEOUT:-600}"
   while ! mkdir "$lock" 2>/dev/null; do
     if [ -n "$(find "$lock" -maxdepth 0 -mmin +120 2>/dev/null)" ]; then
       warn "clearing a stale apt lock"
       rm -rf "$lock"
       continue
     fi
-    if [ "$waited" -ge 600 ]; then
-      warn "apt is still locked by another run after 600s; proceeding without the lock"
-      "$@"
-      return
+    if [ "$waited" -ge "$timeout" ]; then
+      warn "apt is still held by another run after ${timeout}s; not running it unlocked"
+      warn "re-run this tier once the other run finishes"
+      return 1
     fi
     [ "$waited" -eq 0 ] && log "waiting for another run's apt step to finish"
     sleep 5
