@@ -45,20 +45,26 @@ export function DsmCodeCopy({ code }: { code: string }) {
       onClick={() => void copy()}
       aria-label={copied ? `Copied ICD-10 code ${code}` : `Copy ICD-10 code ${code}`}
       data-testid="dsm-icd-copy"
-      className={cn(
-        metadataPill,
-        codeText,
-        // `min-h-tap` because this is now a control, not a label. The chip was
-        // sized for reading; a thing you press on a phone has to be 48px.
-        "inline-flex min-h-tap items-center gap-1.5 transition-colors hover:text-[color:var(--clinical-accent)]",
-      )}
+      // The TAP AREA lives here and the chip recipe stays on the span below.
+      // Stacking `min-h-tap` onto `metadataPill` competes with the chip's own
+      // height utility, which `check:design-system-contract` rejects — correctly,
+      // since two recipes fighting over one element is how chip sizing drifts.
+      className="group inline-flex min-h-tap items-center"
     >
-      {code}
-      {copied ? (
-        <Check className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
-      ) : (
-        <Copy className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
-      )}
+      <span
+        className={cn(
+          metadataPill,
+          codeText,
+          "inline-flex items-center gap-1.5 transition-colors group-hover:text-[color:var(--clinical-accent)]",
+        )}
+      >
+        {code}
+        {copied ? (
+          <Check className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
+        ) : (
+          <Copy className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
+        )}
+      </span>
       <span role="status" className="sr-only">
         {copied ? "Code copied to the clipboard." : ""}
       </span>
