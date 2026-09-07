@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import http from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -8,7 +9,15 @@ import {
   DEV_SERVER_BUILD_REFUSED_EXIT_CODE,
   discardDevServerTypes,
   evaluateNextBuildRamGuard,
+  findRunningProjectServer,
 } from "../scripts/guard-next-build.mjs";
+import {
+  appName,
+  localProjectId,
+  projectPortEnd,
+  projectPortStart,
+  stableProjectPort,
+} from "../src/lib/local-server-utils.mjs";
 
 const eightGiB = 8 * 1024 * 1024 * 1024;
 const twelveGiB = 12 * 1024 * 1024 * 1024;
@@ -82,4 +91,42 @@ describe("discardDevServerTypes", () => {
     const root = scratchRoot();
     expect(() => discardDevServerTypes(root)).not.toThrow();
   });
+});
+
+describe("findRunningProjectServer", () => {
+  // `dev-free-port.mjs` honours any PORT or --port, so this checkout's dev server
+  // can sit below its stable port. An upward-only scan never reached it, and the
+  // guard then reported no server running — which both permitted a concurrent
+  // production build and, once cleanup was added, cleared `.next/dev` from under a
+  // live session.
+  it("finds this project's dev server on a port below the stable one", async () => {
+    const rootDir = mkdtempSync(path.join(tmpdir(), "guard-next-build-root-"));
+    const stable = stableProjectPort(rootDir);
+    const below = stable === projectPortStart ? projectPortEnd : stable - 1;
+
+    const server = http.createServer((_request, response) => {
+      response.setHeader("content-type", "application/json");
+      response.end(JSON.stringify({ appName, projectId: localProjectId(rootDir) }));
+    });
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.on("error", reject);
+        server.listen(below, "127.0.0.1", resolve);
+      });
+    } catch {
+      // The port is already taken on this machine; the scan order is what is under
+      // test, and a colliding port cannot demonstrate it either way.
+      server.close();
+      rmSync(rootDir, { recursive: true, force: true, maxRetries: 5 });
+      return;
+    }
+
+    try {
+      await expect(findRunningProjectServer(rootDir)).resolves.toBe(below);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      rmSync(rootDir, { recursive: true, force: true, maxRetries: 5 });
+    }
+  }, 60_000);
 });

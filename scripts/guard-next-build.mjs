@@ -4,7 +4,12 @@ import http from "node:http";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
-import { appName, localProjectId, projectPortEnd, stableProjectPort } from "../src/lib/local-server-utils.mjs";
+import {
+  appName,
+  circularProjectPortRange,
+  localProjectId,
+  stableProjectPort,
+} from "../src/lib/local-server-utils.mjs";
 
 const modulePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(modulePath), "..");
@@ -81,12 +86,26 @@ function requestJson(port) {
   });
 }
 
+/**
+ * The port this checkout's dev server is listening on, or null.
+ *
+ * Probes the whole project port range, wrapping at the top — not `stablePort`
+ * upward. `dev-free-port.mjs` honours any `PORT` or `--port`, so a server can sit
+ * *below* the stable port (`PORT=3130` against a stable 3131) and an upward-only
+ * scan never reaches it. That blind spot let the guard clear this project's dev
+ * output, and permit a concurrent production build, while the dev server was
+ * still using it. `run-playwright.mjs`, `run-lighthouse-budget.mjs` and
+ * `measure-cls-attribution.mjs` already locate the server this way; this was the
+ * one that did not.
+ *
+ * A port outside the project range entirely (`PORT=9999`) is still missed, and
+ * cannot be found from here: the build process cannot see the environment the
+ * dev server was started in.
+ */
 export async function findRunningProjectServer(rootDir = projectRoot) {
   const expectedProjectId = localProjectId(rootDir);
-  const stablePort = stableProjectPort(rootDir);
-  const maxPort = projectPortEnd;
 
-  for (let port = stablePort; port <= maxPort; port += 1) {
+  for (const port of circularProjectPortRange(stableProjectPort(rootDir))) {
     const payload = await requestJson(port);
     if (payload?.appName === appName && payload?.projectId === expectedProjectId) return port;
   }
