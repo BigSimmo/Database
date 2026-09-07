@@ -6,6 +6,6 @@
   "payload": {
     "id": "#AGBNBV",
     "outcome": "Added --dry-run support to ledger-inbox add",
-    "baseRowFingerprint": "37f5c0bd00daf7f6f5592c38f09d12f04103b8564e168df70c43b6a123b58d0a"
+    "baseRowFingerprint": "db11be377b8664c438c306ceb59bdf89eb84340d25eae18d8c441cf8d1cd4cb5"
   }
 }
