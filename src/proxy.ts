@@ -60,6 +60,12 @@ const staticRouteRedirects: Record<string, string> = {
   // /mockups/ward-flow prefix in the sandbox move (see
   // src/lib/developer-area/headers.ts); the constellation redirect moved with it.
   "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
+  // The one mockup path that still redirects in production rather than 404ing
+  // through `shouldBlockProductionMockups`. `mockups/README.md`, `docs/site-map.md`
+  // and the site-map GENERATOR (`scripts/generate-site-map.ts`, which hardcodes the
+  // sentence) all name this route by hand, so `sitemap:check` cannot notice the entry
+  // going away. Retiring it means moving all four together.
+  "/mockups/document-search-command": "/documents/search",
 };
 
 /**

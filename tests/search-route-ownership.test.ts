@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redirect";
+import { appModeIds } from "@/lib/app-modes";
 import { isInformationPage } from "@/lib/information-pages";
 
 import {
@@ -655,9 +656,15 @@ describe("shared-search route ownership", () => {
 
   it("routes dedicated modes to their standalone homes and shared modes to null", () => {
     expect(standaloneModeHomeHref("tools")).toBe("/tools");
-    expect(standaloneModeHomeHref("prescribing")).toBe("/medications");
-    expect(standaloneModeHomeHref("documents")).toBe("/documents");
     expect(standaloneModeHomeHref("favourites")).toBe("/favourites");
+    // `documents` and `prescribing` are NOT standalone homes, however much their bare paths
+    // look like one: /documents 307s to the shared home via consolidatedModeHomePaths and
+    // /medications 307s through its own proxy fast-path. Returning either would cost a
+    // redirect round trip and drop the draft query, query mode and scope filters that
+    // appModeSelectionHref carries — landing the user back on the shared home with their
+    // context gone. isStandaloneModeHomePath already says both are false, above.
+    expect(standaloneModeHomeHref("prescribing")).toBeNull();
+    expect(standaloneModeHomeHref("documents")).toBeNull();
     expect(standaloneModeHomeHref("answer")).toBeNull();
     expect(standaloneModeHomeHref("services")).toBeNull();
     expect(standaloneModeHomeHref("forms")).toBeNull();
@@ -670,5 +677,16 @@ describe("shared-search route ownership", () => {
     expect(standaloneModeHomeHref("dictionary")).toBeNull();
     expect(standaloneModeHomeHref("sources")).toBeNull();
     expect(standaloneModeHomeHref("calculators")).toBeNull();
+  });
+
+  // One source of truth: every href the helper hands back must be a path this module already
+  // recognises as standalone. Without this, a mode could be pointed at a path that redirects
+  // and nothing offline would notice.
+  it("only ever returns a path standaloneModeHomePaths already owns", () => {
+    for (const modeId of appModeIds) {
+      const href = standaloneModeHomeHref(modeId);
+      if (href === null) continue;
+      expect(isStandaloneModeHomePath(href), `${modeId} -> ${href}`).toBe(true);
+    }
   });
 });

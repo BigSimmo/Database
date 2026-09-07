@@ -170,11 +170,16 @@ describe("developer ingestion page — the four states (plan §4)", () => {
     expect(errorState).not.toHaveTextContent(/No ingestion jobs/i);
   });
 
-  it("unparseable response body: reports unparseable response body rather than network failure", async () => {
+  // Same failure as the case above, reached without a Content-Type header: a proxy
+  // error page served as a bare 200. Both must read as a parse failure, never as the
+  // network copy, which is what separates "the endpoint answered wrongly" from "the
+  // endpoint is down".
+  it("a 200 error page with no content type also reports a parse failure, not a network failure", async () => {
     fetchMock.mockResolvedValueOnce(new Response("<html><body>502 Bad Gateway</body></html>", { status: 200 }));
     render(<DeveloperIngestionPage />);
     const errorState = await screen.findByTestId("developer-ingestion-fetch-error");
-    expect(errorState).toHaveTextContent(/unparseable response body/i);
+    expect(errorState).toHaveTextContent("Malformed response from ingestion endpoint");
+    expect(errorState).toHaveTextContent(/could not be parsed as json/i);
     expect(errorState).not.toHaveTextContent(/could not reach the ingestion jobs endpoint/i);
   });
 });

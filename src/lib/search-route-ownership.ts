@@ -62,14 +62,22 @@ export const standaloneModeHomePaths = [
  */
 const dashboardOwnedModeHomePaths = {} as const satisfies Record<string, AppModeId>;
 
+/**
+ * The dedicated home a mode owns, or `null` when it belongs to the shared home.
+ *
+ * Deliberately limited to the two paths in `standaloneModeHomePaths` above. It is tempting to
+ * add `documents` and `prescribing` here, because both have a bare path that looks like a home —
+ * but `/documents` 307s to `/?mode=documents` (`consolidatedModeHomePaths`) and `/medications`
+ * 307s through its own proxy fast-path, as the comment on `dashboardOwnedModeHomePaths` says.
+ * Returning either would send the mode pill on a redirect round trip AND drop the draft query,
+ * query mode and scope filters that `appModeSelectionHref` carries, landing the user on the
+ * shared home they were already on with their context lost. A mode belongs here only once its
+ * path renders a body.
+ */
 export function standaloneModeHomeHref(mode: AppModeId): string | null {
   switch (mode) {
     case "tools":
       return "/tools";
-    case "prescribing":
-      return "/medications";
-    case "documents":
-      return "/documents";
     case "favourites":
       return "/favourites";
     default:
