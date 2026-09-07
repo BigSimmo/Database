@@ -83,6 +83,11 @@ echo "[session-start] Using node $(node -v) / npm $(npm -v)"
 # rather than from the caller's cwd, so a manual run installs into the right tree
 # from anywhere.
 cd "${CLAUDE_PROJECT_DIR:-"$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"}"
+
+if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || true)" = "true" ]; then
+  echo "[session-start] Shallow clone detected, deepening history..."
+  git fetch --deepen=2000 --no-tags || true
+fi
 # npm ci keeps the lockfile untouched (npm install rewrites peer/optional
 # metadata and dirties the worktree). A bare "node_modules exists" check is not
 # enough: a cached container keeps stale node_modules after dependency-bumping

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "a2c9bc56-a922-418d-9d1e-4a6ded665f79",
+  "createdOn": "2026-09-06",
+  "action": "cancel",
+  "payload": {
+    "requestId": "ff548c82-4411-45be-9244-c9baec0ea43c",
+    "reason": "Superseded by resolution of #EV7RMQ in Package 4"
+  }
+}

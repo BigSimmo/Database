@@ -70,7 +70,7 @@ describe("scripts share one owner lookup", () => {
     const definitions = scriptFiles(path.join(repositoryRoot, "scripts")).filter((file) =>
       /(?:async )?function findOwnerIdByEmail\(/.test(readFileSync(file, "utf8")),
     );
-    expect(definitions.map((file) => path.relative(repositoryRoot, file))).toEqual([
+    expect(definitions.map((file) => path.relative(repositoryRoot, file).replace(/\\/g, "/"))).toEqual([
       "scripts/lib/find-owner-id-by-email.ts",
     ]);
   });
@@ -106,6 +106,8 @@ describe("scripts share one interactive prompt helper", () => {
     const creators = scriptFiles(path.join(repositoryRoot, "scripts")).filter((file) =>
       /createInterface\(/.test(readFileSync(file, "utf8")),
     );
-    expect(creators.map((file) => path.relative(repositoryRoot, file))).toEqual(["scripts/lib/confirm.mjs"]);
+    expect(creators.map((file) => path.relative(repositoryRoot, file).replace(/\\/g, "/"))).toEqual([
+      "scripts/lib/confirm.mjs",
+    ]);
   });
 });
