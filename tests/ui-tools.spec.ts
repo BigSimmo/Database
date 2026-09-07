@@ -3293,6 +3293,28 @@ test.describe("Responsive layout guards", () => {
   // click/query assertions have nothing left to click. The still-live half of
   // the second test — the submitted-search results view — survives below,
   // reached directly instead of via a pill click.
+  /*
+   * Clearing the composer used to empty the React query while leaving `q` and
+   * `run=1` in the URL. `showSharedHome` reads `run=1` off the URL, so it stayed
+   * suppressed while MedicationPrescribingWorkspace, now seeing no query, fell back
+   * to `medication-home` — the Dose/Safety/Monitoring tiles `/medications` was
+   * consolidated away from, and which this file's own note above calls "retired and
+   * no longer reachable from any route". It was reachable, by this exact click.
+   */
+  test("clearing a prescribing search returns the shared home, never the retired medication home", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
+
+    await page
+      .getByRole("button", { name: /clear search question|clear search/i })
+      .first()
+      .click();
+
+    await expect(page).toHaveURL(/\/\?mode=prescribing&focus=1$/);
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await expect(page.getByTestId("medication-home")).toHaveCount(0);
+  });
+
   test("prescribing submitted search keeps results above the phone bottom dock", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 760 });
     await mockAnswerDashboardApi(page);

@@ -1525,6 +1525,28 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(csp).toContain("https://*.supabase.co");
   });
 
+  /*
+   * The Documents half of the same defect. `/documents` redirects to the shared
+   * home, and `documents/page.tsx` records the idle Documents view as deliberately
+   * retired — but clearing the composer on a submitted search left `run=1` in the
+   * URL, so the shared home stayed suppressed and DocumentSearchResultsPanel fell
+   * back to that retired "Start here" home (`document-search-empty-state`).
+   */
+  test("clearing a documents search returns the shared home, never the retired Start here view", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
+
+    await page
+      .getByRole("button", { name: /clear search question|clear search/i })
+      .first()
+      .click();
+
+    await expect(page).toHaveURL(/\/\?mode=documents&focus=1$/);
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await expect(page.getByTestId("document-search-empty-state")).toHaveCount(0);
+  });
+
   test("static agent guidance is available and documents mode avoids the app error boundary", async ({ page }) => {
     const llms = await page.request.get("/llms.txt");
     expect(llms.status()).toBe(200);
