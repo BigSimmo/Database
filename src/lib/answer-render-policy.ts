@@ -280,6 +280,23 @@ function candidateFromCoreSourceLink(link: CoreSourceLink, triggerField: string)
   };
 }
 
+/**
+ * Ledger #ZK460W. `review_only` is the strongest statement a citation makes about itself — the
+ * answer it belongs to failed its own quality gate, so this passage is provenance to read, never
+ * accepted claim support. It has to survive the dedupe below, which is first-wins and takes
+ * `coreSourceLinks` before `citations`. A core link is a bare `{chunk_id, document_id, title,
+ * file_name, page_number}` synthesised from the answer plan: it carries no provenance, so without
+ * this it shadowed the review-only citation for the same passage and the rendered row came back
+ * reading "Selected by the canonical answer source plan." with the plan's own source strength —
+ * the demotion applied at the routing site never reaching the source rail at all.
+ */
+function applyReviewOnlyProvenance(candidate: SourceCandidate, reviewOnlyIdentities: Set<string>): SourceCandidate {
+  if (candidate.citation.provenance === "review_only") return candidate;
+  if (!reviewOnlyIdentities.has(citationIdentity(candidate.citation))) return candidate;
+  const citation = { ...candidate.citation, provenance: "review_only" as const };
+  return { ...candidate, citation, reason: candidateFromCitation(citation, candidate.triggerField).reason };
+}
+
 function collectSourceCandidates(answer: RagAnswer, sources: SearchResult[]) {
   const candidates: SourceCandidate[] = [];
   const supportingChunkIds = new Set([
@@ -288,17 +305,25 @@ function collectSourceCandidates(answer: RagAnswer, sources: SearchResult[]) {
     ...(answer.answerSections ?? []).flatMap((section) => section.citation_chunk_ids ?? []),
     ...(answer.smartApiPlan?.coreSourceLinks ?? []).map((link) => link.chunk_id).filter(Boolean),
   ]);
+  const reviewOnlyIdentities = new Set(
+    (answer.citations ?? [])
+      .filter((citation) => citation.provenance === "review_only")
+      .map((citation) => citationIdentity(citation)),
+  );
+  const push = (candidate: SourceCandidate) => {
+    candidates.push(applyReviewOnlyProvenance(candidate, reviewOnlyIdentities));
+  };
   for (const link of answer.smartApiPlan?.coreSourceLinks ?? []) {
     const candidate = candidateFromCoreSourceLink(link, "smartApiPlan.coreSourceLinks");
-    if (candidate) candidates.push(candidate);
+    if (candidate) push(candidate);
   }
   const bestSource = answer.bestSource ?? answer.smartPanel?.bestSource ?? null;
   if (bestSource && supportingChunkIds.has(bestSource.chunk_id)) {
-    candidates.push(candidateFromBestSource(bestSource, "bestSource"));
+    push(candidateFromBestSource(bestSource, "bestSource"));
   }
-  for (const citation of answer.citations ?? []) candidates.push(candidateFromCitation(citation, "citations"));
+  for (const citation of answer.citations ?? []) push(candidateFromCitation(citation, "citations"));
   for (const quote of answer.quoteCards ?? answer.smartPanel?.quotes ?? []) {
-    candidates.push({
+    push({
       ...candidateFromCitation(quote, "quoteCards"),
       reason: "Exact quote card source.",
       snippet: quote.quote,
@@ -306,7 +331,7 @@ function collectSourceCandidates(answer: RagAnswer, sources: SearchResult[]) {
     });
   }
   for (const source of sources) {
-    if (supportingChunkIds.has(source.id)) candidates.push(candidateFromSearchResult(source, "sources"));
+    if (supportingChunkIds.has(source.id)) push(candidateFromSearchResult(source, "sources"));
   }
 
   const sourceById = new Map(sources.map((source) => [source.id, source]));
@@ -314,7 +339,7 @@ function collectSourceCandidates(answer: RagAnswer, sources: SearchResult[]) {
     for (const chunkId of section.citation_chunk_ids ?? []) {
       const source = sourceById.get(chunkId);
       if (source) {
-        candidates.push({
+        push({
           ...candidateFromSearchResult(source, "answerSections"),
           citation: citationFromResult(source, "section_selected"),
           reason: `Supports answer section: ${section.heading}`,

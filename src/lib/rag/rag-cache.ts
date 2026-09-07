@@ -28,7 +28,13 @@ const searchCache = new Map<
 >();
 // v21 (answer-cache key identity): rows written under the previous key can pair a stored
 // answer with a question it does not answer, so they are evicted rather than trusted.
-const ragCacheDependencyVersion = "rag-cache-v21";
+// v22 (ledger #ZK460W): the source-backed review fallback used to relabel a rejected answer
+// `grounded: true` with `deterministic_support` citations. Rows written under v21 still hold
+// that shape, and the extractive arm of that route carries no `generation_fallback:` marker,
+// so `getSharedCachedAnswer` does not evict it — a repeat query would keep serving the exact
+// answer this change exists to demote for the whole answer-cache TTL after rollout. The bump
+// costs one cold cache and is the mechanism this constant exists for.
+const ragCacheDependencyVersion = "rag-cache-v22";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();

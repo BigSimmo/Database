@@ -604,6 +604,88 @@ describe("answer render policy", () => {
     expect(model.copyText).toContain("/documents/doc-core?page=8&chunk=core-chunk");
   });
 
+  it("does not let a smartApiPlan core link re-promote a review-only citation for the same passage", () => {
+    // Ledger #ZK460W, raised in review on PR #2721. The source-backed review fallback demotes its
+    // citations to `review_only` because the answer they belong to failed its own quality gate.
+    // A core source link is synthesised from the answer plan and carries no provenance, and the
+    // dedupe below is first-wins with core links collected first — so without the override the
+    // rendered row came back reading "Selected by the canonical answer source plan." and the
+    // demotion never reached the source rail at all.
+    const model = buildAnswerRenderModel(
+      answer({
+        grounded: false,
+        confidence: "unsupported",
+        citations: [citation({ provenance: "review_only" })],
+        quoteCards: [],
+        answerSections: [],
+        bestSource: null,
+        smartApiPlan: {
+          coreSourceLinks: [
+            {
+              id: "chunk-1",
+              label: "Clozapine Monitoring Guideline, page 4",
+              href: "/documents/doc-1?page=4&chunk=chunk-1",
+              document_id: "doc-1",
+              chunk_id: "chunk-1",
+              title: "Clozapine Monitoring Guideline",
+              file_name: "clozapine-monitoring.pdf",
+              page_number: 4,
+              source_strength: "strong",
+              reason: "Selected by the canonical answer source plan.",
+              snippet: "Canonical answer-plan source text.",
+            },
+          ],
+        } as RagAnswer["smartApiPlan"],
+      }),
+    );
+
+    expect(model.trust).toBe("unsupported");
+    expect(model.primarySources).toHaveLength(1);
+    expect(model.primarySources[0]).toMatchObject({
+      chunk_id: "chunk-1",
+      provenance: "review_only",
+      reason: "Added for source review; not accepted as claim support.",
+    });
+  });
+
+  it("leaves a core link's own reason intact when no review-only citation covers that passage", () => {
+    // The override is scoped to the passage the answer actually demoted: a core link for a
+    // different chunk keeps the answer plan's wording, so this is not a blanket downgrade.
+    const model = buildAnswerRenderModel(
+      answer({
+        grounded: false,
+        confidence: "unsupported",
+        citations: [citation({ provenance: "review_only" })],
+        quoteCards: [],
+        answerSections: [],
+        bestSource: null,
+        smartApiPlan: {
+          coreSourceLinks: [
+            {
+              id: "other-chunk",
+              label: "Other Source, page 2",
+              href: "/documents/doc-other?page=2&chunk=other-chunk",
+              document_id: "doc-other",
+              chunk_id: "other-chunk",
+              title: "Other Source",
+              file_name: "other-source.pdf",
+              page_number: 2,
+              source_strength: "strong",
+              reason: "Selected by the canonical answer source plan.",
+              snippet: "Unrelated answer-plan source text.",
+            },
+          ],
+        } as RagAnswer["smartApiPlan"],
+      }),
+    );
+
+    expect(model.primarySources[0]).toMatchObject({
+      chunk_id: "other-chunk",
+      reason: "Selected by the canonical answer source plan.",
+    });
+    expect(model.primarySources[0].provenance).toBeUndefined();
+  });
+
   it("deduplicates conflicting section evidence by source rather than rendering duplicate rows", () => {
     const model = buildAnswerRenderModel(
       answer({
