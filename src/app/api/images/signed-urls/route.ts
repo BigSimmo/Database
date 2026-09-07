@@ -4,7 +4,7 @@ import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { getDemoImage } from "@/lib/demo-data";
 import { env } from "@/lib/env";
 import { isDemoMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, PublicApiError } from "@/lib/http";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -105,6 +105,11 @@ export async function POST(request: Request) {
     if (signed.error) throw new Error(signed.error.message);
     if (!signed.data) {
       throw new Error("Failed to generate signed URLs for images.");
+    }
+
+    const itemWithError = signed.data.find((res) => res.error);
+    if (itemWithError) {
+      throw new PublicApiError(`Failed to generate signed URL for image: ${itemWithError.error}`, 500);
     }
 
     const signedUrlMap = new Map(signed.data.map((res) => [res.path, res.signedUrl]));

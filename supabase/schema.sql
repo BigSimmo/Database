@@ -12,6 +12,7 @@ set search_path = public, extensions;
 create extension if not exists vector with schema extensions;
 create extension if not exists pg_trgm with schema extensions;
 create extension if not exists "uuid-ossp" with schema extensions;
+create extension if not exists "pg_cron";
 grant usage on schema extensions to anon, authenticated, service_role;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -6864,7 +6865,7 @@ AS $function$
     cross join q
     where f.source_chunk_id is not null
       and (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed' and f.search_tsv @@ q.tsq
   )
   select * from ranked where text_rank >= min_text_rank

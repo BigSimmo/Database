@@ -1344,16 +1344,6 @@ export const DERIVED_QUERY_INVENTORY = [
     reason: CLINICAL_QUALITY_REASON,
   },
   {
-    file: "src/app/api/documents/[id]/cover/route.ts",
-    table: "document_images",
-    fn: "GET",
-    queries: 2,
-    proof: PROOF_KINDS.OWNER_PINNED_DOCUMENT_ID,
-    identifier: "id",
-    reason:
-      'Both cover lookups filter `.eq("document_id", id)` for the id withOwnerReadScope resolved earlier in the handler; a 404 is returned before either query when that document is not visible to the caller.',
-  },
-  {
     file: "src/app/api/documents/[id]/reindex/route.ts",
     table: "ingestion_jobs",
     fn: "POST",
