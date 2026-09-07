@@ -591,11 +591,18 @@ function StagedAnswerResultSurfaceImpl({
             <VerificationNotice {...answerVerification} />
 
             {/* Kept, though the approved specimen does not draw it: that specimen
-                is one answer with no library matches to show, and this collapsed
-                line is the only route from an answer to the Medication and
-                Differentials records behind it. Removing chrome a picture omits
-                is one thing; removing a navigation route on the same evidence is
-                another. Still collapsed, still below the caution. */}
+                is one answer with no library matches to show, and this block is
+                the only route from an answer to the library records behind it.
+                Removing chrome a picture omits is one thing; removing a
+                navigation route on the same evidence is another.
+
+                Presented as the open card strip every other consumer of this
+                component uses, not the collapsed one-line disclosure direction B
+                introduced on 2026-08-26 (owner decision, 2026-09-07: the toggle
+                went, the placement below the caution stayed). The matches are
+                worth a glance without spending a tap, and the answer surface no
+                longer carries a control that behaves unlike the same block
+                everywhere else in the app. */}
             {crossModeQueries?.length && onCrossModeSearch ? (
               // `universalMode` is what lets this line reach DSM, Formulation,
               // Specifiers, Therapy, Dictionary and Tools, which no catalogue in
@@ -610,7 +617,6 @@ function StagedAnswerResultSurfaceImpl({
               <CrossModeLinksSection
                 queries={crossModeQueries}
                 onModeSearch={onCrossModeSearch}
-                variant="line"
                 universalMode={generating ? undefined : "answer"}
               />
             ) : null}

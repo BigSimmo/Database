@@ -2947,20 +2947,19 @@ test.describe("PsychSift UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    // The library matches are one collapsed line in the answer's evidence stack
-    // and open on demand. Still asserted end to end rather than dropped —
-    // open it and the same two links are there, at full tap size.
+    // The library matches are an open card strip in the answer's evidence stack,
+    // the same presentation every other consumer of the block uses (owner
+    // decision, 2026-09-07, reversing the collapsed line of direction B). No
+    // disclosure to open, so the links are asserted where they sit, at full tap
+    // size, and the strip is part of the resting geometry measured below.
     const relatedRegion = page.getByRole("region", { name: "Related pages in other modes" });
-    const relatedTrigger = relatedRegion.getByTestId("cross-mode-links-line-trigger");
-    await relatedTrigger.click();
+    await expect(
+      relatedRegion.getByTestId("cross-mode-links-line-trigger"),
+      "the answer strip must carry no disclosure of its own",
+    ).toHaveCount(0);
     const relatedItems = relatedRegion.getByRole("listitem");
     await expect(relatedItems).toHaveCount(2);
     await expect(relatedItems.last()).toBeVisible();
-    // Collapse it again before the geometry below. The rest of this test
-    // measures the answer's scroll runway in its resting state, and an expanded
-    // panel adds ~88px of content that the page does not carry by default.
-    await relatedTrigger.click();
-    await expect(relatedItems.last()).toBeHidden();
 
     const main = page.locator("main#main-content");
     const header = page.locator("header.universal-header");
@@ -3111,9 +3110,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(input).toBeFocused();
 
     await page.setViewportSize({ width: 320, height: 844 });
-    // Re-open the library line: the tap-target sweep below is about the links
-    // inside it, and the geometry block above needed it resting closed.
-    await relatedTrigger.click();
+    // The strip is open at every width now, so the tap-target sweep below reaches
+    // its links without a disclosure step.
     const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
     await expect(compactCrossModeRail).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
@@ -3265,29 +3263,25 @@ test.describe("PsychSift UI smoke coverage", () => {
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
-    // One collapsed line under the answer, opened on demand (owner decision,
-    // 2026-08-26, "direction B"). Everything below still has to work through it,
-    // so the test opens it rather than dropping the coverage.
+    // One open card strip under the answer, matching every other surface that
+    // renders this block (owner decision, 2026-09-07, reversing the collapsed
+    // line of direction B on 2026-08-26). The rail is visible on arrival and
+    // there is no disclosure to work through.
     //
-    // The closed state is asserted here at 1280px, not only at phone width. It
-    // shipped broken on desktop precisely because the one test that checked the
-    // collapse ran at 390px: `hidden` beside a `md:flex` in the same class list
-    // loses to the media-query rule from 768px up, so the rail stayed open while
-    // its trigger reported `aria-expanded="false"`.
-    const trigger = strip.getByTestId("cross-mode-links-line-trigger");
+    // Asserted here at 1280px, not only at phone width, because the width is
+    // where the previous design broke: `hidden` beside a `md:flex` in one class
+    // list loses to the media-query rule from 768px up, so a rail that reports
+    // itself closed can still be painted open. Pinning the rail's own computed
+    // display keeps that class of failure caught now that the state is fixed.
     const rail = strip.getByTestId("cross-mode-links-rail");
-    await expect(trigger).toHaveAttribute("aria-expanded", "false");
-    await expect(rail).toBeHidden();
-    await trigger.click();
-    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      strip.getByTestId("cross-mode-links-line-trigger"),
+      "the answer strip must carry no disclosure of its own",
+    ).toHaveCount(0);
     await expect(rail).toBeVisible();
     await expect(rail).toHaveCSS("display", "flex");
-    // Close and re-open: the collapse is the half that regressed.
-    await trigger.click();
-    await expect(rail).toBeHidden();
-    await trigger.click();
-    await expect(rail).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(rail).toBeVisible();
     await expect(strip.getByText("Medication", { exact: true }).filter({ visible: true })).toBeVisible();
     const medicationSearch = strip.getByRole("button", { name: "Search Clozapine in Medication" });
     await expect(medicationSearch).toBeVisible();
