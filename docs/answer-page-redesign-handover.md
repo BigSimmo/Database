@@ -767,9 +767,13 @@ Three things hold it inside the 12.8 decision rather than undoing it:
   the lookup never races the answer stream and an open tray never holds matches for the question
   being replaced. An errored or empty group contributes nothing.
 
-The line now fills to five links rather than four. That ceiling is deliberate: the widened reach
-keeps both its rows on the common answer, which names no medication, service, form or
-differential at all, while a thread that already resolved four clinical records grows by one row.
+The strip's ceiling stays at four, the number the catalogue half alone allowed. Five was set
+while this was still a collapsed disclosure, where an extra row cost nothing until the reader
+opened it; with the strip open at every width every row is unconditional height on the answer
+surface, so the old ceiling holds and this change stays about reach rather than size. The cap
+only binds when the catalogue half filled the strip on its own, which is a question already well
+served; the common answer names none of those four record types, and that is where the widened
+reach earns its place.
 
 Calculators, Factsheets, Sources, On Call and Favourites are still unreachable from here, and
 not by omission — they contribute no cross-entity search domain at all
@@ -785,8 +789,13 @@ its "one collapsed line" does not.
 What that costs is roughly 90px of resting height on a phone, which is the trade §12.8 made in
 the other direction. What it buys is that the matches can be read rather than opened, and that
 one component has one behaviour. `CrossModeLinksLine` is left in `cross-mode-links.tsx` with no
-consumer — deleting it would throw away a considered design that is one prop away from
-returning, and the `line` variant remains part of the component's public shape.
+consumer, and not by preference: the owner asked for it to be deleted on 2026-09-07 and
+`check:dead-code-candidate` refused the removal, because the symbol was introduced on
+2026-08-26 and sits inside the gate's 30-day window ("likely awaiting its consumer"). The
+heuristic is wrong in this particular case — the consumer existed and was deliberately removed
+the same day — but tuning the threshold to pass a diff is exactly what that gate exists to stop,
+so the code stays until the window lapses after 2026-09-25. The `line` variant remains part of
+the component's public shape until then.
 
 Three browser tests carried the disclosure as their contract and were updated rather than
 dropped. Each now asserts a visible rail _and_ the absence of a trigger, so a disclosure

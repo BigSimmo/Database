@@ -36,11 +36,20 @@ const cardActionControl =
 
 type CrossModeLinksVariant = "card" | "compact" | "responsive-compact" | "line";
 
-// The ceiling on one library line once both halves have contributed. Six rows of
-// 48px is a third of an 844px phone inside a tray the reader opened deliberately;
-// five keeps it under that without spending the widened reach on threads that
-// need it least.
-const crossModeLineMaxLinks = 5;
+// The ceiling on one library strip once both halves have contributed.
+//
+// Four, which is what the catalogue half alone allowed before the widened lookup
+// existed. Five was set while this block was still a collapsed disclosure, where
+// an extra row cost nothing until the reader opened it. It is open at every
+// width now (owner decision, 2026-09-07), so every row is unconditional height
+// on the answer surface, between the governed caution and the follow-ups.
+// Holding the old ceiling keeps this change about reach rather than about size.
+//
+// The cap only binds when the catalogue half filled the strip on its own, and a
+// question naming four medication, service, form or differential records is
+// already well served. The common answer names none of them, which is where the
+// widened reach earns its place and where this number never applies.
+const crossModeStripMaxLinks = 4;
 
 type CrossModeLinkCardProps = {
   link: CrossModeLink;
@@ -257,12 +266,8 @@ export function CrossModeLinksSection({
     if (!universalMode || universal.query !== universalQuery) return [];
     return buildCrossModeLinksFromUniversalSearch(universalQuery, universal.groups, {
       existing: links,
-      // The catalogue half caps itself at four. Filling to a combined five keeps
-      // the widened reach where it earns its place — the common answer, which
-      // names no medication, service, form or differential at all and would
-      // otherwise show nothing — while a thread that already resolved four
-      // clinical records grows by one row, not three.
-      maxTotal: Math.max(0, crossModeLineMaxLinks - links.length),
+      // Whatever the catalogue half left unused, up to the strip's ceiling.
+      maxTotal: Math.max(0, crossModeStripMaxLinks - links.length),
     });
   }, [universalMode, universal.query, universal.groups, universalQuery, links]);
 
