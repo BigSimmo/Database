@@ -3318,6 +3318,10 @@ function ClinicalDashboardContent({
           onClearQuery={() => {
             setQuery("");
             if (answer) return;
+            // Clearing an initial Answer request must invalidate and abort it
+            // before navigation. Otherwise its late result can repaint the
+            // answer and restore the submitted URL after the shared home opens.
+            if (loading) stopSearch();
             setModeSearchSubmitted(false);
             // Clear the URL too, or `showSharedHome` (which reads `run=1` off the URL)
             // stays suppressed while the mode branch, now query-less, falls back to the

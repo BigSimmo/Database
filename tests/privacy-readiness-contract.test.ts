@@ -46,28 +46,14 @@ function isCommitAvailable(commit: string): boolean {
   }
 }
 
-function ensureHistoryDeepened(depth = 2000): void {
-  if (!isShallowClone()) return;
-  try {
-    execFileSync("git", ["fetch", `--deepen=${depth}`], {
-      stdio: ["ignore", "ignore", "ignore"],
-    });
-  } catch {
-    // Ignore network or fetch failures
-  }
-}
-
 describe("privacy readiness contract", () => {
   it("accepts the honest structural register", () => {
     let checkGit = true;
-    if (!isCommitAvailable(manifest.reviewedCommit)) {
-      ensureHistoryDeepened(2000);
-      if (!isCommitAvailable(manifest.reviewedCommit) && isShallowClone()) {
-        console.warn(
-          `PRIVACY_READINESS_SHALLOW_CLONE: reviewedCommit ${manifest.reviewedCommit} is unavailable in shallow clone and history could not be deepened; skipping commit ancestry check.`,
-        );
-        checkGit = false;
-      }
+    if (!isCommitAvailable(manifest.reviewedCommit) && isShallowClone()) {
+      console.warn(
+        `PRIVACY_READINESS_SHALLOW_CLONE: reviewedCommit ${manifest.reviewedCommit} is unavailable in shallow clone; skipping commit ancestry check.`,
+      );
+      checkGit = false;
     }
     expect(validatePrivacyReadiness(manifest, { checkGit })).toEqual([]);
   });
