@@ -18,7 +18,12 @@ import {
   onCallEntrySchema,
   type OnCallSection,
 } from "@/lib/on-call/entry-model";
-import { fetchVisibleOnCallEntries, onCallEntryToRow, rowToOnCallEntry } from "@/lib/on-call/repository";
+import {
+  assertValidLinkedDocumentIds,
+  fetchVisibleOnCallEntries,
+  onCallEntryToRow,
+  rowToOnCallEntry,
+} from "@/lib/on-call/repository";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -156,6 +161,8 @@ export async function POST(request: Request) {
       details: parsedDetails.data,
     });
     const row = onCallEntryToRow(entry, user.id);
+
+    await assertValidLinkedDocumentIds(supabase, entry.linkedDocumentIds, user.id);
 
     // `owner_id` is spelled out again here (it is already the same value inside `row`, set by
     // onCallEntryToRow) so the row this owner creates carries an explicit, statically-visible

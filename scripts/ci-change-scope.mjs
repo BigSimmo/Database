@@ -404,6 +404,17 @@ const perfExclusionPatterns = [
   // (`#EFETZT`, whose measured cost is "one full CI round trip" per
   // occurrence).
   "data/repo-awareness-snapshot.json",
+  // Developer hub panels: reachable only from `src/app/mockups/development/**`,
+  // which is already excluded and 404s in production.
+  "src/components/developer-area/hub",
+  // Same hub, its data layer — with ONE carve-out. `headers.ts` is imported by
+  // `src/proxy.ts` and `src/lib/api-csrf.ts`, whose matcher runs before every
+  // budgeted page request, so it is a production request-path module wearing a
+  // developer-area path. Excluding it would skip the Lighthouse budget for a
+  // change that moves TTFB/LCP directly — the same reasoning that already keeps
+  // `src/proxy.ts` itself out of this list. Every other module here is reached
+  // only from the mockups tree or the developer-area gate components.
+  /^src\/lib\/developer-area\/(?!headers\.ts$).+/,
 ];
 
 function isPerfChangedPath(filePath) {
@@ -1112,6 +1123,18 @@ function selfTest() {
   assertScope("perf-off-for-supabase", ["supabase/migrations/20260101000000_example.sql"], {
     db_changed: true,
     perf_changed: false,
+  });
+  assertScope("perf-off-for-developer-hub-components", ["src/components/developer-area/hub/ingestion-panel.tsx"], {
+    perf_changed: false,
+  });
+  assertScope("perf-off-for-developer-hub-lib", ["src/lib/developer-area/repo-awareness-snapshot.ts"], {
+    perf_changed: false,
+  });
+  // The carve-out above, pinned: headers.ts is on the production request path
+  // via src/proxy.ts and src/lib/api-csrf.ts, so it must stay perf-scoped even
+  // though it sits under the excluded developer-area directory.
+  assertScope("perf-on-for-proxy-owned-developer-headers", ["src/lib/developer-area/headers.ts"], {
+    perf_changed: true,
   });
 
   assertScope("perf-on-for-route-page", ["src/app/(search-app)/dsm/page.tsx"], {
