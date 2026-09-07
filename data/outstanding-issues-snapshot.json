@@ -5,13 +5,13 @@
     "committed_at": "2026-09-06T15:54:53+00:00"
   },
   "counts": {
-    "open": 132,
+    "open": 134,
     "p1": 7,
-    "p2": 85,
+    "p2": 87,
     "p3": 40,
     "queued": 7,
     "pending": 0,
-    "resolved": 487
+    "resolved": 488
   },
   "queue": [
     {
@@ -274,15 +274,6 @@
       "added": "2026-08-23"
     },
     {
-      "id": "#5PQRSW",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Patient-profile alerts surface unassessed gates only for contraindication rows, so 266 caution, dose-adjust and monitor gates silently no-op",
-      "detail": "medication-patient-alerts.ts:344-358 collects missingGates for every gated row but the consumer discards them unless patient.action is contraindication. Counted from data/medications-snapshot.json: 256 caution, 145 dose-adjust and 62 monitor rows, 266 of them gated on a numeric or categorical input (eGFR, CrCl, QTc, age, hepatic). A clinician entering a partial profile without eGFR gets no considerations from a renal DOSE REDUCTION row and an empty panel indistinguishable from an all-clear; the UI sentence that would warn is scoped to contraindications only. FIX: include dose-adjust at minimum in the unassessed set and widen the UI copy.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
       "id": "#ZK460W",
       "priority": "P2",
       "type": "issue",
@@ -512,7 +503,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Lighthouse desktop-root LCP reads 100-175ms above main on a feature branch, decays run over run, and reddened PR #2422 once",
-      "detail": "Six CI readings on 2026-08-27 against the same 786ms baseline (tolerance: breach needs BOTH >20% and >100ms). PR #2422 branch: 961 (FAILED, reported 2/3 samples breached), 925, 900, 852. main: 748 (603da96), 705 (be65b8a1). NOT ROOT-CAUSED; recorded so the next occurrence is not re-investigated from scratch. Evidence AGAINST a real code regression: (a) mobile-root - the SAME page - measured 2293/2305/2314 against its 2274 baseline across the same runs, i.e. unchanged, and a genuine slowdown in that page would show on both form factors; (b) desktop-documents-search measured FASTER than main on the same runners (745/806 vs main 828/841); (c) the monotone decay 961->925->900->852 is regression-to-mean of a noisy metric, not a fixed cost a diff adds; (d) reading the 11-file diff line by line, nothing alters the desktop root cold render - the only new guard (!showAnswerCancelledNotice on showAnswerPending) is a no-op when nothing was cancelled, and pb-4->pb-10 requires an answer to be present. ONE TESTABLE MECHANISM REMAINS: PR #2422 split src/components/clinical-dashboard/answer-cancelled-notice.tsx out of ClinicalDashboard (forced by the 4140-line maintainability budget), and a new client module can become a separate chunk on /. Next: rm -rf .next FIRST (AGENTS.md: a cached build reports stale byte-identical numbers and will wrongly pass), npm run build, then npm run check:bundle-budget, which attributes chunks per route and reports / separately; compare against main. If / gained a chunk, move AnswerCancelledNotice into src/components/clinical-dashboard/dashboard-notices.tsx, which ClinicalDashboard already imports - same budget relief, no new module boundary. GATE CAVEAT worth knowing: majorityBreachDecision in scripts/check-lighthouse-budget.mjs takes its 3 samples within ONE job on ONE runner, so it guards against a single outlier but not against a slow runner. Stop: do not raise the baseline or the tolerance to clear this; do not re-run the job to chase a better number. Related but distinct: #GQ5X8T (mobile-root timing, needs a synchronized control).",
+      "detail": "NEW INSTANCE 2026-09-06 on PR #2664, desktop-root, same 785.647ms baseline and same +20%/+100ms tolerance (effective ceiling 943ms). Seven runs of code that cannot reach the measured route: 997 FAIL, PASS, PASS, PASS, 989 FAIL, PASS, PASS. The two failures sit 8ms apart, which is runner-class spread rather than a decaying regression, so this reading is closer in shape to #4TXR6Z (bimodal between runners) than to the monotone 961->925->900->852 decay this row originally recorded. Import-reachability was traced for PR #2664: the diff is 16 files of source-governance data, a gate script, a catalogue provider and docs, and nothing on it is imported by the desktop root render. main passed the same check on the same day. The one permitted CI re-run was spent and passed. RESOLUTION TAKEN: the owner authorised the skip-lighthouse-budget label on PR #2664 rather than touching the baseline or the tolerance, which the pr-required aggregate accepts because it calls require_skipped_or_success 'lighthouse-budget'. Label semantics worth recording: on.pull_request.types has no 'labeled' entry, so the label is only read at synchronize and takes effect on the next push, not when applied. Stop rules from this row are unchanged - do not raise the baseline or tolerance to clear a red PR.",
       "source": "PR #2422 CI runs 33067093750 (attempts 1-2), 33070896021, 33072264164; main runs 33063088413, 33065297542",
       "added": "2026-08-27"
     },
@@ -1280,6 +1271,33 @@
       "detail": "Unchanged and unchangeable from inside the project: it requires Aboriginal health practitioners. Recorded here as a Ward Flow gate in its own right rather than relying on the Caring Contacts entry (#1S81R8), because Ward Flow is a separate surface — bed allocation, transport and detention-adjacent legal status — with its own cultural safety questions, and an item filed under another feature will not be found by someone preparing Ward Flow for use. HARD GATE BEFORE ANY REAL-PATIENT USE. Not a blocker on further prototype building.",
       "source": "Ward Lead, 2026-09-04",
       "added": "2026-09-04"
+    },
+    {
+      "id": "#AY4KKK",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Playwright flake: 'mode menu dismisses when keyboard focus leaves its wrapper' failed on a head whose application code is byte-identical to one that passed 20 minutes earlier",
+      "detail": "tests/ui-accessibility.spec.ts :: PsychSift accessibility coverage > mode menu dismisses when keyboard focus leaves its wrapper failed the Production UI shard 2 job on PR #2664 head d73389889 (run 34044159807, job 101516153464, 16:14 on 2026-09-06). The ci-triage classifier called it 'needs investigation'. PROOF THIS IS A FLAKE, NOT A REGRESSION: the immediately preceding head 25cb63bd8 ran the whole pr-required set GREEN at 15:54:58 (run 34043035023), including this same shard, and git diff --name-only 25cb63bd8 d73389889 returns ONLY data/outstanding-issues-snapshot.json, one docs/branch-review-records file, and the docs/outstanding-issues-inbox moves from PR #2678's reconcile. No file under src/, tests/ or public/ differs at all, so the application code, the spec and the fixtures under test were byte-identical across the pass and the fail. PR #2664 itself changes no component, route or styling. NOT ROOT-CAUSED. The test asserts that the mode menu closes once keyboard focus leaves its wrapper, which is a focus/blur timing assertion and therefore sensitive to runner load, and this repo already carries two focus-and-hydration timing notes on the same spec file (#093 on Next streaming clone strict-mode violations, and #WJDQ0X on landmark rules that cleared only at a 9s settle). Next step: run the single test repeatedly on one SHA per docs/testing.md flake policy. It needs three reproductions on the same SHA before tests/flake-ledger.json quarantine is even permitted, and the better outcome is hardening the dismissal assertion to wait for the menu's own closed state rather than for a focus event. Do NOT weaken or delete the assertion to clear a red PR. Related but distinct: #1BHXEF (ward demo clock, Advisory UI), and the ward-flow lease-lock race captured earlier this session.",
+      "source": "PR #2664 run 34044159807 job 101516153464 vs green run 34043035023, 2026-09-06",
+      "added": "2026-09-06"
+    },
+    {
+      "id": "#WE5G2C",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Strict status checks plus a fast-moving main make PRs unmergeable by attrition; a merge queue would end the behind-branch race",
+      "detail": "Observed on PR #2664 across 2026-09-06, roughly twelve hours from open to merge with no review objection and no real defect in the diff. Mechanism: branch protection requires the branch to be level with main, so a PR that goes green while main has moved reads mergeable_state 'behind' and cannot merge. CI on this repo takes about 12 to 18 minutes for the pr-required set. Main merged roughly every 15 to 20 minutes that day, at one point taking nine commits within four minutes. Every sync push also cancels the in-flight run through cancel-in-progress, which surfaces as a 'PR required' failure carrying the literal line 'CANCELLED with no failing job', so the loop both restarts and looks red while doing it. Auto-merge SQUASH was armed from PR creation and updated the branch only intermittently, firing at 09:57, 12:45 and 13:14 but not at 09:59 or 10:18, so it cannot be relied on to win the race by itself. NET EFFECT: whichever PR is slowest to draw a quiet window on main pays for everyone else's merges, and the cost falls on correctness-neutral work. RECOMMENDATION: enable a GitHub merge queue on main. The queue builds each candidate against the head it will actually land on, so a PR never needs hand-syncing and CI is never cancelled by a competitor's merge. AGENTS.md already instructs sessions to treat merge queue state as read-only, so the operating rules anticipate one. Alternatives if a queue is unwanted: drop the strict up-to-date requirement for PRs whose changed paths cannot interact with main's recent commits, or narrow required checks so the green window is shorter than the average gap between merges to main. This is an owner and repository-settings decision, not a code change.",
+      "source": "PR #2664 session 2026-09-06; observed sync pushes 9dbdaa6, da8d0f6d2, e8bbcdba1 and CI runs 34023575924, 34036592050, 34038115122, 34038808851",
+      "added": "2026-09-06"
+    },
+    {
+      "id": "#TJKFDR",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Ward Flow lease acquisition lock is published non-atomically, so a competing process can read a half-written lock and fail outright",
+      "detail": "Failed Unit coverage on PR #2664 head e8bbcdba1 (run 34038808851, job 101501794483): tests/ward-flow-chat-control.test.ts > 'serializes cross-role lease acquisition across processes' expected stderr matching /already held|worktree already held/ but got 'lease acquisition lock is unreadable at /tmp/ward-chat-control-BzcaPW/.git/ward-flow-chat-control/acquire.lock.json; inspect it rather than bypassing custody'. ROOT CAUSE is in main's code, not the test. withLeaseAcquisitionLock in scripts/ward-flow/chat-control.mjs writes the lock with writeFileSync(lockPath, canonicalJson(owner), { encoding: 'utf8', flag: 'wx' }). The wx flag makes the CREATE exclusive, but creation and content are two steps, so a competitor can hit EEXIST in the window after the inode exists and before the holder's bytes are flushed, read the file back empty, and land in the catch at line 381. That branch calls fail() immediately with no retry, so a transient partial read is fatal, while the surrounding loop already retries the EEXIST path 200 times. Under CI load the window is wide enough to hit; the same test passed 3/3 locally on the same head, so it will not reproduce on a quiet machine. FIX: publish the lock atomically. Write a fully formed temp file at `${lockPath}.${owner.token}` then linkSync(staging, lockPath), which is atomic and throws EEXIST when already held, and rmSync the staging file in a finally. linkSync needs adding to the node:fs import; renameSync is already imported but is wrong here because it overwrites. The narrower alternative is to count unreadable reads and only fail() after a bounded number, but that leaves the race in place and only makes it rarer. Not fixed in PR #2664 because that PR is source-governance only and touches no Ward Flow file; the session branch constraint prevented opening a separate fix PR. Do not weaken or quarantine the test to clear it, the test is asserting the correct contract. Full diagnosis posted at https://github.com/BigSimmo/Database/pull/2664#issuecomment-5559938335",
+      "source": "PR #2664 CI run 34038808851 job 101501794483, 2026-09-06; scripts/ward-flow/chat-control.mjs:357-401",
+      "added": "2026-09-06"
     }
   ],
   "pending": []
