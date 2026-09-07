@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
@@ -11,9 +12,58 @@ const retentionParityMigration = readFileSync(
   "utf8",
 );
 
+// Same shallow-clone guard as tests/clinical-hazard-controls.test.ts and
+// tests/rag-plan-package-parity.test.ts. A web-container session clones at
+// depth ~102, so reviewedCommit resolves to nothing and the register looks
+// corrupt when only the history is truncated.
+function isShallowClone(): boolean {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isCommitAvailable(commit: string): boolean {
+  try {
+    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ensureHistoryDeepened(depth = 2000): void {
+  if (!isShallowClone()) return;
+  try {
+    execFileSync("git", ["fetch", `--deepen=${depth}`], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+  } catch {
+    // Ignore network or fetch failures
+  }
+}
+
 describe("privacy readiness contract", () => {
   it("accepts the honest structural register", () => {
-    expect(validatePrivacyReadiness(manifest)).toEqual([]);
+    let checkGit = true;
+    if (!isCommitAvailable(manifest.reviewedCommit)) {
+      ensureHistoryDeepened(2000);
+      if (!isCommitAvailable(manifest.reviewedCommit) && isShallowClone()) {
+        console.warn(
+          `PRIVACY_READINESS_SHALLOW_CLONE: reviewedCommit ${manifest.reviewedCommit} is unavailable in shallow clone and history could not be deepened; skipping commit ancestry check.`,
+        );
+        checkGit = false;
+      }
+    }
+    expect(validatePrivacyReadiness(manifest, { checkGit })).toEqual([]);
   });
 
   it("keeps Railway processor evidence linked to the privacy impact assessment", () => {

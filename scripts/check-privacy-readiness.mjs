@@ -71,6 +71,20 @@ function commitExists(commit) {
   }
 }
 
+function isShallowClone() {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
 function commitIsAncestor(commit) {
   try {
     execFileSync("git", ["merge-base", "--is-ancestor", commit, "HEAD"], { cwd: root, stdio: "ignore" });
@@ -211,7 +225,19 @@ export function validatePrivacyReadiness(
 function main() {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const release = process.argv.includes("--release");
-  const errors = validatePrivacyReadiness(manifest, { release });
+  // Same reasoning as check-clinical-hazard-controls.mjs: on a depth-one clone
+  // the reviewedCommit checks report a real commit as missing, which reads as a
+  // corrupt register rather than a truncated checkout. Say what was skipped.
+  // CI's static-pr job checks out with fetch-depth 0, where the checks do run.
+  const shallow = isShallowClone() && !commitExists(manifest?.reviewedCommit ?? "");
+  if (shallow) {
+    console.warn(
+      "PRIVACY_READINESS_SHALLOW_CLONE: this is a shallow git clone and reviewedCommit is not present, " +
+        "so the reviewedCommit existence/ancestry and evidence-at-commit checks were skipped. Run on a " +
+        "full-history checkout (git fetch --unshallow) to prove them; every other check below still ran.",
+    );
+  }
+  const errors = validatePrivacyReadiness(manifest, { release, checkGit: !shallow });
   if (errors.length) {
     console.error(`PRIVACY_READINESS_FAIL mode=${release ? "release" : "structural"}`);
     for (const error of errors) console.error(`- ${error}`);
