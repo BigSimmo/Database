@@ -26,6 +26,20 @@
       "approvedOn": "2026-09-06"
     },
     {
+      "path": "tests/document-cover-route.test.ts",
+      "before": 6,
+      "after": 0,
+      "reason": "Deliberate retirement of /api/documents/[id]/cover test suite under #HDAP8N. The answer source drawer stopped rendering a front-page thumbnail, leaving useDocumentCoverImageId and this route without product consumers. Both the route and client hook were pruned along with this test suite.",
+      "approvedOn": "2026-09-06"
+    },
+    {
+      "path": "tests/use-document-cover.dom.test.tsx",
+      "before": 9,
+      "after": 0,
+      "reason": "Deliberate retirement of useDocumentCoverImageId hook test suite under #HDAP8N. The answer source drawer stopped rendering a front-page thumbnail, leaving useDocumentCoverImageId without product consumers. Hook, route, and DOM tests were retired together.",
+      "approvedOn": "2026-09-06"
+    },
+    {
       "path": "tests/ui-ward-morning.spec.ts",
       "before": 2,
       "after": 1,

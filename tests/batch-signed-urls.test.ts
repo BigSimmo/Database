@@ -6,6 +6,92 @@ import {
   populateBatchSignedUrlsInCache,
 } from "@/lib/batch-signed-urls";
 import { clearSignedUrlCache, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import { POST } from "@/app/api/images/signed-urls/route";
+
+const mockCreateSignedUrls = vi.fn();
+
+const testImageId = "11111111-1111-4111-8111-111111111111";
+const testDocId = "22222222-2222-4222-8222-222222222222";
+const testUserId = "33333333-3333-4333-8333-333333333333";
+
+const mockAdminClient = {
+  from: vi.fn((table: string) => {
+    if (table === "document_images") {
+      return {
+        select: vi.fn(() => ({
+          in: vi.fn(() =>
+            Promise.resolve({
+              data: [
+                {
+                  id: testImageId,
+                  document_id: testDocId,
+                  storage_path: `${testUserId}/images/${testImageId}.png`,
+                  mime_type: "image/png",
+                  caption: null,
+                  metadata: { index_generation_id: "gen-1" },
+                },
+              ],
+              error: null,
+            }),
+          ),
+        })),
+      };
+    }
+    if (table === "documents") {
+      const docChain: Record<string, unknown> = {
+        select: vi.fn(() => docChain),
+        in: vi.fn(() => docChain),
+        or: vi.fn(() => docChain),
+        is: vi.fn(() => docChain),
+        eq: vi.fn(() => docChain),
+        then(resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) {
+          return Promise.resolve({
+            data: [
+              {
+                id: testDocId,
+                metadata: { index_generation_id: "gen-1" },
+              },
+            ],
+            error: null,
+          }).then(resolve, reject);
+        },
+      };
+      return docChain;
+    }
+    return {
+      select: vi.fn(() => ({
+        in: vi.fn(() => Promise.resolve({ data: [], error: null })),
+      })),
+    };
+  }),
+  storage: {
+    from: vi.fn(() => ({
+      createSignedUrls: (...args: unknown[]) => mockCreateSignedUrls(...args),
+    })),
+  },
+  auth: {
+    getUser: vi.fn(async () => ({
+      data: { user: { id: testUserId, app_metadata: { site_role: "administrator" } } },
+      error: null,
+    })),
+  },
+  rpc: vi.fn(async () => ({
+    data: [{ limited: false, remaining: 100 }],
+    error: null,
+  })),
+};
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => mockAdminClient,
+}));
+
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return {
+    ...actual,
+    isDemoMode: () => false,
+  };
+});
 
 describe("batch-signed-urls", () => {
   beforeEach(() => {
@@ -150,6 +236,184 @@ describe("batch-signed-urls", () => {
       await expect(fetchBatchSignedImageUrls(["img-1"])).rejects.toThrow(
         "Signed image URLs returned an invalid response.",
       );
+    });
+
+    it("handles 500 server error when createSignedUrls fails", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: "Failed to generate signed URL for image: Object not found",
+            message: "Failed to generate signed URL for image: Object not found",
+          }),
+          { status: 500, headers: { "content-type": "application/json" } },
+        ),
+      );
+
+      const result = await fetchBatchSignedImageUrls(["img-1"]);
+      expect(result.status).toBe(500);
+      expect(result.urls).toEqual({});
+    });
+  });
+
+  describe("POST /api/images/signed-urls createSignedUrls error handling", () => {
+    function setupMockClient(createSignedUrlsMock: ReturnType<typeof vi.fn>) {
+      const docImagesChain = {
+        in: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: testImageId,
+              document_id: testDocId,
+              storage_path: `${testUserId}/images/${testImageId}.png`,
+              mime_type: "image/png",
+              caption: null,
+              metadata: { index_generation_id: "gen-1" },
+            },
+          ],
+          error: null,
+        }),
+      };
+
+      const docChain: Record<string, unknown> = {
+        in: vi.fn(() => docChain),
+        or: vi.fn(() => docChain),
+        is: vi.fn(() => docChain),
+        eq: vi.fn(() => docChain),
+        then(resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) {
+          return Promise.resolve({
+            data: [
+              {
+                id: testDocId,
+                metadata: { index_generation_id: "gen-1" },
+              },
+            ],
+            error: null,
+          }).then(resolve, reject);
+        },
+      };
+
+      mockAdminClient.from = vi.fn((table: string) => {
+        if (table === "document_images") {
+          return { select: vi.fn(() => docImagesChain) } as never;
+        }
+        if (table === "documents") {
+          return { select: vi.fn(() => docChain) } as never;
+        }
+        return {
+          select: vi.fn(() => ({ in: vi.fn().mockResolvedValue({ data: [], error: null }) })),
+        } as never;
+      });
+
+      mockAdminClient.storage = {
+        from: vi.fn(() => ({
+          createSignedUrls: createSignedUrlsMock,
+        })),
+      } as never;
+
+      mockAdminClient.auth = {
+        getUser: vi.fn(async () => ({
+          data: { user: { id: testUserId, app_metadata: { site_role: "administrator" } } },
+          error: null,
+        })),
+      } as never;
+
+      mockAdminClient.rpc = vi.fn(async () => ({
+        data: [{ limited: false, remaining: 100 }],
+        error: null,
+      })) as never;
+    }
+
+    it("throws a 500 error when createSignedUrls returns an item with an error", async () => {
+      const mockFn = vi.fn().mockResolvedValueOnce({
+        data: [
+          {
+            path: `${testUserId}/images/${testImageId}.png`,
+            signedUrl: "",
+            error: "Object not found",
+          },
+        ],
+        error: null,
+      });
+      setupMockClient(mockFn);
+
+      const request = new Request("http://localhost/api/images/signed-urls", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer valid-token",
+        },
+        body: JSON.stringify({ imageIds: [testImageId] }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(500);
+      const body = await response.json();
+      expect(body.error).toBe("Failed to generate signed URL for image: Object not found");
+    });
+
+    it("finds and reports the first error when multiple items have errors", async () => {
+      const mockFn = vi.fn().mockResolvedValueOnce({
+        data: [
+          {
+            path: "path1.png",
+            signedUrl: "https://signed.example.com/1.png",
+            error: null,
+          },
+          {
+            path: "path2.png",
+            signedUrl: "",
+            error: "Bucket not accessible",
+          },
+          {
+            path: "path3.png",
+            signedUrl: "",
+            error: "Key not found",
+          },
+        ],
+        error: null,
+      });
+      setupMockClient(mockFn);
+
+      const request = new Request("http://localhost/api/images/signed-urls", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer valid-token",
+        },
+        body: JSON.stringify({ imageIds: [testImageId] }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(500);
+      const body = await response.json();
+      expect(body.error).toBe("Failed to generate signed URL for image: Bucket not accessible");
+    });
+
+    it("returns 200 with signed URLs when createSignedUrls returns no item errors", async () => {
+      const mockFn = vi.fn().mockResolvedValueOnce({
+        data: [
+          {
+            path: `${testUserId}/images/${testImageId}.png`,
+            signedUrl: `https://signed.example.com/${testImageId}.png`,
+            error: null,
+          },
+        ],
+        error: null,
+      });
+      setupMockClient(mockFn);
+
+      const request = new Request("http://localhost/api/images/signed-urls", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer valid-token",
+        },
+        body: JSON.stringify({ imageIds: [testImageId] }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.urls[testImageId].url).toBe(`https://signed.example.com/${testImageId}.png`);
     });
   });
 });
