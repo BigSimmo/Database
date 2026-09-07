@@ -297,6 +297,8 @@ authentication, not authorization to persist OpenAI, Supabase, Railway or other 
 Maintenance reuses valid stored authentication when setup-only secrets are absent, and fails closed
 if it is missing, expired, or insufficient. The full final gate still verifies PR/Actions reads and
 the Git transport dry run after toolchain repair. An authentication-only PASS is not that verdict.
+If a damaged cache lacks Node, the wrapper first restores the configured major using the existing
+`nvm` installation so the authentication preflight does not block normal lifecycle recovery.
 
 After changing configuration or credentials, obtain fresh-task proof. Reset the environment cache
 only if a new task still uses stale setup. Resume older tasks and verify them individually; a running

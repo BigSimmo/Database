@@ -26,6 +26,7 @@ function fixture(
     loginFailure?: boolean;
     lifecycleFailure?: boolean;
     gateFailure?: boolean;
+    nodeMissing?: boolean;
   } = {},
 ) {
   const root = mkdtempSync(path.join(os.tmpdir(), "cloud-github-lifecycle-"));
@@ -52,6 +53,7 @@ function fixture(
   ]);
   executable("bin/node", [
     'case "$1" in',
+    '  --version) [[ "$NODE_MISSING" != 1 || -f "$FIXTURE_ROOT/node-restored" ]] ;;',
     '  *ensure-codex-cloud-git-remote.mjs) printf "origin\\n" >> "$FIXTURE_ROOT/events" ;;',
     "  *check-github-shell-access.mjs)",
     '    printf "auth-preflight\\n" >> "$FIXTURE_ROOT/events"',
@@ -59,6 +61,15 @@ function fixture(
     '    [[ -z "${CODEX_CLOUD_GITHUB_PAT+x}" && -z "${GH_TOKEN+x}" && -z "${GITHUB_TOKEN+x}" ]] ;;',
     "  *) exit 90 ;;",
     "esac",
+  ]);
+  mkdirSync(path.join(root, ".nvm"));
+  writeFileSync(path.join(root, ".node-version"), "24\n");
+  executable(".nvm/nvm.sh", [
+    "nvm() {",
+    '  [[ "$*" == "install 24" && -z "${CODEX_CLOUD_GITHUB_PAT+x}" ]] || return 1',
+    '  printf "node-restore\\n" >> "$FIXTURE_ROOT/events"',
+    '  touch "$FIXTURE_ROOT/node-restored"',
+    "}",
   ]);
   for (const name of ["setup", "maintain"]) {
     executable(`scripts/${name}-codex-cloud.sh`, [
@@ -78,6 +89,7 @@ function fixture(
   const environment: NodeJS.ProcessEnv = {
     ...process.env,
     HOME: bashPath(root),
+    NVM_DIR: bashPath(path.join(root, ".nvm")),
     FIXTURE_ROOT: bashPath(root),
     EXPECTED_SECRET: secret,
     PATH: `${bashPath(path.join(root, "bin"))}:/usr/bin:/bin`,
@@ -91,6 +103,7 @@ function fixture(
     LOGIN_FAILURE: options.loginFailure ? "1" : "0",
     LIFECYCLE_FAILURE: options.lifecycleFailure ? "1" : "0",
     GATE_FAILURE: options.gateFailure ? "1" : "0",
+    NODE_MISSING: options.nodeMissing ? "1" : "0",
   };
   delete environment.CODEX_CLOUD_GITHUB_PAT;
   if (options.secret) environment.CODEX_CLOUD_GITHUB_PAT = secret;
@@ -129,7 +142,7 @@ describe("authorized Cloud GitHub lifecycle", () => {
   it("authenticates before setup and removes secrets before child commands, even with caller tracing", () => {
     const result = fixture({ secret: true });
     expect(result.status, result.stderr).toBe(0);
-    expect(result.events).toEqual(["origin", "login", "auth-preflight", "setup", "shims", "helper", "live-gate"]);
+    expect(result.events).toEqual(["login", "origin", "auth-preflight", "setup", "shims", "helper", "live-gate"]);
   });
 
   it("reuses cached authentication during maintenance without a setup secret", () => {
@@ -151,7 +164,7 @@ describe("authorized Cloud GitHub lifecycle", () => {
     const result = fixture({ secret: true, loginFailure: true });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("GH_LOGIN_FAILED");
-    expect(result.events).toEqual(["origin"]);
+    expect(result.events).toEqual([]);
   });
 
   it("requires the connected profile before touching credentials", () => {
@@ -170,5 +183,19 @@ describe("authorized Cloud GitHub lifecycle", () => {
     const result = fixture({ cached: true, gateFailure: true });
     expect(result.status).not.toBe(0);
     expect(result.events.at(-1)).toBe("live-gate");
+  });
+
+  it("restores missing Node before the authentication preflight and maintenance", () => {
+    const result = fixture({ mode: "maintenance", cached: true, nodeMissing: true });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.events).toEqual([
+      "node-restore",
+      "origin",
+      "auth-preflight",
+      "maintain",
+      "shims",
+      "helper",
+      "live-gate",
+    ]);
   });
 });

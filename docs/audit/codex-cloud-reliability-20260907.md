@@ -16,6 +16,11 @@ verification: this Cloud repair task. This is not clinical production acceptance
 | Caller tracing or login output could expose a credential.                                             | Disable tracing before credential use, suppress login output, pass the token only on stdin, and restrict the file-creation mask.      | Synthetic credential remains absent from stdout/stderr even with caller `bash -x`.         |
 | Old task reports referred to a local commit absent after resume.                                      | Require current HEAD/diff and exact destination checks before publication.                                                            | Original task reported its reconstructed checkout explicitly; no diagnostic push occurred. |
 
+A review of cache recovery also found that a missing Node executable could prevent the
+authentication preflight from reaching ordinary maintenance. The wrapper now restores Node
+through the existing `nvm` installation first, after removing the setup-secret variable.
+Dependency repair remains owned by the ordinary lifecycle scripts.
+
 ## Hosted evidence
 
 - [Connected v2 diagnostic](https://chatgpt.com/codex/tasks/task_e_6a9e7877864c832286210bab19528614):
@@ -30,6 +35,13 @@ Those runs used the repaired hosted inline commands before the tracked wrapper w
 They prove GitHub identity `BigSimmo`, Database repository access, PR/Actions reads, and feature-branch
 push authentication by dry run. Review mutations and Actions reruns were capability-checked, not
 performed. They do not prove that every future write will satisfy branch protection or repository hooks.
+
+The [published-wrapper diagnostic](https://chatgpt.com/codex/tasks/task_e_6a9e8da7244c83228719622a3c2eef0a)
+also reached `GH_AUTHENTICATION_READY`, completed full setup with healthy runtime checks, and
+finished its setup GitHub gate with `GH_SHELL_ACCESS_READY` on `f8cdc7c0424fafcd30461d6d49575819e0931085`.
+That run predates the additional missing-Node recovery case. Agent-phase maintenance and
+subsequent-head evidence belong to the task report and PR verification notes; do not infer
+them from the earlier setup log.
 
 The default-environment task also completed the runtime audit:
 
@@ -51,12 +63,15 @@ The default-environment task also completed the runtime audit:
 
 ## Local regression evidence
 
-The focused GitHub access and existing Cloud setup contracts passed (59 tests). All eight
+The focused GitHub access and existing Cloud setup contracts passed (59 tests). All nine
 new lifecycle tests passed after correcting the Windows Bash fixture PATH: Git for Windows
 prepends its real Git executable at startup, so the harness now selects its mocks inside
 the shell. This prevents a fixture from accidentally using the real GitHub tools.
 The tests exercise authentication ordering, cached maintenance, missing/insufficient
-credentials, secret suppression under tracing, profile restrictions and failure propagation.
+credentials, secret suppression under tracing, profile restrictions, missing-Node restoration
+and failure propagation. Normal push guards caught and then passed the fixture's corrected
+`ProcessEnv` type. CI caught the new audit file missing from the generated documentation
+snapshot; regeneration adds that entry, and `check:repo-awareness-snapshot` passes locally.
 
 ## Operating and recovery contract
 

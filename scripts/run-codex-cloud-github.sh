@@ -33,7 +33,6 @@ export NODE_USE_ENV_PROXY=1
 # Ambient tokens must not shadow the deliberately configured gh credential.
 unset GH_TOKEN GITHUB_TOKEN
 unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy
-node scripts/ensure-codex-cloud-git-remote.mjs --configure-gh-helper
 
 if [[ -n "${CODEX_CLOUD_GITHUB_PAT:-}" ]]; then
   # gh owns its standard credential store; do not copy the token to profiles,
@@ -45,6 +44,20 @@ if [[ -n "${CODEX_CLOUD_GITHUB_PAT:-}" ]]; then
   fi
 fi
 unset CODEX_CLOUD_GITHUB_PAT
+
+# A damaged cache may need Node restored before the Node-based auth preflight.
+# Keep this bootstrap smaller than dependency setup and never source a secret.
+if ! node --version >/dev/null 2>&1; then
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  [[ -s "$NVM_DIR/nvm.sh" ]] || fail 'GH_NODE_RUNTIME_MISSING: provide the configured Node runtime or nvm.'
+  # shellcheck source=/dev/null
+  source "$NVM_DIR/nvm.sh" --no-use
+  node_major="$(tr -cd '0-9' < .node-version)"
+  [[ -n "$node_major" ]] || fail 'GH_NODE_VERSION_MISSING'
+  nvm install "$node_major" >/dev/null 2>&1 || fail 'GH_NODE_RESTORE_FAILED'
+  hash -r
+fi
+node scripts/ensure-codex-cloud-git-remote.mjs --configure-gh-helper
 
 # Check missing/expired credentials, identity, protocol and scopes before installs.
 # Maintenance can reuse the gh store when setup-only secrets are not injected.
