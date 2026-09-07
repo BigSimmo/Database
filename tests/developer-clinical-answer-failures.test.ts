@@ -28,7 +28,7 @@ function item(overrides: Partial<LedgerOpenItem> = {}): LedgerOpenItem {
 
 function snapshotOf(open: LedgerOpenItem[]): LedgerSnapshot {
   return {
-    version: "outstanding-issues-snapshot-v1",
+    version: "outstanding-issues-snapshot-v2",
     ledger_revision: null,
     counts: { open: open.length, p1: 0, p2: 0, p3: 0, queued: 0, pending: 0, resolved: 0 },
     queue: [],
