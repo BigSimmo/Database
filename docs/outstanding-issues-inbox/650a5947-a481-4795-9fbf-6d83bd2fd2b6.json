@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "650a5947-a481-4795-9fbf-6d83bd2fd2b6",
+  "createdOn": "2026-09-07",
+  "action": "cancel",
+  "payload": {
+    "requestId": "586aac8d-81b0-4bae-aeac-ad74bf5d1484",
+    "reason": "Duplicate of 07b99ccd-1ea8-481d-8fb6-b008dec8bffa (from PR #2699, already merged to main), which already closes #MPZTBR against the same baseRowFingerprint. Two pending done requests for one target made the ledger batch unreconcilable, failing docs:check-links."
+  }
+}

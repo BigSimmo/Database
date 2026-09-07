@@ -126,6 +126,9 @@ if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_
   exit 0
 fi
 
+# Synchronize generated documentation in strict dependency order (#Y090R5):
+# sitemap:update runs first, followed by documentation inventory / index sync,
+# confirming generated files match the committed tree in proper dependency order.
 echo "[pre-commit] Synchronizing generated documentation..."
 if [ "$sync_sitemap" = "1" ]; then
   npm run sitemap:update
