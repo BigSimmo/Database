@@ -331,16 +331,22 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(searchScreenSrc).not.toContain("onClear={b.clearSearch}");
   });
 
-  it("keeps the quick-filter row's Clear filter-only too", () => {
-    // The sibling of the defect above, missed when #1555 was reviewed. This
-    // Clear sits at the end of the quick-filter chip row — among Reviewed only,
-    // Brief available and the topic tags — so it reads as "clear these", but it
+  it("keeps every filter-labelled Clear on this screen filter-only too", () => {
+    // The sibling of the defect above, missed when #1555 was reviewed. That
+    // Clear sat at the end of the quick-filter chip row — among Reviewed only,
+    // Brief available and the topic tags — so it read as "clear these", but it
     // was wired to `clearSearch` and wiped the query with them.
+    //
+    // The chip row itself is gone: the desktop slot now renders the same shared
+    // `ResultFilterTrigger` as the phone slot, so its bare `onClick` Clear went
+    // with it. The rule it was an instance of is unchanged and is what this
+    // case pins now — the shelf's Clear, which is the control that replaced it
+    // on screen, and the `clearSearch` audit below.
     const searchScreenSrc = readFileSync(
       new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
       "utf8",
     );
-    expect(searchScreenSrc).toContain("onClick={b.clearSearchFilters}");
+    expect(searchScreenSrc).toContain("onClearFilters={b.clearSearchFilters}");
 
     // The rule is about labels matching actions, not about a head-count of
     // `clearSearch` calls. A full reset is fine wherever the control says so —

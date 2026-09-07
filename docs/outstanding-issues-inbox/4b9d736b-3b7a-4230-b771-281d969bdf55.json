@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "4b9d736b-3b7a-4230-b771-281d969bdf55",
+  "createdOn": "2026-09-06",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Playwright flake: 'mode menu dismisses when keyboard focus leaves its wrapper' failed on a head whose application code is byte-identical to one that passed 20 minutes earlier",
+    "detail": "tests/ui-accessibility.spec.ts :: PsychSift accessibility coverage > mode menu dismisses when keyboard focus leaves its wrapper failed the Production UI shard 2 job on PR #2664 head d73389889 (run 34044159807, job 101516153464, 16:14 on 2026-09-06). The ci-triage classifier called it 'needs investigation'. PROOF THIS IS A FLAKE, NOT A REGRESSION: the immediately preceding head 25cb63bd8 ran the whole pr-required set GREEN at 15:54:58 (run 34043035023), including this same shard, and git diff --name-only 25cb63bd8 d73389889 returns ONLY data/outstanding-issues-snapshot.json, one docs/branch-review-records file, and the docs/outstanding-issues-inbox moves from PR #2678's reconcile. No file under src/, tests/ or public/ differs at all, so the application code, the spec and the fixtures under test were byte-identical across the pass and the fail. PR #2664 itself changes no component, route or styling. NOT ROOT-CAUSED. The test asserts that the mode menu closes once keyboard focus leaves its wrapper, which is a focus/blur timing assertion and therefore sensitive to runner load, and this repo already carries two focus-and-hydration timing notes on the same spec file (#093 on Next streaming clone strict-mode violations, and #WJDQ0X on landmark rules that cleared only at a 9s settle). Next step: run the single test repeatedly on one SHA per docs/testing.md flake policy. It needs three reproductions on the same SHA before tests/flake-ledger.json quarantine is even permitted, and the better outcome is hardening the dismissal assertion to wait for the menu's own closed state rather than for a focus event. Do NOT weaken or delete the assertion to clear a red PR. Related but distinct: #1BHXEF (ward demo clock, Advisory UI), and the ward-flow lease-lock race captured earlier this session.",
+    "source": "PR #2664 run 34044159807 job 101516153464 vs green run 34043035023, 2026-09-06",
+    "issueUlid": "01M1VR3SRJAY4KKKBHZ5CZFN0M"
+  }
+}

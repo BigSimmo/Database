@@ -1,4 +1,5 @@
 import { execFileSync, type ExecFileSyncOptionsWithStringEncoding } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -37,8 +38,39 @@ export type SiteMapInput = {
 // (`pages`, `redirects`, `api`) carries one — so a repeated regeneration on an
 // unchanged repository can never reorder two entries and fail the staleness
 // gate.
-function byPath<T extends { path: string; file: string }>(left: T, right: T) {
-  return left.path.localeCompare(right.path) || left.file.localeCompare(right.file);
+/**
+ * A DISPERSING order, not a presentational one — the same device
+ * `buildReviewStateSection` applies to `review_state.records`, applied here for
+ * the same measured reason.
+ *
+ * Sorted by path, two routes added on two branches land next to each other
+ * whenever their paths sort next to each other, and adjacent insertions are a
+ * hard conflict in the committed snapshot. That is not hypothetical and not
+ * rare: `/mockups/source-rail-desktop-scroll` and
+ * `/mockups/specifier-record-directions` both sort under `/mockups/s`, and PR
+ * #2674 conflicted on exactly that pair. A conflict here sets
+ * `mergeable_state=dirty`, which suppresses `refs/pull/<n>/merge` and leaves
+ * the check list empty rather than red.
+ *
+ * A SHA-1 of the path is uniformly distributed, so two additions land hundreds
+ * of lines apart and git's three-way merge resolves both hunks untouched.
+ * Alphabetical order is presentation and belongs to the page, which sorts
+ * before rendering.
+ *
+ * The hash is a total order in practice but not by construction, so `path` and
+ * `file` still break ties: two entries colliding on a SHA-1 prefix must not
+ * reorder between runs and flap the staleness gate.
+ */
+function dispersalKey(value: string): string {
+  return createHash("sha1").update(value).digest("hex");
+}
+
+function byDispersedPath<T extends { path: string; file: string }>(left: T, right: T) {
+  return (
+    dispersalKey(left.path).localeCompare(dispersalKey(right.path)) ||
+    left.path.localeCompare(right.path) ||
+    left.file.localeCompare(right.file)
+  );
 }
 
 export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData()): RoutesSection {
@@ -54,13 +86,13 @@ export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData())
       file: route.file,
       area: (route.route.startsWith("/mockups") ? "mockup" : "product") as RouteArea,
     }))
-    .sort(byPath);
+    .sort(byDispersedPath);
 
   const redirects = siteMap.redirects
     .map((redirect) => ({ path: redirect.route, file: redirect.file, target: redirect.target }))
-    .sort(byPath);
+    .sort(byDispersedPath);
 
-  const api = siteMap.apiRoutes.map((route) => ({ path: route.route, file: route.file })).sort(byPath);
+  const api = siteMap.apiRoutes.map((route) => ({ path: route.route, file: route.file })).sort(byDispersedPath);
 
   const modes = appModeDefinitions
     .map((mode) => ({
@@ -82,14 +114,6 @@ export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData())
     pages,
     redirects,
     api,
-    counts: {
-      modes: modes.length,
-      pages: pages.length,
-      product_pages: pages.filter((page) => page.area === "product").length,
-      mockup_pages: pages.filter((page) => page.area === "mockup").length,
-      redirects: redirects.length,
-      api: api.length,
-    },
   };
 }
 
@@ -224,11 +248,13 @@ function catalogueTargets(readmeMarkdown: string): Set<string> {
 export function buildDocumentationSection(docPaths: readonly string[], readmeMarkdown: string): DocumentationSection {
   const catalogued = catalogueTargets(readmeMarkdown);
 
-  // `path` alone is already a total order here: `docPaths` comes from
-  // `git ls-files`, which cannot list the same repo path twice, so no two
-  // entries can compare equal and no tiebreaker is needed.
+  // Dispersed by a hash of the path, for the reason on `byDispersedPath` above:
+  // two branches each adding a document under the same directory would
+  // otherwise insert on the same lines. `path` breaks ties, and it is already a
+  // total order here — `docPaths` comes from `git ls-files`, which cannot list
+  // the same repo path twice — so the order is deterministic across platforms.
   const documents = [...docPaths]
-    .sort((left, right) => left.localeCompare(right))
+    .sort((left, right) => dispersalKey(left).localeCompare(dispersalKey(right)) || left.localeCompare(right))
     .map((repoPath) => ({
       path: repoPath,
       section: documentSection(repoPath),
@@ -246,12 +272,6 @@ export function buildDocumentationSection(docPaths: readonly string[], readmeMar
   return {
     documents,
     sections,
-    counts: {
-      documents: documents.length,
-      catalogued: documents.filter((document) => document.catalogued).length,
-      uncatalogued: documents.filter((document) => !document.catalogued).length,
-      sections: sections.length,
-    },
   };
 }
 
@@ -297,7 +317,6 @@ export function buildTestHealthSection(ledger: FlakeLedgerFile): TestHealthSecti
   return {
     note: typeof ledger.$comment === "string" ? ledger.$comment : null,
     quarantined,
-    counts: { quarantined: quarantined.length },
   };
 }
 
@@ -558,11 +577,23 @@ const REVISION_INPUTS = [
   "scripts/generate-site-map.ts",
 ];
 
-export function readCommittedRevision(path = OUTPUT_PATH): { sha: string; committed_at: string } | null {
+/**
+ * The commit DATE, never a timestamp and never the sha — see `captured_revision`
+ * in `repo-awareness-types.ts`. `%cI` is read rather than `%cs` so that a
+ * snapshot written by an older generator, which stored the full ISO instant,
+ * still narrows to the same date here instead of being rejected outright.
+ */
+export function toRevisionDate(value: string): string | null {
+  const match = /^(\d{4}-\d{2}-\d{2})/u.exec(value);
+  return match ? match[1] : null;
+}
+
+export function readCommittedRevision(path = OUTPUT_PATH): { committed_at: string } | null {
   try {
     const revision = JSON.parse(readFileSync(path, "utf8")).captured_revision;
-    if (typeof revision?.sha !== "string" || typeof revision?.committed_at !== "string") return null;
-    return { sha: revision.sha, committed_at: revision.committed_at };
+    if (typeof revision?.committed_at !== "string") return null;
+    const committed_at = toRevisionDate(revision.committed_at);
+    return committed_at ? { committed_at } : null;
   } catch {
     return null;
   }
@@ -571,7 +602,7 @@ export function readCommittedRevision(path = OUTPUT_PATH): { sha: string; commit
 export function readCapturedRevision({
   cwd,
   snapshotPath = OUTPUT_PATH,
-}: { cwd?: string; snapshotPath?: string } = {}): { sha: string; committed_at: string } | null {
+}: { cwd?: string; snapshotPath?: string } = {}): { committed_at: string } | null {
   let output = "";
   try {
     output = execFileSync("git", ["log", "-1", "--format=%H%x09%cI", "--", ...REVISION_INPUTS], {
@@ -583,8 +614,9 @@ export function readCapturedRevision({
     // Git is unavailable or not a git repository; fall back to reading committed snapshot.
   }
   if (output) {
-    const [sha, committed_at] = output.split("\t");
-    if (sha && committed_at) return { sha, committed_at };
+    const [, committedAt] = output.split("\t");
+    const committed_at = committedAt ? toRevisionDate(committedAt) : null;
+    if (committed_at) return { committed_at };
   }
   const resolvedSnapshotPath = cwd ? path.join(cwd, snapshotPath) : snapshotPath;
   return readCommittedRevision(resolvedSnapshotPath);

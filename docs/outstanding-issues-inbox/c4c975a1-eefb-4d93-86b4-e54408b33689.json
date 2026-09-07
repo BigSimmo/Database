@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c4c975a1-eefb-4d93-86b4-e54408b33689",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#5PQRSW",
+    "outcome": "Closed 2026-09-06 as already fixed, verified against main at f3fe7f821. The defect as recorded (missingGates collected for every gated row but discarded by the consumer unless patient.action is contraindication) no longer exists. src/lib/medication-patient-alerts.ts now partitions unread gates into two tiers: contraindication rows land in unassessed, and every other action - caution, dose-adjust, monitor, and any unknown action a future catalogue export introduces - lands in unassessedAdvisory with unassessedAdvisoryCount. Only info rows are excluded, on the stated ground that they carry no action to miss. Gates are collected whether or not the row fired, so a row firing on age still reports its unread renal criterion. The UI half of the FIX is also done: src/components/clinical-dashboard/medication-considerations.tsx:393 disqualifies the all-clear on either tier, so a zero-consideration panel with unread advisory gates renders neutral with 'Some checks could not be run' rather than success, and lines 459-466 render a separate advisory sentence naming the missing inputs and the count of entries using them. Verified by running tests/medication-patient-alerts.test.ts: 28 passed, including 'routes a non-contraindication bare-renal row to the advisory tier, never the blocking one', which is this row's exact scenario, plus 'keeps collecting a row's remaining gates after it fires on another one' and 'excludes info rows from both tiers'. No code change was needed for this row.",
+    "baseRowFingerprint": "065324f994e9400150dd4856c3b2f8fdae9a0f70ddbdcbf4751afcba823951bb"
+  }
+}

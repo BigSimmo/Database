@@ -290,6 +290,7 @@
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-section-page.tsx",
@@ -304,7 +305,6 @@
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
-        "src/components/therapy-compass/screens/search-screen.tsx",
         "src/components/therapy-compass/therapy-card.tsx",
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/therapy-compass/workspace.tsx",
@@ -318,6 +318,7 @@
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/on-call-section-page.tsx",
@@ -332,7 +333,6 @@
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
-        "src/components/therapy-compass/screens/search-screen.tsx",
         "src/components/therapy-compass/therapy-card.tsx",
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/therapy-compass/workspace.tsx",
@@ -379,10 +379,12 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
       ],
       "designSync": {
@@ -1664,6 +1666,7 @@
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
@@ -1676,6 +1679,7 @@
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
@@ -2076,6 +2080,7 @@
       "directImportFiles": [
         "src/components/differentials/differential-detail-page.tsx",
         "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/ui/citation.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
@@ -2083,6 +2088,7 @@
       "productImportFiles": [
         "src/components/differentials/differential-detail-page.tsx",
         "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
       ],

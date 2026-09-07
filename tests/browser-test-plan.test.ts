@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -18,6 +18,13 @@ import {
 
 const root = resolve(__dirname, "..");
 const read = (relative: string) => readFileSync(resolve(root, relative), "utf8");
+const bashCommand =
+  process.platform === "win32"
+    ? ([
+        "C:\\Program Files\\Git\\bin\\bash.exe",
+        join(process.env.ProgramFiles || "C:\\Program Files", "Git/bin/bash.exe"),
+      ].find((p) => existsSync(p)) ?? "bash")
+    : "bash";
 
 const SPECS = new Map([
   [
@@ -440,7 +447,7 @@ describe("browser test plan", () => {
     });
 
     it("says nothing outside a cloud session", () => {
-      const result = spawnSync("bash", [".claude/hooks/testing-policy.sh"], {
+      const result = spawnSync(bashCommand, [".claude/hooks/testing-policy.sh"], {
         cwd: root,
         encoding: "utf8",
         input: "{}",
@@ -451,7 +458,7 @@ describe("browser test plan", () => {
     });
 
     it("emits one valid SessionStart context block in a cloud session", () => {
-      const result = spawnSync("bash", [".claude/hooks/testing-policy.sh"], {
+      const result = spawnSync(bashCommand, [".claude/hooks/testing-policy.sh"], {
         cwd: root,
         encoding: "utf8",
         input: "{}",
@@ -469,7 +476,7 @@ describe("browser test plan", () => {
     });
 
     it("survives a malformed payload rather than failing the session", () => {
-      const result = spawnSync("bash", [".claude/hooks/testing-policy.sh"], {
+      const result = spawnSync(bashCommand, [".claude/hooks/testing-policy.sh"], {
         cwd: root,
         encoding: "utf8",
         input: "not json at all",

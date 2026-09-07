@@ -1,7 +1,13 @@
 export type SpecifierFamily = "episode-features" | "course-onset" | "severity-remission";
 
 export type SpecifierBuilderDiagnosis =
-  "mdd-recurrent" | "mdd-single" | "bipolar-i-depressed" | "bipolar-i-manic" | "bipolar-ii-depressed";
+  | "mdd-recurrent"
+  | "mdd-single"
+  | "bipolar-i-depressed"
+  | "bipolar-i-manic"
+  | "bipolar-i-hypomanic"
+  | "bipolar-ii-depressed"
+  | "bipolar-ii-hypomanic";
 
 export type SpecifierApplicability =
   | "Depressive disorders"
@@ -653,15 +659,29 @@ const diagnosisFiltersByApplicability: Record<SpecifierApplicability, readonly s
 
 const builderDiagnosesByApplicability: Record<SpecifierApplicability, readonly SpecifierBuilderDiagnosis[]> = {
   "Depressive disorders": ["mdd-recurrent", "mdd-single"],
-  "Bipolar disorders": ["bipolar-i-depressed", "bipolar-i-manic", "bipolar-ii-depressed"],
+  "Bipolar disorders": [
+    "bipolar-i-depressed",
+    "bipolar-i-manic",
+    "bipolar-i-hypomanic",
+    "bipolar-ii-depressed",
+    "bipolar-ii-hypomanic",
+  ],
   "Major depressive episodes": ["mdd-recurrent", "mdd-single", "bipolar-i-depressed", "bipolar-ii-depressed"],
   "Bipolar depressive episodes": ["bipolar-i-depressed", "bipolar-ii-depressed"],
-  "Mood disorders": ["mdd-recurrent", "mdd-single", "bipolar-i-depressed", "bipolar-i-manic", "bipolar-ii-depressed"],
+  "Mood disorders": [
+    "mdd-recurrent",
+    "mdd-single",
+    "bipolar-i-depressed",
+    "bipolar-i-manic",
+    "bipolar-i-hypomanic",
+    "bipolar-ii-depressed",
+    "bipolar-ii-hypomanic",
+  ],
   "Psychotic disorders": [],
   "Medical conditions": [],
   "Recurrent depressive disorder": ["mdd-recurrent"],
-  "Bipolar I disorder": ["bipolar-i-depressed", "bipolar-i-manic"],
-  "Bipolar II disorder": ["bipolar-ii-depressed"],
+  "Bipolar I disorder": ["bipolar-i-depressed", "bipolar-i-manic", "bipolar-i-hypomanic"],
+  "Bipolar II disorder": ["bipolar-ii-depressed", "bipolar-ii-hypomanic"],
   "Other specified diagnoses": [],
 };
 

@@ -138,7 +138,8 @@ Prefer these over improvising — they encode traps this repo has already hit:
 - **Claude skills** (`.claude/skills/`): `newtask` (fresh worktree off latest `main`),
   `gates` (pick and prove the right gate), `handoff` (commit → verify → push → PR → ledger),
   `prlanded` (verify a squash-merge actually landed), `issues` (`/issues` cross-session
-  memory), `run-pr` (open-PR sweep), `prompt`.
+  memory), `run-pr` (open-PR sweep), `sources` (find, capture, score and index a clinical
+  source — see `docs/source-acquisition-protocol.md`), `prompt`.
 - **Review subagents** (`.claude/agents/`): `rag-retrieval-reviewer`,
   `supabase-schema-guardian`, `ingestion-worker-reviewer`, `clinical-governance-reviewer`,
   `frontend-ui-reviewer`, `verification-router`, `repo-auditor`, `pr-ci-fixer`.

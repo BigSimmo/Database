@@ -175,8 +175,12 @@ test-output*.txt
 docs/archive/staging-tenancy-evidence-*
 !docs/archive/staging-tenancy-evidence-29795051547/
 
-# Subagent-driven-development coordination scratch (ledger, briefs, review packages)
-.superpowers/
+# Subagent-driven-development coordination: preserve durable SDD artifacts (ledger,
+# briefs, reports, review packages) while ignoring ephemeral logs and scratch files.
+.superpowers/*
+!.superpowers/sdd/
+.superpowers/sdd/**/*.log
+.superpowers/sdd/**/scratch/
 
 # Node compile cache written to a literal directory name.
 # NODE_COMPILE_CACHE takes a directory PATH, not a boolean. A machine with it

@@ -26,6 +26,7 @@ import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import { mhaActMetadata } from "@/lib/mha-act-sections";
 import { loadServicesSnapshot } from "@/lib/service-catalog";
 import { authoritativeSources, loadSpecifiersContent, type AuthoritativeSource } from "@/lib/specifiers-content";
+import { acquisitionSourceReferences } from "@/lib/sources/acquisition-ledger";
 import { safeHttpsUrl } from "@/lib/sources/catalogue-core";
 import type { ClinicalSourceReferenceInput, ClinicalSourceType, SourceUsage } from "@/lib/sources/catalogue-types";
 import { hasInvalidStructuredSourceDate, strictSourceDate } from "@/lib/sources/source-date-policy";
@@ -42,7 +43,8 @@ export type ClinicalSourceProvider = {
     | "medications"
     | "services"
     | "dsm"
-    | "calculators";
+    | "calculators"
+    | "acquisitions";
   sourcePaths: readonly string[];
   references(): ClinicalSourceReferenceInput[];
 };
@@ -530,6 +532,18 @@ const calculatorProvider: ClinicalSourceProvider = {
     ),
 };
 
+/**
+ * Sources captured by the source-acquisition protocol, including candidates
+ * awaiting clinical sign-off and rejected candidates kept so the same ground is
+ * not searched twice. Captures carry no `sourceId`, so a captured source merges
+ * with any content reference to the same URL rather than splitting the entry.
+ */
+const acquisitionProvider: ClinicalSourceProvider = {
+  id: "acquisitions",
+  sourcePaths: ["src/data/source-acquisitions.json"],
+  references: () => acquisitionSourceReferences(),
+};
+
 export const repositorySourceProviders: readonly ClinicalSourceProvider[] = [
   dictionaryProvider,
   factsheetProvider,
@@ -542,6 +556,7 @@ export const repositorySourceProviders: readonly ClinicalSourceProvider[] = [
   servicesProvider,
   dsmProvider,
   calculatorProvider,
+  acquisitionProvider,
 ];
 
 export function repositorySourceReferences() {

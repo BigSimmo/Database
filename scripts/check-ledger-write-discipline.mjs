@@ -62,12 +62,35 @@ function filesAt(ref, directory) {
   } catch {
     return new Map();
   }
-  const entries = new Map();
-  for (const relative of names
+  const targets = names
     .split(/\r?\n/)
-    .filter((name) => name.endsWith(".json") && path.posix.dirname(name) === directory)) {
+    .filter((name) => name.endsWith(".json") && path.posix.dirname(name) === directory);
+  if (targets.length === 0) return new Map();
+
+  const entries = new Map();
+  const input = targets.map((f) => `${ref}:${f}`).join("\n") + "\n";
+  const raw = execFileSync("git", ["cat-file", "--batch"], {
+    cwd: ROOT,
+    input,
+    maxBuffer: 100 * 1024 * 1024,
+  });
+
+  let offset = 0;
+  for (const relative of targets) {
+    const newlineIdx = raw.indexOf(10, offset);
+    if (newlineIdx === -1) break;
+    const header = raw.subarray(offset, newlineIdx).toString("utf8");
+    const parts = header.split(" ");
+    if (parts[1] !== "blob") {
+      throw new Error(`failed to read ${ref}:${relative}: ${header}`);
+    }
+    const size = parseInt(parts[2], 10);
+    const contentStart = newlineIdx + 1;
+    const contentEnd = contentStart + size;
+    const content = raw.subarray(contentStart, contentEnd).toString("utf8");
+    offset = contentEnd + 1;
     const name = path.posix.basename(relative);
-    entries.set(name, readAt(ref, relative));
+    entries.set(name, content);
   }
   return entries;
 }
