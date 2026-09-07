@@ -120,12 +120,49 @@ mark_tier_done() {
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# Serialises everything that drives apt, which the per-tier lock deliberately does not.
+#
+# The browsers tier shells out to `playwright install --with-deps` and the python tier calls
+# apt_install for tesseract, so the two reach the same dpkg lock from different tiers. Session mode
+# runs them in one detached child while telling the model to confirm with
+# `bash scripts/setup-claude-cloud.sh browsers python`, and that confirmation command is exactly what
+# collides. Observed 2026-09-06: the confirmation run's Playwright step died with "Installation
+# process exited with code: 100" while the background child was unpacking tesseract, and the log
+# carried apt's own explanation — "E: dpkg was interrupted, you must manually run 'dpkg --configure
+# -a'". The browsers tier was then reported as failed even though nothing about it was broken.
+#
+# Waiting rather than failing is the point: apt is genuinely busy for a bounded time, so a caller that
+# waits gets the install it asked for. Ten minutes is well past the slowest observed apt step and short
+# enough that a truly wedged lock still surfaces instead of hanging the container.
+with_apt_lock() {
+  local lock="$marker_dir/apt.lock" waited=0
+  while ! mkdir "$lock" 2>/dev/null; do
+    if [ -n "$(find "$lock" -maxdepth 0 -mmin +120 2>/dev/null)" ]; then
+      warn "clearing a stale apt lock"
+      rm -rf "$lock"
+      continue
+    fi
+    if [ "$waited" -ge 600 ]; then
+      warn "apt is still locked by another run after 600s; proceeding without the lock"
+      "$@"
+      return
+    fi
+    [ "$waited" -eq 0 ] && log "waiting for another run's apt step to finish"
+    sleep 5
+    waited=$((waited + 5))
+  done
+  "$@"
+  local status=$?
+  rm -rf "$lock" 2>/dev/null
+  return "$status"
+}
+
 apt_install() {
   have apt-get || { warn "apt-get is unavailable; cannot install: $*"; return 1; }
   if [ "$(id -u)" = "0" ]; then
-    apt-get update -qq && apt-get install -y --no-install-recommends "$@"
+    with_apt_lock sh -c 'apt-get update -qq && apt-get install -y --no-install-recommends "$@"' _ "$@"
   elif have sudo; then
-    sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends "$@"
+    with_apt_lock sh -c 'sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends "$@"' _ "$@"
   else
     warn "neither root nor sudo; cannot install: $*"
     return 1
@@ -240,8 +277,9 @@ tier_deno() {
 
 tier_browsers() {
   [ -x ./node_modules/.bin/playwright ] || { warn "playwright is not installed; run npm ci first"; return 1; }
+  # `--with-deps` runs apt, so it takes the shared apt lock like apt_install does; see with_apt_lock.
   # shellcheck disable=SC2086
-  ./node_modules/.bin/playwright install --with-deps ${CLAUDE_CLOUD_BROWSERS:-chromium firefox webkit}
+  with_apt_lock ./node_modules/.bin/playwright install --with-deps ${CLAUDE_CLOUD_BROWSERS:-chromium firefox webkit}
 }
 
 tier_python() {

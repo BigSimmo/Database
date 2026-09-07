@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
+import { plainClinicalText } from "@/lib/plain-clinical-text";
 
 /**
  * Write text to the clipboard, guarded for SSR / unavailable API. Resolves to
@@ -9,11 +10,16 @@ import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
  * lost focus, a blocked user gesture) resolves to `false` instead of throwing,
  * so callers never signal success for a copy that didn't happen and no unhandled
  * promise rejection escapes.
+ *
+ * Everything copied here is destined for a progress note, so it goes through
+ * `plainClinicalText` first. The Therapy corpus carries 1,956 `\u2192` arrows plus
+ * en/em dashes and curly quotes, and the record systems this is pasted into
+ * render those as replacement glyphs or drop them silently.
  */
 export async function copyText(text: string): Promise<boolean> {
   if (typeof navigator === "undefined" || !text) return false;
   try {
-    await copyTextToClipboard(text);
+    await copyTextToClipboard(plainClinicalText(text));
     return true;
   } catch {
     return false;

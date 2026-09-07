@@ -34,6 +34,34 @@ afterEach(() => {
   }
 });
 
+describe("copyText record safety", () => {
+  // The Therapy corpus carries 1,956 arrows across body/patientExplanation/
+  // deliverySteps/briefVersion. Copy is the boundary where that text stops being
+  // a web page and becomes note content, so it is sanitised here rather than by
+  // rewriting the reviewed source records.
+  it("spells out arrows and typographic characters before writing", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setWriteText(writeText);
+
+    await copyText(
+      "Build engagement \u2192 set goals \u2192 review; \u2265 4 sessions \u2014 \u201Cas tolerated\u201D",
+    );
+
+    expect(writeText).toHaveBeenCalledWith(
+      'Build engagement leading to set goals leading to review, at least 4 sessions - "as tolerated"',
+    );
+  });
+
+  it("leaves plain clinical text unchanged", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setWriteText(writeText);
+
+    await copyText("Behavioural activation, then graded exposure");
+
+    expect(writeText).toHaveBeenCalledWith("Behavioural activation, then graded exposure");
+  });
+});
+
 describe("copyText", () => {
   it("resolves true and writes when the clipboard accepts the text", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
