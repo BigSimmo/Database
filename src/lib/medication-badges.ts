@@ -127,7 +127,7 @@ function firstUnitStrengthMg(text: string): { mg: string | null; sawStrength: bo
   return { mg: null, sawStrength };
 }
 
-function formulationShortLabel(value: string): string | null {
+export function formulationShortLabel(value: string): string | null {
   const cleaned = value
     .replace(/\*\*/g, "")
     .replace(/\s*\([^)]*\)\s*$/, "")

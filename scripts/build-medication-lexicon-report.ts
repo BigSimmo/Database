@@ -217,24 +217,28 @@ async function main(): Promise<void> {
   lines.push(
     "Records where a term is present in the text but is **not** read as naming a counterparty — usually",
     "because the record is using the class word for its own drug. Every interaction row on the record is",
-    "affected, so each of these is a clinical claim worth checking.",
+    "affected, so each of these is a clinical claim worth checking. Each exclusion requires an authored",
+    "clinical rationale.",
   );
   lines.push("");
   const sourceDenied = catalogueTerms.filter((term) => (term.sourceDenySlugs ?? []).length > 0);
   if (sourceDenied.length === 0) {
     lines.push("_None._");
   } else {
-    lines.push("| Term | Not read as a counterparty on | Rows affected | The wording it appears in |");
-    lines.push("| --- | --- | --- | --- |");
+    lines.push(
+      "| Term | Not read as a counterparty on | Rows affected | The wording it appears in | Clinical rationale |",
+    );
+    lines.push("| --- | --- | --- | --- | --- |");
     for (const term of sourceDenied) {
       for (const slug of term.sourceDenySlugs ?? []) {
         const record = records.find((item) => item.slug === slug);
         const rows = interactionRowText(record);
         const matched = rows.filter((row) => term.surfaces.some((surface) => mentionsSurface(row, surface)));
         const example = matched[0] ?? "";
+        const rationale = term.sourceDenyRationales?.[slug] ?? "_None provided._";
         lines.push(
           `| \`${term.id}\` | ${drugLabel(slug)} | ${matched.length} of ${rows.length} | ` +
-            `${escapePipes(excerpt(example))} |`,
+            `${escapePipes(excerpt(example))} | ${escapePipes(rationale)} |`,
         );
       }
     }
@@ -620,6 +624,11 @@ function collectFlags(
     }
     if (stat.rows === 0) {
       flags.push(`\`${term.id}\` fires on no catalogue row — dead entry, or its phrasing never occurs.`);
+    }
+    for (const slug of term.sourceDenySlugs ?? []) {
+      if (!term.sourceDenyRationales?.[slug]?.trim()) {
+        flags.push(`\`${term.id}\` excludes source slug \`${slug}\` without a clinical rationale.`);
+      }
     }
   }
   return flags;
