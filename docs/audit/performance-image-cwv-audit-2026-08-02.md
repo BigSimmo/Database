@@ -16,7 +16,7 @@ A seven-skill, code-only audit of the production front-end found **10 concrete p
 1. **Bundle & payload bloat from Therapy Compass.** The Therapy Compass workspace is statically imported by the shared search shell, so its module graph ships to every `(search-app)` route, and its 3.16 MB JSON catalogues are fetched entirely client-side.
 2. **Cumulative Layout Shift on phone** from the overlay chrome reserve hook, already tracked as `#147`.
 3. **Interaction latency in the PDF viewer** from a non-passive wheel listener and multiple `setTimeout` callbacks that can run during user interaction.
-4. **CSS paint cost** from the shared `Skeleton` using a `background-position` shimmer, three stacked `backdrop-filter` passes in the glass header, and the universal `html.theme-transitioning *` selector. (The `theme-transitioning` part proved real and was fixed in PR #2653; the other two measured as non-defects — see the RB-3 UPDATE 2026-09-07.)
+4. **CSS paint cost** from the shared `Skeleton` using a `background-position` shimmer, three stacked `backdrop-filter` passes in the glass header, and the universal `html.theme-transitioning *` selector. (The `theme-transitioning` part proved real and was fixed in PR #2653; the other two show no frame loss at their shipped size, though the blur stack's cost scales sharply with area — see the RB-3 UPDATE 2026-09-07.)
 5. **Image-optimization misses** in raw `<img>` tags (missing `decoding`, missing dimensions), a lazily-loaded source preview that may be above the fold, and demo PNGs not served in modern formats.
 
 **Cross-audit note:** Most of these findings are already documented in `docs/audit/latency-audit-2026-07-28.md` and `docs/outstanding-issues.md` (notably `#016`, `#017`, `#013`, `#147`, `#117`). This report applies the requested seven skill lenses, reframes where the prior audit has already retired a finding, and adds a small number of new INP/LCP/code-shape observations.
@@ -38,18 +38,18 @@ This audit found no P0/P1 issues.
 
 ## 3. Top 10 severity-ranked findings
 
-| #   | File                                                                    | Lines              | Skill(s)                               | Sev | One-line impact                                                                                                                                                                                                          |
-| --- | ----------------------------------------------------------------------- | ------------------ | -------------------------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | `src/components/clinical-dashboard/use-phone-overlay-chrome-reserve.ts` | 53-72              | CLS                                    | P2  | Stale phone header reserve causes 128 px layout shift on `/documents/search` and `/dsm`                                                                                                                                  |
-| 2   | `src/components/clinical-dashboard/shared-search-app-shell.tsx`         | 8                  | performance-review                     | P2  | Therapy Compass workspace statically imported into every `(search-app)` route                                                                                                                                            |
-| 3   | `src/components/therapy-compass/data/use-therapy-data.ts`               | 11, 36-56          | performance-review                     | P2  | Up to 3.16 MB of Therapy Compass JSON fetched client-side on mount, no SSR                                                                                                                                               |
-| 4   | `src/app/layout.tsx`                                                    | 104                | render-blocking                        | P2  | Reading `headers()` for a per-request nonce opts all routes into dynamic rendering                                                                                                                                       |
-| 5   | `src/components/clinical-dashboard/use-app-preferences.ts`              | 156-183            | performance-review                     | P2  | `GET /api/account/preferences` → conditional `PUT` bootstrap is a sequential waterfall                                                                                                                                   |
-| 6   | `src/components/ClinicalDashboard.tsx`                                  | 960-1050           | performance-review                     | P2  | Local identity → `setup-status` → parallel fan-out of 4 is a sequential waterfall                                                                                                                                        |
-| 7   | `src/components/document-viewer/non-pdf-source-preview.tsx`             | 142-149            | largest-contentful-paint, lazy-loading | P2  | Main source-preview image is `loading="lazy"` and likely above the fold                                                                                                                                                  |
-| 8   | `src/components/document-viewer/use-viewer-gestures.ts`                 | 77                 | interaction-to-next-paint              | P2  | Wheel listener registered `{ passive: false }`, blocking compositor scroll                                                                                                                                               |
-| 9   | `src/components/ui-primitives.tsx` + `src/app/globals.css`              | 499, 2565-2572     | render-blocking, performance-review    | P2  | Default `Skeleton` uses paint-based `background-position` shimmer                                                                                                                                                        |
-| 10  | `src/app/globals.css`                                                   | 856-895, 3231-3238 | render-blocking, CLS                   | P3  | Three stacked `backdrop-filter` passes and `theme-transitioning *` transition 6 properties on every element — see the RB-3 UPDATE 2026-09-07: `theme-transitioning` fixed in PR #2653, other two measured as non-defects |
+| #   | File                                                                    | Lines              | Skill(s)                               | Sev | One-line impact                                                                                                                                                                                                                                                                                   |
+| --- | ----------------------------------------------------------------------- | ------------------ | -------------------------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `src/components/clinical-dashboard/use-phone-overlay-chrome-reserve.ts` | 53-72              | CLS                                    | P2  | Stale phone header reserve causes 128 px layout shift on `/documents/search` and `/dsm`                                                                                                                                                                                                           |
+| 2   | `src/components/clinical-dashboard/shared-search-app-shell.tsx`         | 8                  | performance-review                     | P2  | Therapy Compass workspace statically imported into every `(search-app)` route                                                                                                                                                                                                                     |
+| 3   | `src/components/therapy-compass/data/use-therapy-data.ts`               | 11, 36-56          | performance-review                     | P2  | Up to 3.16 MB of Therapy Compass JSON fetched client-side on mount, no SSR                                                                                                                                                                                                                        |
+| 4   | `src/app/layout.tsx`                                                    | 104                | render-blocking                        | P2  | Reading `headers()` for a per-request nonce opts all routes into dynamic rendering                                                                                                                                                                                                                |
+| 5   | `src/components/clinical-dashboard/use-app-preferences.ts`              | 156-183            | performance-review                     | P2  | `GET /api/account/preferences` → conditional `PUT` bootstrap is a sequential waterfall                                                                                                                                                                                                            |
+| 6   | `src/components/ClinicalDashboard.tsx`                                  | 960-1050           | performance-review                     | P2  | Local identity → `setup-status` → parallel fan-out of 4 is a sequential waterfall                                                                                                                                                                                                                 |
+| 7   | `src/components/document-viewer/non-pdf-source-preview.tsx`             | 142-149            | largest-contentful-paint, lazy-loading | P2  | Main source-preview image is `loading="lazy"` and likely above the fold                                                                                                                                                                                                                           |
+| 8   | `src/components/document-viewer/use-viewer-gestures.ts`                 | 77                 | interaction-to-next-paint              | P2  | Wheel listener registered `{ passive: false }`, blocking compositor scroll                                                                                                                                                                                                                        |
+| 9   | `src/components/ui-primitives.tsx` + `src/app/globals.css`              | 499, 2565-2572     | render-blocking, performance-review    | P2  | Default `Skeleton` uses paint-based `background-position` shimmer                                                                                                                                                                                                                                 |
+| 10  | `src/app/globals.css`                                                   | 856-895, 3231-3238 | render-blocking, CLS                   | P3  | Three stacked `backdrop-filter` passes and `theme-transitioning *` transition 6 properties on every element — see the RB-3 UPDATE 2026-09-07: `theme-transitioning` fixed in PR #2653; the other two show no frame loss at shipped size, but re-measure the blur stack before enlarging the scrim |
 
 ---
 
@@ -238,68 +238,164 @@ This audit found no P0/P1 issues.
 - **Existing reference:** `latency-audit-2026-07-28.md` L3-7; `docs/outstanding-issues.md` #016(g).
 - **Recommended fix:** Remove `box-shadow` from the transition list; reduce the stacked blur passes to one where visually acceptable; scope `theme-transitioning` to the elements that actually change instead of the universal selector.
 
-**UPDATE 2026-09-07 — measured in Chromium; one sub-item was real, two are not defects and must not be actioned.**
+**UPDATE 2026-09-07 — measured. One sub-item was real and is fixed; the other two show no problem at
+the shipped size, but the first version of this update overstated that as "no cost" and has been
+corrected after review.**
 
-This finding was recorded by a static, code-only pass and explicitly deferred its own
-verification ("Measurement needed: Chrome DevTools Performance recording during scroll, hover, and
-theme toggle"). That measurement has now been taken, and it splits the finding three ways. The
-line numbers above are stale; current locations are given below and were re-checked against
-`origin/main` at `0177bed`.
+This finding was recorded by a static, code-only pass and explicitly deferred its own verification
+("Measurement needed: Chrome DevTools Performance recording during scroll, hover, and theme
+toggle"). That measurement has now been taken. The line numbers in the finding above are stale;
+current locations were re-checked against `origin/main` at `0177bed` and are given below.
 
-**Measurement conditions, so the numbers are read for what they are.** Headless Chromium **1194**
-(this container's build, against the repo's pinned 1234 — the #255 drift) driving the **dev**
-server at 1440x900 on cloud hardware, three runs per condition, sampling every
-`requestAnimationFrame`. Absolute frame times are therefore not a production figure and no
-production claim is made from them. What the method does support is the **relative** comparison,
-which is what both closures rest on: identical page, identical hardware, one property changed
-between conditions. A dev build is the slower case, so it biases _towards_ exposing a paint cost —
-and none appeared. A production-build or real-device run would only widen the margin. Anyone
-re-opening these should reproduce the tables below rather than a code read.
+**Measurement conditions.** Headless Chromium **1194** (this container's build, against the repo's
+pinned 1234 — the #255 drift) driving the **dev** server at 1440x900, three runs per condition,
+sampling every `requestAnimationFrame`. The GPU string is
+`ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)` — **software
+rasterisation, no hardware GPU.** That matters in both directions: it is a conservative proxy for a
+slow device, but it is not how a real GPU schedules a `backdrop-filter`, so nothing here transfers
+to WebKit or to hardware compositing without re-measurement.
 
-- **`html.theme-transitioning *` — REAL, and worse than P3. FIXED** in PR #2653 (`globals.css`
-  now at 5024-5062). The universal selector started a colour transition on every node at once:
-  1226 concurrently running animations, after which the page went **546 ms without presenting a
-  frame** (rAF samples at 313 ms and 859 ms, nothing between). The frame surviving that stall was
-  painted half in each theme — light header band and light sidebar chrome over dark panels, with
-  headings still at the light-theme ink colour — which is what a user saw on every theme switch.
-  The class now suppresses transitions rather than adding them: 0 animations, every surface
-  correct on the first frame, frames every 17-65 ms. This sub-item's severity was mis-rated here;
-  "user-triggered" is what made it visible, not what made it tolerable.
+**Method limit, and why the first conclusion was wrong.** `requestAnimationFrame` deltas are
+vsync-capped at ~16.7 ms. A condition that finishes early is indistinguishable from one that
+finishes just inside the budget, so frame timing alone can only prove _frames were not dropped_ — it
+cannot prove _no cost_. The original version of this update read the flat 60 Hz numbers as "the two
+extra passes cannot be costing anything worth reclaiming", which the method does not support. That
+was caught in review on PR #2723 and is corrected here. The workload was then amplified to force the
+cost above the vsync floor.
 
-- **Three stacked `backdrop-filter` passes (`globals.css` 1382-1421) — NOT a defect. Do not
-  flatten.** Measured over a 4 s continuous scroll at 1440x900, three runs per condition, with a
-  high-contrast striped filler behind the scrim:
+- **`html.theme-transitioning *` — REAL, worse than its P3 rating. FIXED** in PR #2653 (`globals.css`
+  now at 5024-5062). 1226 concurrently running animations, after which the page went **546 ms
+  without presenting a frame** (rAF samples at 313 ms and 859 ms, nothing between). The frame
+  surviving that stall was painted half in each theme — light header band and light sidebar chrome
+  over dark panels, headings still at the light-theme ink colour — which is what a user saw on every
+  theme switch. The class now suppresses transitions rather than adding them: 0 animations, every
+  surface correct on the first frame, frames every 17-65 ms. This sub-item's severity was mis-rated
+  in the original finding; "user-triggered" is what made it visible, not what made it tolerable.
 
-  | Condition                      | mean frame (ms)   | p95 (ms)       | frames > 32 ms |
-  | ------------------------------ | ----------------- | -------------- | -------------- |
-  | Three passes (current)         | 17.06/16.81/16.83 | 17.2/17.4/17.2 | 4/3/3          |
-  | One pass (pseudo-elements off) | 16.79/16.70/16.79 | 16.9/16.9/17.2 | 3/3/5          |
-  | No blur at all                 | 16.82/16.75/16.76 | 16.9/17.0/16.9 | 3/3/3          |
+- **Three stacked `backdrop-filter` passes (`globals.css` 1382-1421) — the cost is real and scales
+  sharply with scrim area, but at the shipped size it drops no frames even under software
+  rasterisation.** Scrim height was scaled while holding everything else fixed (masks removed so
+  the whole area blurs), 4 s continuous scroll, two runs per condition, mean / p95 in ms:
 
-  Removing the blur **entirely** does not move any of these numbers out of run-to-run noise, so
-  the two extra passes cannot be costing anything worth reclaiming. They are also not redundant:
-  the scrim is a deliberate progressive blur, and dropping the two pseudo-element passes changes
-  35.59% of the scrim's pixels (max channel-sum delta 39/765). It is a visible design change with
-  no measured gain. Note also that the whole scrim is `display: none` below 640 px, so this was
-  never a phone cost.
+  | Scrim height        | Three passes (shipped)        | One pass                    | No blur                     |
+  | ------------------- | ----------------------------- | --------------------------- | --------------------------- |
+  | 104 px (as shipped) | 16.90/16.94 · p95 16.9/17.5   | 16.70/16.85 · p95 16.9/17.0 | 16.86/16.75 · p95 16.9/17.0 |
+  | 416 px (x4)         | 19.43/19.77 · p95 42.4/53.3   | 17.01/17.08 · p95 18.2/18.2 | 16.67/16.75 · p95 16.9/16.9 |
+  | 832 px (x8)         | 75.99/77.36 · p95 114.5/111.3 | 18.61/19.52 · p95 32.8/32.1 | 16.83/16.88 · p95 16.9/16.9 |
+
+  Read this carefully, because it says two different things. The three-pass stack is **not** free —
+  by x8 it is roughly four times the frame budget and an order of magnitude worse than a single
+  pass, so the passes are genuinely expensive per unit area. But at the **shipped** 104 px the cost
+  sits below what this method can resolve and drops no frames, on a software rasteriser that is
+  slower than any GPU a user will have. No sub-frame figure is quoted for the shipped size, because
+  none was measured; extrapolating down from x4 would be arithmetic, not evidence.
+
+  **What this does and does not license.** It does not license "free". It does not cover 120 Hz
+  displays (an 8.3 ms budget, which this method cannot resolve at x1), WebKit, or hardware
+  compositing. What it does support: at the size actually shipped, on a conservative renderer, there
+  is no observed frame loss — so there is no measured performance problem to fix, and flattening the
+  stack on performance grounds is not currently justified. Flattening is also a visible design
+  change: dropping the two pseudo-element passes alters 35.59% of the scrim's pixels (max
+  channel-sum delta 39/765) in a deliberate progressive blur. The scrim is `display: none` below
+  640 px, so none of this was ever a phone cost.
+
+  **The actionable finding is the area sensitivity.** Scrim height is
+  `max(6.5rem, safe-area-top + 5.5rem)`. Anyone who enlarges it, raises the blur radii, or reuses
+  this three-pass recipe on a taller surface must re-measure — the x4 and x8 rows show the cost
+  climbing superlinearly, and that is the failure mode to watch, not the current 104 px.
 
   A backdrop-root hypothesis was tested and **refuted**: `.edge-glass-header` carries
   `isolation: isolate`, but the passes are not inert — disabling the blur changes 47.50% of scrim
   pixels (max delta 321). The authoring rule above the block holds as written.
 
-- **`box-shadow` in the `.answer-footer-search-pill` transition (`globals.css` 1344-1358) — NOT a
-  defect. Do not remove.** Toggling the real `.answer-footer-search-pill-open` state every 200 ms
-  for 4 s, three runs per condition: mean 16.62/16.66/16.62 ms with `box-shadow` in the transition
-  list versus 16.65/16.67/16.67 ms without it, and **zero** frames over 32 ms in either condition.
-  The property is not decorative dead weight either — `:hover`, `:focus-within` and
+- **`box-shadow` in the `.answer-footer-search-pill` transition (`globals.css` 1344-1358) — no
+  observed frame loss, and removing it would cost interaction quality.** Toggling the real
+  `.answer-footer-search-pill-open` state every 200 ms for 4 s, three runs per condition: mean
+  16.62/16.66/16.62 ms with `box-shadow` in the transition list versus 16.65/16.67/16.67 ms without,
+  and **zero** frames over 32 ms in either. The same vsync caveat applies — this shows no dropped
+  frames, not zero cost — but the element is one small pill animating only on hover/focus, so the
+  area sensitivity above does not bite. It is also not dead weight: `:hover`, `:focus-within` and
   `-open` each set a different `box-shadow`, so removing it from the transition list makes the
-  composer's focus ring and elevation snap. That is an interaction regression bought for no
-  measurable frame-time gain.
+  composer's focus ring and elevation snap. That is a certain interaction regression against an
+  unmeasured and probably negligible gain.
 
-**Revised recommendation:** the `theme-transitioning` half is done. Close the other two. Anyone
-re-opening them should reproduce the table above first, on a real target device rather than a
-code read.
+**Revised recommendation.** The `theme-transitioning` half is done. The other two need no change
+_at their current size and usage_, and the remediation row for them is withdrawn — but this is
+"no measured problem here", not "proven free". Re-measure before enlarging the scrim, before
+targeting high-refresh displays, and on WebKit.
 
+#### RB-3 benchmark harness (retained so the tables above are reproducible)
+
+Both probes drive `npm run ensure` at 1440x900 and use the container's Chromium directly. Re-run
+them before disputing or citing any figure above.
+
+```js
+// Area-scaling probe for the blur stack (the table above).
+// node probe.mjs   — requires playwright from node_modules and a running dev server.
+import { chromium } from "./node_modules/playwright/index.mjs";
+const CHROME = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const OFF_2 =
+  ".edge-glass-header-backdrop::before,.edge-glass-header-backdrop::after{backdrop-filter:none !important;}";
+const OFF_3 =
+  ".edge-glass-header-backdrop,.edge-glass-header-backdrop::before,.edge-glass-header-backdrop::after{backdrop-filter:none !important;}";
+
+async function run(passes, amplify) {
+  const b = await chromium.launch({ executablePath: CHROME });
+  const p = await (await b.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "light" })).newPage();
+  await p.goto("http://localhost:4598", { waitUntil: "domcontentloaded" });
+  await p.waitForTimeout(2500);
+  if (passes === 1) await p.addStyleTag({ content: OFF_2 });
+  if (passes === 0) await p.addStyleTag({ content: OFF_3 });
+  // Masks off so the whole amplified area actually blurs.
+  await p.addStyleTag({
+    content: `.edge-glass-header-backdrop{height:${104 * amplify}px !important;mask-image:none !important;-webkit-mask-image:none !important;}`,
+  });
+  await p.evaluate(() => {
+    const f = document.createElement("div");
+    f.style.cssText = "height:6000px;background:repeating-linear-gradient(180deg,#111 0 8px,#eee 8px 16px);";
+    document.body.appendChild(f);
+  });
+  await p.waitForTimeout(400);
+  const r = await p.evaluate(async () => {
+    const frames = [];
+    let last = performance.now();
+    const t0 = last;
+    await new Promise((resolve) => {
+      const tick = () => {
+        const now = performance.now();
+        frames.push(now - last);
+        last = now;
+        window.scrollBy(0, 10);
+        if (now - t0 < 4000) requestAnimationFrame(tick);
+        else resolve();
+      };
+      requestAnimationFrame(tick);
+    });
+    frames.shift();
+    const s = [...frames].sort((a, c) => a - c);
+    return {
+      mean: +(frames.reduce((a, c) => a + c, 0) / frames.length).toFixed(2),
+      p95: +s[Math.floor(s.length * 0.95)].toFixed(2),
+    };
+  });
+  await b.close();
+  return r;
+}
+
+for (const amplify of [1, 4, 8]) {
+  const out = [];
+  for (const passes of [3, 1, 0]) {
+    const runs = [await run(passes, amplify), await run(passes, amplify)];
+    out.push(`${passes}pass mean=${runs.map((r) => r.mean).join("/")} p95=${runs.map((r) => r.p95).join("/")}`);
+  }
+  console.log(`scrim x${amplify} (${104 * amplify}px): ` + out.join(" | "));
+}
+```
+
+The pixel-difference figures (35.59% / 47.50%) come from screenshotting the same 1000x150 region
+with the passes on, with only the two pseudo-element passes disabled, and with all blur disabled,
+then comparing with Pillow's `ImageChops.difference`. The `box-shadow` probe is the same frame
+sampler with the scroll replaced by a 200 ms toggle of `.answer-footer-search-pill-open`.
 ---
 
 ### 4.6 `lazy-loading`
@@ -426,24 +522,24 @@ This audit is complementary to `docs/audit/latency-audit-2026-07-28.md` and `doc
 
 ## 7. Recommended fix backlog
 
-| #   | File(s)                                                                                                 | Skill                                 | Sev | Recommended fix                                                                                                                                                                            | Effort | Measurement needed                              |
-| --- | ------------------------------------------------------------------------------------------------------- | ------------------------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ----------------------------------------------- |
-| 1   | `use-phone-overlay-chrome-reserve.ts`                                                                   | CLS                                   | P2  | Remove the immediate `sync()` call; let `ResizeObserver` be the first writer, or defer the first publish until the stack settles                                                           | Small  | `npm run verify:phone-chrome`                   |
-| 2   | `shared-search-app-shell.tsx`                                                                           | performance-review                    | P2  | `next/dynamic` the `TherapyCompassWorkspace` import with `ssr: false` and a `LoadingPanel` fallback                                                                                        | Small  | `npm run build:analyze` before/after            |
-| 3   | `use-therapy-data.ts` + therapy routes                                                                  | performance-review                    | P2  | SSR the minimal `therapies-home.json` catalogue; defer full/index loads to user interaction                                                                                                | Medium | Lighthouse on `/therapy-compass` cold load      |
-| 4   | `src/app/layout.tsx`                                                                                    | render-blocking                       | P2  | Investigate PPR or a static nonce strategy so clinical catalogues can be statically generated                                                                                              | Medium | `next build` route table (`○` vs `ƒ`)           |
-| 5   | `use-app-preferences.ts`                                                                                | performance-review                    | P2  | Parallelize GET and conditional PUT where safe, or precompute bootstrap need                                                                                                               | Small  | DevTools Network waterfall                      |
-| 6   | `ClinicalDashboard.tsx`                                                                                 | performance-review                    | P2  | Start `setup-status` and initial data fetches in parallel once identity is known                                                                                                           | Medium | DevTools Network waterfall                      |
-| 7   | `non-pdf-source-preview.tsx`                                                                            | LCP, lazy-loading, image-optimization | P2  | Make `loading` conditional on `aboveFold`; add explicit `width`/`height`; add `decoding="async"`                                                                                           | Small  | Lighthouse LCP/CLS on document source pages     |
-| 8   | `use-viewer-gestures.ts`                                                                                | INP                                   | P2  | Attach non-passive wheel listener only when unmodified wheel zoom is active; otherwise keep the default passive scroll path                                                                | Small  | DevTools Performance/INP during PDF wheel/pinch |
-| 9   | `ui-primitives.tsx` + `globals.css`                                                                     | render-blocking, performance-review   | P2  | Switch default `Skeleton` to `animate-skeleton-shimmer`; remove paint-based `shimmer` keyframe                                                                                             | Small  | DevTools Performance with many skeletons        |
-| 10  | `image-lightbox.tsx`, `pwa-lifecycle.tsx`                                                               | image-optimization                    | P3  | Add `decoding="async"`                                                                                                                                                                     | Tiny   | n/a                                             |
-| 11  | `public/demo-documents/*.png`                                                                           | image-optimization                    | P3  | Convert to WebP/AVIF with PNG fallback                                                                                                                                                     | Small  | File-size comparison                            |
-| 12  | `globals.css`                                                                                           | render-blocking, CLS                  | P3  | SUPERSEDED by the RB-3 UPDATE 2026-09-07 — `theme-transitioning` fixed (PR #2653); do NOT remove the pill `box-shadow` transition or flatten the blur passes, both measured as non-defects | Done   | Measured; see RB-3                              |
-| 13  | `ClinicalDashboard.tsx`, `pdf-canvas-viewer.tsx`, `master-search-header.tsx`, `focus-composer-input.ts` | INP                                   | P3  | Replace non-critical `setTimeout` with `requestIdleCallback`/`requestAnimationFrame` or yield scheduler                                                                                    | Medium | DevTools INP trace                              |
-| 14  | `signed-image.tsx`                                                                                      | LCP                                   | P3  | Add optional `priority` prop for above-fold evidence images                                                                                                                                | Small  | Lighthouse LCP on answer pages                  |
-| 15  | `lighthouse-budget.json`                                                                                | performance-review                    | P3  | Establish a baseline and set `enforce: true`                                                                                                                                               | Small  | `npm run check:lighthouse-budget -- --update`   |
-| 16  | `lib/medication-snapshot.ts` etc.                                                                       | performance-review                    | P3  | Lazy-load or fetch large snapshot JSON on first use                                                                                                                                        | Medium | Cold-start memory/time measurement              |
+| #   | File(s)                                                                                                 | Skill                                 | Sev | Recommended fix                                                                                                                                                                                                                                              | Effort | Measurement needed                              |
+| --- | ------------------------------------------------------------------------------------------------------- | ------------------------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ----------------------------------------------- |
+| 1   | `use-phone-overlay-chrome-reserve.ts`                                                                   | CLS                                   | P2  | Remove the immediate `sync()` call; let `ResizeObserver` be the first writer, or defer the first publish until the stack settles                                                                                                                             | Small  | `npm run verify:phone-chrome`                   |
+| 2   | `shared-search-app-shell.tsx`                                                                           | performance-review                    | P2  | `next/dynamic` the `TherapyCompassWorkspace` import with `ssr: false` and a `LoadingPanel` fallback                                                                                                                                                          | Small  | `npm run build:analyze` before/after            |
+| 3   | `use-therapy-data.ts` + therapy routes                                                                  | performance-review                    | P2  | SSR the minimal `therapies-home.json` catalogue; defer full/index loads to user interaction                                                                                                                                                                  | Medium | Lighthouse on `/therapy-compass` cold load      |
+| 4   | `src/app/layout.tsx`                                                                                    | render-blocking                       | P2  | Investigate PPR or a static nonce strategy so clinical catalogues can be statically generated                                                                                                                                                                | Medium | `next build` route table (`○` vs `ƒ`)           |
+| 5   | `use-app-preferences.ts`                                                                                | performance-review                    | P2  | Parallelize GET and conditional PUT where safe, or precompute bootstrap need                                                                                                                                                                                 | Small  | DevTools Network waterfall                      |
+| 6   | `ClinicalDashboard.tsx`                                                                                 | performance-review                    | P2  | Start `setup-status` and initial data fetches in parallel once identity is known                                                                                                                                                                             | Medium | DevTools Network waterfall                      |
+| 7   | `non-pdf-source-preview.tsx`                                                                            | LCP, lazy-loading, image-optimization | P2  | Make `loading` conditional on `aboveFold`; add explicit `width`/`height`; add `decoding="async"`                                                                                                                                                             | Small  | Lighthouse LCP/CLS on document source pages     |
+| 8   | `use-viewer-gestures.ts`                                                                                | INP                                   | P2  | Attach non-passive wheel listener only when unmodified wheel zoom is active; otherwise keep the default passive scroll path                                                                                                                                  | Small  | DevTools Performance/INP during PDF wheel/pinch |
+| 9   | `ui-primitives.tsx` + `globals.css`                                                                     | render-blocking, performance-review   | P2  | Switch default `Skeleton` to `animate-skeleton-shimmer`; remove paint-based `shimmer` keyframe                                                                                                                                                               | Small  | DevTools Performance with many skeletons        |
+| 10  | `image-lightbox.tsx`, `pwa-lifecycle.tsx`                                                               | image-optimization                    | P3  | Add `decoding="async"`                                                                                                                                                                                                                                       | Tiny   | n/a                                             |
+| 11  | `public/demo-documents/*.png`                                                                           | image-optimization                    | P3  | Convert to WebP/AVIF with PNG fallback                                                                                                                                                                                                                       | Small  | File-size comparison                            |
+| 12  | `globals.css`                                                                                           | render-blocking, CLS                  | P3  | SUPERSEDED by the RB-3 UPDATE 2026-09-07 — `theme-transitioning` fixed (PR #2653); no change needed to the pill `box-shadow` transition or the blur stack at their shipped size, but the blur cost scales with scrim area, so re-measure before enlarging it | Done   | Measured; harness retained in RB-3              |
+| 13  | `ClinicalDashboard.tsx`, `pdf-canvas-viewer.tsx`, `master-search-header.tsx`, `focus-composer-input.ts` | INP                                   | P3  | Replace non-critical `setTimeout` with `requestIdleCallback`/`requestAnimationFrame` or yield scheduler                                                                                                                                                      | Medium | DevTools INP trace                              |
+| 14  | `signed-image.tsx`                                                                                      | LCP                                   | P3  | Add optional `priority` prop for above-fold evidence images                                                                                                                                                                                                  | Small  | Lighthouse LCP on answer pages                  |
+| 15  | `lighthouse-budget.json`                                                                                | performance-review                    | P3  | Establish a baseline and set `enforce: true`                                                                                                                                                                                                                 | Small  | `npm run check:lighthouse-budget -- --update`   |
+| 16  | `lib/medication-snapshot.ts` etc.                                                                       | performance-review                    | P3  | Lazy-load or fetch large snapshot JSON on first use                                                                                                                                                                                                          | Medium | Cold-start memory/time measurement              |
 
 ---
 
