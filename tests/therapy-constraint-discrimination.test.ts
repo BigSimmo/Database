@@ -21,27 +21,47 @@ const therapies = therapiesSource as unknown as Therapy[];
 /** Formats that can be delivered inside a single short contact. */
 const BRIEF_CAPABLE_SESSION_LENGTHS = new Set(["5-minute intervention", "Micro skill", "Single session"]);
 
+/**
+ * A therapy can be both a multi-session course AND deliverable as a brief
+ * intervention, so `sessionLength` alone produces false negatives for the
+ * dual-format case. Motivational Interviewing for Substance Use Disorders is
+ * exactly that: `sessionLength: "Multi-session"`, while its `timeRequired`
+ * states it "may be delivered as a brief intervention, extended brief
+ * intervention, or part of a broader treatment package", citing NICE and SAMHSA.
+ *
+ * The phrase test stays narrow on purpose. Across the catalogue it matches
+ * `timeRequired` on three records and none of them negate it, so it does not
+ * sweep in therapies that merely describe a short course — `telephone-delivered-cbt`
+ * ("up to 4 weekly or fortnightly sessions") and `child-cbt` ("8-12 sessions of
+ * 45 minutes") both stay excluded, which is correct.
+ */
+const BRIEF_PHRASE = /\bbrief intervention/i;
+const BRIEF_PHRASE_NEGATED = /\b(?:not|never|rather than|insufficient|unsuitable)[^.]{0,60}\bbrief intervention/i;
+
+function briefCapable(therapy: Therapy): boolean {
+  if (BRIEF_CAPABLE_SESSION_LENGTHS.has((therapy.sessionLength ?? "").trim())) return true;
+  const timeRequired = therapy.timeRequired ?? "";
+  return BRIEF_PHRASE.test(timeRequired) && !BRIEF_PHRASE_NEGATED.test(timeRequired);
+}
+
 describe("Recommend constraint chips discriminate between records", () => {
   it("has a non-empty catalogue to test against (premise)", () => {
     expect(therapies.length).toBeGreaterThan(0);
   });
 
-  it("derives briefInterventionAvailable from sessionLength on every record", () => {
+  it("derives briefInterventionAvailable from each record's own evidence", () => {
     const mismatched = therapies
-      .filter(
-        (therapy) =>
-          therapy.briefInterventionAvailable !==
-          BRIEF_CAPABLE_SESSION_LENGTHS.has((therapy.sessionLength ?? "").trim()),
-      )
+      .filter((therapy) => therapy.briefInterventionAvailable !== briefCapable(therapy))
       .map((therapy) => `${therapy.slug} (sessionLength=${therapy.sessionLength ?? "null"})`);
 
     expect(mismatched).toEqual([]);
   });
 
-  it("never claims a brief intervention for a multi-session or group programme", () => {
+  it("never claims a brief intervention for a multi-session or group programme without stated evidence", () => {
     const overclaiming = therapies
       .filter((therapy) => therapy.briefInterventionAvailable)
       .filter((therapy) => /multi-session|group programme/i.test(therapy.sessionLength ?? ""))
+      .filter((therapy) => !BRIEF_PHRASE.test(therapy.timeRequired ?? ""))
       .map((therapy) => therapy.slug);
 
     expect(overclaiming).toEqual([]);

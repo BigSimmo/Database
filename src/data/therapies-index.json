@@ -2439,7 +2439,7 @@
     "indications": "Best used at engagement, assessment, early treatment, and whenever motivation is unstable. It is especially useful for alcohol misuse, broader substance use disorders, and patients who are reluctant, unsure, or inconsistent in change efforts. NICE alcohol guidance makes motivational intervention universal at intake, and SAMHSA TIP 35 positions MI as a core SUD treatment approach for enhancing participation and retention. Low readiness to change, ambivalence, poor engagement, defensiveness, minimisation, dropout risk, and weak commitment to treatment goals. NICE states MI-style work should help people recognise problems, resolve ambivalence, and encourage belief in their ability to change, using a persuasive and supportive rather than argumentative stance. Increase readiness for change, improve engagement and retention, support the move into active treatment, and reduce resistance to behaviour change.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": false,
+    "briefInterventionAvailable": true,
     "tags": ["Anxiety", "Psychosis", "Substance use", "Crisis/risk", "CBT", "Multi-session"],
     "aliases": ["MI"]
   },

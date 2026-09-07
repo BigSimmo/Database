@@ -10523,7 +10523,7 @@
     "confidenceLevel": "low",
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": false,
+    "briefInterventionAvailable": true,
     "sourceCompleteness": 100,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
