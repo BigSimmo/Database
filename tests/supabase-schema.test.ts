@@ -432,6 +432,18 @@ describe("Supabase schema Data API grants", () => {
     expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_index_units_hybrid");
   });
 
+  it("keeps the legacy generation quality upsert aligned with its migration", () => {
+    for (const sql of [schema, preserveLegacyArtifactCommitMigration]) {
+      const start = sql.indexOf("create or replace function public.commit_document_index_generation(");
+      expect(start).toBeGreaterThan(-1);
+      const end = sql.indexOf("end; $$;", start);
+      expect(end).toBeGreaterThan(start);
+      const body = sql.slice(start, end);
+      expect(body).toContain("on conflict on constraint document_index_quality_pkey");
+      expect(body).not.toContain("on conflict (document_id)");
+    }
+  });
+
   it("preserves NULL-generation artifacts until replacements exist", () => {
     for (const sql of [preserveLegacyArtifactCommitMigration]) {
       expect(sql).toContain(

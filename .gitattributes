@@ -1,4 +1,9 @@
 * text=auto eol=lf
+*.json text eol=lf
+tests/fixtures/** text eol=lf
+scripts/fixtures/** text eol=lf
+eval/docling/fixtures/** text eol=lf
+worker/python/fixtures/** text eol=lf
 
 *.gif binary
 *.ico binary

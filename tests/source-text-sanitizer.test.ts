@@ -21,6 +21,16 @@ import {
 } from "../src/lib/source-text-sanitizer";
 
 describe("source text sanitizer", () => {
+  it("retains a passive clinical obligation alongside prose when it references an appendix", () => {
+    const recording = "Clinical staff are required to record NOCC data into PSOLIS.";
+    const measures =
+      "Measures will be completed by clinicians in accordance with the requirement of the NOCC protocol identified above and at times identified by Appendix 2.";
+    const result = clinicalProseUsefulness(`${recording} ${measures}`);
+    expect(result.useful).toBe(true);
+    expect(result.text).toBe(`${recording} ${measures}`);
+    expect(clinicalProseUsefulness("NOCC Measures Protocol Appendix 2.").text).toBe("");
+  });
+
   it("normalizePreformattedDisplayText is lossless for document names and codes", () => {
     // Preformatted answers rely on this: it must repair glyphs/whitespace but
     // NOT strip facility codes, all-caps titles, or parenthetical codes.
