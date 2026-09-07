@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BadgeCheck, ChevronRight, ClipboardList, Search, ShieldCheck, Waves, type LucideIcon } from "lucide-react";
 import {
   type MutableRefObject,
@@ -22,6 +23,7 @@ import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favouri
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { ToolLocalSearch } from "@/components/tools/tool-local-search";
 import { ToolQuickActions } from "@/components/tools/tool-quick-actions";
 import { cardPadding, cardSelected, cardSurface, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
@@ -342,10 +344,13 @@ export function ToolsSearchResultsPage({
     () => true,
     () => false,
   );
-  // The route passes its submitted query so hard loads server-render the exact
-  // result set. After hydration the shared composer owns the draft, including
-  // an intentionally cleared value, until the next submitted navigation.
-  const query = hydrated ? (searchCommand?.query ?? initialQuery) : initialQuery;
+  const router = useRouter();
+  // A draft typed into this page's own filter box wins over everything else, the way
+  // it did on the retired hub. Below that: the route's submitted query so hard loads
+  // server-render the exact result set, and after hydration the shared command draft,
+  // including an intentionally cleared value, until the next submitted navigation.
+  const [localQuery, setLocalQuery] = useState<string | null>(null);
+  const query = localQuery ?? (hydrated ? (searchCommand?.query ?? initialQuery) : initialQuery);
   const filterPanelId = useId();
   const [activeFilter, setActiveFilter] = useState<FilterId>("all");
   const [filterOpen, setFilterOpen] = useState(false);
@@ -442,6 +447,18 @@ export function ToolsSearchResultsPage({
     if (tool) openTool(tool);
   }
 
+  // Submitting is a navigation, not a local state change, so the result set is
+  // shareable and survives reload. An empty box opens the first visible tool
+  // instead, which is what the hub's submit control did.
+  function submitLocalSearch() {
+    const submittedQuery = query.trim();
+    if (submittedQuery) {
+      router.push(`/tools?q=${encodeURIComponent(submittedQuery)}&run=1`);
+      return;
+    }
+    if (filteredTools[0]) openTool(filteredTools[0]);
+  }
+
   function openTool(tool: ToolCatalogRecord, opener?: HTMLElement | null) {
     setSelectedId(tool.id);
     setOpenSection(null);
@@ -478,6 +495,12 @@ export function ToolsSearchResultsPage({
               fixed way in, so a query or category filter must not empty the row. Hidden
               once a query is running, where the ranked results are the answer and a
               static row above them is just noise. */}
+          <ToolLocalSearch
+            value={query}
+            onChange={setLocalQuery}
+            onSubmit={submitLocalSearch}
+            className="mb-4 w-full"
+          />
           {query.trim() ? null : (
             <div className="mb-4" data-testid="tools-shortcuts">
               <div className="hidden sm:block">

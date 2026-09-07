@@ -536,7 +536,10 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     );
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
-    await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
+    // The route owns its filtering, so it has its own in-flow box and no shared
+    // composer. This box came here from the retired `/?mode=tools` hub, which was
+    // the only place a tools search could be typed until that alias redirected.
+    await expect(page.getByTestId("tools-local-search-input")).toBeVisible();
 
     const categories = results.getByRole("radiogroup", { name: "Tool category" });
     await categories.getByRole("radio", { name: /Treat/ }).click();
@@ -1332,7 +1335,7 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
-    await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
+    await expect(page.getByTestId("tools-local-search-input")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
