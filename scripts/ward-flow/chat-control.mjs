@@ -13,6 +13,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   existsSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -21,6 +22,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { homedir, hostname, tmpdir } from "node:os";
@@ -365,22 +367,44 @@ function withLeaseAcquisitionLock(root, action) {
     token: randomUUID(),
   };
   mkdirSync(directory, { recursive: true });
+  // The lock is published by hard-linking a fully written temp file into place, never by
+  // `writeFileSync(..., flag: "wx")`. `wx` creates the lock file EMPTY and only then writes its
+  // bytes, so a second process could win the EEXIST race, read the lock mid-creation, and see an
+  // empty string — which parsed as corruption and aborted with "lease acquisition lock is
+  // unreadable" even though nothing was wrong. `link()` is atomic and fails with EEXIST when the
+  // target exists, so the lock file only ever becomes visible with its complete contents; an
+  // unreadable lock now means genuine corruption, and still fails loudly rather than being
+  // deleted. (Observed as a CI-only flake in `Unit coverage`, 2026-09-06.)
+  const stagedPath = path.join(directory, `acquire.lock.${owner.token}.staged.json`);
+  writeFileSync(stagedPath, canonicalJson(owner), { encoding: "utf8", flag: "wx" });
   let acquired = false;
   let observedOwner = null;
-  for (let attempt = 0; attempt < 200 && !acquired; attempt += 1) {
-    try {
-      writeFileSync(lockPath, canonicalJson(owner), { encoding: "utf8", flag: "wx" });
-      acquired = true;
-    } catch (error) {
-      if (error?.code !== "EEXIST") throw error;
-      let existing;
+  try {
+    for (let attempt = 0; attempt < 200 && !acquired; attempt += 1) {
       try {
-        existing = JSON.parse(readFileSync(lockPath, "utf8"));
-        observedOwner = existing;
-      } catch {
-        fail(`lease acquisition lock is unreadable at ${lockPath}; inspect it rather than bypassing custody`);
+        linkSync(stagedPath, lockPath);
+        acquired = true;
+      } catch (error) {
+        if (error?.code !== "EEXIST") throw error;
+        try {
+          observedOwner = JSON.parse(readFileSync(lockPath, "utf8"));
+        } catch (readError) {
+          // ENOENT means the incumbent released the lock between our failed `link` and this read.
+          // Nothing holds it, so the honest response is to retry the loop — aborting here would
+          // report corruption for an ordinary, correct handoff. Any other read/parse error is
+          // genuine corruption and still fails loudly; the lock is never deleted to clear it.
+          if (readError?.code !== "ENOENT") {
+            fail(`lease acquisition lock is unreadable at ${lockPath}; inspect it rather than bypassing custody`);
+          }
+        }
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
       }
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+    }
+  } finally {
+    try {
+      unlinkSync(stagedPath);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
     }
   }
   if (!acquired) {
