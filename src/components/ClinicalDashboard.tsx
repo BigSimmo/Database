@@ -3319,25 +3319,13 @@ function ClinicalDashboardContent({
             setQuery("");
             if (answer) return;
             setModeSearchSubmitted(false);
-            // Clearing the box has to clear the URL too. `showSharedHome` reads
-            // `run=1` straight off the URL (`submittedUrlRunRequested`), so emptying
-            // only the React state left the dashboard in a state neither source
-            // describes: the shared home stayed suppressed while the mode branch,
-            // now seeing no query, fell back to the retired home its route was
-            // consolidated away from. Measured on a running build before this fix —
-            // clearing on `/?mode=prescribing&q=…&run=1` rendered `medication-home`,
-            // and on `/documents/search?q=…&run=1` rendered
-            // `document-search-empty-state`, both of which their own page stubs
-            // describe as retired.
-            //
-            // `appModeSelectionHref`, not `appModeHomeHref`: every mode reaching this
-            // handler is dashboard-owned, so its home IS the shared home at `/`.
-            // `appModeHomeHref("prescribing")` still answers `/medications`, which only
-            // 307s back here, and `/documents/search` must leave its own route entirely.
-            //
-            // The `answer` guard above is the pre-existing one and is load-bearing: a
-            // generated answer is durable state the URL does not own, and the clear
-            // button is not a "discard this answer" control.
+            // Clear the URL too, or `showSharedHome` (which reads `run=1` off the URL)
+            // stays suppressed while the mode branch, now query-less, falls back to the
+            // retired home its route was consolidated away from — `medication-home` and
+            // `document-search-empty-state`, both pinned by browser cases.
+            // `appModeSelectionHref`, not `appModeHomeHref`: these modes are all
+            // dashboard-owned, and `appModeHomeHref("prescribing")` answers
+            // `/medications`, which only 307s back here.
             if (submittedUrlRunRequested) {
               router.replace(appModeSelectionHref(searchMode, { focus: true, queryMode, scopeFilters }), {
                 scroll: false,
