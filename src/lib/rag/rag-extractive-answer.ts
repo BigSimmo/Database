@@ -1314,7 +1314,13 @@ function withTerminalPunctuation(value: string | null | undefined) {
 }
 
 /** Extract clinical facts from results. */
-function extractClinicalFactsFromResults(results: SearchResult[], query: string, intent: AnswerIntent, limit = 8) {
+function extractClinicalFactsFromResults(
+  results: SearchResult[],
+  query: string,
+  intent: AnswerIntent,
+  limit = 8,
+  sourceProseOnly = false,
+) {
   const seen = new Set<string>();
   const facts: ExtractedClinicalFact[] = [];
   const usableResults = results.filter((result) => resultCoversAnswerIntent(result, query, intent));
@@ -1324,7 +1330,7 @@ function extractClinicalFactsFromResults(results: SearchResult[], query: string,
     const referencesConflictingBand = (text: string) =>
       sourceLabelledNumericBandConflictsAffectingText(result, text, query).length > 0 ||
       textReferencesAdjacentBandConflict(text, result.id, adjacentBandConflicts, query);
-    for (const fact of tableFactsToClinicalFacts(result, query, intent)) {
+    for (const fact of sourceProseOnly ? [] : tableFactsToClinicalFacts(result, query, intent)) {
       if (referencesConflictingBand(fact.text)) continue;
       const key = `${fact.kind}:${normalizeSectionText(fact.text).toLowerCase().slice(0, 160)}`;
       if (seen.has(key)) continue;
@@ -1363,7 +1369,29 @@ function extractClinicalFactsFromResults(results: SearchResult[], query: string,
     ]
       .filter(Boolean)
       .join("\n");
-    for (const sentence of splitClinicalEvidenceSentences(text)) {
+    // A rejected heading-led answer may still have complete prose in its source chunks.
+    // Recover only within source blocks, without synopsis/heading/card text or table facts.
+    const sentences = sourceProseOnly
+      ? reflowBoundedSourceLines(
+          sourceTextForClinicalProsePreservingBreaks(result.content ?? "").replace(
+            // The captured NOCC proper name wraps onto a capitalized continuation.
+            // Join only that name; other capitalized rows remain hard boundaries.
+            /\bNational Outcome[ \t]*\n[ \t]*Case Mix Collection \(NOCC\)/g,
+            "National Outcome Case Mix Collection (NOCC)",
+          ),
+          { requireContinuationStart: true },
+        )
+          .flatMap(splitClinicalEvidenceSentences)
+          .filter(
+            (sentence) =>
+              sentence.length <= 280 &&
+              /[.!?]$/.test(sentence) &&
+              hasCompleteOpeningSentence(sentence) &&
+              !isFragmentLikeClinicalAnswer(sentence, query) &&
+              !guidanceWrapperLayoutDebrisPattern.test(sentence),
+          )
+      : splitClinicalEvidenceSentences(text);
+    for (const sentence of sentences) {
       if (referencesConflictingBand(sentence)) continue;
       if (!factSentenceMatchesQueryFromResult(sentence, result, query, intent)) continue;
       const kind = factKindForSentence(sentence, query, intent);
@@ -2328,7 +2356,15 @@ function buildFactSynthesizedAnswer(args: {
     };
   }
 
-  const facts = extractClinicalFactsFromResults(args.results, args.query, args.intent);
+  let facts = extractClinicalFactsFromResults(args.results, args.query, args.intent);
+  let recoveredSourceProse = false;
+  if (facts.length && isLaunderedGuidanceWrapperAnswer(sentenceFromFact(facts[0], args.query))) {
+    const sourceFacts = extractClinicalFactsFromResults(args.results, args.query, args.intent, 8, true);
+    if (sourceFacts.length) {
+      facts = sourceFacts;
+      recoveredSourceProse = true;
+    }
+  }
   if (!facts.length) {
     const fallbackResults = args.results.filter((result) => !resultContainsProceduralFlowEdgeArtifact(result));
     if (
@@ -2378,6 +2414,7 @@ function buildFactSynthesizedAnswer(args: {
     body: boldHighYieldClinicalText(answer, args.query),
     citationChunkIds: Array.from(new Set(facts.flatMap((fact) => fact.citationChunkIds))),
     answerSections,
+    recoveredSourceProse,
   };
 }
 
@@ -2756,7 +2793,9 @@ export function buildExtractiveAnswer(args: {
     isSourceBoundAdmissionDischargeComparisonQuery(args.query, args.queryClass) &&
     Boolean((naturalAnswer as { preformatted?: boolean }).preformatted) &&
     naturalAnswer.citationChunkIds.length === 2;
+  const recoveredSourceProse = Boolean((naturalAnswer as { recoveredSourceProse?: boolean }).recoveredSourceProse);
   const sourceBoundCitationOnly =
+    recoveredSourceProse ||
     sourceBoundAdmissionDischargeComparison ||
     Boolean((naturalAnswer as { sourceBoundCitationOnly?: boolean }).sourceBoundCitationOnly);
   const supportListCitationResultIds = (naturalAnswer as { supportListCitationResultIds?: string[] })
@@ -2874,7 +2913,7 @@ export function buildExtractiveAnswer(args: {
         : args.conflictsOrGaps;
   if (rebuiltSmartPanel) rebuiltSmartPanel.conflictsOrGaps = conflictsOrGaps;
 
-  return {
+  const candidate = {
     answer: naturalAnswer.answer,
     grounded: hasExtractedAnswer && finalCitations.length > 0,
     confidence: hasExtractedAnswer ? deriveConfidence(results, finalCitations) : "unsupported",
@@ -2885,6 +2924,7 @@ export function buildExtractiveAnswer(args: {
     preformatted: hasExtractedAnswer && Boolean((naturalAnswer as { preformatted?: boolean }).preformatted),
     routingReason: [
       args.routeReason,
+      recoveredSourceProse ? "source_prose_recovery" : null,
       conflictingBandCitationIds.length > 0 ? "numeric_band_conflict_source_withheld" : null,
     ]
       .filter(Boolean)
@@ -2906,6 +2946,7 @@ export function buildExtractiveAnswer(args: {
     indexingQuality: buildIndexingQuality(answerSources, finalMemoryCards),
     scoreExplanations: buildAnswerScoreExplanations(answerSources),
   } satisfies RagAnswer;
+  return recoveredSourceProse ? retainCitedExtractiveFallbackEvidence(candidate) : candidate;
 }
 
 /** Source backed fallback subject. */
