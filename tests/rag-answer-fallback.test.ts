@@ -219,8 +219,18 @@ describe("RAG structured-output fallback", () => {
     // The structured verdict that used to be discarded is now recorded.
     expect(answer.latencyTimings?.answer_retry_reasons).toContain("generation_quality_gate:numeric_faithfulness_gap");
     // The unverified figure never reaches the delivered answer unmarked as verified text.
-    expect(answer.grounded).toBe(true);
+    expect(answer.answer).not.toMatch(/\b(?:250|500)\s*mg\b/i);
+    // Ledger #ZK460W. This assertion read `toBe(true)` until 2026-09-07, which pinned the defect
+    // rather than the behaviour its own comment describes. The route is entered because the
+    // generated answer failed numeric verification, so re-flagging it grounded told the render
+    // policy the opposite of what the gate had just decided: trust resolved high, quote cards
+    // unlocked, and the source-gap warning was suppressed on an answer the pipeline had rejected.
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    // The citations survive: they are what a clinician reads instead of the rejected answer. They
+    // are labelled review-only so nothing renders them as accepted claim support.
     expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.citations.every((citation) => citation.provenance === "review_only")).toBe(true);
   });
 
   it("preserves the initial strong quality verdict when its repair attempt truncates", async () => {
@@ -761,9 +771,18 @@ describe("RAG structured-output fallback", () => {
       new Error("mock provider unavailable"),
     );
 
-    expect(answer.grounded).toBe(true);
-    expect(answer.responseMode).not.toBe("evidence_gap");
-    expect(answer.answer).toContain("admission and discharge medication reconciliation");
+    // Ledger #ZK460W. This case never reached the generic extractive path: the provider fails, the
+    // post-generation claim quality gate fires, and it lands on the source-backed review fallback.
+    // The two assertions that used to stand here — grounded true, and the delivered text containing
+    // "admission and discharge medication reconciliation" — were both satisfied by the defect: the
+    // fallback prose asserted the documents contained relevant guidance on the clinician's own
+    // query, so the echoed query satisfied the content check and the route relabelled itself
+    // grounded. What the test is actually for is the last assertion: a non-requirement comparison
+    // must not be forced into the admission/discharge comparison shape.
+    expect(answer.routingReason).toContain("source_backed_review_fallback");
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.answer).not.toMatch(/contain relevant guidance/i);
     expect(answer.answerSections).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ heading: "Admission evidence" }),
@@ -2331,9 +2350,18 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).toMatch(
       /high_confidence_extractive_retrieval|source_backed_(?:extractive|review)_fallback/,
     );
-    expect(answer.grounded).toBe(true);
+    // Ledger #ZK460W. A document-support fallback points at documents, it does not answer the
+    // question, so it is delivered ungrounded with review-only citations. Before 2026-09-07 this
+    // asserted grounded true, which is what let the review fallback render as a trustworthy answer.
+    // The citations are the point of the route and must survive the honest flags.
+    expect(answer.grounded).toBe(false);
     expect(answer.citations.length).toBeGreaterThan(0);
-    expect(answer.answer).toMatch(/source support|indexed document|supports this query|ECT Procedure/i);
+    expect(answer.citations.every((citation) => citation.provenance === "review_only")).toBe(true);
+    // The pointer says what it is and no longer claims the documents contain guidance on the
+    // query, nor repeats any of the query back.
+    expect(answer.answer).toMatch(/document passages cited below/i);
+    expect(answer.answer).not.toMatch(/contain relevant guidance/i);
+    expect(answer.answer).not.toMatch(/\bECT\b|\bprocedure\b/i);
   });
 
   it("retries template-like dosing-class strong answers with a quality retry before returning", async () => {

@@ -311,6 +311,18 @@ const answerSectionKinds = [
   "verification",
 ] as const satisfies readonly AnswerSectionKind[];
 
+/**
+ * Ledger #ZK460W. The source-backed review fallback is entered BECAUSE the candidate answer
+ * failed its quality gate, so nothing on that route is accepted claim support: the citations are
+ * provenance for a clinician to read for themselves. `answer-render-policy` renders `review_only`
+ * as "Added for source review; not accepted as claim support.", which is the honest label — the
+ * route previously shipped them as `deterministic_support`, rendering as "Deterministically
+ * matched claim support" on an answer the pipeline had just rejected.
+ */
+function asReviewOnlyCitations(citations: readonly Citation[]): Citation[] {
+  return citations.map((citation) => ({ ...citation, provenance: "review_only" as const }));
+}
+
 const answerSectionSupportLevels = [
   "direct",
   "partial",
@@ -2830,10 +2842,18 @@ async function answerQuestionWithScopeUncoalesced(
       const priorRejectedCandidateText = finalizedAnswer.rejectedCandidateText ?? finalizedAnswer.answer;
       finalizedAnswer = finalizeAnswer({
         ...answer,
-        answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
-        grounded: true,
-        confidence: deriveConfidence(answerInputResults, extractiveReviewCitations),
-        citations: extractiveReviewCitations,
+        answer: sourceBackedGenerationTimeoutAnswer(),
+        // Ledger #ZK460W. This branch is entered BECAUSE `!finalizedAnswer.grounded` — the
+        // answer failed its own quality gate. Re-flagging it grounded, with a confidence
+        // re-derived from retrieval similarity alone, told every downstream consumer the
+        // opposite of what the gate had just decided: `deriveTrust` resolved to high, which
+        // unlocked quote cards and suppressed the source-gap warning, and
+        // `assessAndEnforceClaimSupport` ran its high-risk enforcement over claims this route
+        // force-classifies as routine, so it passed vacuously. Staying ungrounded and
+        // unsupported keeps the gate's verdict intact all the way to the clinician.
+        grounded: false,
+        confidence: "unsupported",
+        citations: asReviewOnlyCitations(extractiveReviewCitations),
         modelUsed: null,
         routingMode: "extractive",
         routingReason: reviewRouteReason,
@@ -3879,9 +3899,13 @@ ${qualityRetryInstruction}`
             const reviewPlan = buildCurrentSmartApiPlan("unsupported", reviewRouteReason);
             return {
               ...baseFallbackAnswer,
-              answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
-              grounded: true,
-              confidence: deriveConfidence(generationFallbackResults, baseFallbackAnswer.citations),
+              answer: sourceBackedGenerationTimeoutAnswer(),
+              // Ledger #ZK460W, same defect as the extractive review fallback above. Reached
+              // only when `sourceBackedReviewReason` is set, which includes the extractive
+              // candidate being ungrounded or unsupported — so this route must not upgrade it.
+              grounded: false,
+              confidence: "unsupported",
+              citations: asReviewOnlyCitations(baseFallbackAnswer.citations),
               routingMode: "extractive",
               routingReason: reviewRouteReason,
               queryAnalysis,
@@ -3910,9 +3934,13 @@ ${qualityRetryInstruction}`
         annotateAnswerWithDiagnostics(
           {
             ...baseFallbackAnswer,
-            answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
-            grounded: true,
-            confidence: deriveConfidence(generationFallbackResults, baseFallbackAnswer.citations),
+            answer: sourceBackedGenerationTimeoutAnswer(),
+            // Ledger #ZK460W, same defect again. Reached only on a claim-support high-risk gap
+            // or a material source-governance gap, which are exactly the findings that must
+            // survive to the clinician rather than be overwritten with a grounded verdict.
+            grounded: false,
+            confidence: "unsupported",
+            citations: asReviewOnlyCitations(baseFallbackAnswer.citations),
             modelUsed: null,
             routingMode: "extractive",
             routingReason: reviewRouteReason,
