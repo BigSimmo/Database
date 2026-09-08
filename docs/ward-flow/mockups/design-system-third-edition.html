@@ -1,4 +1,16 @@
 <title>Ward Flow Design System</title>
+<script>
+  /* Runs before the stylesheet: names the page's language, and stamps a remembered Light or Dark
+     choice on the root so the first paint is already in that theme. The control itself is wired
+     at the end of the page. */
+  (function () {
+    document.documentElement.lang = "en-AU";
+    try {
+      var v = localStorage.getItem("ward-flow-design-system-appearance");
+      if (v === "light" || v === "dark") document.documentElement.setAttribute("data-theme", v);
+    } catch (e) {}
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
@@ -16,7 +28,8 @@
      bar and never a fill, teal and plum for the health services, Source Serif 4
      with Source Sans 3 and JetBrains Mono, a canvas with a fall of light, a 3 px
      brand stripe, alpha hairlines, a slate tinted shadow, and toned header and
-     footer strips with inner radii. Every figure and every name is invented.
+     footer strips with inner radii. Every figure is invented. The hospital sites and
+     health services are real WA names.
 
      THE RULES THIS FILE KEEPS, in the order they matter:
 
@@ -126,43 +139,43 @@
   :root {
     color-scheme: light;
 
-    --ground-hi: #ecf0f4;
-    --ground: #e6eaef;
-    --ground-2: #e1e6ec;
+    --ground-hi: #ECF0F4;
+    --ground: #E6EAEF;
+    --ground-2: #E1E6EC;
 
-    --surface: #fdfdfe;
-    --surface-2: #f4f7fa;
-    --sunk: #eef2f6;
+    --surface: #FDFDFE;
+    --surface-2: #F4F7FA;
+    --sunk: #EEF2F6;
 
-    --ink: #161a20;
+    --ink: #161A20;
     --ink-soft: #414953;
-    --muted: #5f6873;
+    --muted: #5F6873;
 
     --line: rgba(22, 30, 40, 0.11);
     --line-strong: rgba(22, 30, 40, 0.26);
 
-    --accent: #2f4c66;
-    --accent-ink: #27405a;
-    --accent-soft: #dfe7f0;
-    --on-accent: #ffffff;
-    --stripe: #2f4c66;
+    --accent: #2F4C66;
+    --accent-ink: #27405A;
+    --accent-soft: #DFE7F0;
+    --on-accent: #FFFFFF;
+    --stripe: #2F4C66;
 
-    --gilt: #7d612a;
-    --gilt-soft: #f1ebdf;
+    --gilt: #7D612A;
+    --gilt-soft: #F1EBDF;
 
     --good: #227550;
-    --good-soft: #e2f0e8;
-    --warn: #886211;
-    --warn-soft: #f6eeda;
+    --good-soft: #E2F0E8;
+    --warn: #825D10;
+    --warn-soft: #F6EEDA;
 
-    --danger: #b03b2e;
-    --danger-soft: #f8e6e2;
+    --danger: #B03B2E;
+    --danger-soft: #F8E6E2;
     --danger-ink: #973121;
 
-    --svc-east: #2f4c66;
-    --svc-north: #6f5f9e;
-    --svc-south: #3f7a80;
-    --svc-wachs: #8c5a3c;
+    --svc-east: #2F4C66;
+    --svc-north: #685A94;
+    --svc-south: #356A70;
+    --svc-wachs: #8C5A3C;
 
     /* Names the rendering script reads. Kept as aliases so the data layer never
        carries a hex of its own. */
@@ -201,43 +214,43 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --ground-hi: #14181d;
-      --ground: #0f1216;
-      --ground-2: #0c0f12;
+      --ground-hi: #14181D;
+      --ground: #0F1216;
+      --ground-2: #0C0F12;
 
-      --surface: #171b21;
-      --surface-2: #1b2026;
-      --sunk: #13171c;
+      --surface: #171B21;
+      --surface-2: #1B2026;
+      --sunk: #13171C;
 
-      --ink: #e8ecf1;
-      --ink-soft: #b2bac5;
-      --muted: #8a929d;
+      --ink: #E8ECF1;
+      --ink-soft: #B2BAC5;
+      --muted: #8A929D;
 
       --line: rgba(255, 255, 255, 0.09);
       --line-strong: rgba(255, 255, 255, 0.21);
 
-      --accent: #a7bcd2;
-      --accent-ink: #bfd0e2;
-      --accent-soft: #1f2a36;
-      --on-accent: #0f1216;
-      --stripe: #3a5a78;
+      --accent: #A7BCD2;
+      --accent-ink: #BFD0E2;
+      --accent-soft: #1F2A36;
+      --on-accent: #0F1216;
+      --stripe: #3A5A78;
 
-      --gilt: #d3b77e;
-      --gilt-soft: #2a251b;
+      --gilt: #D3B77E;
+      --gilt-soft: #2A251B;
 
-      --good: #6fd39b;
-      --good-soft: #15291f;
-      --warn: #e3bc5e;
-      --warn-soft: #2b2415;
+      --good: #6FD39B;
+      --good-soft: #15291F;
+      --warn: #E3BC5E;
+      --warn-soft: #2B2415;
 
-      --danger: #ff8b76;
-      --danger-soft: #33201b;
-      --danger-ink: #ffa08e;
+      --danger: #FF8B76;
+      --danger-soft: #33201B;
+      --danger-ink: #FFA08E;
 
-      --svc-east: #a7bcd2;
-      --svc-north: #b1a2d6;
-      --svc-south: #7fb2b8;
-      --svc-wachs: #d89a78;
+      --svc-east: #A7BCD2;
+      --svc-north: #B1A2D6;
+      --svc-south: #7FB2B8;
+      --svc-wachs: #D89A78;
       --lift: 0 1px 1px rgba(0, 0, 0, 0.4), 0 16px 34px -22px rgba(0, 0, 0, 0.95);
       --hl: rgba(255, 255, 255, 0.06);
       --hl-on-accent: rgba(255, 255, 255, 0.28);
@@ -246,43 +259,43 @@
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --ground-hi: #14181d;
-    --ground: #0f1216;
-    --ground-2: #0c0f12;
+    --ground-hi: #14181D;
+    --ground: #0F1216;
+    --ground-2: #0C0F12;
 
-    --surface: #171b21;
-    --surface-2: #1b2026;
-    --sunk: #13171c;
+    --surface: #171B21;
+    --surface-2: #1B2026;
+    --sunk: #13171C;
 
-    --ink: #e8ecf1;
-    --ink-soft: #b2bac5;
-    --muted: #8a929d;
+    --ink: #E8ECF1;
+    --ink-soft: #B2BAC5;
+    --muted: #8A929D;
 
     --line: rgba(255, 255, 255, 0.09);
     --line-strong: rgba(255, 255, 255, 0.21);
 
-    --accent: #a7bcd2;
-    --accent-ink: #bfd0e2;
-    --accent-soft: #1f2a36;
-    --on-accent: #0f1216;
-    --stripe: #3a5a78;
+    --accent: #A7BCD2;
+    --accent-ink: #BFD0E2;
+    --accent-soft: #1F2A36;
+    --on-accent: #0F1216;
+    --stripe: #3A5A78;
 
-    --gilt: #d3b77e;
-    --gilt-soft: #2a251b;
+    --gilt: #D3B77E;
+    --gilt-soft: #2A251B;
 
-    --good: #6fd39b;
-    --good-soft: #15291f;
-    --warn: #e3bc5e;
-    --warn-soft: #2b2415;
+    --good: #6FD39B;
+    --good-soft: #15291F;
+    --warn: #E3BC5E;
+    --warn-soft: #2B2415;
 
-    --danger: #ff8b76;
-    --danger-soft: #33201b;
-    --danger-ink: #ffa08e;
+    --danger: #FF8B76;
+    --danger-soft: #33201B;
+    --danger-ink: #FFA08E;
 
-    --svc-east: #a7bcd2;
-    --svc-north: #b1a2d6;
-    --svc-south: #7fb2b8;
-    --svc-wachs: #d89a78;
+    --svc-east: #A7BCD2;
+    --svc-north: #B1A2D6;
+    --svc-south: #7FB2B8;
+    --svc-wachs: #D89A78;
     --lift: 0 1px 1px rgba(0, 0, 0, 0.4), 0 16px 34px -22px rgba(0, 0, 0, 0.95);
     --hl: rgba(255, 255, 255, 0.06);
     --hl-on-accent: rgba(255, 255, 255, 0.28);
@@ -290,7 +303,9 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    * {
+    *,
+    *::before,
+    *::after {
       transition: none !important;
       animation: none !important;
     }
@@ -310,7 +325,7 @@
       var(--ground);
     color: var(--ink);
     font-family: var(--body);
-    font-size: 13px;
+    font-size: var(--t-3);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -402,7 +417,10 @@
   .tabBtn:focus-visible,
   .railLink:focus-visible,
   .qList:focus-visible,
-  .tabPane:focus-visible {
+  .tabPane:focus-visible,
+  .diagWrap:focus-visible,
+  .slBody:focus-visible,
+  .edList:focus-visible {
     outline-offset: -2px;
   }
   /* Keyboard readers land on the queue first. Visible only while focused. */
@@ -428,15 +446,24 @@
   .dNode:focus-visible {
     outline: none;
   }
+  /* A focused node changes colour, not only weight: the outline goes to the ink at 2.5px, and a
+     dashed verdict outline is drawn solid while focused so the ring reads as one shape. */
   .dNode:focus-visible rect.body {
-    stroke: var(--accent);
+    stroke: var(--ink);
     stroke-width: 2.5;
+    stroke-dasharray: none;
   }
   .qRow,
   .cand,
   .edCard,
   .tabBtn,
-  .dNode {
+  .dNode,
+  .ctl,
+  .linkBtn,
+  .phBtn,
+  .apBtn,
+  .railLink,
+  .skip {
     scroll-margin: 12px;
   }
   .rail,
@@ -473,7 +500,8 @@
      been reached, and a region that does not scroll shows no fade at all. */
   .qList,
   .tabBody,
-  .slBody {
+  .slBody,
+  .diagWrap {
     --fade-top: 0px;
     --fade-bottom: 0px;
     -webkit-mask-image: linear-gradient(
@@ -619,7 +647,7 @@
   .railLink[aria-current="page"] .railGlyph {
     color: var(--accent);
   }
-  .railLink .tag {
+  .tag {
     font-family: var(--mono);
     font-size: var(--t-0);
     font-weight: 500;
@@ -667,7 +695,7 @@
      reconcile, red dot and a count when they do not. */
   .railCheck {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 7px;
     font-size: var(--t-1);
     line-height: 1.45;
@@ -677,6 +705,7 @@
     content: "";
     width: 7px;
     height: 7px;
+    margin-top: 0.42em;
     border-radius: 50%;
     background: var(--good);
     flex: none;
@@ -1332,13 +1361,14 @@
     font-weight: 600;
     letter-spacing: -0.012em;
   }
-  /* Hover lifts the node a touch instead of recolouring it, so an eligible ward's fill and a
-     declined ward's dashed outline keep saying what they say while the pointer is over them. */
+  /* Hover thickens the node's outline instead of recolouring or lifting it, so an eligible ward's
+     fill and a declined ward's dashed outline keep saying what they say while the pointer is over
+     them, and nothing inside a panel carries a shadow. */
   .dNode rect.body {
-    transition: filter 0.12s;
+    transition: stroke-width 0.12s;
   }
-  .dNode:hover rect.body {
-    filter: drop-shadow(0 1px 2px var(--edge-shade));
+  .dNode:hover:not(:focus-visible) rect.body {
+    stroke-width: 2;
   }
   .legend {
     display: flex;
@@ -1379,6 +1409,10 @@
     border: 1px solid var(--line-strong);
     display: inline-block;
   }
+  .lgItem .zero {
+    font-style: italic;
+    color: var(--muted);
+  }
   .schematic {
     margin-left: auto;
     margin-right: -0.1em;
@@ -1405,6 +1439,10 @@
     font-size: var(--t-5);
     font-weight: 600;
     letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .slTop .qWait {
+    margin-left: auto;
     white-space: nowrap;
   }
   .stepper {
@@ -1594,9 +1632,12 @@
   .cand[data-av="overridable"] {
     border-left-color: var(--warn);
   }
+  /* A ward nobody can offer sits on the second surface tone with a heavier hairline bar. Its
+     text keeps the same tokens as every other row, so nothing here is faded below the floor. */
   .cand[data-av="no_specialling"],
   .cand[data-av="no_bed"] {
-    opacity: 0.62;
+    background: var(--surface-2);
+    border-left-color: var(--line-strong);
   }
   .cand[data-showing="true"] {
     border-top-color: var(--accent);
@@ -1607,7 +1648,6 @@
       inset 0 1px 0 var(--accent),
       inset -1px 0 0 var(--accent),
       inset 0 -1px 0 var(--accent);
-    opacity: 1;
   }
   .cand[aria-pressed="true"] {
     background: var(--good-soft);
@@ -2019,6 +2059,10 @@
     .grid3 {
       grid-template-columns: 14rem minmax(0, 1fr) 23rem;
     }
+    .topbar .sub {
+      flex: 1 1 100%;
+      max-width: 60ch;
+    }
     .tabBtn {
       padding: 10px 11px;
     }
@@ -2150,6 +2194,28 @@
       display: none;
     }
   }
+  /* Tap targets are 3rem where the pointer is coarse or the width is a phone's. */
+  @media (pointer: coarse), (max-width: 640px) {
+    .ctl,
+    .tabBtn,
+    .railLink,
+    .qRow,
+    .edCard,
+    .cand,
+    .apBtn,
+    .phBtn,
+    .linkBtn,
+    .skip {
+      min-height: 3rem;
+    }
+    .phBtn,
+    .linkBtn,
+    .apBtn,
+    .ctl {
+      display: inline-flex;
+      align-items: center;
+    }
+  }
   @media (forced-colors: active) {
     .panel,
     .edCard,
@@ -2170,11 +2236,34 @@
       box-shadow: none;
       background: Canvas;
     }
+    /* Matches or beats the rest rules' specificity, and the inline swatch backgrounds, so the
+       system's Canvas cannot erase the marks. A todo step is drawn empty, a done or current step
+       filled, a legend swatch is a bordered box, and the pressed appearance pill is a system
+       highlight. */
     .edBar i,
-    .sw,
+    .edCard[data-p] .edBar i,
     .peer i,
-    .step {
+    .peer i[data-t],
+    .step,
+    .step[data-s] {
+      background: CanvasText !important;
+    }
+    .step[data-s="todo"] {
+      background: Canvas !important;
+      border: 1px solid CanvasText;
+    }
+    .sw,
+    .sw[style] {
+      background: Canvas !important;
+      border: 2px solid CanvasText !important;
+    }
+    .railLink[aria-current="page"]::before {
       background: CanvasText;
+    }
+    .apBtn[aria-pressed="true"] {
+      forced-color-adjust: none;
+      background: Highlight;
+      color: HighlightText;
     }
     body::before {
       background: CanvasText;
@@ -2187,38 +2276,38 @@
     :root[data-theme="dark"],
     :root:not([data-theme="light"]) {
       color-scheme: light;
-      --ground-hi: #ffffff;
-      --ground: #ffffff;
-      --ground-2: #ffffff;
-      --surface: #ffffff;
-      --surface-2: #ffffff;
-      --sunk: #f3f3f3;
-      --ink: #000000;
-      --ink-soft: #1a1a1a;
-      --muted: #444444;
-      --line: #9a9a9a;
-      --line-strong: #666666;
-      --accent: #2f4c66;
-      --accent-ink: #27405a;
-      --accent-soft: #dfe7f0;
-      --on-accent: #ffffff;
-      --stripe: #2f4c66;
-      --gilt: #7d612a;
-      --gilt-soft: #f1ebdf;
+      --ground-hi: #ECF0F4;
+      --ground: #E6EAEF;
+      --ground-2: #E1E6EC;
+      --surface: #FDFDFE;
+      --surface-2: #F4F7FA;
+      --sunk: #EEF2F6;
+      --ink: #161A20;
+      --ink-soft: #414953;
+      --muted: #5F6873;
+      --line: rgba(22, 30, 40, 0.11);
+      --line-strong: rgba(22, 30, 40, 0.26);
+      --accent: #2F4C66;
+      --accent-ink: #27405A;
+      --accent-soft: #DFE7F0;
+      --on-accent: #FFFFFF;
+      --stripe: #2F4C66;
+      --gilt: #7D612A;
+      --gilt-soft: #F1EBDF;
       --good: #227550;
-      --good-soft: #e2f0e8;
-      --warn: #886211;
-      --warn-soft: #f6eeda;
-      --danger: #b03b2e;
-      --danger-soft: #f8e6e2;
+      --good-soft: #E2F0E8;
+      --warn: #825D10;
+      --warn-soft: #F6EEDA;
+      --danger: #B03B2E;
+      --danger-soft: #F8E6E2;
       --danger-ink: #973121;
-      --svc-east: #2f4c66;
-      --svc-north: #6f5f9e;
-      --svc-south: #3f7a80;
-      --svc-wachs: #8c5a3c;
+      --svc-east: #2F4C66;
+      --svc-north: #685A94;
+      --svc-south: #356A70;
+      --svc-wachs: #8C5A3C;
       --lift: none;
-      --hl: none;
-      --hl-on-accent: none;
+      --hl: transparent;
+      --hl-on-accent: transparent;
       --edge-shade: transparent;
     }
     body {
@@ -2360,6 +2449,12 @@
     border-right: 0;
   }
   .band .kpi dd {
+    flex-wrap: wrap;
+  }
+  .band .kpi dd .delta {
+    flex: 1 1 100%;
+  }
+  .band .kpi dd {
     font-size: var(--t-6);
   }
   .kpi[data-tone="warn"] dd {
@@ -2464,16 +2559,8 @@
   .revealBody {
     padding: 2px 16px 12px;
   }
+  /* The tap floor for the components the mockup stylesheet does not carry; the rest is in it. */
   @media (pointer: coarse), (max-width: 640px) {
-    .ctl,
-    .tabBtn,
-    .railLink,
-    .qRow,
-    .edCard,
-    .cand,
-    .apBtn,
-    .phBtn,
-    .linkBtn,
     .reveal > summary,
     .task,
     .menu > summary,
@@ -2662,6 +2749,12 @@
     border-color: var(--accent);
     color: var(--on-accent);
     box-shadow: inset 0 1px 0 var(--hl-on-accent);
+  }
+  .menu > summary.primary:hover,
+  .menu > summary.primary:active {
+    background: var(--accent-ink);
+    border-color: var(--accent-ink);
+    color: var(--on-accent);
   }
   .menu > summary.quiet {
     border-color: transparent;
@@ -3035,17 +3128,19 @@
   .task[data-tone="danger"] {
     border-color: var(--danger);
   }
-  .task[data-tone="danger"]::before,
-  .task[data-tone="danger"] b {
+  .task[data-tone="danger"]::before {
     background: var(--danger);
+  }
+  .task[data-tone="danger"] b {
     color: var(--danger);
   }
   .task[data-tone="warn"] {
     border-color: var(--warn);
   }
-  .task[data-tone="warn"]::before,
-  .task[data-tone="warn"] b {
+  .task[data-tone="warn"]::before {
     background: var(--warn);
+  }
+  .task[data-tone="warn"] b {
     color: var(--warn);
   }
   .task:hover {
@@ -3181,6 +3276,7 @@
     min-width: 0;
     width: 100%;
     max-width: 1360px;
+    margin: 0 auto;
     padding: 16px 24px 40px;
     display: grid;
     gap: var(--gap);
@@ -3224,7 +3320,7 @@
     color: var(--ink);
     font-weight: 600;
   }
-  .g-body h3 {
+  .g-body > h3 {
     font-size: var(--t-3);
     font-weight: 600;
     color: var(--ink);
@@ -3459,6 +3555,30 @@
     overflow: auto;
     font-size: var(--t-0);
   }
+  /* Thin scrollbars in the document's own scrolling regions, the same rule the mockup gives its six. */
+  .g-code,
+  .g-src,
+  .g-tablewrap,
+  .tableWrap {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .g-code::-webkit-scrollbar,
+  .g-src::-webkit-scrollbar,
+  .g-tablewrap::-webkit-scrollbar,
+  .tableWrap::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  .g-code::-webkit-scrollbar-thumb,
+  .g-src::-webkit-scrollbar-thumb,
+  .g-tablewrap::-webkit-scrollbar-thumb,
+  .tableWrap::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 9px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
   .g-demo {
     display: grid;
     gap: 10px;
@@ -3602,7 +3722,7 @@
   .g-face .g-specimen {
     color: var(--ink);
     line-height: 1.15;
-    font-size: 28px;
+    font-size: var(--t-6);
   }
   .g-face .g-specimen.display {
     font-family: var(--display);
@@ -3881,12 +4001,11 @@
               >This is the third edition of the single standard every Ward Flow mockup is built to, and from here the
               standard for the project's mockups generally.</strong
             >
-            The first edition was Platinum Raised Cool, and the second was the Live edition standard. This edition takes
-            the second's content, behaviour and rigour, and the first's identity and material. In plain words,
-            everything a coordinator reads or does comes from the second edition, and everything the eye sees as colour,
-            type, light and surface comes from the first. Where the two disagreed on a rule, the stricter rule won and
-            is written down here. Both earlier editions stay in the version picker for the record, and section 12 lists
-            what moved from each.
+            The first edition was Platinum Raised Cool, and the second was the Live edition standard. This edition
+            takes the second's content, behaviour and rigour, and the first's identity and material. In plain words,
+            everything a coordinator reads or does comes from the second edition, and everything the eye sees as
+            colour, type, light and surface comes from the first. Where the two disagreed on a rule, the stricter
+            rule won and is written down here. Section 12 lists what moved from each. The earlier editions are kept beside this one as files, the first as WARD-FLOW-STYLE-GUIDE.md with guide-body.html and the second as source-L-standard.html, and in the version history of the artifact that carried them.
           </p>
           <p>
             It also replaces the visual layer of the Board language (Archivo, JetBrains Mono, the mid blue). It keeps
@@ -3894,10 +4013,12 @@
             section 8, so a page that meets this standard meets those rules too.
           </p>
           <p>
-            It covers colour, type, material, layout, the components, behaviour, wording, the accessibility floor, the
-            definition of done, the recipe for a new mockup, and the plan for moving all eighteen mockups onto it. The
-            Command third edition is the reference build, and every component in section 6 is rendered on this page from
-            the same stylesheet Command uses, so a component here looks the way it looks there.
+            It covers colour, type, material, layout, the components, behaviour, wording, the accessibility floor,
+            the definition of done, the recipe for a new mockup, and the plan for moving all eighteen mockups onto it.
+            The Command third edition is the reference build, and every component in section 6 is rendered on this
+            page by the stylesheet Command uses, so a component here looks the way it looks there. Five components
+            Command does not yet carry, the header, the table, the band, the chart and the disclosure, are drawn by
+            the extension block printed in section 14.7.
           </p>
           <h3>Precedence</h3>
           <ol class="g-list g-steps">
@@ -3937,9 +4058,8 @@
           <h3>What premium means here</h3>
           <p>
             Restraint. One serif, used only on the names of things. One accent and one brass, each with a job it never
-            shares. One shadow, and one fall of light. Alpha hairlines. Figures that line up. Words before colours.
-            Nothing decorative that is not also information, and nothing that would look out of place printed on a
-            handover sheet.
+            shares. One shadow, and one fall of light. Alpha hairlines. Figures that line up. Words before colours. Nothing decorative that is not also
+            information, and nothing that would look out of place printed on a handover sheet.
           </p>
         </div>
       </section>
@@ -3998,7 +4118,7 @@
                 <p>
                   Uppercase labels carry 0.08 to 0.12em of tracking, headings a touch of negative tracking, and every
                   size is one of the seven t steps in section 4. Only weights that are loaded are asked for, and there
-                  are no small capitals. The wordmark is the one value outside the scale.
+                  are no small capitals. The wordmark is t-5 in the display serif, not a size of its own.
                 </p>
               </div>
             </li>
@@ -4007,16 +4127,16 @@
               <div>
                 <h3>One elevation step, and only one.</h3>
                 <p>
-                  Light falls from the top. The ground is a shade lighter at the top of the window than at the bottom, a
-                  panel is lifted off it by a hairline that is heavier along its bottom edge, one low shadow tinted with
-                  the brand, and a one pixel highlight along its top edge, and its header and foot strips sit a tone
-                  cooler than its body, so a panel reads as a made object with a top and a bottom. Nothing inside a
-                  panel is lifted again. Radii step inward: 10px panels, 9px strips inside them, 6px controls, a pill
+                  Light falls from the top. The ground is a shade lighter at the top of the window than at the bottom,
+                  a panel is lifted off it by a hairline that is heavier along its bottom edge, one low shadow tinted
+                  with the brand, and a one pixel highlight along its top edge, and its header and foot strips sit a
+                  tone cooler than its body, so a panel reads as a made object with a top and a bottom. Nothing inside
+                  a panel is lifted again. Radii step inward: 10px panels, 9px strips inside them, 6px controls, a pill
                   for chips. Hairlines carry alpha, are solid, and are never dashed. A region that overflows sideways
                   shows a soft shade at its edge and a sentence, never a frame. A list that continues past its window
                   fades into the edge it continues past, and the fade is measured on every render, scroll and resize,
-                  never declared. A legend is a disclosure, open where the diagram has room to spare and closed where it
-                  does not, and the reader's own choice wins from then on.
+                  never declared. A legend is a disclosure, open where the diagram has room to spare and closed where
+                  it does not, and the reader's own choice wins from then on.
                 </p>
               </div>
             </li>
@@ -4027,11 +4147,11 @@
                 <p>
                   The accent, deep slate, means brand and interactive. Gilt is brass and means &ldquo;you are
                   here&rdquo;, and brass is a bar and never a fill: the bar beside the active nav item, under the live
-                  tab, beside the selected row, on the current stage, and the two letters beside the wordmark, and
-                  nothing else, which is why the prototype chip in the masthead is neutral and why the brass wash is
+                  tab, beside the selected row, on the current stage, the name of the current stage beside the
+                  stepper, and the two letters beside the wordmark, and nothing else, which is why the prototype chip in the masthead is neutral and why the brass wash is
                   never painted behind text. Green, amber and red mean status only. The four health services have hues
-                  of their own. On a map only an eligible or a recorded ward carries a fill, and every other verdict is
-                  an outline and a word.
+                  of their own. On a map only an eligible or a recorded ward carries a fill, and every other verdict is an
+                  outline and a word.
                 </p>
               </div>
             </li>
@@ -4055,7 +4175,8 @@
                   preference, guarded so an explicit light choice beats a dark machine, and again under the page's own
                   control so it wins the other way. For print every token takes its light value, on all three roots.
                   Never a colour whose only definition sits inside one of those blocks, never a hex in a component, and
-                  never pure black or pure white as a colour.
+                  never pure black or pure white as a surface or an ink. The one white is on-accent, the text on the
+                  slate control.
                 </p>
               </div>
             </li>
@@ -4079,9 +4200,9 @@
                   it sits flush with whatever is under it. An inner corner is one pixel tighter than the panel it sits
                   in. Every control draws rest, hover, pressed and focus, a disabled control says why and does not light
                   on hover, and nothing brightens on hover. Selection never hides status: a pressed pressure card or a
-                  showing candidate keeps its status bar and gains the slate ring on the other three sides. Every change
-                  of subject is spoken to a screen reader as a sentence. The appearance choice is remembered for this
-                  browser only.
+                  showing candidate keeps its status bar and gains the slate ring on the other three sides. Every
+                  change of subject is spoken to a screen reader as a sentence. The appearance choice is remembered
+                  for this browser only.
                 </p>
               </div>
             </li>
@@ -4116,8 +4237,8 @@
                   </td>
                   <td class="wrap">
                     The primary control, links, the focus ring, done steps, the ring of a selected row or card, the
-                    pressed appearance button, panel titles and the brand name as text, and the 3px stripe along the top
-                    of the window.
+                    pressed appearance button, panel titles and the brand name as text, and the 3px stripe along the
+                    top of the window.
                   </td>
                   <td class="wrap">Status of any kind. A hover, which is always the sunk well.</td>
                 </tr>
@@ -4126,8 +4247,8 @@
                   <td class="wrap"><span class="mono">--gilt --gilt-soft</span></td>
                   <td class="wrap">
                     Brass, as a bar and never a fill: beside the active rail link, under the live tab, beside the
-                    selected queue row, on the current stage of the stepper, beside the coordinator's own register rows,
-                    and the two letters beside the wordmark.
+                    selected queue row, on the current stage of the stepper, beside the coordinator's own register
+                    rows, and the two letters beside the wordmark.
                   </td>
                   <td class="wrap">
                     Anything else. Not a heading, not a number, not an ornament, not a chip, and never a wash behind
@@ -4176,16 +4297,12 @@
             <div class="g-swatch">
               <i style="background: var(--ground-hi)"></i><b>--ground-hi</b
               ><span class="g-hex"><em>light</em><span>#ecf0f4</span><em>dark</em><span>#14181d</span></span
-              ><span class="g-job"
-                >The top of the ground, where the fall of light begins. Nothing is written on it.</span
-              >
+              ><span class="g-job">The top of the ground, where the fall of light begins. Nothing is written on it.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--ground)"></i><b>--ground</b
               ><span class="g-hex"><em>light</em><span>#e6eaef</span><em>dark</em><span>#0f1216</span></span
-              ><span class="g-job"
-                >The ground at 55 percent of the window. The masthead figures and the rail note sit over it.</span
-              >
+              ><span class="g-job">The ground at 55 percent of the window. The masthead figures and the rail note sit over it.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--ground-2)"></i><b>--ground-2</b
@@ -4200,17 +4317,12 @@
             <div class="g-swatch">
               <i style="background: var(--surface-2)"></i><b>--surface-2</b
               ><span class="g-hex"><em>light</em><span>#f4f7fa</span><em>dark</em><span>#1b2026</span></span
-              ><span class="g-job"
-                >Panel headers, tab strips, the diagram foot and the legend: the cooler band a panel wears at its
-                edges.</span
-              >
+              ><span class="g-job">Panel headers, tab strips, the diagram foot and the legend: the cooler band a panel wears at its edges.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--sunk)"></i><b>--sunk</b
               ><span class="g-hex"><em>light</em><span>#eef2f6</span><em>dark</em><span>#13171c</span></span
-              ><span class="g-job"
-                >Hover, wells, meter tracks, gates, count pills and quiet chips. Never a selected state.</span
-              >
+              ><span class="g-job">Hover, wells, meter tracks, gates, count pills and quiet chips. Never a selected state.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--ink)"></i><b>--ink</b
@@ -4229,34 +4341,23 @@
             </div>
             <div class="g-swatch">
               <i style="background: var(--line)"></i><b>--line</b
-              ><span class="g-hex"
-                ><em>light</em><span>rgba(22,30,40,.11)</span><em>dark</em><span>rgba(255,255,255,.09)</span></span
+              ><span class="g-hex"><em>light</em><span>rgba(22,30,40,.11)</span><em>dark</em><span>rgba(255,255,255,.09)</span></span
               ><span class="g-job">The hairline, with alpha: dividers, row bottoms, panel edges.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--line-strong)"></i><b>--line-strong</b
-              ><span class="g-hex"
-                ><em>light</em><span>rgba(22,30,40,.26)</span><em>dark</em><span>rgba(255,255,255,.21)</span></span
-              ><span class="g-job"
-                >The heavier hairline, with alpha: a panel's bottom edge, control borders, bars and steps at rest,
-                scrollbar thumbs.</span
-              >
+              ><span class="g-hex"><em>light</em><span>rgba(22,30,40,.26)</span><em>dark</em><span>rgba(255,255,255,.21)</span></span
+              ><span class="g-job">The heavier hairline, with alpha: a panel's bottom edge, control borders, bars and steps at rest, scrollbar thumbs.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--accent)"></i><b>--accent</b
               ><span class="g-hex"><em>light</em><span>#2f4c66</span><em>dark</em><span>#a7bcd2</span></span
-              ><span class="g-job"
-                >Deep slate. Brand and interactive: the primary control, the focus ring, done steps, the selected ring,
-                the glyph on the active rail link.</span
-              >
+              ><span class="g-job">Deep slate. Brand and interactive: the primary control, the focus ring, done steps, the selected ring, the glyph on the active rail link.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--accent-ink)"></i><b>--accent-ink</b
               ><span class="g-hex"><em>light</em><span>#27405a</span><em>dark</em><span>#bfd0e2</span></span
-              ><span class="g-job"
-                >Slate as text: panel titles, the brand name, links, the shortlist identifier, text on accent-soft, the
-                pressed appearance button.</span
-              >
+              ><span class="g-job">Slate as text: panel titles, the brand name, links, the shortlist identifier, text on accent-soft, the pressed appearance button.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--accent-soft)"></i><b>--accent-soft</b
@@ -4271,24 +4372,17 @@
             <div class="g-swatch">
               <i style="background: var(--stripe)"></i><b>--stripe</b
               ><span class="g-hex"><em>light</em><span>#2f4c66</span><em>dark</em><span>#3a5a78</span></span
-              ><span class="g-job"
-                >The 3px stripe along the top of the window. The accent in light and a mid slate in dark.</span
-              >
+              ><span class="g-job">The 3px stripe along the top of the window. The accent in light and a mid slate in dark.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--gilt)"></i><b>--gilt</b
               ><span class="g-hex"><em>light</em><span>#7d612a</span><em>dark</em><span>#d3b77e</span></span
-              ><span class="g-job"
-                >Brass. You are here, as a bar and never a fill: beside the active rail link, under the live tab, beside
-                the selected row, on the current step, and the two letters by the wordmark.</span
-              >
+              ><span class="g-job">Brass. You are here, as a bar and never a fill: beside the active rail link, under the live tab, beside the selected row, on the current step, and the two letters by the wordmark.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--gilt-soft)"></i><b>--gilt-soft</b
               ><span class="g-hex"><em>light</em><span>#f1ebdf</span><em>dark</em><span>#2a251b</span></span
-              ><span class="g-job"
-                >Reserved. Never painted behind text in this edition, and unused on Command by design.</span
-              >
+              ><span class="g-job">Reserved. Never painted behind text in this edition, and unused on Command by design.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--good)"></i><b>--good</b
@@ -4302,10 +4396,8 @@
             </div>
             <div class="g-swatch">
               <i style="background: var(--warn)"></i><b>--warn</b
-              ><span class="g-hex"><em>light</em><span>#886211</span><em>dark</em><span>#e3bc5e</span></span
-              ><span class="g-job"
-                >Look here: at risk, declined by a ward, overridden, held. At most two flagged tiles per screen.</span
-              >
+              ><span class="g-hex"><em>light</em><span>#825D10</span><em>dark</em><span>#e3bc5e</span></span
+              ><span class="g-job">Look here: at risk, declined by a ward, overridden, held. At most two flagged tiles per screen.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--warn-soft)"></i><b>--warn-soft</b
@@ -4315,9 +4407,7 @@
             <div class="g-swatch">
               <i style="background: var(--danger)"></i><b>--danger</b
               ><span class="g-hex"><em>light</em><span>#b03b2e</span><em>dark</em><span>#ff8b76</span></span
-              ><span class="g-job"
-                >A breach, a failed gate, a refused action, a blocked bed, a tier 1 mark. Never anything else.</span
-              >
+              ><span class="g-job">A breach, a failed gate, a refused action, a blocked bed, a tier 1 mark. Never anything else.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--danger-soft)"></i><b>--danger-soft</b
@@ -4336,12 +4426,12 @@
             </div>
             <div class="g-swatch">
               <i style="background: var(--svc-north)"></i><b>--svc-north</b
-              ><span class="g-hex"><em>light</em><span>#6f5f9e</span><em>dark</em><span>#b1a2d6</span></span
+              ><span class="g-hex"><em>light</em><span>#685a94</span><em>dark</em><span>#b1a2d6</span></span
               ><span class="g-job">Plum. North Metropolitan Health Service, and the coordinator alias.</span>
             </div>
             <div class="g-swatch">
               <i style="background: var(--svc-south)"></i><b>--svc-south</b
-              ><span class="g-hex"><em>light</em><span>#3f7a80</span><em>dark</em><span>#7fb2b8</span></span
+              ><span class="g-hex"><em>light</em><span>#356a70</span><em>dark</em><span>#7fb2b8</span></span
               ><span class="g-job">Teal. South Metropolitan Health Service, and the community alias.</span>
             </div>
             <div class="g-swatch">
@@ -4351,12 +4441,12 @@
             </div>
           </div>
           <h3><span class="num">3.3</span>Aliases, the light model and the non-colour tokens</h3>
-          <div class="g-kv">
+          <dl class="g-kv">
             <dt><code>--ward --ward-soft --ed --comm --coord</code></dt>
             <dd>
-              Names the rendering scripts read. Aliases only, so the data layer never carries a hex of its own: ward is
-              the east service hue, ward-soft is accent-soft, ed is danger, comm is the south hue, coord is the north
-              hue.
+              Names kept for the rendering scripts, so the data layer never carries a hex of its own. Command reads
+              ward, for the tier 3 mark on the map. The others are reserved aliases kept for name stability: ward-soft
+              is accent-soft, ed is danger, comm is the south hue, coord is the north hue.
             </dd>
             <dt><code>--lift</code></dt>
             <dd>
@@ -4365,9 +4455,9 @@
             </dd>
             <dt><code>--hl</code></dt>
             <dd>
-              The one pixel highlight along a panel's top edge, drawn as an inset shadow. White at 0.9 in light, 0.06 in
-              dark. It is the light catching the top of the panel, and it is what makes the lift read as a lift rather
-              than a border.
+              The one pixel highlight along a panel's top edge, drawn as an inset shadow. White at 0.9 in light, 0.06
+              in dark. It is the light catching the top of the panel, and it is what makes the lift read as a lift
+              rather than a border.
             </dd>
             <dt><code>--hl-on-accent</code></dt>
             <dd>The same highlight on the primary control. White at 0.14 in light and 0.28 in dark.</dd>
@@ -4377,14 +4467,14 @@
             </dd>
             <dt><code>--line --line-strong</code></dt>
             <dd>
-              The two hairlines, and they carry alpha on purpose. One value is then the right darkness over a white row,
-              a toned header strip and a sunk well alike, so a line never has to be re-mixed for the fill it sits on.
-              Never replace them with a solid grey.
+              The two hairlines, and they carry alpha on purpose. One value is then the right darkness over a white
+              row, a toned header strip and a sunk well alike, so a line never has to be re-mixed for the fill it sits
+              on. Never replace them with a solid grey.
             </dd>
             <dt><code>--r1 --r1i --r2</code></dt>
             <dd>
-              10px for panels, 9px for a strip inside a panel, 6px for cards, rows and controls. Chips, tags, counts and
-              pills are 999px. A radius never repeats at the depth of its parent.
+              10px for panels, 9px for a strip inside a panel, 6px for cards, rows and controls. Chips, tags, counts
+              and pills are 999px. A radius never repeats at the depth of its parent.
             </dd>
             <dt><code>--gap</code></dt>
             <dd>14px between panels and between columns.</dd>
@@ -4392,19 +4482,15 @@
             <dd>The seven-step type scale, section 4.</dd>
             <dt><code>--display --body --mono</code></dt>
             <dd>The three faces with their fallback stacks, section 4.</dd>
-          </div>
+          </dl>
           <h3><span class="num">3.4</span>Contrast, computed rather than judged</h3>
           <p>
             Every pairing of text on a fill that the components use, in both themes. The pairs were printed by
-            <code>merged/contrast.mjs</code> from the token values, never computed by hand, and the page recomputes them
-            from its own live tokens on every load and every change of appearance. The floor is 4.5:1.
+            <code>merged/contrast.mjs</code> from the token values, never computed by hand, and the page recomputes
+            them from its own live tokens on every load and every change of appearance. The floor is 4.5:1.
           </p>
           <p>
-            43 permitted pairs, and one pairing that is printed but not permitted: svc-south on ground reaches 4.0:1 in
-            the light theme (8.0:1 in the dark), below the floor. It sits in the last row of the table, marked and
-            outside the count the page checks, and until the owner darkens the token no page sets a service name
-            directly on the ground. On a panel the same teal reads at 4.8:1. Of the permitted pairs, the lowest light
-            pairing is 4.5:1 and the lowest dark pairing is 4.6:1.
+            69 pairs, every one above the floor in both themes. The lowest light pairing is 4.5:1 and the lowest dark pairing is 4.6:1. The rows marked not used are pairings no page sets today, kept so a page that ever does has the figure, and the pairs a showing, hovered, chosen or blocked candidate reaches are listed because the round one review found three of them below the floor before the tokens were darkened.
           </p>
           <p class="g-check-line" id="contrastCheck" data-ok="true">Recomputing from the live tokens</p>
           <div class="g-tablewrap">
@@ -4426,9 +4512,9 @@
                 </tr>
                 <tr data-a="ink" data-b="ground" data-light="14.45" data-dark="15.83">
                   <td>ink on ground</td>
-                  <td class="n">14.4:1</td>
+                  <td class="n">14.5:1</td>
                   <td class="n">15.8:1</td>
-                  <td class="wrap">Masthead figures over the ground</td>
+                  <td class="wrap">Not used: nothing is written on the ground. Kept so a page that ever does has the figure</td>
                 </tr>
                 <tr data-a="ink-soft" data-b="surface" data-light="8.97" data-dark="8.82">
                   <td>ink-soft on surface</td>
@@ -4438,9 +4524,9 @@
                 </tr>
                 <tr data-a="ink-soft" data-b="ground" data-light="7.55" data-dark="9.59">
                   <td>ink-soft on ground</td>
-                  <td class="n">7.5:1</td>
+                  <td class="n">7.6:1</td>
                   <td class="n">9.6:1</td>
-                  <td class="wrap">Notes over the ground</td>
+                  <td class="wrap">Not used: kept for the same reason</td>
                 </tr>
                 <tr data-a="muted" data-b="surface" data-light="5.56" data-dark="5.50">
                   <td>muted on surface</td>
@@ -4452,19 +4538,19 @@
                   <td>muted on ground</td>
                   <td class="n">4.7:1</td>
                   <td class="n">6.0:1</td>
-                  <td class="wrap">The rail note over the middle of the ground</td>
+                  <td class="wrap">Not used: the rail and the masthead are surface, so the rail note sits on surface</td>
                 </tr>
                 <tr data-a="muted" data-b="ground-hi" data-light="4.94" data-dark="5.67">
                   <td>muted on ground-hi</td>
                   <td class="n">4.9:1</td>
                   <td class="n">5.7:1</td>
-                  <td class="wrap">The lightest band of the ground, at the top of the window</td>
+                  <td class="wrap">Not used: the lightest band of the ground, at the top of the window</td>
                 </tr>
                 <tr data-a="muted" data-b="ground-2" data-light="4.50" data-dark="6.11">
                   <td>muted on ground-2</td>
                   <td class="n">4.5:1</td>
                   <td class="n">6.1:1</td>
-                  <td class="wrap">The darkest band of the ground, at the foot of the window</td>
+                  <td class="wrap">Not used: the darkest band of the ground, at the foot of the window</td>
                 </tr>
                 <tr data-a="muted" data-b="sunk" data-light="5.03" data-dark="5.72">
                   <td>muted on sunk</td>
@@ -4510,7 +4596,7 @@
                 </tr>
                 <tr data-a="on-accent" data-b="accent" data-light="8.95" data-dark="9.63">
                   <td>on-accent on accent</td>
-                  <td class="n">8.9:1</td>
+                  <td class="n">9.0:1</td>
                   <td class="n">9.6:1</td>
                   <td class="wrap">The primary control&#x27;s label</td>
                 </tr>
@@ -4544,23 +4630,23 @@
                   <td class="n">9.4:1</td>
                   <td class="wrap">An eligible verdict, a pass mark</td>
                 </tr>
-                <tr data-a="warn" data-b="warn-soft" data-light="4.78" data-dark="8.51">
+                <tr data-a="warn" data-b="warn-soft" data-light="5.16" data-dark="8.51">
                   <td>warn on warn-soft</td>
-                  <td class="n">4.8:1</td>
+                  <td class="n">5.2:1</td>
                   <td class="n">8.5:1</td>
                   <td class="wrap">An overridden gate&#x27;s verdict</td>
                 </tr>
-                <tr data-a="warn" data-b="surface" data-light="5.43" data-dark="9.56">
+                <tr data-a="warn" data-b="surface" data-light="5.86" data-dark="9.56">
                   <td>warn on surface</td>
-                  <td class="n">5.4:1</td>
+                  <td class="n">5.9:1</td>
                   <td class="n">9.6:1</td>
                   <td class="wrap">A declined verdict</td>
                 </tr>
-                <tr data-a="warn" data-b="sunk" data-light="4.91" data-dark="9.96">
+                <tr data-a="warn" data-b="sunk" data-light="5.30" data-dark="9.96">
                   <td>warn on sunk</td>
-                  <td class="n">4.9:1</td>
+                  <td class="n">5.3:1</td>
                   <td class="n">10.0:1</td>
-                  <td class="wrap">A held bed chip on a well</td>
+                  <td class="wrap">A held bed chip, and the verdict word on a hovered candidate that needs a recorded reason</td>
                 </tr>
                 <tr data-a="danger" data-b="danger-soft" data-light="4.96" data-dark="6.75">
                   <td>danger on danger-soft</td>
@@ -4586,15 +4672,15 @@
                   <td class="n">8.9:1</td>
                   <td class="wrap">East Metro&#x27;s name on a candidate</td>
                 </tr>
-                <tr data-a="svc-north" data-b="surface" data-light="5.43" data-dark="7.41">
+                <tr data-a="svc-north" data-b="surface" data-light="5.94" data-dark="7.41">
                   <td>svc-north on surface</td>
-                  <td class="n">5.4:1</td>
+                  <td class="n">5.9:1</td>
                   <td class="n">7.4:1</td>
                   <td class="wrap">North Metro&#x27;s name on a candidate</td>
                 </tr>
-                <tr data-a="svc-south" data-b="surface" data-light="4.80" data-dark="7.38">
+                <tr data-a="svc-south" data-b="surface" data-light="5.99" data-dark="7.38">
                   <td>svc-south on surface</td>
-                  <td class="n">4.8:1</td>
+                  <td class="n">6.0:1</td>
                   <td class="n">7.4:1</td>
                   <td class="wrap">South Metro&#x27;s name on a candidate</td>
                 </tr>
@@ -4608,31 +4694,187 @@
                   <td>svc-east on ground</td>
                   <td class="n">7.4:1</td>
                   <td class="n">9.6:1</td>
-                  <td class="wrap">East Metro&#x27;s name over the ground</td>
+                  <td class="wrap">Not used: no service name is set on the ground</td>
                 </tr>
-                <tr data-a="svc-north" data-b="ground" data-light="4.57" data-dark="8.05">
+                <tr data-a="svc-north" data-b="ground" data-light="5.00" data-dark="8.05">
                   <td>svc-north on ground</td>
-                  <td class="n">4.6:1</td>
+                  <td class="n">5.0:1</td>
                   <td class="n">8.1:1</td>
-                  <td class="wrap">North Metro&#x27;s name over the ground</td>
+                  <td class="wrap">Not used: no service name is set on the ground</td>
+                </tr>
+                <tr data-a="svc-south" data-b="ground" data-light="5.04" data-dark="8.01">
+                  <td>svc-south on ground</td>
+                  <td class="n">5.0:1</td>
+                  <td class="n">8.0:1</td>
+                  <td class="wrap">Not used: no service name is set on the ground</td>
                 </tr>
                 <tr data-a="svc-wachs" data-b="ground" data-light="4.77" data-dark="7.88">
                   <td>svc-wachs on ground</td>
                   <td class="n">4.8:1</td>
                   <td class="n">7.9:1</td>
-                  <td class="wrap">WACHS&#x27;s name over the ground</td>
+                  <td class="wrap">Not used: no service name is set on the ground</td>
                 </tr>
-                <tr data-a="svc-south" data-b="surface-2" data-light="4.53" data-dark="7.00">
+                <tr data-a="svc-south" data-b="surface-2" data-light="5.67" data-dark="7.00">
                   <td>svc-south on surface-2</td>
-                  <td class="n">4.5:1</td>
+                  <td class="n">5.7:1</td>
                   <td class="n">7.0:1</td>
-                  <td class="wrap">A service name in the legend band</td>
+                  <td class="wrap">A service name in the legend band, and on a blocked candidate</td>
                 </tr>
-                <tr data-a="svc-north" data-b="surface-2" data-light="5.13" data-dark="7.03">
+                <tr data-a="svc-north" data-b="surface-2" data-light="5.61" data-dark="7.03">
                   <td>svc-north on surface-2</td>
-                  <td class="n">5.1:1</td>
+                  <td class="n">5.6:1</td>
                   <td class="n">7.0:1</td>
-                  <td class="wrap">A service name in the legend band</td>
+                  <td class="wrap">A service name in the legend band, and on a blocked candidate</td>
+                </tr>
+                <tr data-a="svc-east" data-b="surface-2" data-light="8.32" data-dark="8.40">
+                  <td>svc-east on surface-2</td>
+                  <td class="n">8.3:1</td>
+                  <td class="n">8.4:1</td>
+                  <td class="wrap">A service name in the legend band, and on a blocked candidate</td>
+                </tr>
+                <tr data-a="svc-wachs" data-b="surface-2" data-light="5.36" data-dark="6.88">
+                  <td>svc-wachs on surface-2</td>
+                  <td class="n">5.4:1</td>
+                  <td class="n">6.9:1</td>
+                  <td class="wrap">A service name in the legend band, and on a blocked candidate</td>
+                </tr>
+                <tr data-a="ink" data-b="surface-2" data-light="16.24" data-dark="13.81">
+                  <td>ink on surface-2</td>
+                  <td class="n">16.2:1</td>
+                  <td class="n">13.8:1</td>
+                  <td class="wrap">A blocked candidate&#x27;s name, and a title on a header strip</td>
+                </tr>
+                <tr data-a="ink-soft" data-b="surface-2" data-light="8.48" data-dark="8.37">
+                  <td>ink-soft on surface-2</td>
+                  <td class="n">8.5:1</td>
+                  <td class="n">8.4:1</td>
+                  <td class="wrap">A blocked candidate&#x27;s bed line</td>
+                </tr>
+                <tr data-a="gilt" data-b="surface-2" data-light="5.40" data-dark="8.46">
+                  <td>gilt on surface-2</td>
+                  <td class="n">5.4:1</td>
+                  <td class="n">8.5:1</td>
+                  <td class="wrap">Brass text on a strip</td>
+                </tr>
+                <tr data-a="ink" data-b="sunk" data-light="15.52" data-dark="15.17">
+                  <td>ink on sunk</td>
+                  <td class="n">15.5:1</td>
+                  <td class="n">15.2:1</td>
+                  <td class="wrap">A hovered candidate&#x27;s name, a gate label</td>
+                </tr>
+                <tr data-a="ink-soft" data-b="sunk" data-light="8.11" data-dark="9.19">
+                  <td>ink-soft on sunk</td>
+                  <td class="n">8.1:1</td>
+                  <td class="n">9.2:1</td>
+                  <td class="wrap">A hovered candidate&#x27;s bed line, a gate detail</td>
+                </tr>
+                <tr data-a="accent-ink" data-b="sunk" data-light="9.49" data-dark="11.43">
+                  <td>accent-ink on sunk</td>
+                  <td class="n">9.5:1</td>
+                  <td class="n">11.4:1</td>
+                  <td class="wrap">A hovered link button, the count on a hovered tab</td>
+                </tr>
+                <tr data-a="good" data-b="sunk" data-light="5.01" data-dark="9.83">
+                  <td>good on sunk</td>
+                  <td class="n">5.0:1</td>
+                  <td class="n">9.8:1</td>
+                  <td class="wrap">A ready bed chip, and the verdict word on a hovered eligible candidate</td>
+                </tr>
+                <tr data-a="danger" data-b="sunk" data-light="5.32" data-dark="7.89">
+                  <td>danger on sunk</td>
+                  <td class="n">5.3:1</td>
+                  <td class="n">7.9:1</td>
+                  <td class="wrap">A blocked bed chip</td>
+                </tr>
+                <tr data-a="svc-east" data-b="sunk" data-light="7.96" data-dark="9.23">
+                  <td>svc-east on sunk</td>
+                  <td class="n">8.0:1</td>
+                  <td class="n">9.2:1</td>
+                  <td class="wrap">East Metro&#x27;s name on a hovered candidate</td>
+                </tr>
+                <tr data-a="svc-north" data-b="sunk" data-light="5.37" data-dark="7.72">
+                  <td>svc-north on sunk</td>
+                  <td class="n">5.4:1</td>
+                  <td class="n">7.7:1</td>
+                  <td class="wrap">North Metro&#x27;s name on a hovered candidate</td>
+                </tr>
+                <tr data-a="svc-south" data-b="sunk" data-light="5.42" data-dark="7.68">
+                  <td>svc-south on sunk</td>
+                  <td class="n">5.4:1</td>
+                  <td class="n">7.7:1</td>
+                  <td class="wrap">South Metro&#x27;s name on a hovered candidate</td>
+                </tr>
+                <tr data-a="svc-wachs" data-b="sunk" data-light="5.12" data-dark="7.55">
+                  <td>svc-wachs on sunk</td>
+                  <td class="n">5.1:1</td>
+                  <td class="n">7.6:1</td>
+                  <td class="wrap">WACHS&#x27;s name on a hovered candidate</td>
+                </tr>
+                <tr data-a="svc-east" data-b="accent-soft" data-light="7.17" data-dark="7.46">
+                  <td>svc-east on accent-soft</td>
+                  <td class="n">7.2:1</td>
+                  <td class="n">7.5:1</td>
+                  <td class="wrap">East Metro&#x27;s name on the showing candidate</td>
+                </tr>
+                <tr data-a="svc-north" data-b="accent-soft" data-light="4.84" data-dark="6.24">
+                  <td>svc-north on accent-soft</td>
+                  <td class="n">4.8:1</td>
+                  <td class="n">6.2:1</td>
+                  <td class="wrap">North Metro&#x27;s name on the showing candidate</td>
+                </tr>
+                <tr data-a="svc-south" data-b="accent-soft" data-light="4.88" data-dark="6.21">
+                  <td>svc-south on accent-soft</td>
+                  <td class="n">4.9:1</td>
+                  <td class="n">6.2:1</td>
+                  <td class="wrap">South Metro&#x27;s name on the showing candidate</td>
+                </tr>
+                <tr data-a="svc-wachs" data-b="accent-soft" data-light="4.62" data-dark="6.11">
+                  <td>svc-wachs on accent-soft</td>
+                  <td class="n">4.6:1</td>
+                  <td class="n">6.1:1</td>
+                  <td class="wrap">WACHS&#x27;s name on the showing candidate</td>
+                </tr>
+                <tr data-a="good" data-b="accent-soft" data-light="4.51" data-dark="7.95">
+                  <td>good on accent-soft</td>
+                  <td class="n">4.5:1</td>
+                  <td class="n">8.0:1</td>
+                  <td class="wrap">The verdict word on a showing eligible candidate</td>
+                </tr>
+                <tr data-a="warn" data-b="accent-soft" data-light="4.78" data-dark="8.06">
+                  <td>warn on accent-soft</td>
+                  <td class="n">4.8:1</td>
+                  <td class="n">8.1:1</td>
+                  <td class="wrap">The verdict word on a showing candidate that needs a recorded reason, or has declined</td>
+                </tr>
+                <tr data-a="svc-east" data-b="good-soft" data-light="7.61" data-dark="7.87">
+                  <td>svc-east on good-soft</td>
+                  <td class="n">7.6:1</td>
+                  <td class="n">7.9:1</td>
+                  <td class="wrap">East Metro&#x27;s name on a chosen candidate</td>
+                </tr>
+                <tr data-a="svc-north" data-b="good-soft" data-light="5.13" data-dark="6.58">
+                  <td>svc-north on good-soft</td>
+                  <td class="n">5.1:1</td>
+                  <td class="n">6.6:1</td>
+                  <td class="wrap">North Metro&#x27;s name on a chosen candidate</td>
+                </tr>
+                <tr data-a="svc-south" data-b="good-soft" data-light="5.18" data-dark="6.55">
+                  <td>svc-south on good-soft</td>
+                  <td class="n">5.2:1</td>
+                  <td class="n">6.6:1</td>
+                  <td class="wrap">South Metro&#x27;s name on a chosen candidate</td>
+                </tr>
+                <tr data-a="svc-wachs" data-b="good-soft" data-light="4.90" data-dark="6.44">
+                  <td>svc-wachs on good-soft</td>
+                  <td class="n">4.9:1</td>
+                  <td class="n">6.4:1</td>
+                  <td class="wrap">WACHS&#x27;s name on a chosen candidate</td>
+                </tr>
+                <tr data-a="warn" data-b="good-soft" data-light="5.07" data-dark="8.49">
+                  <td>warn on good-soft</td>
+                  <td class="n">5.1:1</td>
+                  <td class="n">8.5:1</td>
+                  <td class="wrap">The verdict word on a chosen candidate that needs a recorded reason</td>
                 </tr>
                 <tr data-a="ink-soft" data-b="accent-soft" data-light="7.31" data-dark="7.43">
                   <td>ink-soft on accent-soft</td>
@@ -4655,12 +4897,12 @@
                 <tr data-a="ink-soft" data-b="warn-soft" data-light="7.89" data-dark="7.85">
                   <td>ink-soft on warn-soft</td>
                   <td class="n">7.9:1</td>
-                  <td class="n">7.8:1</td>
+                  <td class="n">7.9:1</td>
                   <td class="wrap">The detail of an overridden gate</td>
                 </tr>
                 <tr data-a="ink" data-b="good-soft" data-light="14.85" data-dark="12.93">
                   <td>ink on good-soft</td>
-                  <td class="n">14.8:1</td>
+                  <td class="n">14.9:1</td>
                   <td class="n">12.9:1</td>
                   <td class="wrap">The label on an accepted badge&#x27;s ground</td>
                 </tr>
@@ -4677,23 +4919,6 @@
                   <td class="wrap">Meta on a chosen candidate</td>
                 </tr>
               </tbody>
-              <tfoot>
-                <tr
-                  data-a="svc-south"
-                  data-b="ground"
-                  class="g-notPermitted"
-                  data-light="4.04"
-                  data-dark="8.01"
-                  data-below="true"
-                >
-                  <td>svc-south on ground</td>
-                  <td class="n"><b>4.0:1, below the floor</b></td>
-                  <td class="n">8.0:1</td>
-                  <td class="wrap">
-                    South Metro&#x27;s name over the ground. Not a permitted pair until the token is darkened.
-                  </td>
-                </tr>
-              </tfoot>
             </table>
           </div>
           <p>
@@ -4703,11 +4928,12 @@
           </p>
           <h3><span class="num">3.5</span>Print and forced colours</h3>
           <p>
-            For print every token takes its light value on all three roots, the ground and every surface become white,
+            For print every token takes its light value on all three roots, the canvas is white with no fall of light,
             the shadow, the highlight and the stripe go, and the four status colours keep their exact values with print
             colour adjust set to exact. Under forced colours every panel, card, row, control and chip takes a CanvasText
-            border on a Canvas fill, and every meter, swatch, step and the stripe becomes CanvasText. Both blocks are in
-            the stylesheet already.
+            border on a Canvas fill, every meter, done or current step, peer dot, the rail's brass bar and the stripe
+            become CanvasText, a todo step is an empty CanvasText box, a legend swatch is a bordered box, and the pressed
+            appearance button is the system highlight. Both blocks are in the stylesheet already.
           </p>
         </div>
       </section>
@@ -4727,16 +4953,16 @@
               <b>Source Serif 4, 600 and 700, optical size 8 to 60</b>
               <p>
                 The names of things: the wordmark, the page title, panel titles, site codes and the headings on the
-                diagram. Never running text. Headings are 600, a site code is 700. Negative tracking of 0.012em on the
-                title, 0.005em on the wordmark.
+                diagram. Never running text. Headings and site codes are 600. Negative tracking of 0.012em on the title
+                and on the wordmark.
               </p>
             </div>
             <div class="g-face">
               <span class="g-specimen body">Priority queue, 23 waiting</span>
               <b>Source Sans 3, 400, 500, 600 and 700</b>
               <p>
-                Everything read. Headings within a panel's body are Source Sans 3 600. Bold is 600 for emphasis and 700
-                only where a label must carry over a tone, such as a verdict word.
+                Everything read. Headings within a panel's body are Source Sans 3 600. Bold is 600 for emphasis and
+                700 only where a label must carry over a tone, such as a verdict word.
               </p>
             </div>
             <div class="g-face">
@@ -4750,12 +4976,12 @@
           </div>
           <p>
             Fallback stacks are declared for all three: Georgia and then Times for the serif, Segoe UI and the system
-            sans for the text face, and the system monospace for the figures. Fonts load from Google Fonts by one link
-            with display swap, because the artifact host admits no other font source. Only weights that are loaded are
-            asked for: serif 600 and 700, sans 400 to 700, mono 400 to 600. A request for a weight that is not loaded is
-            served as a synthetic bold in some browsers and as the nearest weight in others, so it is never made. No
-            small capitals: the served fonts carry none, and a synthesised small capital is a shrunk capital that only
-            reads smaller. Uppercase labels keep their tracking instead.
+            sans for the text face, and the system monospace for the figures. Fonts load from Google Fonts by one link with display swap, because the
+            artifact host admits no other font source. Only weights that are loaded are asked for: serif 600 and 700,
+            sans 400 to 700, mono 400 to 600. A request for a weight that is not loaded is served as a synthetic bold
+            in some browsers and as the nearest weight in others, so it is never made. No small capitals: the served
+            fonts carry none, and a synthesised small capital is a shrunk capital that only reads smaller. Uppercase
+            labels keep their tracking instead.
           </p>
           <h3><span class="num">4.2</span>The scale</h3>
           <div class="g-tablewrap">
@@ -4804,8 +5030,7 @@
                   <td>--t-3</td>
                   <td class="n">13.5px</td>
                   <td class="wrap">
-                    Body text, panel titles in the display serif, rail links, candidate names, department codes. The
-                    page's base size.
+                    Body text, panel titles in the display serif, rail links, candidate names, department codes. The page's base size.
                   </td>
                   <td><span class="g-sample" style="font-size: var(--t-3)">Emergency department pressure</span></td>
                 </tr>
@@ -4820,9 +5045,7 @@
                 <tr>
                   <td>--t-5</td>
                   <td class="n">20px</td>
-                  <td class="wrap">
-                    Figures in the masthead, the clock, the shortlist identifier, a rule number. Mono, 600.
-                  </td>
+                  <td class="wrap">Figures in the masthead, the clock and the wordmark. Mono at 500 for the figures, the display serif at 600 for the wordmark. The shortlist identifier and a rule number at 600.</td>
                   <td><span class="g-sample figure" style="font-size: var(--t-5)">10:42</span></td>
                 </tr>
                 <tr>
@@ -4830,15 +5053,6 @@
                   <td class="n">26px</td>
                   <td class="wrap">The page title in the display serif at 600, and the figure in a band tile.</td>
                   <td><span class="g-sample display" style="font-size: var(--t-6)">Command</span></td>
-                </tr>
-                <tr>
-                  <td>Wordmark</td>
-                  <td class="n">22px</td>
-                  <td class="wrap">
-                    The one value outside the scale. At 20px the wordmark sits under the rail links' optical weight, at
-                    26px it competes with the page title.
-                  </td>
-                  <td><span class="g-sample display" style="font-size: 22px">Ward Flow</span></td>
                 </tr>
               </tbody>
             </table>
@@ -4857,8 +5071,8 @@
               it.
             </li>
             <li>
-              <strong>Headings carry negative tracking</strong> of 0.01em in Source Sans 3 and 0.012em in Source Serif
-              4. Figures at t-5 and t-6 carry 0.02em negative.
+              <strong>Headings carry negative tracking</strong> of 0.01em in Source Sans 3 and 0.012em in Source Serif 4.
+              Figures at t-5 and t-6 carry 0.02em negative.
             </li>
             <li>
               <strong>Tabular numerals everywhere</strong>, set once on the body and on every button, so a proportional
@@ -4895,11 +5109,12 @@
           <h3><span class="num">5.1</span>Ground, surface, well, and the fall of light</h3>
           <p>
             The ground sits behind everything, and it is a gradient rather than a flat colour: ground-hi at the top of
-            the window, ground at 55 percent, ground-2 at the bottom, fixed to the window so it does not scroll with the
-            page. The reason is that a flat canvas is what makes white panels look like boxes cut out of paper. A fall
-            of light from the top gives the page a top and a bottom, and a panel lifted from it reads as an object
+            the window, ground at 55 percent, ground-2 at the bottom, fixed to the window so it does not scroll with
+            the page. The reason is that a flat canvas is what makes white panels look like boxes cut out of paper. A
+            fall of light from the top gives the page a top and a bottom, and a panel lifted from it reads as an object
             standing on a surface rather than a rectangle drawn on one. The gradient is faint by design, and nothing is
-            written directly on the ground except the masthead figures and the rail note.
+            written directly on the ground: the rail and the masthead are surface, so every word sits on a panel or on
+            chrome.
           </p>
           <p>
             Panels are surface, lifted once. Panel headers, tab strips, the diagram foot and the legend are surface-2,
@@ -4910,25 +5125,24 @@
           </p>
           <h3><span class="num">5.2</span>The brand stripe</h3>
           <p>
-            A fixed 3px stripe in the stripe token runs along the top edge of the window, above everything, drawn by the
-            body's own before pseudo element so no page has to carry it. It is the single brand mark, in the place
-            institutional sites put theirs, and it is the only thing on the page that is fixed to the window rather than
-            to the layout. It is hidden in print and drawn in CanvasText under forced colours. In the dark theme it is a
-            mid slate rather than the accent, so it reads on a dark ground without glowing.
+            A fixed 3px stripe in the stripe token runs along the top edge of the window, above everything, drawn by
+            the body's own before pseudo element so no page has to carry it. It is the single brand mark, in the place
+            institutional sites put theirs, and it is the only thing on the page that is fixed to the window rather
+            than to the layout. It is hidden in print and drawn in CanvasText under forced colours. In the dark theme
+            it is a mid slate rather than the accent, so it reads on a dark ground without glowing.
           </p>
           <h3><span class="num">5.3</span>One elevation step</h3>
           <p>
             A panel is a hairline all round, a heavier hairline along its bottom, the lift shadow and a one pixel
             highlight along its top edge. The highlight is the hl token drawn as an inset shadow, and it is what makes
-            the lift read as a lift rather than a border: light catches the top of the panel and the heavier line at the
-            bottom is the edge in shade. The lift shadow is long, low and tinted with the brand slate rather than black
-            in the light theme, so the ground under a panel looks shaded rather than dirtied. That is the only lift on
-            the page. Cards, rows, gates and chips inside a panel are hairlines and fills only, and nothing inside a
-            panel carries a shadow. Hover lifts nothing: it changes the fill to the well, or on the map adds a one pixel
-            drop shadow to the node so its fill keeps saying what it says.
+            the lift read as a lift rather than a border: light catches the top of the panel and the heavier line at
+            the bottom is the edge in shade. The lift shadow is long, low and tinted with the brand slate rather than
+            black in the light theme, so the ground under a panel looks shaded rather than dirtied. That is the only
+            lift on the page. Cards, rows, gates and chips inside a panel are hairlines and fills only, and nothing
+            inside a panel carries a shadow. Hover lifts nothing: it changes the fill to the well, or on the map thickens
+            the node's outline by half a pixel so its fill keeps saying what it says.
           </p>
-          <pre class="g-code">
-.panel {
+          <pre class="g-code" tabindex="0">.panel {
   background: var(--surface);
   border: 1px solid var(--line);
   border-bottom-color: var(--line-strong);
@@ -4939,13 +5153,13 @@
           <p>
             The panel header strip, the diagram foot with its legend, and the tab bar sit on surface-2. A strip that
             touches a panel corner takes the inner radius, r1i, on those corners, one pixel tighter than the panel, so
-            the strip sits inside the panel's edge rather than fighting it. A header strip is a label, not a toolbar: it
-            holds the title in the display serif in accent-ink, an optional note, a derived count in mono, and at most
-            one small disclosure control. The legend and the diagram foot use the same tone at the bottom of a panel, so
-            a panel has a top and a bottom in the same material.
+            the strip sits inside the panel's edge rather than fighting it. A header strip is a label, not a toolbar:
+            it holds the title in the display serif in accent-ink, an optional note, a derived count in mono, and at
+            most one small disclosure control. The legend and the diagram foot use the same tone at the bottom of a
+            panel, so a panel has a top and a bottom in the same material.
           </p>
           <h3><span class="num">5.5</span>Radii and lines</h3>
-          <div class="g-kv">
+          <dl class="g-kv">
             <dt>10px</dt>
             <dd>Panels.</dd>
             <dt>9px</dt>
@@ -4959,27 +5173,29 @@
             <dt>Hairline</dt>
             <dd>
               1px, solid, line or line-strong, both carrying alpha so one value reads right over every fill. Never
-              dashed and never dotted. A dashed outline exists only on the map, as the word Declined repeated in a
-              stroke. Never a solid grey used as a line.
+              dashed and never dotted. A broken outline exists only on the map, where a declined ward is dotted (2 3)
+              and a ward that needs a recorded reason is dashed (5 4), both in amber, each repeating the word beneath
+              it. Never a solid grey used as a line.
             </dd>
             <dt>Status bar</dt>
             <dd>
-              3px along the left of a row or candidate, along the top of a pressure card. 4px for meters and steps. The
-              bar is the only place a card or row carries colour.
+              3px along the left of a row or candidate, along the top of a pressure card. 4px for meters and steps.
+              The bar is the only place a card or row carries colour.
             </dd>
             <dt>Stripe</dt>
             <dd>3px along the top of the window.</dd>
-          </div>
+          </dl>
           <h3><span class="num">5.6</span>The shell</h3>
           <p>
             A rail of 236px on the left carrying the wordmark, grouped links with eyebrows, and a foot with who is
-            signed in, the reconciliation line and the invented-figures note. The universal header across the top, in
-            three rows: the title row (title, prototype chip, disclaimer, search, the scope switcher, the one primary
-            action, who is signed in, More), the statistics strip with its All figures dropdown and the clock, and the
-            outstanding tasks bar. Section 6.2 renders it. A scrolling region below with 14px top padding, 24px sides
-            and a 14px gap between panels and between columns. Every scrolling region declares a minimum height of zero
-            on its grid or flex path, because without it a column grows instead of scrolling and the layout looks right
-            and behaves wrong.
+            signed in, the reconciliation line and the invented-figures note. The masthead across the top: the page title
+            in the display serif, the neutral prototype chip, the fixed disclaimer, and the state instrument, which is
+            the figures counted from the page's data and the clock. The universal header in section 6.2, with search,
+            a scope switcher, the statistics strip and the outstanding tasks bar, is the planned header for the
+            operations family and is not yet in the reference build. A scrolling region below with 16px top padding,
+            24px sides and a 14px gap between panels and between columns. Every scrolling region declares a minimum height of
+            zero on its grid or flex path, because without it a column grows instead of scrolling and the layout looks
+            right and behaves wrong.
           </p>
           <h3><span class="num">5.7</span>The widths</h3>
           <div class="g-tablewrap">
@@ -4999,12 +5215,12 @@
                     bottoms. Only the scrolling body of a column may give up height. Headers, tab strips, feet and
                     legends keep theirs.
                   </td>
-                  <td class="wrap">Nothing. The legend opens by default from 1600 by 960.</td>
+                  <td class="wrap">Nothing. The legend opens by default from 1600 by 1100, where the diagram is not already cut off.</td>
                 </tr>
                 <tr>
                   <td>1400 to 1599px</td>
                   <td class="wrap">
-                    The same lock. The outer columns give a rem each (14rem and 23rem) so the diagram keeps more.
+                    The same lock. The outer columns give up a rem and two rem (14rem and 23rem) so the diagram keeps more.
                     Register tabs and masthead figures sit closer.
                   </td>
                   <td class="wrap">
@@ -5013,7 +5229,7 @@
                   </td>
                 </tr>
                 <tr>
-                  <td>1400px and wider, 960px tall or less</td>
+                  <td>1400px and wider, 1024px tall or less</td>
                   <td class="wrap">
                     The laptop rule. The lower register panel shrinks to 11.5rem, strip and card padding tighten, the
                     legend and header padding tighten, so the diagram keeps what is left. Verified at 1440 by 900: the
@@ -5069,13 +5285,14 @@
             </li>
             <li>
               <strong>Scrollbars are thin</strong> in every scrolling region: a line-strong thumb on a transparent
-              track, 9px in the engines that draw their own.
+              track, 9px in the engines that draw their own. The one exception is the header's statistics strip and
+              tasks bar, which hide theirs because they scroll by a swipe under a row of chips.
             </li>
           </ul>
           <h3><span class="num">5.9</span>Density and rhythm</h3>
           <p>
-            Everything sits on a 1px grid and nearly everything on a 2px one. These are the values in the stylesheet and
-            are not re-derived per page.
+            Everything sits on a 1px grid and nearly everything on a 2px one. These are the values in the stylesheet
+            and are not re-derived per page.
           </p>
           <div class="g-tablewrap">
             <table class="g-table">
@@ -5088,11 +5305,11 @@
               <tbody>
                 <tr>
                   <td>Panels and columns</td>
-                  <td class="wrap">14px apart. The working area has 14px top padding and 24px sides.</td>
+                  <td class="wrap">14px apart. The working area has 16px top padding, 24px sides and 28px below.</td>
                 </tr>
                 <tr>
                   <td>Rail</td>
-                  <td class="wrap">18px above the wordmark, 14px below it, links 2px apart.</td>
+                  <td class="wrap">22px above the wordmark, 20px below it, links 1px apart, groups 14px apart.</td>
                 </tr>
                 <tr>
                   <td>Panel header</td>
@@ -5104,7 +5321,7 @@
                 </tr>
                 <tr>
                   <td>Cards</td>
-                  <td class="wrap">10px by 12px, 9px apart in the pressure strip.</td>
+                  <td class="wrap">10px by 12px, 10px apart in the pressure strip.</td>
                 </tr>
                 <tr>
                   <td>Sections inside the shortlist</td>
@@ -5112,7 +5329,7 @@
                 </tr>
                 <tr>
                   <td>Gates</td>
-                  <td class="wrap">8px by 11px, 4px apart.</td>
+                  <td class="wrap">8px by 11px, 5px apart.</td>
                 </tr>
                 <tr>
                   <td>Controls</td>
@@ -5124,7 +5341,7 @@
                 </tr>
                 <tr>
                   <td>Legend</td>
-                  <td class="wrap">7px by 12px, groups 16px apart, items 8px apart.</td>
+                  <td class="wrap">2px above, 16px at the sides and 10px below, items 5px by 14px apart, groups 14px apart.</td>
                 </tr>
                 <tr>
                   <td>Status bars and meters</td>
@@ -5154,7 +5371,7 @@
           <div class="g-comp" data-component="rail">
             <div class="g-demoCol">
               <div class="g-demo flush" style="max-width: 236px; background: var(--surface)">
-                <div class="brand" style="padding: 18px 20px 14px"><b>Ward Flow</b><span>WA</span></div>
+                <div class="brand"><b>Ward Flow</b><span>WA</span></div>
                 <div class="railGroup" role="group" aria-labelledby="d-rg1">
                   <p class="railEyebrow" id="d-rg1">Operations</p>
                   <button class="railLink" aria-current="page" type="button">
@@ -5327,7 +5544,7 @@
                         class="hdrClock"
                         aria-label="Saturday 15 August 2026, 10:42 Australian Western Standard Time"
                       >
-                        <span>Sat 15 Aug AWST</span><b>10:42</b>
+                        <span>Sat 15 Aug &middot; AWST</span><b>10:42</b>
                       </div>
                       <details class="menu statsMenu">
                         <summary>All figures<span class="count">4 groups</span></summary>
@@ -5423,9 +5640,8 @@
                   <code>.hdrBar</code> holds the <code>.title</code> group (the <code>h1</code>, the
                   <code>.chip.mark</code>, the <code>.sub</code>) and <code>.hdrTools</code>: the
                   <code>.search</code> with its slash hint, the scope <code>details.menu</code>, the primary New
-                  referral menu, <code>.who</code>, and More. The title is set in the display serif, as are the wordmark
-                  and the panel titles. The chip is neutral. One primary action, and it is the summary with the
-                  <code>.primary</code> class.
+                  referral menu, <code>.who</code>, and More. The title is set in the display serif, as are the wordmark and the panel titles. The
+                  chip is neutral. One primary action, and it is the summary with the <code>.primary</code> class.
                 </dd>
               </div>
               <div>
@@ -5496,8 +5712,9 @@
               <div>
                 <dt>Supersedes</dt>
                 <dd>
-                  The plain masthead of the Command live edition, a title group with the state instrument in the same
-                  row. Its rules stay in the block only until Command is re-cut in Wave 0.
+                  Nothing yet. The reference build keeps the plain masthead of section 5.6, a title group with the state
+                  instrument in the same row, and takes this header when the operations family is rebuilt in Wave 1.
+                  Until then this component is drawn by the extension block in section 14.7.
                 </dd>
               </div>
             </dl>
@@ -5557,18 +5774,7 @@
               <div class="g-demo">
                 <div class="g-demoRow">
                   <span class="chip">Bed coordinator</span><span class="chip mark">Synthetic prototype</span
-                  ><span
-                    class="tag"
-                    style="
-                      font-family: var(--mono);
-                      font-size: var(--t-0);
-                      color: var(--muted);
-                      background: var(--sunk);
-                      padding: 1px 7px;
-                      border-radius: 999px;
-                      box-shadow: inset 0 0 0 1px var(--line);
-                    "
-                    >14</span
+                  ><span class="tag">14</span
                   ><span class="tier" data-t="1">Tier 1</span><span class="tier" data-t="2">Tier 2</span
                   ><span class="tier" data-t="3">Tier 3</span
                   ><span class="peer"><i data-t="1"></i><span class="pid">WF-009</span></span>
@@ -5697,7 +5903,7 @@
                   <span>Showing 4 of 23 waiting, from Joondalup Health Campus ED.</span
                   ><button class="linkBtn" type="button">Show all</button>
                 </div>
-                <ul class="qList" style="max-height: none">
+                <div class="qList" style="max-height: none">
                   <li>
                     <button class="qRow" type="button" aria-pressed="true">
                       <span class="qTop"
@@ -5714,29 +5920,29 @@
                         ><span class="qId">WF-014</span><span class="tier" data-t="2">Tier 2</span
                         ><span class="qWait">6h 10m</span></span
                       ><span class="qRoute"
-                        ><b>FSH ED</b> <span class="how">to</span> <b>FSH Adult Secure</b>
-                        <span class="how">accepted, bed 4 confirmed</span></span
+                        ><b>FSH ED</b> to <b>FSH Adult Secure</b>
+                        <span class="how">&middot; accepted</span></span
                       ><span class="qMeta">Referred 04:32, coordinator on call</span>
                     </button>
-                  </li>
-                  <li>
+                  </div>
+                  <div>
                     <button class="qRow" type="button" aria-pressed="false">
                       <span class="qTop"
                         ><span class="qId">WF-018</span><span class="tier" data-t="3">Tier 3</span
                         ><span class="qWait">1h 50m</span></span
                       ><span class="qRoute"
-                        ><b>JHC ED</b> <span class="how">to</span> <b>SCGH Adult Open</b>
-                        <span class="how">suggested, not yet asked</span></span
+                        ><b>JHC ED</b> to <b>SCGH Adult Open</b>
+                        <span class="how">&middot; referred</span></span
                       ><span class="qMeta">Referred 08:52</span>
                     </button>
-                  </li>
-                </ul>
+                  </div>
+                </div>
               </div>
             </div>
             <dl class="g-spec">
               <dt>Shape</dt>
               <dd>
-                <code>ul.qList</code> of buttons <code>.qRow[aria-pressed]</code>: a <code>.qTop</code> line with the
+                <code>div.qList</code>, a tab panel, of buttons <code>.qRow[aria-pressed]</code> each in its own block: a <code>.qTop</code> line with the
                 mono <code>.qId</code>, the <code>.tier</code>, the <code>.qWait</code> pushed right and, when there is
                 one, a <code>.qFlag</code> that always takes its own line beneath. Then a <code>.qRoute</code> in words
                 and a <code>.qMeta</code> line. A <code>.filterBar</code> above the list states the filter and offers
@@ -5745,7 +5951,7 @@
               <dt>States</dt>
               <dd>
                 Rest on surface, hover and pressed on the well, selected on accent-soft with the gilt bar at the left,
-                focus ring inset. Escape clears the selection, then the filter.
+                focus ring inset. Escape clears a ward selection, then a queue selection, then the filter.
               </dd>
               <dt>Rules</dt>
               <dd>
@@ -5937,13 +6143,14 @@
                 </div>
                 <div class="destBadge" data-k="none" style="margin: 0">No destination yet</div>
                 <div>
-                  <div class="stepper" aria-label="Stage 3 of 5, accepted" style="margin-top: 4px">
+                  <div class="stepper" role="img" aria-label="Stage 3 of 7, accepted, awaiting bed" style="margin-top: 4px">
                     <span class="step" data-s="done"></span><span class="step" data-s="done"></span
-                    ><span class="step" data-s="now"></span><span class="step"></span><span class="step"></span>
+                    ><span class="step" data-s="now"></span><span class="step" data-s="todo"></span
+                    ><span class="step" data-s="todo"></span><span class="step" data-s="todo"></span
+                    ><span class="step" data-s="todo"></span>
                   </div>
                   <p class="stageLine">
-                    <b>Accepted</b><span>stage 3 of 5</span
-                    ><span>Referred, shortlisted, accepted, bed pulled, arrived</span>
+                    <b>Accepted, awaiting bed</b><span>stage 3 of 7</span><span>&middot; next, bed pulled</span>
                   </p>
                 </div>
                 <dl class="slFacts" style="margin: 0">
@@ -5962,8 +6169,10 @@
               <dt>Shape</dt>
               <dd>
                 <code>.destBadge[data-k=accepted|referred|suggested|none]</code> as one sentence.
-                <code>.stepper</code> of five <code>.step</code> bars with <code>data-s</code> done or now and an
-                aria-label, then a <code>.stageLine</code> naming the stage in words. <code>dl.slFacts</code> with
+                <code>.stepper</code> with role img of seven <code>.step</code> bars, one per stage (placement
+                requested, destination review, accepted awaiting bed, bed pulled, handover ready, moving, arrived),
+                with <code>data-s</code> done, now or todo and an aria-label, then a <code>.stageLine</code> naming the
+                stage in words. <code>dl.slFacts</code> with
                 uppercase labels and plain values.
               </dd>
               <dt>Rules</dt>
@@ -5985,13 +6194,14 @@
                     <span class="slId">WF-014</span><span class="tier" data-t="1">Tier 1</span
                     ><span class="qWait" style="margin-left: auto">6h 10m waiting</span>
                   </div>
-                  <div class="stepper" aria-label="Stage 3 of 5, accepted">
+                  <div class="stepper" role="img" aria-label="Stage 3 of 7, accepted, awaiting bed">
                     <span class="step" data-s="done"></span><span class="step" data-s="done"></span
-                    ><span class="step" data-s="now"></span><span class="step"></span><span class="step"></span>
+                    ><span class="step" data-s="now"></span><span class="step" data-s="todo"></span
+                    ><span class="step" data-s="todo"></span><span class="step" data-s="todo"></span
+                    ><span class="step" data-s="todo"></span>
                   </div>
                   <p class="stageLine">
-                    <b>Accepted</b><span>stage 3 of 5</span
-                    ><span>Referred, shortlisted, accepted, bed pulled, arrived</span>
+                    <b>Accepted, awaiting bed</b><span>stage 3 of 7</span><span>&middot; next, bed pulled</span>
                   </p>
                 </div>
                 <div class="sec">
@@ -6012,15 +6222,15 @@
               <dd>
                 <code>.slHead</code> holding a <code>.slTop</code> line with the t-5 mono <code>.slId</code> in
                 accent-ink, the <code>.tier</code>, and the <code>.qWait</code> pushed right, then the
-                <code>.stepper</code> and its <code>.stageLine</code> from 6.11. Below it, each <code>.sec</code> has a
-                top hairline and an uppercase <code>h4.secH</code> with an optional mono <code>.count</code>, then a
+                <code>.stepper</code> and its <code>.stageLine</code> from 6.11. Below it, each <code>.sec</code> has
+                a top hairline and an uppercase <code>h4.secH</code> with an optional mono <code>.count</code>, then a
                 <code>.ctlRow</code>, a <code>.candList</code>, a <code>.gates</code> list or notes.
               </dd>
               <dt>Rules</dt>
               <dd>
-                The identifier is the one figure on the page set at t-5 outside the masthead, because it is the subject
-                of the whole column. A section heading is a label with a derived count, never a control. The first
-                section under the head has no top hairline, so the head's own bottom hairline is the only line.
+                The identifier is the one figure on the page set at t-5 outside the masthead, because it is the
+                subject of the whole column. A section heading is a label with a derived count, never a control. The
+                first section under the head has no top hairline, so the head's own bottom hairline is the only line.
               </dd>
             </dl>
           </div>
@@ -6058,11 +6268,10 @@
               </dd>
               <dt>States</dt>
               <dd>
-                Rest: surface with a line-strong border. Hover: the well with an ink-soft border. Pressed: the same, so
-                a click has a felt end point. Focus: the accent ring, two pixels out. Primary: accent with the one pixel
-                inner highlight in hl-on-accent, and accent-ink on hover and press. Nothing brightens on hover.
-                Disabled: half opacity, a not-allowed cursor, no change on hover or press, and a reason in the title and
-                in a described-by line.
+                Rest: surface with a line-strong border. Hover: the well with an ink-soft border. Pressed: the same, so a
+                click has a felt end point. Focus: the accent ring, two pixels out. Primary: accent with the one pixel
+                inner highlight in hl-on-accent, and accent-ink on hover and press. Nothing brightens on hover. Disabled: half opacity, a not-allowed cursor, no change on hover or press, and a
+                reason in the title and in a described-by line.
               </dd>
               <dt>Rules</dt>
               <dd>
@@ -6073,17 +6282,23 @@
           </div>
 
           <h3><span class="num">6.14</span>Diagram foot, legend and node conventions</h3>
+          <p>
+            The nodes below are a schematic drawn by hand at the renderer's sizes, not the renderer's output: names in
+            the renderer's t-wn class at 11.5px, captions in t-wc at 10.5px, service names in t-svc at 10.5px, and
+            contention badges in t-cont at 10.5px mono. The reference build draws its map from the data with those
+            classes, and nothing on it is set below 10.5px.
+          </p>
           <div class="g-comp" data-component="diagram">
             <div class="g-demoCol">
               <div class="g-demo flush" style="background: var(--surface)">
                 <div style="padding: 12px 16px 4px">
                   <svg
                     class="g-node"
-                    viewBox="0 0 640 96"
-                    width="640"
+                    viewBox="0 0 966 96"
+                    width="966"
                     height="96"
                     role="img"
-                    aria-label="Four map nodes: Armadale Adult Open eligible with a fill, SCGH Adult Open declined with a dashed outline, RPH Adult Secure accepted with a green fill, FSH Adult Secure not routed with a plain outline"
+                    aria-label="Six map nodes: RPH Emergency Department the origin with an accent outline and an ORIGIN mark, Armadale Adult Open eligible with a fill, SCGH Adult Open declined with a dotted outline, FSH Adult Open needing a recorded reason with a dashed outline, RPH Adult Secure accepted with a green fill, FSH Adult Secure not routed with a plain outline"
                     style="max-width: 100%; height: auto; display: block"
                   >
                     <g transform="translate(0 4)">
@@ -6096,7 +6311,32 @@
                         rx="6"
                         style="fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5"
                       />
-                      <text x="12" y="24" style="font-size: 12.5px; font-weight: 600; fill: var(--ink)">
+                      <rect x="1" y="1" width="3.5" height="86" rx="1.5" style="fill: var(--danger)" />
+                      <text x="12" y="24" style="font-size: 12.5px; font-weight: 600; fill: var(--ink)">RPH</text>
+                      <rect x="95" y="8" width="52" height="15" rx="3" style="fill: var(--accent)" />
+                      <text
+                        x="121"
+                        y="19"
+                        text-anchor="middle"
+                        style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; fill: var(--on-accent)"
+                      >
+                        ORIGIN
+                      </text>
+                      <text x="12" y="41" style="font-size: 10.5px; fill: var(--muted)">4 waiting</text>
+                      <text x="12" y="57" style="font-size: 10.5px; fill: var(--muted)">longest 3 h 34 m</text>
+                      <text x="12" y="73" style="font-size: 10.5px; fill: var(--danger)">1 breaching</text>
+                    </g>
+                    <g transform="translate(163 4)">
+                      <rect
+                        class="body"
+                        x="1"
+                        y="1"
+                        width="150"
+                        height="86"
+                        rx="6"
+                        style="fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5"
+                      />
+                      <text x="12" y="24" style="font-size: 11.5px; font-weight: 600; fill: var(--ink)">
                         ARM Adult Open
                       </text>
                       <text
@@ -6106,7 +6346,7 @@
                       >
                         EAST METRO
                       </text>
-                      <text x="12" y="60" class="mono" style="font-size: 11.5px; fill: var(--ink-soft)">
+                      <text x="12" y="60" class="mono" style="font-size: 10.5px; fill: var(--ink-soft)">
                         5 of 22 free
                       </text>
                       <text
@@ -6117,7 +6357,7 @@
                         ELIGIBLE
                       </text>
                     </g>
-                    <g transform="translate(163 4)">
+                    <g transform="translate(326 4)">
                       <rect
                         class="body"
                         x="1"
@@ -6125,9 +6365,9 @@
                         width="150"
                         height="86"
                         rx="6"
-                        style="fill: var(--surface); stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 4 3"
+                        style="fill: var(--surface); stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 2 3"
                       />
-                      <text x="12" y="24" style="font-size: 12.5px; font-weight: 600; fill: var(--ink)">
+                      <text x="12" y="24" style="font-size: 11.5px; font-weight: 600; fill: var(--ink)">
                         SCGH Adult Open
                       </text>
                       <text
@@ -6137,7 +6377,7 @@
                       >
                         NORTH METRO
                       </text>
-                      <text x="12" y="60" class="mono" style="font-size: 11.5px; fill: var(--ink-soft)">
+                      <text x="12" y="60" class="mono" style="font-size: 10.5px; fill: var(--ink-soft)">
                         3 of 20 free
                       </text>
                       <text
@@ -6148,7 +6388,38 @@
                         DECLINED
                       </text>
                     </g>
-                    <g transform="translate(326 4)">
+                    <g transform="translate(489 4)">
+                      <rect
+                        class="body"
+                        x="1"
+                        y="1"
+                        width="150"
+                        height="86"
+                        rx="6"
+                        style="fill: var(--surface); stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 5 4"
+                      />
+                      <text x="12" y="24" style="font-size: 11.5px; font-weight: 600; fill: var(--ink)">
+                        FSH Adult Open
+                      </text>
+                      <text
+                        x="12"
+                        y="41"
+                        style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; fill: var(--svc-south)"
+                      >
+                        SOUTH METRO
+                      </text>
+                      <text x="12" y="60" class="mono" style="font-size: 10.5px; fill: var(--ink-soft)">
+                        4 of 20 free
+                      </text>
+                      <text
+                        x="12"
+                        y="78"
+                        style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; fill: var(--warn)"
+                      >
+                        NEEDS A RECORDED REASON
+                      </text>
+                    </g>
+                    <g transform="translate(652 4)">
                       <rect
                         class="body"
                         x="1"
@@ -6158,7 +6429,7 @@
                         rx="6"
                         style="fill: var(--good-soft); stroke: var(--good); stroke-width: 1.5"
                       />
-                      <text x="12" y="24" style="font-size: 12.5px; font-weight: 600; fill: var(--ink)">
+                      <text x="12" y="24" style="font-size: 11.5px; font-weight: 600; fill: var(--ink)">
                         RPH Adult Secure
                       </text>
                       <text
@@ -6168,7 +6439,7 @@
                       >
                         EAST METRO
                       </text>
-                      <text x="12" y="60" class="mono" style="font-size: 11.5px; fill: var(--ink-soft)">
+                      <text x="12" y="60" class="mono" style="font-size: 10.5px; fill: var(--ink-soft)">
                         bed 4 confirmed
                       </text>
                       <text
@@ -6179,7 +6450,7 @@
                         ACCEPTED
                       </text>
                     </g>
-                    <g transform="translate(489 4)">
+                    <g transform="translate(815 4)">
                       <rect
                         class="body"
                         x="1"
@@ -6187,9 +6458,9 @@
                         width="150"
                         height="86"
                         rx="6"
-                        style="fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.5"
+                        style="fill: var(--surface); stroke: var(--line); stroke-width: 1"
                       />
-                      <text x="12" y="24" style="font-size: 12.5px; font-weight: 600; fill: var(--ink)">
+                      <text x="12" y="24" style="font-size: 11.5px; font-weight: 600; fill: var(--ink)">
                         FSH Adult Secure
                       </text>
                       <text
@@ -6199,7 +6470,7 @@
                       >
                         SOUTH METRO
                       </text>
-                      <text x="12" y="60" class="mono" style="font-size: 11.5px; fill: var(--ink-soft)">
+                      <text x="12" y="60" class="mono" style="font-size: 10.5px; fill: var(--ink-soft)">
                         2 of 24 free
                       </text>
                       <text
@@ -6214,7 +6485,7 @@
                 </div>
                 <div class="diagFoot">
                   <span class="diagScrollNote"
-                    >This diagram is wider than the panel. Scroll sideways to see the rest.</span
+                    >This diagram is wider than the panel. Scroll to see the rest.</span
                   ><span class="schematic">Schematic, not geographic</span>
                 </div>
                 <div class="legend" id="d-legend-2">
@@ -6222,11 +6493,16 @@
                     ><span class="lgTitle">Verdict</span
                     ><span class="lgItem"
                       ><i class="sw" style="background: var(--accent-soft); border-color: var(--accent)"></i
+                      >Origin department</span
+                    ><span class="lgItem"
+                      ><i class="sw" style="background: var(--accent-soft); border-color: var(--accent)"></i
                       >Eligible</span
                     ><span class="lgItem"
-                      ><i class="sw" style="border-color: var(--warn); border-style: dashed"></i>Declined</span
+                      ><i class="sw" style="border-color: var(--warn); border-style: dotted"></i>Already declined</span
                     ><span class="lgItem"
-                      ><i class="sw" style="background: var(--good-soft); border-color: var(--good)"></i>Accepted</span
+                      ><i class="sw" style="border-color: var(--warn); border-style: dashed"></i>Needs a recorded reason</span
+                    ><span class="lgItem"
+                      ><i class="sw" style="background: var(--good-soft); border-color: var(--good)"></i>Recorded destination</span
                     ><span class="lgItem"><i class="sw"></i>Not routed</span></span
                   >
                   <span class="lgGroup"
@@ -6243,9 +6519,14 @@
               <dt>Nodes</dt>
               <dd>
                 A 6px body with a name, the service in its hue, a mono figure and the verdict word. Only an eligible or
-                a recorded ward carries a fill. Declined is a dashed outline and the word. Not routed is a plain outline
-                and the word. Hover adds a one-pixel drop shadow and changes no colour. Focus is a 2.5px accent stroke.
-                A literal white in an SVG is never used because it is unreadable on the dark accent.
+                a recorded ward carries a fill. The origin department is an accent outline on accent-soft with an ORIGIN
+                mark and a pressure bar along its left edge. Already declined is a dotted (2 3) amber outline and the
+                word. Needs a recorded reason is a dashed (5 4) amber outline and the word, the same amber the candidate
+                list gives that verdict, because red on the map means a breach and nothing else. Not routed is a plain
+                hairline outline and the word. The route lines repeat the same colours, the origin's line is ink-soft,
+                and a recorded destination's line is green. Hover thickens the outline and changes no colour. Focus is a
+                2.5px stroke in the ink, drawn solid. A literal white in an SVG is never used because it is unreadable
+                on the dark accent.
               </dd>
               <dt>Foot and legend</dt>
               <dd>
@@ -6346,23 +6627,19 @@
                 <dl class="band" style="border-top: 0">
                   <div class="kpi">
                     <dt>Waiting in ED</dt>
-                    <dd>23</dd>
-                    <span class="delta">up <b>3</b> on last week</span>
+                    <dd>23<span class="delta">up <b>3</b> on last week</span></dd>
                   </div>
                   <div class="kpi" data-tone="danger">
                     <dt>Breached</dt>
-                    <dd>2</dd>
-                    <span class="delta">down <b>1</b> on last week</span>
+                    <dd>2<span class="delta">down <b>1</b> on last week</span></dd>
                   </div>
                   <div class="kpi" data-tone="warn">
                     <dt>Waiting over 8h</dt>
-                    <dd>7</dd>
-                    <span class="delta">no change on last week</span>
+                    <dd>7<span class="delta">no change on last week</span></dd>
                   </div>
                   <div class="kpi">
                     <dt>Beds free statewide</dt>
-                    <dd>10<small>of 84</small></dd>
-                    <span class="delta">up <b>4</b> on last week</span>
+                    <dd>10<small>of 84</small><span class="delta">up <b>4</b> on last week</span></dd>
                   </div>
                 </dl>
               </div>
@@ -6478,7 +6755,7 @@
               <div class="g-demo">
                 <p class="railCheck" data-ok="true">Figures reconcile: 0 discrepancies</p>
                 <p class="railCheck" data-ok="false">3 figures do not reconcile</p>
-                <pre class="g-code">
+                <pre class="g-code" tabindex="0">
 &lt;a class="skip" href="#qpane-patients"&gt;Skip to the priority queue&lt;/a&gt;
 &lt;p class="srOnly" id="live" aria-live="polite" aria-atomic="true"&gt;&lt;/p&gt;
 &lt;div class="appearance" role="group" aria-labelledby="apLabel"&gt;
@@ -6542,23 +6819,22 @@
                 <tr>
                   <td>Hover</td>
                   <td class="wrap">
-                    The well, and an ink-soft border on a control. On the map a one-pixel drop shadow.
+                    The well, and an ink-soft border on a control. On the map a thicker outline.
                   </td>
                   <td class="wrap">
-                    Hover never recolours a status, never lifts, never brightens, and never appears on a disabled
-                    control.
+                    Hover never recolours a status, never lifts, never brightens, and never appears on a disabled control.
                   </td>
                 </tr>
                 <tr>
                   <td>Pressed</td>
-                  <td class="wrap">The line fill on a control. The well on a row or card while the pointer is down.</td>
+                  <td class="wrap">The well with an ink-soft border on a control, the same as hover, so a click has a felt end point. The well on a row or card while the pointer is down.</td>
                   <td class="wrap">Distinct from selected.</td>
                 </tr>
                 <tr>
                   <td>Focus</td>
                   <td class="wrap">
-                    A 2px accent outline, 2px out on controls and 2px in on rows, tabs, cards and lists. A 2.5px accent
-                    stroke on a map node.
+                    A 2px accent outline, 2px out on controls and 2px in on rows, tabs, cards and lists. A 2.5px stroke in
+                    the ink on a map node.
                   </td>
                   <td class="wrap">
                     Only on focus-visible, so a pointer click does not draw it. Every focusable thing has a scroll
@@ -6579,8 +6855,8 @@
                   <td>Chosen</td>
                   <td class="wrap">Good-soft fill on the candidate that is now the destination.</td>
                   <td class="wrap">
-                    Distinct from showing, which is the slate ring. A candidate can be showing without being chosen, and
-                    the status bar survives both.
+                    Distinct from showing, which is the slate ring. A candidate can be showing without being chosen,
+                    and the status bar survives both.
                   </td>
                 </tr>
                 <tr>
@@ -6651,13 +6927,13 @@
             </li>
             <li>
               <strong>Light and dark</strong> are both complete palettes, and dark is designed, not inverted: the well
-              is darker than the panel, the highlight is faint, the shadow is black and heavier, the hairlines are white
-              at low alpha, and the stripe is a mid slate that reads on a dark ground. Every colour is measured against
-              the surface it sits on in both themes.
+              is darker than the panel, the highlight is faint, the shadow is black and heavier, the hairlines are
+              white at low alpha, and the stripe is a mid slate that reads on a dark ground. Every colour is measured
+              against the surface it sits on in both themes.
             </li>
             <li>
-              <strong>Motion</strong> is a 120ms transition on colour, background, border and the chevron's turn, and
-              nothing else. No element moves on load. Reduced motion removes every transition and animation.
+              <strong>Motion</strong> is a 120ms transition on colour, background, border, the chevron's turn and the
+              outline weight of a map node, and nothing else. No element moves on load. Reduced motion removes every transition and animation.
             </li>
             <li>
               <strong>Print</strong> is a record: the rail, the stripe, controls and link buttons go, every scrolling
@@ -6666,9 +6942,10 @@
               colours print exact.
             </li>
             <li>
-              <strong>Forced colours</strong> keep every boundary as a CanvasText border on Canvas with no shadow, and
-              every meter, swatch, peer dot, step and the stripe become CanvasText, so the page survives a high contrast
-              mode without a special design.
+              <strong>Forced colours</strong> keep every boundary as a CanvasText border on Canvas with no shadow, every
+              meter, peer dot, done or current step, the rail's brass bar and the stripe become CanvasText, a todo step
+              is an empty box, a legend swatch is a bordered box, and the pressed appearance button is the system
+              highlight, so the page survives a high contrast mode without a special design.
             </li>
           </ul>
         </div>
@@ -6765,8 +7042,9 @@
             </li>
             <li>
               No semicolons, no dashes as punctuation, no arrows, no symbols that a digital record would not carry.
-              Middle dots appear only in a count line such as &ldquo;8 departments, scroll sideways for the rest&rdquo;
-              where a comma serves as well.
+              A middle dot separates facts on one line, such as a route word after a destination (&ldquo;to FSH
+              Adult Secure &middot; accepted&rdquo;) or the fields of a bed count, and never joins two sentences. Where
+              the line is prose a comma serves.
             </li>
             <li>
               Times as 10:42 with AWST beside the date. Dates as Sat 15 Aug in a tile and in full in the label read
@@ -6868,7 +7146,7 @@
               appears only on the names of things: the wordmark, the page title, panel titles, site codes and diagram
               headings.
             </li>
-            <li>Every size is one of the seven steps, or the wordmark's 22px. Nothing below 10.5px.</li>
+            <li>Every size is one of the seven steps, in HTML and in SVG. Nothing below 10.5px.</li>
             <li>
               Every colour has one of the four jobs, brass is a bar and never a fill and marks only where the reader is,
               red appears only on a breach, and at most two tiles are flagged amber.
@@ -6877,8 +7155,9 @@
               Every state has a word, every absence is stated, every zero reads none, and every direction is a word.
             </li>
             <li>
-              The header carries the fixed disclaimer, the statistics strip and the outstanding tasks bar, the rail foot
-              carries the invented-figures note and the reconciliation line, and every count is derived.
+              The masthead carries the fixed disclaimer and the state instrument, or the statistics strip and the
+              outstanding tasks bar on a page that has adopted the universal header, the rail foot carries the
+              invented-figures note and the reconciliation line, and every count is derived.
             </li>
             <li>
               Every contrast pair the page uses appears in the table in section 3, or has been computed and added there
@@ -6923,16 +7202,21 @@
             </li>
             <li>
               The harness has been run and its output pasted into the report. <code>merged/check.mjs</code> proves in
-              one run, in both themes: the three fonts load, no weight is asked for that is not loaded, the console is
-              clean, the page's own reconcile check is empty, the page has no sideways overflow at 1920, 1440, 1280,
+              one run, in both themes: the three fonts load, no weight is asked for that is not loaded, the console
+              is clean, the page's own reconcile check is empty, the page has no sideways overflow at 1920, 1440, 1280,
               1200 and 390 wide, nothing is set below 10.5px in HTML or SVG, every visible text element reaches 4.5:1
               against the fill it sits on (3:1 for large text), the diagram region is at least 260px tall at 1440 by
-              900, the appearance control's first click from a dark machine switches the page to light, and the third
-              Tab stop shows a focus ring.
+              900, the rendered text carries no em dash, no semicolon as punctuation and no arrow, every control at a
+              true 390px layout is at least 48px tall, in print the ink and hairline tokens take their light values,
+              the appearance control's first click from a dark machine switches the page to light, and the third Tab
+              stop shows a focus ring. On a page without a diagram or a reconcile hook the harness reports those lines
+              as not applicable rather than failing. The standard itself is proved by
+              <code>merged/check-standard.mjs</code>, which adds the contrast table's own recomputation, the rail
+              targets and the demonstrations' containment.
             </li>
             <li>
-              A claim without its output is not a pass. A line that says green without the harness line that printed it
-              is not done.
+              A claim without its output is not a pass. A line that says green without the harness line that printed
+              it is not done.
             </li>
           </ul>
         </div>
@@ -6948,42 +7232,43 @@
         <div class="g-body">
           <p>
             A new mockup is built by copying, not by re-deriving. Every step below points at something that already
-            exists in the reference build or in section 14, and a mockup that needs a value none of them has reports the
-            gap rather than inventing one.
+            exists in the reference build or in section 14, and a mockup that needs a value none of them has reports
+            the gap rather than inventing one.
           </p>
           <ol class="g-list g-steps">
             <li>
               <strong>The head.</strong> Copy the head of the Command third edition: the title tag first, the two
-              preconnect links and the one font link in section 14.1, which loads Source Serif 4 at 600 and 700, Source
-              Sans 3 at 400 to 700 and JetBrains Mono at 400 to 600, and nothing else. Every face is declared with a
-              real fallback stack.
+              preconnect links and the one font link in section 14.1, which loads Source Serif 4 at 600 and 700,
+              Source Sans 3 at 400 to 700 and JetBrains Mono at 400 to 600, and nothing else. Every face is declared
+              with a real fallback stack.
             </li>
             <li>
               <strong>The tokens.</strong> Copy the three roots in section 14.2 verbatim: the bare root with the
-              complete light palette, the dark palette under the machine's preference guarded against an explicit light
-              choice, and the dark palette again under the page's own control. Keep the print block that gives every
-              token its light value on all three roots. Do not add a token, and do not give a colour its only definition
-              inside a theme block.
+              complete light palette, the dark palette under the machine's preference guarded against an explicit
+              light choice, and the dark palette again under the page's own control. Keep the print block that gives
+              every token its light value on all three roots. Do not add a token, and do not give a colour its only
+              definition inside a theme block.
             </li>
             <li>
               <strong>The stylesheet.</strong> Copy the whole stylesheet from the reference build, unchanged, and below
-              it add only the rules the screen needs, under a comment naming the screen. A rule the screen needs and the
-              stylesheet lacks is added to the stylesheet here first, token only, and every carrier is re-cut. A copy is
-              never hand-patched.
+              it add only the rules the screen needs, under a comment naming the screen. A rule the screen needs and
+              the stylesheet lacks is added to the stylesheet here first, token only, and every carrier is re-cut. A
+              copy is never hand-patched.
             </li>
             <li>
               <strong>The theme script.</strong> Copy the appearance script in section 14.5, replace the page name in
-              the storage key, and place it after the markup. Then copy the measurement helpers in section 14.6 that the
-              page uses: announcements, list fades, the strip's sideways affordance, the legend default, Escape and
-              disclosures for print.
+              the storage key, and place it after the markup. Then copy the measurement helpers in section 14.6 that
+              the page uses: announcements, list fades, the strip's sideways affordance, the legend default, Escape
+              and disclosures for print.
             </li>
             <li>
-              <strong>The page skeleton.</strong> Keep the shell in section 5.6: a skip link, the rail with the wordmark
-              and grouped links and its foot, the universal header with the fixed disclaimer, the statistics strip and
-              the outstanding tasks bar, one polite live region, and a scrolling region of panels. Mark the current rail
-              link with aria-current. Every region is a panel with a header strip, and its body is one of five things: a
-              list of rows, a strip of cards, a diagram with a foot and a legend, tabs, or sections with headings. Those
-              five bodies cover every screen so far.
+              <strong>The page skeleton.</strong> Keep the shell in section 5.6: a skip link, the rail with the
+              wordmark and grouped links and its foot, the masthead with the fixed disclaimer and the state instrument
+              (the universal header of section 6.2 once its family adopts it), one polite live region, and a scrolling
+              region of panels. The page's language is en-AU, set on the root by the head script in section 14.1. Mark the
+              current rail link with aria-current. Every region is a panel with a header strip, and its body is one of
+              five things: a list of rows, a strip of cards, a diagram with a foot and a legend, tabs, or sections with
+              headings. Those five bodies cover every screen so far.
             </li>
             <li>
               <strong>Map data to primitives.</strong> A thing with a status gets a card or a row with a bar. A thing
@@ -7010,7 +7295,8 @@
           <ul class="g-list">
             <li>A second shadow inside a panel. A shadow on a button, a chip, a card or a row.</li>
             <li>
-              A brass fill. A status colour on a title, a border, a tab or a button that is not itself a status action.
+              A brass fill. A status colour on a title, a border, a tab or a button that is not itself a status
+              action.
             </li>
             <li>A hex value in a component. A new grey. A solid grey used as a line.</li>
             <li>Small capitals. A weight that is not loaded. A size that is not on the scale.</li>
@@ -7022,9 +7308,9 @@
             <li>A verdict about a person. An invented phone number, address, record number or real-seeming name.</li>
           </ul>
           <p>
-            Decide with one question. Does this element tell a coordinator something they would otherwise have to work
-            out? If yes, it earns its place and takes the primitive that already exists for that kind of fact. If no, it
-            comes off the page.
+            Decide with one question. Does this element tell a coordinator something they would otherwise have to
+            work out? If yes, it earns its place and takes the primitive that already exists for that kind of fact.
+            If no, it comes off the page.
           </p>
         </div>
       </section>
@@ -7057,16 +7343,16 @@
                   <td>Archivo for everything structural</td>
                   <td class="wrap">Source Sans 3 for everything read, Source Serif 4 for the names of things</td>
                   <td class="wrap">
-                    Source Sans 3 holds its shape at the 10.5px floor. A serif on the names of things, and never in
-                    running text, names the page without decorating it.
+                    Source Sans 3 holds its shape at the 10.5px floor. A serif on the names of things, and never in running
+                    text, names the page without decorating it.
                   </td>
                 </tr>
                 <tr>
                   <td>JetBrains Mono for figures</td>
                   <td class="wrap">JetBrains Mono, kept</td>
                   <td class="wrap">
-                    The second edition moved to Plex Mono to share a family with its text face. The third edition
-                    returns to JetBrains Mono, whose figures stay open and distinct at the floor.
+                    The second edition moved to Plex Mono to share a family with its text face. The third edition returns
+                    to JetBrains Mono, whose figures stay open and distinct at the floor.
                   </td>
                 </tr>
                 <tr>
@@ -7164,16 +7450,14 @@
                   <td class="wrap">A seven label stepper</td>
                   <td class="wrap">One bar of steps with a stage sentence beside it</td>
                   <td class="wrap">
-                    Seven labels under seven bars forced 8px type and broke words. One bar and a sentence say the stage
-                    in words, so the bars are never the only carrier.
+                    Seven labels under seven bars forced 8px type and broke words. One bar and a sentence say the
+                    stage in words, so the bars are never the only carrier.
                   </td>
                 </tr>
                 <tr>
                   <td>First</td>
                   <td class="wrap">A pink fill on every ward that needs a reason</td>
-                  <td class="wrap">
-                    Only an eligible or a recorded ward carries a fill, every other verdict is an outline and a word
-                  </td>
+                  <td class="wrap">Only an eligible or a recorded ward carries a fill, every other verdict is an outline and a word</td>
                   <td class="wrap">
                     A map covered in fills reads as a map covered in alarms. A fill now means a place the movement can
                     go or has gone, and the rest is a word.
@@ -7184,8 +7468,8 @@
                   <td class="wrap">A plain light and dark toggle</td>
                   <td class="wrap">Light, Dark and Auto, remembered for this browser</td>
                   <td class="wrap">
-                    A toggle cannot say follow the machine. Three states can, and the choice is remembered under a key
-                    named for the page and forgotten when Auto is chosen.
+                    A toggle cannot say follow the machine. Three states can, and the choice is remembered under a
+                    key named for the page and forgotten when Auto is chosen.
                   </td>
                 </tr>
                 <tr>
@@ -7193,8 +7477,8 @@
                   <td class="wrap">The copper token</td>
                   <td class="wrap">The gilt token, and the colour is called brass</td>
                   <td class="wrap">
-                    The second edition's stylesheet and scripts read gilt, and a rename would touch every carrier for no
-                    gain. The value is the first edition's brass in both themes.
+                    The second edition's stylesheet and scripts read gilt, and a rename would touch every carrier for
+                    no gain. The value is the first edition's brass in both themes.
                   </td>
                 </tr>
                 <tr>
@@ -7202,8 +7486,8 @@
                   <td class="wrap">No figures in the masthead</td>
                   <td class="wrap">A statistics strip of figures counted from the data on every load</td>
                   <td class="wrap">
-                    The state of the network is the first thing a coordinator wants, and a figure the page derives is a
-                    figure the page can reconcile.
+                    The state of the network is the first thing a coordinator wants, and a figure the page derives is
+                    a figure the page can reconcile.
                   </td>
                 </tr>
                 <tr>
@@ -7211,8 +7495,8 @@
                   <td class="wrap">No route words on a queue row</td>
                   <td class="wrap">Where the person is and where they are pointed, written with from and to</td>
                   <td class="wrap">
-                    A row that names the origin and the destination is readable without the shortlist open, and a word
-                    survives a screen reader and a printout.
+                    A row that names the origin and the destination is readable without the shortlist open, and a
+                    word survives a screen reader and a printout.
                   </td>
                 </tr>
                 <tr>
@@ -7238,8 +7522,8 @@
                   <td class="wrap">A near white ground</td>
                   <td class="wrap">The platinum gradient with a fall of light</td>
                   <td class="wrap">
-                    A near white ground under white panels gave faint separation and no tonal structure. A ground that
-                    is lighter at the top than the bottom gives the page a top and a bottom.
+                    A near white ground under white panels gave faint separation and no tonal structure. A ground
+                    that is lighter at the top than the bottom gives the page a top and a bottom.
                   </td>
                 </tr>
                 <tr>
@@ -7247,8 +7531,8 @@
                   <td class="wrap">Solid grey hairlines</td>
                   <td class="wrap">Alpha hairlines</td>
                   <td class="wrap">
-                    One alpha value is the right darkness over a white row, a toned strip and a sunk well alike, where a
-                    solid grey is right on one fill and wrong on the others.
+                    One alpha value is the right darkness over a white row, a toned strip and a sunk well alike, where
+                    a solid grey is right on one fill and wrong on the others.
                   </td>
                 </tr>
                 <tr>
@@ -7274,8 +7558,8 @@
                   <td class="wrap">Header strips on the surface</td>
                   <td class="wrap">Surface-2 strips with an inner radius</td>
                   <td class="wrap">
-                    A strip a tone cooler than the body gives a panel a top and a bottom, and the inner radius keeps the
-                    strip inside the panel's edge.
+                    A strip a tone cooler than the body gives a panel a top and a bottom, and the inner radius keeps
+                    the strip inside the panel's edge.
                   </td>
                 </tr>
                 <tr>
@@ -7283,8 +7567,8 @@
                   <td class="wrap">Panel radius 10px</td>
                   <td class="wrap">10px, kept, with 9px inside</td>
                   <td class="wrap">
-                    The first edition's 9px and 8px were a shade tighter. The second edition's 10px is kept because its
-                    whole stylesheet is built on it, and the inner radius follows one pixel behind.
+                    The first edition's 9px and 8px were a shade tighter. The second edition's 10px is kept because
+                    its whole stylesheet is built on it, and the inner radius follows one pixel behind.
                   </td>
                 </tr>
                 <tr>
@@ -7298,14 +7582,37 @@
                 </tr>
                 <tr>
                   <td>Second</td>
-                  <td class="wrap">
-                    WACHS in a rust mixed for the Prussian blue palette, and in the first edition the brand slate
-                  </td>
+                  <td class="wrap">WACHS in a rust mixed for the Prussian blue palette, and in the first edition the brand slate</td>
                   <td class="wrap">WACHS given rust, re-mixed for the platinum neutrals</td>
                   <td class="wrap">
                     The first edition gave WACHS the brand slate, which East Metro already owns, so two services shared
                     a hue. The second edition's rust is kept in kind and re-mixed for the cool neutrals, so the four
                     services stay apart at a glance.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Second</td>
+                  <td class="wrap">One serif, used twice on a page and never a third time</td>
+                  <td class="wrap">The serif on the names of things: the wordmark, the page title, panel titles, site codes and diagram headings</td>
+                  <td class="wrap">
+                    The first edition's serif carries the identity, and a name is where an identity face belongs. Two
+                    uses a page could not cover the panel titles, which the material rules put in the serif.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Second</td>
+                  <td class="wrap">The candidate demonstration showed FSH Adult Secure, South Metro</td>
+                  <td class="wrap">BTY Adult Secure, East Metro</td>
+                  <td class="wrap">The demonstration now mirrors the reference build's showing candidate for WF-014.</td>
+                </tr>
+                <tr>
+                  <td>Third, first cut</td>
+                  <td class="wrap">warn #886211, svc-north #6F5F9E, svc-south #3F7A80 in the light theme</td>
+                  <td class="wrap">warn #825D10, svc-north #685A94, svc-south #356A70</td>
+                  <td class="wrap">
+                    The round one review measured the three below the floor on a showing candidate's accent-soft wash
+                    (3.9 to 4.4:1) and the teal on the hover well (4.3:1). Each is darkened the least that clears 4.5:1
+                    on every fill it sits on. The dark values were already clear and are unchanged.
                   </td>
                 </tr>
               </tbody>
@@ -7353,13 +7660,11 @@
                   <td class="wrap">
                     <a href="https://claude.ai/code/artifact/60c8bd59-7392-499d-bfe5-eee90131e1da">60c8bd59</a>
                   </td>
-                  <td class="wrap">
-                    The second edition's live build: Prussian blue, Newsreader and Plex, a near white ground
-                  </td>
+                  <td class="wrap">The second edition's live build: Prussian blue, Newsreader and Plex, a near white ground</td>
                   <td class="wrap">
                     The reference build. Re-cut with the third edition's identity and material on the second edition's
                     engine: the tokens in section 14.2, the material rules in 14.3 and the three faces. Nothing in its
-                    content, data or behaviour changes. Supersedes the three earlier Command artifacts, including the
+                    content or data changes, and its behaviour changed only where the round one review found a fault. Supersedes the three earlier Command artifacts, including the
                     first edition's Platinum Raised Cool build.
                   </td>
                 </tr>
@@ -7506,7 +7811,8 @@
                   </td>
                   <td class="wrap">
                     The closest page to this standard already. Swap fonts and tokens and keep its chart discipline, its
-                    disclosures that open in print and its band. Its rules are the ones the extension block carries.
+                    disclosures that open in print and its band. Its table, band, chart and disclosure rules are the ones
+                    the extension block in section 14.7 carries.
                   </td>
                 </tr>
                 <tr>
@@ -7604,8 +7910,8 @@
             <li>
               <strong>Behaviour from the second edition.</strong> The masthead figures, route words, the one bar
               stepper, the diagram fill rule, the legend disclosure, the three state appearance control, the 10.5px
-              floor, the contrast table and the definition of done come from the Live edition standard. Reverse this and
-              the first edition's shorter, less rigorous behaviour returns.
+              floor, the contrast table and the definition of done come from the Live edition standard. Reverse this
+              and the first edition's shorter, less rigorous behaviour returns.
             </li>
             <li>
               <strong>WACHS rust.</strong> WA Country Health Service takes a rust of its own rather than sharing the
@@ -7622,17 +7928,19 @@
               carrier must be re-cut for a rename.
             </li>
             <li>
-              <strong>South Metro teal on the ground.</strong> The one text pairing below the floor is svc-south on the
-              bare ground in the light theme, at 4.04:1. Until the owner darkens the teal, no page sets a service name
-              directly on the ground, and the pair stays printed and marked in section 3.4.
+              <strong>Three light tokens darkened.</strong> The round one review measured South Metro's teal, North
+              Metro's plum and the amber below the floor on a showing candidate's accent-soft wash, and the teal on
+              the hover well. Each is darkened the least that clears 4.5:1 on every fill it sits on: svc-south to
+              #356A70, svc-north to #685A94, warn to #825D10. Every pairing in section 3.4 now passes in both themes.
+              Reverse this and those pairs fall to 3.9 to 4.4:1.
             </li>
             <li>
               <strong>Delays.</strong> Confirm which of the three Delays artifacts is the working one. The plan assumes
               24f6ef55.
             </li>
             <li>
-              <strong>Legend default.</strong> Open only at 1600 by 960 and wider, closed elsewhere, reader's choice
-              thereafter. Accept or change.
+              <strong>Legend default.</strong> Open only at 1600 by 1100 and wider, where the diagram is not already
+              cut off, closed elsewhere, reader's choice thereafter. Accept or change.
             </li>
             <li>
               <strong>New referral.</strong> It is a locked design. Unlock it for the visual migration only, keeping its
@@ -7664,8 +7972,8 @@
                     >
                   </td>
                   <td class="wrap">
-                    Superseded by the third edition build. The second of these was the first edition's reference build,
-                    Platinum Raised Cool. Not updated again.
+                    Superseded by the third edition build. The second of these was the first edition's reference
+                    build, Platinum Raised Cool. Not updated again.
                   </td>
                 </tr>
                 <tr>
@@ -7700,24 +8008,24 @@
                     >
                   </td>
                   <td class="wrap">
-                    Superseded by the third edition. They were the comparisons that chose the identity, and no page is
-                    built on them.
+                    Superseded by the third edition. They were the comparisons that chose the identity, and no page
+                    is built on them.
                   </td>
                 </tr>
                 <tr>
                   <td class="wrap">First edition of this document</td>
                   <td class="wrap"><span class="mono">This artifact, version 1.0, Platinum Raised Cool</span></td>
                   <td class="wrap">
-                    Superseded by the third edition, which carries its identity and material. Kept in the version picker
-                    for the record.
+                    Superseded by the third edition, which carries its identity and material. Kept as
+                    WARD-FLOW-STYLE-GUIDE.md and guide-body.html beside this one.
                   </td>
                 </tr>
                 <tr>
                   <td class="wrap">Second edition of this document</td>
                   <td class="wrap"><span class="mono">This artifact, version 2.0, the Live edition standard</span></td>
                   <td class="wrap">
-                    Superseded by the third edition, which carries its content, behaviour and rigour. Kept in the
-                    version picker for the record.
+                    Superseded by the third edition, which carries its content, behaviour and rigour. Kept as
+                    source-L-standard.html beside this one.
                   </td>
                 </tr>
               </tbody>
@@ -7735,8 +8043,21 @@
         </div>
         <div class="g-body">
           <h3><span class="num">14.1</span>The head of every page</h3>
-          <pre class="g-code">
+          <p>
+            The title first, then a short script that names the language and stamps a remembered appearance before
+            the stylesheet, so the first paint is already in the reader's theme, then the font links.
+          </p>
+          <pre class="g-code" tabindex="0">
 &lt;title&gt;Ward Flow Command&lt;/title&gt;
+&lt;script&gt;
+  (function () {
+    document.documentElement.lang = "en-AU";
+    try {
+      var v = localStorage.getItem("ward-flow-&lt;page&gt;-appearance");
+      if (v === "light" || v === "dark") document.documentElement.setAttribute("data-theme", v);
+    } catch (e) {}
+  })();
+&lt;/script&gt;
 &lt;link rel="preconnect" href="https://fonts.googleapis.com" /&gt;
 &lt;link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /&gt;
 &lt;link
@@ -7745,382 +8066,535 @@
 /&gt;</pre>
           <h3><span class="num">14.2</span>The tokens</h3>
           <p>
-            The three roots, the print rule and the reduced-motion block, exactly as they sit at the top of the
-            stylesheet. Every name the second edition's stylesheet and scripts read is kept, and five are added:
+            The three roots, the print rule and the reduced-motion block, extracted from the reference build's
+            stylesheet by <code>merged/apply-r1-standard.mjs</code> rather than typed, so they cannot differ from it. Every name the second edition's stylesheet and scripts read is kept, and five are added:
             ground-hi, ground-2, stripe, hl-on-accent and r1i.
           </p>
-          <pre class="g-code g-src">
+          <pre class="g-code g-src" tabindex="0">
   :root {
-    color-scheme: light;
-
-    --ground-hi: #ECF0F4;
-    --ground: #E6EAEF;
-    --ground-2: #E1E6EC;
-    --surface: #FDFDFE;
-    --surface-2: #F4F7FA;
-    --sunk: #EEF2F6;
-
-    --ink: #161A20;
-    --ink-soft: #414953;
-    --muted: #5F6873;
-
-    --line: rgba(22, 30, 40, 0.11);
-    --line-strong: rgba(22, 30, 40, 0.26);
-
-    --accent: #2F4C66;
-    --accent-ink: #27405A;
-    --accent-soft: #DFE7F0;
-    --on-accent: #FFFFFF;
-    --stripe: #2F4C66;
-
-    --gilt: #7D612A;
-    --gilt-soft: #F1EBDF;
-
-    --good: #227550;
-    --good-soft: #E2F0E8;
-    --warn: #886211;
-    --warn-soft: #F6EEDA;
-    --danger: #B03B2E;
-    --danger-soft: #F8E6E2;
-    --danger-ink: #973121;
-
-    --svc-east: #2F4C66;
-    --svc-north: #6F5F9E;
-    --svc-south: #3F7A80;
-    --svc-wachs: #8C5A3C;
-
-    /* Names the rendering script reads. Kept as aliases so the data layer never
-       carries a hex of its own. */
-    --ward: var(--svc-east);
-    --ward-soft: var(--accent-soft);
-    --ed: var(--danger);
-    --comm: var(--svc-south);
-    --coord: var(--svc-north);
-
-    --lift:
-      0 1px 1px rgba(30, 48, 66, 0.05),
-      0 14px 30px -22px rgba(30, 48, 66, 0.45);
-    --hl: rgba(255, 255, 255, 0.9);
-    --hl-on-accent: rgba(255, 255, 255, 0.14);
-    --edge-shade: rgba(30, 48, 66, 0.16);
-
-    --r1: 10px;
-    --r1i: 9px;
-    --r2: 6px;
-    --gap: 14px;
-
-    --t-0: 10.5px;
-    --t-1: 11.5px;
-    --t-2: 12.5px;
-    --t-3: 13.5px;
-    --t-4: 16px;
-    --t-5: 20px;
-    --t-6: 26px;
-
-    --display: "Source Serif 4", Georgia, "Times New Roman", serif;
-    --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
-    --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
-  }
-
-  /* The dark palette, redefined twice on purpose: once for a machine set to dark that has
-     made no explicit choice on the page, once for the page's own control. Never a colour
-     whose only definition sits inside one of these blocks. */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      color-scheme: dark;
-      --ground-hi: #14181D;
-      --ground: #0F1216;
-      --ground-2: #0C0F12;
-      --surface: #171B21;
-      --surface-2: #1B2026;
-      --sunk: #13171C;
-      --ink: #E8ECF1;
-      --ink-soft: #B2BAC5;
-      --muted: #8A929D;
-      --line: rgba(255, 255, 255, 0.09);
-      --line-strong: rgba(255, 255, 255, 0.21);
-      --accent: #A7BCD2;
-      --accent-ink: #BFD0E2;
-      --accent-soft: #1F2A36;
-      --on-accent: #0F1216;
-      --stripe: #3A5A78;
-      --gilt: #D3B77E;
-      --gilt-soft: #2A251B;
-      --good: #6FD39B;
-      --good-soft: #15291F;
-      --warn: #E3BC5E;
-      --warn-soft: #2B2415;
-      --danger: #FF8B76;
-      --danger-soft: #33201B;
-      --danger-ink: #FFA08E;
-      --svc-east: #A7BCD2;
-      --svc-north: #B1A2D6;
-      --svc-south: #7FB2B8;
-      --svc-wachs: #D89A78;
-      --lift:
-        0 1px 1px rgba(0, 0, 0, 0.4),
-        0 16px 34px -22px rgba(0, 0, 0, 0.95);
-      --hl: rgba(255, 255, 255, 0.06);
-      --hl-on-accent: rgba(255, 255, 255, 0.28);
-      --edge-shade: rgba(0, 0, 0, 0.55);
-    }
-  }
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-    --ground-hi: #14181D;
-    --ground: #0F1216;
-    --ground-2: #0C0F12;
-    --surface: #171B21;
-    --surface-2: #1B2026;
-    --sunk: #13171C;
-    --ink: #E8ECF1;
-    --ink-soft: #B2BAC5;
-    --muted: #8A929D;
-    --line: rgba(255, 255, 255, 0.09);
-    --line-strong: rgba(255, 255, 255, 0.21);
-    --accent: #A7BCD2;
-    --accent-ink: #BFD0E2;
-    --accent-soft: #1F2A36;
-    --on-accent: #0F1216;
-    --stripe: #3A5A78;
-    --gilt: #D3B77E;
-    --gilt-soft: #2A251B;
-    --good: #6FD39B;
-    --good-soft: #15291F;
-    --warn: #E3BC5E;
-    --warn-soft: #2B2415;
-    --danger: #FF8B76;
-    --danger-soft: #33201B;
-    --danger-ink: #FFA08E;
-    --svc-east: #A7BCD2;
-    --svc-north: #B1A2D6;
-    --svc-south: #7FB2B8;
-    --svc-wachs: #D89A78;
-    --lift:
-      0 1px 1px rgba(0, 0, 0, 0.4),
-      0 16px 34px -22px rgba(0, 0, 0, 0.95);
-    --hl: rgba(255, 255, 255, 0.06);
-    --hl-on-accent: rgba(255, 255, 255, 0.28);
-    --edge-shade: rgba(0, 0, 0, 0.55);
-  }
-
-  /* Print: every token takes its light value on all three roots, so a dark machine
-     prints the same record as a light one. */
-  @media print {
-    :root,
-    :root:not([data-theme="light"]),
-    :root[data-theme="dark"] {
       color-scheme: light;
-      --ground-hi: #FFFFFF;
-      --ground: #FFFFFF;
-      --ground-2: #FFFFFF;
-      --surface: #FFFFFF;
-      --surface-2: #FFFFFF;
+  
+      --ground-hi: #ECF0F4;
+      --ground: #E6EAEF;
+      --ground-2: #E1E6EC;
+  
+      --surface: #FDFDFE;
+      --surface-2: #F4F7FA;
       --sunk: #EEF2F6;
+  
       --ink: #161A20;
       --ink-soft: #414953;
       --muted: #5F6873;
+  
       --line: rgba(22, 30, 40, 0.11);
       --line-strong: rgba(22, 30, 40, 0.26);
+  
       --accent: #2F4C66;
       --accent-ink: #27405A;
       --accent-soft: #DFE7F0;
       --on-accent: #FFFFFF;
       --stripe: #2F4C66;
+  
       --gilt: #7D612A;
       --gilt-soft: #F1EBDF;
+  
       --good: #227550;
       --good-soft: #E2F0E8;
-      --warn: #886211;
+      --warn: #825D10;
       --warn-soft: #F6EEDA;
+  
       --danger: #B03B2E;
       --danger-soft: #F8E6E2;
       --danger-ink: #973121;
+  
       --svc-east: #2F4C66;
-      --svc-north: #6F5F9E;
-      --svc-south: #3F7A80;
+      --svc-north: #685A94;
+      --svc-south: #356A70;
       --svc-wachs: #8C5A3C;
-      --lift: none;
-      --hl: transparent;
-      --hl-on-accent: transparent;
-      --edge-shade: transparent;
+  
+      /* Names the rendering script reads. Kept as aliases so the data layer never
+         carries a hex of its own. */
+      --ward: var(--svc-east);
+      --ward-soft: var(--accent-soft);
+      --ed: var(--danger);
+      --comm: var(--svc-south);
+      --coord: var(--svc-north);
+  
+      --lift: 0 1px 1px rgba(30, 48, 66, 0.05), 0 14px 30px -22px rgba(30, 48, 66, 0.45);
+      --hl: rgba(255, 255, 255, 0.9);
+      --hl-on-accent: rgba(255, 255, 255, 0.14);
+      --edge-shade: rgba(30, 48, 66, 0.16);
+  
+      --r1: 10px;
+      --r1i: 9px;
+      --r2: 6px;
+      --gap: 14px;
+  
+      --t-0: 10.5px;
+      --t-1: 11.5px;
+      --t-2: 12.5px;
+      --t-3: 13.5px;
+      --t-4: 16px;
+      --t-5: 20px;
+      --t-6: 26px;
+  
+      --display: &quot;Source Serif 4&quot;, Georgia, &quot;Times New Roman&quot;, serif;
+      --body: &quot;Source Sans 3&quot;, &quot;Segoe UI&quot;, system-ui, sans-serif;
+      --mono: &quot;JetBrains Mono&quot;, ui-monospace, Consolas, monospace;
     }
-  }
 
-  @media (prefers-reduced-motion: reduce) {
-    * {
-      transition: none !important;
-      animation: none !important;
+  @media (prefers-color-scheme: dark) {
+      :root:not([data-theme=&quot;light&quot;]) {
+          color-scheme: dark;
+          --ground-hi: #14181D;
+          --ground: #0F1216;
+          --ground-2: #0C0F12;
+    
+          --surface: #171B21;
+          --surface-2: #1B2026;
+          --sunk: #13171C;
+    
+          --ink: #E8ECF1;
+          --ink-soft: #B2BAC5;
+          --muted: #8A929D;
+    
+          --line: rgba(255, 255, 255, 0.09);
+          --line-strong: rgba(255, 255, 255, 0.21);
+    
+          --accent: #A7BCD2;
+          --accent-ink: #BFD0E2;
+          --accent-soft: #1F2A36;
+          --on-accent: #0F1216;
+          --stripe: #3A5A78;
+    
+          --gilt: #D3B77E;
+          --gilt-soft: #2A251B;
+    
+          --good: #6FD39B;
+          --good-soft: #15291F;
+          --warn: #E3BC5E;
+          --warn-soft: #2B2415;
+    
+          --danger: #FF8B76;
+          --danger-soft: #33201B;
+          --danger-ink: #FFA08E;
+    
+          --svc-east: #A7BCD2;
+          --svc-north: #B1A2D6;
+          --svc-south: #7FB2B8;
+          --svc-wachs: #D89A78;
+          --lift: 0 1px 1px rgba(0, 0, 0, 0.4), 0 16px 34px -22px rgba(0, 0, 0, 0.95);
+          --hl: rgba(255, 255, 255, 0.06);
+          --hl-on-accent: rgba(255, 255, 255, 0.28);
+          --edge-shade: rgba(0, 0, 0, 0.55);
+        }
     }
-  }</pre>
-          <h3><span class="num">14.3</span>The material rules</h3>
-          <p>
-            The rules that carry the first edition's material on top of the second edition's stylesheet. They change the
-            rule, never the class name, so every script keeps working. Each is stated here once with its reason in
-            section 5, and the whole stylesheet in the reference build carries them already.
-          </p>
-          <pre class="g-code g-src">
-  /* Canvas: a fall of light from the top, fixed to the window. */
-  body {
-    background:
-      linear-gradient(180deg, var(--ground-hi) 0%, var(--ground) 55%, var(--ground-2) 100%) fixed,
-      var(--ground);
-    text-rendering: optimizeLegibility;
-    font-optical-sizing: auto;
-    font-variant-numeric: tabular-nums;
-  }
 
-  /* Brand stripe: the single brand mark. Hidden in print, CanvasText under forced colours. */
-  body::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--stripe);
-    z-index: 20;
-    pointer-events: none;
-  }
-
-  /* Panel: the one elevation step. Nothing inside a panel carries a shadow. */
-  .panel {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-bottom-color: var(--line-strong);
-    border-radius: var(--r1);
-    box-shadow: var(--lift), inset 0 1px 0 var(--hl);
-  }
-
-  /* Strips: header, foot and tab bar on surface-2, inner radius where they meet a corner. */
-  .ph {
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--line);
-    border-radius: var(--r1i) var(--r1i) 0 0;
-  }
-  .legend,
-  .diagFoot {
-    background: var(--surface-2);
-  }
-  .panel > .legend:last-child {
-    border-radius: 0 0 var(--r1i) var(--r1i);
-  }
-  .panel > .tabbar:first-child {
-    border-radius: var(--r1i) var(--r1i) 0 0;
-  }
-
-  /* Selection never hides status: the bar side is left alone, the other three take the ring. */
-  .edCard[aria-pressed="true"] {
-    background: var(--accent-soft);
-    border-left-color: var(--accent);
-    border-right-color: var(--accent);
-    border-bottom-color: var(--accent);
-    box-shadow: inset 0 0 0 1px var(--accent);
-  }
-  .cand[data-showing="true"] {
-    background: var(--accent-soft);
-    border-top-color: var(--accent);
-    border-right-color: var(--accent);
-    border-bottom-color: var(--accent);
-    box-shadow: inset 0 0 0 1px var(--accent);
-    opacity: 1;
-  }
-
-  /* Controls. Never brighten on hover. */
-  .ctl {
-    background: var(--surface);
-    border: 1px solid var(--line-strong);
-    border-radius: var(--r2);
-  }
-  .ctl:hover,
-  .ctl:active {
-    background: var(--sunk);
-    border-color: var(--ink-soft);
-  }
-  .ctl.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--on-accent);
-    box-shadow: inset 0 1px 0 var(--hl-on-accent);
-  }
-  .ctl.primary:hover,
-  .ctl.primary:active {
-    background: var(--accent-ink);
-    border-color: var(--accent-ink);
-  }
-
-  /* Count pills: mono on the well with a hairline ring, selected on accent-soft with a slate ring. */
-  .tag,
-  .tabNum {
-    font-family: var(--mono);
-    background: var(--sunk);
-    box-shadow: inset 0 0 0 1px var(--line);
-    border-radius: 999px;
-  }
-  .tabBtn[aria-selected="true"] .tabNum {
-    background: var(--accent-soft);
-    box-shadow: inset 0 0 0 1px var(--accent);
-  }
-  .tabNum[data-zero="true"] {
-    background: none;
-    box-shadow: none;
-    font-family: var(--body);
-    font-style: italic;
-  }
-
-  /* Scrollbars, in every scrolling region. */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--line-strong) transparent;
-  }
-  ::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: var(--line-strong);
-    border-radius: 999px;
-  }
-
-  /* Panel titles and the brand name in accent-ink, in the display serif. */
-  .ph h2,
-  .ph h3,
-  .brand b {
-    font-family: var(--display);
-    font-weight: 600;
-    color: var(--accent-ink);
-  }
-
-  /* The laptop rule, applied only where the second edition's own rule leaves the diagram short. */
-  @media (min-width: 1400px) and (max-height: 960px) {
-    .tabsPanel {
-      height: 11.5rem;
+  :root[data-theme=&quot;dark&quot;] {
+      color-scheme: dark;
+      --ground-hi: #14181D;
+      --ground: #0F1216;
+      --ground-2: #0C0F12;
+  
+      --surface: #171B21;
+      --surface-2: #1B2026;
+      --sunk: #13171C;
+  
+      --ink: #E8ECF1;
+      --ink-soft: #B2BAC5;
+      --muted: #8A929D;
+  
+      --line: rgba(255, 255, 255, 0.09);
+      --line-strong: rgba(255, 255, 255, 0.21);
+  
+      --accent: #A7BCD2;
+      --accent-ink: #BFD0E2;
+      --accent-soft: #1F2A36;
+      --on-accent: #0F1216;
+      --stripe: #3A5A78;
+  
+      --gilt: #D3B77E;
+      --gilt-soft: #2A251B;
+  
+      --good: #6FD39B;
+      --good-soft: #15291F;
+      --warn: #E3BC5E;
+      --warn-soft: #2B2415;
+  
+      --danger: #FF8B76;
+      --danger-soft: #33201B;
+      --danger-ink: #FFA08E;
+  
+      --svc-east: #A7BCD2;
+      --svc-north: #B1A2D6;
+      --svc-south: #7FB2B8;
+      --svc-wachs: #D89A78;
+      --lift: 0 1px 1px rgba(0, 0, 0, 0.4), 0 16px 34px -22px rgba(0, 0, 0, 0.95);
+      --hl: rgba(255, 255, 255, 0.06);
+      --hl-on-accent: rgba(255, 255, 255, 0.28);
+      --edge-shade: rgba(0, 0, 0, 0.55);
     }
-  }
 
   @media print {
-    body::before {
-      display: none;
+      :root,
+        :root[data-theme=&quot;dark&quot;],
+        :root:not([data-theme=&quot;light&quot;]) {
+          color-scheme: light;
+          --ground-hi: #ECF0F4;
+          --ground: #E6EAEF;
+          --ground-2: #E1E6EC;
+          --surface: #FDFDFE;
+          --surface-2: #F4F7FA;
+          --sunk: #EEF2F6;
+          --ink: #161A20;
+          --ink-soft: #414953;
+          --muted: #5F6873;
+          --line: rgba(22, 30, 40, 0.11);
+          --line-strong: rgba(22, 30, 40, 0.26);
+          --accent: #2F4C66;
+          --accent-ink: #27405A;
+          --accent-soft: #DFE7F0;
+          --on-accent: #FFFFFF;
+          --stripe: #2F4C66;
+          --gilt: #7D612A;
+          --gilt-soft: #F1EBDF;
+          --good: #227550;
+          --good-soft: #E2F0E8;
+          --warn: #825D10;
+          --warn-soft: #F6EEDA;
+          --danger: #B03B2E;
+          --danger-soft: #F8E6E2;
+          --danger-ink: #973121;
+          --svc-east: #2F4C66;
+          --svc-north: #685A94;
+          --svc-south: #356A70;
+          --svc-wachs: #8C5A3C;
+          --lift: none;
+          --hl: transparent;
+          --hl-on-accent: transparent;
+          --edge-shade: transparent;
+        }
     }
-  }
+
+  @media (prefers-reduced-motion: reduce) {
+      *,
+        *::before,
+        *::after {
+          transition: none !important;
+          animation: none !important;
+        }
+    }</pre>
+          <h3><span class="num">14.3</span>The material rules</h3>
+          <p>
+            The rules that carry the first edition's material on top of the second edition's stylesheet. They change
+            the rule, never the class name, so every script keeps working. Each is stated here once with its reason in
+            section 5, and every rule below is extracted from the reference build's stylesheet by the same script that
+            prints 14.2, so the whole stylesheet carries them by construction.
+          </p>
+          <pre class="g-code g-src" tabindex="0">
+  /* Canvas: a fall of light from the top, fixed to the window. */
+  body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, var(--ground-hi) 0%, var(--ground) 55%, var(--ground-2) 100%) fixed,
+        var(--ground);
+      color: var(--ink);
+      font-family: var(--body);
+      font-size: var(--t-3);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      font-optical-sizing: auto;
+      font-variant-numeric: tabular-nums;
+      overflow-x: hidden;
+    }
+
+  /* The brand stripe. */
+  body::before {
+      content: &quot;&quot;;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--stripe);
+      z-index: 20;
+      pointer-events: none;
+    }
+
+  /* The one elevation step. */
+  .panel {
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-bottom-color: var(--line-strong);
+      border-radius: var(--r1);
+      box-shadow:
+        var(--lift),
+        inset 0 1px 0 var(--hl);
+    }
+
+  /* Strips on the second surface tone, with the inner radius where they touch a panel corner. */
+  .ph {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+      border-radius: var(--r1i) var(--r1i) 0 0;
+    }
+  .ph h2,
+    .ph h3 {
+      font-family: var(--display);
+      font-size: var(--t-3);
+      font-weight: 600;
+      letter-spacing: -0.012em;
+      color: var(--accent-ink);
+    }
+  .tabbar {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+      overflow-x: auto;
+    }
+  .tabsPanel .tabbar {
+      border-radius: var(--r1i) var(--r1i) 0 0;
+    }
+  .diagFoot {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 16px;
+      border-top: 1px solid var(--line);
+      background: var(--surface-2);
+      border-radius: 0 0 var(--r1i) var(--r1i);
+    }
+  .legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px 14px;
+      padding: 2px 16px 10px;
+      background: var(--surface-2);
+      border-radius: 0 0 var(--r1i) var(--r1i);
+    }
+
+  /* Hairlines are the alpha tokens; the scrollbars are thin in every scrolling region. */
+  .rail,
+    .qList,
+    .diagWrap,
+    .tabBody,
+    .slBody,
+    .edList {
+      scrollbar-width: thin;
+      scrollbar-color: var(--line-strong) transparent;
+    }
+  .rail::-webkit-scrollbar,
+    .qList::-webkit-scrollbar,
+    .diagWrap::-webkit-scrollbar,
+    .tabBody::-webkit-scrollbar,
+    .slBody::-webkit-scrollbar,
+    .edList::-webkit-scrollbar {
+      width: 9px;
+      height: 9px;
+    }
+  .rail::-webkit-scrollbar-thumb,
+    .qList::-webkit-scrollbar-thumb,
+    .diagWrap::-webkit-scrollbar-thumb,
+    .tabBody::-webkit-scrollbar-thumb,
+    .slBody::-webkit-scrollbar-thumb,
+    .edList::-webkit-scrollbar-thumb {
+      background: var(--line-strong);
+      border-radius: 9px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+
+  /* Selection never hides status: the bar side is left alone and the other three take the slate ring. */
+  .edCard[aria-pressed=&quot;true&quot;] {
+      background: var(--accent-soft);
+      border-left-color: var(--accent);
+      border-right-color: var(--accent);
+      border-bottom-color: var(--accent);
+      box-shadow:
+        inset 1px 0 0 var(--accent),
+        inset -1px 0 0 var(--accent),
+        inset 0 -1px 0 var(--accent);
+    }
+  .cand[data-showing=&quot;true&quot;] {
+      border-top-color: var(--accent);
+      border-right-color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow:
+        inset 0 1px 0 var(--accent),
+        inset -1px 0 0 var(--accent),
+        inset 0 -1px 0 var(--accent);
+    }
+
+  /* Buttons. */
+  .ctl {
+      padding: 7px 13px;
+      font-size: var(--t-2);
+      font-weight: 600;
+      color: var(--ink);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r2);
+      background: var(--surface);
+      transition:
+        background 0.12s,
+        border-color 0.12s;
+    }
+  .ctl:hover {
+      background: var(--sunk);
+      border-color: var(--ink-soft);
+    }
+  .ctl:active {
+      background: var(--sunk);
+      border-color: var(--ink-soft);
+    }
+  .ctl.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--on-accent);
+      box-shadow: inset 0 1px 0 var(--hl-on-accent);
+    }
+  .ctl.primary:hover,
+    .ctl.primary:active {
+      background: var(--accent-ink);
+      border-color: var(--accent-ink);
+    }
+
+  /* Count pills on the rail and the tabs. */
+  .tag {
+      font-family: var(--mono);
+      font-size: var(--t-0);
+      font-weight: 500;
+      color: var(--muted);
+      background: var(--sunk);
+      padding: 1px 7px;
+      border-radius: 999px;
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+  .railLink[aria-current=&quot;page&quot;] .tag {
+      color: var(--accent-ink);
+      background: var(--accent-soft);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+  .tabNum {
+      font-family: var(--mono);
+      font-size: var(--t-0);
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      padding: 0 7px;
+      border-radius: 999px;
+      background: var(--sunk);
+      box-shadow: inset 0 0 0 1px var(--line);
+      color: var(--ink-soft);
+    }
+  .tabBtn[aria-selected=&quot;true&quot;] .tabNum {
+      background: var(--accent-soft);
+      box-shadow: inset 0 0 0 1px var(--accent);
+      color: var(--accent-ink);
+    }
+  .tabNum[data-zero=&quot;true&quot;] {
+      font-family: var(--body);
+      font-style: italic;
+      font-weight: 400;
+      color: var(--muted);
+      box-shadow: none;
+      background: transparent;
+      padding: 0;
+    }
+
+  /* The brand name in accent-ink, in the display serif. */
+  .brand b {
+      font-family: var(--display);
+      font-size: var(--t-5);
+      font-weight: 600;
+      letter-spacing: -0.012em;
+      line-height: 1;
+      color: var(--accent-ink);
+    }
+
+  /* The laptop rule: the registers give up height first and the diagram keeps its room. */
+  @media (min-width: 1400px) and (max-height: 1024px) {
+      .midCol {
+          grid-template-rows: minmax(0, 1fr) minmax(0, 11.5rem);
+        }
+      .scroll {
+          padding-bottom: 16px;
+          gap: 12px;
+        }
+      .edList {
+          padding: 10px 14px;
+        }
+      .edCard {
+          padding: 9px 12px;
+          gap: 4px;
+        }
+      .legend {
+          gap: 4px 14px;
+          padding: 7px 16px;
+        }
+      .ph {
+          padding: 9px 16px;
+        }
+    }
+
+  /* The tap floor. */
+  @media (pointer: coarse), (max-width: 640px) {
+      .ctl,
+        .tabBtn,
+        .railLink,
+        .qRow,
+        .edCard,
+        .cand,
+        .apBtn,
+        .phBtn,
+        .linkBtn,
+        .skip {
+          min-height: 3rem;
+        }
+      .phBtn,
+        .linkBtn,
+        .apBtn,
+        .ctl {
+          display: inline-flex;
+          align-items: center;
+        }
+    }
+
+  /* The stripe in print and under forced colours. */
+  @media print {
+      body::before {
+          display: none;
+        }
+    }
   @media (forced-colors: active) {
-    body::before {
-      background: CanvasText;
-    }
-  }</pre>
+      body::before {
+          background: CanvasText;
+        }
+    }</pre>
           <h3><span class="num">14.4</span>The whole stylesheet</h3>
           <p>
             The block a mockup copies is the stylesheet of the reference build, the Command third edition, from its
             first token to its last print rule. It is not reproduced here, because this page is styled by that same
             stylesheet and a second copy is exactly how the two earlier editions drifted from their carriers. Copy it
-            from the reference build, do not edit the copy, and add only what the screen needs below it under a comment
-            naming the screen. The tokens in 14.2 and the material rules in 14.3 are quoted from it so the values can be
-            read without the build open, and the contrast table in section 3 is recomputed from the live tokens on every
-            load so a drift between the two would show on this page first.
+            from the reference build, do not edit the copy, and add only what the screen needs below it under a
+            comment naming the screen. The tokens in 14.2 and the material rules in 14.3 are extracted from it so the
+            values can be read without the build open, and the contrast table in section 3 is recomputed from the
+            live tokens on every load so a drift between the two would show on this page first. The header, the
+            figures strip, the task chips, the data table, the disclosure and the chart are not in the reference
+            build yet, and their rules are printed in 14.7.
           </p>
           <h3><span class="num">14.5</span>The appearance script</h3>
           <p>Replace the page name in the storage key. Runs after the markup, before anything else.</p>
-          <pre class="g-code g-src">
+          <pre class="g-code g-src" tabindex="0">
 (function () {
   var root = document.documentElement;
   var group = document.getElementById(&quot;appearance&quot;);
@@ -8161,7 +8635,7 @@
             Announcements, list fades, the strip's sideways affordance, the legend's default, Escape, and disclosures
             for print. From the Command live edition.
           </p>
-          <pre class="g-code g-src">
+          <pre class="g-code g-src" tabindex="0">
 // Spoken changes of subject. A repeated sentence gets a zero-width space so it is read again.
 function announce(text) {
   var el = document.getElementById(&quot;live&quot;);
@@ -8207,7 +8681,7 @@ function updateStripAffordance() {
 
 // The legend opens by default only where the diagram has room to spare. The reader&#x27;s own
 // choice wins from then on. The media query is stated once.
-var LEGEND_OPEN_QUERY = &quot;(min-width: 1600px) and (min-height: 960px)&quot;;
+var LEGEND_OPEN_QUERY = &quot;(min-width: 1600px) and (min-height: 1100px)&quot;;
 function renderLegendState() {
   if (state.legendOpen === null) {
     state.legendOpen = !!(window.matchMedia &amp;&amp; window.matchMedia(LEGEND_OPEN_QUERY).matches);
@@ -8217,10 +8691,12 @@ function renderLegendState() {
   if (b) b.setAttribute(&quot;aria-expanded&quot;, state.legendOpen ? &quot;true&quot; : &quot;false&quot;);
 }
 
-// Escape clears the innermost selection first, then the filter.
+// Escape clears the innermost thing first: a ward selection, then a referral standing as the
+// shortlist&#x27;s subject, then the filter.
 document.addEventListener(&quot;keydown&quot;, function (e) {
   if (e.key !== &quot;Escape&quot;) return;
   if (state.selectedWard) { clearWard(); announce(&quot;Ward selection cleared.&quot;); return; }
+  if (state.referralId) { clearReferral(); announce(&quot;Shortlist back to &quot; + state.movementId + &quot;.&quot;); return; }
   if (state.edFilter) { clearFilter(); announce(&quot;Filter cleared. Showing every patient.&quot;); }
 });
 
@@ -8234,6 +8710,874 @@ window.addEventListener(&quot;afterprint&quot;, function () {
   opened.forEach(function (d) { d.removeAttribute(&quot;open&quot;); });
   opened = [];
 });</pre>
+          <h3><span class="num">14.7</span>The extension block</h3>
+          <p>
+            The rules this page adds below the reference build's stylesheet for the components Command does not yet
+            carry: the header with its menus, the statistics strip, the task chips, the data table, the figure band,
+            the chart and the disclosure. Printed verbatim from this page's own style block. A page that adopts one of
+            those components copies the rules it needs from here, under a comment naming the screen, until the
+            reference build carries them.
+          </p>
+          <pre class="g-code g-src" tabindex="0">
+  /* ─── Rules of Source L that the mockup stylesheet does not carry: the header, the figures
+     strip, the task chips, the data table, the disclosure and the chart, so the components
+     section can draw them with the production class names. ─── */
+  .tableWrap {
+    overflow-x: auto;
+    border-top: 1px solid var(--line);
+  }
+  .dataTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--t-2);
+  }
+  .dataTable th {
+    text-align: left;
+    font-size: var(--t-0);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line-strong);
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+  .dataTable td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-soft);
+    vertical-align: top;
+    line-height: 1.45;
+  }
+  .dataTable td:first-child {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .dataTable .n,
+  .dataTable th.n {
+    text-align: right;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .dataTable td.n {
+    color: var(--ink);
+  }
+  .dataTable .zero {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .dataTable tbody tr:hover td {
+    background: var(--sunk);
+  }
+  .dataTable tr.total td {
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 0;
+    background: var(--surface-2);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .dataTable tr.total:hover td {
+    background: var(--surface-2);
+  }
+  .band {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    border-top: 1px solid var(--line);
+  }
+  .band &gt; .kpi {
+    padding: 12px 16px;
+    border-right: 1px solid var(--line);
+    min-width: 0;
+  }
+  .band &gt; .kpi:last-child {
+    border-right: 0;
+  }
+  .band .kpi dd {
+    flex-wrap: wrap;
+  }
+  .band .kpi dd .delta {
+    flex: 1 1 100%;
+  }
+  .band .kpi dd {
+    font-size: var(--t-6);
+  }
+  .kpi[data-tone=&quot;warn&quot;] dd {
+    color: var(--warn);
+  }
+  .delta {
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .delta b {
+    font-family: var(--mono);
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .chart {
+    margin: 0;
+    display: grid;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .chart svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .chart figcaption {
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 72ch;
+    text-wrap: pretty;
+  }
+  .chart .grid {
+    stroke: var(--line);
+    stroke-width: 1;
+  }
+  .chart .axis {
+    stroke: var(--line-strong);
+    stroke-width: 1;
+  }
+  .chart .series {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.75;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .chart .end {
+    fill: var(--surface);
+    stroke: var(--accent);
+    stroke-width: 2;
+  }
+  .chart text {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    fill: var(--muted);
+  }
+  .reveal {
+    border-top: 1px solid var(--line);
+  }
+  .reveal &gt; summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: var(--t-1);
+    font-weight: 600;
+    color: var(--ink-soft);
+    transition:
+      color 0.12s,
+      background 0.12s;
+  }
+  .reveal &gt; summary::-webkit-details-marker {
+    display: none;
+  }
+  .reveal &gt; summary::after {
+    content: &quot;&quot;;
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-1.5px) rotate(45deg);
+    transition: transform 0.12s;
+  }
+  .reveal[open] &gt; summary::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .reveal &gt; summary:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .reveal &gt; summary .count {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .revealBody {
+    padding: 2px 16px 12px;
+  }
+  /* The tap floor for the components the mockup stylesheet does not carry; the rest is in it. */
+  @media (pointer: coarse), (max-width: 640px) {
+    .reveal &gt; summary,
+    .task,
+    .menu &gt; summary,
+    .menuItem,
+    .search {
+      min-height: 3rem;
+    }
+  }
+  @media print {
+    .tableWrap {
+      overflow: visible;
+    }
+    .dataTable tbody tr:hover td {
+      background: transparent;
+    }
+    .kpi,
+    .band {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+  .hdr {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .hdrBar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 13px 24px 11px;
+  }
+  .hdrBar .title {
+    flex: 1 1 20rem;
+  }
+  .hdrBar h1 {
+    font-family: var(--display);
+    font-size: var(--t-6);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+  }
+  .hdrBar .sub {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 72ch;
+    font-size: var(--t-1);
+    line-height: 1.45;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+  .hdrTools {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+    min-width: 0;
+  }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 20rem;
+    min-width: 11rem;
+    height: 34px;
+    padding: 0 8px 0 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    color: var(--muted);
+    transition: border-color 0.12s;
+  }
+  .search:hover {
+    border-color: var(--ink-soft);
+  }
+  .search:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .search svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--t-2);
+    color: var(--ink);
+    outline: none;
+  }
+  .search input::placeholder {
+    color: var(--muted);
+  }
+  .search kbd {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 0 5px;
+    line-height: 1.5;
+  }
+  .search .clearBtn {
+    font-size: var(--t-0);
+    color: var(--muted);
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .search .clearBtn:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .menu {
+    position: relative;
+  }
+  .menu &gt; summary {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s,
+      color 0.12s;
+  }
+  .menu &gt; summary::-webkit-details-marker {
+    display: none;
+  }
+  .menu &gt; summary::after {
+    content: &quot;&quot;;
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-1.5px) rotate(45deg);
+    transition: transform 0.12s;
+  }
+  .menu &gt; summary:hover {
+    background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .menu[open] &gt; summary {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .menu[open] &gt; summary::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .menu &gt; summary .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .menu[open] &gt; summary .count {
+    color: var(--accent-ink);
+  }
+  .menu &gt; summary.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    box-shadow: inset 0 1px 0 var(--hl-on-accent);
+  }
+  .menu &gt; summary.primary:hover,
+  .menu &gt; summary.primary:active {
+    background: var(--accent-ink);
+    border-color: var(--accent-ink);
+    color: var(--on-accent);
+  }
+  .menu &gt; summary.quiet {
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-soft);
+  }
+  .menu &gt; summary.quiet:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .menuPanel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 17rem;
+    max-width: min(92vw, 44rem);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom-color: var(--line-strong);
+    border-radius: var(--r1);
+    box-shadow:
+      var(--lift),
+      inset 0 1px 0 var(--hl);
+    z-index: 20;
+    display: grid;
+    overflow: hidden;
+  }
+  .menuPanel.left {
+    left: 0;
+    right: auto;
+  }
+  .menuHead {
+    padding: 10px 12px 4px;
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .menuHead .count {
+    margin-left: auto;
+    font-family: var(--mono);
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 500;
+  }
+  .menuList {
+    display: grid;
+    padding: 4px 6px 6px;
+  }
+  .menuItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: var(--r2);
+    font-size: var(--t-2);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background 0.12s;
+  }
+  .menuItem:hover {
+    background: var(--sunk);
+  }
+  .menuItem[aria-pressed=&quot;true&quot;],
+  .menuItem[aria-current=&quot;true&quot;] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    box-shadow: inset 3px 0 0 var(--gilt);
+  }
+  .menuItem small {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .menuItem[aria-disabled=&quot;true&quot;] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .menuItem[aria-disabled=&quot;true&quot;]:hover {
+    background: transparent;
+  }
+  .menuDiv {
+    height: 1px;
+    background: var(--line);
+    margin: 4px 0;
+  }
+  .menuNote {
+    padding: 4px 12px 10px;
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 40ch;
+  }
+  .menuPanel .search {
+    margin: 8px 8px 2px;
+    height: 32px;
+  }
+  .who {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.25;
+    padding: 0 4px;
+    white-space: nowrap;
+  }
+  .who b {
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .who span {
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  .stats {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    min-width: 0;
+  }
+  .statsList {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0;
+  }
+  .statsList::-webkit-scrollbar {
+    display: none;
+  }
+  .statsList[data-overflowing=&quot;true&quot;] {
+    box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+  }
+  .stat {
+    display: grid;
+    gap: 3px;
+    align-content: center;
+    padding: 9px 18px 9px 0;
+    margin-right: 18px;
+    border-right: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .stat:last-child {
+    border-right: 0;
+    margin-right: 0;
+  }
+  .stat dt {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .stat dd {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .stat dd small {
+    font-family: var(--body);
+    font-size: var(--t-1);
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .stat dd i {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .stat[data-tone=&quot;danger&quot;] dd {
+    color: var(--danger);
+  }
+  .stat[data-tone=&quot;warn&quot;] dd {
+    color: var(--warn);
+  }
+  .statsEnd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    margin-left: auto;
+    padding: 6px 0 6px 16px;
+    border-left: 1px solid var(--line);
+  }
+  .hdrClock {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .hdrClock span {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .hdrClock b {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .statsMenu &gt; summary {
+    height: 30px;
+    font-size: var(--t-1);
+    background: var(--surface);
+  }
+  .statsMenu .menuPanel {
+    max-width: none;
+    width: min(94vw, 70rem);
+  }
+  .statsGrid {
+    display: grid;
+    grid-template-columns: 17rem 21rem repeat(2, minmax(0, 1fr));
+  }
+  .statsGrid &gt; section {
+    min-width: 0;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  .statsGrid .dataTable th,
+  .statsGrid .dataTable td {
+    padding: 4px 8px;
+  }
+  .statsGrid .dataTable th:first-child,
+  .statsGrid .dataTable td:first-child {
+    padding-left: 12px;
+  }
+  .statsGrid .dataTable th {
+    background: transparent;
+    border-bottom-color: var(--line);
+  }
+  .statsGrid .dataTable tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .statsFacts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    padding: 4px 12px 6px;
+    font-size: var(--t-1);
+  }
+  .statsFacts dt {
+    color: var(--ink-soft);
+  }
+  .statsFacts dd {
+    font-family: var(--mono);
+    color: var(--ink);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .statsFacts dd i {
+    font-family: var(--body);
+    font-style: italic;
+    color: var(--muted);
+  }
+  .statsFacts dd[data-tone=&quot;danger&quot;] {
+    color: var(--danger);
+  }
+  .statsFacts dd[data-tone=&quot;warn&quot;] {
+    color: var(--warn);
+  }
+  .statsFoot {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .tasks {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    min-width: 0;
+  }
+  .tasksLabel {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    flex: none;
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .tasksLabel .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .taskList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 0;
+    scrollbar-width: none;
+  }
+  .taskList::-webkit-scrollbar {
+    display: none;
+  }
+  .taskList[data-overflowing=&quot;true&quot;] {
+    box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+  }
+  .task {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    height: 28px;
+    padding: 0 11px 0 9px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s,
+      color 0.12s;
+  }
+  .task::before {
+    content: &quot;&quot;;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--line-strong);
+    flex: none;
+  }
+  .task b {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .task[data-tone=&quot;danger&quot;] {
+    border-color: var(--danger);
+  }
+  .task[data-tone=&quot;danger&quot;]::before {
+    background: var(--danger);
+  }
+  .task[data-tone=&quot;danger&quot;] b {
+    color: var(--danger);
+  }
+  .task[data-tone=&quot;warn&quot;] {
+    border-color: var(--warn);
+  }
+  .task[data-tone=&quot;warn&quot;]::before {
+    background: var(--warn);
+  }
+  .task[data-tone=&quot;warn&quot;] b {
+    color: var(--warn);
+  }
+  .task:hover {
+    background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .task[aria-pressed=&quot;true&quot;] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .task[aria-pressed=&quot;true&quot;] b {
+    color: var(--accent-ink);
+  }
+  .tasksClear {
+    font-size: var(--t-1);
+    color: var(--muted);
+    font-style: italic;
+    white-space: nowrap;
+  }
+  .tasksEnd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    margin-left: auto;
+  }
+  @media (max-width: 1000px) {
+    .hdrBar,
+    .stats,
+    .tasks {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .hdrTools {
+      width: 100%;
+    }
+    .search {
+      flex: 1 1 12rem;
+    }
+    .who {
+      display: none;
+    }
+    .taskList {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .statsGrid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .hdrClock span,
+    .tasksEnd,
+    .statsMenu &gt; summary .count {
+      display: none;
+    }
+    .menuPanel {
+      max-width: 94vw;
+    }
+    .statsGrid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media print {
+    .hdrTools,
+    .statsMenu,
+    .tasksEnd,
+    .menuPanel {
+      display: none !important;
+    }
+    .hdr {
+      border-bottom: 1px solid var(--line-strong);
+    }
+  }
+  @media (forced-colors: active) {
+    .search,
+    .menu &gt; summary,
+    .menuPanel,
+    .task,
+    .stat {
+      border: 1px solid CanvasText;
+      box-shadow: none;
+    }
+    .task::before {
+      background: CanvasText;
+    }
+  }</pre>
         </div>
       </section>
 
@@ -8249,7 +9593,7 @@ window.addEventListener(&quot;afterprint&quot;, function () {
         </p>
         <p>
           Third edition, frozen 8 September 2026. The first edition, Platinum Raised Cool, and the second, the Live
-          edition standard, remain in this artifact's version history and are superseded.
+          edition standard, are superseded and kept beside this one as files.
         </p>
       </footer>
     </main>
@@ -8466,6 +9810,39 @@ window.addEventListener(&quot;afterprint&quot;, function () {
     window.addEventListener("afterprint", function () {
       for (var i = 0; i < opened.length; i++) opened[i].removeAttribute("open");
       opened = [];
+    });
+
+    /* ─── menus: one open at a time, a click outside closes, Escape closes and returns focus ─── */
+    function openMenus() {
+      return document.querySelectorAll("details.menu[open], details.statsMenu[open]");
+    }
+    document.addEventListener("click", function (e) {
+      var inside = e.target.closest ? e.target.closest("details.menu, details.statsMenu") : null;
+      openMenus().forEach(function (d) {
+        if (d !== inside) d.removeAttribute("open");
+      });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      var open = openMenus();
+      if (!open.length) return;
+      open.forEach(function (d) {
+        d.removeAttribute("open");
+      });
+      var s = open[open.length - 1].querySelector("summary");
+      if (s) s.focus();
+    });
+    document.querySelectorAll("details.statsMenu").forEach(function (d) {
+      d.addEventListener("toggle", function () {
+        announce(d.open ? "All figures opened." : "All figures closed.");
+      });
+    });
+
+    /* ─── scrolling code blocks are named for the heading they sit under ─── */
+    document.querySelectorAll("pre.g-code").forEach(function (pre) {
+      var h = pre.previousElementSibling;
+      while (h && !/^H[1-4]$/.test(h.tagName)) h = h.previousElementSibling;
+      pre.setAttribute("aria-label", "Code" + (h ? ", " + h.textContent.replace(/\s+/g, " ").trim() : ""));
     });
 
     /* ─── the component demonstrations: pressed states toggle so the four states can be seen ─── */

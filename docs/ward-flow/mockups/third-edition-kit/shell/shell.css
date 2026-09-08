@@ -1,0 +1,2482 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   WARD FLOW SHELL. Third edition, light and dark.
+
+   The universal header (the quiet bar), the rail open at 236 px and closed
+   at 76 px with its hover cards, the Service selector, the three drawers,
+   the search results and the New referral menu. Loads after the third
+   edition stylesheet and speaks its tokens only: no hex, no solid grey
+   line, no size off the seven step scale, no weight that is not loaded,
+   one elevation step, brass as a bar and never a fill, the slate ring for
+   what is selected, thin scrollbars, a focus ring on every control, and no
+   hover that brightens. Every class, id and data attribute the shell
+   script reads is kept under its original name.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* The brand stripe rises above the bar (31), the rail (20 to 32), the hover cards (35) and the
+   drawers (40), so the shell never paints over the third edition's one brand mark. Pointer
+   events stay off. This adds one row to the build sheet's layer table. */
+body::before {
+  z-index: 45;
+}
+/* The skip link sits over the rail and the bar, which both carry a z-index the masthead never had. */
+.skip {
+  z-index: 50;
+}
+
+/* ─── extension: what Command does not have and other pages do ──────────
+   Tables, figure bands, deltas, charts, disclosures and the tap floor. ── */
+.tableWrap {
+  overflow-x: auto;
+  border-top: 1px solid var(--line);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-2);
+}
+.dataTable th {
+  text-align: left;
+  font-size: var(--t-0);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.dataTable td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  vertical-align: top;
+  line-height: 1.45;
+}
+.dataTable td:first-child {
+  color: var(--ink);
+  font-weight: 600;
+}
+.dataTable .n,
+.dataTable th.n {
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dataTable td.n {
+  color: var(--ink);
+}
+/* A nought is a measurement and "none" is a state. */
+.dataTable .zero {
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--muted);
+}
+.dataTable tbody tr:hover td {
+  background: var(--sunk);
+}
+/* The totals row is a different kind of row, not the last of the same kind. */
+.dataTable tr.total td {
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 0;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 600;
+}
+.dataTable tr.total:hover td {
+  background: var(--surface-2);
+}
+/* The figure band: one strip divided by hairlines, no coloured caps, no cards. */
+.band {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  border-top: 1px solid var(--line);
+}
+.band > .kpi {
+  padding: 12px 16px;
+  border-right: 1px solid var(--line);
+  min-width: 0;
+}
+.band > .kpi:last-child {
+  border-right: 0;
+}
+.band .kpi dd {
+  font-size: var(--t-6);
+}
+/* "Look here": at most two per screen, and the word is already on the tile. */
+.kpi[data-tone="warn"] dd {
+  color: var(--warn);
+}
+/* A delta is a word with a figure, never an arrow alone, never a verdict. */
+.delta {
+  font-size: var(--t-1);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.delta b {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--ink);
+}
+/* Charts: lines and arcs on a hairline grid, one emphasised endpoint, a written caption. */
+.chart {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+}
+.chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.chart figcaption {
+  font-size: var(--t-1);
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 72ch;
+  text-wrap: pretty;
+}
+.chart .grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.chart .axis {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+.chart .series {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.chart .end {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.chart text {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  fill: var(--muted);
+}
+/* Disclosures: a quiet summary with the same chevron as the panel-header control. */
+.reveal {
+  border-top: 1px solid var(--line);
+}
+.reveal > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: var(--t-1);
+  font-weight: 600;
+  color: var(--ink-soft);
+  transition:
+    color 0.12s,
+    background 0.12s;
+}
+.reveal > summary::-webkit-details-marker {
+  display: none;
+}
+.reveal > summary::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-1.5px) rotate(45deg);
+  transition: transform 0.12s;
+}
+.reveal[open] > summary::after {
+  transform: translateY(1.5px) rotate(-135deg);
+}
+.reveal > summary:hover {
+  background: var(--sunk);
+  color: var(--ink);
+}
+.reveal > summary .count {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 400;
+  color: var(--muted);
+}
+.revealBody {
+  padding: 2px 16px 12px;
+}
+/* The tap floor: 3rem where a finger is the pointer or the screen is a phone. Never 44. */
+@media (pointer: coarse), (max-width: 640px) {
+  .ctl,
+  .tabBtn,
+  .railLink,
+  .qRow,
+  .edCard,
+  .cand,
+  .apBtn,
+  .phBtn,
+  .linkBtn,
+  .reveal > summary,
+  .task,
+  .menu > summary,
+  .menuItem,
+  .search,
+  .qHit,
+  .taskRow,
+  .toolItem,
+  .pinRow,
+  .seg button,
+  .closeBtn,
+  .railBtn,
+  .clearBtn {
+    min-height: 3rem;
+  }
+}
+@media print {
+  .tableWrap {
+    overflow: visible;
+  }
+  .dataTable tbody tr:hover td {
+    background: transparent;
+  }
+  .kpi,
+  .band {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* ─── universal header: the design system's block ─────────────────────
+   The search field, the menu (a details element whose panel floats), the
+   menu panel and its heads, lists, items, notes, and the signed-in line.
+   The three row header's own strips (.hdr, .hdrBar, .stats, .tasks) are
+   kept for the other pages that still carry them; the quiet bar below
+   uses none of them. ──────────────────────────────────────────────── */
+.hdr {
+  position: relative;
+  z-index: 5;
+  display: grid;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.hdrBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 13px 24px 11px;
+}
+.hdrBar .title {
+  flex: 1 1 20rem;
+}
+.hdrBar h1 {
+  font-family: var(--display);
+  font-size: var(--t-6);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+/* The disclaimer takes its own line under the title, so it is never squeezed beside the tools. */
+.hdrBar .sub {
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: 72ch;
+  font-size: var(--t-1);
+  line-height: 1.45;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+.hdrTools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+/* The search field: a secondary control that holds an input. */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 20rem;
+  min-width: 11rem;
+  height: 34px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r2);
+  background: var(--surface);
+  color: var(--muted);
+  transition: border-color 0.12s;
+}
+.search:hover {
+  border-color: var(--ink-soft);
+}
+.search:focus-within {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.search svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--t-2);
+  color: var(--ink);
+  outline: none;
+}
+.search input::placeholder {
+  color: var(--muted);
+}
+.search kbd {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0 5px;
+  line-height: 1.5;
+}
+.search .clearBtn {
+  font-size: var(--t-0);
+  color: var(--muted);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.search .clearBtn:hover {
+  background: var(--sunk);
+  color: var(--ink);
+}
+/* A menu is a details element: the summary is the control, the panel floats beneath. The summary
+   is a secondary button; open, it takes the accent-soft fill and the slate ring. */
+.menu {
+  position: relative;
+}
+.menu > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r2);
+  background: var(--surface);
+  font-size: var(--t-2);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu > summary::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-1.5px) rotate(45deg);
+  transition: transform 0.12s;
+}
+.menu > summary:hover {
+  background: var(--sunk);
+  border-color: var(--ink-soft);
+}
+.menu[open] > summary {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.menu[open] > summary::after {
+  transform: translateY(1.5px) rotate(-135deg);
+}
+.menu > summary .count {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 500;
+  color: var(--muted);
+}
+.menu[open] > summary .count {
+  color: var(--accent-ink);
+}
+/* The one primary control: the accent fill, the highlight along its top edge, and a darker slate
+   on hover and press. It never brightens. */
+.menu > summary.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  box-shadow: inset 0 1px 0 var(--hl-on-accent);
+}
+.menu > summary.primary:hover,
+.menu > summary.primary:active {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+}
+.menu[open] > summary.primary {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+  color: var(--on-accent);
+  box-shadow: inset 0 1px 0 var(--hl-on-accent);
+}
+.menu > summary.quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+}
+.menu > summary.quiet:hover {
+  background: var(--sunk);
+  color: var(--ink);
+}
+/* A pop out floats over the page, so it is the one thing beside a panel that takes the
+   elevation step: the hairline, the heavier bottom hairline, the top highlight and the lift.
+   Nothing inside it is lifted again. */
+.menuPanel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 17rem;
+  max-width: min(92vw, 44rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-bottom-color: var(--line-strong);
+  border-radius: var(--r1);
+  box-shadow:
+    var(--lift),
+    inset 0 1px 0 var(--hl);
+  z-index: 20;
+  display: grid;
+  overflow: hidden;
+}
+.menuPanel.left {
+  left: 0;
+  right: auto;
+}
+.menuHead {
+  padding: 10px 12px 4px;
+  font-size: var(--t-0);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.menuHead .count {
+  margin-left: auto;
+  font-family: var(--mono);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+}
+.menuList {
+  display: grid;
+  padding: 4px 6px 6px;
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--r2);
+  font-size: var(--t-2);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.menuItem:hover {
+  background: var(--sunk);
+}
+/* The chosen row: accent-soft fill, the slate ring, and the brass bar at its left edge. */
+.menuItem[aria-pressed="true"],
+.menuItem[aria-current="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    inset 3px 0 0 var(--gilt);
+}
+.menuItem small {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.menuItem[aria-pressed="true"] small {
+  color: var(--accent-ink);
+}
+.menuItem[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.menuItem[aria-disabled="true"]:hover {
+  background: transparent;
+}
+.menuDiv {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 0;
+}
+.menuNote {
+  padding: 4px 12px 10px;
+  font-size: var(--t-1);
+  color: var(--muted);
+  line-height: 1.45;
+  max-width: 40ch;
+}
+.menuPanel .search {
+  margin: 8px 8px 2px;
+  height: 32px;
+}
+.who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+.who b {
+  font-size: var(--t-2);
+  font-weight: 600;
+  color: var(--ink);
+}
+.who span {
+  font-size: var(--t-0);
+  color: var(--muted);
+}
+/* The statistics strip of the three row header. A strip, so the second surface tone. */
+.stats {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 24px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.statsList {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0;
+}
+.statsList::-webkit-scrollbar {
+  display: none;
+}
+.statsList[data-overflowing="true"] {
+  box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+}
+.stat {
+  display: grid;
+  gap: 3px;
+  align-content: center;
+  padding: 9px 18px 9px 0;
+  margin-right: 18px;
+  border-right: 1px solid var(--line);
+  white-space: nowrap;
+}
+.stat:last-child {
+  border-right: 0;
+  margin-right: 0;
+}
+.stat dt {
+  font-size: var(--t-0);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.stat dd {
+  font-family: var(--mono);
+  font-size: var(--t-4);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink);
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.stat dd small {
+  font-family: var(--body);
+  font-size: var(--t-1);
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+.stat dd i {
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+.stat[data-tone="danger"] dd {
+  color: var(--danger);
+}
+.stat[data-tone="warn"] dd {
+  color: var(--warn);
+}
+.statsEnd {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  margin-left: auto;
+  padding: 6px 0 6px 16px;
+  border-left: 1px solid var(--line);
+}
+.hdrClock {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+.hdrClock span {
+  font-size: var(--t-0);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.hdrClock b {
+  font-family: var(--mono);
+  font-size: var(--t-4);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.statsMenu > summary {
+  height: 30px;
+  font-size: var(--t-1);
+  background: var(--surface);
+}
+.statsMenu .menuPanel {
+  max-width: none;
+  width: min(94vw, 70rem);
+}
+.statsGrid {
+  display: grid;
+  grid-template-columns: 17rem 21rem repeat(2, minmax(0, 1fr));
+}
+.statsGrid > section {
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.statsGrid .dataTable th,
+.statsGrid .dataTable td {
+  padding: 4px 8px;
+}
+.statsGrid .dataTable th:first-child,
+.statsGrid .dataTable td:first-child {
+  padding-left: 12px;
+}
+.statsGrid .dataTable th {
+  background: transparent;
+  border-bottom-color: var(--line);
+}
+.statsGrid .dataTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+/* The facts list the live tally uses: a label, and a mono figure at the right. */
+.statsFacts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  padding: 4px 12px 6px;
+  font-size: var(--t-1);
+}
+.statsFacts dt {
+  color: var(--ink-soft);
+}
+.statsFacts dd {
+  font-family: var(--mono);
+  color: var(--ink);
+  text-align: right;
+  white-space: nowrap;
+}
+.statsFacts dd i {
+  font-family: var(--body);
+  font-style: italic;
+  color: var(--muted);
+}
+.statsFacts dd[data-tone="danger"] {
+  color: var(--danger);
+}
+.statsFacts dd[data-tone="warn"] {
+  color: var(--warn);
+}
+/* The foot of a tally: the reconciliation line on the second surface tone. */
+.statsFoot {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-top: 1px solid var(--line);
+  font-size: var(--t-1);
+  color: var(--muted);
+  line-height: 1.45;
+}
+/* The outstanding tasks bar of the three row header. */
+.tasks {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 24px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  min-width: 0;
+}
+.tasksLabel {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex: none;
+  font-size: var(--t-0);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tasksLabel .count {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.taskList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 2px 0;
+  scrollbar-width: none;
+}
+.taskList::-webkit-scrollbar {
+  display: none;
+}
+.taskList[data-overflowing="true"] {
+  box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+}
+/* A task chip: the tone is the dot and the figure, never a fill behind the words. */
+.task {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  height: 28px;
+  padding: 0 11px 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: var(--t-1);
+  color: var(--ink-soft);
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.task::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  flex: none;
+}
+.task b {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--ink);
+}
+.task[data-tone="danger"] {
+  border-color: var(--danger);
+}
+.task[data-tone="danger"]::before {
+  background: var(--danger);
+}
+.task[data-tone="danger"] b {
+  color: var(--danger);
+}
+.task[data-tone="warn"] {
+  border-color: var(--warn);
+}
+.task[data-tone="warn"]::before {
+  background: var(--warn);
+}
+.task[data-tone="warn"] b {
+  color: var(--warn);
+}
+.task:hover {
+  background: var(--sunk);
+  border-color: var(--ink-soft);
+}
+.task[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.task[aria-pressed="true"] b {
+  color: var(--accent-ink);
+}
+.tasksClear {
+  font-size: var(--t-1);
+  color: var(--muted);
+  font-style: italic;
+  white-space: nowrap;
+}
+.tasksEnd {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  margin-left: auto;
+}
+@media (max-width: 1000px) {
+  .hdrBar,
+  .stats,
+  .tasks {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .hdrTools {
+    width: 100%;
+  }
+  .search {
+    flex: 1 1 12rem;
+  }
+  .who {
+    display: none;
+  }
+  .taskList {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .hdrClock span,
+  .tasksEnd,
+  .statsMenu > summary .count {
+    display: none;
+  }
+  .menuPanel {
+    max-width: 94vw;
+  }
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+@media print {
+  .hdrTools,
+  .statsMenu,
+  .tasksEnd,
+  .menuPanel {
+    display: none !important;
+  }
+  .hdr {
+    border-bottom: 1px solid var(--line-strong);
+  }
+}
+@media (forced-colors: active) {
+  .search,
+  .menu > summary,
+  .menuPanel,
+  .task,
+  .stat {
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+  .task::before {
+    background: CanvasText;
+  }
+}
+
+/* ─── the quiet bar: one row on every screen ─────────────────────────
+   The title and the mark, universal search, the Service selector, then
+   Activity, Tasks and Tools as matching side drawers, and the one primary
+   action. The frame classes ride beside the third edition's own (.app,
+   .frame, .scroll), so the locked laptop layout keeps working. ─────── */
+.hApp {
+  display: grid;
+  grid-template-columns: var(--railw) minmax(0, 1fr);
+  min-height: 100vh;
+  transition: grid-template-columns 0.18s ease;
+}
+.hFrame {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.hdr1 {
+  position: relative;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 20px 8px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.hdr1 .title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  min-width: 0;
+}
+.hdr1 h1 {
+  font-family: var(--display);
+  font-size: var(--t-6);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.hdr1 details > summary.srOnly {
+  display: none;
+}
+.hdr1 .end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: none;
+}
+.hdr1 .menu > summary .lbl {
+  font-weight: 600;
+}
+.glyph {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* The count pill on a bar control: mono on the sunk tone with a hairline ring; the slate ring
+   and the accent-soft fill while its menu is open. */
+.badge {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--sunk);
+  border-radius: 999px;
+  padding: 1px 7px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  letter-spacing: 0;
+}
+.menu[open] > summary .badge {
+  color: var(--accent-ink);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* A dot carries a tone or a service hue. Green breathes while the feed is live. */
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+.dot[data-tone="danger"] {
+  background: var(--danger);
+}
+.dot[data-tone="good"] {
+  background: var(--good);
+  animation: breathe 2.4s ease-in-out infinite;
+}
+.dot[data-svc="north"] {
+  background: var(--svc-north);
+}
+.dot[data-svc="east"] {
+  background: var(--svc-east);
+}
+.dot[data-svc="south"] {
+  background: var(--svc-south);
+}
+.dot[data-svc="wachs"] {
+  background: var(--svc-wachs);
+}
+.dot[hidden] {
+  display: none;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--good-soft);
+  }
+}
+.fresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ─── universal search: the field and its results ─── */
+.searchWrap {
+  position: relative;
+  flex: 1 1 14rem;
+  max-width: 30rem;
+  min-width: 10rem;
+}
+.searchWrap .search {
+  width: 100%;
+  flex: none;
+  min-width: 0;
+}
+.search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+/* The results pop out: the same one elevation step as a menu panel. */
+.qPop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(92vw, 36rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-bottom-color: var(--line-strong);
+  border-radius: var(--r1);
+  box-shadow:
+    var(--lift),
+    inset 0 1px 0 var(--hl);
+  z-index: 22;
+  display: none;
+  overflow: hidden;
+}
+.searchWrap[data-open="true"] .qPop {
+  display: grid;
+}
+.qHit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: baseline;
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: var(--r2);
+  text-align: left;
+  color: var(--ink);
+  font-size: var(--t-2);
+}
+.qHit:hover,
+.qHit[data-active="true"] {
+  background: var(--sunk);
+}
+.qHit b {
+  font-weight: 600;
+}
+.qHit small {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.qHit .under {
+  grid-column: 1 / -1;
+  font-size: var(--t-1);
+  color: var(--muted);
+}
+.qHit .under em {
+  font-style: normal;
+  color: var(--danger);
+}
+.qNone {
+  padding: 10px 12px 12px;
+  font-size: var(--t-1);
+  color: var(--muted);
+  line-height: 1.45;
+  max-width: 44ch;
+}
+/* The foot of a pop out is a strip, so it sits on the second surface tone. */
+.qPop .popFoot {
+  margin: 0;
+}
+
+/* ─── the Service selector ─── */
+.svcMenu > summary .dot {
+  margin-right: 1px;
+}
+.svcMenu .menuItem .lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* ─── the drawers: Activity, Tasks and Tools share one shape ───
+   Fixed to the right edge, a heavier hairline on its left, the lift, and
+   the page shaded behind it. The shade is the edge shade token at full
+   strength, because at 0.6 of the third edition's lighter token a drawer
+   in the light theme no longer read as over the page. ─────────────── */
+.drawerMenu .menuPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(94vw, 28rem);
+  max-width: none;
+  border-radius: 0;
+  border-width: 0 0 0 1px;
+  border-color: var(--line-strong);
+  grid-template-rows: none;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  z-index: 40;
+}
+.drawerMenu.wide .menuPanel {
+  width: min(94vw, 36rem);
+}
+.drawerMenu[open]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: var(--edge-shade);
+  z-index: 39;
+}
+/* The head of a drawer is a strip: the second surface tone, a display serif title in accent-ink,
+   the mono count, a secondary Close control, and the freshness line on its own row. */
+.popHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.popHead h2 {
+  font-family: var(--display);
+  font-size: var(--t-3);
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--accent-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.popHead .count {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.popHead .closeBtn {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r2);
+  background: var(--surface);
+  font-size: var(--t-1);
+  font-weight: 600;
+  color: var(--ink-soft);
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.popHead .closeBtn:hover,
+.popHead .closeBtn:active {
+  background: var(--sunk);
+  border-color: var(--ink-soft);
+  color: var(--ink);
+}
+.popHead .fresh {
+  flex-basis: 100%;
+}
+.popFoot {
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: var(--t-1);
+  color: var(--muted);
+  line-height: 1.45;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.popBody {
+  display: grid;
+  align-content: start;
+}
+.popBody > section + section {
+  border-top: 1px solid var(--line);
+}
+/* The two parts of a drawer, one shown at a time. The chosen part sits on the surface with the
+   brass bar under it and nothing lifted: a drawer is already the elevation step. */
+.seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  margin: 10px 14px 4px;
+  border-radius: var(--r2);
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.seg button {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: var(--t-1);
+  font-weight: 500;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.seg button .count {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+}
+.seg button:hover {
+  color: var(--ink);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    inset 0 -2px 0 var(--gilt);
+}
+.seg button[aria-pressed="true"] .count {
+  color: var(--ink-soft);
+}
+.part[hidden] {
+  display: none;
+}
+/* The work open: a figure, the words, a hint. The tone is the dot and the figure. */
+.taskRows {
+  display: grid;
+  padding: 4px 6px 6px;
+}
+.taskRow {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px 7px 10px;
+  border-radius: var(--r2);
+  text-align: left;
+  font-size: var(--t-2);
+  color: var(--ink);
+  transition: background 0.12s;
+}
+.taskRow:hover {
+  background: var(--sunk);
+}
+.taskRow b {
+  font-family: var(--mono);
+  font-size: var(--t-4);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.taskRow b::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  flex: none;
+}
+.taskRow b i {
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--t-1);
+  color: var(--muted);
+}
+.taskRow[data-tone="danger"] b {
+  color: var(--danger);
+}
+.taskRow[data-tone="danger"] b::before {
+  background: var(--danger);
+}
+.taskRow[data-tone="warn"] b {
+  color: var(--warn);
+}
+.taskRow[data-tone="warn"] b::before {
+  background: var(--warn);
+}
+.taskRow small {
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* The pressed filter: accent-soft, the slate ring, the brass bar. The tone dot stays. */
+.taskRow[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    inset 3px 0 0 var(--gilt);
+}
+.taskRow[aria-pressed="true"] small {
+  color: var(--accent-ink);
+}
+.notices {
+  display: grid;
+  padding: 4px 6px 6px;
+}
+.notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 7px 8px 7px 10px;
+  border-radius: var(--r2);
+  font-size: var(--t-1);
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+.notice time {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* A new notice is not a selection, so it takes the fill without the ring. */
+.notice[data-fresh="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.notice[data-fresh="true"] time {
+  color: var(--accent-ink);
+}
+.notice .seen {
+  font-size: var(--t-0);
+  font-weight: 600;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.actSum {
+  padding: 10px 14px 8px;
+  font-size: var(--t-2);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+.actSum b {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--ink);
+}
+.actSum b[data-tone="danger"] {
+  color: var(--danger);
+}
+.feed {
+  display: grid;
+  padding: 2px 6px 6px;
+}
+.feedItem {
+  display: grid;
+  grid-template-columns: 3rem auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 8px 6px 10px;
+  border-radius: var(--r2);
+  font-size: var(--t-1);
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.feedItem time {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+}
+.feedItem .dot {
+  background: var(--line-strong);
+  transform: translateY(-1px);
+  animation: none;
+}
+.feedItem[data-tone="danger"] .dot {
+  background: var(--danger);
+}
+.feedItem[data-tone="warn"] .dot {
+  background: var(--warn);
+}
+.feedItem[data-tone="good"] .dot {
+  background: var(--good);
+}
+.feedItem b {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--ink);
+}
+/* The live tally: core tiles on the second surface tone with a hairline, then the groups. */
+.tally {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px 14px 4px;
+}
+.tile {
+  display: grid;
+  gap: 3px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  background: var(--surface-2);
+}
+.tile small {
+  font-size: var(--t-0);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tile b {
+  font-family: var(--mono);
+  font-size: var(--t-5);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.tile b i {
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--t-1);
+  color: var(--muted);
+}
+.tile[data-tone="danger"] b {
+  color: var(--danger);
+}
+.tile[data-tone="warn"] b {
+  color: var(--warn);
+}
+.figGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.figGrid > section {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.figGrid .dataTable th,
+.figGrid .dataTable td {
+  padding: 4px 8px;
+}
+.figGrid .dataTable th:first-child,
+.figGrid .dataTable td:first-child {
+  padding-left: 14px;
+}
+.figGrid .dataTable th {
+  background: transparent;
+  border-bottom-color: var(--line);
+}
+.figGrid .dataTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+.figGrid .menuHead {
+  padding-left: 14px;
+}
+.figGrid .statsFacts {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+/* ─── the tools drawer ─── */
+.toolList {
+  display: grid;
+  padding: 4px 6px 6px;
+}
+.toolItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 8px 8px 10px;
+  border-radius: var(--r2);
+  text-align: left;
+  font-size: var(--t-2);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.toolItem:hover {
+  background: var(--sunk);
+}
+.toolItem .glyph {
+  color: var(--ink-soft);
+}
+.toolItem span {
+  display: grid;
+  gap: 1px;
+}
+.toolItem span em {
+  font-style: normal;
+  font-size: var(--t-1);
+  color: var(--muted);
+}
+.toolItem small {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* A disabled tool says why in its tooltip and does not light on hover. */
+.toolItem[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.toolItem[aria-disabled="true"]:hover {
+  background: transparent;
+}
+.contacts .dataTable td {
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+.contacts .dataTable td em {
+  display: block;
+  font-style: normal;
+  font-weight: 400;
+  font-size: var(--t-0);
+  color: var(--muted);
+}
+.contacts .tableWrap {
+  overflow-x: auto;
+}
+.contacts .dataTable th {
+  padding: 6px 10px;
+}
+.contacts .dataTable td.holder {
+  font-family: var(--mono);
+  color: var(--muted);
+  font-size: var(--t-1);
+}
+.contacts .dataTable td:first-child {
+  padding-left: 14px;
+}
+.contacts .dataTable th:first-child {
+  padding-left: 14px;
+}
+.menuPanel .who {
+  align-items: flex-start;
+  padding: 12px 14px 8px;
+}
+.menuPanel .appearance {
+  margin: 4px 14px 12px;
+}
+
+/* ─── the body: the frame's scrolling region and the page foot ─── */
+.hScroll {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 24px 24px;
+  display: grid;
+  gap: var(--gap);
+  align-content: start;
+}
+.hGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+.hCol {
+  display: grid;
+  gap: var(--gap);
+  min-width: 0;
+}
+.hGrid .qList {
+  max-height: 38rem;
+}
+.qName {
+  font-weight: 600;
+  color: var(--ink);
+}
+.pageBody[hidden],
+.hGrid[hidden] {
+  display: none;
+}
+.pageNote {
+  padding: 12px 16px;
+  font-size: var(--t-2);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 72ch;
+  text-wrap: pretty;
+}
+/* The page foot carries the disclosure the closed strip cannot: a strip under the scrolling
+   region, on the second surface tone, so the locked laptop layout keeps its rows. */
+.hFoot {
+  padding: 8px 24px 10px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  display: grid;
+  gap: 3px;
+  font-size: var(--t-0);
+  color: var(--muted);
+  line-height: 1.45;
+}
+.hFoot p {
+  max-width: 120ch;
+  text-wrap: pretty;
+}
+.hFoot b {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+/* ─── collapse ladder: the same breakpoints the rail page proved ─── */
+@media (max-width: 1500px) {
+  .chip.mark .long {
+    display: none;
+  }
+}
+@media (max-width: 1240px) {
+  .hdr1 .chip.mark,
+  .hdr1 .menu > summary .lbl.optional {
+    display: none;
+  }
+  .searchWrap {
+    flex-basis: 10rem;
+  }
+}
+@media (max-width: 1000px) {
+  .hApp {
+    grid-template-columns: 1fr;
+  }
+  .hGrid {
+    grid-template-columns: 1fr;
+  }
+  .hScroll {
+    padding: 12px 14px 24px;
+  }
+  .hdr1 {
+    flex-wrap: wrap;
+    padding: 8px 14px;
+  }
+  .hdr1 .end {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+  .searchWrap {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  .hFoot {
+    padding: 8px 14px 10px;
+  }
+}
+@media (max-width: 640px) {
+  .menuPanel {
+    max-width: 94vw;
+  }
+  .tally {
+    grid-template-columns: 1fr;
+  }
+}
+@media print {
+  .hdr1 .end,
+  .searchWrap,
+  .menuPanel,
+  .hdr1 .svcMenu {
+    display: none !important;
+  }
+  .hApp,
+  .hGrid {
+    display: block;
+  }
+  .hGrid .qList {
+    max-height: none;
+  }
+  .hdr1 {
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .drawerMenu[open]::before {
+    display: none;
+  }
+}
+@media (forced-colors: active) {
+  .qPop,
+  .badge,
+  .seg,
+  .tile {
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+  .dot,
+  .taskRow b::before {
+    background: CanvasText;
+  }
+}
+
+/* ─── the rail, open and closed: one rail, two states ──────────────────
+   Open, it carries every screen in three groups with its state under it in
+   words, the shift, the pinned movements and the foot. Closed, it is a
+   strip: a glyph and a word per screen, the counts as tags, the shift as a
+   ring, and a card on hover with the screen's state. The bracket key and
+   the control at the foot of each state flip between them, and the choice
+   is remembered for this browser. ─────────────────────────────────────── */
+:root {
+  --railw: 236px;
+}
+.railHost {
+  display: contents;
+}
+.railHost > .rail {
+  display: none;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  z-index: 20;
+}
+/* The closed strip rises above the bar only while it is hovered or holds focus, so a hover card
+   can pass over the bar without the drawers ever sitting under the rail. */
+.rail.closed:hover,
+.rail.closed:focus-within {
+  z-index: 32;
+}
+.hApp[data-view="open"] .rail.open,
+.hApp[data-view="closed"] .rail.closed {
+  display: flex;
+}
+.hApp[data-view="closed"] {
+  --railw: 76px;
+}
+
+/* ─── shared pieces: the scrolling middle, the service stripe, the shift block, the ring, the
+   text under a screen, the tone dot, the pinned rows and the flip control ─── */
+.railScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  display: flex;
+  flex-direction: column;
+}
+.railScroll::-webkit-scrollbar {
+  width: 9px;
+}
+.railScroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 9px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.rail.open {
+  overflow: hidden;
+}
+.rail.closed {
+  overflow: visible;
+}
+/* One service chosen is easy to forget, so the rail carries it as a 3 px bar under the brand. */
+.svcStripe {
+  display: none;
+  height: 3px;
+  border-radius: 2px;
+  margin: -12px 20px 14px;
+}
+.svcStripe[data-svc] {
+  display: block;
+}
+.svcStripe[data-svc="north"] {
+  background: var(--svc-north);
+}
+.svcStripe[data-svc="east"] {
+  background: var(--svc-east);
+}
+.svcStripe[data-svc="south"] {
+  background: var(--svc-south);
+}
+.svcStripe[data-svc="wachs"] {
+  background: var(--svc-wachs);
+}
+/* The shift block: a block on the second surface tone with a hairline, never lifted. */
+.railBlock {
+  margin: 0 10px 14px;
+  padding: 10px 10px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  background: var(--surface-2);
+  display: grid;
+  gap: 6px;
+}
+.railBlock .eyebrow {
+  font-size: var(--t-0);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.railBlock .eyebrow .count {
+  font-family: var(--mono);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+}
+.railBlock .big {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: var(--t-4);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.railBlock .big small {
+  font-family: var(--body);
+  font-size: var(--t-1);
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0;
+  white-space: normal;
+}
+.shiftRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.shiftRow > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.shiftRow .big {
+  display: grid;
+  gap: 0;
+}
+.meter {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.meter i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.ring.small {
+  width: 36px;
+  height: 36px;
+}
+.ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.ring .track {
+  stroke: var(--line);
+}
+.ring .arc {
+  stroke: var(--accent);
+  stroke-linecap: round;
+}
+.ring b {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.ring.small b {
+  font-size: var(--t-0);
+  letter-spacing: 0;
+}
+/* The name of a screen and, under it, one line that says how it stands. */
+.railText {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.railText > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.railText em {
+  font-style: normal;
+  font-size: var(--t-0);
+  line-height: 1.35;
+  color: var(--muted);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.railText em b {
+  font-weight: 600;
+}
+.railText em b[data-tone="danger"] {
+  color: var(--danger);
+}
+.railText em b[data-tone="warn"] {
+  color: var(--warn);
+}
+.railLink[aria-current="page"] .railText em {
+  color: var(--accent-ink);
+}
+/* A count of none is the italic word with no pill behind it. */
+.tag[data-zero="true"] {
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+.railLink[aria-current="page"] .tag[data-zero="true"] {
+  color: var(--accent-ink);
+  background: transparent;
+  box-shadow: none;
+}
+/* The tone lives on a dot beside the glyph, never on the count: red is a breach, amber is look
+   here. The ring around it is the surface it sits on. */
+.toneDot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.toneDot[data-tone="danger"] {
+  background: var(--danger);
+}
+.toneDot[data-tone="warn"] {
+  background: var(--warn);
+}
+.rail.open .toneDot {
+  left: 20px;
+  top: 5px;
+}
+.rail.open .railLink[aria-current="page"] .toneDot {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.rail.closed .toneDot {
+  left: calc(50% - 16px);
+  top: 6px;
+}
+.rail.closed .railLink[aria-current="page"] .toneDot {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+/* A pinned movement: the tone bar of its queue row at the left, the identifier and the wait in
+   mono. Pressed, it takes the accent-soft fill and the slate ring, and keeps its bar. */
+.pinRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--r2);
+  font-size: var(--t-1);
+  color: var(--ink-soft);
+  text-align: left;
+  position: relative;
+}
+.pinRow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--line-strong);
+}
+.pinRow[data-tone="danger"]::before {
+  background: var(--danger);
+}
+.pinRow[data-tone="warn"]::before {
+  background: var(--warn);
+}
+.pinRow:hover {
+  background: var(--sunk);
+}
+.pinRow[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.pinRow .id {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--ink);
+}
+.pinRow .wait {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+}
+.pinRow[data-tone="danger"] .wait {
+  color: var(--danger);
+}
+.pinRow[aria-pressed="true"] .id,
+.pinRow[aria-pressed="true"] b {
+  color: var(--accent-ink);
+}
+.pinRow b {
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The flip control at the foot: a secondary button with the bracket key as a keycap. */
+.railBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 10px 0;
+  padding: 7px 10px;
+  border-radius: var(--r2);
+  font-size: var(--t-1);
+  font-weight: 600;
+  color: var(--ink-soft);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.railBtn:hover,
+.railBtn:active {
+  background: var(--sunk);
+  border-color: var(--ink-soft);
+  color: var(--ink);
+}
+.railBtn .railGlyph {
+  color: var(--ink-soft);
+}
+.railBtn kbd {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 500;
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 0 5px;
+  line-height: 1.5;
+}
+
+/* ─── open: 236 px ─── */
+.rail.open .brand {
+  padding-bottom: 14px;
+}
+.rail.open .railLink {
+  align-items: center;
+  padding: 6px 10px;
+}
+.rail.open .railLink[data-state="true"] {
+  padding: 4px 10px;
+}
+.rail.open .railGroup + .railGroup {
+  margin-top: 10px;
+}
+.rail.open .railBlock {
+  margin-bottom: 12px;
+}
+.rail.open .railLabel {
+  align-items: center;
+}
+.rail.open .railLink .tag {
+  align-self: flex-start;
+  margin-top: 1px;
+}
+.rail.open .railLink:not([data-state="true"]) .tag {
+  align-self: center;
+  margin-top: 0;
+}
+.rail.open .pinGroup {
+  margin-top: 14px;
+}
+.rail.open .railFoot {
+  padding-top: 12px;
+}
+
+/* ─── closed: the strip at 76 px ─── */
+.rail.closed {
+  padding: 14px 0 12px;
+  align-items: stretch;
+}
+.rail.closed .brand {
+  justify-content: center;
+  padding: 0 0 12px;
+  gap: 0;
+}
+.rail.closed .brand b {
+  font-size: var(--t-5);
+}
+.rail.closed .brand span {
+  display: none;
+}
+.rail.closed .svcStripe {
+  margin: -8px 14px 10px;
+}
+.rail.closed .railGroup {
+  padding: 0 6px;
+  gap: 2px;
+}
+.rail.closed .railGroup + .railGroup {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.rail.closed .railEyebrow {
+  display: none;
+}
+.rail.closed .railLink {
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 2px 6px;
+  position: relative;
+}
+.rail.closed .railLink::before {
+  left: -6px;
+  top: 9px;
+  bottom: 9px;
+}
+.rail.closed .railLabel {
+  flex-direction: column;
+  gap: 4px;
+}
+/* One word under the glyph, at the type floor and never below it. */
+.rail.closed .railLabel .word {
+  font-size: var(--t-0);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+.rail.closed .railGlyph {
+  width: 17px;
+  height: 17px;
+  flex-basis: 17px;
+}
+.rail.closed .railLink .tag {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  padding: 0 4px;
+  font-size: var(--t-0);
+  line-height: 1.4;
+}
+.rail.closed .railLink[data-page="handover"] .tag {
+  display: none;
+}
+/* The hover card: floats beside the strip, so it takes the one elevation step. Pointer events
+   off, so it never traps the cursor. */
+.flyCard {
+  display: none;
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 2px;
+  width: 15.5rem;
+  padding: 10px 12px 11px;
+  border: 1px solid var(--line);
+  border-bottom-color: var(--line-strong);
+  border-radius: var(--r1);
+  background: var(--surface);
+  box-shadow:
+    var(--lift),
+    inset 0 1px 0 var(--hl);
+  z-index: 35;
+  text-align: left;
+  gap: 3px;
+  font-weight: 400;
+  color: var(--ink);
+  pointer-events: none;
+}
+.flyCard::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 16px;
+  width: 8px;
+  height: 8px;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transform: rotate(45deg);
+}
+.flyCard b {
+  font-size: var(--t-2);
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.flyCard b .tag {
+  position: static;
+  font-size: var(--t-0);
+  line-height: normal;
+  padding: 1px 7px;
+}
+.flyCard em {
+  font-style: normal;
+  font-size: var(--t-1);
+  line-height: 1.4;
+  color: var(--muted);
+}
+.flyCard .stateLine {
+  font-size: var(--t-1);
+  color: var(--ink-soft);
+}
+.flyCard .stateLine b {
+  display: inline;
+  font-size: var(--t-1);
+}
+.flyCard .stateLine b[data-tone="danger"] {
+  color: var(--danger);
+}
+.flyCard .stateLine b[data-tone="warn"] {
+  color: var(--warn);
+}
+.rail.closed .railLink:hover .flyCard,
+.rail.closed .railLink:focus-visible .flyCard {
+  display: grid;
+}
+.rail.closed .railFoot {
+  padding: 10px 0 0;
+  justify-items: center;
+  gap: 8px;
+}
+.rail.closed .railFoot .railUser,
+.rail.closed .railFoot .railNote,
+.rail.closed .railCheck span {
+  display: none;
+}
+/* The pinned fly out: a quiet control in the strip, its count as a pill, its panel to the right. */
+.rail.closed .flyMenu {
+  align-self: center;
+}
+.rail.closed .flyMenu > summary {
+  height: 34px;
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+  position: relative;
+  box-shadow: none;
+}
+.rail.closed .flyMenu > summary::after {
+  display: none;
+}
+.rail.closed .flyMenu > summary:hover,
+.rail.closed .flyMenu[open] > summary {
+  background: var(--sunk);
+  border-color: transparent;
+  color: var(--ink);
+}
+.rail.closed .flyMenu > summary .tag {
+  position: absolute;
+  top: -3px;
+  right: -6px;
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  line-height: 1.4;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink-soft);
+}
+.rail.closed .flyMenu[open] > summary .tag {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent-ink);
+}
+.rail.closed .flyMenu .menuPanel {
+  left: calc(100% + 10px);
+  right: auto;
+  top: auto;
+  bottom: 0;
+  min-width: 19rem;
+}
+.rail.closed .railBtn {
+  margin: 8px 6px 0;
+  justify-content: center;
+  padding: 6px 0;
+}
+.rail.closed .railBtn span,
+.rail.closed .railBtn kbd {
+  display: none;
+}
+.ringRow {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+/* ─── the rail on a phone: the third edition's row of chips, with the shell's extras put away ─── */
+@media (prefers-reduced-motion: reduce) {
+  .hApp {
+    transition: none;
+  }
+}
+@media (max-width: 1000px) {
+  .hApp[data-view="closed"] {
+    --railw: 100%;
+  }
+  .railHost > .rail {
+    position: static;
+    height: auto;
+  }
+  .hApp[data-view="closed"] .rail.closed {
+    display: none;
+  }
+  .hApp[data-view="closed"] .rail.open,
+  .hApp[data-view="open"] .rail.open {
+    display: flex;
+  }
+  .rail.open {
+    overflow: visible;
+  }
+  .railScroll {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    overflow: visible;
+  }
+  .rail.open .railBlock,
+  .rail.open .pinGroup,
+  .rail.open .railFoot,
+  .rail.open .railBtn,
+  .rail.open .svcStripe,
+  .rail.open .railText em,
+  .rail.open .toneDot {
+    display: none;
+  }
+  .rail.open .railLink,
+  .rail.open .railLink[data-state="true"] {
+    padding: 6px 10px;
+  }
+}
+@media print {
+  .railBtn,
+  .flyCard {
+    display: none !important;
+  }
+}
+@media (forced-colors: active) {
+  .railBlock,
+  .flyCard,
+  .pinRow,
+  .railBtn {
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+  .meter i,
+  .svcStripe,
+  .toneDot {
+    background: CanvasText;
+  }
+  .ring .arc {
+    stroke: CanvasText;
+  }
+}

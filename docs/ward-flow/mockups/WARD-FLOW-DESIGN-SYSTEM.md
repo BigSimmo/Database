@@ -273,54 +273,79 @@ white, the shadow, the highlight and the stripe go, and the four status colours 
 Every pairing of text on a fill that the components use, in both themes. Printed by
 `merged/contrast.mjs` from the token values, never computed by hand. The floor is 4.5:1.
 
-44 pairs. One pair falls short: svc-south on ground reaches 4.0:1 in the light theme (8.0:1 in the dark), below the floor. It is printed, marked and reported, and until the owner darkens the token no page sets a service name directly on the ground. On a panel the same teal reads at 4.8:1. Of the pairs that pass, the lowest light pairing is 4.5:1 and the lowest dark pairing is 4.6:1.
+69 pairs, every one above the floor in both themes. The lowest light pairing is 4.5:1 and the lowest dark pairing is 4.6:1. The rows marked not used are pairings no page sets today, kept so a page that ever does has the figure, and the pairs a showing, hovered, chosen or blocked candidate reaches are listed because the round one review found three of them below the floor before the tokens were darkened.
 
-| Pair                                  |  Light |   Dark | Where it occurs                                                          |
-| ------------------------------------- | -----: | -----: | ------------------------------------------------------------------------ |
-| ink on surface                        | 17.2:1 | 14.6:1 | Headings and row titles on a panel                                       |
-| ink on ground                         | 14.4:1 | 15.8:1 | Masthead figures over the ground                                         |
-| ink-soft on surface                   |  9.0:1 |  8.8:1 | Secondary text on a panel                                                |
-| ink-soft on ground                    |  7.5:1 |  9.6:1 | Notes over the ground                                                    |
-| muted on surface                      |  5.6:1 |  5.5:1 | Labels and counts on a panel                                             |
-| muted on ground                       |  4.7:1 |  6.0:1 | The rail note over the middle of the ground                              |
-| muted on ground-hi                    |  4.9:1 |  5.7:1 | The lightest band of the ground, at the top of the window                |
-| muted on ground-2                     |  4.5:1 |  6.1:1 | The darkest band of the ground, at the foot of the window                |
-| muted on sunk                         |  5.0:1 |  5.7:1 | Labels on a hover row or a gate                                          |
-| muted on surface-2                    |  5.3:1 |  5.2:1 | The count in a panel header                                              |
-| muted on accent-soft                  |  4.5:1 |  4.6:1 | Meta text on a selected row                                              |
-| accent on surface                     |  8.8:1 |  8.9:1 | Link text and the focus ring                                             |
-| accent-ink on surface                 | 10.5:1 | 11.0:1 | The brand name in the rail, a link                                       |
-| accent-ink on surface-2               |  9.9:1 | 10.4:1 | A panel title on its header strip                                        |
-| accent-ink on accent-soft             |  8.6:1 |  9.2:1 | Text on a selected row or pressed control                                |
-| on-accent on accent                   |  8.9:1 |  9.6:1 | The primary control's label                                              |
-| gilt on surface                       |  5.7:1 |  8.9:1 | The letters beside the wordmark, the current stage word                  |
-| gilt on gilt-soft                     |  4.9:1 |  7.9:1 | Brass text on its own wash, should a page ever need it                   |
-| gilt on accent-soft                   |  4.7:1 |  7.5:1 | The current stage word on a selected panel                               |
-| good on good-soft                     |  4.8:1 |  8.4:1 | An accepted destination badge                                            |
-| good on surface                       |  5.5:1 |  9.4:1 | An eligible verdict, a pass mark                                         |
-| warn on warn-soft                     |  4.8:1 |  8.5:1 | An overridden gate's verdict                                             |
-| warn on surface                       |  5.4:1 |  9.6:1 | A declined verdict                                                       |
-| warn on sunk                          |  4.9:1 | 10.0:1 | A held bed chip on a well                                                |
-| danger on danger-soft                 |  5.0:1 |  6.8:1 | A failed gate's verdict                                                  |
-| danger on surface                     |  5.9:1 |  7.6:1 | A breach word, a refused row's title                                     |
-| danger-ink on danger-soft             |  6.3:1 |  7.8:1 | A tier 1 pill                                                            |
-| svc-east on surface                   |  8.8:1 |  8.9:1 | East Metro's name on a candidate                                         |
-| svc-north on surface                  |  5.4:1 |  7.4:1 | North Metro's name on a candidate                                        |
-| svc-south on surface                  |  4.8:1 |  7.4:1 | South Metro's name on a candidate                                        |
-| svc-wachs on surface                  |  5.7:1 |  7.3:1 | WACHS's name on a candidate                                              |
-| svc-east on ground                    |  7.4:1 |  9.6:1 | East Metro's name over the ground                                        |
-| svc-north on ground                   |  4.6:1 |  8.1:1 | North Metro's name over the ground                                       |
-| svc-south on ground (below the floor) |  4.0:1 |  8.0:1 | South Metro's name over the ground. Not used until the token is darkened |
-| svc-wachs on ground                   |  4.8:1 |  7.9:1 | WACHS's name over the ground                                             |
-| svc-south on surface-2                |  4.5:1 |  7.0:1 | A service name in the legend band                                        |
-| svc-north on surface-2                |  5.1:1 |  7.0:1 | A service name in the legend band                                        |
-| ink-soft on accent-soft               |  7.3:1 |  7.4:1 | A selected row's secondary text                                          |
-| ink on danger-soft                    | 14.5:1 | 13.0:1 | The label of a failed gate                                               |
-| ink-soft on danger-soft               |  7.6:1 |  7.9:1 | The detail of a failed gate                                              |
-| ink-soft on warn-soft                 |  7.9:1 |  7.8:1 | The detail of an overridden gate                                         |
-| ink on good-soft                      | 14.8:1 | 12.9:1 | The label on an accepted badge's ground                                  |
-| ink-soft on good-soft                 |  7.8:1 |  7.8:1 | Detail on a chosen candidate                                             |
-| muted on good-soft                    |  4.8:1 |  4.9:1 | Meta on a chosen candidate                                               |
+| Pair                      |  Light |   Dark | Where it occurs                                                                           |
+| ------------------------- | -----: | -----: | ----------------------------------------------------------------------------------------- |
+| ink on surface            | 17.2:1 | 14.6:1 | Headings and row titles on a panel                                                        |
+| ink on ground             | 14.5:1 | 15.8:1 | Not used: nothing is written on the ground. Kept so a page that ever does has the figure  |
+| ink-soft on surface       |  9.0:1 |  8.8:1 | Secondary text on a panel                                                                 |
+| ink-soft on ground        |  7.6:1 |  9.6:1 | Not used: kept for the same reason                                                        |
+| muted on surface          |  5.6:1 |  5.5:1 | Labels and counts on a panel                                                              |
+| muted on ground           |  4.7:1 |  6.0:1 | Not used: the rail and the masthead are surface, so the rail note sits on surface         |
+| muted on ground-hi        |  4.9:1 |  5.7:1 | Not used: the lightest band of the ground, at the top of the window                       |
+| muted on ground-2         |  4.5:1 |  6.1:1 | Not used: the darkest band of the ground, at the foot of the window                       |
+| muted on sunk             |  5.0:1 |  5.7:1 | Labels on a hover row or a gate                                                           |
+| muted on surface-2        |  5.3:1 |  5.2:1 | The count in a panel header                                                               |
+| muted on accent-soft      |  4.5:1 |  4.6:1 | Meta text on a selected row                                                               |
+| accent on surface         |  8.8:1 |  8.9:1 | Link text and the focus ring                                                              |
+| accent-ink on surface     | 10.5:1 | 11.0:1 | The brand name in the rail, a link                                                        |
+| accent-ink on surface-2   |  9.9:1 | 10.4:1 | A panel title on its header strip                                                         |
+| accent-ink on accent-soft |  8.6:1 |  9.2:1 | Text on a selected row or pressed control                                                 |
+| on-accent on accent       |  9.0:1 |  9.6:1 | The primary control's label                                                               |
+| gilt on surface           |  5.7:1 |  8.9:1 | The letters beside the wordmark, the current stage word                                   |
+| gilt on gilt-soft         |  4.9:1 |  7.9:1 | Brass text on its own wash, should a page ever need it                                    |
+| gilt on accent-soft       |  4.7:1 |  7.5:1 | The current stage word on a selected panel                                                |
+| good on good-soft         |  4.8:1 |  8.4:1 | An accepted destination badge                                                             |
+| good on surface           |  5.5:1 |  9.4:1 | An eligible verdict, a pass mark                                                          |
+| warn on warn-soft         |  5.2:1 |  8.5:1 | An overridden gate's verdict                                                              |
+| warn on surface           |  5.9:1 |  9.6:1 | A declined verdict                                                                        |
+| warn on sunk              |  5.3:1 | 10.0:1 | A held bed chip, and the verdict word on a hovered candidate that needs a recorded reason |
+| danger on danger-soft     |  5.0:1 |  6.8:1 | A failed gate's verdict                                                                   |
+| danger on surface         |  5.9:1 |  7.6:1 | A breach word, a refused row's title                                                      |
+| danger-ink on danger-soft |  6.3:1 |  7.8:1 | A tier 1 pill                                                                             |
+| svc-east on surface       |  8.8:1 |  8.9:1 | East Metro's name on a candidate                                                          |
+| svc-north on surface      |  5.9:1 |  7.4:1 | North Metro's name on a candidate                                                         |
+| svc-south on surface      |  6.0:1 |  7.4:1 | South Metro's name on a candidate                                                         |
+| svc-wachs on surface      |  5.7:1 |  7.3:1 | WACHS's name on a candidate                                                               |
+| svc-east on ground        |  7.4:1 |  9.6:1 | Not used: no service name is set on the ground                                            |
+| svc-north on ground       |  5.0:1 |  8.1:1 | Not used: no service name is set on the ground                                            |
+| svc-south on ground       |  5.0:1 |  8.0:1 | Not used: no service name is set on the ground                                            |
+| svc-wachs on ground       |  4.8:1 |  7.9:1 | Not used: no service name is set on the ground                                            |
+| svc-south on surface-2    |  5.7:1 |  7.0:1 | A service name in the legend band, and on a blocked candidate                             |
+| svc-north on surface-2    |  5.6:1 |  7.0:1 | A service name in the legend band, and on a blocked candidate                             |
+| svc-east on surface-2     |  8.3:1 |  8.4:1 | A service name in the legend band, and on a blocked candidate                             |
+| svc-wachs on surface-2    |  5.4:1 |  6.9:1 | A service name in the legend band, and on a blocked candidate                             |
+| ink on surface-2          | 16.2:1 | 13.8:1 | A blocked candidate's name, and a title on a header strip                                 |
+| ink-soft on surface-2     |  8.5:1 |  8.4:1 | A blocked candidate's bed line                                                            |
+| gilt on surface-2         |  5.4:1 |  8.5:1 | Brass text on a strip                                                                     |
+| ink on sunk               | 15.5:1 | 15.2:1 | A hovered candidate's name, a gate label                                                  |
+| ink-soft on sunk          |  8.1:1 |  9.2:1 | A hovered candidate's bed line, a gate detail                                             |
+| accent-ink on sunk        |  9.5:1 | 11.4:1 | A hovered link button, the count on a hovered tab                                         |
+| good on sunk              |  5.0:1 |  9.8:1 | A ready bed chip, and the verdict word on a hovered eligible candidate                    |
+| danger on sunk            |  5.3:1 |  7.9:1 | A blocked bed chip                                                                        |
+| svc-east on sunk          |  8.0:1 |  9.2:1 | East Metro's name on a hovered candidate                                                  |
+| svc-north on sunk         |  5.4:1 |  7.7:1 | North Metro's name on a hovered candidate                                                 |
+| svc-south on sunk         |  5.4:1 |  7.7:1 | South Metro's name on a hovered candidate                                                 |
+| svc-wachs on sunk         |  5.1:1 |  7.6:1 | WACHS's name on a hovered candidate                                                       |
+| svc-east on accent-soft   |  7.2:1 |  7.5:1 | East Metro's name on the showing candidate                                                |
+| svc-north on accent-soft  |  4.8:1 |  6.2:1 | North Metro's name on the showing candidate                                               |
+| svc-south on accent-soft  |  4.9:1 |  6.2:1 | South Metro's name on the showing candidate                                               |
+| svc-wachs on accent-soft  |  4.6:1 |  6.1:1 | WACHS's name on the showing candidate                                                     |
+| good on accent-soft       |  4.5:1 |  8.0:1 | The verdict word on a showing eligible candidate                                          |
+| warn on accent-soft       |  4.8:1 |  8.1:1 | The verdict word on a showing candidate that needs a recorded reason, or has declined     |
+| svc-east on good-soft     |  7.6:1 |  7.9:1 | East Metro's name on a chosen candidate                                                   |
+| svc-north on good-soft    |  5.1:1 |  6.6:1 | North Metro's name on a chosen candidate                                                  |
+| svc-south on good-soft    |  5.2:1 |  6.6:1 | South Metro's name on a chosen candidate                                                  |
+| svc-wachs on good-soft    |  4.9:1 |  6.4:1 | WACHS's name on a chosen candidate                                                        |
+| warn on good-soft         |  5.1:1 |  8.5:1 | The verdict word on a chosen candidate that needs a recorded reason                       |
+| ink-soft on accent-soft   |  7.3:1 |  7.4:1 | A selected row's secondary text                                                           |
+| ink on danger-soft        | 14.5:1 | 13.0:1 | The label of a failed gate                                                                |
+| ink-soft on danger-soft   |  7.6:1 |  7.9:1 | The detail of a failed gate                                                               |
+| ink-soft on warn-soft     |  7.9:1 |  7.9:1 | The detail of an overridden gate                                                          |
+| ink on good-soft          | 14.9:1 | 12.9:1 | The label on an accepted badge's ground                                                   |
+| ink-soft on good-soft     |  7.8:1 |  7.8:1 | Detail on a chosen candidate                                                              |
+| muted on good-soft        |  4.8:1 |  4.9:1 | Meta on a chosen candidate                                                                |
 
 Non-text marks are held to 3:1 against their ground where they carry meaning: status bars, meter
 fills, the focus ring and the step marks all use the full strength token. Hairlines are not meaning

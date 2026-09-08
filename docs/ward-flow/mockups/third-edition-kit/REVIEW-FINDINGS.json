@@ -1,0 +1,606 @@
+[
+  {
+    "reviewer": "a07a193acca281be0",
+    "summary": "Rule compliance review of the Ward Flow third edition (merged/command-third-edition.html, merged/design-system-third-edition.html, merged/WARD-FLOW-DESIGN-SYSTEM.md) against merged/MERGE-BRIEF.md and the standard's own ten rules, checked by reading the stylesheets and by computed-style reads in Chromium in both themes (scripts and outputs under merged/review/rules-r1/: probe.mjs, probe2.mjs, crops.mjs, probe-command.txt, probe2-command.txt, probe-standard.txt, three crops). What passes, verified: the three roots carry the brief's tokens hex for hex in both files and in the MD; body background is the three stop gradient over --ground; body::before is a fixed 3px stripe in --stripe at z-index 20; all five mockup panels and all standard panels carry the two layer lift plus the inset highlight, a --line-strong bottom hairline and a 10px radius; every .ph, .tabbar, .diagFoot and .legend sits on --surface-2 with the 9px inner radius where it meets a corner; no opaque neutral border anywhere; --gilt-soft never paints behind text and is unused on Command; a pressed .edCard keeps its 3px status top border and a showing .cand keeps its 3px status left border, each with a three side slate ring over accent-soft; .ctl.primary hover goes to --accent-ink and disabled controls do not light; every requested weight is loaded; every HTML text element in the mockup is on the seven step scale; every uppercase label carries at least 0.08em; panel titles are Source Serif 4 600 in --accent-ink; the six mockup scrolling regions have thin --line-strong scrollbars. What fails: 3 high (80 of 109 SVG text elements in the diagram sit below the 10.5px floor; 30 visible text nodes carry em dashes and 11 carry prose semicolons; the standard's section 14.2 and 14.3 quote a print rule, a pressed ring, a scrollbar rule and a laptop rule that the reference build does not carry), 8 medium (standard prints a 22px wordmark the build renders at 20px; density table values differ from the stylesheet; a demo panel title renders in ink; the standard's code blocks have default scrollbars; the header demo's primary summary has no hover state; the map demo is a hand drawn copy with sizes the renderer does not use; map node hover adds a drop shadow inside a panel; rule 8 forbids pure white while --on-accent is #FFFFFF), 3 low.",
+    "findings": [
+      {
+        "file": "merged/command-third-edition.html",
+        "severity": "high",
+        "title": "Diagram text is set below the 10.5px floor and off the scale",
+        "evidence": "Lines 4731 to 4739 inject an SVG style block: .t-svc 10px, .t-edm 10px, .t-wc 10px, .t-cont 9.5px mono. Line 4805 sets the ORIGIN badge at 8.5px, line 4851 the hub identifier at 15px mono, line 5044 drops a ward name longer than 24 characters to 9.5px (East Metropolitan Youth Unit (EMyU), 35 characters, line 2785). Computed in Chromium, both themes, 1920 by 1080: of 109 svg text elements, 80 compute below 10.5px (t-wc at 10px 49, t-edm at 10px 15, t-cont at 9.5px 11, t-svc at 10px 3, t-wn at 9.5px 1, ORIGIN at 8.5px 1) and one at 15px (probe-command.txt, svg text line; crop-diagram-node-2x.png shows the 10px lines under JHC). The earlier check3e.txt printed min 10.5px html, 8.5px svg and passed anyway because check.mjs line 36 gates on HTML only. Breaks the brief's type rule (floor 10.5px, nothing between steps) and the file's own rule 4 at line 31.",
+        "fix": "In the injected style block at lines 4731 to 4739 set .t-svc, .t-edm and .t-wc to 10.5px, .t-cont to 10.5px, and at line 4805 set ORIGIN to 10.5px; at line 4851 set the hub identifier to 16px (--t-4) or 13.5px; at line 5044 replace the 9.5px shrink with an ellipsis or a shorter shownName at 11.5px; then widen the diagram node width so the 10.5px lines fit, re-run check.mjs and make its typefloor line fail on svg too."
+      },
+      {
+        "file": "merged/command-third-edition.html",
+        "severity": "high",
+        "title": "Visible copy carries em dashes and prose semicolons",
+        "evidence": "The brief's writing rule says no em dashes and no semicolons inside the artifacts. Visible strings in the script: line 3201 and 3464 \"Form 4A — transport authority\", line 3682 \"Tier 1 — most urgent\", line 3695 \"Mixed — \", line 3700 \" — no deadline recorded; \" (dash and semicolon), lines 4000, 4040, 4121, 4139, 4178, 4248, 4249, 4415, 5525, 5549, 5581, 5594, 5601, and line 5625 \"No automatic allocation — up to 3 parallel referrals at once.\"; semicolons at lines 4037, 5247, 5750, 6020. Computed walk of rendered text nodes (probe2-command.txt): 30 visible text nodes contain an em dash and 11 contain a semicolon in prose, in both themes, including two SVG diagram labels (\"Mixed — 4 of 17 locked\"). The standard and the MD contain none.",
+        "fix": "Rewrite each listed string as plain sentences: use a full stop, a comma or the word \"and\"; for example \"Form 4A, transport authority\", \"Tier 1, most urgent\", \"Mixed, 4 of 17 locked\", \"No deadline recorded. 3 h 34 m in the emergency department\", \"System suggests, you decide. No automatic allocation. Up to 3 parallel referrals at once.\" Then add a text-node walk for the em dash, the arrow characters and \"; \" to check.mjs so the rule is proven on every run."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "high",
+        "title": "Section 14 quotes rules the reference build does not carry",
+        "evidence": "Line 8038 (14.4) says the tokens in 14.2 and the material rules in 14.3 are quoted from the reference build, and line 7909 says the whole stylesheet carries them already. They differ. (a) The 14.2 print rule (pre at line 7694 onward) prints the light values for print (--ink #161A20, --line rgba(22,30,40,.11), --sunk #EEF2F6), but the mockup's print rule at lines 2186 to 2223 sets --ink #000000, --ink-soft #1a1a1a, --muted #444444, --line #9a9a9a, --line-strong #666666, --sunk #f3f3f3; computed under print media: --ink=#000000 --line=#9a9a9a (probe2-command.txt). Rule 8 at line 4055 and section 3.5 at line 4661 repeat the wrong description. (b) 14.3 prints .edCard[aria-pressed=\"true\"] and .cand[data-showing=\"true\"] with box-shadow inset 0 0 0 1px var(--accent), a four side ring; the mockup at lines 1030 to 1033 and 1606 to 1609 draws three one pixel inset shadows and leaves the status side alone. (c) 14.3 prints a universal * { scrollbar-width: thin } rule; the mockup at lines 442 to 450 lists six regions. (d) 14.3 prints the laptop rule as (max-height: 960px) { .tabsPanel { height: 11.5rem } }; the mockup at lines 1993 to 1995 uses (max-height: 1024px) with .midCol grid rows 11.5rem. (e) 14.3 prints .panel > .legend:last-child and .panel > .tabbar:first-child; the mockup at lines 1100 and 1350 uses .tabsPanel .tabbar and .legend. Diff saved in merged/review/rules-r1/std142.txt and std143.txt against mock-roots.txt.",
+        "fix": "Regenerate 14.2 and 14.3 from the reference build's stylesheet by extraction rather than by hand: the print block at mockup lines 2183 to 2223 verbatim, the pressed and showing rules at 1025 to 1034 and 1601 to 1611 verbatim, the six region scrollbar rule at 442 to 470, the laptop rule at 1993 to 2015 and the strip rules at 1094 to 1102 and 1343 to 1351. Then correct rule 8 (line 4055) and 3.5 (line 4661) to say what print actually does: white ground and surfaces, black ink and solid grey hairlines for paper, or change the mockup's print block to the light tokens and keep the sentence."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The standard prints a 22px wordmark the build renders at 20px",
+        "evidence": "Line 4000 (rule 4) says the wordmark is the one value outside the scale; lines 4786 to 4789 print Wordmark 22px and say at 20px it sits under the rail links; line 4792 renders the sample at font-size: 22px (computed 22px, probe-standard.txt sizes off scale). The mockup's .brand b at line 532 is font-size: var(--t-5); computed 20px in both files and both themes (brand line in probe-command.txt and probe-standard.txt). The MD repeats 22px at line 362 and line 808. Line 4685 also says 0.005em negative tracking on the wordmark; line 534 sets -0.012em, computed -0.24px at 20px.",
+        "fix": "Either set .brand b to font-size: 22px and letter-spacing: -0.005em at mockup lines 532 to 534 and keep the standard's text, or change the standard at lines 4000, 4786 to 4792 and the MD at lines 362 and 808 to say the wordmark is --t-5 (20px) with 0.012em tracking and delete the sentence about the one value outside the scale."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "Density table prints values the stylesheet does not have",
+        "evidence": "Line 5027 says these are the values in the stylesheet. Rail, line 5045: 18px above the wordmark, 14px below, links 2px apart; the mockup has .rail padding 22px 0 18px (line 522), .brand padding-bottom 20px (line 528), .railGroup gap 1px (line 548). Cards, line 5057: 9px apart in the pressure strip; .edList gap is 10px (line 986). Gates, line 5065: 4px apart; .gates gap is 5px (line 1786). Legend, line 5077: 7px by 12px, groups 16px apart, items 8px apart; .legend is padding 2px 16px 10px and gap 5px 14px (lines 1347 to 1348) with .lgTitle margin-left 14px (line 1358). The MD repeats the same figures at lines 494, 497, 499 and 502.",
+        "fix": "Rewrite the four rows at standard lines 5044 to 5045, 5056 to 5057, 5064 to 5065 and 5076 to 5077, and MD lines 494, 497, 499 and 502, to the stylesheet's values: rail 22px above the wordmark, 20px below, links 1px apart; cards 10px apart; gates 5px apart; legend 2px 16px 10px with 5px by 14px gaps and 14px between groups. Or change the stylesheet to the printed values and re-run check.mjs."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "A demonstration panel title renders in ink, not accent-ink",
+        "evidence": "The 6.3 demo at line 5461 is an h3 inside .ph inside .g-body. Line 3227 .g-body h3 { color: var(--ink) } has the same specificity as .ph h3 at line 895 and comes later, so it wins. Computed: h3 Source Serif 4 600 13.5px rgb(22, 26, 32) in light and rgb(232, 236, 241) in dark, where every other .ph title computes rgb(39, 64, 90) or rgb(191, 208, 226) (probe-standard.txt, panel titles BAD). Breaks brief rule 11 and the standard's own 5.4 at line 4893 inside the very demo that illustrates the header strip. Crop: crop-standard-declines-title-2x.png.",
+        "fix": "Change line 3227 to .g-body > h3, .g-rules h3 (or add .g-body .ph h3 { color: var(--accent-ink); font-family: var(--display); } after it) so the guide's subheading rule cannot reach a panel header inside a demo."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "Code blocks scroll with default scrollbars",
+        "evidence": "Line 5021 says scrollbars are thin in every scrolling region. .g-code (lines 3443 to 3456) has overflow-x: auto and .g-src (lines 3457 to 3461) overflow: auto, and neither sets scrollbar-width or scrollbar-color; the mockup's thin rule at lines 442 to 450 names only its six regions and .g-rail at line 3157 is the only g- rule that repeats it. Computed on the standard at 1920 by 1080: five pre.g-code elements overflow and report scrollbar-width auto, scrollbar-color auto, in both themes (probe-standard.txt, scrollers). Crop: crop-standard-gsrc-scrollbar-2x.png. The Source L extras .tableWrap (line 2288) also lack the rule, and .statsList and .taskList hide theirs (lines 2800 and 2996).",
+        "fix": "Add .g-code, .g-src, .g-tablewrap, .tableWrap to the scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent rule and to the ::-webkit-scrollbar rules, or adopt the universal rule 14.3 already prints and then quote it truthfully; state the hidden scrollbar on .statsList and .taskList as the documented exception at line 5021 or remove scrollbar-width: none there."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The header demo's primary control has no hover state",
+        "evidence": "Brief rule 8: primary hover and press to --accent-ink. Rule 10 at line 4079: every control draws rest, hover, pressed and focus. .menu > summary.primary at lines 2660 to 2665 sets the accent fill, and the only hover rule, .menu > summary:hover at line 2639, has equal specificity and sits earlier, so it never applies. Computed on the 6.2 header demo: summary.primary rest rgb(47, 76, 102), hover rgb(47, 76, 102), unchanged, both themes (probe-standard.txt, primary hover); the .ctl.primary beside it goes to rgb(39, 64, 90) on hover as required.",
+        "fix": "After line 2665 add .menu > summary.primary:hover, .menu > summary.primary:active { background: var(--accent-ink); border-color: var(--accent-ink); color: var(--on-accent); } and keep the [open] state on accent-soft."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The map demo is a hand drawn copy with sizes the renderer does not use",
+        "evidence": "The brief's naming rule says every component example is drawn by the mockup's stylesheet, never by a copy. The 6.14 demo at lines 6028 to 6160 is a static svg.g-node with inline styles: names at 12.5px, service at 10.5px, beds at 11.5px, verdict at 10.5px, on rect strokes of 1.5. The mockup's renderer draws names with .t-wn 11.5px, detail lines with .t-wc 10px and bed cells with .t-cont 9.5px (lines 4731 to 4739), with stroke widths set in the script. Computed: the standard's 26 svg text elements are all on scale while the mockup's diagram has 80 below the floor (probe-standard.txt versus probe-command.txt), so the standard shows a map that is not what Command draws. The same page's check-standard.txt reports 10.5px svg and calls it green.",
+        "fix": "Either render the demo with the mockup's diagram renderer against a four node fixture (share the render function and the injected style block), or state at line 6024 that the demo is a hand drawn schematic and print the renderer's real classes and sizes beside it, once the renderer sizes are lifted to the floor."
+      },
+      {
+        "file": "merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Map node hover adds a drop shadow inside a panel",
+        "evidence": "Brief rule 3: nothing inside a panel carries a shadow. Standard rule 5 at line 4012: nothing inside a panel is lifted again. Lines 1340 to 1342: .dNode:hover rect.body { filter: drop-shadow(0 1px 2px var(--edge-shade)); }. Computed on hover of the first diagram node: filter drop-shadow(rgba(30, 48, 66, 0.16) 0px 1px 2px) in light and drop-shadow(rgba(0, 0, 0, 0.55) 0px 1px 2px) in dark; rest is none (probe2-command.txt). The standard writes the exception into 5.3 at line 4878 and the MD at lines 427, 643 and 704, which is the opposite of the brief's instruction that the stricter rule wins and is written down.",
+        "fix": "Replace the hover filter at line 1341 with a stroke change that keeps the fill, for example .dNode:hover rect.body { stroke-width: 2; stroke: var(--accent); } with the dashed declined outline preserved, and delete the drop shadow clause from the standard at line 4878 and the MD at lines 427, 643 and 704; or, if the owner wants the shadow, change the rule text in both brief and standard to name it as the one exception."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "Rule 8 forbids pure white while --on-accent is #FFFFFF",
+        "evidence": "Line 4057 (rule 8): never pure black or pure white as a colour. The brief's token block sets --on-accent: #FFFFFF in light; the mockup has it at line 147 and the standard prints it at line 4247 (light #ffffff) and in 14.2. The MD repeats the rule at line 96 and the token at line 157. Line 4193 also says --surface is never pure white, which holds (#FDFDFE), so a reader will take rule 8 as absolute and find the token block breaking it.",
+        "fix": "Add the exception to rule 8 at line 4057 and MD line 96: never pure black or pure white as a surface or ink, with --on-accent as the one white, the text on the slate control; or change --on-accent to #F7F9FB in the brief, both files and the MD, and recompute the on-accent on accent pair."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "low",
+        "title": "Type specimens sit off the scale",
+        "evidence": "Line 3605: .g-face .g-specimen { font-size: 28px }. Computed: three span.g-specimen at 28px in both themes (probe-standard.txt, sizes off scale). Rule 4 at line 3996 and the brief say every size is one of the seven steps, and the standard's own scale table gives 26px as the top step.",
+        "fix": "Set .g-face .g-specimen to font-size: var(--t-6) at line 3605, or state at line 4677 that the three specimens are shown at 28px for legibility and are not a size on the scale."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "low",
+        "title": "Type section claims weights and a media query the stylesheet does not use",
+        "evidence": "Line 4684: a site code is 700; the mockup's .edCode is 600 (line 1038) and .t-ed is 600 (line 4733). Line 4776: t-5 figures are mono 600; .kpi dd and .clock b are 500 (lines 816 and 861) and .g-rules li > b is 500 (line 3298), while .g-sample.figure is 500 (line 3586). Lines 4966 to 4968 and the MD at line 476 describe the laptop rule as 960px tall or less; the stylesheet's rule at line 1993 is (max-height: 1024px). Computed weights all resolve to loaded faces, so nothing is synthesised, but the printed figures are not the stylesheet's.",
+        "fix": "Change line 4684 to say site codes are 600, line 4776 to say mono 500 (or set .kpi dd, .clock b and .g-rules li > b to 600), and lines 4966 to 4968 plus MD line 476 to say 1024px tall or less, or change mockup line 1993 to 960px and re-verify the 1440 by 900 diagram height."
+      },
+      {
+        "file": "merged/command-third-edition.html",
+        "severity": "low",
+        "title": "Body base size is 13px, which is not a scale step",
+        "evidence": "Line 313: body { font-size: 13px }. The scale has 12.5px and 13.5px and the standard at line 4761 and the MD at line 358 call --t-3 the page's base size. Computed body font-size 13px in both files and both themes (probe-command.txt and probe-standard.txt, body font line). No visible text element currently inherits it (html sizes off scale: 0 in the mockup), so it is latent rather than seen, but any new element without its own size will render at 13px.",
+        "fix": "Change line 313 to font-size: var(--t-3); and re-run check.mjs at the five widths, since rem based widths do not change and only unsized text would move."
+      }
+    ]
+  },
+  {
+    "reviewer": "a538c438c5cb3789a",
+    "summary": "Harness: node merged/check.mjs merged/command-third-edition.html platinum reports ALL GREEN (55 lines, saved to merged/review/access-r1/check-command.txt) and node merged/check-standard.mjs reports ALL GREEN (52 lines, merged/review/access-r1/check-standard.txt). No failing harness line to paste. Beyond the harness, scripts under merged/review/access-r1/ (a11y.mjs, axe.mjs, axtree.mjs, std.mjs, probe2 to probe6.mjs, outputs in *-output.txt, crops as crop-*.png) reproduced these. What passed: tab order cycles through 91 stops on the mockup (skip link first, then rail, masthead, panels), every stop shows a 2px accent ring above 3:1 in both themes except the register pane whose inset ring is clipped at the bottom; the skip link is visible on focus and moves focus to the queue; ED cards, patient rows, tabs and the legend disclosure update aria-pressed, aria-selected, aria-expanded and hidden and each change is announced in #live, which also alternates a zero-width mark for a repeated sentence; Enter and Space activate map nodes; Escape clears a ward selection then the ED filter; the appearance choice is stored under ward-flow-command-appearance and survives a reload, and Auto clears it; SVG text contrast is at least 4.53:1 light and 4.63:1 dark; print gives every colour token a non-dark value on all three roots; rest, hover, active and pressed text on queue rows, cards, tabs, secondary and primary buttons, appearance buttons, rail links and the panel-header button stays above 4.5:1 except the cases listed. What failed, in order of weight: forced colours erase the ED meters, legend swatches, the rail's current bar and the pressed appearance button, and invert the stepper (done stages vanish, remaining stages fill), because higher-specificity rest rules beat the forced-colours block; 80 of 109 SVG texts sit below the 10.5px floor (10, 9.5 and 8.5px) and check.mjs does not gate the SVG minimum although check-standard.mjs does and the standard's definition of done claims it; the folded blocked candidates fade to 0.62 opacity and their text falls to 2.42 to 3.27:1 while the harness skips anything under 0.9 opacity; 29 of 65 controls at a true 390px layout are shorter than 48px and no 3rem rule exists although the standard says it is stated in the stylesheet; a referral row never shows aria-pressed=true after a click and the patient row stays pressed; a showing candidate on accent-soft and any South Metro candidate on hover fall under 4.5:1 in light (svc-south 3.91:1 and 4.33:1, svc-north 4.42:1, warn 4.43:1) and none of those pairs are in the computed table; the standard's header menu does not close on Escape or on a click outside and does not announce, contrary to its own prose; the harness's 390 pass runs mobile emulation on a file with no viewport meta so it measures a 980px layout. Medium and low items cover the theme script sitting at the end of the file (dark paint before the stored Light choice applies), Escape not clearing a queue selection, disabled controls carrying only a title, inert rail buttons, the print rule differing from the standard's printed sample, the standard's stepper and dt/dd markup, no lang on either page, list semantics under role=tabpanel, the map's role=img wrapping 24 buttons, a same-colour focus change on the origin node, unfocusable scrolling regions, em dashes and semicolons in rendered text, the phBtn chevron keeping a transition under reduced motion, missing scroll margins, tooltip-only count meanings and a skipped heading level.",
+    "findings": [
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "Forced colours erase the meters, legend swatches, rail bar and pressed appearance state, and invert the stepper",
+        "evidence": "node merged/review/access-r1/a11y.mjs (START=6), merged/review/access-r1/a11y-output-6on.txt: 'FAIL status bars on meters, swatches and steps survive forced colours edBar i=rgb(255, 255, 255) sw=rgb(255, 255, 255) step=rgb(255, 255, 255)' and 'FAIL rail current-page brass bar survives forced colours railLink::before background=rgb(255, 255, 255)' and 'FAIL appearance pressed button still differs from rest rgb(255, 255, 255) / rgb(0, 0, 0) vs rest rgb(0, 0, 0)' with Canvas=rgb(255,255,255) CanvasText=rgb(0,0,0). probe3-output.txt: steps 'done:rgb(255, 255, 255)', 'now:rgb(255, 255, 255)', 'todo:rgb(0, 0, 0)'; swatch inline style 'background:var(--good)' computed rgb(255,255,255); edBar fill width 33% computed rgb(255,255,255). Crops: crop-stepper-forced.png (five remaining stages black, two done stages gone, versus crop-stepper-rest.png), crop-legend-forced.png (empty swatch boxes), crop-edcard-forced.png (no meter under Longest), crop-appearance-forced.png (three identical pills), crop-forced-rail.png (Command marked by weight only), forced-colors-1920.png. Cause: the forced-colours block at lines 2153 to 2181 uses '.edBar i', '.sw', '.step' but rest rules at 1081 ('.edCard[data-p=\"high\"] .edBar i'), 1421 ('.step[data-s=\"done\"]') and the inline style on .sw at 5169 to 5206 win on specificity, and Chromium then forces their colours to Canvas; the rail ::before at 599 and .apBtn[aria-pressed=true] at 725 are not in the block at all. The standard claims the opposite at merged/WARD-FLOW-DESIGN-SYSTEM.md line 745 and design-system-third-edition.html line 6617.",
+        "fix": "In the forced-colours block match or beat the rest specificity: '.edCard[data-p] .edBar i, .edBar i, .step, .step[data-s], .peer i { background: CanvasText !important }' plus '.step[data-s=\"todo\"] { background: Canvas !important; border: 1px solid CanvasText }' so done reads filled and todo reads empty; give the legend swatches a border-based mark ('.sw { background: Canvas !important; border: 2px solid CanvasText }' with the inline background moved to a data attribute); add '.railLink[aria-current=\"page\"]::before { background: CanvasText }' and '.apBtn[aria-pressed=\"true\"] { forced-color-adjust: none; background: Highlight; color: HighlightText }' or a 2px CanvasText border; then re-run a11y.mjs section 9 and check the four crops."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "80 of 109 diagram texts sit below the 10.5px floor and the mockup harness does not gate SVG text",
+        "evidence": "merged/review/access-r1/a11y-output-6on.txt: 'FAIL svg text at or above the 10.5px floor light scale 1; 80 of 109 texts below: t-edm x15 at 10px e.g. \"2 waiting\"; inline x1 at 8.5px e.g. \"ORIGIN\"; t-svc x3 at 10px e.g. \"East Metro\"; t-wc x49 at 10px e.g. \"7 units\"; t-cont x11 at 9.5px e.g. \"1 aimed\"; t-wn x1 at 9.5px e.g. \"East Metropolitan Youth Un\"' (same in dark; getScreenCTM scale is 1 so rendered size equals declared size). The harness itself prints it and passes: merged/review/access-r1/check-command.txt 'PASS typefloor light 1920x1080 min 10.5px html, 8.5px svg' because check.mjs line 36 tests only r.minFont, while check-standard.mjs line 51 tests r.minSvg too. Sources: the inline svg stylesheet at lines 4730 to 4740 ('.t-svc{font:600 10px', '.t-edm{font:400 10px', '.t-wc{font:400 10px', '.t-cont{font:500 9.5px'), the ORIGIN badge at 4803 ('font:600 8.5px'), and the long-name rule at 5044 ('style=\"font-size:9.5px\"'). The file's own rule 4 (line 33) says nothing is set below 10.5px, MERGE-BRIEF.md line 128 says floor 10.5px and nothing between steps, and WARD-FLOW-DESIGN-SYSTEM.md line 830 lists 'nothing below 10.5px in HTML or SVG' in the definition of done.",
+        "fix": "Set .t-svc, .t-edm, .t-wc and .t-cont to 10.5px (the --t-0 step), widen the ORIGIN badge to fit 10.5px text or replace it with the word set in .t-svc, drop the 9.5px long-name override in favour of the existing ellipsis path, re-derive node heights in layout() so the extra 0.5px per line still fits, and in check.mjs change the typefloor test to 'r.minFont>=10.5 && (r.minSvg===null || r.minSvg>=10.5)' as check-standard.mjs already does."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "Blocked candidates fade to 0.62 opacity and their text drops to 2.4 to 3.3:1, hidden from the harness by its opacity filter",
+        "evidence": "merged/review/access-r1/a11y-output-6on.txt after clicking the Show blocked toggle: 'FAIL blocked candidate rows contrast light 3 faded rows; no_specialling: candSvc \"South Metro\" 2.42:1 at opacity 0.62 || candBeds \"Ready 1 · Held 1 · Blocked 0\" 3.27:1 || b \"No specialling free\" 2.57:1 || span \"The one-to-one nursing this \" 3.27:1 || lbl \"Also pointed here\" 2.57:1 || peer \"WF-019 T2 · accepted · 3 h 2\" 3.13:1 || pid \"WF-019\" 3.13:1 || val \"none · 1 required\" 3.27:1' and the same figures in dark. Crop: merged/review/access-r1/crop-blocked-cand-light.png. axe on the standard's copy of the component agrees: merged/review/access-r1/axe-standard.txt 'color-contrast .cand[data-av=\"no_bed\"] > .candTop > .candSvc 3.37' and '.verdict[data-av=\"no_bed\"] > b 2.65'. Rule at lines 1596 to 1599 '.cand[data-av=\"no_specialling\"], .cand[data-av=\"no_bed\"] { opacity: 0.62 }'. check.mjs line 14 and check-standard.mjs line 24 drop any element with computed opacity under 0.9, so the harness never measures these rows, while rule 7 at line 66 says every text pairing is measured at 4.5:1.",
+        "fix": "Remove the opacity rule and state the fold with words and tokens instead: keep --muted for the facts, --ink for the verdict word, and a --line-strong left bar; if a quieter look is wanted use --surface-2 as the row fill (muted on surface-2 is 5.3:1 light). In both harnesses replace the opacity skip with compositing (multiply the text colour's alpha by the accumulated opacity before the ratio) so faded text is measured rather than ignored."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "29 of 65 controls at a true 390px layout are under 48px tall; the 3rem tap rule the standard cites does not exist in the stylesheet",
+        "evidence": "node merged/review/access-r1/probe4.mjs, merged/review/access-r1/probe4-output.txt: 'FAIL tap targets at a true 390px layout are at least 48px tall 29 of 65 shorter than 48px: button.railLink x11 (shortest 32.3px, min-height auto); button.tabBtn x6 (shortest 33.8px); button.phBtn x1 (shortest 19.8px); button.linkBtn x4 (shortest 17.3px); button.ctl x7 (shortest 34.8px)' with 'media state at 390 max-width 640=true'. grep for '3rem' and 'pointer: coarse' in the mockup finds neither (the only min-height rules are layout zeros and the 46rem lock). WARD-FLOW-DESIGN-SYSTEM.md line 793 'Tap targets are 3rem where the pointer is coarse or the width is a phone's. Never reduced to 44px.' and line 938 '3rem at coarse pointers and phone widths, stated in the stylesheet'; design-system-third-edition.html line 7063 repeats it. Screenshot: merged/review/access-r1/phone-390-true-top.png.",
+        "fix": "Add to the mockup stylesheet '@media (max-width: 640px), (pointer: coarse) { .railLink, .tabBtn, .ctl, .linkBtn, .phBtn, .apBtn, .qRow, .edCard, .cand { min-height: 3rem } }' (with align-items so the label centres), re-run probe4.mjs until the short count is zero, and add a 48px floor line to check.mjs at 390."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "A referral row never shows aria-pressed=true after a click and the patient row stays pressed",
+        "evidence": "node merged/review/access-r1/probe6.mjs, merged/review/access-r1/probe6-output.txt: 'after clicking the first referral row: {\"patientsPressed\":[\"WF-014=true\"],\"referralsPressed\":[\"RF-001=false\",...],\"live\":\"Referral placement now shows RF-001.\",\"slTitle\":\"Referral placement\"}' and 'after switching tabs away and back' the same. selectReferral at lines 6146 to 6155 calls only renderShortlist(), so the aria-pressed expressions at 4321 ('m.id === state.movementId && !state.referralId') and 4483 ('r.id === state.referralId') are never re-rendered, which is the double-pressed state the comment at 4432 to 4434 says must never appear.",
+        "fix": "In selectReferral call renderPatientQueue() and renderReferralQueue() (or renderAll()) after changing state.referralId, and in selectQueueTab re-render both lists; re-run probe6.mjs and expect RF-001=true with no patient row pressed."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "Service and warn labels fall under 4.5:1 on the showing candidate's accent-soft fill and on the hover well in the light theme",
+        "evidence": "merged/review/access-r1/a11y-output-6on.txt (after the first queue row is selected): 'candidate rest light: candSvc \"South Metro\" 3.91:1 (10.5px)' and 'b \"Needs a recorded reason\" 4.43:1 (11.5px)' unchanged on hover and active. node merged/review/access-r1/probe5.mjs: 'FAIL candidate: South Metro label stays above 4.5:1 on hover (light) rest 4.8:1 on rgb(253, 253, 254); hover 4.33:1 on rgb(238, 242, 246); 10.5px 600' (crop-hover-candidate.png). probe2-output.txt enumerates the reachable pairs: 'svc-north on accent-soft 4.42:1, svc-south on accent-soft 3.91:1, warn on accent-soft 4.43:1, svc-south on good-soft 4.15:1, svc-south on sunk 4.33:1'. None of these pairs appear in the computed table at lines 95 to 112 or in the standard's 43 pairs, so the on-load check cannot see them. Dark passes.",
+        "fix": "Darken --svc-south to about #356A70 (5.0:1 on sunk, 4.6:1 on accent-soft) and --svc-north to about #66568F, and either darken --warn to about #7D5A10 or set the candidate verdict word in --ink with the warn bar carrying the colour; add the five pairs to the computed table and to the standard's contrast section; re-run probe2.mjs and probe5.mjs."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "high",
+        "title": "The header menu does not close on Escape or on a click outside and does not announce, contrary to the standard's own section 6.2",
+        "evidence": "node merged/review/access-r1/std.mjs, merged/review/access-r1/std-output.txt: 'FAIL menu: Escape closes it and returns focus to the summary open after click true,false,false,false ; after Escape true,false,false,false focus on SUMMARY \"All sites23\"', 'FAIL menu: a click outside closes it false,true,false,false', 'FAIL opening All figures is announced' (live region empty), while 'PASS menu: one open at a time'. Lines 5383 to 5386 state 'One menu is open at a time, a click outside closes it, Escape closes it and returns focus to the summary, and opening the All figures menu is announced.' The page script at 8201 to 8440 contains no Escape, click-outside or statsMenu toggle handler (the only 'Escape' text is inside the code sample at 8162).",
+        "fix": "Add to the standard's script a keydown handler that closes any open details.menu on Escape and focuses its summary, a document click handler that closes open menus when the click is outside them, and a toggle listener on details.statsMenu that calls announce(); or delete the three claims from the prose and the md."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/check.mjs",
+        "severity": "medium",
+        "title": "The harness's 390 by 844 pass lays the page out at 980px, so the phone layout is never measured",
+        "evidence": "node merged/review/access-r1/probe4.mjs, merged/review/access-r1/probe4-output.txt: 'FAIL check.mjs phone pass lays the page out at 390px isMobile with no viewport meta: layout viewport 980px, innerWidth 980, viewport meta present=false, paneScope font 30.4988px' (font boosting active). check.mjs line 26 and check-standard.mjs line 42 pass 'isMobile: vp[0]<500', extra.mjs line 11 does the same for the phone screenshots (x3e-phone-*.png), and the artifact files carry no viewport meta of their own. The same probe at a plain 390 viewport shows 'true 390px layout has no sideways overflow layout 390px, overflow 0px', so the layout is fine but unproven by the harness.",
+        "fix": "Drop isMobile from the 390 pass in check.mjs, check-standard.mjs and extra.mjs (or inject '<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">' into the head before load), assert document.documentElement.clientWidth === 390 in the audit, and regenerate the phone screenshots."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "The stored appearance is applied only after the whole 229 KB body parses, so a Light chooser on a dark machine sees a dark paint first",
+        "evidence": "merged/review/access-r1/a11y-output.txt: 'FAIL stored theme applied before body content exists /2/loading , DOMContentLoaded: light , light/3/complete' (data-theme empty while body already has 2 children) and 'FAIL appearance script position in the file first reference at byte 227837 of 228935 (100% through the file)'. The restore() call lives in the trailing script at lines 6720 to 6758; the head at lines 1 to 8 has no script. Source L had the same placement (source-L-command.html line 6632), so this is inherited, not introduced.",
+        "fix": "Put a five-line inline script before the stylesheet that reads localStorage 'ward-flow-command-appearance' inside try/catch and stamps data-theme, keep the control wiring at the end, and do the same on the standard with its own key."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Escape does not clear a queue selection, although the standard says it is the second Escape level",
+        "evidence": "merged/review/access-r1/a11y-output.txt: 'FAIL Escape clears a queue (referral) selection, as the standard states pressed before 0, after 0; live: Referral placement now shows RF-001. -> Referral placement now shows RF-001.' The handler at lines 6233 to 6244 handles state.unitId then state.edFilter only. WARD-FLOW-DESIGN-SYSTEM.md lines 724 to 725 and design-system-third-edition.html line 6576: 'Escape clears the innermost thing first: a ward selection, then a queue selection, then a filter, each announced.'",
+        "fix": "Add a middle step to the Escape handler: if state.referralId, set it to null, re-render both queues and the shortlist, and announce 'Shortlist back to ' + state.movementId; or remove 'then a queue selection' from the md and the page."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Disabled controls carry their reason only in a title tooltip, not in the described-by line the standard promises",
+        "evidence": "merged/review/access-r1/a11y-output-6on.txt: 'FAIL disabled controls say why light [{\"text\":\"Release the pulled bed\",\"title\":\"No bed has been pulled for this movement yet.\",\"db\":null,\"dbOk\":false,\"tabIndex\":0},{\"text\":\"Cancel transport\",...},{\"text\":\"Refer to FRE Adult Open\",\"title\":\"Not eligible — FRE Adult Open has no locked bed ...\",\"db\":null}]'. Rendered at lines 5460, 5465, 5628 and 5635 with aria-disabled and title only. WARD-FLOW-DESIGN-SYSTEM.md line 791 and design-system-third-edition.html lines 6013 and 6769: 'A disabled control says why, in its title and in a described-by line'. The title text also contains an em dash, which MERGE-BRIEF.md line 154 forbids.",
+        "fix": "Render a .srOnly span with the reason next to each disabled control, point aria-describedby at it, and replace the em dash with a full stop ('Not eligible. FRE Adult Open has no locked bed ...')."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Rail buttons are inert: aria-current never moves, nothing is announced, yet they light on hover",
+        "evidence": "merged/review/access-r1/a11y-output.txt: 'FAIL rail aria-current moves when a rail button is clicked page,,,,,,,,,, live=Eligibility checks now for FSH Adult Secure.' (the live text is the previous announcement, unchanged by the click). The eleven .railLink buttons at lines 2293 to 2372 have no click handler in the script (grep 'railLink' finds only CSS and markup), while .railLink:hover at 587 applies the sunk well. The file's rule 10 (line 82) says a disabled control says why and does not light on hover.",
+        "fix": "Either mark the ten other rail buttons aria-disabled=\"true\" with a title and described-by line ('Not built in this prototype') and suppress their hover, or wire a click to announce 'Movement is not part of this prototype.' so a keyboard or screen-reader user is not left guessing."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The print rule printed in section 14.2 is not the rule the mockup and the standard actually carry",
+        "evidence": "Extracted with node (see the shell step in the review log): the section 14.2 sample at lines 7851 to 7889 gives '--ink: #161A20; --ink-soft: #414953; --muted: #5F6873; --line: rgba(22, 30, 40, 0.11); --line-strong: rgba(22, 30, 40, 0.26); --sunk: #EEF2F6; --hl: transparent', while the live rule at command-third-edition.html lines 2183 to 2230 (and the identical copy in this page at 2183) gives '--ink: #000000; --ink-soft: #1a1a1a; --muted: #444444; --line: #9a9a9a; --line-strong: #666666; --sunk: #f3f3f3; --hl: none'. The introduction at line 7690 says the block is 'exactly as they sit at the top of the stylesheet'. a11y-output-6on.txt 'FAIL print gives every colour token its LIGHT value' lists the same fifteen tokens; the md at line 256 and MERGE-BRIEF.md line 75 both say every token takes its light value.",
+        "fix": "Decide one print rule and use it in both places: either copy the live rule into 14.2 and reword the md and the page to say print uses black ink, white grounds and solid grey lines, or change the live rule to the light tokens the sample shows (alpha hairlines included) and keep the wording."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The standard's stepper examples drop the mockup's role and put aria-label on a bare div",
+        "evidence": "merged/review/access-r1/std-output.txt: 'FAIL standard: stepper example carries the mockup role DIV role=null label=Stage 3 of 5, accept | DIV role=null label=Stage 3 of 5, accept' (lines 5889 and 5937). axe-standard.txt: 'serious aria-prohibited-attr ... .stepper[aria-label=\"Stage 3 of 5, accepted\"]' in both themes. The mockup renders '<div class=\"stepper\" role=\"img\" aria-label=\"Stage ...' at line 5396 and axtree-output.txt shows it exposed. MERGE-BRIEF.md line 145 says every component example uses the mockup's markup.",
+        "fix": "Add role=\"img\" to both stepper examples so the stage sentence is exposed and the markup matches the mockup."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "dt and dd sit inside divs, the band dl holds stray spans, and five scrolling code blocks cannot be reached by keyboard",
+        "evidence": "merged/review/access-r1/std-output.txt: 'FAIL standard: dt and dd sit inside a dl DIV:10 dt; DIV:8 dt' (.g-kv at lines 4322 and 4898) and 'FAIL standard: every scrolling code block is keyboard reachable 5 scrolling pre blocks, 0 focusable'. axe-standard.txt: 'serious dlitem (36 nodes) #s3 > .g-body > .g-kv > dt:nth-child(1) Description list item does not have a <dl> parent element', 'serious definition-list .band' (line 6294, the .kpi divs contain span.delta), and 'serious scrollable-region-focusable pre.g-code (5 nodes)'. The page's own line 6580 says 'A scrolling region is itself focusable with a tabindex of 0'.",
+        "fix": "Change the two .g-kv containers to <dl>, move span.delta inside the dd in each .kpi, and give .g-code and .g-src blocks tabindex=\"0\" with an aria-label naming the sample (the shared :focus-visible rule then draws the ring)."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Neither page declares a language",
+        "evidence": "merged/review/access-r1/axe-command.txt and axe-standard.txt, both themes: 'serious html-has-lang <html> element must have a lang attribute'; std-output.txt 'FAIL standard: lang and main lang=\"\" main=1'. Both files start at <title> with no html element (command-third-edition.html line 1), so the browser synthesises one without lang and a screen reader falls back to its default voice for Australian ward names.",
+        "fix": "In the head script of both pages set document.documentElement.lang = 'en-AU' (the artifact wrapper supplies the html element, so a script is the only place the file can set it), and note it in the standard's page skeleton section."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "The two queue lists are ul elements with role=tabpanel, so their list items lose their list",
+        "evidence": "merged/review/access-r1/axe-command.txt, both themes: 'serious listitem <li> elements must be contained in a <ul> or <ol> (14 nodes) #qpane-patients > li:nth-child(1) List item parent element has a role that is not role=\"list\"' and 'minor aria-allowed-role #qpane-patients ARIA role tabpanel is not allowed for given element'. Markup at lines 2466 to 2473, rows rendered as <li><button class=\"qRow\"> at 4437 and 4481.",
+        "fix": "Wrap each queue in a <div role=\"tabpanel\" tabindex=\"0\" aria-labelledby=...> and keep the <ul> inside it as a plain list, updating the skip link target, the fade helper ids and the CSS selectors that address .qList."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "The flow map is an svg with role=img that wraps 24 focusable buttons",
+        "evidence": "merged/review/access-r1/axe-command.txt: 'serious nested-interactive svg[width=\"966\"] Element has focusable descendants <svg ... role=\"img\" aria-label=\"Statewide flow for WF-014. Schematic, not geographic.\"' (rendered at lines 5130 to 5131; nodes at 4757 and 5000 carry role=\"button\" tabindex=\"0\"). node merged/review/access-r1/axtree.mjs shows Chromium still exposes them ('map nodes in DOM: 24; exposed in the accessibility tree by name: 24; as role=button: 32'), so the loss is browser dependent: an img role declares its children presentational.",
+        "fix": "Change the svg's role to \"group\" (keep the aria-label) so the nodes are legitimately exposed everywhere, and put the schematic caveat in the diagram foot text, which is already on the page."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Focus on the origin department node changes only the stroke width by one pixel in the same colour",
+        "evidence": "merged/review/access-r1/a11y-output.txt: 'FAIL map node focus changes colour, not only width Royal Perth Hospital Emergency Departmen: rgb(47, 76, 102) 1.5px -> rgb(47, 76, 102) 2.5px'. Crops crop-origin-rest-light.png and crop-origin-focus-light.png are visually identical at 1x. Rules: the origin rect gets stroke var(--accent) 1.5 at line 4769 to 4775 and .dNode:focus-visible rect.body sets stroke var(--accent) 2.5 at 431. The same applies to any eligible ward, whose rest stroke is already accent.",
+        "fix": "Draw focus as a second ring: '.dNode:focus-visible rect.body { stroke: var(--ink); stroke-width: 2.5 }' or add an offset focus rect (x-3, y-3, rx 8) in var(--accent) with a 2px gap, matching the 2px-out ring the standard describes for controls."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "The diagram and shortlist scrolling regions are not focusable, contrary to the standard",
+        "evidence": "merged/review/access-r1/a11y-output-6on.txt: 'FAIL every scrolling region is itself focusable, as the standard states .qList tabindex=0 overflows=true; #diagWrap tabindex=-1 overflows=true; .slBody tabindex=-1 overflows=true'. probe4-output.txt at 390: '#edList: scrollWidth 1254 client 360 tabindex -1 | #diagWrap: scrollWidth 966 client 360 tabindex -1'. WARD-FLOW-DESIGN-SYSTEM.md line 725 and design-system-third-edition.html line 6580 say a scrolling region is itself focusable with a tabindex of 0. The regions do contain focusable nodes and buttons, so content is reachable, but sideways scrolling of the map's labels and cluster fields needs the pointer.",
+        "fix": "Give #diagWrap, .slBody and #edList tabindex=\"0\" and an aria-label ('Statewide flow, scrolls sideways'), and add them to the inset :focus-visible list at lines 399 to 406; or soften the sentence in the standard to 'or contains focusable content'."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Rendered text on the mockup carries em dashes and semicolons the brief forbids",
+        "evidence": "node merged/review/access-r1/probe3.mjs: 'FAIL mockup rendered text has no em dashes 32 lines: Form 4A — transport authority passed its deadline 22 min ago || Mixed — 4 of 17 locked · Adult · 17 beds || Tier 1 — most urgent || Involuntary inpatient · Form 1A — no deadline recorded; 3 h 34 m in th || Currently at RPH — Royal Perth Hospital Emergency Department' and 'FAIL mockup rendered text has no semicolons 11 lines: 5 wards have declined; no eligible destination found. || Accepted at FSH Adult Secure; 4 h 28 m in the emergency department.' Sources include lines 3201 and 3464 ('Form 4A — transport authority'), 3682 ('Tier 1 — most urgent'), 3695 ('Mixed — '), 3700 ('no deadline recorded; '). The standard page and the md have none (same probe: 0 lines). MERGE-BRIEF.md line 154: 'No em dashes, no semicolons'.",
+        "fix": "Replace each em dash in data strings and templates with a comma, a colon or a full stop ('Form 4A, transport authority', 'Tier 1, most urgent', 'Mixed: 4 of 17 locked') and split the semicolon sentences into two, then re-run probe3.mjs."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "low",
+        "title": "The panel-header chevron keeps a 0.12s transition under reduced motion",
+        "evidence": "merged/review/access-r1/a11y-output-6on.txt: 'FAIL reduced motion removes every transition [[\".phBtn\",\"0s\",\"0.12s\",\"none\"]]' (the ::after computed transition-duration). The reduced-motion rule at lines 292 to 296 targets '*', which does not reach pseudo-elements; .phBtn::after sets 'transition: transform 0.12s' at 937. WARD-FLOW-DESIGN-SYSTEM.md line 741 says reduced motion removes every transition.",
+        "fix": "Extend the selector to '*, *::before, *::after { transition: none !important; animation: none !important }' in both the mockup and the standard's copy at 7892."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "low",
+        "title": "Scroll margin is set on rows, cards, tabs and nodes only, not on every focusable thing as the standard says",
+        "evidence": "merged/review/access-r1/a11y-output-6on.txt: 'FAIL every focusable control has a 12px scroll margin, as the standard states .skip margin=0px, .railLink margin=0px, .apBtn margin=0px, .phBtn margin=0px, .ctl margin=0px, .linkBtn margin=0px'. Rule at lines 434 to 440 lists .qRow, .cand, .edCard, .tabBtn, .dNode. WARD-FLOW-DESIGN-SYSTEM.md line 706 'Every focusable thing has a scroll margin of 12px' and line 787.",
+        "fix": "Add .ctl, .linkBtn, .phBtn, .apBtn and .railLink to the scroll-margin rule, or narrow the sentence in the standard to the elements inside scrolling regions."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "low",
+        "title": "The rail counts explain themselves only in a title tooltip",
+        "evidence": "node merged/review/access-r1/axtree.mjs: 'rail Command button accessible name: Command 14' and 'rail tags (text, title, aria-label): [[\"14\",\"Open movements on the pathway\",null],[\"6\",\"Overrides recorded for governance review\",null]]'. Markup at lines 2299 and 2375. A screen reader hears 'Command 14' with no word for what 14 counts, and a touch user has no hover to reveal the title.",
+        "fix": "Add a .srOnly span inside each tag ('14 <span class=\"srOnly\">open movements</span>') and keep the title for pointer users."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "low",
+        "title": "The shortlist panel jumps from h2 to h4",
+        "evidence": "node merged/review/access-r1/probe3.mjs: 'headings: h1:Command | h2:Emergency department pressure | h2:Priority queue | h2:Statewide flow | h3:Exceptions and escalation | h2:Explainable shortlist | h4:Change urgency or legal status | h4:Release or cancel | h4:Candidates ...' and 'FAIL heading levels never skip h4:Change urgency or legal status'. axe-command.txt: 'moderate heading-order .sec:nth-child(2) > h4:nth-child(1)'. The standard has a matching skip at #s6 (axe-standard.txt 'heading-order #s6 > .g-body > h3:nth-child(6)').",
+        "fix": "Render the shortlist section headings (.secH) as h3, and in the standard make the 6.3 heading follow an h2 or demote the demo's h1 at line 5166 to a div styled as the title."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "low",
+        "title": "The register pane's inset focus ring is clipped at the bottom because the pane is taller than its scrolling body",
+        "evidence": "merged/review/access-r1/probe2-output.txt: 'FAIL register pane focus ring fits inside its scrolling body light {\"pane\":[875,1335,461],\"body\":[875,1051,176],\"outline\":\"rgb(47, 76, 102) solid 2px\",\"offset\":\"-2px\"...}'; a11y-output.txt lists div.tabPane#pane-exceptions as the one stop whose centre point is not hit-testable. Crop merged/review/access-r1/crop-tabpane-focus-light.png shows the ring on the top and sides only.",
+        "fix": "Move the tabindex and the tabpanel role to #tabBody (the element that actually scrolls) so the ring hugs the visible window, or keep the pane and set 'outline-offset: -2px' on the body's height with a box-shadow ring on .tabBody:focus-within."
+      }
+    ]
+  },
+  {
+    "reviewer": "ace59dbc69769c114",
+    "summary": "Feature fidelity of the Ward Flow third edition, round 1. The merge is faithful: diff -u of merged/source-L-command.html against merged/command-third-edition.html has 28 hunks and every one lies in lines 1 to 2284 (the font link, the header comment and the <style> block); everything after </style> hashes identically (md5 ee7d5c6bb3261abef90c1289f7de618a on both), so no markup text, id, data attribute or script changed, and the <title> is unchanged. In the browser (merged/review/fidelity-r1/harness.mjs, probe-a.mjs, probe-c.mjs, probe-d.mjs, outputs merged.json, source.json, probe-a.txt, probe-c.txt, probe-d.txt) the merged page and the source behave identically in both themes: window.__commandCheck is [] with no page or console errors; the figures strip reads Open 14, Breached 1, Flagged urgent 2, Escalated 1, Wards confirmed 15 of 16; all 14 patient rows carry route words (the 5 referral rows have none in the source either); the one-bar stepper and stage sentence change per movement (WF-009 stage 1, WF-002 stage 3, WF-031 stage 6) and the candidate change re-announces the ward; only eligible or recorded wards are filled (initially 1 filled = 1 Eligible word; on WF-031 3 filled = 2 Eligible + 1 Accepted destination), all other verdicts are dashed outlines with a word; Exceptions is the first and selected register tab; the Stale 5 h mark shows; the legend disclosure closes and reopens with aria-expanded; the rail shows Command 14 and Governance 6 with the reconciliation line \"Figures reconciled at load. No discrepancies.\"; Light, Dark and Auto each survive a reload via localStorage and the first click to Light from a dark machine switches the page; fades appear on qpane-patients, tabBody and slBody and flip when scrolled to the end and back; Escape clears a ward selection then a department filter; a pressed pressure card keeps its 3 px amber bar under a three-sided slate ring and a showing candidate keeps its green left bar; the ORIGIN badge in dark is #0F1216 on #A7BCD2 (about 9.6:1); the diagram region is 319 px tall at 1440 by 900 (source 306 px); no sideways overflow at 390 by 844 and the phone text enlargement seen in emulation is Chromium autosizing present equally in the source. The 70 contrast figures in the header comment recompute exactly from the brief's tokens (minimum 4.53 light, 4.63 dark). The standard keeps every source h2 (Departures from the Board language now sits as an h3 under Departures, beside a new second-editions table), all 18 data-component demos plus a new shortlist demo, and the Markdown covers the same sections. Five findings remain, one high: the standards claim the harness proves nothing below 10.5 px in HTML or SVG while the reference build renders 80 diagram labels between 8.5 and 10 px and the build check passes on that. The rest are inconsistencies between the artifacts.",
+    "findings": [
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "high",
+        "title": "Definition of done claims nothing below 10.5 px in SVG, but the reference build has 80 SVG labels below the floor and its own check passes on them",
+        "evidence": "design-system-third-edition.html line 6875 and WARD-FLOW-DESIGN-SYSTEM.md line 830 say the harness proves \"nothing below 10.5px in HTML or SVG\"; the mockup header (command-third-edition.html line 31) says \"Nothing is set below 10.5px\". Measured in both themes at 1920 by 1080 (merged/review/fidelity-r1/probe-a.txt, svgSizes): ORIGIN badge 8.5px (1), t-cont 9.5px (11), t-wn 9.5px (1), t-wc 10px (49), t-edm 10px (15), t-svc 10px (3). The build's own output merged/check3e.txt line 6 reads \"PASS typefloor light 1920x1080 min 10.5px html, 8.5px svg\" on every viewport because merged/check.mjs line 36 tests only r.minFont (HTML). The sizes are identical in source-L-command.html, so this is an inherited claim the third edition restates as proven.",
+        "fix": "Either make the claim true or make it honest. Honest: in design-system-third-edition.html line 6875, WARD-FLOW-DESIGN-SYSTEM.md line 830 and the mockup header line 31, say the 10.5 px floor is proven for HTML text and that diagram labels inside the SVG go down to 8.5 px (ORIGIN) and 9.5 to 10 px (ward captions, contention badges), recorded as an owner decision in section 14. True: with owner approval, since scripts are frozen, raise the SVG text classes .t-wc, .t-edm, .t-svc, .t-cont, .t-wn (long-name case) and the inline ORIGIN font to 10.5 px and make check.mjs fail when r.minSvg is below 10.5."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "Standard says the wordmark is 22 px, the one value outside the scale, but the mockup and the standard's own brand render it at 20 px",
+        "evidence": "command-third-edition.html lines 530 to 533 set .brand b to font-size var(--t-5) (20px); the source had 22px. The standard's rendered .brand b measures 20px in Source Serif 4 (merged/review/fidelity-r1/probe-b.txt, brand size) while its type table row at lines 4786 to 4791 says \"Wordmark 22px. The one value outside the scale. At 20px the wordmark sits under the rail links' optical weight\" and its sample at line 4791 is drawn at 22px; line 6818 repeats \"or the wordmark's 22px\". WARD-FLOW-DESIGN-SYSTEM.md line 362 and line 808 say the same.",
+        "fix": "Decide one size and write it once. The brief's type rule (nothing between the seven steps) favours the mockup: change the table row at lines 4786 to 4791 to \"Wordmark --t-5 20px, display serif 600\", drop the \"one value outside the scale\" sentence, set the sample at line 4791 to var(--t-5), change line 6818 to \"Every size is one of the seven steps. Nothing below 10.5px.\", and mirror in WARD-FLOW-DESIGN-SYSTEM.md lines 362 and 808. If the owner keeps the 22 px exception instead, restore font-size: 22px in .brand b in both HTML files and record the exception in section 12.2."
+      },
+      {
+        "file": "merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Header comment says every name is invented while the page foot and the standard say the hospital sites and health services are real WA names",
+        "evidence": "command-third-edition.html line 19: \"Every figure and every name is invented.\" The same file's rail foot at line 2392 reads \"The hospital sites and health services are real WA names\" (visible in merged/review/fidelity-r1/merged-light-1920.png, bottom left). design-system-third-edition.html line 19 carries the same comment while its line 6674 says \"Hospital sites, health services and community team names are real WA names\". WARD-FLOW-DESIGN-SYSTEM.md lines 10 to 11 say both in consecutive sentences: \"Every figure and every name in the examples is invented. The hospital sites, health services and ward names are real WA names\".",
+        "fix": "In command-third-edition.html line 19 and design-system-third-edition.html line 19 replace the sentence with \"Every figure is invented. The hospital sites and health services are real WA names.\" In WARD-FLOW-DESIGN-SYSTEM.md line 10 change \"every name\" to \"every person, movement and clock\"."
+      },
+      {
+        "file": "merged/WARD-FLOW-DESIGN-SYSTEM.md",
+        "severity": "low",
+        "title": "The Markdown has no Source section, so the measurement helpers it tells a builder to copy are not in the document",
+        "evidence": "Headings of WARD-FLOW-DESIGN-SYSTEM.md end at \"## 14. Decisions for the owner\" (grep '^#'); the HTML standard has a further h2 \"Source\" with 14.1 to 14.6. The Markdown carries the head (fence at line 340), the tokens (3.3 and 3.4) and the appearance script (fence at line 869), but step 4 at lines 848 to 850 says \"Then the measurement helpers the page uses: announcements, list fades, the strip's sideways affordance, the legend default, Escape and disclosures for print\" with no listing, whereas design-system-third-edition.html 14.6 carries a 3537 character pre block of them.",
+        "fix": "Add \"## 15. Source\" to WARD-FLOW-DESIGN-SYSTEM.md mirroring the HTML's 14.1 to 14.6, including the measurement helpers listing, or change step 4 at line 848 to name design-system-third-edition.html section 14.6 as the place to copy them from."
+      },
+      {
+        "file": "merged/design-system-third-edition.html",
+        "severity": "low",
+        "title": "Candidate demo swapped its eligible example ward without a note in Departures",
+        "evidence": "merged/review/fidelity-r1/probe-b.txt, candidate demo text differs: source-L-standard.html has candName \"FSH Adult Secure\" with candSvc \"South Metro\" (var(--svc-south)); design-system-third-edition.html data-component=\"candidate\" has \"BTY Adult Secure\" with \"East Metro\" (var(--svc-east)). All other demo text changes are caption updates for the new material rules. The new ward matches the reference build's showing candidate for WF-014, but the brief says Source L's content is kept and any change is written down.",
+        "fix": "Keep the BTY example and add one row to the second-editions departures table (design-system-third-edition.html section 12.2, line 7083 onward, and WARD-FLOW-DESIGN-SYSTEM.md 12.2) saying the candidate demo now mirrors the reference build's WF-014 shortlist, or restore FSH Adult Secure, South Metro."
+      }
+    ]
+  },
+  {
+    "reviewer": "ac350eb7063c759e0",
+    "summary": "Standard completeness and consistency review, round 1, of the Ward Flow third edition. Checks run: my own WCAG recomputation of all 44 printed pairs plus 29 pairs the build uses (contrast-check.mjs), a token comparison across the brief, the mockup's three roots, the standard's swatches and 14.2 block and the markdown (all identical, no finding), a class existence check of every demo against the mockup stylesheet (class-check.mjs), a sentence level diff of both sources and the markdown against the page (dropped.mjs), a prose style scan with entities decoded (style-check.mjs, zero dashes, semicolons, arrows or emoji in the standard's own prose, only \"artifact\" as a non Australian spelling), Chromium probes of both pages in both themes (probe.mjs, probe2.mjs, probe3.mjs: all 14 rail links resolve, masthead figures 10, 29, 19, 43, 18 match the counted elements, the contrast line reconciles, no console errors), and the brief's check.mjs run against the standard page (14 FAIL lines). Outputs are under merged/review/standard-r1/. The serious problems are structural: the standard mandates and demonstrates a universal header, tables, bands, charts and disclosures whose rules live only in the standard's private stylesheet and no longer in any Source section, while declaring Wave 0 done and telling builders to copy the reference build's stylesheet, which lacks them. The standard also states several rules the reference build does not follow (a 22px wordmark, 600 masthead figures, a 960px laptop rule, a light value print block, Escape clearing the queue, a 3rem tap floor, density values), the reference build renders em dashes and semicolons in visible text, and three reachable text pairings on a showing candidate fall below 4.5:1 and are absent from the contrast table. The markdown is a loose paraphrase rather than a mirror and drops the token jobs and the Source section.",
+    "findings": [
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "high",
+        "title": "Header, table, band, chart and disclosure demos are drawn by a private stylesheet, and the Source section dropped the block that carried them",
+        "evidence": "The page's style block is the mockup stylesheet verbatim for 2276 lines and then continues for 1484 more lines under the comment at line 2277, 'Rules of Source L that the mockup stylesheet does not carry: the header, the figures strip, the task chips, the data table, the disclosure and the chart'. class-check.txt lists every class used in 6.2, 6.15, 6.16, 6.17 and 6.18 (hdr, hdrBar, hdrTools, search, menu, menuPanel, menuItem, who, stats, stat, statsList, statsEnd, hdrClock, statsMenu, statsGrid, statsFacts, statsFoot, tasks, task, taskList, tasksEnd, tableWrap, dataTable, n, zero, total, band, delta, chart, grid, axis, series, end, reveal, revealBody) as ds-only. probe.txt cssRulesFor on the mockup: .tag 0, .hdr 0, .dataTable 0, .band 0, .chart 0, .reveal 0, .menu 0. Line 3900 claims every component in section 6 is rendered 'from the same stylesheet Command uses'. Lines 8056 to 8060 say the whole stylesheet 'is not reproduced here' and tell a builder to copy it from the reference build. Source L's 13.3 'The extension block' (source-L-standard.html 7125 to 8005) printed exactly these rules, with the tap floor, and its 13.4 printed the whole stylesheet. Line 7451 still says of ED waits 'Its rules are the ones the extension block carries', a block the third edition no longer has. The brief's naming rule says every component example is drawn by the mockup's stylesheet, never by a copy.",
+        "fix": "Either move the 1484 lines into the mockup's stylesheet so the reference build's block is the single block (the brief's stated intent), or restore a Source subsection 'The extension block' that prints them verbatim as Source L's 13.3 did. Then correct line 3900 to name which components come from the extension block, and repair the dangling reference at line 7451."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "high",
+        "title": "The standard mandates a universal header the reference build does not have while declaring Wave 0 done with nothing changed",
+        "evidence": "5.6 at lines 4926 to 4929 describes the header as three rows with search, scope switcher, primary action, who is signed in, More, a statistics strip and an outstanding tasks bar, and says 'Section 6.2 renders it'. 6.2 (5156 to 5453) demonstrates it and its Supersedes entry at 5441 to 5446 says the plain masthead's rules stay 'only until Command is re-cut in Wave 0'. The definition of done at 6827 requires 'the statistics strip and the outstanding tasks bar', recipe step 5 at 6929 requires 'the universal header'. Yet 7276 says 'Wave 0 the reference build, done' and the Command row at 7288 to 7300 says 'Nothing in its content, data or behaviour changes', and 6835, 7316 and 7526 describe the shell as 'the masthead with the state instrument'. The mockup (command-third-edition.html 2399 to 2416) has class topbar with title, chip, sub, kpis and clock only. probe.txt on the mockup: hasSearch false, hasStats false, hasTasks false, hasWho false. The reference build therefore fails the standard's own definition of done line 6827.",
+        "fix": "Decide one shell and write it consistently. Either keep the plain masthead with the state instrument as the standard's shell, rewriting 5.6, 6.2, the done line at 6827 and recipe step 5, and mark the universal header as a planned component not yet in the reference build, or state that Wave 0 is not done until Command carries the header and remove 'done' and 'Nothing changes' from section 13."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "high",
+        "title": "The 22px wordmark rule breaks the brief's seven step scale and contradicts both builds, which set it at 20px",
+        "evidence": "Rule 4 at line 4000: 'The wordmark is the one value outside the scale'. 4.2 row at 4783 to 4790: 'Wordmark 22px ... At 20px the wordmark sits under the rail links' optical weight'. Definition of done at about 6815: 'or the wordmark's 22px'. Markdown lines 362 and 808 repeat it. The mockup sets .brand b { font-size: var(--t-5) } at command-third-edition.html 530 to 536, and probe.txt shows brandSize 20px on the mockup, on the standard's own rail and on the 6.1 demo. The brief's type rule says 'scale --t-0 to --t-6, nothing between steps'. Source L's build was 22px (source-L-standard.html 469), so the sentence is inherited text that the third edition build already corrected.",
+        "fix": "Delete the wordmark exception from rule 4, the 4.2 row and the done line, in the page and the markdown, and state that the wordmark is t-5 in the display serif at 600."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "Three reachable text pairings on a showing candidate fall below 4.5:1 in the light theme and are not in the contrast table",
+        "evidence": "probe2.txt, light theme, after clicking each candidate: a showing South Metro candidate's .candSvc reads 3.91:1 (svc-south on accent-soft), North Metro 4.42:1 (svc-north on accent-soft), and the verdict word 'Needs a recorded reason' or 'Already declined' reads 4.43:1 (warn on accent-soft) on all twelve overridable or declined candidates. contrast-check.txt computes the same from the tokens: svc-south on accent-soft 3.91, svc-north on accent-soft 4.42, warn on accent-soft 4.43. None of the three pairs appears in the table at design-system-third-edition.html 4375 to 4655. Rule 7 at 4040 to 4047 says every text pairing is measured and 'A pair that falls short is printed, marked and reported, never hidden', and the done list at about 6830 requires every pair the page uses to be in the table. The brief's harness samples only the load state, where the one showing candidate is East Metro at 7.61:1, so it cannot see this.",
+        "fix": "Add the three pairs to the table marked below the floor, then fix the state: either keep the showing ring without the accent-soft wash on .cand[data-showing=true] (command-third-edition.html 1601 to 1611), or set .candSvc and .verdict b to ink-soft while showing, or darken svc-south, svc-north and warn until they pass on accent-soft. Extend the harness to click each candidate before sampling."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "The reference build renders em dashes and semicolons in visible text, against the brief's style rule and the standard's 8.5",
+        "evidence": "probe3.txt, rendered text at load: qBreach 'Form 4A — transport authority passed its deadline 22 min ago', t-wc 'Mixed — 4 of 17 locked · Adult · 17 beds', rowSub '5 wards have declined; no eligible destination found. Escalated at 10:04 — contact', rowSub 'Accepted at FSH Adult Secure; 4 h 28 m in the emergency department', tier 'Tier 1 — most urgent', secH 'Eligibility checks — BTY Adult Secure', gDetail '4 of 17 beds are locked — meets a secure requirement', gDetail '2 specialling shifts available; 1 required', val '2 shifts · 1 required — leaves 1', note 'No automatic allocation — up to 3 parallel referrals at once', and eleven more. Source strings at lines 3682, 3695, 3700 (an em dash and a semicolon in one string), 3984, 4000 and 4121. The standard's 8.5 at 6720 says 'No semicolons, no dashes as punctuation'. The builder's grep of the page source misses these because they live inside script strings.",
+        "fix": "Rewrite each string as a plain sentence with a comma, a full stop or the word and, then scan document.body text nodes for the characters — and ; after load and after opening every candidate and tab, and add that scan to the harness."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "14.2 prints a print block the reference build does not have, and the built print block breaks rules 5 and 8",
+        "evidence": "14.2 at 7690 says the three roots and the print rule are 'exactly as they sit at the top of the stylesheet', and its print block at 7849 to 7882 gives every token its light value (ink #161A20, line rgba alpha, sunk #EEF2F6). The mockup's print block at command-third-edition.html 2180 to 2230 sets ink #000000 (2196), ink-soft #1a1a1a, muted #444444, line #9a9a9a (2199), line-strong #666666, sunk #f3f3f3 and hl none. token-check.txt lists all 15 differences. Rule 8 at 4055 to 4058 says 'never pure black or pure white as a colour' and 'every token takes its light value', 3.3 at 4341 to 4344 says never a solid grey as a line, 3.5 at 4661 and 7.5 at 6612 repeat the light value claim. The markdown 3.4 repeats it too.",
+        "fix": "Make the two agree. The simplest is to replace the mockup's print block with the one printed in 14.2, since that is the rule the standard states, then re-run the harness. Otherwise print the built block in 14.2 and rewrite rule 8, 3.3, 3.5 and 7.5 to say what print actually does."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The laptop rule is stated at 960px tall and printed in 14.3 as a rule the build does not carry",
+        "evidence": "5.7 at 4966: '1400px and wider, 960px tall or less'. 14.3 at 8037 to 8041 prints '@media (min-width: 1400px) and (max-height: 960px) { .tabsPanel { height: 11.5rem; } }' under the sentence at 7902 that 'the whole stylesheet in the reference build carries them already'. The mockup's rule at command-third-edition.html 1993 to 2015 is '(max-height: 1024px)' and sets .midCol grid-template-rows to minmax(0, 11.5rem), not a height on .tabsPanel. Source L's widths table said 'Desktop width, 1024px tall or less' (source-L-standard.html 4701), so the third edition introduced the mismatch.",
+        "fix": "Change 4966 to 1024px tall or less and print the built rule in 14.3, or change the build to 960px if the brief's laptop rule is the intent, then re-verify the 260px diagram height at 1440 by 900 in both versions."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "14.3 prints selection and count pill rules that differ from the built rules, and the 6.4 demo has to copy the tag styles inline",
+        "evidence": "14.3 prints .edCard[aria-pressed=true] and .cand[data-showing=true] with a four side 'box-shadow: inset 0 0 0 1px var(--accent)' at 7960 and 7967, while the mockup draws three inset shadows that leave the bar side alone (command-third-edition.html 1025 to 1033 and 1601 to 1611). 14.3 prints '.tag, .tabNum {...}' at 7995 to 8004, but the mockup only has '.railLink .tag' (622), so a bare .tag has no rule, which is why the 6.4 demo at 5509 to 5520 carries an inline copy of the tag styles. class-check.txt lists that inline block. The brief says every component example is drawn by the mockup's stylesheet, never by a copy.",
+        "fix": "Print the built rules in 14.3 verbatim. Add a bare .tag rule to the mockup stylesheet (or widen the selector to .tag) and remove the inline style from the 6.4 demo."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The 3rem tap floor is claimed to be in the stylesheet but exists only in the standard's private CSS",
+        "evidence": "Line 6777: 'Tap targets are 3rem where the pointer is coarse or the width is a phone's'. Line 7063: '3rem at coarse pointers and phone widths, stated in the stylesheet'. Widths row for 640px says 'The tap floor of 3rem applies'. The only such rule is '@media (pointer: coarse), (max-width: 640px) { ... min-height: 3rem }' at style line 2460 to 2475 of the standard page, beyond the 2276 lines that are the mockup's stylesheet. The mockup has no 'pointer: coarse' and no 3rem anywhere (grep in probe run, no hits).",
+        "fix": "Move the tap floor rule into the mockup stylesheet so the reference build carries it, or reword 6777, 7063 and the widths row to say it is in the extension block."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "Escape is described as clearing the queue selection, which the build does not do",
+        "evidence": "7.3 at 6576: 'Escape clears the innermost thing first: a ward selection, then a queue selection, then a filter.' 6.7 at 5697: 'Escape clears the selection, then the filter.' The mockup's handler at command-third-edition.html 6232 to 6240 and the 14.6 helper printed at about 8160 clear a selected ward and then the department filter only. probe.txt: after clicking a queue row and pressing Escape the row stays aria-pressed true and the live region is unchanged. Markdown line 724 repeats the claim.",
+        "fix": "Either add queue selection clearing to the engine's Escape handler (and announce it) or rewrite 6576 and 5697 to say a ward selection, then the department filter."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The density and widths values do not match the built stylesheet",
+        "evidence": "5.9 line 5041 'The working area has 14px top padding' but .scroll is 16px 24px 28px (command-third-edition.html 865 to 872, probe scrollPad 16px). Line 5045 'Rail 18px above the wordmark, 14px below it, links 2px apart' but .rail is padding 22px 0 18px and .brand padding 0 20px 20px with railGroup gap 1px (512 to 528); the 6.1 demo hard codes 'padding: 18px 20px 14px' inline at 5107 to hide this. Line 5057 'cards 9px apart in the pressure strip' but .edList gap is 10px (984 to 988, probe 10px). Line 5065 'Gates 8px by 11px, 4px apart' but .gates gap is 5px (1784, probe 5px). Line 5077 'Legend 7px by 12px, groups 16px apart, items 8px apart' but .legend is padding 2px 16px 10px with gap 5px 14px (1343 to 1350, probe). Line 4957 'The outer columns give a rem each (14rem and 23rem)' but 25rem to 23rem is two rem (2011 to 2014). The markdown 5.9 table repeats every value.",
+        "fix": "Re-derive the density table and the widths table from the built stylesheet, remove the inline padding from the 6.1 demo, and mirror the corrected values into the markdown."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "Type claims that the build contradicts: site code weight, wordmark tracking and masthead figure weight",
+        "evidence": "4.1 at 4684 to 4685: 'Headings are 600, a site code is 700. Negative tracking of 0.012em on the title, 0.005em on the wordmark.' The mockup sets .edCode font-weight 600 (1035 to 1043) and text.t-ed 600 (about 1330), probe edCodeWeight 600 and tEd 600, and .brand b letter-spacing -0.012em (530 to 536, probe -0.24px at 20px). 4.2 at 4776: masthead figures 'Mono, 600', markdown 360 the same, but .kpi dd and .clock b are 500 (813 and about 853, probe kpiWeight 500). The brief's type rules say masthead figures are mono t-5 and say nothing about 600.",
+        "fix": "Correct 4684 to 4685 (site codes 600, wordmark 0.012em) and 4776 (mono 500), or change the build to what is written, and mirror into the markdown."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The contrast table's 'where it occurs' column describes text on the ground that neither page has, while pairs the build uses are missing",
+        "evidence": "5.1 at 4859 to 4860: 'nothing is written directly on the ground except the masthead figures and the rail note'. In both pages the rail and the masthead are surface, not ground (command-third-edition.html .rail 512 to 521 and .topbar 730 to 737, probe railBg and topbarBg rgb(253,253,254) in light and rgb(23,27,33) in dark). So the rows 'ink on ground, masthead figures over the ground' (4392), 'ink-soft on ground, notes over the ground', 'muted on ground, the rail note', 'muted on ground-hi', 'muted on ground-2', 'svc-east/north/wachs on ground' and the below floor row 'svc-south on ground' at 4645 to 4655, with the owner decision at 7568 and 3.4's paragraph at 4371, all describe pairings no page uses. contrast-check.txt lists 29 pairs the build does use that are absent, among them ink and ink-soft on sunk and on surface-2, accent-ink on sunk, good and danger on sunk (bed chips), gilt on surface-2, svc-east and svc-wachs on surface-2 and the accent-soft pairs in the previous finding.",
+        "fix": "Rewrite the 'where it occurs' column from the build, mark the ground rows as hypothetical or remove them together with the owner decision about teal on the ground, and add the pairs the build uses, both themes, generated by the same script."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Red is used on the map for the 'Needs a recorded reason' verdict, which is amber in the list and is not a breach",
+        "evidence": "The engine at 4927 to 4931 strokes any candidate that is neither eligible nor declined in var(--danger) with a 5 4 dash; probe.txt shows eleven nodes with stroke rgb(176,59,46) and the words 'Needs a recorded reason'. The same verdict in the candidate list is amber (.cand[data-av=overridable] border-left warn at 1593 to 1596, .verdict b warn). The standard's rule 1 at 3963 to 3970 and 3.1 at 4141 to 4146 say red means a breach and is never used for anything else, and 6.14 at 6144 to 6150 lists only 'Declined is a dashed outline' and 'Not routed is a plain outline', so the second dashed pattern is undocumented.",
+        "fix": "Stroke the overridable verdict in warn on the map to match the list, and document both dashed patterns in 6.14, the 6.14 demo legend and the mockup legend. If red is deliberate, write the exception and its reason into rule 1 and 3.1."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The middle dot rule in 8.5 and the demos contradict the reference build's copy",
+        "evidence": "8.5 at 6715 to 6717: 'Middle dots appear only in a count line such as \"8 departments, scroll sideways for the rest\" where a comma serves as well' (the example itself shows a comma). The 6.7 demo route lines at 5666 to 5669 use no dot and the 6.2 demo clock at 5280 reads 'Sat 15 Aug AWST'. The mockup writes a middle dot in every route line ('to FSH Adult Secure · accepted', '· no destination yet' at 3715 to 3727), in the clock ('Sat 15 Aug · AWST' at 2411), in the edCount (4687) and in every node's second line ('Locked ward · Adult · 20 beds', probe.txt). The 14.6 helper printed in the standard also inserts the dot.",
+        "fix": "Choose one rule. If middle dots are allowed as separators, say so in 8.5 and make the 6.7 and 6.2 demos match the build. If not, rewrite the engine strings with commas and the word and."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "The harness named in the definition of done fails on any page without a diagram or a reconcile check, including this standard",
+        "evidence": "Section 10 at 6872 to 6881 makes merged/check.mjs the proof, and the brief says to run it on both artifacts until green. Run against the standard page it prints 'FAIL reconcile light 1920x1080 absent' and 'FAIL diagram light 1440x900 nullpx tall' and twelve more FAIL lines, ending 'SOME CHECKS FAILED' (merged/review/standard-r1/check-on-standard.txt). The builder substituted a separate check-standard.mjs (merged/check-standard.txt), which the standard never names. Every Wave 2 to 4 page without window.__commandCheck or a .diagWrap will fail the same way.",
+        "fix": "Make the reconcile and diagram lines conditional in check.mjs (report 'not applicable, no reconcile hook' rather than FAIL) or name the standard's own harness in section 10, and paste the real check.mjs output for both artifacts into the report as the brief requires."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/WARD-FLOW-DESIGN-SYSTEM.md",
+        "severity": "medium",
+        "title": "The markdown is a paraphrase, not a mirror: token jobs, the Source section and several rules are missing and the section numbers diverge",
+        "evidence": "3.3 at lines 134 to 190 is a bare code block, so the 29 per token jobs the page gives at 4170 to 4320 are absent. The markdown has no Source section: its section 14 at 1004 is 'Decisions for the owner', which the page keeps inside 13, so every cross reference to 'section 14' in the page has no target in the markdown. The below floor svc-south row sits mid table at 313 rather than in a marked foot, and 276 says '44 pairs' where the page at 4371 says 43 permitted and one not. dropped.txt lists 239 page sentences with no seven word match in the markdown, including the done line 'rendered once at 1600 and at 1200 ... the reconciliation line reads green', the 8.3 foot rule ('Every figure here is invented' and 'What is real'), 8.4's 'Nobody's move is not nobody's problem' and 'A check nobody has classified is not overridable', 6.2's Supersedes note, the 'Reverse this and ...' consequences of the first four owner decisions, and the closed table's identifiers.",
+        "fix": "Generate the markdown from the page with the same section numbers and headings, a job column in the token tables, the tfoot row marked the same way, and the Source section carried as code blocks."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "low",
+        "title": "Three contrast cells are truncated rather than rounded, so the table disagrees with the stylesheet preamble",
+        "evidence": "contrast-check.txt: ink on ground computes 14.45 in light, the table cell at 4392 prints 14.4:1 while the preamble comment at line 87 prints 14.5:1. ink-soft on warn-soft computes 7.85 in dark, cell at 4620 prints 7.8:1 and the preamble 7.9:1. ink on good-soft computes 14.85 in light, cell at 4626 prints 14.8:1 and the preamble 14.9:1. The markdown carries the truncated values. The data attributes are exact, so the page's own recompute passes.",
+        "fix": "Round half up in the table generator, or truncate in the preamble, so one figure is printed everywhere."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "low",
+        "title": "Internal contradictions on pressed state, brass text and motion",
+        "evidence": "7.1 at 6501 says a pressed control shows 'The line fill', while 6.13 at 6003 says pressed is the same as hover and the build sets .ctl:active to sunk with an ink-soft border (command-third-edition.html 1521 to 1531); the markdown 7.1 silently changed it to 'the same as hover'. Rule 6 at 4029 says the two letters beside the wordmark are the only other brass, but the current stage word is brass text (.stageLine b at 1436 to 1439) and the table row 'gilt on surface' says so. 7.5 at 6606 says motion is a transition on colour, background, border and the chevron 'and nothing else', but .dNode rect.body transitions filter (1338 to 1341). Rule 4 at 3998 gives uppercase labels 0.08 to 0.12em, but the two letters carry 0.16em (.brand span 537 to 543).",
+        "fix": "Correct 6501 to the well with an ink-soft border, add the stage word to rule 6, add filter to 7.5, and state the 0.16em exception for the two letters."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "low",
+        "title": "The second edition departures table omits the serif rule change, and two aliases are described as read by scripts that never read them",
+        "evidence": "Source L allowed the serif twice on a page (dropped.txt: 'One serif, used twice on a page', 'Two uses on a page and never a third'); the third edition puts it on panel titles, site codes and diagram headings (3939, 4680 to 4686) with no row in the table at 7083 to 7260, although the brief says a rule that loses is written down. 3.3 at 4325 says --ward --ward-soft --ed --comm --coord are 'Names the rendering scripts read', but token-check.txt shows --comm and --coord are unused in the mockup's stylesheet and script (only --ward is read, at script line 2682).",
+        "fix": "Add a departures row for the serif with its reason, and describe --comm and --coord as reserved aliases kept for name stability."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "low",
+        "title": "Version picker claims and the spelling 'artifact'",
+        "evidence": "Lines 3888, 7662 and 8194 (markdown 1036) say both earlier editions 'stay in the version picker' or 'remain in this artifact's version history'. The brief names a new file, design-system-third-edition.html, and no URL, so a reader of a freshly published page will find no earlier versions there. style-check with a broad Australian list finds no American spelling in any prose except 'artifact' (artefact in Australian use) at 3914, 4708, 6868, 7288, 7651, 7659 and 8194, and markdown 36, 835 and 976; the brief itself uses 'artifact', so this is acceptable only where it names the host's Artifact feature.",
+        "fix": "Say where the earlier editions live (a URL or 'the second edition's artifact'), and use artefact except where the word is the host's product name."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "low",
+        "title": "The verification harness paragraph drops Source P's print check",
+        "evidence": "Source P's section 11 table listed a Print check ('Print preview shows every pane, no chrome, no shadows, status colours intact') and a Stepper check. The third edition's harness paragraph at 6872 to 6881 and check.mjs cover neither. The stepper check is moot without labels, but the print check would have caught the print block mismatch reported above.",
+        "fix": "Add a print line to the definition of done and a beforeprint emulation step (page.emulateMedia print, then sample the ink and line colours) to the harness."
+      }
+    ]
+  },
+  {
+    "reviewer": "a7e17a0ed07c404f9",
+    "summary": "Visual review, round 1, of the Ward Flow third edition against the Platinum reference. Screenshots taken at 2x in both themes at 1920 by 1080 and 1440 by 900, plus zoomed crops, are under /tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/review/visual-r1/ (scripts shots.mjs, zoom.mjs, probe.mjs, text-probe.mjs, ds-slices.mjs, ds-probe.mjs). The material itself holds up: the canvas has its fall of light, the stripe is present, panels are hairline plus lift plus top highlight with concentric 10 and 9 px radii, strips sit on surface-2, brass is a bar everywhere I looked, hover states go to the well and do not brighten, the pressed pressure card keeps its status bar under the slate ring, the appearance control is a pill and not a browser button, and dark mode is neither muddy nor glowing. Fifteen findings remain. Four are high: eighty SVG texts sit below the 10.5 px floor (the harness prints the 8.5 px minimum and passes anyway), the map paints red dashed outlines and a red route on eight wards that are not breaches, the mockup's visible text carries about thirty em dashes and eleven semicolons against the brief's writing rule, and the design system's outstanding tasks demo hides the count in a solid block because the figure's colour equals its background. Mediums are the diagram clipped top and bottom at 1920 with no fade or sentence, the shortlist head wrapping at 1440, the masthead disclaimer not dropping under the title at 1440, a five step stepper in the standard against seven in the mockup, amber and brass sharing a hue, disabled controls with no reason line, and node conventions the standard does not document. Lows are polish.",
+    "findings": [
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "Eighty SVG texts on the map are set below the 10.5 px floor, and the harness passes them",
+        "evidence": "probe.mjs svgTextSizes at 1920 (the SVG is drawn 1:1, viewBox 966x841 at 966 px wide): 10px x67 (the .t-svc, .t-edm and .t-wc classes: '2 waiting', 'longest 2 h 12 m', 'Open ward · Adult · 19 beds', 'Needs a recorded reason' and every bed count line), 9.5px x12 (.t-cont at line 4739 and the long-name shrink at line 5044: '1 aimed', 'Stale 5 h', 'East Metropolitan Youth Unit…'), 8.5px x1 (the ORIGIN chip at line 4805). Standard rule 4 'Nothing is set below 10.5px' and the definition of done at WARD-FLOW-DESIGN-SYSTEM.md line 830 'nothing below 10.5px in HTML or SVG'. merged/check3e.txt prints 'PASS typefloor ... min 10.5px html, 8.5px svg' so the gate exempts the SVG the standard does not exempt. Crop: merged/review/visual-r1/crop-diagram-light.png and zoom-diag-top-light.png.",
+        "fix": "In the SVG style string at lines 4731 to 4739 change .t-svc, .t-edm and .t-wc from 10px to 10.5px and .t-cont from '500 9.5px' to '500 10.5px'. At line 4805 set the ORIGIN chip to 'font:600 10.5px var(--body)' and widen its rect by about 8 px. At line 5044 replace the ' style=\"font-size:9.5px\"' shrink with the ellipsis the standard already prescribes (clip the name, put the full name in a title). Re-lay the node heights by 2 to 3 px each. In merged/check.mjs make the typefloor line fail when the SVG minimum is below 10.5, so the gate matches the definition of done."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "Red dashed outlines and red route lines on eight wards that are not breaches, and a red origin line for direction",
+        "evidence": "AV_COLOUR at line 4217 sets overridable to var(--danger), and lines 4932 and 5109 give the 'Needs a recorded reason' node and its route a 5 4 dash in that colour; probe.mjs svgStrokes counts 20 danger dashed strokes and 6 solid danger strokes (the origin ED line, its arrowheads and the breach bars). In crop-diagram-light.png the red frames are the loudest element on the page and read as alarm. Standard 3.1 Status row, Never column: 'Direction ... Red on anything that is not a breach'. Standard 5.5: 'A dashed outline exists only on the map, as the word Declined repeated in a stroke'. Standard 6.14 lists no such state at all.",
+        "fix": "At line 4217 set overridable to 'var(--ink-soft)'. At line 4932 drop the dash (solid 1.5 px outline, the word 'Needs a recorded reason' carries the verdict) and at line 5109 draw that route in var(--ink-soft) with the same 5 4 dash only if a dashed route is wanted for lines, not outlines. Give the origin ED line and its ar-* marker var(--ink-soft) at 2 px instead of var(--danger) so red is left to the JHC breach bar. Re-point the matching legend swatches (the LINES row) so the legend cannot disagree, and add the state to 6.14 in both the page and the md."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "high",
+        "title": "Visible text in the mockup carries em dashes and semicolons against the brief's writing rule",
+        "evidence": "text-probe.mjs walked every visible text node: 30 strings with an em dash ('Tier 1 — most urgent' from line 3682, 'Mixed — 4 of 17 locked', 'Form 1A — no deadline recorded; 3 h 34 m', 'Currently at RPH — Royal Perth Hospital', 'Form 4A — transport authority passed', '2 shifts · 1 required — leaves 1', 'Eligible now — every check met', 'System suggests, you decide. No automatic allocation — up to 3 parallel referrals') and 11 with a semicolon ('5 wards have declined; no eligible destination found', 'Accepted at FSH Adult Secure; 4 h 28 m', '2 specialling shifts available; 1 required'). MERGE-BRIEF.md 'Style of writing inside the artifacts: Plain sentences. No em dashes, no semicolons'. The design system page and the md are clean. Visible in crop-shortlist-light.png and crop-tabs-light.png.",
+        "fix": "Rewrite the data strings as sentences or comma lists: line 3682 return 'Tier 1', 'Tier 2', 'Tier 3' (the design system 6.12 already shows 'Tier 1'); 'Mixed, 4 of 17 locked'; 'Form 1A, no deadline recorded. 3 h 34 m in the emergency department'; 'Currently at RPH, Royal Perth Hospital Emergency Department'; 'Form 4A, the transport authority passed its deadline 22 min ago'; '2 shifts, 1 required, leaves 1'; 'Eligible now. Every check met'; '5 wards have declined and no eligible destination was found'; 'Accepted at FSH Adult Secure. 4 h 28 m in the emergency department'; '2 specialling shifts available, 1 required'. Add an em dash and semicolon scan of visible text to merged/check.mjs."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "high",
+        "title": "Outstanding tasks demo hides the count: the figure's text colour equals its background so it renders as a solid block",
+        "evidence": "ds-probe.mjs on the first .task[data-tone=danger]: the b holding '2' computes color rgb(176,59,46) and background rgb(176,59,46) in light, and rgb(255,139,118) on rgb(255,139,118) in dark. Cause is lines 3038 to 3041 and 3046 to 3049: '.task[data-tone=\"danger\"]::before, .task[data-tone=\"danger\"] b { background: var(--danger); color: var(--danger); }' and the same for warn. The three toned chips in section 6.2 show a red or amber rectangle where the neutral chips show '3', '1', '4'. Crop: merged/review/visual-r1/zoom-ds-task-light.png. Rule 2 (figures are mono and readable) and 6.2 'a chip is a figure in mono and a word'.",
+        "fix": "Split the rules: '.task[data-tone=\"danger\"]::before { background: var(--danger); } .task[data-tone=\"danger\"] b { color: var(--danger); }' and '.task[data-tone=\"warn\"]::before { background: var(--warn); } .task[data-tone=\"warn\"] b { color: var(--warn); }'. Add 'danger on surface' and 'warn on surface' to the contrast pairs if they are not already there (they are, at 5.9:1 and 5.4:1)."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Diagram is clipped top and bottom at 1920 by 1080 with no fade and no sentence",
+        "evidence": "probe.mjs at 1920: #diagWrap scrollTop 193, scrollHeight 861, clientHeight 386, mask-image none, data-overflowing=false. Line 5156 scrolls the wrap to centre the hub on load, so the first row of ward nodes is cut mid-body under the header strip and the ARM origin node is cut at the foot (zoom-diag-top-light.png, zoom-diag-bottom-light.png, crop-diagram-light.png). The fade selector at line 476 lists only .qList, .tabBody, .slBody and FADE_IDS at line 3778 omits diagWrap; the diagScrollNote covers sideways overflow only. Standard 5.8 'Lists fade at the continuing edge, 22px at the top and 26px at the bottom, switched by a measurement' and 5.5 'A region that overflows ... shows a soft shade at its edge and a sentence'. The Platinum reference (refP-light@1x.png) showed the whole diagram at this size.",
+        "fix": "Add '.diagWrap' to the fade selector list at line 476 and 'diagWrap' to FADE_IDS at line 3778 so the measured 22 and 26 px fades apply; extend the overflow measurement so #diagScrollNote also reads 'This diagram is taller than the panel. Scroll down to see the rest.' when scrollHeight exceeds clientHeight; and raise LEGEND_OPEN_QUERY at line 4693 to '(min-width: 1600px) and (min-height: 1100px)' so the legend does not take 110 px from the diagram at the primary size."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Shortlist head wraps at 1440 by 900: the wait drops to its own line under the tier pill",
+        "evidence": "crop-stepper-1440-light.png shows 'WF-014 [Tier 1 — most urgent]' with '3 h 34 m waiting' orphaned on a second line, right aligned. probe.mjs at 1440: .slTop height 79 px against 53.75 px at 1920, flex-wrap wrap. Standard 6.12: '.slTop line with the t-5 mono .slId, the .tier, and the .qWait pushed right'. The design system 6.12 demo uses the short label 'Tier 1'.",
+        "fix": "At line 3682 return 'Tier 1', 'Tier 2' and 'Tier 3' for the shortlist tier pill, and add '.slTop .qWait { margin-left: auto; white-space: nowrap; }' with '.slTop .tier { overflow: hidden; text-overflow: ellipsis; }' so the line cannot break at the 23 rem column."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Masthead disclaimer does not drop under the title between 1400 and 1599 px as the standard says",
+        "evidence": "cmd-light-1440@2x.png shows the disclaimer as a four line, 208 px wide column beside the chip; probe.mjs at 1440: .sub width 208 px, height 66.7 px, topbar height 93.7 px against 75.75 px at 1920, which costs the locked columns 18 px. The only .sub media rule is display none at 1001 to 1399 (line 2149); the 1400 to 1599 block at line 2018 does not touch it. WARD-FLOW-DESIGN-SYSTEM.md 5.7 row '1400 to 1599px ... The masthead disclaimer drops under the title'.",
+        "fix": "Inside '@media (min-width: 1400px) and (max-width: 1599px)' at line 2018 add '.topbar .title { flex-wrap: wrap; } .topbar .sub { flex: 1 1 100%; max-width: 60ch; }' so the disclaimer sits on its own line under the h1 and chip, or correct the 5.7 row in the page and the md to describe what the build does."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/WARD-FLOW-DESIGN-SYSTEM.md",
+        "severity": "medium",
+        "title": "The standard draws and describes a five step stepper while the reference build draws seven",
+        "evidence": "WARD-FLOW-DESIGN-SYSTEM.md 6.11 '.stepper of five .step bars'; design-system-third-edition.html sections 6.11 and 6.12 render 'stage 3 of 5, Referred, shortlisted, accepted, bed pulled, arrived' (ds-probe.mjs stepperCount 10 across the two demos, ds-light-s6-03.png and s6-04.png). The mockup renders seven bars and 'Stage 2 of 7' (crop-shortlist-light.png, zoom-stepper-light.png). MERGE-BRIEF.md names 'a seven label stepper' as a weakness of Source P and the naming section says every component example is drawn from the mockup, so the two artifacts contradict each other on the stage count.",
+        "fix": "Choose one count and apply it to all three artifacts. If seven is the ruling, change 6.11 in the md and the page to 'seven .step bars', list the seven stages, and set the two demos to seven; if five is the ruling, cut the mockup's stage list at the stepper builder to the five named in 6.11 and re-run reconcile."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/MERGE-BRIEF.md",
+        "severity": "medium",
+        "title": "Amber and brass share a hue, so medium pressure bars read as 'you are here'",
+        "evidence": "--warn #886211 is hue 41 and --gilt #7D612A is hue 40 (computed). In crop-ed-pressed-light.png the five medium pressure cards (PEEL, FSH, SCGH, RPH, RGH) carry a top bar that is visually the same colour as the brass bar beside the selected queue row, under the live tab and on the current stage (crop-queue-light.png, zoom-stepper-light.png). Standard rule 6 'Colour has four jobs and they never share a hue'. Both tokens are frozen in the brief, so this needs the owner's ruling rather than a silent edit.",
+        "fix": "Push amber toward orange so it separates from brass: '--warn: #9A5A08' in the light block (hue 34; measured 5.4:1 on --surface, 4.7:1 on --warn-soft, 4.9:1 on --sunk, all above the floor), leave the dark --warn as is, re-run merged/contrast.mjs and update the 3.6 table; or, if the owner prefers, move brass toward olive instead. Apply the same token in the brief, both pages and the md."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "medium",
+        "title": "Disabled controls carry no reason line and no aria-describedby, unlike the standard's own demo",
+        "evidence": "probe.mjs: the first .ctl[aria-disabled=true] ('Release the pulled bed') has title 'No bed has been pulled for this movement yet.' and aria-describedby null. crop-shortlist-light.png shows the two disabled buttons at half opacity with nothing beside them. design-system-third-edition.html 6.13 renders 'Pull a bed is unavailable because no bed is free at this ward. The reason is in the control's title and in this line beside it.' and rule 10 says 'a disabled control says why'.",
+        "fix": "Under the release row add '<p class=\"ctlNote\" id=\"releaseWhy\">Release and cancel are unavailable because no bed has been pulled for this movement yet.</p>' styled at var(--t-1) in var(--muted), and set aria-describedby=\"releaseWhy\" on both disabled buttons."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "medium",
+        "title": "Section 6.14 documents four node states while the reference build draws six, and its declined stroke differs",
+        "evidence": "ds-light-s6-04.png: the 6.14 demo and its legend show Eligible (accent-soft fill), Declined (dashed warn outline), Accepted (good-soft fill), Not routed (plain outline). The mockup's legend (crop-diagram-light.png) has From the origin ED, Eligible, Already declined, Needs a recorded reason, Recorded destination and Not routed, and its declined outline is a 2 3 dot pattern (line 4928) not a dash. The brief says every component example is drawn by the mockup's stylesheet and the md says 'a component there looks the way it looks here'; a reader of the standard cannot recognise two of the states on the build.",
+        "fix": "After finding 2 lands, redraw the 6.14 demo from the build's own node rules: add a 'Needs a recorded reason' node and an origin node, use the same 2 3 or 5 4 pattern the build uses for declined (and change 5.5 in the md from 'dashed' to whichever is kept), and mirror the build's LINES and BEDS legend rows in the demo legend."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/design-system-third-edition.html",
+        "severity": "low",
+        "title": "Design system content column is left anchored at 1360 px, leaving 324 px of bare ground on the right at 1920",
+        "evidence": "ds-probe.mjs: .g-main max-width 1360px, margin 0, left 236; section panels end at x 1572 while the masthead spans to 1920 (ds-light-top@2x.png). Standard 5.9 sets 24 px sides and 5.7 locks the working area to the viewport; the masthead and the sections disagree about the page's right edge.",
+        "fix": "Either '.g-main { max-width: none; }' with the prose already capped by its own 78ch measure, or '.g-main { margin: 0 auto; }' so the column is centred under the full width masthead."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "low",
+        "title": "Reconciliation dot floats between the two lines of its sentence in the rail foot",
+        "evidence": "zoom-railcheck-light.png: the green dot sits at the mid height of a two line sentence rather than on the first line. Line 668 '.railCheck { display: flex; align-items: center; }'. Rule 10 'Optical, not arithmetic'.",
+        "fix": "'.railCheck { align-items: flex-start; } .railCheck::before { margin-top: 0.42em; }' so the dot sits on the first line's x-height. Apply the same to .g-rail's copy on the design system page."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/command-third-edition.html",
+        "severity": "low",
+        "title": "Legend states a zero in roman, not italic",
+        "evidence": "probe.mjs lgNone: the legend text 'none in this view' beside WACHS computes font-style normal (crop-diagram-light.png). Rule 3 'A count of zero is shown in italic without a pill' and 8 'Zero reads none, in italic'.",
+        "fix": "In the legend builder wrap the phrase as '<i class=\"zero\">none in this view</i>' or add '.lgItem .zero { font-style: italic; }' and use the class."
+      },
+      {
+        "file": "/tmp/claude-0/-home-user-Database/7aec0114-bc3c-568d-b582-6493d1477d6e/scratchpad/wardflow/merged/check.mjs",
+        "severity": "low",
+        "title": "The type floor gate reports the SVG minimum but never fails on it",
+        "evidence": "merged/check3e.txt: 'PASS typefloor light 1920x1080 min 10.5px html, 8.5px svg' on every viewport and theme. WARD-FLOW-DESIGN-SYSTEM.md line 830 puts 'nothing below 10.5px in HTML or SVG' in the definition of done, so a claim of green from this harness does not prove that line.",
+        "fix": "In the typefloor check compare the SVG minimum against 10.5 as well as the HTML minimum and print FAIL when either is under, so the gate matches the definition of done once finding 1 is fixed."
+      }
+    ]
+  }
+]
