@@ -269,6 +269,27 @@ const SCOPED_ALLOWLIST = new Map([
     new Set(["src/app/ward-management/**"]),
   ],
   [
+    "docs/ward-flow/mockups/third-edition-kit/HANDOVER.md",
+    // The row's own text is "Not written. The review agent was cut off. Do it first." The
+    // citation names the file the next agent must create, so it is a work item rather than a
+    // broken link, and it resolves the moment that step is done.
+    new Set(["docs/ward-flow/mockups/third-edition-kit/inputs/SHELL-REVIEW.md"]),
+  ],
+  [
+    "docs/ward-flow/mockups/third-edition-kit/inputs/SHELL-SPEC.md",
+    // The numbered inventory of the artifacts this kit was built FROM, each with its published
+    // artifact URL. They live on `claude/hospital-mockup-premium-qzq6cx` (command-premium.html,
+    // PR #2737) and on the working line the owner published the shell from, neither of which has
+    // been folded into this branch. The citations record what each rule was extracted from, so
+    // repointing them at files on this branch would misattribute the source.
+    new Set([
+      "docs/ward-flow/mockups/design-standard.html",
+      "docs/ward-flow/mockups/command-premium.html",
+      "docs/ward-flow/mockups/header.html",
+      "docs/ward-flow/mockups/rail.html",
+    ]),
+  ],
+  [
     "docs/ward-flow-safety-checklist.md",
     // Same quotation of the moved layout as the handover above; and `check-ward-citations.mjs`
     // lives on `claude/Wardquestions`, the branch these ward documents came from, which has
