@@ -2,21 +2,33 @@
 import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 const file = process.argv[2],
   out = process.argv[3] || "merged/shot",
   css = process.argv[4] || "platinum";
 const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+// Font fixtures are optional and are resolved beside this script rather than from the
+// caller's working directory. When a fixture is absent the request goes to the network
+// instead of throwing, so the harness runs from a fresh checkout.
+const kitDir = path.dirname(fileURLToPath(import.meta.url));
+const fontDir = process.env.WARD_FLOW_FONT_DIR || path.join(kitDir, "fonts");
+let stubbedFonts = null;
+const fontFixture = (name) => {
+  try {
+    return fs.readFileSync(path.join(fontDir, name));
+  } catch {
+    return null;
+  }
+};
 const route = async (p) => {
-  await p.route(/fonts\.googleapis\.com/, (r) =>
-    r.fulfill({ contentType: "text/css", body: fs.readFileSync(`fonts/${css}.css`) }),
-  );
+  await p.route(/fonts\.googleapis\.com/, (r) => {
+    const body = fontFixture(`${css}.css`);
+    if (stubbedFonts === null) stubbedFonts = body !== null;
+    return body ? r.fulfill({ contentType: "text/css", body }) : r.continue();
+  });
   await p.route(/fonts\.gstatic\.com/, (r) => {
-    const f = "fonts/" + path.basename(new URL(r.request().url()).pathname);
-    try {
-      r.fulfill({ contentType: "font/woff2", body: fs.readFileSync(f) });
-    } catch {
-      r.abort();
-    }
+    const body = fontFixture(path.basename(new URL(r.request().url()).pathname));
+    return body ? r.fulfill({ contentType: "font/woff2", body }) : r.continue();
   });
 };
 const shots = {};

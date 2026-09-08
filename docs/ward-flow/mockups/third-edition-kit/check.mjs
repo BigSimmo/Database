@@ -1,21 +1,33 @@
-// Usage (from the wardflow directory): node merged/check.mjs <file.html> <fontcss:platinum|premium>
+// Usage (from the repository root): node docs/ward-flow/mockups/third-edition-kit/check.mjs <file.html> <fontcss:platinum|premium>
 import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 const file = process.argv[2],
   css = process.argv[3] || "platinum";
 const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+// Font fixtures are optional and are resolved beside this script rather than from the
+// caller's working directory. When a fixture is absent the request goes to the network
+// instead of throwing, so the harness runs from a fresh checkout.
+const kitDir = path.dirname(fileURLToPath(import.meta.url));
+const fontDir = process.env.WARD_FLOW_FONT_DIR || path.join(kitDir, "fonts");
+let stubbedFonts = null;
+const fontFixture = (name) => {
+  try {
+    return fs.readFileSync(path.join(fontDir, name));
+  } catch {
+    return null;
+  }
+};
 const route = async (p) => {
-  await p.route(/fonts\.googleapis\.com/, (r) =>
-    r.fulfill({ contentType: "text/css", body: fs.readFileSync(`fonts/${css}.css`) }),
-  );
+  await p.route(/fonts\.googleapis\.com/, (r) => {
+    const body = fontFixture(`${css}.css`);
+    if (stubbedFonts === null) stubbedFonts = body !== null;
+    return body ? r.fulfill({ contentType: "text/css", body }) : r.continue();
+  });
   await p.route(/fonts\.gstatic\.com/, (r) => {
-    const f = "fonts/" + path.basename(new URL(r.request().url()).pathname);
-    try {
-      r.fulfill({ contentType: "font/woff2", body: fs.readFileSync(f) });
-    } catch {
-      r.abort();
-    }
+    const body = fontFixture(path.basename(new URL(r.request().url()).pathname));
+    return body ? r.fulfill({ contentType: "font/woff2", body }) : r.continue();
   });
 };
 const audit = () => {
@@ -88,6 +100,7 @@ const audit = () => {
   return {
     fonts,
     badWeights: weights,
+    isCommand: /Ward Flow Command/i.test(document.title),
     reconcile: Array.isArray(window.__commandCheck) ? window.__commandCheck.length : "absent",
     ovx: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     minFont,
@@ -131,12 +144,13 @@ for (const scheme of ["light", "dark"]) {
       say(`weights ${tag}`, r.badWeights.length === 0, r.badWeights.join(", ") || "all loaded");
     }
     say(`errors ${tag}`, errs.length === 0, errs.join(" | "));
-    say(`reconcile ${tag}`, r.reconcile === 0, String(r.reconcile));
+    if (r.isCommand) say(`reconcile ${tag}`, r.reconcile === 0, String(r.reconcile));
+    else say(`reconcile ${tag}`, r.reconcile === "absent", `not a Command page (${r.reconcile})`);
     say(`overflow ${tag}`, r.ovx === 0, r.ovx + "px");
     if (vp[0] >= 1200) {
       say(
         `typefloor ${tag}`,
-        r.minFont >= 10.5,
+        r.minFont >= 10.5 && (r.minSvg === null || r.minSvg >= 10.5),
         `min ${r.minFont}px html, ${r.minSvg}px svg` + (r.small.length ? " small: " + JSON.stringify(r.small) : ""),
       );
       say(
@@ -145,7 +159,7 @@ for (const scheme of ["light", "dark"]) {
         `${r.lowCount} low of ${r.sampled}` + (r.low.length ? " " + JSON.stringify(r.low) : ""),
       );
     }
-    if (vp[0] === 1440)
+    if (vp[0] === 1440 && r.isCommand)
       say(`diagram ${tag}`, (r.diagH || 0) >= 260, `${r.diagH}px tall, sideways overflow ${r.diagOvx}px`);
     await p.close();
   }
@@ -177,5 +191,6 @@ const f = await p.evaluate(() => {
 say("keyboard focus ring", f.ring, f.cls);
 await p.close();
 await b.close();
+console.log(stubbedFonts ? `fonts stubbed from ${fontDir}` : "fonts loaded from the network (no local fixtures)");
 console.log(ok ? "ALL GREEN" : "SOME CHECKS FAILED");
 process.exit(ok ? 0 : 1);
