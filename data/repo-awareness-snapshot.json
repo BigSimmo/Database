@@ -2421,6 +2421,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/scripts-index.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/scripts-index.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/cloud/START-HERE.md",
         "section": "superpowers",
         "catalogued": true
@@ -5578,6 +5588,11 @@
       {
         "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-figures-report.md",
         "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/audit/codex-cloud-reliability-20260907.md",
+        "section": "audit",
         "catalogued": false
       },
       {
