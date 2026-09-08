@@ -4234,46 +4234,33 @@
     color: var(--accent-ink);
     opacity: 0.85;
   }
-  .railLink .tag[data-tone="danger"] {
-    color: var(--danger);
-    box-shadow: inset 0 0 0 1px var(--danger);
-    background: var(--danger-soft);
+  /* the tone lives on a dot beside the glyph, never on the count: red is a breach, amber is look here */
+  .toneDot {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--surface);
   }
-  .railLink .tag[data-tone="warn"] {
-    color: var(--warn);
-    box-shadow: inset 0 0 0 1px var(--warn);
-    background: var(--warn-soft);
+  .toneDot[data-tone="danger"] {
+    background: var(--danger);
   }
-  .sections {
-    display: grid;
-    gap: 1px;
-    margin: 2px 0 4px 26px;
-    padding-left: 10px;
-    border-left: 1px solid var(--line-strong);
+  .toneDot[data-tone="warn"] {
+    background: var(--warn);
   }
-  .sectionLink {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    width: 100%;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: var(--t-1);
-    color: var(--ink-soft);
-    text-align: left;
+  .rail.open .toneDot {
+    left: 20px;
+    top: 5px;
   }
-  .sectionLink:hover {
-    background: var(--sunk);
-    color: var(--ink);
+  .rail.open .railLink[aria-current="page"] .toneDot {
+    box-shadow: 0 0 0 2px var(--accent-soft);
   }
-  .sectionLink[aria-pressed="true"] {
-    color: var(--accent-ink);
-    font-weight: 600;
+  .rail.closed .toneDot {
+    left: calc(50% - 16px);
+    top: 6px;
   }
-  .sectionLink .tag {
-    font-family: var(--mono);
-    font-size: var(--t-0);
-    color: var(--muted);
+  .rail.closed .railLink[aria-current="page"] .toneDot {
+    box-shadow: 0 0 0 2px var(--accent-soft);
   }
   .pinRow {
     display: grid;
@@ -5100,10 +5087,14 @@
               <li>The shift: a ring filling towards handover, the time left in mono, and a meter.</li>
               <li>
                 Every screen in three groups. Where a screen has a state, one line of text says it under the name:
-                breached and due soon under Command, free and none under Capacity, the oldest under Referrals, the time
-                left under Handover.
+                breached and due soon under Command, free and none under Capacity, the longest under Emergency
+                departments, the oldest under Referrals, the time left under Handover.
               </li>
-              <li>The current screen's own sections beneath it, each with a count, each a jump.</li>
+              <li>
+                A dot beside the glyph carries the tone: red when a legal deadline has passed behind that screen, amber
+                when something there wants looking at. The count itself stays neutral, so a red 23 can never be read as
+                23 breaches.
+              </li>
               <li>
                 Pinned: the movements the coordinator is watching, with the tone bar of the row and the wait in mono.
               </li>
@@ -5114,8 +5105,8 @@
             <h3>Closed, 76 pixels</h3>
             <ul>
               <li>
-                A glyph and one word per screen, the counts as small tags, red only where a legal deadline has passed
-                and amber where the oldest referral is over two hours.
+                A glyph and one word per screen, the counts as small tags, and the same dot beside the glyph: red only
+                where a legal deadline has passed, amber where the oldest referral is over two hours.
               </li>
               <li>
                 Rest the pointer on any glyph and a card names the screen, says what it is for and gives its state line,
@@ -5136,8 +5127,8 @@
                 instrument, not a list.
               </li>
               <li>
-                Tone on the tags. A red count is a breach and nothing else. Amber is look here. Nothing else in the rail
-                is coloured, so those two are seen.
+                Tone as a dot, not a colour on the count. Red is a breach and nothing else. Amber is look here. Nothing
+                else in the rail is coloured, so those two are seen.
               </li>
               <li>
                 The service stripe. One service chosen is easy to forget and expensive to forget, so the rail carries
@@ -5156,6 +5147,10 @@
               <li>
                 Two lines per screen with its purpose. Good for a first week, noise by the second. The hover card and
                 the tooltip carry the purpose instead.
+              </li>
+              <li>
+                The current screen's own sections listed beneath it in the rail. Removed on review: the page's own
+                headings do that job, and the rail stays a list of screens.
               </li>
               <li>
                 Bed pressure meters by service in the rail. They belong in the Activity drawer's live tally and on
@@ -7712,8 +7707,6 @@
           return o > 120 ? '<b data-tone="warn">oldest ' + fmtWait(o) + "</b>" : "oldest " + fmtWait(o);
         case "handover":
           return "in " + fmtWait(HANDOVER_MIN - NOW_MIN);
-        case "governance":
-          return OVERRIDES + " to review";
       }
       return null;
     }
@@ -7728,8 +7721,8 @@
       var tone = tagTone(key, f);
       var cur = state.page === key;
       var line = stateLine(key, f);
-      var tagHtml =
-        tag !== null ? '<span class="tag"' + (tone ? ' data-tone="' + tone + '"' : "") + ">" + tag + "</span>" : "";
+      var tagHtml = tag !== null ? '<span class="tag">' + tag + "</span>" : "";
+      var dotHtml = tone ? '<span class="toneDot" data-tone="' + tone + '" aria-hidden="true"></span>' : "";
       var h;
       if (closed) {
         h =
@@ -7740,12 +7733,14 @@
           ' aria-label="' +
           esc(s.title) +
           (tag !== null ? ", " + tag : "") +
+          (tone === "danger" ? ", a legal deadline has passed" : tone === "warn" ? ", look here" : "") +
           '"><span class="railLabel">' +
           glyph(key) +
           '<span class="word">' +
           s.short +
           "</span></span>" +
-          tagHtml;
+          tagHtml +
+          dotHtml;
         h +=
           '<span class="flyCard" aria-hidden="true"><b>' +
           esc(s.title) +
@@ -7774,25 +7769,8 @@
         (line ? "<em>" + line + "</em>" : "") +
         "</span></span>" +
         tagHtml +
+        dotHtml +
         "</button>";
-      if (cur) {
-        h += '<div class="sections" role="group" aria-label="Sections of ' + esc(s.title) + '">';
-        sectionsOf(key, f).forEach(function (sec) {
-          h +=
-            '<button type="button" class="sectionLink" data-section="' +
-            sec.key +
-            '" data-target="' +
-            sec.target +
-            '" aria-pressed="' +
-            (state.section === sec.key ? "true" : "false") +
-            '"><span>' +
-            sec.label +
-            "</span>" +
-            (sec.tag !== null ? '<span class="tag">' + sec.tag + "</span>" : "") +
-            "</button>";
-        });
-        h += "</div>";
-      }
       return h;
     }
     function railGroups(f, closed) {
@@ -8097,7 +8075,7 @@
     /* ─── the views: open, closed, both ─── */
     var VIEW_KEY = "ward-flow-rail-view";
     var NOTES = {
-      open: "The rail, open. Every screen in three groups with its state in a line of text, the shift, the current screen's sections and the pinned movements.",
+      open: "The rail, open. Every screen in three groups with its state in a line of text, the shift and the pinned movements.",
       closed:
         "The rail, closed. A glyph and a word per screen, the counts as tags, the shift as a ring, and a card on hover with the screen's state.",
       both: "Open and closed side by side over the same page. The bracket key flips between them anywhere.",
