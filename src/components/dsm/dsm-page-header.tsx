@@ -1,6 +1,7 @@
 import { BookOpenCheck, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { DsmCodeCopy } from "@/components/dsm/dsm-code-copy";
 import { InformationPageBreadcrumbs } from "@/components/information-page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
@@ -11,6 +12,7 @@ export function DsmPageHeader({
   title,
   description,
   code,
+  copyCode = false,
   category,
   actions,
   className,
@@ -22,6 +24,11 @@ export function DsmPageHeader({
   title: string;
   description?: string;
   code?: string;
+  /**
+   * Render the code as a copy control. Only true where the code belongs to one
+   * diagnosis; a page showing a summary across records must leave it as text.
+   */
+  copyCode?: boolean;
   category?: string;
   actions?: ReactNode;
   className?: string;
@@ -57,7 +64,19 @@ export function DsmPageHeader({
           meta={
             code || category ? (
               <>
-                {code ? <span className={cn(metadataPill, codeText)}>{code}</span> : null}
+                {/*
+                  Copyable only where a single record owns the code. The
+                  comparison and differential-considerations pages pass a
+                  summary string rather than one diagnosis's code, and copying
+                  that would put the wrong thing on the clipboard.
+                */}
+                {code ? (
+                  copyCode ? (
+                    <DsmCodeCopy code={code} />
+                  ) : (
+                    <span className={cn(metadataPill, codeText)}>{code}</span>
+                  )
+                ) : null}
                 {category ? <span className={metadataPill}>{category}</span> : null}
                 <span className={metadataPill}>Local clinical reference</span>
               </>
