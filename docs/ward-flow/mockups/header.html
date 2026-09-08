@@ -3065,156 +3065,28 @@
       background: CanvasText;
     }
   }
-  /* ─── Header options: page-specific rules. Everything above is the design system's block. ───
-     Three single-row headers share one contract: the title and the mark, universal search, the
-     scope, the core figures in the corner with the page's full set behind them, the outstanding
-     tasks behind one control, the activity pop-out, the one primary action, More. They differ
-     in where the collapsed things live: dropdowns (A), the instrument cluster and side drawers
-     (B), the tab strip and the shelf (C). ──────────────────────────────────────────────────── */
-  .oBar {
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px 14px;
-    padding: 7px 16px;
-    background: var(--sunk);
-    border-bottom: 1px solid var(--line-strong);
-  }
-  .oBar .oLabel {
-    font-size: var(--t-0);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-  .oSeg {
-    display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    border-radius: var(--r2);
-    background: var(--surface);
-    box-shadow: inset 0 0 0 1px var(--line);
-  }
-  .oBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    height: 28px;
-    padding: 0 10px;
-    border-radius: 4px;
-    font-size: var(--t-1);
-    font-weight: 500;
-    color: var(--ink-soft);
-    white-space: nowrap;
-    transition:
-      background 0.12s,
-      color 0.12s;
-  }
-  .oBtn kbd {
-    font-family: var(--mono);
-    font-size: var(--t-0);
-    color: var(--muted);
-    border: 1px solid var(--line-strong);
-    border-radius: 3px;
-    padding: 0 4px;
-    line-height: 1.4;
-  }
-  .oBtn:hover {
-    background: var(--sunk);
-    color: var(--ink);
-  }
-  .oBtn[aria-pressed="true"] {
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    box-shadow: inset 0 0 0 1px var(--accent);
-  }
-  .oBtn[aria-pressed="true"] kbd {
-    color: var(--accent-ink);
-    border-color: var(--accent);
-  }
-  .oBar .oNote {
-    font-size: var(--t-1);
-    color: var(--muted);
-    min-width: 0;
-    flex: 1 1 20rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .oBar .appearance {
-    margin-left: auto;
-  }
-
-  :root {
-    --obar: 49px;
-  }
+  /* ─── The quiet bar: page-specific rules. Everything above is the design system's block.
+     One row: the title and the mark, universal search, the Service selector, then Activity,
+     Tasks and Tools as matching side drawers, and the one primary action. ───────────────── */
   .hApp {
     display: grid;
     grid-template-columns: 236px minmax(0, 1fr);
-    min-height: calc(100vh - var(--obar));
+    min-height: 100vh;
   }
   .hApp > .rail {
     position: sticky;
-    top: var(--obar);
+    top: 0;
     align-self: start;
-    height: calc(100vh - var(--obar));
+    height: 100vh;
   }
   .hFrame {
     min-width: 0;
     display: flex;
     flex-direction: column;
   }
-  .hdrHost {
-    position: relative;
-    z-index: 31;
-  }
-  .opt {
-    display: none;
-  }
-  .hdrHost[data-option="a"] .opt[data-opt="a"],
-  .hdrHost[data-option="b"] .opt[data-opt="b"],
-  .hdrHost[data-option="c"] .opt[data-opt="c"] {
-    display: block;
-  }
-  .hdrHost[data-option="all"] .opt {
-    display: block;
-  }
-  .optCap {
-    display: none;
-    align-items: baseline;
-    gap: 10px;
-    padding: 14px 24px 6px;
-    font-size: var(--t-1);
-    color: var(--muted);
-  }
-  .optCap b {
-    font-family: var(--mono);
-    font-size: var(--t-0);
-    font-weight: 600;
-    color: var(--accent-ink);
-    background: var(--accent-soft);
-    border-radius: 4px;
-    padding: 1px 6px;
-  }
-  .optCap strong {
-    color: var(--ink);
-    font-weight: 600;
-  }
-  .hdrHost[data-option="all"] .optCap {
-    display: flex;
-  }
-  .hdrHost[data-option="all"] .hdr1 {
-    border-top: 1px solid var(--line);
-  }
-
-  /* ─── the single row, shared by the three ─── */
   .hdr1 {
     position: relative;
-    z-index: 5;
+    z-index: 31;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -3242,13 +3114,6 @@
   .hdr1 details > summary.srOnly {
     display: none;
   }
-  .hdr1 .grow {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-  .hdr1 .searchWrap {
-    min-width: 9.5rem;
-  }
   .hdr1 .end {
     display: flex;
     align-items: center;
@@ -3259,7 +3124,7 @@
   .hdr1 .menu > summary .lbl {
     font-weight: 600;
   }
-  .hdr1 .glyph {
+  .glyph {
     width: 15px;
     height: 15px;
     flex: none;
@@ -3298,6 +3163,18 @@
     background: var(--good);
     animation: breathe 2.4s ease-in-out infinite;
   }
+  .dot[data-svc="north"] {
+    background: var(--svc-north);
+  }
+  .dot[data-svc="east"] {
+    background: var(--svc-east);
+  }
+  .dot[data-svc="south"] {
+    background: var(--svc-south);
+  }
+  .dot[data-svc="wachs"] {
+    background: var(--svc-wachs);
+  }
   .dot[hidden] {
     display: none;
   }
@@ -3323,8 +3200,8 @@
   /* universal search: the field and its results */
   .searchWrap {
     position: relative;
-    flex: 1 1 12rem;
-    max-width: 26rem;
+    flex: 1 1 14rem;
+    max-width: 30rem;
     min-width: 10rem;
   }
   .searchWrap .search {
@@ -3397,13 +3274,53 @@
     max-width: 44ch;
   }
 
-  /* pop-out interiors, shared by dropdown, drawer and shelf */
+  /* the Service selector */
+  .svcMenu > summary .dot {
+    margin-right: 1px;
+  }
+  .svcMenu .menuItem .lead {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  /* the drawers: Activity, Tasks and Tools share one shape */
+  .drawerMenu .menuPanel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(94vw, 28rem);
+    max-width: none;
+    border-radius: 0;
+    border-width: 0 0 0 1px;
+    border-color: var(--line-strong);
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    overflow: auto;
+    z-index: 40;
+  }
+  .drawerMenu.wide .menuPanel {
+    width: min(94vw, 36rem);
+  }
+  .drawerMenu[open]::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: var(--edge-shade);
+    opacity: 0.6;
+    z-index: 39;
+  }
   .popHead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     flex-wrap: wrap;
     gap: 6px 12px;
-    padding: 12px 14px 9px;
+    padding: 12px 14px 10px;
     border-bottom: 1px solid var(--line);
     background: var(--surface-2);
   }
@@ -3411,6 +3328,9 @@
     font-size: var(--t-3);
     font-weight: 600;
     color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
   .popHead .count {
     font-family: var(--mono);
@@ -3418,11 +3338,23 @@
     color: var(--muted);
     white-space: nowrap;
   }
-  .popHead .fresh {
+  .popHead .closeBtn {
     margin-left: auto;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    font-size: var(--t-1);
+    font-weight: 600;
+    color: var(--ink-soft);
   }
-  .popHead .linkBtn {
-    margin-left: auto;
+  .popHead .closeBtn:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .popHead .fresh {
+    flex-basis: 100%;
   }
   .popFoot {
     padding: 8px 14px 10px;
@@ -3435,15 +3367,61 @@
     flex-wrap: wrap;
     gap: 4px 14px;
   }
-  .popCols {
+  .popBody {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
   }
-  .popCols > section {
-    min-width: 0;
+  .popBody > section + section {
+    border-top: 1px solid var(--line);
   }
-  .popCols > section + section {
-    border-left: 1px solid var(--line);
+  /* the two parts of a drawer, one shown at a time */
+  .seg {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    margin: 10px 14px 4px;
+    border-radius: var(--r2);
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .seg button {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 4px;
+    font-size: var(--t-1);
+    font-weight: 500;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      color 0.12s;
+  }
+  .seg button .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  .seg button:hover {
+    color: var(--ink);
+  }
+  .seg button[aria-pressed="true"] {
+    background: var(--surface);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow:
+      inset 0 -2px 0 var(--gilt),
+      var(--lift);
+  }
+  .seg button[aria-pressed="true"] .count {
+    color: var(--ink-soft);
+  }
+  .part[hidden] {
+    display: none;
   }
   .taskRows {
     display: grid;
@@ -3606,18 +3584,57 @@
     font-weight: 500;
     color: var(--ink);
   }
+  /* the live tally: core tiles, then the groups */
+  .tally {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px 14px 4px;
+  }
+  .tile {
+    display: grid;
+    gap: 3px;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    background: var(--surface-2);
+  }
+  .tile small {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .tile b {
+    font-family: var(--mono);
+    font-size: var(--t-5);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+  .tile b i {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    font-size: var(--t-1);
+    color: var(--muted);
+  }
+  .tile[data-tone="danger"] b {
+    color: var(--danger);
+  }
+  .tile[data-tone="warn"] b {
+    color: var(--warn);
+  }
   .figGrid {
     display: grid;
-    grid-template-columns: 17rem 21rem repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
   .figGrid > section {
     min-width: 0;
-    border-right: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
+    border-top: 1px solid var(--line);
     padding-bottom: 6px;
-  }
-  .figGrid > section:last-of-type {
-    border-right: 0;
   }
   .figGrid .dataTable th,
   .figGrid .dataTable td {
@@ -3625,7 +3642,7 @@
   }
   .figGrid .dataTable th:first-child,
   .figGrid .dataTable td:first-child {
-    padding-left: 12px;
+    padding-left: 14px;
   }
   .figGrid .dataTable th {
     background: transparent;
@@ -3634,18 +3651,73 @@
   .figGrid .dataTable tbody tr:last-child td {
     border-bottom: 0;
   }
-  .figGrid .statsFoot {
-    grid-column: 1 / -1;
+  .figGrid .menuHead {
+    padding-left: 14px;
   }
-  .figGrid.two {
-    grid-template-columns: 17rem minmax(0, 1fr);
+  .figGrid .statsFacts {
+    padding-left: 14px;
+    padding-right: 14px;
   }
-  .figGrid.three {
-    grid-template-columns: 17rem repeat(2, minmax(0, 1fr));
+  /* the tools drawer */
+  .toolList {
+    display: grid;
+    padding: 4px 6px 6px;
+  }
+  .toolItem {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 8px 8px 10px;
+    border-radius: var(--r2);
+    text-align: left;
+    font-size: var(--t-2);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background 0.12s;
+  }
+  .toolItem:hover {
+    background: var(--sunk);
+  }
+  .toolItem .glyph {
+    color: var(--ink-soft);
+  }
+  .toolItem span {
+    display: grid;
+    gap: 1px;
+  }
+  .toolItem span em {
+    font-style: normal;
+    font-size: var(--t-1);
+    color: var(--muted);
+  }
+  .toolItem small {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .toolItem[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .toolItem[aria-disabled="true"]:hover {
+    background: transparent;
   }
   .contacts .dataTable td {
     padding: 6px 10px;
     white-space: nowrap;
+  }
+  .contacts .dataTable td em {
+    display: block;
+    font-style: normal;
+    font-weight: 400;
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  .contacts .tableWrap {
+    overflow-x: auto;
   }
   .contacts .dataTable th {
     padding: 6px 10px;
@@ -3655,341 +3727,18 @@
     color: var(--muted);
     font-size: var(--t-1);
   }
+  .contacts .dataTable td:first-child {
+    padding-left: 14px;
+  }
+  .contacts .dataTable th:first-child {
+    padding-left: 14px;
+  }
   .menuPanel .who {
     align-items: flex-start;
-    padding: 10px 12px 6px;
+    padding: 12px 14px 8px;
   }
   .menuPanel .appearance {
-    margin: 0 8px 8px;
-  }
-  .core {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0;
-  }
-  .core span {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 4px;
-    padding: 0 9px;
-    border-left: 1px solid var(--line);
-    font-size: var(--t-1);
-    font-weight: 500;
-    color: var(--ink-soft);
-    white-space: nowrap;
-  }
-  .core span:first-child {
-    border-left: 0;
-    padding-left: 0;
-  }
-  .core b {
-    font-family: var(--mono);
-    font-size: var(--t-3);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-  }
-  .core b i {
-    font-family: var(--body);
-    font-style: italic;
-    font-weight: 400;
-    font-size: var(--t-1);
-    color: var(--muted);
-  }
-  .core span[data-tone="danger"] b {
-    color: var(--danger);
-  }
-  .core span[data-tone="warn"] b {
-    color: var(--warn);
-  }
-  .menu[open] > summary .core b,
-  .menu[open] > summary .core span {
-    color: var(--accent-ink);
-  }
-  .menu[open] > summary .core span[data-tone="danger"] b {
-    color: var(--danger);
-  }
-
-  /* the wide panels: the figures, the contacts, and A's tasks and activity */
-  .menuPanel.figPanel {
-    width: max-content;
-    max-width: min(94vw, 72rem);
-  }
-  .menuPanel.contacts {
-    width: min(92vw, 46rem);
-    max-width: none;
-  }
-  .hdrA [data-pop="tasks"],
-  .hdrA [data-pop="activity"] {
-    width: min(92vw, 48rem);
-    max-width: none;
-  }
-  .shelfMenu,
-  .hdrA .coreMenu,
-  .hdrB .figMenu {
-    position: static;
-  }
-  .hdrA .coreMenu > .menuPanel,
-  .hdrB .figMenu > .menuPanel {
-    position: absolute;
-    left: auto;
-    right: 20px;
-    top: calc(100% + 4px);
-    max-width: min(72rem, 100% - 40px);
-  }
-
-  /* ─── A: the quiet bar. Every collapsed thing is a dropdown under its own control. ─── */
-  .hdrA .coreMenu > summary {
-    padding-right: 9px;
-    gap: 9px;
-  }
-  .hdrA .searchWrap {
-    margin-left: 6px;
-  }
-
-  /* ─── B: the instrument corner. One bordered cluster carries the scope and the figures; the
-     tasks and the activity open as drawers from the right edge. ─── */
-  .cluster {
-    display: flex;
-    align-items: stretch;
-    height: 38px;
-    border: 1px solid var(--line-strong);
-    border-radius: var(--r2);
-    background: var(--surface-2);
-    flex: none;
-  }
-  .cluster > * {
-    display: flex;
-    align-items: center;
-    border-left: 1px solid var(--line);
-  }
-  .cluster > *:first-child {
-    border-left: 0;
-  }
-  .cluster .menu > summary {
-    height: 100%;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    padding: 0 10px;
-  }
-  .cluster .menu:first-child > summary {
-    border-radius: calc(var(--r2) - 1px) 0 0 calc(var(--r2) - 1px);
-  }
-  .cluster .menu:last-child > summary {
-    border-radius: 0 calc(var(--r2) - 1px) calc(var(--r2) - 1px) 0;
-  }
-  .cluster .menu > summary:hover {
-    background: var(--sunk);
-  }
-  .cluster .menu[open] > summary {
-    background: var(--accent-soft);
-  }
-  .clusterFigs {
-    display: flex;
-    align-items: stretch;
-    padding: 0;
-  }
-  .clusterFigs span {
-    display: grid;
-    align-content: center;
-    gap: 1px;
-    padding: 0 10px;
-    border-left: 1px solid var(--line);
-    white-space: nowrap;
-  }
-  .clusterFigs span:first-child {
-    border-left: 0;
-  }
-  .clusterFigs small {
-    font-size: 10.5px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-    font-weight: 600;
-    line-height: 1;
-  }
-  .clusterFigs b {
-    font-family: var(--mono);
-    font-size: var(--t-3);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-    color: var(--ink);
-  }
-  .clusterFigs b i {
-    font-family: var(--body);
-    font-style: italic;
-    font-weight: 400;
-    font-size: var(--t-1);
-    color: var(--muted);
-  }
-  .clusterFigs span[data-tone="danger"] b {
-    color: var(--danger);
-  }
-  .clusterFigs span[data-tone="warn"] b {
-    color: var(--warn);
-  }
-  .cluster > .fresh {
-    padding: 0 10px;
-  }
-  .cluster .figMenu > summary {
-    font-size: var(--t-1);
-    gap: 6px;
-    color: var(--ink-soft);
-  }
-  .drawerMenu .menuPanel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: min(94vw, 27rem);
-    max-width: none;
-    border-radius: 0;
-    border-width: 0 0 0 1px;
-    border-color: var(--line-strong);
-    grid-template-rows: auto minmax(0, 1fr);
-    align-content: start;
-    overflow: auto;
-    z-index: 40;
-  }
-  .drawerMenu[open]::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: var(--edge-shade);
-    opacity: 0.6;
-    z-index: 39;
-  }
-  .drawerMenu .popHead {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-  }
-  .drawerMenu .popCols {
-    grid-template-columns: 1fr;
-  }
-  .drawerMenu .popCols > section + section {
-    border-left: 0;
-    border-top: 1px solid var(--line);
-  }
-  .drawerMenu .figGrid,
-  .drawerMenu .figGrid.two,
-  .drawerMenu .figGrid.three {
-    grid-template-columns: 1fr;
-  }
-  .drawerMenu .figGrid > section {
-    border-right: 0;
-  }
-  .hdrB .end .menu > summary.iconic {
-    padding: 0 10px;
-  }
-
-  /* ─── C: the tab strip. The collapsed things are tabs, and a tab opens a shelf that spans
-     the header. The current page is the tab with the gilt underline. ─── */
-  .strip {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    height: 36px;
-    padding: 3px;
-    border-radius: var(--r2);
-    background: var(--sunk);
-    box-shadow: inset 0 0 0 1px var(--line);
-    flex: none;
-  }
-  .strip .tab,
-  .strip .menu > summary {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    height: 28px;
-    padding: 0 11px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    font-size: var(--t-2);
-    font-weight: 500;
-    color: var(--ink-soft);
-    white-space: nowrap;
-    transition:
-      background 0.12s,
-      color 0.12s;
-  }
-  .strip .menu > summary::after {
-    display: none;
-  }
-  .strip .tab:hover,
-  .strip .menu > summary:hover {
-    background: var(--surface);
-    color: var(--ink);
-  }
-  .strip .tab[aria-current="page"] {
-    background: var(--surface);
-    color: var(--ink);
-    font-weight: 600;
-    box-shadow:
-      inset 0 -2px 0 var(--gilt),
-      var(--lift);
-  }
-  .strip .menu[open] > summary {
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    box-shadow: inset 0 0 0 1px var(--accent);
-  }
-  .strip .menu {
-    position: static;
-  }
-  .shelfMenu .menuPanel {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
-    max-width: none;
-    min-width: 0;
-    width: auto;
-    border-radius: 0;
-    border-width: 0 0 1px;
-    border-bottom-color: var(--line-strong);
-    box-shadow: var(--lift);
-  }
-  .shelfMenu .popCols {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  }
-  .hdrC .corner {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 12px;
-    padding: 0 4px;
-    white-space: nowrap;
-  }
-  .hdrC .corner span {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 5px;
-    font-size: var(--t-1);
-    color: var(--muted);
-  }
-  .hdrC .corner b {
-    font-family: var(--mono);
-    font-size: var(--t-3);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-  }
-  .hdrC .corner span[data-tone="danger"] b {
-    color: var(--danger);
-  }
-  .hdrC .corner span[data-tone="warn"] b {
-    color: var(--warn);
-  }
-  .hdrC .searchWrap {
-    flex: 0 1 11rem;
-    transition: flex-basis 0.16s;
-  }
-  .hdrC .searchWrap:focus-within,
-  .hdrC .searchWrap[data-open="true"] {
-    flex-basis: 22rem;
+    margin: 4px 14px 12px;
   }
 
   /* ─── the body ─── */
@@ -4040,18 +3789,6 @@
   .hFeatures h3 {
     font-size: var(--t-2);
     margin-bottom: 6px;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-  .hFeatures h3 b {
-    font-family: var(--mono);
-    font-size: var(--t-0);
-    font-weight: 600;
-    color: var(--accent-ink);
-    background: var(--accent-soft);
-    border-radius: 4px;
-    padding: 1px 6px;
   }
   .hFeatures ul {
     display: grid;
@@ -4078,40 +3815,18 @@
     color: var(--ink-soft);
   }
 
-  /* ─── collapse ladder. What leaves first is what the coordinator can reach another way:
-     the fourth and third core figure (All figures carries them), the corner's freshness line
-     (the rail and every pop-out carry it), the word Synthetic on the mark, the mark itself,
-     then the labels. ─── */
-  @media (max-width: 1900px) {
-    .core span[data-rank="3"],
-    .clusterFigs span[data-rank="3"] {
-      display: none;
-    }
-  }
-  @media (max-width: 1700px) {
-    .hdrA > .end > .fresh,
-    .hdrC > .end > .fresh,
-    .hdrB .cluster > .fresh,
+  /* ─── collapse ladder ─── */
+  @media (max-width: 1500px) {
     .chip.mark .long {
       display: none;
     }
   }
-  @media (max-width: 1500px) {
-    .core span[data-rank="2"],
-    .clusterFigs span[data-rank="2"],
-    .hdrC .corner span[data-rank="2"],
-    .hdrB .chip.mark {
-      display: none;
-    }
-  }
-  @media (max-width: 1300px) {
+  @media (max-width: 1240px) {
     .hdr1 .chip.mark,
-    .hdr1 .menu > summary .lbl.optional,
-    .hdrC .corner {
+    .hdr1 .menu > summary .lbl.optional {
       display: none;
     }
-    .searchWrap,
-    .hdrC .searchWrap {
+    .searchWrap {
       flex-basis: 10rem;
     }
   }
@@ -4137,52 +3852,24 @@
       margin-left: 0;
       flex-wrap: wrap;
     }
-    .hdr1 .grow {
-      flex-basis: 100%;
-    }
-    .searchWrap,
-    .hdrC .searchWrap {
+    .searchWrap {
       flex: 1 1 100%;
       max-width: none;
     }
-    .figGrid,
-    .figGrid.two,
-    .figGrid.three {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .popCols,
-    .shelfMenu .popCols {
-      grid-template-columns: 1fr;
-    }
-    .popCols > section + section {
-      border-left: 0;
-      border-top: 1px solid var(--line);
-    }
-    .oBar .oNote {
-      display: none;
-    }
   }
   @media (max-width: 640px) {
-    .figGrid,
-    .figGrid.two,
-    .figGrid.three {
-      grid-template-columns: 1fr;
-    }
     .menuPanel {
       max-width: 94vw;
     }
-    .hdr1 .end .menu > summary .lbl {
-      display: none;
+    .tally {
+      grid-template-columns: 1fr;
     }
   }
   @media print {
-    .oBar,
     .hdr1 .end,
     .searchWrap,
-    .strip,
-    .cluster,
     .menuPanel,
-    .optCap {
+    .hdr1 .svcMenu {
       display: none !important;
     }
     .hApp,
@@ -4197,11 +3884,10 @@
     }
   }
   @media (forced-colors: active) {
-    .cluster,
-    .strip,
     .qPop,
     .badge,
-    .oSeg {
+    .seg,
+    .tile {
       border: 1px solid CanvasText;
       box-shadow: none;
     }
@@ -4211,22 +3897,6 @@
     }
   }
 </style>
-<div class="oBar" role="region" aria-label="Header options">
-  <span class="oLabel">Header options</span>
-  <div class="oSeg" role="group" aria-label="Choose an option">
-    <button type="button" class="oBtn" data-option="a" aria-pressed="true"><kbd>1</kbd>Quiet bar</button>
-    <button type="button" class="oBtn" data-option="b" aria-pressed="false"><kbd>2</kbd>Instrument corner</button>
-    <button type="button" class="oBtn" data-option="c" aria-pressed="false"><kbd>3</kbd>Tab strip</button>
-    <button type="button" class="oBtn" data-option="all" aria-pressed="false"><kbd>4</kbd>Compare</button>
-  </div>
-  <p class="oNote" id="oNote"></p>
-  <div class="appearance" role="group" aria-label="Appearance">
-    <button type="button" class="apBtn" data-set-theme="light" aria-pressed="false">Light</button>
-    <button type="button" class="apBtn" data-set-theme="dark" aria-pressed="false">Dark</button>
-    <button type="button" class="apBtn" data-set-theme="auto" aria-pressed="true">Auto</button>
-  </div>
-</div>
-
 <div class="hApp">
   <a class="skip" href="#qList">Skip to the priority queue</a>
   <nav class="rail" aria-label="Ward Flow sections">
@@ -4335,293 +4005,94 @@
   <div class="hFrame">
     <p class="srOnly" id="live" aria-live="polite" aria-atomic="true"></p>
 
-    <div class="hdrHost" id="hdrHost" data-option="a">
-      <!-- ─── A ─── -->
-      <section class="opt" data-opt="a">
-        <p class="optCap">
-          <b>A</b><strong>Quiet bar</strong
-          ><span>Every collapsed thing is a dropdown under its own control. The core figures are the control.</span>
-        </p>
-        <header class="hdr1 hdrA" data-hdr="a" aria-label="Header, option A">
-          <div class="title">
-            <h1 data-role="title">Command</h1>
-            <span
-              class="chip mark"
-              title="Every figure and name on this screen is invented. Not a medical device and not clinical decision support."
-              ><span class="long">Synthetic </span>prototype</span
-            >
-          </div>
-          <div class="searchWrap grow" data-role="searchWrap">
-            <label class="search">
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M10.5 10.5L14 14" />
-              </svg>
-              <input
-                type="search"
-                data-role="q"
-                placeholder="Search patients, movements, wards, owners"
-                aria-label="Universal search: patients by name or identifier, movements, departments, wards and owners. Risk scores and best matches are not returned."
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <kbd data-role="qHint" aria-hidden="true">/</kbd>
-              <button type="button" class="clearBtn" data-role="qClear" hidden>Clear</button>
-            </label>
-            <div class="qPop" data-pop="search" role="group" aria-label="Search results"></div>
-          </div>
-          <details class="menu" data-menu="scope">
-            <summary>
-              <span class="lbl" data-role="scopeLabel">All sites</span
-              ><span class="count" data-role="scopeCount"></span>
-            </summary>
-            <div class="menuPanel" role="group" aria-label="Choose a site">
-              <label class="search"
-                ><svg viewBox="0 0 16 16" aria-hidden="true">
-                  <circle cx="7" cy="7" r="4.5" />
-                  <path d="M10.5 10.5L14 14" /></svg
-                ><input
-                  type="search"
-                  data-role="scopeQ"
-                  placeholder="Find a site"
-                  aria-label="Find a site"
-                  autocomplete="off"
-              /></label>
-              <div data-pop="scope"></div>
+    <header class="hdr1" aria-label="Header">
+      <div class="title">
+        <h1 id="pageTitle">Command</h1>
+        <span
+          class="chip mark"
+          title="Every figure and name on this screen is invented. Not a medical device and not clinical decision support."
+          ><span class="long">Synthetic </span>prototype</span
+        >
+      </div>
+      <div class="searchWrap" id="searchWrap">
+        <label class="search">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5L14 14" />
+          </svg>
+          <input
+            type="search"
+            id="q"
+            placeholder="Search patients, movements, wards, owners"
+            aria-label="Universal search: patients by name or identifier, movements, departments, wards and owners. Risk scores and best matches are not returned."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <kbd id="qHint" aria-hidden="true">/</kbd>
+          <button type="button" class="clearBtn" id="qClear" hidden>Clear</button>
+        </label>
+        <div class="qPop" id="qPop" role="group" aria-label="Search results"></div>
+      </div>
+      <details class="menu svcMenu" id="svcMenu">
+        <summary aria-label="Service. Filters this page.">
+          <span class="dot" id="svcDot" hidden></span><span class="lbl" id="svcLabel">All services</span
+          ><span class="count" id="svcCount"></span>
+        </summary>
+        <div class="menuPanel" role="group" aria-label="Choose a health service">
+          <p class="menuHead">Service<span class="count">filters this page</span></p>
+          <div id="svcList"></div>
+          <p class="menuNote">
+            One service, or all four. The choice follows you to every page that has a service in it.
+          </p>
+        </div>
+      </details>
+      <div class="end">
+        <details class="menu drawerMenu wide" id="activityMenu" data-menu="activity">
+          <summary>
+            <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8.5h3l2-5 3 9 2-4h3" /></svg
+            ><span class="lbl optional">Activity</span><span class="dot" id="actDot" data-tone="good"></span>
+          </summary>
+          <div class="menuPanel" id="activityPanel" role="group" aria-label="Activity"></div>
+        </details>
+        <details class="menu drawerMenu" id="tasksMenu" data-menu="tasks">
+          <summary>
+            <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M2.5 4.5l1.5 1.5 3-3M2.5 9.5l1.5 1.5 3-3M9 4h5M9 9h5M9 13h3" /></svg
+            ><span class="lbl optional">Tasks</span><span class="badge" id="tasksCount"></span
+            ><span class="dot" id="tasksDot" hidden></span>
+          </summary>
+          <div class="menuPanel" id="tasksPanel" role="group" aria-label="Outstanding tasks"></div>
+        </details>
+        <details class="menu drawerMenu wide" id="toolsMenu" data-menu="tools">
+          <summary>
+            <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M9.5 2.5a3 3 0 0 0-3.6 3.9L2 10.3V14h3.7l3.9-3.9a3 3 0 0 0 3.9-3.6l-2 2-2-.5-.5-2z" /></svg
+            ><span class="lbl optional">Tools</span>
+          </summary>
+          <div class="menuPanel" id="toolsPanel" role="group" aria-label="Tools"></div>
+        </details>
+        <details class="menu" id="newMenu">
+          <summary class="primary">New referral</summary>
+          <div class="menuPanel">
+            <p class="menuHead">Raise a referral</p>
+            <div class="menuList">
+              <button class="menuItem" type="button" data-new="an emergency department">
+                From an emergency department<small>ED</small>
+              </button>
+              <button class="menuItem" type="button" data-new="a community team">
+                From a community team<small>CMHT</small>
+              </button>
+              <button class="menuItem" type="button" data-new="a GP or private practice">
+                From a GP or private practice<small>GP</small>
+              </button>
             </div>
-          </details>
-          <div class="end">
-            <details class="menu coreMenu" data-menu="figures">
-              <summary aria-label="Core figures for this page. Opens every figure.">
-                <span class="core" data-role="core"></span>
-              </summary>
-              <div class="menuPanel figPanel" data-pop="figures" role="group" aria-label="All figures"></div>
-            </details>
-            <details class="menu" data-menu="tasks">
-              <summary>
-                <span class="lbl optional">Tasks</span><span class="badge" data-role="tasksCount"></span
-                ><span class="dot" data-role="tasksDot" hidden></span>
-              </summary>
-              <div class="menuPanel" data-pop="tasks" role="group" aria-label="Outstanding tasks"></div>
-            </details>
-            <details class="menu" data-menu="activity">
-              <summary>
-                <span class="lbl optional">Activity</span><span class="dot" data-role="actDot" data-tone="good"></span>
-              </summary>
-              <div class="menuPanel" data-pop="activity" role="group" aria-label="Activity"></div>
-            </details>
-            <span class="fresh" data-role="fresh"></span>
-            <details class="menu" data-menu="new">
-              <summary class="primary">New referral</summary>
-              <div class="menuPanel" data-pop="new"></div>
-            </details>
-            <details class="menu" data-menu="more">
-              <summary class="quiet">More</summary>
-              <div class="menuPanel" data-pop="more"></div>
-            </details>
-            <details class="menu" data-menu="contacts">
-              <summary class="srOnly" tabindex="-1">Ward contacts</summary>
-              <div class="menuPanel contacts" data-pop="contacts" role="group" aria-label="Ward contacts"></div>
-            </details>
+            <p class="menuNote">
+              Opens the Raise a referral screen with the source prefilled. Not wired in this prototype.
+            </p>
           </div>
-        </header>
-      </section>
-
-      <!-- ─── B ─── -->
-      <section class="opt" data-opt="b">
-        <p class="optCap">
-          <b>B</b><strong>Instrument corner</strong
-          ><span
-            >One bordered cluster carries the scope and the figures. The tasks and the activity open as drawers from the
-            right edge.</span
-          >
-        </p>
-        <header class="hdr1 hdrB" data-hdr="b" aria-label="Header, option B">
-          <div class="title">
-            <h1 data-role="title">Command</h1>
-            <span
-              class="chip mark"
-              title="Every figure and name on this screen is invented. Not a medical device and not clinical decision support."
-              ><span class="long">Synthetic </span>prototype</span
-            >
-          </div>
-          <div class="searchWrap grow" data-role="searchWrap">
-            <label class="search">
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M10.5 10.5L14 14" />
-              </svg>
-              <input
-                type="search"
-                data-role="q"
-                placeholder="Search patients, movements, wards, owners"
-                aria-label="Universal search: patients by name or identifier, movements, departments, wards and owners. Risk scores and best matches are not returned."
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <kbd data-role="qHint" aria-hidden="true">/</kbd>
-              <button type="button" class="clearBtn" data-role="qClear" hidden>Clear</button>
-            </label>
-            <div class="qPop" data-pop="search" role="group" aria-label="Search results"></div>
-          </div>
-          <div class="end">
-            <details class="menu" data-menu="new">
-              <summary class="primary">New referral</summary>
-              <div class="menuPanel" data-pop="new"></div>
-            </details>
-            <div class="cluster" role="group" aria-label="The state of this page">
-              <details class="menu" data-menu="scope">
-                <summary>
-                  <span class="lbl" data-role="scopeLabel">All sites</span
-                  ><span class="count" data-role="scopeCount"></span>
-                </summary>
-                <div class="menuPanel" role="group" aria-label="Choose a site">
-                  <label class="search"
-                    ><svg viewBox="0 0 16 16" aria-hidden="true">
-                      <circle cx="7" cy="7" r="4.5" />
-                      <path d="M10.5 10.5L14 14" /></svg
-                    ><input
-                      type="search"
-                      data-role="scopeQ"
-                      placeholder="Find a site"
-                      aria-label="Find a site"
-                      autocomplete="off"
-                  /></label>
-                  <div data-pop="scope"></div>
-                </div>
-              </details>
-              <div class="clusterFigs" data-role="core"></div>
-              <span class="fresh" data-role="fresh"></span>
-              <details class="menu figMenu" data-menu="figures">
-                <summary aria-label="All figures for this page">Figures</summary>
-                <div class="menuPanel figPanel" data-pop="figures" role="group" aria-label="All figures"></div>
-              </details>
-            </div>
-            <details class="menu drawerMenu" data-menu="tasks">
-              <summary class="iconic">
-                <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">
-                  <path d="M2.5 4.5l1.5 1.5 3-3M2.5 9.5l1.5 1.5 3-3M9 4h5M9 9h5M9 13h3" /></svg
-                ><span class="lbl optional">Tasks</span><span class="badge" data-role="tasksCount"></span
-                ><span class="dot" data-role="tasksDot" hidden></span>
-              </summary>
-              <div class="menuPanel" data-pop="tasks" role="group" aria-label="Outstanding tasks"></div>
-            </details>
-            <details class="menu drawerMenu" data-menu="activity">
-              <summary class="iconic">
-                <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8.5h3l2-5 3 9 2-4h3" /></svg
-                ><span class="lbl optional">Activity</span><span class="dot" data-role="actDot" data-tone="good"></span>
-              </summary>
-              <div class="menuPanel" data-pop="activity" role="group" aria-label="Activity"></div>
-            </details>
-            <details class="menu" data-menu="more">
-              <summary class="quiet">More</summary>
-              <div class="menuPanel" data-pop="more"></div>
-            </details>
-            <details class="menu drawerMenu" data-menu="contacts">
-              <summary class="srOnly" tabindex="-1">Ward contacts</summary>
-              <div class="menuPanel contacts" data-pop="contacts" role="group" aria-label="Ward contacts"></div>
-            </details>
-          </div>
-        </header>
-      </section>
-
-      <!-- ─── C ─── -->
-      <section class="opt" data-opt="c">
-        <p class="optCap">
-          <b>C</b><strong>Tab strip</strong
-          ><span
-            >The collapsed things are tabs beside the page's own view, and a tab opens a shelf that spans the
-            header.</span
-          >
-        </p>
-        <header class="hdr1 hdrC" data-hdr="c" aria-label="Header, option C">
-          <div class="title">
-            <h1 data-role="title">Command</h1>
-            <span
-              class="chip mark"
-              title="Every figure and name on this screen is invented. Not a medical device and not clinical decision support."
-              ><span class="long">Synthetic </span>prototype</span
-            >
-          </div>
-          <nav class="strip" aria-label="Views of this page">
-            <button type="button" class="tab" aria-current="page" data-role="pageTab">Queue</button>
-            <details class="menu shelfMenu" data-menu="tasks">
-              <summary>
-                <span class="lbl">Tasks</span><span class="badge" data-role="tasksCount"></span
-                ><span class="dot" data-role="tasksDot" hidden></span>
-              </summary>
-              <div class="menuPanel" data-pop="tasks" role="group" aria-label="Outstanding tasks"></div>
-            </details>
-            <details class="menu shelfMenu" data-menu="figures">
-              <summary><span class="lbl">Figures</span></summary>
-              <div class="menuPanel figPanel" data-pop="figures" role="group" aria-label="All figures"></div>
-            </details>
-            <details class="menu shelfMenu" data-menu="activity">
-              <summary>
-                <span class="lbl">Activity</span><span class="dot" data-role="actDot" data-tone="good"></span>
-              </summary>
-              <div class="menuPanel" data-pop="activity" role="group" aria-label="Activity"></div>
-            </details>
-          </nav>
-          <span class="grow"></span>
-          <div class="searchWrap" data-role="searchWrap">
-            <label class="search">
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M10.5 10.5L14 14" />
-              </svg>
-              <input
-                type="search"
-                data-role="q"
-                placeholder="Search patients, wards, owners"
-                aria-label="Universal search: patients by name or identifier, movements, departments, wards and owners. Risk scores and best matches are not returned."
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <kbd data-role="qHint" aria-hidden="true">/</kbd>
-              <button type="button" class="clearBtn" data-role="qClear" hidden>Clear</button>
-            </label>
-            <div class="qPop" data-pop="search" role="group" aria-label="Search results"></div>
-          </div>
-          <details class="menu" data-menu="scope">
-            <summary>
-              <span class="lbl" data-role="scopeLabel">All sites</span
-              ><span class="count" data-role="scopeCount"></span>
-            </summary>
-            <div class="menuPanel" role="group" aria-label="Choose a site">
-              <label class="search"
-                ><svg viewBox="0 0 16 16" aria-hidden="true">
-                  <circle cx="7" cy="7" r="4.5" />
-                  <path d="M10.5 10.5L14 14" /></svg
-                ><input
-                  type="search"
-                  data-role="scopeQ"
-                  placeholder="Find a site"
-                  aria-label="Find a site"
-                  autocomplete="off"
-              /></label>
-              <div data-pop="scope"></div>
-            </div>
-          </details>
-          <div class="end">
-            <span class="corner" data-role="core" aria-label="Core figures for this page"></span>
-            <span class="fresh" data-role="fresh"></span>
-            <details class="menu" data-menu="new">
-              <summary class="primary">New referral</summary>
-              <div class="menuPanel" data-pop="new"></div>
-            </details>
-            <details class="menu" data-menu="more">
-              <summary class="quiet">More</summary>
-              <div class="menuPanel" data-pop="more"></div>
-            </details>
-            <details class="menu shelfMenu" data-menu="contacts">
-              <summary class="srOnly" tabindex="-1">Ward contacts</summary>
-              <div class="menuPanel contacts" data-pop="contacts" role="group" aria-label="Ward contacts"></div>
-            </details>
-          </div>
-        </header>
-      </section>
-    </div>
+        </details>
+      </div>
+    </header>
 
     <div class="hScroll">
       <div class="hGrid" id="bodyCommand">
@@ -4641,7 +4112,7 @@
           <section class="panel" aria-label="Exceptions">
             <div class="ph">
               <h2>Exceptions</h2>
-              <p class="note" style="margin-left: 12px">What is wrong across the whole network.</p>
+              <p class="note" style="margin-left: 12px">What is wrong across the network.</p>
               <span class="count" id="exCount"></span>
             </div>
             <div class="pb" id="exBody"></div>
@@ -4658,92 +4129,83 @@
 
       <section class="panel pageBody" id="bodyOther" hidden aria-label="This page">
         <div class="ph">
-          <h2 id="pageTitle"></h2>
+          <h2 id="otherTitle"></h2>
           <span class="count" id="pageCount"></span>
         </div>
         <p class="pageNote" id="pageNote"></p>
         <div class="pb" id="pageContent"></div>
       </section>
 
-      <section class="panel" aria-label="Three options, one contract">
+      <section class="panel" aria-label="What is in the header">
         <div class="ph">
-          <h2>Three options, one contract</h2>
+          <h2>What is in the header</h2>
           <span class="count">Built to the design system, second edition</span>
         </div>
         <div class="hFeatures">
           <div>
-            <h3><b>A</b>Quiet bar</h3>
+            <h3>The bar</h3>
             <ul>
-              <li>One row. The title, the mark and the disclaimer, then search, then the scope, then the corner.</li>
               <li>
-                The core figures are the control. Press them and every figure for this page drops down, in groups, with
-                the reconciliation line.
+                The page title and the prototype mark. The mark carries the disclaimer, and the rail and the footer say
+                it in full.
               </li>
               <li>
-                Tasks and Activity are two quiet controls with a count and a dot. Each drops a panel under itself.
+                Universal search. Press the slash key. It finds patients by name or identifier, and movements,
+                departments, wards, owners and tools. It refuses a risk or acuity score, a best match, and closed or
+                arrived movements, and says so.
               </li>
-              <li>The lightest of the three. It reads like a toolbar and leaves the most room for the page.</li>
+              <li>
+                Service: all four, or one. The choice filters the queue, the exceptions, the referrals and every figure
+                on this page, and would follow the coordinator to every page with a service in it.
+              </li>
+              <li>New referral, the one primary action, with the source chosen first.</li>
             </ul>
           </div>
           <div>
-            <h3><b>B</b>Instrument corner</h3>
+            <h3>Activity</h3>
             <ul>
               <li>
-                The scope, the core figures, the freshness line and All figures sit in one bordered cluster, so the
-                state of the page reads as one instrument.
+                A drawer from the right edge in two parts. Activity says what is going on in a sentence derived from the
+                data, then the last events with their times.
               </li>
               <li>
-                Tasks and Activity open as drawers from the right edge with the page dimmed behind them, so a long task
-                list has a full column to itself.
+                Live tally shows this page's core figures as tiles, then the full set in groups, and the reconciliation
+                line.
               </li>
-              <li>The primary action sits before the cluster, so the eye lands on the figures last, at the corner.</li>
-              <li>The most instrument-like of the three, and the one that keeps the most on screen at once.</li>
+              <li>
+                The freshness line sits at the top of the drawer: live, reconciled at 10:42, last event two minutes ago.
+                The dot on the button breathes while the last event is recent.
+              </li>
             </ul>
           </div>
           <div>
-            <h3><b>C</b>Tab strip</h3>
+            <h3>Tasks</h3>
             <ul>
               <li>
-                A strip beside the title holds the page's own view, then Tasks, Figures and Activity as tabs. The
-                current view carries the gilt underline.
+                A drawer from the right edge. The notices first, each with the time and a Seen button. The dot on the
+                button goes when none is new, and it is red while a new notice is a breach.
               </li>
               <li>
-                A tab opens a shelf that spans the whole header and pushes nothing, so the queue stays where it was.
+                Then every piece of open work, worst first, each a filter on the queue. A task with a count of none is
+                not shown.
               </li>
               <li>
-                Search sits to the right and grows when it is used. The corner shows only the breached and the waiting
-                counts.
+                Escape closes the drawer first, then the search results, then clears the search, the selection, the task
+                and the service, in that order.
               </li>
-              <li>The most navigational of the three, and the one that gives the popups the most width.</li>
             </ul>
           </div>
           <div>
-            <h3>Shared by all three</h3>
+            <h3>Tools</h3>
             <ul>
               <li>
-                Universal search finds patients by name or identifier, and movements, departments, wards and owners.
-                Press the slash key to reach it. It refuses a risk or acuity score, a best match, and closed or arrived
-                movements, and says so.
+                A drawer from the right edge with who is signed in and the shift, then the tools: print the handover
+                sheet, export the queue, ward contacts, emergency department contacts, the design system, the
+                appearance, sign out.
               </li>
               <li>
-                The figures are scoped to the page. Command shows waiting, breached and due soon. Capacity shows beds
-                free, sites with none and beds held. Referrals shows the triage list. Use the rail to switch.
-              </li>
-              <li>
-                Tasks carries every piece of open work, worst first, each a filter on the queue, with the notices above
-                it. A notice is marked seen with one press.
-              </li>
-              <li>
-                Activity says what is going on in a sentence derived from the data, then the last events with their
-                times, under a freshness line.
-              </li>
-              <li>
-                More holds the handover sheet, the ward contacts pop-out, the design system, the appearance and sign
-                out. New referral is the one primary action.
-              </li>
-              <li>
-                Escape closes a popup first, then the search results, then clears the search, the selection, the task
-                and the scope, in that order.
+                Every extension and address in the contact tables is a placeholder in the shape the live product would
+                use, and the tables say so.
               </li>
             </ul>
           </div>
@@ -4758,9 +4220,8 @@
         </p>
         <p>
           <b>Every person's name is invented</b>, built from uncommon given names and words for plants, birds and stones
-          so that none matches a real person. The ward contacts pop-out shows placeholder extensions and addresses in
-          the shape the live product would use. No real phone number, address or record number appears anywhere on this
-          screen.
+          so that none matches a real person. The contact tables show placeholder extensions and addresses. No real
+          phone number, address or record number appears anywhere on this screen.
         </p>
         <p>
           <b>What is real</b>: the eight emergency departments, the hospital sites, the health services and the ward
@@ -4772,8 +4233,8 @@
 </div>
 
 <script>
-  /* Ward Flow header options. Three single-row headers over one page. Every figure on the screen
-   is derived from the data below on every render, and the rail says whether they reconcile. */
+  /* Ward Flow header, the quiet bar. Every figure on the screen is derived from the data below on
+   every render, within the chosen service, and the rail says whether they reconcile. */
   (function () {
     "use strict";
 
@@ -5043,15 +4504,17 @@
         id: "RF-041",
         from: "Bentley community team",
         src: "Community team",
+        svc: "east",
         at: "08:12",
         age: "Adult",
         req: "Admission",
       },
-      { id: "RF-042", from: "GP, Midland", src: "GP", at: "08:50", age: "Adult", req: "Assessment" },
+      { id: "RF-042", from: "GP, Midland", src: "GP", svc: "east", at: "08:50", age: "Adult", req: "Assessment" },
       {
         id: "RF-043",
         from: "Joondalup community team",
         src: "Community team",
+        svc: "north",
         at: "09:35",
         age: "Older adult",
         req: "Admission",
@@ -5060,6 +4523,7 @@
         id: "RF-044",
         from: "Rockingham community team",
         src: "Community team",
+        svc: "south",
         at: "10:20",
         age: "Adult",
         req: "Admission",
@@ -5073,17 +4537,17 @@
       { code: "SJGM", site: "St John of God Midland", svc: "east", beds: 22, free: 0, held: 0 },
       { code: "RGH", site: "Rockingham General Hospital", svc: "south", beds: 20, free: 2, held: 0 },
     ];
-    /* Ward contacts. The extension and the address are placeholders in the shape the live product
-     would show, and the pop-out says so. None is real. */
+    /* Contacts. The extension and the address are placeholders in the shape the live product
+     would show, and the tables say so. None is real. */
     var WARDS = [
-      ["RPH Adult Secure", "Royal Perth Hospital"],
-      ["SCGH Adult Open", "Sir Charles Gairdner Hospital"],
-      ["SCGH Older Adult", "Sir Charles Gairdner Hospital"],
-      ["FSH Adult Secure", "Fiona Stanley Hospital"],
-      ["FSH Older Adult", "Fiona Stanley Hospital"],
-      ["ARM Adult Open", "Armadale Health Service"],
-      ["SJGM Adult Open", "St John of God Midland"],
-      ["RGH Adult Open", "Rockingham General Hospital"],
+      ["RPH Adult Secure", "Royal Perth Hospital", "east"],
+      ["SCGH Adult Open", "Sir Charles Gairdner Hospital", "north"],
+      ["SCGH Older Adult", "Sir Charles Gairdner Hospital", "north"],
+      ["FSH Adult Secure", "Fiona Stanley Hospital", "south"],
+      ["FSH Older Adult", "Fiona Stanley Hospital", "south"],
+      ["ARM Adult Open", "Armadale Health Service", "east"],
+      ["SJGM Adult Open", "St John of God Midland", "east"],
+      ["RGH Adult Open", "Rockingham General Hospital", "south"],
     ];
     var OVERRIDES = 4;
     var HANDOVER = "14:00";
@@ -5091,21 +4555,26 @@
     var NOW_MIN = 10 * 60 + 42;
     /* Events the data cannot derive, each consistent with a movement above. */
     var EXTRA = [
-      { at: "10:40", tone: "good", text: "Bed pulled for <b>WF-019</b> at FSH Older Adult.", notice: true },
-      { at: "10:33", tone: null, text: "Override recorded on <b>WF-014</b>, for governance review.", notice: true },
-      { at: "10:28", tone: "warn", text: "SCGH Adult Open declined <b>WF-011</b>. Reason recorded." },
-      { at: "10:05", tone: "good", text: "FSH Adult Secure accepted <b>WF-014</b>. No bed pulled yet." },
+      { at: "10:40", ed: "FSH", tone: "good", text: "Bed pulled for <b>WF-019</b> at FSH Older Adult.", notice: true },
+      {
+        at: "10:33",
+        ed: "RPH",
+        tone: null,
+        text: "Override recorded on <b>WF-014</b>, for governance review.",
+        notice: true,
+      },
+      { at: "10:28", ed: "FSH", tone: "warn", text: "SCGH Adult Open declined <b>WF-011</b>. Reason recorded." },
+      { at: "10:05", ed: "RPH", tone: "good", text: "FSH Adult Secure accepted <b>WF-014</b>. No bed pulled yet." },
     ];
 
     var state = {
       q: "",
       qOpen: false,
-      qWrap: null,
-      scope: null,
+      svc: null,
       task: null,
       selected: null,
       page: "command",
-      option: "a",
+      actPart: "activity",
       seen: {},
     };
     var CHECK = [];
@@ -5166,14 +4635,30 @@
       if (!live) return;
       live.textContent = live.textContent === text ? text + "\u200b" : text;
     }
-    function setAllText(role, text) {
-      all('[data-role="' + role + '"]').forEach(function (el) {
-        el.textContent = text;
+    function svcName() {
+      return state.svc ? SVC[state.svc] : "all services";
+    }
+
+    /* ─── the service scope: everything below is derived within it ─── */
+    function inSvc(m) {
+      return !state.svc || EDS[m.ed].svc === state.svc;
+    }
+    function scoped() {
+      return MOVES.filter(inSvc);
+    }
+    function scopedRefs() {
+      return REFERRALS.filter(function (r) {
+        return !state.svc || r.svc === state.svc;
       });
     }
-    function setAllHtml(pop, html) {
-      all('[data-pop="' + pop + '"]').forEach(function (el) {
-        el.innerHTML = html;
+    function scopedBeds() {
+      return BEDS.filter(function (b) {
+        return !state.svc || b.svc === state.svc;
+      });
+    }
+    function scopedEds() {
+      return ED_ORDER.filter(function (c) {
+        return !state.svc || EDS[c].svc === state.svc;
       });
     }
 
@@ -5230,14 +4715,17 @@
       return null;
     }
     function countTask(t) {
-      return MOVES.filter(t.test).length;
+      return scoped().filter(t.test).length;
     }
 
     /* ─── derived figures ─── */
     function figures() {
-      var f = { total: MOVES.length, byEd: {}, bySvc: {}, byTier: { 1: 0, 2: 0, 3: 0 } };
+      var moves = scoped(),
+        refs = scopedRefs(),
+        beds = scopedBeds();
+      var f = { total: moves.length, byEd: {}, bySvc: {}, byTier: { 1: 0, 2: 0, 3: 0 } };
       var longest = null;
-      MOVES.forEach(function (m) {
+      moves.forEach(function (m) {
         f.byEd[m.ed] = f.byEd[m.ed] || { n: 0, longest: 0, breached: 0 };
         f.byEd[m.ed].n++;
         if (m.wait > f.byEd[m.ed].longest) f.byEd[m.ed].longest = m.wait;
@@ -5255,37 +4743,40 @@
       f.unowned = countTask(TASKS[2]);
       f.declines = countTask(TASKS[3]);
       f.nobed = countTask(TASKS[4]);
-      f.allDeclined = MOVES.filter(function (m) {
+      f.allDeclined = moves.filter(function (m) {
         return m.declined.length >= 3 && m.dest.k === "none";
       }).length;
-      f.beds = BEDS.reduce(function (a, b) {
+      f.refs = refs.length;
+      f.beds = beds.reduce(function (a, b) {
         return a + b.beds;
       }, 0);
-      f.free = BEDS.reduce(function (a, b) {
+      f.free = beds.reduce(function (a, b) {
         return a + b.free;
       }, 0);
-      f.held = BEDS.reduce(function (a, b) {
+      f.held = beds.reduce(function (a, b) {
         return a + b.held;
       }, 0);
-      f.noFree = BEDS.filter(function (b) {
+      f.sites = beds.length;
+      f.noFree = beds.filter(function (b) {
         return b.free === 0;
       });
-      f.mostFree = BEDS.slice().sort(function (a, b) {
-        return b.free - a.free;
-      })[0];
-      f.refOldest = REFERRALS.reduce(function (a, r) {
+      f.mostFree =
+        beds.slice().sort(function (a, b) {
+          return b.free - a.free;
+        })[0] || null;
+      f.refOldest = refs.reduce(function (a, r) {
         return !a || clockToMin(r.at) < clockToMin(a.at) ? r : a;
       }, null);
-      f.refNewest = REFERRALS.reduce(function (a, r) {
+      f.refNewest = refs.reduce(function (a, r) {
         return !a || clockToMin(r.at) > clockToMin(a.at) ? r : a;
       }, null);
-      f.refOlder = REFERRALS.filter(function (r) {
+      f.refOlder = refs.filter(function (r) {
         return r.age === "Older adult";
       }).length;
-      f.refAdmission = REFERRALS.filter(function (r) {
+      f.refAdmission = refs.filter(function (r) {
         return r.req === "Admission";
       }).length;
-      f.outstanding = f.breached + f.soon + f.unowned + f.declines + f.nobed + REFERRALS.length + OVERRIDES + 1;
+      f.outstanding = f.breached + f.soon + f.unowned + f.declines + f.nobed + f.refs + OVERRIDES + 1;
       return f;
     }
     function reconcile(f) {
@@ -5302,19 +4793,17 @@
       if (edSum !== f.total) CHECK.push("departments sum to " + edSum + ", not " + f.total);
       if (svcSum !== f.total) CHECK.push("services sum to " + svcSum + ", not " + f.total);
       if (tierSum !== f.total) CHECK.push("tiers sum to " + tierSum + ", not " + f.total);
-      var bedSum = BEDS.reduce(function (a, b) {
-        return a + b.beds;
-      }, 0);
-      if (bedSum !== f.beds) CHECK.push("beds by site sum to " + bedSum + ", not " + f.beds);
     }
 
-    /* ─── the pages, each with the figures it carries in the header ─── */
+    /* ─── the pages, each with the figures it carries ─── */
     function table(head, rows, total) {
       var h = '<div class="tableWrap" style="border-top:0"><table class="dataTable"><thead><tr>';
       head.forEach(function (c, i) {
         h += "<th" + (i ? ' class="n"' : "") + ">" + c + "</th>";
       });
       h += "</tr></thead><tbody>";
+      if (!rows.length)
+        h += '<tr><td colspan="' + head.length + '"><span class="zero">none in ' + esc(svcName()) + "</span></td></tr>";
       rows.forEach(function (r) {
         h += "<tr>";
         r.forEach(function (c, i) {
@@ -5322,7 +4811,7 @@
         });
         h += "</tr>";
       });
-      if (total) {
+      if (total && rows.length) {
         h += '<tr class="total">';
         total.forEach(function (c, i) {
           h += "<td" + (i ? ' class="n"' : "") + ">" + c + "</td>";
@@ -5341,38 +4830,36 @@
     var PAGES = {
       command: {
         title: "Command",
-        tab: "Queue",
         core: function (f) {
           return [
-            { label: "waiting", val: num(f.total), rank: 1 },
-            { label: "breached", val: num(f.breached), tone: f.breached > 0 ? "danger" : null, rank: 1 },
-            { label: "due in 2h", val: num(f.soon), tone: f.soon > 0 ? "warn" : null, rank: 2 },
-            { label: "longest wait", val: fmtWait(f.longest.wait), rank: 3 },
+            { label: "Waiting in ED", val: num(f.total) },
+            { label: "Breached", val: num(f.breached), tone: f.breached > 0 ? "danger" : null },
+            { label: "Due within 2 hours", val: num(f.soon), tone: f.soon > 0 ? "warn" : null },
+            {
+              label: "Longest wait",
+              val: f.longest ? fmtWait(f.longest.wait) + " <i>at " + f.longest.ed + "</i>" : "<i>none</i>",
+            },
           ];
         },
         groups: function (f) {
-          var h = '<div class="figGrid">';
-          h +=
-            '<section><p class="menuHead">Network now</p>' +
+          var h =
+            '<section><p class="menuHead">Now</p>' +
             facts([
-              ["Waiting in ED", num(f.total)],
-              ["Legal deadlines passed", num(f.breached), f.breached > 0 ? "danger" : null],
-              ["Deadlines within 2 hours", num(f.soon), f.soon > 0 ? "warn" : null],
               ["Movements with no owner", num(f.unowned), f.unowned > 0 ? "warn" : null],
               ["Declined by every ward asked", num(f.allDeclined)],
               ["Accepted with no bed pulled", num(f.nobed)],
-              ["Longest wait", fmtWait(f.longest.wait) + " at " + f.longest.ed],
-              ["Referrals awaiting triage", num(REFERRALS.length)],
+              ["Referrals awaiting triage", num(f.refs)],
               ["Overrides for governance review", num(OVERRIDES)],
+              ["Beds free", num(f.free) + " <i>of " + f.beds + "</i>"],
             ]) +
             "</section>";
           h +=
             '<section><p class="menuHead">By emergency department<span class="count">' +
-            ED_ORDER.length +
+            scopedEds().length +
             "</span></p>" +
             table(
               ["ED", "Waiting", "Longest", "Breached"],
-              ED_ORDER.map(function (c) {
+              scopedEds().map(function (c) {
                 var e = f.byEd[c] || { n: 0, longest: 0, breached: 0 };
                 return [c, cell(e.n), e.n ? fmtWait(e.longest) : '<span class="zero">none</span>', cell(e.breached)];
               }),
@@ -5382,12 +4869,16 @@
             '<section><p class="menuHead">By health service</p>' +
             table(
               ["Service", "Waiting", "Breached"],
-              SVC_ORDER.map(function (s) {
+              SVC_ORDER.filter(function (s) {
+                return !state.svc || s === state.svc;
+              }).map(function (s) {
                 var e = f.bySvc[s] || { n: 0, breached: 0 };
                 return [SVC_SHORT[s], cell(e.n), cell(e.breached)];
               }),
             ) +
-            '<p class="menuHead" style="padding-top:8px">By tier</p>' +
+            "</section>";
+          h +=
+            '<section><p class="menuHead">By tier</p>' +
             table(
               ["Tier", "Waiting"],
               [1, 2, 3].map(function (t) {
@@ -5397,77 +4888,67 @@
             "</section>";
           h +=
             '<section><p class="menuHead">Beds by site<span class="count">' +
-            BEDS.length +
+            f.sites +
             " of 17</span></p>" +
             table(
               ["Site", "Beds", "Free", "Held"],
-              BEDS.map(function (b) {
+              scopedBeds().map(function (b) {
                 return [b.code, b.beds, cell(b.free), cell(b.held)];
               }),
-              ["Six sites", f.beds, cell(f.free), cell(f.held)],
+              [f.sites + " " + plural(f.sites, "site", "sites"), f.beds, cell(f.free), cell(f.held)],
             ) +
             "</section>";
-          h +=
-            '<p class="statsFoot"><span>' +
-            (CHECK.length
-              ? CHECK.length + " figures do not reconcile: " + CHECK.join(", ") + "."
-              : "Figures reconcile: " +
-                f.total +
-                " movements across " +
-                ED_ORDER.length +
-                " departments, " +
-                Object.keys(f.bySvc).length +
-                " services and 3 tiers.") +
-            "</span><span>Reconciled at " +
-            NOW +
-            ".</span><span>Every figure is invented.</span></p></div>";
           return h;
         },
-        groupsCount: "4 groups",
+        reconcileLine: function (f) {
+          return CHECK.length
+            ? CHECK.length + " figures do not reconcile: " + CHECK.join(", ") + "."
+            : "Figures reconcile: " +
+                f.total +
+                " movements across " +
+                scopedEds().length +
+                " departments and 3 tiers, in " +
+                svcName() +
+                ".";
+        },
       },
       capacity: {
         title: "Capacity",
-        tab: "Beds",
         core: function (f) {
           return [
-            { label: "beds free", val: num(f.free), rank: 1 },
+            { label: "Beds free", val: num(f.free) + " <i>of " + f.beds + "</i>" },
             {
-              label: plural(f.noFree.length, "site with none", "sites with none"),
+              label: plural(f.noFree.length, "Site with none", "Sites with none"),
               val: num(f.noFree.length),
               tone: f.noFree.length > 0 ? "warn" : null,
-              rank: 1,
             },
-            { label: "held", val: num(f.held), rank: 2 },
-            { label: "beds drawn", val: String(f.beds), rank: 3 },
+            { label: "Held", val: num(f.held) },
+            { label: "Sites drawn", val: num(f.sites) + " <i>of 17</i>" },
           ];
         },
         groups: function (f) {
-          var h = '<div class="figGrid three">';
-          h +=
-            '<section><p class="menuHead">Beds now</p>' +
+          var h =
+            '<section><p class="menuHead">Now</p>' +
             facts([
-              ["Beds across six sites", String(f.beds)],
-              ["Free", num(f.free)],
-              ["Held for a named movement", num(f.held)],
-              ["Sites with none free", num(f.noFree.length), f.noFree.length > 0 ? "warn" : null],
-              ["Most free", f.mostFree.free + " at " + f.mostFree.code],
+              ["Most free", f.mostFree ? f.mostFree.free + " at " + f.mostFree.code : "<i>none</i>"],
               ["Accepted with no bed pulled", num(f.nobed)],
+              ["Waiting in ED", num(f.total)],
             ]) +
             "</section>";
           h +=
             '<section><p class="menuHead">By site<span class="count">' +
-            BEDS.length +
+            f.sites +
             " of 17</span></p>" +
             table(
               ["Site", "Beds", "Free", "Held"],
-              BEDS.map(function (b) {
+              scopedBeds().map(function (b) {
                 return [b.code, b.beds, cell(b.free), cell(b.held)];
               }),
-              ["Six sites", f.beds, cell(f.free), cell(f.held)],
+              [f.sites + " " + plural(f.sites, "site", "sites"), f.beds, cell(f.free), cell(f.held)],
             ) +
             "</section>";
           var bySvc = {};
-          BEDS.forEach(function (b) {
+          scopedBeds().forEach(function (b) {
             bySvc[b.svc] = bySvc[b.svc] || { beds: 0, free: 0 };
             bySvc[b.svc].beds += b.beds;
             bySvc[b.svc].free += b.free;
@@ -5476,54 +4957,62 @@
             '<section><p class="menuHead">By health service</p>' +
             table(
               ["Service", "Beds", "Free"],
-              SVC_ORDER.map(function (s) {
+              SVC_ORDER.filter(function (s) {
+                return !state.svc || s === state.svc;
+              }).map(function (s) {
                 var e = bySvc[s] || { beds: 0, free: 0 };
                 return [SVC_SHORT[s], cell(e.beds), cell(e.free)];
               }),
             ) +
-            '<p class="menuNote">WA Country beds are not drawn in this prototype. Absence here means not drawn, not none.</p></section>';
-          h +=
-            '<p class="statsFoot"><span>Figures reconcile: ' +
-            BEDS.length +
-            " sites sum to " +
+            '<p class="menuNote" style="padding-left:14px">WA Country beds are not drawn in this prototype. Absence here means not drawn, not none.</p></section>';
+          return h;
+        },
+        reconcileLine: function (f) {
+          return (
+            "Figures reconcile: " +
+            f.sites +
+            " " +
+            plural(f.sites, "site sums", "sites sum") +
+            " to " +
             f.beds +
             " beds and " +
             f.free +
-            " free.</span><span>Reconciled at " +
-            NOW +
-            ".</span><span>Every figure is invented.</span></p></div>";
-          return h;
+            " free, in " +
+            svcName() +
+            "."
+          );
         },
-        groupsCount: "3 groups",
       },
       referrals: {
         title: "Referrals",
-        tab: "Triage list",
         core: function (f) {
-          var oldest = NOW_MIN - clockToMin(f.refOldest.at);
+          var oldest = f.refOldest ? NOW_MIN - clockToMin(f.refOldest.at) : null;
           return [
-            { label: "to triage", val: num(REFERRALS.length), rank: 1 },
-            { label: "oldest", val: fmtWait(oldest), tone: oldest > 120 ? "warn" : null, rank: 1 },
-            { label: "older adult", val: num(f.refOlder), rank: 2 },
-            { label: "for admission", val: num(f.refAdmission), rank: 3 },
+            { label: "Awaiting triage", val: num(f.refs) },
+            {
+              label: "Oldest",
+              val: oldest === null ? "<i>none</i>" : fmtWait(oldest),
+              tone: oldest !== null && oldest > 120 ? "warn" : null,
+            },
+            { label: "Older adult", val: num(f.refOlder) },
+            { label: "For admission", val: num(f.refAdmission) },
           ];
         },
         groups: function (f) {
-          var oldest = NOW_MIN - clockToMin(f.refOldest.at);
-          var h = '<div class="figGrid three">';
-          h +=
-            '<section><p class="menuHead">Triage now</p>' +
+          var refs = scopedRefs();
+          var h =
+            '<section><p class="menuHead">Now</p>' +
             facts([
-              ["Awaiting triage", num(REFERRALS.length)],
-              ["Oldest", fmtWait(oldest) + ", " + f.refOldest.id, oldest > 120 ? "warn" : null],
-              ["Newest", fmtWait(NOW_MIN - clockToMin(f.refNewest.at)) + ", " + f.refNewest.id],
-              ["Older adult", num(f.refOlder)],
+              [
+                "Newest",
+                f.refNewest ? fmtWait(NOW_MIN - clockToMin(f.refNewest.at)) + ", " + f.refNewest.id : "<i>none</i>",
+              ],
               ["Triaged since handover", "<i>none</i>"],
             ]) +
             "</section>";
           var by = function (key, label) {
             var m = {};
-            REFERRALS.forEach(function (r) {
+            refs.forEach(function (r) {
               m[r[key]] = (m[r[key]] || 0) + 1;
             });
             return table(
@@ -5533,32 +5022,32 @@
               }),
             );
           };
-          h +=
-            '<section><p class="menuHead">By source</p>' +
-            by("src", "Source") +
-            '<p class="menuHead" style="padding-top:8px">By request</p>' +
-            by("req", "Request") +
-            "</section>";
+          h += '<section><p class="menuHead">By source</p>' + by("src", "Source") + "</section>";
+          h += '<section><p class="menuHead">By request</p>' + by("req", "Request") + "</section>";
           h +=
             '<section><p class="menuHead">Waiting<span class="count">' +
-            REFERRALS.length +
+            refs.length +
             "</span></p>" +
             table(
               ["Referral", "Received", "Waiting"],
-              REFERRALS.map(function (r) {
+              refs.map(function (r) {
                 return [r.id, r.at, fmtWait(NOW_MIN - clockToMin(r.at))];
               }),
             ) +
             "</section>";
-          h +=
-            '<p class="statsFoot"><span>Figures reconcile: ' +
-            REFERRALS.length +
-            " referrals by source, by request and by age.</span><span>Reconciled at " +
-            NOW +
-            ".</span><span>Every figure is invented.</span></p></div>";
           return h;
         },
-        groupsCount: "3 groups",
+        reconcileLine: function (f) {
+          return (
+            "Figures reconcile: " +
+            f.refs +
+            " " +
+            plural(f.refs, "referral", "referrals") +
+            " by source, by request and by age, in " +
+            svcName() +
+            "."
+          );
+        },
       },
     };
 
@@ -5569,7 +5058,7 @@
       return 2;
     }
     function sorted() {
-      return MOVES.slice().sort(function (a, b) {
+      return scoped().sort(function (a, b) {
         var ra = rank(a),
           rb = rank(b);
         if (ra !== rb) return ra - rb;
@@ -5600,7 +5089,6 @@
       return hay.indexOf(q.toLowerCase()) !== -1;
     }
     function visible(m) {
-      if (state.scope && m.ed !== state.scope) return false;
       if (state.task && !taskByKey(state.task).test(m)) return false;
       if (state.q && !refusal(state.q) && !matches(m, state.q)) return false;
       return true;
@@ -5608,22 +5096,22 @@
 
     /* ─── universal search ─── */
     var ACTIONS = [
-      { key: "print", label: "Print handover sheet", words: "print handover sheet", small: "More" },
+      { key: "print", label: "Print handover sheet", words: "print handover sheet", small: "Tools" },
       {
-        key: "contacts",
-        label: "Ward contacts",
-        words: "ward contacts phone extension email numbers",
-        small: "pop-out",
+        key: "tools",
+        label: "Ward and ED contacts",
+        words: "ward contacts phone extension email numbers ed contacts",
+        small: "Tools",
       },
       { key: "new", label: "Raise a referral", words: "new referral raise", small: "primary" },
       {
-        key: "figures",
-        label: "All figures for this page",
-        words: "figures statistics stats numbers",
-        small: "corner",
+        key: "tally",
+        label: "Live tally for this page",
+        words: "figures statistics stats numbers tally",
+        small: "Activity",
       },
-      { key: "tasks", label: "Outstanding tasks", words: "tasks outstanding work notices", small: "header" },
-      { key: "activity", label: "What is going on", words: "activity events going on log", small: "header" },
+      { key: "tasks", label: "Outstanding tasks", words: "tasks outstanding work notices", small: "Tasks" },
+      { key: "activity", label: "What is going on", words: "activity events going on log", small: "Activity" },
     ];
     function hits(q) {
       var ql = q.trim().toLowerCase();
@@ -5667,9 +5155,7 @@
     function renderSearch() {
       var q = state.q.trim();
       var html = "";
-      if (!q) {
-        html = "";
-      } else {
+      if (q) {
         var ref = refusal(q);
         if (ref) {
           html = '<p class="qNone">' + ref + "</p>";
@@ -5679,7 +5165,7 @@
             html =
               '<p class="qNone">Nothing matches “' +
               esc(q) +
-              "”. Search finds patients by name or identifier, movements, departments, wards and owners.</p>";
+              "”. Search finds patients by name or identifier, movements, departments, wards, owners and tools.</p>";
           } else {
             if (h.patients.length) {
               html +=
@@ -5688,6 +5174,7 @@
                 ' open</span></p><div class="menuList">';
               h.patients.slice(0, 6).forEach(function (m, i) {
                 var under = m.dl !== null && m.dl < 0 ? "<em>" + fmtDl(m.dl) + "</em>" : fmtDl(m.dl);
+                var outside = state.svc && EDS[m.ed].svc !== state.svc ? " Outside " + SVC[state.svc] + "." : "";
                 html +=
                   '<button type="button" class="qHit" data-hit="patient" data-id="' +
                   m.id +
@@ -5705,7 +5192,9 @@
                   esc(EDS[m.ed].name) +
                   ". " +
                   under +
-                  ".</span></button>";
+                  "." +
+                  outside +
+                  "</span></button>";
               });
               html += "</div>";
             }
@@ -5713,11 +5202,13 @@
               html += '<p class="menuHead">Emergency departments</p><div class="menuList">';
               h.eds.forEach(function (c) {
                 html +=
-                  '<button type="button" class="qHit" data-hit="scope" data-code="' +
+                  '<button type="button" class="qHit" data-hit="text" data-text="' +
                   c +
                   '"><b>' +
                   esc(EDS[c].name) +
-                  "</b><small>set scope</small></button>";
+                  "</b><small>" +
+                  SVC_SHORT[EDS[c].svc] +
+                  ", filter the queue</small></button>";
               });
               html += "</div>";
             }
@@ -5750,7 +5241,7 @@
               html += "</div>";
             }
             if (h.actions.length) {
-              html += '<p class="menuHead">Actions</p><div class="menuList">';
+              html += '<p class="menuHead">Tools and views</p><div class="menuList">';
               h.actions.forEach(function (a) {
                 html +=
                   '<button type="button" class="qHit" data-hit="action" data-key="' +
@@ -5768,16 +5259,14 @@
         html +=
           '<p class="popFoot"><span>Names are invented.</span><span>Search never returns a risk score, an acuity score or a best match.</span></p>';
       }
-      setAllHtml("search", html);
-      all(".searchWrap").forEach(function (w) {
-        w.setAttribute("data-open", state.qOpen && q && w === state.qWrap ? "true" : "false");
-      });
+      $("qPop").innerHTML = html;
+      $("searchWrap").setAttribute("data-open", state.qOpen && q ? "true" : "false");
     }
 
-    /* ─── activity ─── */
+    /* ─── activity: the events, the notices, the sentence, the tally ─── */
     function events() {
       var ev = [];
-      MOVES.forEach(function (m) {
+      scoped().forEach(function (m) {
         var opened = NOW_MIN - m.wait;
         if (opened >= 0)
           ev.push({
@@ -5792,7 +5281,7 @@
             text: "<b>" + m.id + "</b> passed its legal deadline at " + esc(EDS[m.ed].name) + ".",
           });
       });
-      REFERRALS.forEach(function (r) {
+      scopedRefs().forEach(function (r) {
         ev.push({
           min: clockToMin(r.at),
           tone: null,
@@ -5809,6 +5298,7 @@
         });
       });
       EXTRA.forEach(function (x) {
+        if (state.svc && EDS[x.ed].svc !== state.svc) return;
         ev.push({ min: clockToMin(x.at), tone: x.tone, text: x.text });
       });
       ev.sort(function (a, b) {
@@ -5819,9 +5309,11 @@
     function notices() {
       var n = [];
       EXTRA.forEach(function (x, i) {
-        if (x.notice) n.push({ key: "x" + i, min: clockToMin(x.at), tone: x.tone, text: x.text });
+        if (!x.notice) return;
+        if (state.svc && EDS[x.ed].svc !== state.svc) return;
+        n.push({ key: "x" + i, min: clockToMin(x.at), tone: x.tone, text: x.text });
       });
-      MOVES.forEach(function (m) {
+      scoped().forEach(function (m) {
         if (m.dl !== null && m.dl < 0 && m.dl > -60)
           n.push({
             key: m.id,
@@ -5836,19 +5328,31 @@
       return n;
     }
     function summary(f) {
-      var breachedAt = ED_ORDER.filter(function (c) {
-        return f.byEd[c] && f.byEd[c].breached > 0;
-      }).map(function (c) {
-        return EDS[c].short;
-      });
+      var where = state.svc ? " in " + SVC[state.svc] : "";
+      if (f.total === 0 && f.sites === 0)
+        return (
+          "Nothing is open" +
+          where +
+          ". No department there has a movement open and no site there is drawn in this prototype. Absence here means none, not that nothing exists."
+        );
+      var breachedAt = scopedEds()
+        .filter(function (c) {
+          return f.byEd[c] && f.byEd[c].breached > 0;
+        })
+        .map(function (c) {
+          return EDS[c].short;
+        });
       var s =
         "<b>" +
         f.total +
         "</b> " +
         plural(f.total, "person is", "people are") +
         " waiting in <b>" +
-        ED_ORDER.length +
-        "</b> emergency departments. ";
+        scopedEds().length +
+        "</b> emergency " +
+        plural(scopedEds().length, "department", "departments") +
+        where +
+        ". ";
       if (f.breached === 0) s += "None has passed a legal deadline. ";
       else
         s +=
@@ -5860,24 +5364,24 @@
           breachedAt.join(" and ") +
           ". ";
       s +=
-        "<b>" +
-        f.soon +
-        "</b> more " +
-        plural(f.soon, "falls", "fall") +
-        " due within two hours, and <b>" +
-        (f.unowned || "no") +
-        "</b> " +
-        plural(f.unowned, "movement has", "movements have") +
-        " no owner. ";
-      var withFree = BEDS.length - f.noFree.length;
+        (f.soon
+          ? "<b>" + f.soon + "</b> more " + plural(f.soon, "falls", "fall") + " due within two hours"
+          : "None falls due within two hours") +
+        ", and " +
+        (f.unowned
+          ? "<b>" + f.unowned + "</b> " + plural(f.unowned, "movement has", "movements have") + " no owner. "
+          : "every movement has an owner. ");
+      var withFree = f.sites - f.noFree.length;
       s +=
         "<b>" +
         f.free +
         "</b> beds are free at " +
         withFree +
         " of the " +
-        BEDS.length +
-        " sites drawn" +
+        f.sites +
+        " " +
+        plural(f.sites, "site", "sites") +
+        " drawn" +
         (f.noFree.length
           ? ", none at " +
             f.noFree
@@ -5889,9 +5393,9 @@
         ". ";
       s +=
         "<b>" +
-        REFERRALS.length +
+        (f.refs || "No") +
         "</b> " +
-        plural(REFERRALS.length, "referral awaits", "referrals await") +
+        plural(f.refs, "referral awaits", "referrals await") +
         " triage. Handover is due at <b>" +
         HANDOVER +
         "</b>.";
@@ -5899,45 +5403,83 @@
     }
     function renderActivity(f) {
       var ev = events();
-      var last = ev.length ? ev[0].min : NOW_MIN;
+      var last = ev.length ? ev[0].min : null;
+      var page = PAGES[state.page];
       var html =
-        '<div class="popHead"><h2>What is going on</h2><span class="count">last event ' +
-        minToClock(last) +
-        ", " +
-        agoText(last) +
-        '</span><span class="fresh"><span class="dot" data-tone="good"></span>Live, reconciled ' +
+        '<div class="popHead"><h2>Activity</h2><span class="count">' +
+        esc(svcName()) +
+        '</span><button type="button" class="closeBtn" data-close="1">Close</button>' +
+        '<span class="fresh"><span class="dot" data-tone="good"></span>Live, reconciled ' +
         NOW +
+        (last !== null ? ", last event " + minToClock(last) + ", " + agoText(last) : ", no event today") +
         "</span></div>";
       html +=
-        '<div class="popCols"><section><p class="menuHead">Now</p><p class="actSum">' + summary(f) + "</p></section>";
+        '<div class="seg" role="group" aria-label="Two parts"><button type="button" data-part="activity" aria-pressed="' +
+        (state.actPart === "activity" ? "true" : "false") +
+        '">Activity<span class="count">' +
+        ev.length +
+        '</span></button><button type="button" data-part="tally" aria-pressed="' +
+        (state.actPart === "tally" ? "true" : "false") +
+        '">Live tally<span class="count">' +
+        page.title +
+        "</span></button></div>";
+      html +=
+        '<div class="popBody part" data-part="activity"' +
+        (state.actPart === "activity" ? "" : " hidden") +
+        '><section><p class="menuHead">What is going on</p><p class="actSum">' +
+        summary(f) +
+        "</p></section>";
       html +=
         '<section><p class="menuHead">Last events<span class="count">' +
-        Math.min(ev.length, 12) +
+        Math.min(ev.length, 14) +
         " of " +
         ev.length +
-        ' today</span></p><ol class="feed">';
-      ev.slice(0, 12).forEach(function (e) {
+        " today</span></p>";
+      if (!ev.length) html += '<p class="menuNote">No event today in ' + esc(svcName()) + ".</p>";
+      else {
+        html += '<ol class="feed">';
+        ev.slice(0, 14).forEach(function (e) {
+          html +=
+            '<li class="feedItem"' +
+            (e.tone ? ' data-tone="' + e.tone + '"' : "") +
+            "><time>" +
+            minToClock(e.min) +
+            '</time><span class="dot"></span><span>' +
+            e.text +
+            "</span></li>";
+        });
+        html += "</ol>";
+      }
+      html += "</section></div>";
+      html +=
+        '<div class="popBody part" data-part="tally"' +
+        (state.actPart === "tally" ? "" : " hidden") +
+        '><p class="menuHead" style="padding-left:14px">' +
+        page.title +
+        ' now<span class="count">' +
+        esc(svcName()) +
+        '</span></p><div class="tally">';
+      page.core(f).forEach(function (c) {
         html +=
-          '<li class="feedItem"' +
-          (e.tone ? ' data-tone="' + e.tone + '"' : "") +
-          "><time>" +
-          minToClock(e.min) +
-          '</time><span class="dot"></span><span>' +
-          e.text +
-          "</span></li>";
+          '<div class="tile"' +
+          (c.tone ? ' data-tone="' + c.tone + '"' : "") +
+          "><small>" +
+          c.label +
+          "</small><b>" +
+          c.val +
+          "</b></div>";
       });
-      html += "</ol></section></div>";
+      html += '</div><div class="figGrid">' + page.groups(f) + "</div>";
+      html +=
+        '<p class="statsFoot"><span>' +
+        page.reconcileLine(f) +
+        "</span><span>Reconciled at " +
+        NOW +
+        ".</span><span>Every figure is invented.</span></p></div>";
       html +=
         '<p class="popFoot"><span>Events are invented and listed newest first.</span><span>The live product would stream them from the pathway record and say when the stream last spoke.</span></p>';
-      setAllHtml("activity", html);
-      var fresh = NOW_MIN - last <= 5;
-      all('[data-role="actDot"]').forEach(function (d) {
-        d.hidden = !fresh;
-      });
-      setAllText("fresh", "");
-      all('[data-role="fresh"]').forEach(function (el) {
-        el.innerHTML = '<span class="dot" data-tone="good"></span>Live ' + NOW;
-      });
+      $("activityPanel").innerHTML = html;
+      $("actDot").hidden = !(last !== null && NOW_MIN - last <= 5);
     }
 
     /* ─── tasks ─── */
@@ -5955,12 +5497,12 @@
           hint: "filter the queue",
         });
       });
-      if (REFERRALS.length)
+      if (f.refs)
         rows.push({
           key: "referrals",
           tone: null,
-          n: REFERRALS.length,
-          word: plural(REFERRALS.length, "referral to triage", "referrals to triage"),
+          n: f.refs,
+          word: plural(f.refs, "referral to triage", "referrals to triage"),
           kind: "go",
           hint: "open Referrals",
         });
@@ -5979,7 +5521,7 @@
         n: null,
         word: "Handover sheet due " + HANDOVER,
         kind: "go",
-        hint: "print from More",
+        hint: "print from Tools",
       });
       var outstanding = rows.reduce(function (a, c) {
         return a + (c.n || 1);
@@ -5990,21 +5532,17 @@
         return !state.seen[n.key];
       });
       var html =
-        '<div class="popHead"><h2>Outstanding</h2><span class="count">' +
+        '<div class="popHead"><h2>Tasks</h2><span class="count">' +
         outstanding +
-        " " +
-        plural(outstanding, "item", "items") +
-        ", " +
+        " outstanding, " +
         rows.length +
-        " kinds</span>" +
-        '<button type="button" class="linkBtn" data-go="queue">Show in queue</button></div>';
+        ' kinds</span><button type="button" class="closeBtn" data-close="1">Close</button></div>';
       html +=
-        '<div class="popCols"><section><p class="menuHead">Notices<span class="count">' +
+        '<div class="popBody"><section><p class="menuHead">Notices<span class="count">' +
         (unseen.length ? unseen.length + " new" : "none new") +
         "</span></p>";
-      if (!ns.length) {
-        html += '<p class="menuNote">No notices since handover.</p>';
-      } else {
+      if (!ns.length) html += '<p class="menuNote">No notices since handover in ' + esc(svcName()) + ".</p>";
+      else {
         html += '<ol class="notices">';
         ns.forEach(function (n) {
           var isNew = !state.seen[n.key];
@@ -6022,7 +5560,7 @@
         html += "</ol>";
       }
       html +=
-        '<p class="menuNote">A notice is something that changed. It stays until it is marked seen, and the dot on the control goes when none is new.</p></section>';
+        '<p class="menuNote">A notice is something that changed. It stays until it is marked seen, and the dot on the button goes when none is new.</p></section>';
       html += '<section><p class="menuHead">Work open<span class="count">worst first</span></p><div class="taskRows">';
       rows.forEach(function (c) {
         var fig = c.n === null ? "<b><i>at</i></b>" : "<b>" + c.n + "</b>";
@@ -6042,165 +5580,172 @@
           c.hint +
           "</small></button>";
       });
-      html += "</div></section></div>";
       html +=
-        '<p class="popFoot"><span>Counts are derived from the open movements on every render.</span><span>A task with a count of none is not shown.</span></p>';
-      setAllHtml("tasks", html);
-      setAllText("tasksCount", String(outstanding));
-      var worst = unseen.some(function (n) {
-        return n.tone === "danger";
-      });
-      all('[data-role="tasksDot"]').forEach(function (d) {
-        d.hidden = unseen.length === 0;
-        if (worst) d.setAttribute("data-tone", "danger");
-        else d.removeAttribute("data-tone");
-      });
+        '</div><div class="menuList" style="padding-top:0"><button type="button" class="linkBtn" data-go="queue" style="padding:4px 10px;text-align:left">Show in queue</button></div></section></div>';
+      html +=
+        '<p class="popFoot"><span>Counts are derived from the open movements in ' +
+        esc(svcName()) +
+        " on every render.</span><span>A task with a count of none is not shown.</span></p>";
+      $("tasksPanel").innerHTML = html;
+      $("tasksCount").textContent = String(outstanding);
+      var dot = $("tasksDot");
+      dot.hidden = unseen.length === 0;
+      if (
+        unseen.some(function (n) {
+          return n.tone === "danger";
+        })
+      )
+        dot.setAttribute("data-tone", "danger");
+      else dot.removeAttribute("data-tone");
     }
 
-    /* ─── figures in the corner and behind it ─── */
-    function renderFigures(f) {
-      var page = PAGES[state.page];
-      var core = page.core(f);
-      all(".hdr1").forEach(function (h) {
-        var kind = h.getAttribute("data-hdr");
-        var el = h.querySelector('[data-role="core"]');
-        if (!el) return;
-        var items = core;
-        if (kind === "c") {
-          items = core
-            .filter(function (c) {
-              return c.rank === 1;
-            })
-            .sort(function (a, b) {
-              return (b.tone === "danger") - (a.tone === "danger");
-            });
-          items = items.map(function (c, i) {
-            return { label: c.label, val: c.val, tone: c.tone, rank: i + 1 };
-          });
-        }
-        el.innerHTML = items
-          .map(function (c) {
-            var tone = c.tone ? ' data-tone="' + c.tone + '"' : "";
-            if (kind === "b")
-              return (
-                '<span data-rank="' + c.rank + '"' + tone + "><small>" + c.label + "</small><b>" + c.val + "</b></span>"
-              );
-            return '<span data-rank="' + c.rank + '"' + tone + "><b>" + c.val + "</b>" + c.label + "</span>";
-          })
-          .join("");
-        h.querySelector('[data-role="title"]').textContent = page.title;
-        var tab = h.querySelector('[data-role="pageTab"]');
-        if (tab) tab.textContent = page.tab;
-      });
-      setAllHtml("figures", page.groups(f));
+    /* ─── tools ─── */
+    function contactsTable(rows) {
+      return (
+        '<div class="tableWrap" style="border-top:1px solid var(--line)"><table class="dataTable"><thead><tr><th>Name</th><th>Extension</th><th>Email</th></tr></thead><tbody>' +
+        rows.join("") +
+        "</tbody></table></div>"
+      );
     }
-
-    /* ─── scope ─── */
-    function renderScope(f) {
+    function renderTools() {
+      var glyph = function (d) {
+        return '<svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="' + d + '" /></svg>';
+      };
       var html =
-        '<div class="menuList"><button type="button" class="menuItem" data-scope="" aria-pressed="' +
-        (state.scope ? "false" : "true") +
-        '">All sites<small>' +
-        f.total +
-        " waiting</small></button></div>";
-      SVC_ORDER.forEach(function (s) {
-        var codes = ED_ORDER.filter(function (c) {
-          return EDS[c].svc === s;
-        });
-        var n = f.bySvc[s] ? f.bySvc[s].n : 0;
-        html +=
-          '<div class="menuDiv"></div><p class="menuHead">' +
-          SVC[s] +
-          '<span class="count">' +
-          (n ? n + " waiting" : "none waiting") +
-          "</span></p>";
-        if (!codes.length) {
-          html +=
-            '<p class="menuNote">No department in the WA Country Health Service has a movement open. Absence here means none is waiting, not that none exists.</p>';
-          return;
-        }
-        html += '<div class="menuList">';
-        codes.forEach(function (c) {
-          var e = f.byEd[c] || { n: 0 };
-          html +=
-            '<button type="button" class="menuItem" data-scope="' +
-            c +
-            '" aria-pressed="' +
-            (state.scope === c ? "true" : "false") +
-            '">' +
-            esc(EDS[c].name) +
-            "<small>" +
-            (e.n ? e.n + " waiting" : "none") +
-            "</small></button>";
-        });
-        html += "</div>";
+        '<div class="popHead"><h2>Tools</h2><span class="count">' +
+        esc(svcName()) +
+        '</span><button type="button" class="closeBtn" data-close="1">Close</button></div>';
+      html +=
+        '<div class="popBody"><section><div class="who" aria-label="Signed in as Bed coordinator, day shift, handover at 14:00"><b>Bed coordinator</b><span>Day shift, handover ' +
+        HANDOVER +
+        ", Sat 15 Aug AWST</span></div></section>";
+      html += '<section><p class="menuHead">Do</p><div class="toolList">';
+      html +=
+        '<button type="button" class="toolItem" data-act="print">' +
+        glyph("M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4z") +
+        "<span>Print handover sheet<em>The queue and the exceptions as a record, due " +
+        HANDOVER +
+        "</em></span><small>print</small></button>";
+      html +=
+        '<button type="button" class="toolItem" data-act="export">' +
+        glyph("M8 2v8M5 7l3 3 3-3M3 12v2h10v-2") +
+        "<span>Export the queue<em>The open movements in " +
+        esc(svcName()) +
+        " as a sheet</em></span><small>not wired</small></button>";
+      html +=
+        '<button type="button" class="toolItem" data-act="new">' +
+        glyph("M8 3v10M3 8h10") +
+        "<span>Raise a referral<em>With the source chosen first</em></span><small>primary</small></button>";
+      html += "</div></section>";
+      var wards = WARDS.filter(function (w) {
+        return !state.svc || w[2] === state.svc;
       });
-      setAllHtml("scope", html);
-      setAllText("scopeLabel", state.scope ? state.scope : "All sites");
-      setAllText("scopeCount", String(state.scope ? (f.byEd[state.scope] ? f.byEd[state.scope].n : 0) : f.total));
-      all('[data-role="scopeQ"]').forEach(function (inp) {
-        filterScopeList(inp);
-      });
-    }
-    function filterScopeList(inp) {
-      var q = (inp.value || "").trim().toLowerCase();
-      var panel = inp.closest(".menuPanel");
-      all(".menuItem[data-scope]", panel).forEach(function (b) {
-        var code = b.getAttribute("data-scope");
-        if (!code) return;
-        var hay = (code + " " + EDS[code].name + " " + SVC[EDS[code].svc]).toLowerCase();
-        b.hidden = q ? hay.indexOf(q) === -1 : false;
-      });
+      html +=
+        '<section class="contacts"><p class="menuHead">Ward contacts<span class="count">' +
+        wards.length +
+        " " +
+        plural(wards.length, "ward", "wards") +
+        "</span></p>";
+      html +=
+        '<p class="menuNote" style="max-width:none;padding-left:14px">Extensions and addresses are placeholders in the shape the live product would show. None is real. The live product reads the site directory and says when it last did.</p>';
+      html += wards.length
+        ? contactsTable(
+            wards.map(function (w, i) {
+              var slug = w[0].toLowerCase().replace(/\s+/g, ".");
+              return (
+                "<tr><td>" +
+                esc(w[0]) +
+                "<em>" +
+                esc(w[1]) +
+                '</em></td><td class="holder">ext 0' +
+                (WARDS.indexOf(w) + 1) +
+                '</td><td class="holder">' +
+                slug +
+                "@example.invalid</td></tr>"
+              );
+            }),
+          )
+        : '<p class="menuNote" style="padding-left:14px">No ward in ' +
+          esc(svcName()) +
+          " is drawn in this prototype.</p>";
+      html += "</section>";
+      var eds = scopedEds();
+      html +=
+        '<section class="contacts"><p class="menuHead">Emergency department contacts<span class="count">' +
+        eds.length +
+        " " +
+        plural(eds.length, "department", "departments") +
+        "</span></p>";
+      html += eds.length
+        ? contactsTable(
+            eds.map(function (c) {
+              return (
+                "<tr><td>" +
+                c +
+                " ED<em>" +
+                esc(EDS[c].site) +
+                '</em></td><td class="holder">ext 1' +
+                (ED_ORDER.indexOf(c) + 1) +
+                '</td><td class="holder">' +
+                c.toLowerCase() +
+                ".ed@example.invalid</td></tr>"
+              );
+            }),
+          )
+        : '<p class="menuNote" style="padding-left:14px">No department in ' +
+          esc(svcName()) +
+          " is drawn in this prototype.</p>";
+      html += "</section>";
+      html +=
+        '<section><p class="menuHead">Appearance</p><div class="appearance" role="group" aria-label="Appearance"><button type="button" class="apBtn" data-set-theme="light" aria-pressed="false">Light</button><button type="button" class="apBtn" data-set-theme="dark" aria-pressed="false">Dark</button><button type="button" class="apBtn" data-set-theme="auto" aria-pressed="true">Auto</button></div></section>';
+      html +=
+        '<section><div class="toolList"><a class="toolItem" href="https://claude.ai/code/artifact/352faeba-eb50-4cb1-934b-a0dd7b36d642" target="_blank" rel="noopener">' +
+        glyph("M3 3h10v10H3zM3 7h10M7 7v6") +
+        "<span>Design system<em>The rules every Ward Flow screen follows</em></span><small>second edition</small></a>";
+      html +=
+        '<button type="button" class="toolItem" data-act="signout" aria-disabled="true" title="Sign out is not wired in this prototype">' +
+        glyph("M6 3H3v10h3M10 5l3 3-3 3M13 8H6") +
+        "<span>Sign out<em>Ends the shift on this device</em></span><small>not wired</small></button></div></section></div>";
+      html +=
+        '<p class="popFoot"><span>Every extension and address is invented.</span><span>Real numbers belong to the site directory, never to a prototype.</span></p>';
+      $("toolsPanel").innerHTML = html;
+      if (window.__reflectAppearance) window.__reflectAppearance();
     }
 
-    /* ─── the static menus ─── */
-    function renderStatic() {
-      setAllHtml(
-        "new",
-        '<p class="menuHead">Raise a referral</p><div class="menuList">' +
-          '<button class="menuItem" type="button" data-new="an emergency department">From an emergency department<small>ED</small></button>' +
-          '<button class="menuItem" type="button" data-new="a community team">From a community team<small>CMHT</small></button>' +
-          '<button class="menuItem" type="button" data-new="a GP or private practice">From a GP or private practice<small>GP</small></button></div>' +
-          '<p class="menuNote">Opens the Raise a referral screen with the source prefilled. Not wired in this prototype.</p>',
-      );
-      setAllHtml(
-        "more",
-        '<div class="who" aria-label="Signed in as Bed coordinator, day shift, handover at 14:00"><b>Bed coordinator</b><span>Day shift, handover ' +
-          HANDOVER +
-          ", Sat 15 Aug AWST</span></div>" +
-          '<div class="menuDiv"></div><div class="menuList">' +
-          '<button class="menuItem" type="button" data-act="print">Print handover sheet<small>print</small></button>' +
-          '<button class="menuItem" type="button" data-act="contacts">Ward contacts<small>pop-out</small></button>' +
-          '<a class="menuItem" href="https://claude.ai/code/artifact/352faeba-eb50-4cb1-934b-a0dd7b36d642" target="_blank" rel="noopener">Design system<small>second edition</small></a></div>' +
-          '<div class="menuDiv"></div><p class="menuHead">Appearance</p><div class="appearance" role="group" aria-label="Appearance">' +
-          '<button type="button" class="apBtn" data-set-theme="light" aria-pressed="false">Light</button><button type="button" class="apBtn" data-set-theme="dark" aria-pressed="false">Dark</button><button type="button" class="apBtn" data-set-theme="auto" aria-pressed="true">Auto</button></div>' +
-          '<div class="menuDiv"></div><div class="menuList"><button class="menuItem" type="button" data-act="signout" aria-disabled="true" title="Sign out is not wired in this prototype">Sign out<small>not wired</small></button></div>',
-      );
-      var rows = WARDS.map(function (w, i) {
-        var slug = w[0].toLowerCase().replace(/\s+/g, ".");
-        return (
-          "<tr><td>" +
-          esc(w[0]) +
-          "</td><td>" +
-          esc(w[1]) +
-          '</td><td class="holder">ext 0' +
-          (i + 1) +
-          '</td><td class="holder">' +
-          slug +
-          "@example.invalid</td></tr>"
-        );
+    /* ─── the service selector ─── */
+    function renderService() {
+      var counts = {};
+      MOVES.forEach(function (m) {
+        counts[EDS[m.ed].svc] = (counts[EDS[m.ed].svc] || 0) + 1;
       });
-      setAllHtml(
-        "contacts",
-        '<div class="popHead"><h2>Ward contacts</h2><span class="count">' +
-          WARDS.length +
-          ' wards drawn</span><button type="button" class="linkBtn" data-close="1">Close</button></div>' +
-          '<p class="menuNote" style="max-width:60ch">Extensions and addresses here are placeholders in the shape the live product would show. None is real. The live product reads the site directory and says when it last did.</p>' +
-          '<div class="tableWrap" style="border-top:1px solid var(--line)"><table class="dataTable"><thead><tr><th>Ward</th><th>Site</th><th>Extension</th><th>Email</th></tr></thead><tbody>' +
-          rows.join("") +
-          "</tbody></table></div>" +
-          '<p class="popFoot"><span>Every extension and address is invented.</span><span>Real numbers belong to the site directory, never to a prototype.</span></p>',
-      );
+      var html =
+        '<div class="menuList"><button type="button" class="menuItem" data-svc="" aria-pressed="' +
+        (state.svc ? "false" : "true") +
+        '"><span class="lead">All services</span><small>' +
+        MOVES.length +
+        " waiting</small></button>";
+      SVC_ORDER.forEach(function (s) {
+        var n = counts[s] || 0;
+        html +=
+          '<button type="button" class="menuItem" data-svc="' +
+          s +
+          '" aria-pressed="' +
+          (state.svc === s ? "true" : "false") +
+          '"><span class="lead"><span class="dot" data-svc="' +
+          s +
+          '"></span>' +
+          SVC[s] +
+          "</span><small>" +
+          (n ? n + " waiting" : "none waiting") +
+          "</small></button>";
+      });
+      html += "</div>";
+      $("svcList").innerHTML = html;
+      $("svcLabel").textContent = state.svc ? SVC_SHORT[state.svc] : "All services";
+      $("svcCount").textContent = String(state.svc ? counts[state.svc] || 0 : MOVES.length);
+      var dot = $("svcDot");
+      dot.hidden = !state.svc;
+      if (state.svc) dot.setAttribute("data-svc", state.svc);
     }
 
     /* ─── the body ─── */
@@ -6221,7 +5766,13 @@
       var list = $("qList");
       if (!rows.length) {
         list.innerHTML =
-          '<li><p class="none">No open movement matches this filter. Absence here means the filter excludes every movement, not that the queue is empty.</p></li>';
+          '<li><p class="none">' +
+          (f.total === 0
+            ? "No department in " +
+              esc(svcName()) +
+              " has a movement open. Absence here means none is waiting, not that none exists."
+            : "No open movement matches this filter. Absence here means the filter excludes every movement, not that the queue is empty.") +
+          "</p></li>";
       } else {
         list.innerHTML = rows
           .map(function (m) {
@@ -6268,7 +5819,7 @@
 
       var parts = [];
       var ref = state.q ? refusal(state.q) : null;
-      if (state.scope) parts.push("at " + EDS[state.scope].name);
+      if (state.svc) parts.push("in " + SVC[state.svc]);
       if (state.task) {
         var t = taskByKey(state.task);
         var n = countTask(t);
@@ -6286,7 +5837,7 @@
           '<div class="filterBar"><span>Showing ' +
           rows.length +
           " of " +
-          f.total +
+          MOVES.length +
           ", " +
           parts.join(", ") +
           '.</span><button type="button" class="linkBtn" data-clear="all">Show all</button></div>';
@@ -6315,7 +5866,7 @@
             who: m.owner ? "Owner " + m.owner : "No owner. Escalate to the coordinator on call.",
           });
       });
-      MOVES.forEach(function (m) {
+      scoped().forEach(function (m) {
         if (m.dest.k === "accepted" && !m.bed)
           rows.push({
             tone: "warn",
@@ -6353,37 +5904,48 @@
             })
             .join("") +
           "</ul>"
-        : '<p class="none">No exceptions. Every open movement has an owner, a deadline that has not passed, and a bed where it has been accepted.</p>';
+        : '<p class="none">No exceptions in ' +
+          esc(svcName()) +
+          ". Every open movement has an owner, a deadline that has not passed, and a bed where it has been accepted.</p>";
       $("exCount").textContent = rows.length + " open";
     }
     function referralRows() {
+      var refs = scopedRefs();
+      if (!refs.length)
+        return (
+          '<p class="none">No referral awaits triage in ' + esc(svcName()) + ". Absence here means none is waiting.</p>"
+        );
       return (
         '<ul class="rows">' +
-        REFERRALS.map(function (r) {
-          return (
-            '<li class="row"><span class="rowTop"><strong>' +
-            r.id +
-            '</strong><span class="when">' +
-            r.at +
-            ", waiting " +
-            fmtWait(NOW_MIN - clockToMin(r.at)) +
-            '</span></span><span class="rowSub">From ' +
-            esc(r.from) +
-            ". " +
-            r.age +
-            ", " +
-            r.req.toLowerCase() +
-            ' requested.</span><span class="rowWho">Awaiting triage by the duty consultant</span></li>'
-          );
-        }).join("") +
+        refs
+          .map(function (r) {
+            return (
+              '<li class="row"><span class="rowTop"><strong>' +
+              r.id +
+              '</strong><span class="when">' +
+              r.at +
+              ", waiting " +
+              fmtWait(NOW_MIN - clockToMin(r.at)) +
+              '</span></span><span class="rowSub">From ' +
+              esc(r.from) +
+              ". " +
+              r.age +
+              ", " +
+              r.req.toLowerCase() +
+              ' requested.</span><span class="rowWho">Awaiting triage by the duty consultant</span></li>'
+            );
+          })
+          .join("") +
         "</ul>"
       );
     }
-    function renderReferrals() {
+    function renderReferrals(f) {
       $("refBody").innerHTML = referralRows();
-      $("refCount").textContent = REFERRALS.length + " waiting";
+      $("refCount").textContent = f.refs + " waiting";
     }
     function renderPage(f) {
+      var page = PAGES[state.page];
+      $("pageTitle").textContent = page.title;
       var command = state.page === "command";
       $("bodyCommand").hidden = !command;
       $("bodyOther").hidden = command;
@@ -6392,40 +5954,51 @@
         else b.removeAttribute("aria-current");
       });
       if (command) return;
-      var page = PAGES[state.page];
-      $("pageTitle").textContent = page.title;
+      $("otherTitle").textContent = page.title;
       var core = page.core(f).map(function (c) {
-        return c.val.replace(/<[^>]+>/g, "") + " " + c.label;
+        return c.val.replace(/<[^>]+>/g, "") + " " + c.label.toLowerCase();
       });
       $("pageNote").innerHTML =
         "The " +
         page.title +
-        " page is not built in this prototype. The header above carries the figures it would show, scoped to this page: " +
+        " page is not built in this prototype. The Activity drawer's live tally now carries the figures this page would show, in " +
+        esc(svcName()) +
+        ": " +
         core.join(", ") +
-        ". The tasks, the activity and the search stay the same on every page, because they are the coordinator's, not the page's.";
+        ". The tasks, the tools and the search stay the same on every page, because they are the coordinator's, not the page's.";
       if (state.page === "capacity") {
-        $("pageCount").textContent = BEDS.length + " of 17 sites drawn";
+        $("pageCount").textContent = f.sites + " of 17 sites drawn";
         $("pageContent").innerHTML = table(
           ["Site", "Service", "Beds", "Free", "Held"],
-          BEDS.map(function (b) {
+          scopedBeds().map(function (b) {
             return [esc(b.site), SVC_SHORT[b.svc], b.beds, cell(b.free), cell(b.held)];
           }),
-          ["Six sites", "", f.beds, cell(f.free), cell(f.held)],
+          [f.sites + " " + plural(f.sites, "site", "sites"), "", f.beds, cell(f.free), cell(f.held)],
         );
       } else {
-        $("pageCount").textContent = REFERRALS.length + " waiting";
+        $("pageCount").textContent = f.refs + " waiting";
         $("pageContent").innerHTML = referralRows();
       }
     }
     function renderRail(f) {
       $("railOpen").textContent = f.total;
       $("railFree").textContent = f.free;
-      $("railRef").textContent = REFERRALS.length;
+      $("railRef").textContent = f.refs;
       $("railGov").textContent = OVERRIDES;
       var rc = $("railCheck");
       rc.textContent = CHECK.length
         ? CHECK.length + " figures do not reconcile"
-        : "Figures reconcile at " + NOW + ": " + f.total + " movements, " + REFERRALS.length + " referrals";
+        : "Figures reconcile at " +
+          NOW +
+          ": " +
+          f.total +
+          " " +
+          plural(f.total, "movement", "movements") +
+          ", " +
+          f.refs +
+          " " +
+          plural(f.refs, "referral", "referrals") +
+          (state.svc ? ", " + SVC_SHORT[state.svc] : "");
       rc.setAttribute("data-ok", CHECK.length ? "false" : "true");
     }
     function updateFades() {
@@ -6440,86 +6013,75 @@
       var f = figures();
       reconcile(f);
       renderRail(f);
-      renderFigures(f);
-      renderTasks(f);
+      renderService();
       renderActivity(f);
-      renderScope(f);
+      renderTasks(f);
+      renderTools();
       renderSearch();
       renderQueue(f);
       renderExceptions();
-      renderReferrals();
+      renderReferrals(f);
       renderPage(f);
       updateFades();
     }
 
     /* ─── state changes ─── */
     function shownText() {
-      var f = figures();
       var n = sorted().filter(visible).length;
-      return "Showing " + n + " of " + f.total + ".";
+      return "Showing " + n + " of " + MOVES.length + ".";
     }
     function setTask(key) {
       state.task = key;
       if (key) state.page = "command";
       renderAll();
     }
-    function setScope(code) {
-      state.scope = code;
+    function setSvc(s) {
+      state.svc = s;
       renderAll();
     }
-    function setQ(q, wrap) {
+    function setQ(q) {
       state.q = q;
-      if (wrap) state.qWrap = wrap;
-      all('[data-role="q"]').forEach(function (inp) {
-        if (inp.value !== q) inp.value = q;
-      });
-      all('[data-role="qClear"]').forEach(function (b) {
-        b.hidden = !q;
-      });
-      all('[data-role="qHint"]').forEach(function (k) {
-        k.hidden = !!q;
-      });
+      if ($("q").value !== q) $("q").value = q;
+      $("qClear").hidden = !q;
+      $("qHint").hidden = !!q;
       renderAll();
     }
     function setPage(p) {
       state.page = p;
       state.task = null;
       renderAll();
-      announce(PAGES[p].title + " page. The header now carries its figures.");
-    }
-    function activeHeader() {
-      var hs = all(".hdr1").filter(function (h) {
-        return h.offsetParent !== null;
-      });
-      return hs[0] || null;
+      announce(PAGES[p].title + " page. The live tally now carries its figures.");
     }
     function selectPatient(id) {
+      var m = MOVES.filter(function (x) {
+        return x.id === id;
+      })[0];
+      var note = "";
+      if (state.svc && EDS[m.ed].svc !== state.svc) {
+        state.svc = null;
+        note = " Service set back to all, because this person is outside it.";
+      }
       state.selected = id;
       state.page = "command";
       state.qOpen = false;
       setQ("");
-      var m = MOVES.filter(function (x) {
-        return x.id === id;
-      })[0];
       var row = $("qList").querySelector('.qRow[data-id="' + id + '"]');
       if (row) {
         row.scrollIntoView({ block: "center" });
         row.focus();
       }
-      announce(nameOf(m) + ", " + id + ", selected in the queue. " + fmtDl(m.dl) + ".");
+      announce(nameOf(m) + ", " + id + ", selected in the queue. " + fmtDl(m.dl) + "." + note);
     }
 
-    /* ─── menus: one open at a time, close outside, Escape returns focus ─── */
+    /* ─── menus and drawers: one open at a time, close outside, Escape returns focus ─── */
     var menus = all("details.menu");
     function closeMenus(except) {
       menus.forEach(function (o) {
         if (o !== except && o.open) o.open = false;
       });
     }
-    function openMenu(kind) {
-      var h = activeHeader();
-      if (!h) return;
-      var d = h.querySelector('details[data-menu="' + kind + '"]');
+    function openMenu(id) {
+      var d = $(id);
       if (!d) return;
       d.open = true;
       var focusable = d.querySelector(".menuPanel button, .menuPanel input, .menuPanel a");
@@ -6531,26 +6093,16 @@
         closeMenus(d);
         state.qOpen = false;
         renderSearch();
-        var kind = d.getAttribute("data-menu");
-        if (kind === "scope") {
-          var inp = d.querySelector('[data-role="scopeQ"]');
-          if (inp) {
-            inp.value = "";
-            filterScopeList(inp);
-          }
-        }
-        if (kind === "figures")
+        if (d.id === "activityMenu")
           announce(
-            "All figures for the " +
+            "Activity opened, in two parts: what is going on, and the live tally for the " +
               PAGES[state.page].title +
-              " page opened, " +
-              PAGES[state.page].groupsCount +
-              " and the reconciliation line.",
+              " page.",
           );
-        if (kind === "tasks")
-          announce("Outstanding tasks opened. " + all('[data-role="tasksCount"]')[0].textContent + " items.");
-        if (kind === "activity") announce("Activity opened. What is going on, then the last events.");
-        if (kind === "contacts") announce("Ward contacts opened. Every extension and address is a placeholder.");
+        if (d.id === "tasksMenu")
+          announce("Tasks opened. " + $("tasksCount").textContent + " outstanding, notices first.");
+        if (d.id === "toolsMenu")
+          announce("Tools opened. Every extension and address in the contact tables is a placeholder.");
       });
     });
     document.addEventListener("click", function (e) {
@@ -6564,63 +6116,51 @@
       }
     });
 
-    /* ─── events, delegated ─── */
-    document.addEventListener("input", function (e) {
-      var t = e.target;
-      if (t.matches('[data-role="q"]')) {
-        state.qOpen = true;
-        closeMenus(null);
-        setQ(t.value, t.closest(".searchWrap"));
-        var ref = refusal(state.q);
-        if (ref) announce(ref);
-        return;
-      }
-      if (t.matches('[data-role="scopeQ"]')) filterScopeList(t);
+    /* ─── events ─── */
+    $("q").addEventListener("input", function () {
+      state.qOpen = true;
+      closeMenus(null);
+      setQ(this.value);
+      var ref = refusal(state.q);
+      if (ref) announce(ref);
     });
-    document.addEventListener("focusin", function (e) {
-      var t = e.target;
-      if (t.matches && t.matches('[data-role="q"]') && state.q) {
+    $("q").addEventListener("focus", function () {
+      if (state.q) {
         state.qOpen = true;
-        state.qWrap = t.closest(".searchWrap");
         renderSearch();
       }
     });
+    $("q").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        var first = $("qPop").querySelector('.qHit[data-active="true"], .qHit');
+        if (first) {
+          first.click();
+          e.preventDefault();
+          return;
+        }
+        announce(refusal(state.q) || shownText());
+      }
+      if (e.key === "ArrowDown") {
+        var hit = $("qPop").querySelector(".qHit");
+        if (hit) {
+          hit.focus();
+          e.preventDefault();
+        }
+      }
+    });
+    $("qClear").addEventListener("click", function () {
+      state.qOpen = false;
+      setQ("");
+      announce("Search cleared. " + shownText());
+      $("q").focus();
+    });
     document.addEventListener("keydown", function (e) {
-      var t = e.target;
       var tag = (document.activeElement && document.activeElement.tagName) || "";
       var typing = /input|textarea|select/i.test(tag);
-      if (t.matches && t.matches('[data-role="q"]')) {
-        if (e.key === "Enter") {
-          var first = t.closest(".searchWrap").querySelector('.qHit[data-active="true"], .qHit');
-          if (first) {
-            first.click();
-            e.preventDefault();
-            return;
-          }
-          announce(refusal(state.q) || shownText());
-          return;
-        }
-        if (e.key === "ArrowDown") {
-          var hit = t.closest(".searchWrap").querySelector(".qHit");
-          if (hit) {
-            hit.focus();
-            e.preventDefault();
-          }
-          return;
-        }
-      }
-      if (!typing && /^[1-4]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        setOption({ 1: "a", 2: "b", 3: "c", 4: "all" }[e.key]);
-        return;
-      }
       if (e.key === "/" && !typing) {
         e.preventDefault();
-        var h = activeHeader();
-        var inp = h && h.querySelector('[data-role="q"]');
-        if (inp) {
-          inp.focus();
-          inp.select();
-        }
+        $("q").focus();
+        $("q").select();
         return;
       }
       if (e.key !== "Escape") return;
@@ -6656,31 +6196,17 @@
         announce("Task filter cleared. " + shownText());
         return;
       }
-      if (state.scope) {
-        setScope(null);
-        announce("Scope cleared, all sites. " + shownText());
+      if (state.svc) {
+        setSvc(null);
+        announce("Service set to all. " + shownText());
       }
     });
     document.addEventListener("click", function (e) {
       var b;
-      if ((b = e.target.closest('[data-role="qClear"]'))) {
-        var wrap = b.closest(".searchWrap");
-        state.qOpen = false;
-        setQ("", wrap);
-        announce("Search cleared. " + shownText());
-        wrap.querySelector('[data-role="q"]').focus();
-        return;
-      }
       if ((b = e.target.closest(".qHit"))) {
         var kind = b.getAttribute("data-hit");
         if (kind === "patient") selectPatient(b.getAttribute("data-id"));
-        else if (kind === "scope") {
-          var code = b.getAttribute("data-code");
-          state.qOpen = false;
-          setQ("");
-          setScope(code);
-          announce("Scope set to " + EDS[code].name + ". " + shownText());
-        } else if (kind === "text") {
+        else if (kind === "text") {
           state.qOpen = false;
           state.page = "command";
           setQ(b.getAttribute("data-text"));
@@ -6690,21 +6216,39 @@
           state.qOpen = false;
           setQ("");
           if (key === "print") window.print();
-          else openMenu(key);
+          else if (key === "tally") {
+            state.actPart = "tally";
+            renderAll();
+            openMenu("activityMenu");
+          } else openMenu({ tools: "toolsMenu", new: "newMenu", tasks: "tasksMenu", activity: "activityMenu" }[key]);
         }
         return;
       }
-      if ((b = e.target.closest("[data-scope]")) && b.classList.contains("menuItem")) {
-        var sc = b.getAttribute("data-scope") || null;
-        var d = b.closest("details");
-        setScope(sc);
-        d.open = false;
-        d.querySelector("summary").focus();
-        announce((sc ? "Scope set to " + EDS[sc].name + ". " : "Scope cleared, all sites. ") + shownText());
+      if ((b = e.target.closest("[data-svc]")) && b.classList.contains("menuItem")) {
+        var s = b.getAttribute("data-svc") || null;
+        setSvc(s);
+        $("svcMenu").open = false;
+        $("svcMenu").querySelector("summary").focus();
+        announce((s ? "Service set to " + SVC[s] + ". " : "Service set to all. ") + shownText());
+        return;
+      }
+      if ((b = e.target.closest("[data-part]")) && b.closest(".seg")) {
+        state.actPart = b.getAttribute("data-part");
+        all("#activityPanel .part").forEach(function (p) {
+          p.hidden = p.getAttribute("data-part") !== state.actPart;
+        });
+        all("#activityPanel .seg button").forEach(function (x) {
+          x.setAttribute("aria-pressed", x.getAttribute("data-part") === state.actPart ? "true" : "false");
+        });
+        announce(
+          state.actPart === "tally"
+            ? "Live tally for the " + PAGES[state.page].title + " page."
+            : "Activity: what is going on, then the last events.",
+        );
         return;
       }
       if ((b = e.target.closest("[data-new]"))) {
-        b.closest("details").open = false;
+        $("newMenu").open = false;
         announce(
           "Raise a referral would open, prefilled from " +
             b.getAttribute("data-new") +
@@ -6714,13 +6258,13 @@
       }
       if ((b = e.target.closest("[data-act]"))) {
         var act = b.getAttribute("data-act");
-        var dd = b.closest("details");
         if (act === "print") {
-          dd.open = false;
+          closeMenus(null);
           window.print();
-        } else if (act === "contacts") {
-          dd.open = false;
-          openMenu("contacts");
+        } else if (act === "export") announce("Export the queue is not wired in this prototype.");
+        else if (act === "new") {
+          closeMenus(null);
+          openMenu("newMenu");
         } else if (act === "signout") {
           e.preventDefault();
           announce(b.getAttribute("title"));
@@ -6730,6 +6274,7 @@
       if ((b = e.target.closest("[data-close]"))) {
         var dc = b.closest("details");
         dc.open = false;
+        dc.querySelector("summary").focus();
         announce("Closed.");
         return;
       }
@@ -6766,11 +6311,9 @@
         if (tk === "referrals") {
           closeMenus(null);
           setPage("referrals");
-        } else if (tk === "overrides") {
+        } else if (tk === "overrides")
           announce(OVERRIDES + " overrides are reviewed on the Governance screen. Not built in this prototype.");
-        } else if (tk === "handover") {
-          announce("The handover sheet is printed from the More menu, due at " + HANDOVER + ".");
-        }
+        else if (tk === "handover") announce("The handover sheet is printed from Tools, due at " + HANDOVER + ".");
         return;
       }
       if ((b = e.target.closest(".railLink[data-page]"))) {
@@ -6779,14 +6322,14 @@
         else
           announce(
             b.querySelector(".railLabel").textContent.trim() +
-              " is not built in this prototype. Command, Capacity and Referrals show how the header follows the page.",
+              " is not built in this prototype. Command, Capacity and Referrals show how the live tally follows the page.",
           );
         return;
       }
       if ((b = e.target.closest("[data-clear]"))) {
         if (b.getAttribute("data-clear") === "q") setQ("");
         else {
-          state.scope = null;
+          state.svc = null;
           state.task = null;
           setQ("");
         }
@@ -6798,50 +6341,12 @@
         state.selected = state.selected === id ? null : id;
         renderAll();
         announce(state.selected ? id + " selected." : "Selection cleared.");
-        return;
-      }
-      if ((b = e.target.closest(".tab[data-role='pageTab']"))) {
-        closeMenus(null);
-        announce("This is the " + PAGES[state.page].tab.toLowerCase() + ", the page's own view.");
-        return;
-      }
-      if ((b = e.target.closest("[data-option]"))) {
-        setOption(b.getAttribute("data-option"));
       }
     });
     $("qList").addEventListener("scroll", updateFades);
     window.addEventListener("resize", updateFades);
 
-    /* ─── the option switcher ─── */
-    var NOTES = {
-      a: "Option A, the quiet bar. One row, every collapsed thing a dropdown under its own control, and the core figures are the control.",
-      b: "Option B, the instrument corner. The scope, the figures and the freshness in one bordered cluster, with Tasks and Activity as drawers from the right edge.",
-      c: "Option C, the tab strip. Tasks, Figures and Activity as tabs beside the page's own view, each opening a shelf across the header.",
-      all: "All three stacked over the same page, each live. The rail switches the page and every corner follows it.",
-    };
-    var OPTION_KEY = "ward-flow-header-option";
-    function setOption(o) {
-      if (!NOTES[o]) o = "a";
-      state.option = o;
-      closeMenus(null);
-      $("hdrHost").setAttribute("data-option", o);
-      all("[data-option].oBtn").forEach(function (b) {
-        b.setAttribute("aria-pressed", b.getAttribute("data-option") === o ? "true" : "false");
-      });
-      $("oNote").textContent = NOTES[o];
-      try {
-        localStorage.setItem(OPTION_KEY, o);
-      } catch (err) {}
-      announce(NOTES[o].split(". ")[0] + ".");
-    }
-    var remembered = "a";
-    try {
-      remembered = localStorage.getItem(OPTION_KEY) || "a";
-    } catch (err) {}
-
-    renderStatic();
     renderAll();
-    setOption(remembered);
     live.textContent = "";
 
     window.__probe = function () {
@@ -6851,10 +6356,12 @@
         breached: f.breached,
         soon: f.soon,
         free: f.free,
+        refs: f.refs,
         outstanding: f.outstanding,
         check: CHECK.slice(),
-        option: state.option,
+        svc: state.svc,
         page: state.page,
+        part: state.actPart,
       };
     };
   })();
@@ -6895,6 +6402,7 @@
     });
     if (window.MutationObserver)
       new MutationObserver(reflect).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    window.__reflectAppearance = reflect;
     restore();
     reflect();
   })();
