@@ -266,6 +266,13 @@ export const RECOMMEND_CONSTRAINT_GROUPS: Array<{ id: RecommendConstraintGroupId
   { id: "cautions", label: "Cautions" },
 ];
 
+/**
+ * `sessionLength` tiers a clinician can deliver inside a single five-minute
+ * contact. Kept narrow on purpose: "Single session" is a brief course, not a
+ * five-minute one, so it belongs to the 15-minute chip and not this one.
+ */
+const SHORT_CONTACT_SESSION_LENGTHS = new Set(["5-minute intervention", "Micro skill"]);
+
 export const RECOMMEND_CONSTRAINTS: RecommendConstraint[] = [
   {
     key: "outpatient",
@@ -283,7 +290,10 @@ export const RECOMMEND_CONSTRAINTS: RecommendConstraint[] = [
     key: "5min",
     label: "5 minutes",
     group: "time",
-    match: (t) => t.briefInterventionAvailable && !!t.briefVersion,
+    // `briefInterventionAvailable` is also true for single-session formats, which
+    // are brief courses rather than five-minute contacts, so keying this chip on
+    // the flag made it match exactly the same records as "15 minutes" below.
+    match: (t) => SHORT_CONTACT_SESSION_LENGTHS.has((t.sessionLength ?? "").trim()) && !!t.briefVersion,
   },
   {
     key: "15min",
@@ -291,7 +301,6 @@ export const RECOMMEND_CONSTRAINTS: RecommendConstraint[] = [
     group: "time",
     match: (t) => !!t.fifteenMinuteVersion || t.briefInterventionAvailable,
   },
-  { key: "handout", label: "Handout", group: "support", match: (t) => t.patientSheetAvailable },
   {
     key: "grounding",
     label: "Grounding",
@@ -415,7 +424,6 @@ export function inferRecommendConstraints(query: string): string[] {
   if (/\binpatient\b|\bward\b|\badmission\b|\bin-?patient\b/.test(q)) inferred.push("inpatient");
   if (/\b5\s*-?\s*min|\bfive[-\s]?minute|\bmicro[-\s]?session\b/.test(q)) inferred.push("5min");
   if (/\b15\s*-?\s*min|\bfifteen[-\s]?minute/.test(q)) inferred.push("15min");
-  if (/\bhandout\b|\bsheet\b|\bleaflet\b/.test(q)) inferred.push("handout");
   if (/\bground(?:ing)?\b/.test(q)) inferred.push("grounding");
   if (/\bskills?\b/.test(q)) inferred.push("skills");
   if (/\bpsychoeduc/.test(q)) inferred.push("psychoeducation");

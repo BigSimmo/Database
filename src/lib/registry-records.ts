@@ -39,6 +39,12 @@ export function deriveGovernanceColumns(record: ServiceRecord): {
   validation_status: RegistryValidationStatus;
 } {
   const status = record.source?.status?.toLowerCase() ?? "";
+  if (/\b(?:not\s+checked|unchecked|unverified)\b/i.test(status)) {
+    return {
+      source_status: "unknown",
+      validation_status: "unverified",
+    };
+  }
   const sourceStatus: RegistrySourceStatus = status.includes("checked")
     ? "current"
     : status.includes("required") || status.includes("review")

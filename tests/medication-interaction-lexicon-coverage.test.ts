@@ -493,6 +493,19 @@ describe("lexicon hygiene", () => {
       for (const slug of item.select?.denySlugs ?? []) {
         expect(known.has(slug), `${item.id} denies slug "${slug}", which is not in the catalogue`).toBe(true);
       }
+      for (const slug of item.sourceDenySlugs ?? []) {
+        expect(known.has(slug), `${item.id} source-denies slug "${slug}", which is not in the catalogue`).toBe(true);
+        expect(
+          item.sourceDenyRationales?.[slug]?.trim().length,
+          `${item.id} source-denies slug "${slug}" without a clinical rationale`,
+        ).toBeGreaterThan(0);
+      }
+      for (const slug of Object.keys(item.sourceDenyRationales ?? {})) {
+        expect(
+          (item.sourceDenySlugs ?? []).includes(slug),
+          `${item.id} provides sourceDenyRationale for "${slug}" which is not in sourceDenySlugs`,
+        ).toBe(true);
+      }
     }
   });
 

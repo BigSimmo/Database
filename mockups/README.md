@@ -49,9 +49,10 @@ picked — kept as-is rather than guessed at.
 
 ### Favourites page
 
-| Route                        | Status                                               |
-| ---------------------------- | ---------------------------------------------------- |
-| `favourites-phone-perfected` | Chosen design (2026-08-27) — see the write-up above. |
+| Route                        | Status                                                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `favourites-phone-perfected` | Chosen design (2026-08-27) — see the write-up above.                                                                                        |
+| `dsm-favourites`             | Active study (2026-09-07) — save a DSM diagnosis to favourites. Open decisions only; nothing wired. Blocks on a check-constraint migration. |
 
 Six earlier studies (`favourites-command-console`, `favourites-command-desk`,
 `favourites-library-view`, `favourites-review-console`, `favourites-set-board`,
