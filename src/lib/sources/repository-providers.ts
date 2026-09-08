@@ -29,7 +29,12 @@ import { loadServicesSnapshot } from "@/lib/service-catalog";
 import { authoritativeSources, loadSpecifiersContent, type AuthoritativeSource } from "@/lib/specifiers-content";
 import { acquisitionSourceReferences } from "@/lib/sources/acquisition-ledger";
 import { safeHttpsUrl } from "@/lib/sources/catalogue-core";
-import type { ClinicalSourceReferenceInput, ClinicalSourceType, SourceUsage } from "@/lib/sources/catalogue-types";
+import type {
+  ClinicalSourceReferenceInput,
+  ClinicalSourceType,
+  SourceLifecycleStatus,
+  SourceUsage,
+} from "@/lib/sources/catalogue-types";
 import { hasInvalidStructuredSourceDate, strictSourceDate } from "@/lib/sources/source-date-policy";
 
 export type ClinicalSourceProvider = {
@@ -528,10 +533,24 @@ function calculatorEvidenceType(source: CalculatorEvidenceSource): ClinicalSourc
   return "unknown";
 }
 
-function calculatorEvidenceLifecycle(source: CalculatorEvidenceSource) {
-  if (source.status === "not_for_active_use") return "excluded" as const;
-  if (source.status === "permission_review_required") return "inactive" as const;
-  return "active" as const;
+/**
+ * The evidence registry types `status` as an unrestricted string, so a missing, misspelled or
+ * newly introduced value reaches here. Only a status this map names may present a source as
+ * active evidence; anything else falls to `inactive`, which keeps the source visible with its
+ * not-in-active-use warning rather than letting unvetted or quarantined evidence read as
+ * current. `npm run check:calculator-content` fails on any status not listed here, so a new
+ * status is a loud failure at the data rather than a silent demotion at the read.
+ */
+const CALCULATOR_EVIDENCE_LIFECYCLE: Record<string, SourceLifecycleStatus> = {
+  reviewed: "active",
+  permission_review_required: "inactive",
+  not_for_active_use: "excluded",
+};
+
+export const KNOWN_CALCULATOR_EVIDENCE_STATUSES = Object.keys(CALCULATOR_EVIDENCE_LIFECYCLE);
+
+function calculatorEvidenceLifecycle(source: CalculatorEvidenceSource): SourceLifecycleStatus {
+  return CALCULATOR_EVIDENCE_LIFECYCLE[source.status] ?? "inactive";
 }
 
 const calculatorEvidenceById = new Map(calculatorEvidence.sources.map((source) => [source.id, source]));
