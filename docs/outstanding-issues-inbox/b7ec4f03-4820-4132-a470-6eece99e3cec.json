@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b7ec4f03-4820-4132-a470-6eece99e3cec",
+  "createdOn": "2026-09-08",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Forced-colors --danger token is Mark (a background colour), so danger text fails WCAG contrast at 1.07",
+    "detail": "src/app/globals.css forced-colors block sets --danger: Mark while --danger-soft: Canvas. Mark is the system highlight BACKGROUND (#ffff00 in Chromium's default HCM scheme), not a text colour, so any surface rendering text-[color:var(--danger)] on bg-[color:var(--danger-soft)] resolves to yellow-on-white, contrast 1.07 against a required 4.5:1. Caught by tests/ui-sources.spec.ts:145 'Sources remains operable at phone width and under accessibility media' on the Excluded lifecycle badge, axe impact serious. Sibling tones are all correct text colours (--info: LinkText, --success: CanvasText, --warning: CanvasText), so danger is the only one wrong. The block's own comment documents the pairing rule it breaks: --danger-solid-contrast: MarkText is described as 'Mark's palette-paired foreground', so Mark as a FILL with MarkText on top is right and must stay; Mark as a TEXT colour is not. Proposed fix is one line, --danger: CanvasText, leaving --danger-solid/-hover/-active/-contrast untouched. Present on origin/main (line 4742) and dating to 'Before CSS consolidation' (a7e80e056), so it is long-standing rather than a regression. It only fails CI when an excluded catalogue entry actually renders in the first viewport of /sources/search, which is why it is intermittent across PRs; it is deterministic, not flaky. Observed failing on PR #2738 run 34230949639, whose diff contains no src/ or app/ file. Needs its own browser proof (verify:ui or a focused plan:browser run) because the token is shared by every status surface.",
+    "source": "Run PR sweep 2026-09-08; PR #2738 Production UI (1), tests/ui-sources.spec.ts:145",
+    "issueUlid": "01M20KRAC7W400WGWXG4DE53FB"
+  }
+}
