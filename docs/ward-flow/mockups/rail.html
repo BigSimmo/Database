@@ -3897,10 +3897,11 @@
     }
   }
 
-  /* ─── Rail options: page-specific rules. Everything above is the design system's block and the
-     quiet bar. Three rails share one contract: the brand, every screen in three groups with a
-     derived count where one matters, the current screen with the gilt bar, who is signed in and
-     whether the figures reconcile. They differ in width and in what else they carry. ───────── */
+  /* ─── The rail, open and closed: page-specific rules. Everything above is the design system's block
+     and the quiet bar. One rail, two states. Open, it carries every screen in three groups with its
+     state under it in words, the shift, the current screen's sections and the pinned movements.
+     Closed, it is a strip: a glyph and a word per screen, the counts as tags, the shift as a ring,
+     and a card on hover with the screen's state. The bracket key flips between them. ───────── */
   .oBar {
     position: sticky;
     top: 0;
@@ -3985,6 +3986,7 @@
   .hApp {
     grid-template-columns: var(--railw) minmax(0, 1fr);
     min-height: calc(100vh - var(--obar));
+    transition: grid-template-columns 0.18s ease;
   }
   .railHost {
     display: contents;
@@ -3995,30 +3997,27 @@
     top: var(--obar);
     align-self: start;
     height: calc(100vh - var(--obar));
+    z-index: 20;
   }
-  .railHost[data-option="a"] > .rail[data-rail="a"],
-  .railHost[data-option="b"] > .rail[data-rail="b"],
-  .railHost[data-option="c"] > .rail[data-rail="c"] {
+  .rail.closed:hover,
+  .rail.closed:focus-within {
+    z-index: 32;
+  }
+  .hApp[data-view="open"] .rail.open,
+  .hApp[data-view="closed"] .rail.closed {
     display: flex;
   }
-  .hApp[data-option="b"] {
-    --railw: 272px;
-  }
-  .hApp[data-option="c"] {
+  .hApp[data-view="closed"] {
     --railw: 76px;
   }
-  .hApp[data-option="a"][data-collapsed="true"] {
-    --railw: 64px;
+  .hApp[data-view="both"] {
+    grid-template-columns: 236px 76px minmax(0, 1fr);
   }
-  .hApp[data-option="c"][data-expanded="true"] {
-    --railw: 236px;
-  }
-  /* compare: the three rails side by side, then the page */
-  .hApp[data-option="all"] {
-    grid-template-columns: 236px 272px 76px minmax(0, 1fr);
-  }
-  .hApp[data-option="all"] .railHost > .rail {
+  .hApp[data-view="both"] .railHost > .rail {
     display: flex;
+  }
+  .hApp[data-view="both"] .railBtn {
+    display: none;
   }
   .railCap {
     display: none;
@@ -4037,14 +4036,25 @@
     border-radius: 4px;
     padding: 1px 6px;
   }
-  .hApp[data-option="all"] .railCap {
+  .hApp[data-view="both"] .railCap {
     display: flex;
   }
-  .hApp[data-option="all"] .rail[data-rail="c"] .railCap span {
+  .hApp[data-view="both"] .rail.closed .railCap {
+    justify-content: center;
+    padding: 0 0 10px;
+  }
+  .hApp[data-view="both"] .rail.closed .railCap span {
     display: none;
   }
+  .hApp[data-view="both"] .hdr1 .chip.mark,
+  .hApp[data-view="both"] .hdr1 .menu > summary .lbl.optional {
+    display: none;
+  }
+  .hApp[data-view="both"] .searchWrap {
+    flex-basis: 10rem;
+  }
 
-  /* shared rail pieces */
+  /* ─── shared pieces ─── */
   .railScroll {
     flex: 1 1 auto;
     min-height: 0;
@@ -4053,34 +4063,32 @@
     display: flex;
     flex-direction: column;
   }
-  .rail[data-rail="a"],
-  .rail[data-rail="b"] {
+  .rail.open {
     overflow: hidden;
   }
-  .rail[data-rail="c"] {
+  .rail.closed {
     overflow: visible;
   }
-  .rail .railLabel .short {
+  .svcStripe {
     display: none;
+    height: 3px;
+    border-radius: 2px;
+    margin: -12px 20px 14px;
   }
-  .rail[data-rail="c"]:not(.expanded) .railLabel .full {
-    display: none;
+  .svcStripe[data-svc] {
+    display: block;
   }
-  .rail[data-rail="c"]:not(.expanded) .railLabel .short {
-    display: inline;
+  .svcStripe[data-svc="north"] {
+    background: var(--svc-north);
   }
-  .rail[data-rail="c"]:not(.expanded) .ringRow div {
-    display: none;
+  .svcStripe[data-svc="east"] {
+    background: var(--svc-east);
   }
-  .rail[data-rail="b"] .railFoot {
-    padding-top: 12px;
+  .svcStripe[data-svc="south"] {
+    background: var(--svc-south);
   }
-  .hApp[data-option="all"] .hdr1 .chip.mark,
-  .hApp[data-option="all"] .hdr1 .menu > summary .lbl.optional {
-    display: none;
-  }
-  .hApp[data-option="all"] .searchWrap {
-    flex-basis: 10rem;
+  .svcStripe[data-svc="wachs"] {
+    background: var(--svc-wachs);
   }
   .railBlock {
     margin: 0 10px 14px;
@@ -4089,7 +4097,7 @@
     border-radius: var(--r2);
     background: var(--surface-2);
     display: grid;
-    gap: 5px;
+    gap: 6px;
   }
   .railBlock .eyebrow {
     font-size: var(--t-0);
@@ -4116,6 +4124,7 @@
     font-weight: 500;
     letter-spacing: -0.02em;
     color: var(--ink);
+    white-space: nowrap;
   }
   .railBlock .big small {
     font-family: var(--body);
@@ -4123,11 +4132,22 @@
     font-weight: 400;
     color: var(--muted);
     letter-spacing: 0;
+    white-space: normal;
   }
-  .railBlock .line {
-    font-size: var(--t-1);
-    color: var(--ink-soft);
-    line-height: 1.4;
+  .shiftRow {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+  }
+  .shiftRow > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+  .shiftRow .big {
+    display: grid;
+    gap: 0;
   }
   .meter {
     height: 4px;
@@ -4141,17 +4161,119 @@
     background: var(--accent);
     border-radius: 2px;
   }
-  .meter i[data-svc="north"] {
-    background: var(--svc-north);
+  .ring {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    flex: none;
   }
-  .meter i[data-svc="east"] {
-    background: var(--svc-east);
+  .ring.small {
+    width: 36px;
+    height: 36px;
   }
-  .meter i[data-svc="south"] {
-    background: var(--svc-south);
+  .ring svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
   }
-  .meter i[data-tone="warn"] {
-    background: var(--warn);
+  .ring circle {
+    fill: none;
+    stroke-width: 3;
+  }
+  .ring .track {
+    stroke: var(--line);
+  }
+  .ring .arc {
+    stroke: var(--accent);
+    stroke-linecap: round;
+  }
+  .ring b {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: 0.04em;
+  }
+  .ring.small b {
+    font-size: 9px;
+  }
+  .railText {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+  }
+  .railText > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .railText em {
+    font-style: normal;
+    font-size: var(--t-0);
+    line-height: 1.35;
+    color: var(--muted);
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .railText em b {
+    font-weight: 600;
+  }
+  .railText em b[data-tone="danger"] {
+    color: var(--danger);
+  }
+  .railText em b[data-tone="warn"] {
+    color: var(--warn);
+  }
+  .railLink[aria-current="page"] .railText em {
+    color: var(--accent-ink);
+    opacity: 0.85;
+  }
+  .railLink .tag[data-tone="danger"] {
+    color: var(--danger);
+    box-shadow: inset 0 0 0 1px var(--danger);
+    background: var(--danger-soft);
+  }
+  .railLink .tag[data-tone="warn"] {
+    color: var(--warn);
+    box-shadow: inset 0 0 0 1px var(--warn);
+    background: var(--warn-soft);
+  }
+  .sections {
+    display: grid;
+    gap: 1px;
+    margin: 2px 0 4px 26px;
+    padding-left: 10px;
+    border-left: 1px solid var(--line-strong);
+  }
+  .sectionLink {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    text-align: left;
+  }
+  .sectionLink:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .sectionLink[aria-pressed="true"] {
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+  .sectionLink .tag {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
   }
   .pinRow {
     display: grid;
@@ -4164,6 +4286,23 @@
     font-size: var(--t-1);
     color: var(--ink-soft);
     text-align: left;
+    position: relative;
+  }
+  .pinRow::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 7px;
+    bottom: 7px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    background: var(--line-strong);
+  }
+  .pinRow[data-tone="danger"]::before {
+    background: var(--danger);
+  }
+  .pinRow[data-tone="warn"]::before {
+    background: var(--warn);
   }
   .pinRow:hover {
     background: var(--sunk);
@@ -4213,217 +4352,113 @@
   .railBtn .railGlyph {
     color: var(--ink-soft);
   }
-
-  /* ─── A: the grouped rail, collapsible to a strip of glyphs ─── */
-  .rail[data-rail="a"] .brand {
-    padding-bottom: 14px;
-  }
-  .rail[data-rail="a"].collapsed {
-    padding-top: 18px;
-  }
-  .rail[data-rail="a"].collapsed .brand {
-    justify-content: center;
-    padding: 0 0 16px;
-  }
-  .rail[data-rail="a"].collapsed .brand b {
-    font-size: 18px;
-  }
-  .rail[data-rail="a"].collapsed .brand span,
-  .rail[data-rail="a"].collapsed .railEyebrow,
-  .rail[data-rail="a"].collapsed .railLabel > span,
-  .rail[data-rail="a"].collapsed .railBlock,
-  .rail[data-rail="a"].collapsed .railFoot .railUser,
-  .rail[data-rail="a"].collapsed .railFoot .railNote,
-  .rail[data-rail="a"].collapsed .railCheck span,
-  .rail[data-rail="a"].collapsed .railBtn span,
-  .rail[data-rail="a"].collapsed .pinGroup {
-    display: none;
-  }
-  .rail[data-rail="a"].collapsed .railGroup {
-    padding: 0 8px;
-  }
-  .rail[data-rail="a"].collapsed .railGroup + .railGroup {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--line);
-  }
-  .rail[data-rail="a"].collapsed .railLink {
-    justify-content: center;
-    padding: 9px 0;
-    position: relative;
-  }
-  .rail[data-rail="a"].collapsed .railLink::before {
-    left: -8px;
-  }
-  .rail[data-rail="a"].collapsed .railLink .tag {
-    position: absolute;
-    top: 3px;
-    right: 3px;
-    padding: 0 4px;
-    font-size: 9px;
+  .railBtn kbd {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    padding: 0 5px;
     line-height: 1.5;
   }
-  .rail[data-rail="a"].collapsed .railLink[data-page="handover"] .tag {
-    display: none;
-  }
-  .rail[data-rail="a"].collapsed .railFoot {
-    padding: 12px 0 0;
-    justify-items: center;
-  }
-  .rail[data-rail="a"].collapsed .railBtn {
-    margin: 10px 8px 0;
-    justify-content: center;
-    padding: 7px 0;
-  }
-  .rail[data-rail="a"] .railLabel > span {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 
-  /* ─── B: the screen map rail, two lines per screen and the page's own sections ─── */
-  .rail[data-rail="b"] .railLink {
-    align-items: flex-start;
-    padding: 7px 10px;
+  /* ─── open ─── */
+  .rail.open .brand {
+    padding-bottom: 14px;
   }
-  .rail[data-rail="b"] .railLabel {
-    align-items: flex-start;
-  }
-  .rail[data-rail="b"] .railGlyph {
-    margin-top: 2px;
-  }
-  .rail[data-rail="b"] .railText {
-    display: grid;
-    gap: 1px;
-    min-width: 0;
-  }
-  .rail[data-rail="b"] .railText em {
-    font-style: normal;
-    font-size: var(--t-0);
-    line-height: 1.35;
-    color: var(--muted);
-    font-weight: 400;
-  }
-  .rail[data-rail="b"] .railLink[aria-current="page"] .railText em {
-    color: var(--accent-ink);
-    opacity: 0.85;
-  }
-  .rail[data-rail="b"] .tag {
-    margin-top: 2px;
-  }
-  .sections {
-    display: grid;
-    gap: 1px;
-    margin: 2px 0 4px 26px;
-    padding-left: 10px;
-    border-left: 1px solid var(--line-strong);
-  }
-  .sectionLink {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    width: 100%;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: var(--t-1);
-    color: var(--ink-soft);
-    text-align: left;
-  }
-  .sectionLink:hover {
-    background: var(--sunk);
-    color: var(--ink);
-  }
-  .sectionLink[aria-pressed="true"] {
-    color: var(--accent-ink);
-    font-weight: 600;
-  }
-  .sectionLink .tag {
-    font-family: var(--mono);
-    font-size: var(--t-0);
-    color: var(--muted);
-  }
-  .pressure {
-    display: grid;
-    gap: 6px;
-  }
-  .pressure .row {
-    display: grid;
-    grid-template-columns: 5.2rem minmax(0, 1fr) auto;
+  .rail.open .railLink {
     align-items: center;
-    gap: 8px;
-    font-size: var(--t-0);
-    color: var(--ink-soft);
+    padding: 6px 10px;
   }
-  .pressure .row b {
-    font-family: var(--mono);
-    font-weight: 500;
-    color: var(--ink);
-    white-space: nowrap;
+  .rail.open .railLink[data-state="true"] {
+    padding: 4px 10px;
   }
-  .pressure .row b i {
-    font-family: var(--body);
-    font-style: italic;
-    font-weight: 400;
-    color: var(--muted);
+  .rail.open .railGroup + .railGroup {
+    margin-top: 10px;
+  }
+  .rail.open .railBlock {
+    margin-bottom: 12px;
+  }
+  .rail.open .railLabel {
+    align-items: center;
+  }
+  .rail.open .railLink .tag {
+    align-self: flex-start;
+    margin-top: 1px;
+  }
+  .rail.open .railLink:not([data-state="true"]) .tag {
+    align-self: center;
+    margin-top: 0;
+  }
+  .rail.open .pinGroup {
+    margin-top: 14px;
+  }
+  .rail.open .railFoot {
+    padding-top: 12px;
   }
 
-  /* ─── C: the strip of glyphs with a word under each, and the shift ring ─── */
-  .rail[data-rail="c"] {
+  /* ─── closed: the strip ─── */
+  .rail.closed {
     padding: 14px 0 12px;
     align-items: stretch;
   }
-  .rail[data-rail="c"] .brand {
+  .rail.closed .brand {
     justify-content: center;
     padding: 0 0 12px;
     gap: 0;
   }
-  .rail[data-rail="c"] .brand b {
+  .rail.closed .brand b {
     font-size: 19px;
   }
-  .rail[data-rail="c"] .brand span {
+  .rail.closed .brand span {
     display: none;
   }
-  .rail[data-rail="c"] .railGroup {
+  .rail.closed .svcStripe {
+    margin: -8px 14px 10px;
+  }
+  .rail.closed .railGroup {
     padding: 0 6px;
     gap: 2px;
   }
-  .rail[data-rail="c"] .railGroup + .railGroup {
+  .rail.closed .railGroup + .railGroup {
     margin-top: 6px;
     padding-top: 6px;
     border-top: 1px solid var(--line);
   }
-  .rail[data-rail="c"] .railEyebrow {
+  .rail.closed .railEyebrow {
     display: none;
   }
-  .rail[data-rail="c"] .railLink {
+  .rail.closed .railLink {
     flex-direction: column;
     justify-content: center;
     gap: 4px;
     padding: 7px 2px 6px;
     position: relative;
   }
-  .rail[data-rail="c"] .railLink::before {
+  .rail.closed .railLink::before {
     left: -6px;
     top: 9px;
     bottom: 9px;
   }
-  .rail[data-rail="c"] .railLabel {
+  .rail.closed .railLabel {
     flex-direction: column;
     gap: 4px;
   }
-  .rail[data-rail="c"] .railLabel > span {
+  .rail.closed .railLabel .word {
     font-size: 9.5px;
     letter-spacing: 0.04em;
     line-height: 1;
     text-align: center;
     white-space: nowrap;
   }
-  .rail[data-rail="c"] .railGlyph {
+  .rail.closed .railGlyph {
     width: 17px;
     height: 17px;
     flex-basis: 17px;
   }
-  .rail[data-rail="c"] .railLink .tag {
+  .rail.closed .railLink .tag {
     position: absolute;
     top: 2px;
     right: 4px;
@@ -4431,52 +4466,93 @@
     font-size: 9px;
     line-height: 1.5;
   }
-  .rail[data-rail="c"] .railFoot {
+  .rail.closed .railLink[data-page="handover"] .tag {
+    display: none;
+  }
+  .flyCard {
+    display: none;
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 2px;
+    width: 15.5rem;
+    padding: 10px 12px 11px;
+    border: 1px solid var(--line);
+    border-bottom-color: var(--line-strong);
+    border-radius: var(--r1);
+    background: var(--surface);
+    box-shadow:
+      var(--lift),
+      inset 0 1px 0 var(--hl);
+    z-index: 35;
+    text-align: left;
+    gap: 3px;
+    font-weight: 400;
+    color: var(--ink);
+    pointer-events: none;
+  }
+  .flyCard::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: 16px;
+    width: 8px;
+    height: 8px;
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    transform: rotate(45deg);
+  }
+  .flyCard b {
+    font-size: var(--t-2);
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .flyCard b .tag {
+    position: static;
+    font-size: var(--t-0);
+    line-height: normal;
+    padding: 1px 7px;
+  }
+  .flyCard em {
+    font-style: normal;
+    font-size: var(--t-1);
+    line-height: 1.4;
+    color: var(--muted);
+  }
+  .flyCard .stateLine {
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+  }
+  .flyCard .stateLine b {
+    display: inline;
+    font-size: var(--t-1);
+  }
+  .flyCard .stateLine b[data-tone="danger"] {
+    color: var(--danger);
+  }
+  .flyCard .stateLine b[data-tone="warn"] {
+    color: var(--warn);
+  }
+  .rail.closed .railLink:hover .flyCard,
+  .rail.closed .railLink:focus-visible .flyCard {
+    display: grid;
+  }
+  .rail.closed .railFoot {
     padding: 10px 0 0;
     justify-items: center;
     gap: 8px;
   }
-  .rail[data-rail="c"] .railFoot .railUser,
-  .rail[data-rail="c"] .railFoot .railNote,
-  .rail[data-rail="c"] .railCheck span {
+  .rail.closed .railFoot .railUser,
+  .rail.closed .railFoot .railNote,
+  .rail.closed .railCheck span {
     display: none;
   }
-  .ring {
-    position: relative;
-    width: 44px;
-    height: 44px;
-    display: grid;
-    place-items: center;
-  }
-  .ring svg {
-    position: absolute;
-    inset: 0;
-    width: 44px;
-    height: 44px;
-    transform: rotate(-90deg);
-  }
-  .ring circle {
-    fill: none;
-    stroke-width: 3;
-  }
-  .ring .track {
-    stroke: var(--line);
-  }
-  .ring .arc {
-    stroke: var(--accent);
-    stroke-linecap: round;
-  }
-  .ring b {
-    font-family: var(--mono);
-    font-size: var(--t-0);
-    font-weight: 600;
-    color: var(--ink);
-    letter-spacing: 0.04em;
-  }
-  .rail[data-rail="c"] .flyMenu {
+  .rail.closed .flyMenu {
     align-self: center;
   }
-  .rail[data-rail="c"] .flyMenu > summary {
+  .rail.closed .flyMenu > summary {
     height: 34px;
     width: 34px;
     padding: 0;
@@ -4486,15 +4562,15 @@
     color: var(--ink-soft);
     position: relative;
   }
-  .rail[data-rail="c"] .flyMenu > summary::after {
+  .rail.closed .flyMenu > summary::after {
     display: none;
   }
-  .rail[data-rail="c"] .flyMenu > summary:hover,
-  .rail[data-rail="c"] .flyMenu[open] > summary {
+  .rail.closed .flyMenu > summary:hover,
+  .rail.closed .flyMenu[open] > summary {
     background: var(--sunk);
     color: var(--ink);
   }
-  .rail[data-rail="c"] .flyMenu > summary .tag {
+  .rail.closed .flyMenu > summary .tag {
     position: absolute;
     top: -3px;
     right: -6px;
@@ -4507,141 +4583,26 @@
     box-shadow: inset 0 0 0 1px var(--line);
     color: var(--ink-soft);
   }
-  .rail[data-rail="c"] .flyMenu .menuPanel {
+  .rail.closed .flyMenu .menuPanel {
     left: calc(100% + 10px);
     right: auto;
     top: auto;
     bottom: 0;
     min-width: 19rem;
   }
-  .rail[data-rail="c"] .railBtn {
+  .rail.closed .railBtn {
     margin: 8px 6px 0;
     justify-content: center;
     padding: 6px 0;
   }
-  .rail[data-rail="c"] .railBtn span {
+  .rail.closed .railBtn span,
+  .rail.closed .railBtn kbd {
     display: none;
-  }
-  .rail[data-rail="c"].expanded {
-    padding: 22px 0 18px;
-  }
-  .rail[data-rail="c"].expanded .brand {
-    justify-content: flex-start;
-    padding: 0 20px 20px;
-    gap: 9px;
-  }
-  .rail[data-rail="c"].expanded .brand b {
-    font-size: 22px;
-  }
-  .rail[data-rail="c"].expanded .brand span,
-  .rail[data-rail="c"].expanded .railEyebrow,
-  .rail[data-rail="c"].expanded .railFoot .railUser,
-  .rail[data-rail="c"].expanded .railFoot .railNote,
-  .rail[data-rail="c"].expanded .railCheck span,
-  .rail[data-rail="c"].expanded .railBtn span {
-    display: block;
-  }
-  .rail[data-rail="c"].expanded .railCheck span {
-    display: inline;
-  }
-  .rail[data-rail="c"].expanded .railGroup {
-    padding: 0 10px;
-    gap: 1px;
-  }
-  .rail[data-rail="c"].expanded .railGroup + .railGroup {
-    margin-top: 14px;
-    padding-top: 0;
-    border-top: 0;
-  }
-  .rail[data-rail="c"].expanded .railLink {
-    flex-direction: row;
-    justify-content: space-between;
-    padding: 8px 10px;
-    gap: 10px;
-  }
-  .rail[data-rail="c"].expanded .railLink::before {
-    left: -10px;
-    top: 7px;
-    bottom: 7px;
-  }
-  .rail[data-rail="c"].expanded .railLabel {
-    flex-direction: row;
-    gap: 10px;
-  }
-  .rail[data-rail="c"].expanded .railLabel > span {
-    font-size: var(--t-3);
-    letter-spacing: 0;
-    text-align: left;
-  }
-  .rail[data-rail="c"].expanded .railGlyph {
-    width: 15px;
-    height: 15px;
-    flex-basis: 15px;
-  }
-  .rail[data-rail="c"].expanded .railLink .tag {
-    position: static;
-    padding: 1px 7px;
-    font-size: var(--t-0);
-    line-height: normal;
-  }
-  .rail[data-rail="c"].expanded .railFoot {
-    padding: 16px 20px 0;
-    justify-items: stretch;
-    gap: 10px;
-  }
-  .rail[data-rail="c"].expanded .ringRow {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .rail[data-rail="c"].expanded .flyMenu {
-    align-self: stretch;
-    margin: 0 10px;
-  }
-  .rail[data-rail="c"].expanded .flyMenu > summary {
-    width: 100%;
-    justify-content: flex-start;
-    padding: 0 10px;
-    gap: 8px;
-  }
-  .rail[data-rail="c"].expanded .flyMenu > summary .tag {
-    position: static;
-    margin-left: auto;
-  }
-  .rail[data-rail="c"].expanded .flyMenu > summary .lbl {
-    display: inline;
-  }
-  .rail[data-rail="c"] .flyMenu > summary .lbl {
-    display: none;
-    font-size: var(--t-2);
-    font-weight: 600;
-  }
-  .rail[data-rail="c"].expanded .railBtn {
-    margin: 10px 10px 0;
-    justify-content: flex-start;
-    padding: 7px 10px;
   }
   .ringRow {
     display: grid;
     justify-items: center;
     gap: 2px;
-  }
-  .ringRow small {
-    font-size: 9.5px;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-  .rail[data-rail="c"].expanded .ringRow small {
-    font-size: var(--t-1);
-  }
-  .rail[data-rail="c"].expanded .ringRow div {
-    display: grid;
-    gap: 1px;
-  }
-  .rail[data-rail="c"].expanded .ringRow div b {
-    font-size: var(--t-2);
-    font-weight: 600;
-    color: var(--ink);
   }
 
   /* ─── the screen's layout, drawn ─── */
@@ -4904,9 +4865,14 @@
     margin-right: 8px;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .hApp {
+      transition: none;
+    }
+  }
   @media (max-width: 1000px) {
     .hApp,
-    .hApp[data-option="all"] {
+    .hApp[data-view="both"] {
       grid-template-columns: 1fr;
     }
     .railHost > .rail {
@@ -4929,7 +4895,8 @@
   @media print {
     .oBar,
     .railBtn,
-    .railCap {
+    .railCap,
+    .flyCard {
       display: none !important;
     }
   }
@@ -4937,6 +4904,7 @@
     .railBlock,
     .thumb,
     .card,
+    .flyCard,
     .schema .sBlock {
       border: 1px solid CanvasText;
       box-shadow: none;
@@ -4948,13 +4916,12 @@
     }
   }
 </style>
-<div class="oBar" role="region" aria-label="Rail options">
-  <span class="oLabel">Rail options</span>
-  <div class="oSeg" role="group" aria-label="Choose an option">
-    <button type="button" class="oBtn" data-option="a" aria-pressed="true"><kbd>1</kbd>Grouped rail</button>
-    <button type="button" class="oBtn" data-option="b" aria-pressed="false"><kbd>2</kbd>Screen map rail</button>
-    <button type="button" class="oBtn" data-option="c" aria-pressed="false"><kbd>3</kbd>Strip</button>
-    <button type="button" class="oBtn" data-option="all" aria-pressed="false"><kbd>4</kbd>Compare</button>
+<div class="oBar" role="region" aria-label="Rail views">
+  <span class="oLabel">Rail views</span>
+  <div class="oSeg" role="group" aria-label="Choose a view">
+    <button type="button" class="oBtn" data-view="open" aria-pressed="true"><kbd>1</kbd>Open</button>
+    <button type="button" class="oBtn" data-view="closed" aria-pressed="false"><kbd>2</kbd>Closed</button>
+    <button type="button" class="oBtn" data-view="both" aria-pressed="false"><kbd>3</kbd>Both</button>
   </div>
   <p class="oNote" id="oNote"></p>
   <div class="appearance" role="group" aria-label="Appearance">
@@ -4964,12 +4931,11 @@
   </div>
 </div>
 
-<div class="hApp" id="hApp" data-option="a" data-collapsed="false" data-expanded="false">
+<div class="hApp" id="hApp" data-view="open">
   <a class="skip" href="#qList">Skip to the priority queue</a>
-  <div class="railHost" id="railHost" data-option="a">
-    <nav class="rail" data-rail="a" aria-label="Ward Flow sections, the grouped rail"></nav>
-    <nav class="rail" data-rail="b" aria-label="Ward Flow sections, the screen map rail"></nav>
-    <nav class="rail" data-rail="c" aria-label="Ward Flow sections, the strip"></nav>
+  <div class="railHost" id="railHost">
+    <nav class="rail open" data-rail="open" aria-label="Ward Flow sections, open"></nav>
+    <nav class="rail closed" data-rail="closed" aria-label="Ward Flow sections, closed"></nav>
   </div>
 
   <div class="hFrame">
@@ -5118,71 +5084,88 @@
         <div class="map" id="map"></div>
       </section>
 
-      <section class="panel" aria-label="Three rails, one contract">
+      <section class="panel" aria-label="The rail, open and closed">
         <div class="ph">
-          <h2>Three rails, one contract</h2>
+          <h2>The rail, open and closed</h2>
           <span class="count">Built to the design system, second edition</span>
         </div>
         <div class="hFeatures">
           <div>
-            <h3><b>A</b>Grouped rail</h3>
+            <h3>Open, 236 pixels</h3>
             <ul>
               <li>
-                The rail you already have, with two things added: the shift block, with the handover countdown and a
-                meter, and the pinned movements, three the coordinator is watching, each a press away in the queue.
+                The brand, and a hairline in the service hue beneath it when one service is chosen, so the rail says
+                where you are.
               </li>
+              <li>The shift: a ring filling towards handover, the time left in mono, and a meter.</li>
               <li>
-                Collapse folds it to a strip of glyphs at 64 pixels, with the counts as small tags and every label as a
-                tooltip, so a crowded screen gets the width back.
+                Every screen in three groups. Where a screen has a state, one line of text says it under the name:
+                breached and due soon under Command, free and none under Capacity, the oldest under Referrals, the time
+                left under Handover.
               </li>
-              <li>The quietest of the three, and the one that changes least from what Command has now.</li>
+              <li>The current screen's own sections beneath it, each with a count, each a jump.</li>
+              <li>
+                Pinned: the movements the coordinator is watching, with the tone bar of the row and the wait in mono.
+              </li>
+              <li>Who is signed in, whether the figures reconcile, and the note on what is invented.</li>
             </ul>
           </div>
           <div>
-            <h3><b>B</b>Screen map rail</h3>
+            <h3>Closed, 76 pixels</h3>
             <ul>
               <li>
-                Two lines per screen: its name and what it is for, so a new coordinator learns the product from the
-                rail.
+                A glyph and one word per screen, the counts as small tags, red only where a legal deadline has passed
+                and amber where the oldest referral is over two hours.
               </li>
-              <li>The current screen's own sections sit beneath it, each with a count, and press to jump.</li>
               <li>
-                The bed pressure by health service as three meters in the service hues, and who is on call, as roles
-                only.
+                Rest the pointer on any glyph and a card names the screen, says what it is for and gives its state line,
+                so nothing is lost by closing.
               </li>
-              <li>The widest, at 272 pixels, and the one that carries the most state.</li>
+              <li>
+                The shift as a ring around the coordinator's initials, and the pinned movements as a fly-out with a
+                count.
+              </li>
+              <li>The reconcile dot stays. The note moves to the footer of the page.</li>
             </ul>
           </div>
           <div>
-            <h3><b>C</b>Strip</h3>
+            <h3>What was added, and why</h3>
             <ul>
               <li>
-                A glyph and one word per screen at 76 pixels, with the counts as tags on the glyphs. The page gets
-                almost the whole width.
+                Text under the screens. A count says how many, a line says what kind. Together the rail reads as an
+                instrument, not a list.
               </li>
               <li>
-                The shift as a ring around the coordinator's initials, filling towards handover, and the pinned
-                movements as a fly-out.
+                Tone on the tags. A red count is a breach and nothing else. Amber is look here. Nothing else in the rail
+                is coloured, so those two are seen.
               </li>
-              <li>Expand opens it to full labels when there is room, and it remembers.</li>
+              <li>
+                The service stripe. One service chosen is easy to forget and expensive to forget, so the rail carries
+                it.
+              </li>
+              <li>
+                The bracket key flips open and closed from anywhere, and the choice is remembered. The width animates in
+                a fifth of a second, and not at all when motion is reduced.
+              </li>
+              <li>The hover card in the closed strip, so the strip can be used all shift without opening it.</li>
             </ul>
           </div>
           <div>
-            <h3>Shared by all three</h3>
+            <h3>Considered, not built</h3>
             <ul>
               <li>
-                Every screen, in three groups: Operations, Network, Records. Raise a referral is a flow reached from the
-                primary action, not a rail item.
+                Two lines per screen with its purpose. Good for a first week, noise by the second. The hover card and
+                the tooltip carry the purpose instead.
               </li>
               <li>
-                A count beside a screen only where a count matters: open movements, beds free, referrals waiting,
-                overrides to review.
+                Bed pressure meters by service in the rail. They belong in the Activity drawer's live tally and on
+                Capacity, where there is room to read them.
               </li>
               <li>
-                The current screen carries the gilt bar. Who is signed in and whether the figures reconcile stay at the
-                foot.
+                The on call roster. Roles only would be safe, but it changes by site and by hour, and a wrong roster in
+                a rail is worse than none. It belongs in Tools with a time it was read.
               </li>
-              <li>The Service selector in the bar filters every count in the rail as well as the page.</li>
+              <li>A search box in the rail. The bar already has one, and one composer per page is the rule.</li>
             </ul>
           </div>
         </div>
@@ -5552,9 +5535,7 @@
       page: "command",
       actPart: "activity",
       seen: {},
-      option: "a",
-      collapsed: false,
-      expanded: false,
+      view: "open",
       section: null,
     };
     var CHECK = [];
@@ -7699,28 +7680,102 @@
       );
     }
 
-    /* ─── the three rails, rendered from the same screens and the same figures ─── */
-    function railLink(key, f, twoLine) {
+    /* ─── the rail, open and closed, rendered from the same screens and the same figures ─── */
+    function stateLine(key, f) {
+      switch (key) {
+        case "command":
+          if (!f.total) return null;
+          return (
+            (f.breached ? '<b data-tone="danger">' + f.breached + " breached</b>" : "no breach") +
+            ", " +
+            (f.soon ? f.soon + " due soon" : "none due soon")
+          );
+        case "capacity":
+          if (!f.sites) return null;
+          return (
+            f.free +
+            " free" +
+            (f.noFree.length
+              ? ", none at " +
+                f.noFree
+                  .map(function (b) {
+                    return b.code;
+                  })
+                  .join(", ")
+              : " of " + f.beds)
+          );
+        case "eds":
+          return f.longest ? "longest " + fmtWait(f.longest.wait) + " at " + f.longest.ed : null;
+        case "referrals":
+          if (!f.refOldest) return null;
+          var o = NOW_MIN - clockToMin(f.refOldest.at);
+          return o > 120 ? '<b data-tone="warn">oldest ' + fmtWait(o) + "</b>" : "oldest " + fmtWait(o);
+        case "handover":
+          return "in " + fmtWait(HANDOVER_MIN - NOW_MIN);
+        case "governance":
+          return OVERRIDES + " to review";
+      }
+      return null;
+    }
+    function tagTone(key, f) {
+      if (key === "command" && f.breached > 0) return "danger";
+      if (key === "referrals" && f.refOldest && NOW_MIN - clockToMin(f.refOldest.at) > 120) return "warn";
+      return null;
+    }
+    function railLink(key, f, closed) {
       var s = SCREENS[key];
       var tag = screenTag(key, f);
+      var tone = tagTone(key, f);
       var cur = state.page === key;
-      var text = twoLine
-        ? '<span class="railText"><span>' + s.title + "</span><em>" + s.line + "</em></span>"
-        : '<span><span class="full">' + s.title + '</span><span class="short">' + s.short + "</span></span>";
-      var h =
+      var line = stateLine(key, f);
+      var tagHtml =
+        tag !== null ? '<span class="tag"' + (tone ? ' data-tone="' + tone + '"' : "") + ">" + tag + "</span>" : "";
+      var h;
+      if (closed) {
+        h =
+          '<button class="railLink" type="button" data-page="' +
+          key +
+          '"' +
+          (cur ? ' aria-current="page"' : "") +
+          ' aria-label="' +
+          esc(s.title) +
+          (tag !== null ? ", " + tag : "") +
+          '"><span class="railLabel">' +
+          glyph(key) +
+          '<span class="word">' +
+          s.short +
+          "</span></span>" +
+          tagHtml;
+        h +=
+          '<span class="flyCard" aria-hidden="true"><b>' +
+          esc(s.title) +
+          tagHtml +
+          "</b><em>" +
+          esc(s.purpose) +
+          "</em>" +
+          (line ? '<span class="stateLine">' + line + "</span>" : "") +
+          "</span></button>";
+        return h;
+      }
+      h =
         '<button class="railLink" type="button" data-page="' +
         key +
         '"' +
         (cur ? ' aria-current="page"' : "") +
-        ' title="' +
-        esc(s.title) +
+        ' data-state="' +
+        (line ? "true" : "false") +
+        '" title="' +
+        esc(s.purpose) +
         '"><span class="railLabel">' +
         glyph(key) +
-        text +
+        '<span class="railText"><span>' +
+        s.title +
         "</span>" +
-        (tag !== null ? '<span class="tag">' + tag + "</span>" : "") +
+        (line ? "<em>" + line + "</em>" : "") +
+        "</span></span>" +
+        tagHtml +
         "</button>";
-      if (twoLine && cur) {
+      if (cur) {
         h += '<div class="sections" role="group" aria-label="Sections of ' + esc(s.title) + '">';
         sectionsOf(key, f).forEach(function (sec) {
           h +=
@@ -7740,56 +7795,35 @@
       }
       return h;
     }
-    function railGroups(f, twoLine) {
+    function railGroups(f, closed) {
       var h = "";
       GROUPS.forEach(function (g) {
         h +=
           '<div class="railGroup" role="group" aria-label="' + g.label + '"><p class="railEyebrow">' + g.label + "</p>";
         SCREEN_ORDER.forEach(function (k) {
-          if (SCREENS[k].group === g.key) h += railLink(k, f, twoLine);
+          if (SCREENS[k].group === g.key) h += railLink(k, f, closed);
         });
         h += "</div>";
       });
       return h;
     }
-    function railFoot(f) {
-      var ok = CHECK.length === 0;
-      var text = ok
-        ? "Figures reconcile at " +
-          NOW +
-          ": " +
-          f.total +
-          " " +
-          plural(f.total, "movement", "movements") +
-          ", " +
-          f.refs +
-          " " +
-          plural(f.refs, "referral", "referrals") +
-          (state.svc ? ", " + SVC_SHORT[state.svc] : "")
-        : CHECK.length + " figures do not reconcile";
+    function ringHtml(size, label) {
+      var pct = (NOW_MIN - SHIFT_START_MIN) / (HANDOVER_MIN - SHIFT_START_MIN);
+      var C = 2 * Math.PI * 19;
       return (
-        '<div class="railFoot"><p class="railUser"><span>Signed in as</span><b>Bed coordinator</b></p><p class="railCheck" data-ok="' +
-        (ok ? "true" : "false") +
-        '" title="' +
-        esc(text) +
-        '"><span>' +
-        text +
-        '</span></p><p class="railNote">Every movement, name, referral, clock and figure on this screen is invented. The hospital sites and health services are real WA names.</p></div>'
-      );
-    }
-    function shiftBlock() {
-      var left = HANDOVER_MIN - NOW_MIN;
-      var pct = Math.round(((NOW_MIN - SHIFT_START_MIN) / (HANDOVER_MIN - SHIFT_START_MIN)) * 100);
-      return (
-        '<div class="railBlock" aria-label="Shift"><p class="eyebrow"><span>Day shift</span><span class="count">' +
-        NOW +
-        '</span></p><p class="big">' +
-        fmtWait(left) +
-        "<small>to handover at " +
+        '<div class="ring' +
+        (size === "small" ? " small" : "") +
+        '" role="img" aria-label="Day shift, ' +
+        Math.round(pct * 100) +
+        " percent through, handover at " +
         HANDOVER +
-        '</small></p><div class="meter" aria-hidden="true"><i style="width:' +
-        pct +
-        '%"></i></div></div>'
+        '"><svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="19" /><circle class="arc" cx="22" cy="22" r="19" stroke-dasharray="' +
+        (C * pct).toFixed(1) +
+        " " +
+        C.toFixed(1) +
+        '" /></svg><b>' +
+        label +
+        "</b></div>"
       );
     }
     function pinnedRows(f) {
@@ -7799,15 +7833,17 @@
           return x.id === id;
         })[0];
         if (!m || !inSvc(m)) return;
-        var breached = m.dl !== null && m.dl < 0;
+        var tone = m.dl !== null && m.dl < 0 ? "danger" : m.dl !== null && m.dl <= 120 ? "warn" : null;
         h +=
           '<button type="button" class="pinRow" data-pin="' +
           id +
           '" aria-pressed="' +
           (state.selected === id ? "true" : "false") +
           '"' +
-          (breached ? ' data-tone="danger"' : "") +
-          '><span class="id">' +
+          (tone ? ' data-tone="' + tone + '"' : "") +
+          ' title="' +
+          esc(fmtDl(m.dl)) +
+          '"><span class="id">' +
           id +
           "</span><b>" +
           esc(nameOf(m)) +
@@ -7817,129 +7853,18 @@
       });
       return h || '<p class="menuNote" style="padding:2px 10px 4px">No pinned movement in ' + esc(svcName()) + ".</p>";
     }
-    function renderRailA(f) {
-      var nav = document.querySelector('.rail[data-rail="a"]');
-      var h =
-        '<p class="railCap"><b>A</b><span>Grouped rail</span></p><div class="brand"><b>' +
-        (state.collapsed ? "WF" : "Ward Flow") +
-        '</b><span>WA</span></div><div class="railScroll">';
-      h += shiftBlock();
-      h += railGroups(f, false);
-      h +=
-        '<div class="railGroup pinGroup" role="group" aria-label="Pinned movements" style="margin-top:14px"><p class="railEyebrow">Pinned</p>' +
-        pinnedRows(f) +
-        "</div>";
-      h += "</div>" + railFoot(f);
-      h +=
-        '<button type="button" class="railBtn" data-rail-toggle="a" aria-pressed="' +
-        (state.collapsed ? "true" : "false") +
-        '" title="' +
-        (state.collapsed ? "Expand the rail" : "Collapse the rail to glyphs") +
-        '">' +
-        glyph(state.collapsed ? "expand" : "collapse") +
-        "<span>" +
-        (state.collapsed ? "Expand" : "Collapse") +
-        "</span></button>";
-      nav.innerHTML = h;
-      nav.classList.toggle("collapsed", state.collapsed);
+    function pinnedCount() {
+      return PINNED.filter(function (id) {
+        var m = MOVES.filter(function (x) {
+          return x.id === id;
+        })[0];
+        return m && inSvc(m);
+      }).length;
     }
-    function renderRailB(f) {
-      var nav = document.querySelector('.rail[data-rail="b"]');
-      var h =
-        '<p class="railCap"><b>B</b><span>Screen map rail</span></p><div class="brand"><b>Ward Flow</b><span>WA</span></div><div class="railScroll">';
-      h +=
-        '<div class="railBlock" aria-label="Now"><p class="eyebrow"><span>Now</span><span class="count">Sat 15 Aug AWST</span></p><p class="big">' +
-        NOW +
-        "<small>handover " +
-        HANDOVER +
-        ", in " +
-        fmtWait(HANDOVER_MIN - NOW_MIN) +
-        "</small></p></div>";
-      h += railGroups(f, true);
-      var pressure = {};
-      scopedBeds().forEach(function (b) {
-        pressure[b.svc] = pressure[b.svc] || { beds: 0, free: 0 };
-        pressure[b.svc].beds += b.beds;
-        pressure[b.svc].free += b.free;
-      });
-      h +=
-        '<div class="railBlock" style="margin-top:14px" aria-label="Bed pressure by service"><p class="eyebrow"><span>Beds free</span><span class="count">' +
-        f.free +
-        " of " +
-        f.beds +
-        '</span></p><div class="pressure">';
-      var any = false;
-      SVC_ORDER.forEach(function (s) {
-        var p = pressure[s];
-        if (!p) return;
-        any = true;
-        var pct = p.beds ? Math.round((p.free / p.beds) * 100) : 0;
-        h +=
-          '<div class="row"><span>' +
-          SVC_SHORT[s] +
-          '</span><div class="meter"><i data-svc="' +
-          s +
-          '" style="width:' +
-          Math.max(pct, 2) +
-          '%"></i></div><b>' +
-          (p.free === 0 ? "<i>none</i>" : p.free) +
-          "<i> of " +
-          p.beds +
-          "</i></b></div>";
-      });
-      if (!any) h += '<p class="line">No site in ' + esc(svcName()) + " is drawn in this prototype.</p>";
-      h += "</div></div>";
-      h +=
-        '<div class="railBlock" aria-label="On call"><p class="eyebrow"><span>On call</span><span class="count">roles</span></p><p class="line">Coordinator on call, reachable through the site switchboard.</p><p class="line">Duty consultant on site until 18:00, then the on call registrar takes referrals.</p></div>';
-      h += "</div>" + railFoot(f);
-      nav.innerHTML = h;
-    }
-    function renderRailC(f) {
-      var nav = document.querySelector('.rail[data-rail="c"]');
-      var h =
-        '<p class="railCap"><b>C</b><span>Strip</span></p><div class="brand"><b>' +
-        (state.expanded ? "Ward Flow" : "WF") +
-        "</b><span>WA</span></div>";
-      h += railGroups(f, false);
-      var pct = (NOW_MIN - SHIFT_START_MIN) / (HANDOVER_MIN - SHIFT_START_MIN);
-      var C = 2 * Math.PI * 19;
-      h += '<div class="railFoot">';
-      h +=
-        '<details class="menu flyMenu" id="pinMenu"><summary title="Pinned movements">' +
-        glyph("pin") +
-        '<span class="lbl">Pinned</span><span class="tag">' +
-        PINNED.filter(function (id) {
-          var m = MOVES.filter(function (x) {
-            return x.id === id;
-          })[0];
-          return m && inSvc(m);
-        }).length +
-        '</span></summary><div class="menuPanel"><p class="menuHead">Pinned<span class="count">watching</span></p><div class="menuList">' +
-        pinnedRows(f) +
-        '</div><p class="menuNote">Pin a movement from its row to keep it here through the shift.</p></div></details>';
-      h +=
-        '<div class="ringRow"><div class="ring" role="img" aria-label="Day shift, ' +
-        Math.round(pct * 100) +
-        " percent through, handover at " +
-        HANDOVER +
-        '"><svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="19" /><circle class="arc" cx="22" cy="22" r="19" stroke-dasharray="' +
-        (C * pct).toFixed(1) +
-        " " +
-        C.toFixed(1) +
-        '" /></svg><b>BC</b></div><div><b>Bed coordinator</b><small>Handover ' +
-        HANDOVER +
-        ", in " +
-        fmtWait(HANDOVER_MIN - NOW_MIN) +
-        "</small></div></div>";
-      var ok = CHECK.length === 0;
-      h +=
-        '<p class="railCheck" data-ok="' +
-        (ok ? "true" : "false") +
-        '" title="' +
-        (ok ? "Figures reconcile at " + NOW : CHECK.length + " figures do not reconcile") +
-        '"><span>' +
-        (ok
-          ? "Figures reconcile at " +
+    function checkText(f) {
+      return CHECK.length
+        ? CHECK.length + " figures do not reconcile"
+        : "Figures reconcile at " +
             NOW +
             ": " +
             f.total +
@@ -7948,29 +7873,90 @@
             ", " +
             f.refs +
             " " +
-            plural(f.refs, "referral", "referrals")
-          : CHECK.length + " figures do not reconcile") +
-        "</span></p>";
-      h +=
-        '<p class="railUser"><span>Signed in as</span><b>Bed coordinator</b></p><p class="railNote">Every movement, name, referral, clock and figure on this screen is invented.</p>';
-      h += "</div>";
-      h +=
-        '<button type="button" class="railBtn" data-rail-toggle="c" aria-pressed="' +
-        (state.expanded ? "true" : "false") +
-        '" title="' +
-        (state.expanded ? "Fold the rail to a strip" : "Expand the rail to full labels") +
-        '">' +
-        glyph(state.expanded ? "collapse" : "expand") +
-        "<span>" +
-        (state.expanded ? "Fold" : "Expand") +
-        "</span></button>";
+            plural(f.refs, "referral", "referrals") +
+            (state.svc ? ", " + SVC_SHORT[state.svc] : "");
+    }
+    function renderRail(nav, closed, f) {
+      var pct = Math.round(((NOW_MIN - SHIFT_START_MIN) / (HANDOVER_MIN - SHIFT_START_MIN)) * 100);
+      var ok = CHECK.length === 0;
+      var h =
+        '<p class="railCap"><b>' +
+        (closed ? "Closed" : "Open") +
+        "</b><span>" +
+        (closed ? "76 pixels" : "236 pixels") +
+        '</span></p><div class="brand"><b>' +
+        (closed ? "WF" : "Ward Flow") +
+        '</b><span>WA</span></div><i class="svcStripe"' +
+        (state.svc ? ' data-svc="' + state.svc + '"' : "") +
+        ' aria-hidden="true"></i>';
+      if (!closed) {
+        h += '<div class="railScroll">';
+        h +=
+          '<div class="railBlock" aria-label="Shift"><div class="shiftRow">' +
+          ringHtml("small", pct + "%") +
+          '<div><p class="eyebrow"><span>Day shift</span><span class="count">' +
+          NOW +
+          '</span></p><p class="big">' +
+          fmtWait(HANDOVER_MIN - NOW_MIN) +
+          "<small>to handover at " +
+          HANDOVER +
+          '</small></p></div></div><div class="meter" aria-hidden="true"><i style="width:' +
+          pct +
+          '%"></i></div></div>';
+        h += railGroups(f, false);
+        h +=
+          '<div class="railGroup pinGroup" role="group" aria-label="Pinned movements"><p class="railEyebrow">Pinned</p>' +
+          pinnedRows(f) +
+          "</div>";
+        h += "</div>";
+        h +=
+          '<div class="railFoot"><p class="railUser"><span>Signed in as</span><b>Bed coordinator</b></p><p class="railCheck" data-ok="' +
+          (ok ? "true" : "false") +
+          '"><span>' +
+          checkText(f) +
+          '</span></p><p class="railNote">Every figure and name here is invented.</p></div>';
+        h +=
+          '<button type="button" class="railBtn" data-rail-toggle="closed" title="Close the rail to a strip. The bracket key does the same.">' +
+          glyph("collapse") +
+          "<span>Close the rail</span><kbd>[</kbd></button>";
+      } else {
+        h += railGroups(f, true);
+        h += '<div class="railFoot">';
+        h +=
+          '<details class="menu flyMenu" id="pinMenu"><summary title="Pinned movements">' +
+          glyph("pin") +
+          '<span class="tag">' +
+          pinnedCount() +
+          '</span></summary><div class="menuPanel"><p class="menuHead">Pinned<span class="count">watching</span></p><div class="menuList">' +
+          pinnedRows(f) +
+          '</div><p class="menuNote">Pin a movement from its row to keep it here through the shift.</p></div></details>';
+        h +=
+          '<div class="ringRow" title="Bed coordinator. Day shift, handover ' +
+          HANDOVER +
+          ", in " +
+          fmtWait(HANDOVER_MIN - NOW_MIN) +
+          '">' +
+          ringHtml("", "BC") +
+          "</div>";
+        h +=
+          '<p class="railCheck" data-ok="' +
+          (ok ? "true" : "false") +
+          '" title="' +
+          esc(checkText(f)) +
+          '"><span>' +
+          checkText(f) +
+          "</span></p>";
+        h += "</div>";
+        h +=
+          '<button type="button" class="railBtn" data-rail-toggle="open" title="Open the rail. The bracket key does the same.">' +
+          glyph("expand") +
+          "<span>Open the rail</span></button>";
+      }
       nav.innerHTML = h;
-      nav.classList.toggle("expanded", state.expanded);
     }
     function renderRails(f) {
-      renderRailA(f);
-      renderRailB(f);
-      renderRailC(f);
+      renderRail(document.querySelector(".rail.open"), false, f);
+      renderRail(document.querySelector(".rail.closed"), true, f);
       menus = all("details.menu");
       bindMenus();
     }
@@ -8108,54 +8094,36 @@
       renderMap(f);
     }
 
-    /* ─── the option switcher ─── */
+    /* ─── the views: open, closed, both ─── */
+    var VIEW_KEY = "ward-flow-rail-view";
     var NOTES = {
-      a: "Option A, the grouped rail. The rail Command has now, with the shift and the pinned movements added, and a collapse to a strip of glyphs.",
-      b: "Option B, the screen map rail. Two lines per screen, the current screen's own sections beneath it, the bed pressure by service, and who is on call.",
-      c: "Option C, the strip. A glyph and a word per screen, the shift as a ring, the pinned movements as a fly-out, and an expand to full labels.",
-      all: "All three side by side, each live, over the same page. The rail switches the screen and every count follows the Service selector.",
+      open: "The rail, open. Every screen in three groups with its state in a line of text, the shift, the current screen's sections and the pinned movements.",
+      closed:
+        "The rail, closed. A glyph and a word per screen, the counts as tags, the shift as a ring, and a card on hover with the screen's state.",
+      both: "Open and closed side by side over the same page. The bracket key flips between them anywhere.",
     };
-    var OPTION_KEY = "ward-flow-rail-option";
-    function setOption(o) {
-      if (!NOTES[o]) o = "a";
-      state.option = o;
+    function setView(v) {
+      if (!NOTES[v]) v = "open";
+      state.view = v;
       closeMenus(null);
-      $("hApp").setAttribute("data-option", o);
-      $("railHost").setAttribute("data-option", o);
-      all("[data-option].oBtn").forEach(function (b) {
-        b.setAttribute("aria-pressed", b.getAttribute("data-option") === o ? "true" : "false");
+      $("hApp").setAttribute("data-view", v);
+      all("[data-view].oBtn").forEach(function (b) {
+        b.setAttribute("aria-pressed", b.getAttribute("data-view") === v ? "true" : "false");
       });
-      $("oNote").textContent = NOTES[o];
+      $("oNote").textContent = NOTES[v];
       try {
-        localStorage.setItem(OPTION_KEY, o);
-        localStorage.setItem(OPTION_KEY + "-collapsed", state.collapsed ? "1" : "");
-        localStorage.setItem(OPTION_KEY + "-expanded", state.expanded ? "1" : "");
+        localStorage.setItem(VIEW_KEY, v);
       } catch (err) {}
-      announce(NOTES[o].split(". ")[0] + ".");
+      announce(NOTES[v].split(". ")[0] + ".");
     }
     document.addEventListener("click", function (e) {
       var b;
-      if ((b = e.target.closest("[data-option].oBtn"))) {
-        setOption(b.getAttribute("data-option"));
+      if ((b = e.target.closest("[data-view].oBtn"))) {
+        setView(b.getAttribute("data-view"));
         return;
       }
       if ((b = e.target.closest("[data-rail-toggle]"))) {
-        var which = b.getAttribute("data-rail-toggle");
-        if (which === "a") state.collapsed = !state.collapsed;
-        else state.expanded = !state.expanded;
-        $("hApp").setAttribute("data-collapsed", state.collapsed ? "true" : "false");
-        $("hApp").setAttribute("data-expanded", state.expanded ? "true" : "false");
-        renderAll();
-        setOption(state.option);
-        announce(
-          which === "a"
-            ? state.collapsed
-              ? "Rail collapsed to glyphs. Every label is a tooltip."
-              : "Rail expanded."
-            : state.expanded
-              ? "Strip expanded to full labels."
-              : "Rail folded to the strip.",
-        );
+        setView(b.getAttribute("data-rail-toggle"));
         return;
       }
       if ((b = e.target.closest("[data-pin]"))) {
@@ -8191,28 +8159,23 @@
       }
       if ((b = e.target.closest("[data-screen]"))) {
         setPage(b.getAttribute("data-screen"));
-        $("bodyScreen").hidden
-          ? $("qList").scrollIntoView({ block: "start" })
-          : $("bodyScreen").scrollIntoView({ block: "start" });
+        if ($("bodyScreen").hidden) $("qList").scrollIntoView({ block: "start" });
+        else $("bodyScreen").scrollIntoView({ block: "start" });
       }
     });
     document.addEventListener("keydown", function (e) {
       var tag = (document.activeElement && document.activeElement.tagName) || "";
-      if (/input|textarea|select/i.test(tag)) return;
-      if (/^[1-4]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey)
-        setOption({ 1: "a", 2: "b", 3: "c", 4: "all" }[e.key]);
+      if (/input|textarea|select/i.test(tag) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (/^[1-3]$/.test(e.key)) setView({ 1: "open", 2: "closed", 3: "both" }[e.key]);
+      if (e.key === "[") setView(state.view === "closed" ? "open" : "closed");
     });
-    (function restoreOption() {
-      var o = "a";
+    (function restoreView() {
+      var v = "open";
       try {
-        o = localStorage.getItem(OPTION_KEY) || "a";
-        state.collapsed = !!localStorage.getItem(OPTION_KEY + "-collapsed");
-        state.expanded = !!localStorage.getItem(OPTION_KEY + "-expanded");
+        v = localStorage.getItem(VIEW_KEY) || "open";
       } catch (err) {}
-      $("hApp").setAttribute("data-collapsed", state.collapsed ? "true" : "false");
-      $("hApp").setAttribute("data-expanded", state.expanded ? "true" : "false");
       renderAll();
-      setOption(o);
+      setView(v);
       live.textContent = "";
     })();
 
@@ -8229,9 +8192,7 @@
         svc: state.svc,
         page: state.page,
         part: state.actPart,
-        option: state.option,
-        collapsed: state.collapsed,
-        expanded: state.expanded,
+        view: state.view,
       };
     };
   })();
