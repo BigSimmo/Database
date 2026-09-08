@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-07"
+    "committed_at": "2026-09-08"
   },
   "routes": {
     "modes": [
@@ -1628,6 +1628,11 @@
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6-report.md",
         "section": "ward-flow-phase-3-workspace",
+        "catalogued": true
+      },
+      {
+        "path": "docs/developer-area-access.md",
+        "section": "root",
         "catalogued": true
       },
       {
@@ -7390,6 +7395,14 @@
         "checks": "GitHub merged exact head, branch not checked out, no open PR claim, batch3 bundle verify ok SHA256 48AF30DD07A04703D02F4A2FFBDE65F1E573D081E4660D4C7E240D8DB1079B8C"
       },
       {
+        "date": "2026-09-07",
+        "ref": "PR-2628",
+        "head": "0c061ba66d610d6a0ae2ca38cf467cb96191fd54",
+        "scope": "PR merge readiness",
+        "outcome": "Child rollback defect reproduced and corrected locally; RAG behavior classification and live-canary baseline remain merge blockers.",
+        "checks": "44 earlier focused tests and 221 Caring Contacts database tests passed. Revised rollback, both row ceilings, deleted-owner SQL fixtures and transactional migrations passed; regenerated schema manifest."
+      },
+      {
         "date": "2026-08-15",
         "ref": "claude/test-source-contract-hardening",
         "head": "0c1459ca2985e409d330d290a6518fdf877d3255",
@@ -9526,6 +9539,14 @@
         "checks": "Focused Vitest 18/18 pass; `npm run ensure` verified http://localhost:3264; Prettier and diff checks pass; no provider-backed checks run."
       },
       {
+        "date": "2026-09-07",
+        "ref": "PR-2628",
+        "head": "2897742597ee22017bf54d25fe6474f435d546b0",
+        "scope": "PR CI and review repair",
+        "outcome": "Reviewed migration ordering and rollback semantics, synced current main, and fixed deterministic forms sorting CI expectation.",
+        "checks": "vitest corpus-access and migration-history suites (31); focused offline safety suites (43 total); installed-lock parity; merge-tree clean"
+      },
+      {
         "date": "2026-07-24",
         "ref": "PR #1176 / `cursor/pdf-crop-malformed-repro-9b3e`",
         "head": "28c1e2352a7cabb9c73f52d5084ee69f47895c5e",
@@ -10526,6 +10547,14 @@
         "checks": "verify:pr-local (11 completed, 0 failed)"
       },
       {
+        "date": "2026-09-07",
+        "ref": "PR-2702",
+        "head": "3687785ed0b3898d4f179933aab8dc7dab791bb3",
+        "scope": "PR merge readiness",
+        "outcome": "Local repair findings corrected; hosted verification pending.",
+        "checks": "154 focused tests, typecheck, SQL regression fixture and schema replay passed; final publication pending."
+      },
+      {
         "date": "2026-07-30",
         "ref": "codex/review-pr1423",
         "head": "369f9ac809a1a15acb0d7456a782f98a5ea7a297",
@@ -11052,6 +11081,14 @@
         "scope": "Fix calculator regression tests from exact-head CI and merge main d301d8f4",
         "outcome": "fixed",
         "checks": "git diff --check; static ledger guards; focused tests blocked without node_modules"
+      },
+      {
+        "date": "2026-09-07",
+        "ref": "claude/audit-fix-p16",
+        "head": "3c8c48223e38e4c58580df96fb0f3ec2f351303f",
+        "scope": "PR2628 integration of merged PR2702 and schema mirror correction",
+        "outcome": "Integrated main 0177bed184; restored legacy generation function mirror to canonical migration hash; canary baseline still blocks merge.",
+        "checks": "169 focused tests passed; combined Docker schema replay and three SQL fixtures passed; canonical generation function hash 594b1f715fbbfa1df1b1f1183a7fef5a restored; previous head hosted CI passed; new-head CI required; provider canary not dispatched."
       },
       {
         "date": "2026-08-18",
@@ -18430,6 +18467,14 @@
         "checks": "CI=true guard exit 0; awaiting exact-head hosted Build; no provider checks."
       },
       {
+        "date": "2026-09-07",
+        "ref": "codex/canary-fallback-repair-20260907",
+        "head": "9181d1a78b0e1b02eb34572c83a93aeb18152d61",
+        "scope": "fallback prose recovery",
+        "outcome": "No actionable findings in targeted review; live baseline pending",
+        "checks": "50 focused tests and 630 offline RAG tests passed; typecheck passed; production readiness blocked by six existing governance approvals"
+      },
+      {
         "date": "2026-08-07",
         "ref": "cursor/site-testing-speed-08c1",
         "head": "91bac89827ae2f4f0e59aeed7de6344fe8779a95",
@@ -21684,6 +21729,14 @@
         "scope": "ci-testing-review",
         "outcome": "SUPERSEDES the 2026-07-30 db8209be record, which asserted a root cause now REFUTED. That record claimed dragScrollBy clamping made the ui-phone-scroll red; main's #127 carries trace evidence (PR #1404 run 30521269873) that the drag delivered in full (scrollTop 1272 = 552+720) with ~1300px runway spare and a 10s non-flip is a latched state. The change is a diagnostic and guard, NOT a fix, and is now labelled so in the docstring, commit, PR body and #127. Remaining candidates: scrollHidden false vs sharedChromePinned latched; they are indistinguishable from the DOM because only the composite data-scroll-hidden is exposed. Prime suspect in source: composerFocusPinsChrome has a still-the-active-owner guard, headerFocusPinsChrome has none (master-search-header.tsx:397-398). ALSO: this PR ran zero pull_request workflows for ~2h (no CI/Gitleaks/Semgrep, only pull_request_target) because a real conflict blocked refs/pull/1427/merge - issue #116, caught by main's new PR mergeability check. Merging main fixed it and CI ran green first try.",
         "checks": "CI run 30530618838 SUCCESS (13m39). MEASURED shard result, correcting the ~7min prediction: Production UI (1) 121 tests 9m36, (2) 111 tests 6m54, (3) 110 tests 6m20 - per-test cost is NOT uniform, shard 1 holds the slow specs, so the largest shard is 9m36 not the predicted 6.8min. ui-critical-fast 3m14. PR required SUCCESS. verify:cheap on merged tree PASS (434 files / 4563 passed, 4 skipped); prettier --check . PASS; ui-phone-scroll ran locally 1x via PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: 56 passed (5.3m) - three-run protocol NOT completed and not applicable, since this is not a flake fix."
+      },
+      {
+        "date": "2026-09-05",
+        "ref": "claude/audit-fix-p16 (PR #2628)",
+        "head": "ba04794640bd9edf9484d07a530bc5d109fc4537",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "before: PR required FAILURE (drift-detection test: schema.sql changed without regenerating drift-manifest.json), auto-merge ARMED on a PR carrying a live migration (align_corpus_flip_retrieval_scoped_child_owners). after: regenerated supabase/drift-manifest.json via local disposable Docker Postgres (never touches live project); guard-push correctly refused to push while auto-merge was armed on a migration PR, flagged to the user, user disabled auto-merge, then pushed. Merged origin/main (clean, twice). PR now green and waiting for the user's manual merge inside an approved window — never auto-merged.",
+        "checks": "npm run drift:manifest (local Docker Postgres replay); npx vitest run tests/drift-detection.test.ts (21 passed, twice, before and after the second main merge). No provider-backed / live-Supabase checks run."
       },
       {
         "date": "2026-08-18",
@@ -26060,6 +26113,14 @@
         "scope": "branch-cleanup-deletion-pending",
         "outcome": "redundant exact head merged in PR 1438; removal deferred by primary-dirty lease",
         "checks": "clean status; GitHub merged exact head; zero cherry-pick-unique commits"
+      },
+      {
+        "date": "2026-09-07",
+        "ref": "codex/canary-fallback-repair-20260907",
+        "head": "f13dbc27efd9174c0de5ffcb39a73c791dd0f148",
+        "scope": "fallback prose recovery",
+        "outcome": "Targeted review found no actionable defects; all three original fallbacks pass live; full baseline retains two timing-only failures",
+        "checks": "109 focused tests, 630 offline RAG tests and typecheck passed; live 44 cases: 30/30 substantive, citation/numeric failures zero; two latency rechecks pending; production readiness blocked by six existing approvals"
       },
       {
         "date": "2026-07-11",

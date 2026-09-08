@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   clinicalAskReadinessFindings,
   isProviderFreeCodexCloud,
+  developerAccessKeyProductionRisk,
   mockupsGateProductionRisk,
   openAIReadinessPolicy,
   validClinicalAskEvidenceArtifact,
@@ -189,6 +190,34 @@ describe("production readiness provider policy", () => {
         PLAYWRIGHT_OFFLINE_MODE: "true",
       }),
     ).toBe("playwright-exception");
+  });
+
+  it("fails a NEXT_PUBLIC_ copy of the developer-area key, which would ship the secret to every visitor", () => {
+    // Next.js inlines NEXT_PUBLIC_ values into the client bundle. The name is
+    // rejected everywhere, not only in production, because a build made with it
+    // anywhere carries the secret into whatever it is deployed as.
+    expect(developerAccessKeyProductionRisk({ NEXT_PUBLIC_DEVELOPER_AREA_ACCESS_KEY: "anything" })).toBe("public-name");
+    expect(
+      developerAccessKeyProductionRisk({
+        NODE_ENV: "development",
+        NEXT_PUBLIC_DEVELOPER_AREA_ACCESS_KEY: "anything",
+      }),
+    ).toBe("public-name");
+  });
+
+  it("states the passwordless developer link as an enabled production fact, not a failure", () => {
+    expect(
+      developerAccessKeyProductionRisk({ NODE_ENV: "production", DEVELOPER_AREA_ACCESS_KEY: "k".repeat(32) }),
+    ).toBe("enabled");
+    expect(
+      developerAccessKeyProductionRisk({ VERCEL_ENV: "production", DEVELOPER_AREA_ACCESS_KEY: "k".repeat(32) }),
+    ).toBe("enabled");
+    expect(
+      developerAccessKeyProductionRisk({ NODE_ENV: "development", DEVELOPER_AREA_ACCESS_KEY: "k".repeat(32) }),
+    ).toBe("none");
+    expect(developerAccessKeyProductionRisk({ NODE_ENV: "production" })).toBe("none");
+    // Whitespace is not a configured key.
+    expect(developerAccessKeyProductionRisk({ NODE_ENV: "production", DEVELOPER_AREA_ACCESS_KEY: "   " })).toBe("none");
   });
 
   it("reports no risk outside production or with the flag unset", () => {

@@ -12,6 +12,15 @@ import {
   DEVELOPER_AREA_PATH_HEADER,
   DEVELOPER_GATED_PATH_PREFIXES,
 } from "@/lib/developer-area/headers";
+import {
+  DEVELOPER_ACCESS_COOKIE,
+  DEVELOPER_ACCESS_COOKIE_MAX_AGE_SECONDS,
+  DEVELOPER_ACCESS_COOKIE_PATH,
+  DEVELOPER_ACCESS_QUERY_PARAM,
+  developerAccessKeyMatches,
+  developerAccessTokenValid,
+  issueDeveloperAccessToken,
+} from "@/lib/developer-area/link-access";
 import { readSearchNavigationContext } from "@/lib/search-navigation-context";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
 import { signProxyAuthPayload } from "@/lib/supabase/proxy-auth-crypto";
@@ -200,9 +209,26 @@ export async function proxy(request: NextRequest) {
     }
     return headers;
   };
-  // Every response the browser sees must carry the enforced CSP header.
+  // Rolling renewal of the passwordless developer-area cookie. Browsers clamp
+  // `Set-Cookie` lifetimes to roughly 400 days, so a cookie issued once would
+  // quietly expire and put the sign-in screen back in front of the owner about a
+  // year later — the exact outcome this feature exists to prevent. Re-stamping it
+  // on every verified visit means a device used at least once a year never needs
+  // the link again. It renews only what already verifies: an absent, expired, or
+  // forged cookie yields null here and falls through to `DeveloperAreaGate`.
+  const developerAccessRenewal =
+    isDeveloperGatedPath(pathname) && developerAccessTokenValid(request.cookies.get(DEVELOPER_ACCESS_COOKIE)?.value)
+      ? issueDeveloperAccessToken()
+      : null;
+
+  // Every response the browser sees must carry the enforced CSP header — and, on
+  // a gated path held open by a valid access cookie, the renewed cookie. Stamped
+  // here rather than on one early-returned response so the renewal cannot skip
+  // the Supabase session refresh below: an administrator who is ALSO using the
+  // link must keep having their session cookie rotated like everyone else.
   const withCsp = (response: NextResponse) => {
     response.headers.set("content-security-policy", csp);
+    if (developerAccessRenewal) setDeveloperAccessCookie(response, developerAccessRenewal, request);
     return response;
   };
 
@@ -280,6 +306,29 @@ export async function proxy(request: NextRequest) {
     return withCsp(new NextResponse(null, { status: 404 }));
   }
 
+  // Passwordless developer-area access, step one: a gated path carrying
+  // `?devkey=…` exchanges the secret for the long-lived signed cookie and is
+  // redirected to the same URL without it, so the key never lingers in the
+  // address bar, in the history entry that gets shared, or in a Referer header
+  // sent onward. The redirect happens whether or not the secret verifies — a
+  // wrong key must not survive into `DEVELOPER_AREA_PATH_HEADER` and reappear as
+  // the `next` value on the sign-in screen.
+  //
+  // This is a third credential beside the administrator claim, never a
+  // replacement: `DeveloperAreaGate` still admits a signed-in administrator, and
+  // still refuses a visitor holding neither. `NEXT_PUBLIC_MOCKUPS_ENABLED` is
+  // untouched by any of it (#L30). See `src/lib/developer-area/link-access.ts`
+  // for why the cookie carries a signature rather than the key itself.
+  if (isDeveloperGatedPath(pathname) && request.nextUrl.searchParams.has(DEVELOPER_ACCESS_QUERY_PARAM)) {
+    const presented = request.nextUrl.searchParams.get(DEVELOPER_ACCESS_QUERY_PARAM);
+    const url = request.nextUrl.clone();
+    url.searchParams.delete(DEVELOPER_ACCESS_QUERY_PARAM);
+    const response = withCsp(NextResponse.redirect(url));
+    const token = developerAccessKeyMatches(presented) ? issueDeveloperAccessToken() : null;
+    if (token) setDeveloperAccessCookie(response, token, request);
+    return response;
+  }
+
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
   const key = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const hasAuthCookie = request.cookies.getAll().some((cookie) => cookie.name.startsWith("sb-"));
@@ -332,6 +381,24 @@ export async function proxy(request: NextRequest) {
     }
   }
   return withCsp(response);
+}
+
+/**
+ * Writes the developer-area access cookie onto a response.
+ *
+ * `secure` is derived from the request's own protocol rather than pinned true:
+ * a local `http://` dev server must be able to hold the cookie too, and a
+ * `Secure` cookie set over http is silently dropped by the browser. Every real
+ * deployment is https, so this is https in practice.
+ */
+function setDeveloperAccessCookie(response: NextResponse, token: string, request: NextRequest) {
+  response.cookies.set(DEVELOPER_ACCESS_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: request.nextUrl.protocol === "https:",
+    path: DEVELOPER_ACCESS_COOKIE_PATH,
+    maxAge: DEVELOPER_ACCESS_COOKIE_MAX_AGE_SECONDS,
+  });
 }
 
 export function shouldBlockProductionMockups(

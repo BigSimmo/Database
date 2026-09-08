@@ -68,6 +68,14 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
   LOCAL_NO_AUTH_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
+  // Passwordless access to the developer-gated /mockups subtrees: the secret a
+  // bookmarked `?devkey=…` link presents once, which src/proxy.ts exchanges for a
+  // signed, long-lived cookie. Server-only and never NEXT_PUBLIC_ — a public
+  // build-time flag opening this area is precisely #L30. Optional: unset means
+  // the link route is off and the administrator sign-in is the only way in. The
+  // 32-character floor is enforced rather than advisory because this secret
+  // travels in a URL, where it is visible in browser history and screen shares.
+  DEVELOPER_AREA_ACCESS_KEY: z.string().min(32).optional(),
   // Keep `z.` at the call site so `check-env-parity` parseEnvSchemaNames sees these names.
   NEXT_PUBLIC_SENTRY_DSN: z.preprocess(coerceBlankUrlEnv, z.string().url().optional()),
   NEXT_PUBLIC_SENTRY_RELEASE: z.string().optional(),
