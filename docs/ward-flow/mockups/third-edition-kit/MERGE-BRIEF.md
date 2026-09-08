@@ -130,11 +130,14 @@ keeps working.
 
 ## Verification (both artifacts)
 
-Run `node ../merged/check.mjs <file> platinum` from the `wardflow` directory and iterate until
-every line reports green. It checks fonts, page errors, reconcile, horizontal overflow at five
+Run `node docs/ward-flow/mockups/third-edition-kit/check.mjs <file> platinum` from the repository
+root and iterate until every line reports green. The file path is given relative to the root. Fonts
+are served from `third-edition-kit/fonts`, so the run is offline; if that directory is removed the
+harness falls back to the live stylesheet and says which mode it used. It checks fonts, page errors, reconcile, horizontal overflow at five
 widths, the type floor, contrast on every visible text element in both themes, diagram height at
 1440 by 900, the appearance control's first click from a dark machine, and keyboard focus. Then
-run `node ../merged/shots.mjs <file> <outprefix> platinum` for the screenshots. Paste the check
+run `node docs/ward-flow/mockups/third-edition-kit/shots.mjs <file> <outprefix> platinum` for the
+screenshots. Paste the check
 output into your report; a claim without the output is not a pass.
 
 ## Naming
