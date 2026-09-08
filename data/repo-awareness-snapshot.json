@@ -2806,6 +2806,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow/mockups/third-edition-kit/HANDOVER.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/handovers/ward-builder-one-integration-2026-09-02.md",
         "section": "ward-flow",
         "catalogued": false
@@ -5646,6 +5651,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/SHELL-SPEC.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-phase-3-workspace/progress.md",
         "section": "ward-flow-phase-3-workspace",
         "catalogued": true
@@ -6149,6 +6159,11 @@
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-report.md",
         "section": "caring-contacts",
         "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/RAIL-MAP.md",
+        "section": "ward-flow",
+        "catalogued": false
       }
     ],
     "sections": [
