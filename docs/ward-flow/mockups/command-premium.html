@@ -1,4 +1,5 @@
 <title>Ward Flow Command</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
@@ -1105,6 +1106,14 @@
   }
 
   /* ─── queue ────────────────────────────────────────────────────────── */
+  .qPane {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .qPane[hidden] {
+    display: none;
+  }
   .qList {
     max-height: 41rem;
     overflow: auto;
@@ -1863,12 +1872,13 @@
     }
     /* Only the scrolling body of a locked column may give up height. Headers, tab strips, the
        diagram foot and the legend keep theirs, or a short screen squeezes a tab strip shut. */
-    .qPanel > :not(.qList),
+    .qPanel > :not(.qPane),
     .diagPanel > :not(.diagWrap),
     .tabsPanel > :not(.tabBody),
     .slPanel > :not(.slBody) {
       flex: 0 0 auto;
     }
+    .qPane,
     .qList {
       flex: 1 1 auto;
       min-height: 0;
@@ -1968,21 +1978,33 @@
       grid-column: 2;
       grid-row: 2;
     }
+    .qPane,
     .qList {
       flex: 1 1 auto;
       min-height: 0;
       max-height: none;
     }
-    .slBody {
-      display: grid;
-      grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
-      align-items: start;
+    /* The split keys off the panel's own width, not the viewport's. With the rail taking
+       15rem the panel is far narrower than the screen, and below a measured floor of 630px
+       the second column clips its eligibility rows and its controls, which the page's
+       hidden horizontal overflow then puts out of reach. Two columns from 39.5rem, which
+       sits just above that floor; one column below it. */
+    .slPanel {
+      container-type: inline-size;
+      container-name: shortlist;
     }
-    .slBody > .slColB {
-      border-left: 1px solid var(--line);
-    }
-    .slBody > .slColB > .sec:first-child {
-      border-top: 0;
+    @container shortlist (min-width: 39.5rem) {
+      .slBody {
+        display: grid;
+        grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+        align-items: start;
+      }
+      .slBody > .slColB {
+        border-left: 1px solid var(--line);
+      }
+      .slBody > .slColB > .sec:first-child {
+        border-top: 0;
+      }
     }
   }
   @media (max-width: 1000px) {
@@ -5124,15 +5146,14 @@
             </button>
           </div>
           <div id="qFilter"></div>
-          <ul class="qList" id="qpane-patients" role="tabpanel" aria-labelledby="qtab-patients" tabindex="0"></ul>
-          <ul
-            class="qList"
-            id="qpane-referrals"
-            role="tabpanel"
-            aria-labelledby="qtab-referrals"
-            tabindex="0"
-            hidden
-          ></ul>
+          <!-- The tabpanel role sits on a wrapper, never on the list itself: a role on the
+               <ul> replaces its native list role and leaves every <li> without a list parent. -->
+          <div class="qPane" id="qpane-patients" role="tabpanel" aria-labelledby="qtab-patients" tabindex="0">
+            <ul class="qList" id="qlist-patients"></ul>
+          </div>
+          <div class="qPane" id="qpane-referrals" role="tabpanel" aria-labelledby="qtab-referrals" tabindex="0" hidden>
+            <ul class="qList" id="qlist-referrals"></ul>
+          </div>
         </section>
 
         <div class="midCol">
@@ -6451,7 +6472,7 @@
     /* The vertical scroll regions: a fade at whichever edge content continues past, measured rather
    than declared, and re-measured on every render, scroll and resize. The four regions are the
    two queue lists, the register body and the shortlist body. */
-    var FADE_IDS = ["qpane-patients", "qpane-referrals", "tabBody"];
+    var FADE_IDS = ["qlist-patients", "qlist-referrals", "tabBody"];
     function fadeTargets() {
       var els = FADE_IDS.map(function (id) {
         return document.getElementById(id);
@@ -7121,7 +7142,7 @@
       var rows = queueRows();
       document.getElementById("qPatCount").textContent = rows.length;
 
-      document.getElementById("qpane-patients").innerHTML = rows
+      document.getElementById("qlist-patients").innerHTML = rows
         .map(function (m) {
           var e = ed(m.ed);
           /* `!state.referralId` too — a referral standing as the shortlist's subject means this
@@ -7165,7 +7186,7 @@
     function renderReferralQueue() {
       var rows = referralQueueOrder();
       document.getElementById("qRefCount").textContent = rows.length;
-      document.getElementById("qpane-referrals").innerHTML = rows
+      document.getElementById("qlist-referrals").innerHTML = rows
         .map(function (r) {
           var clocks = referralClockLines(r);
           return (
@@ -7820,7 +7841,7 @@
         L.width +
         " " +
         L.height +
-        '" role="img" ' +
+        '" role="group" ' +
         'aria-label="Statewide flow for ' +
         esc(m.id) +
         '. Schematic, not geographic." style="min-width:' +
@@ -11134,7 +11155,7 @@
             var tt = taskByKey(tk);
             var n = countTask(tt);
             announce("Showing " + n + " " + plural(n, tt.one, tt.many) + " in the queue.");
-            $("qpane-patients").scrollTop = 0;
+            $("qlist-patients").scrollTop = 0;
           }
           return;
         }
