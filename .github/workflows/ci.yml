@@ -1110,11 +1110,13 @@ jobs:
         run: npm run check:lighthouse-budget -- --dir lighthouse
 
       # The acceptance check for this job: exactly one distinct browser, and it is the
-      # pinned one. More than one line here means the refresh is not usable.
-      - name: Show the baseline diff and the browser it was measured on
+      # pinned one. The shared validator also rejects missing/extra rows and any
+      # non-numeric, non-finite or negative metric, so a malformed or transcribed
+      # artifact cannot become the comparator merely because its JSON parses.
+      - name: Validate the refreshed baseline and show its diff
         run: |
+          node scripts/check-lighthouse-budget.mjs --validate-baseline
           git --no-pager diff --stat -- lighthouse-budget.json
-          node -e "const b=require('./lighthouse-budget.json');const versions=[...new Set(Object.values(b.baseline??{}).map(r=>r.chromeVersion).filter(v=>typeof v==='string'&&v.length>0))];console.log(versions.join('\n'));if(versions.length!==1){console.error('Expected exactly one baseline Chrome version; found '+versions.length+'.');process.exit(1)}"
 
       - name: Upload the refreshed baseline
         if: always()
