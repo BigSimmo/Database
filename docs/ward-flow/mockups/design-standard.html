@@ -2392,7 +2392,11 @@
     .apBtn,
     .phBtn,
     .linkBtn,
-    .reveal > summary {
+    .reveal > summary,
+    .task,
+    .menu > summary,
+    .menuItem,
+    .search {
       min-height: 3rem;
     }
   }
@@ -2407,6 +2411,658 @@
     .band {
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+    }
+  }
+
+  /* ─── universal header ───────────────────────────────────────────────
+     Three rows on every screen. The title row: title group, search, the
+     scope switcher, the one primary action, who is signed in, More. The
+     statistics strip: the figures that matter now, the clock, and the All
+     figures dropdown so the strip never crowds. The outstanding tasks bar:
+     every piece of work that is open, worst first, each a filter. All
+     counts are derived from the page's data on every render. ──────── */
+  .hdr {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .hdrBar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 13px 24px 11px;
+  }
+  .hdrBar .title {
+    flex: 1 1 20rem;
+  }
+  .hdrBar h1 {
+    font-family: var(--display);
+    font-size: var(--t-6);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+  }
+  /* The disclaimer takes its own line under the title, so it is never squeezed beside the tools. */
+  .hdrBar .sub {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 72ch;
+    font-size: var(--t-1);
+    line-height: 1.45;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+  .hdrTools {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+    min-width: 0;
+  }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 20rem;
+    min-width: 11rem;
+    height: 34px;
+    padding: 0 8px 0 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    color: var(--muted);
+    transition: border-color 0.12s;
+  }
+  .search:hover {
+    border-color: var(--ink-soft);
+  }
+  .search:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .search svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--t-2);
+    color: var(--ink);
+    outline: none;
+  }
+  .search input::placeholder {
+    color: var(--muted);
+  }
+  .search kbd {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 0 5px;
+    line-height: 1.5;
+  }
+  .search .clearBtn {
+    font-size: var(--t-0);
+    color: var(--muted);
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .search .clearBtn:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  /* A menu is a details element: the summary is the control, the panel floats beneath. */
+  .menu {
+    position: relative;
+  }
+  .menu > summary {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s,
+      color 0.12s;
+  }
+  .menu > summary::-webkit-details-marker {
+    display: none;
+  }
+  .menu > summary::after {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-1.5px) rotate(45deg);
+    transition: transform 0.12s;
+  }
+  .menu > summary:hover {
+    background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .menu[open] > summary {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .menu[open] > summary::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .menu > summary .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .menu[open] > summary .count {
+    color: var(--accent-ink);
+  }
+  .menu > summary.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+  .menu > summary.quiet {
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-soft);
+  }
+  .menu > summary.quiet:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .menuPanel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 17rem;
+    max-width: min(92vw, 44rem);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom-color: var(--line-strong);
+    border-radius: var(--r1);
+    box-shadow:
+      var(--lift),
+      inset 0 1px 0 var(--hl);
+    z-index: 20;
+    display: grid;
+    overflow: hidden;
+  }
+  .menuPanel.left {
+    left: 0;
+    right: auto;
+  }
+  .menuHead {
+    padding: 10px 12px 4px;
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .menuHead .count {
+    margin-left: auto;
+    font-family: var(--mono);
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 500;
+  }
+  .menuList {
+    display: grid;
+    padding: 4px 6px 6px;
+  }
+  .menuItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: var(--r2);
+    font-size: var(--t-2);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background 0.12s;
+  }
+  .menuItem:hover {
+    background: var(--sunk);
+  }
+  .menuItem[aria-pressed="true"],
+  .menuItem[aria-current="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    box-shadow: inset 3px 0 0 var(--gilt);
+  }
+  .menuItem small {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .menuItem[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .menuItem[aria-disabled="true"]:hover {
+    background: transparent;
+  }
+  .menuDiv {
+    height: 1px;
+    background: var(--line);
+    margin: 4px 0;
+  }
+  .menuNote {
+    padding: 4px 12px 10px;
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 40ch;
+  }
+  .menuPanel .search {
+    margin: 8px 8px 2px;
+    height: 32px;
+  }
+  .who {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.25;
+    padding: 0 4px;
+    white-space: nowrap;
+  }
+  .who b {
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .who span {
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  /* The statistics strip. */
+  .stats {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    min-width: 0;
+  }
+  .statsList {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0;
+  }
+  .statsList::-webkit-scrollbar {
+    display: none;
+  }
+  .statsList[data-overflowing="true"] {
+    box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+  }
+  .stat {
+    display: grid;
+    gap: 3px;
+    align-content: center;
+    padding: 9px 18px 9px 0;
+    margin-right: 18px;
+    border-right: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .stat:last-child {
+    border-right: 0;
+    margin-right: 0;
+  }
+  .stat dt {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .stat dd {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .stat dd small {
+    font-family: var(--body);
+    font-size: var(--t-1);
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .stat dd i {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .stat[data-tone="danger"] dd {
+    color: var(--danger);
+  }
+  .stat[data-tone="warn"] dd {
+    color: var(--warn);
+  }
+  .statsEnd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    margin-left: auto;
+    padding: 6px 0 6px 16px;
+    border-left: 1px solid var(--line);
+  }
+  .hdrClock {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .hdrClock span {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .hdrClock b {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .statsMenu > summary {
+    height: 30px;
+    font-size: var(--t-1);
+    background: var(--surface);
+  }
+  .statsMenu .menuPanel {
+    max-width: none;
+    width: min(94vw, 70rem);
+  }
+  .statsGrid {
+    display: grid;
+    grid-template-columns: 17rem 21rem repeat(2, minmax(0, 1fr));
+  }
+  .statsGrid > section {
+    min-width: 0;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  .statsGrid .dataTable th,
+  .statsGrid .dataTable td {
+    padding: 4px 8px;
+  }
+  .statsGrid .dataTable th:first-child,
+  .statsGrid .dataTable td:first-child {
+    padding-left: 12px;
+  }
+  .statsGrid .dataTable th {
+    background: transparent;
+    border-bottom-color: var(--line);
+  }
+  .statsGrid .dataTable tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .statsFacts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    padding: 4px 12px 6px;
+    font-size: var(--t-1);
+  }
+  .statsFacts dt {
+    color: var(--ink-soft);
+  }
+  .statsFacts dd {
+    font-family: var(--mono);
+    color: var(--ink);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .statsFacts dd i {
+    font-family: var(--body);
+    font-style: italic;
+    color: var(--muted);
+  }
+  .statsFacts dd[data-tone="danger"] {
+    color: var(--danger);
+  }
+  .statsFacts dd[data-tone="warn"] {
+    color: var(--warn);
+  }
+  .statsFoot {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  /* The outstanding tasks bar. */
+  .tasks {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    min-width: 0;
+  }
+  .tasksLabel {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    flex: none;
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .tasksLabel .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .taskList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 0;
+    scrollbar-width: none;
+  }
+  .taskList::-webkit-scrollbar {
+    display: none;
+  }
+  .taskList[data-overflowing="true"] {
+    box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+  }
+  .task {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    height: 28px;
+    padding: 0 11px 0 9px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s,
+      color 0.12s;
+  }
+  .task::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--line-strong);
+    flex: none;
+  }
+  .task b {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .task[data-tone="danger"] {
+    border-color: var(--danger);
+  }
+  .task[data-tone="danger"]::before,
+  .task[data-tone="danger"] b {
+    background: var(--danger);
+    color: var(--danger);
+  }
+  .task[data-tone="warn"] {
+    border-color: var(--warn);
+  }
+  .task[data-tone="warn"]::before,
+  .task[data-tone="warn"] b {
+    background: var(--warn);
+    color: var(--warn);
+  }
+  .task:hover {
+    background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .task[aria-pressed="true"] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .task[aria-pressed="true"] b {
+    color: var(--accent-ink);
+  }
+  .tasksClear {
+    font-size: var(--t-1);
+    color: var(--muted);
+    font-style: italic;
+    white-space: nowrap;
+  }
+  .tasksEnd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    margin-left: auto;
+  }
+  @media (max-width: 1000px) {
+    .hdrBar,
+    .stats,
+    .tasks {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .hdrTools {
+      width: 100%;
+    }
+    .search {
+      flex: 1 1 12rem;
+    }
+    .who {
+      display: none;
+    }
+    .taskList {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .statsGrid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .hdrClock span,
+    .tasksEnd,
+    .statsMenu > summary .count {
+      display: none;
+    }
+    .menuPanel {
+      max-width: 94vw;
+    }
+    .statsGrid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media print {
+    .hdrTools,
+    .statsMenu,
+    .tasksEnd,
+    .menuPanel {
+      display: none !important;
+    }
+    .hdr {
+      border-bottom: 1px solid var(--line-strong);
+    }
+  }
+  @media (forced-colors: active) {
+    .search,
+    .menu > summary,
+    .menuPanel,
+    .task,
+    .stat {
+      border: 1px solid CanvasText;
+      box-shadow: none;
+    }
+    .task::before {
+      background: CanvasText;
     }
   }
   /* ─── guide layout, namespaced g-. Everything above this block is the production
@@ -2953,6 +3609,18 @@
     font-family: var(--mono);
     font-weight: 500;
     color: var(--ink-soft);
+  }
+  .g-compStack {
+    grid-template-columns: 1fr;
+  }
+  .g-specWide {
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 12px 22px;
+  }
+  .g-specWide > div {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
   }
   @media (max-width: 1000px) {
     .g-app {
@@ -3992,9 +4660,11 @@
           <h3><span class="num">5.4</span>The shell</h3>
           <p>
             A rail of 236px on the left carrying the wordmark, grouped links with eyebrows, and a foot with who is
-            signed in, the reconciliation line, the appearance control and the invented-figures note. A masthead across
-            the top carrying the title group (title, prototype chip, disclaimer) and the state instrument (figures and
-            the clock). A scrolling region below with 16px top padding, 24px sides and a 14px gap between panels.
+            signed in, the reconciliation line and the invented-figures note. The universal header across the top, in
+            three rows: the title row (title, prototype chip, disclaimer, search, the scope switcher, the one primary
+            action, who is signed in, More), the statistics strip with its All figures dropdown and the clock, and the
+            outstanding tasks bar. Section 6.2 renders it. A scrolling region below with 14px top padding, 24px sides
+            and a 14px gap between panels.
           </p>
           <h3><span class="num">5.5</span>The three widths</h3>
           <div class="g-tablewrap">
@@ -4161,64 +4831,302 @@
             </dl>
           </div>
 
-          <h3><span class="num">6.2</span>Masthead and the state instrument</h3>
-          <div class="g-comp" data-component="masthead">
+          <h3><span class="num">6.2</span>Header: title row, statistics strip and the outstanding tasks bar</h3>
+          <div class="g-comp g-compStack" data-component="header">
             <div class="g-demoCol">
-              <div class="g-demo flush">
-                <header class="topbar" style="border-bottom: 0">
-                  <div class="title">
-                    <h1 style="font-size: var(--t-6)">Command</h1>
-                    <span class="chip mark">Synthetic prototype</span>
-                    <span class="sub"
-                      >Every ward state, movement, referral and figure on this screen is invented. Not a medical device
-                      and not clinical decision support.</span
-                    >
+              <div class="g-demo flush" style="overflow: visible">
+                <header
+                  class="hdr"
+                  style="border-bottom: 0; border-radius: var(--r2)"
+                  aria-label="Demonstration header"
+                >
+                  <div class="hdrBar">
+                    <div class="title">
+                      <h1 style="font-size: var(--t-6)">Command</h1>
+                      <span class="chip mark">Synthetic prototype</span>
+                      <span class="sub"
+                        >Every ward state, movement, referral and figure on this screen is invented. Not a medical
+                        device and not clinical decision support.</span
+                      >
+                    </div>
+                    <div class="hdrTools">
+                      <label class="search"
+                        ><svg viewBox="0 0 16 16" aria-hidden="true">
+                          <circle cx="7" cy="7" r="4.5" />
+                          <path d="M10.5 10.5L14 14" /></svg
+                        ><input
+                          type="search"
+                          placeholder="Search movements, departments, wards, owners"
+                          aria-label="Search movements, departments, wards and owners"
+                        /><kbd aria-hidden="true">/</kbd></label
+                      >
+                      <details class="menu">
+                        <summary>All sites<span class="count">23</span></summary>
+                        <div class="menuPanel" role="group" aria-label="Choose a site">
+                          <div class="menuList">
+                            <button type="button" class="menuItem" aria-pressed="true">
+                              All sites<small>23 waiting</small>
+                            </button>
+                          </div>
+                          <div class="menuDiv"></div>
+                          <p class="menuHead">North Metropolitan<span class="count">6 waiting</span></p>
+                          <div class="menuList">
+                            <button type="button" class="menuItem">
+                              Sir Charles Gairdner Hospital ED<small>3 waiting</small></button
+                            ><button type="button" class="menuItem">
+                              Joondalup Health Campus ED<small>3 waiting</small>
+                            </button>
+                          </div>
+                          <div class="menuDiv"></div>
+                          <p class="menuHead">WA Country<span class="count">none waiting</span></p>
+                          <p class="menuNote">
+                            No department in the WA Country Health Service has a movement open. Absence here means none
+                            is waiting, not that none exists.
+                          </p>
+                        </div>
+                      </details>
+                      <details class="menu">
+                        <summary class="primary">New referral</summary>
+                        <div class="menuPanel">
+                          <p class="menuHead">Raise a referral</p>
+                          <div class="menuList">
+                            <button type="button" class="menuItem">From an emergency department<small>ED</small></button
+                            ><button type="button" class="menuItem">From a community team<small>CMHT</small></button
+                            ><button type="button" class="menuItem">
+                              From a GP or private practice<small>GP</small>
+                            </button>
+                          </div>
+                        </div>
+                      </details>
+                      <div class="who" aria-label="Signed in as Bed coordinator, day shift, handover at 14:00">
+                        <b>Bed coordinator</b><span>Day shift, handover 14:00</span>
+                      </div>
+                      <details class="menu">
+                        <summary class="quiet">More</summary>
+                        <div class="menuPanel">
+                          <div class="menuList">
+                            <button type="button" class="menuItem">Print handover sheet<small>print</small></button
+                            ><button type="button" class="menuItem">Design system<small>second edition</small></button>
+                          </div>
+                          <div class="menuDiv"></div>
+                          <div class="menuList">
+                            <button
+                              type="button"
+                              class="menuItem"
+                              aria-disabled="true"
+                              title="Sign out is not wired in this prototype"
+                            >
+                              Sign out<small>not wired</small>
+                            </button>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
                   </div>
-                  <div class="state">
-                    <dl class="kpis" aria-label="The state of the day">
-                      <div class="kpi">
+                  <div class="stats" aria-label="The state of the network">
+                    <dl class="statsList">
+                      <div class="stat">
                         <dt>Waiting</dt>
                         <dd>23</dd>
                       </div>
-                      <div class="kpi" data-tone="danger">
+                      <div class="stat" data-tone="danger">
                         <dt>Breached</dt>
                         <dd>2</dd>
                       </div>
-                      <div class="kpi">
-                        <dt>Longest wait</dt>
-                        <dd>19<small>h 40m</small></dd>
+                      <div class="stat" data-tone="warn">
+                        <dt>Within 2 hours</dt>
+                        <dd>3</dd>
                       </div>
-                      <div class="kpi">
+                      <div class="stat">
+                        <dt>Longest wait</dt>
+                        <dd>25h 10m<small>at RPH</small></dd>
+                      </div>
+                      <div class="stat">
                         <dt>Beds free</dt>
-                        <dd><i>none</i></dd>
+                        <dd>16<small>of 196, six sites</small></dd>
+                      </div>
+                      <div class="stat">
+                        <dt>Referrals</dt>
+                        <dd>4<small>awaiting triage</small></dd>
                       </div>
                     </dl>
-                    <div class="clock" aria-label="Saturday 15 August 2026, 10:42 Australian Western Standard Time">
-                      <span>Sat 15 Aug AWST</span><b>10:42</b>
+                    <div class="statsEnd">
+                      <div
+                        class="hdrClock"
+                        aria-label="Saturday 15 August 2026, 10:42 Australian Western Standard Time"
+                      >
+                        <span>Sat 15 Aug AWST</span><b>10:42</b>
+                      </div>
+                      <details class="menu statsMenu">
+                        <summary>All figures<span class="count">4 groups</span></summary>
+                        <div class="menuPanel" role="group" aria-label="All figures">
+                          <div class="statsGrid">
+                            <section>
+                              <p class="menuHead">Network now</p>
+                              <dl class="statsFacts">
+                                <dt>Waiting in ED</dt>
+                                <dd>23</dd>
+                                <dt>Legal deadlines passed</dt>
+                                <dd data-tone="danger">2</dd>
+                                <dt>Deadlines within 2 hours</dt>
+                                <dd data-tone="warn">3</dd>
+                                <dt>Movements with no owner</dt>
+                                <dd data-tone="warn">1</dd>
+                                <dt>Overrides for governance review</dt>
+                                <dd>4</dd>
+                              </dl>
+                            </section>
+                            <section>
+                              <p class="menuHead">By health service</p>
+                              <div class="tableWrap" style="border-top: 0">
+                                <table class="dataTable">
+                                  <thead>
+                                    <tr>
+                                      <th>Service</th>
+                                      <th class="n">Waiting</th>
+                                      <th class="n">Breached</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr>
+                                      <td>North Metro</td>
+                                      <td class="n">6</td>
+                                      <td class="n"><span class="zero">none</span></td>
+                                    </tr>
+                                    <tr>
+                                      <td>East Metro</td>
+                                      <td class="n">10</td>
+                                      <td class="n">1</td>
+                                    </tr>
+                                    <tr>
+                                      <td>South Metro</td>
+                                      <td class="n">7</td>
+                                      <td class="n">1</td>
+                                    </tr>
+                                    <tr>
+                                      <td>WA Country</td>
+                                      <td class="n"><span class="zero">none</span></td>
+                                      <td class="n"><span class="zero">none</span></td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </section>
+                            <p class="statsFoot">
+                              <span>Figures reconcile: 23 movements across 8 departments, 3 services and 3 tiers.</span
+                              ><span>Reconciled at 10:42.</span><span>Every figure is invented.</span>
+                            </p>
+                          </div>
+                        </div>
+                      </details>
                     </div>
+                  </div>
+                  <div class="tasks" role="region" aria-label="Outstanding tasks">
+                    <p class="tasksLabel">Outstanding <span class="count">19 items</span></p>
+                    <div class="taskList">
+                      <button type="button" class="task" data-tone="danger" aria-pressed="false">
+                        <b>2</b> legal deadlines passed
+                      </button>
+                      <button type="button" class="task" data-tone="warn" aria-pressed="false">
+                        <b>3</b> due within 2 hours
+                      </button>
+                      <button type="button" class="task" data-tone="warn" aria-pressed="false">
+                        <b>1</b> with no owner
+                      </button>
+                      <button type="button" class="task" aria-pressed="false"><b>3</b> declines to answer</button>
+                      <button type="button" class="task" aria-pressed="false"><b>1</b> accepted, no bed pulled</button>
+                      <button type="button" class="task"><b>4</b> referrals to triage</button>
+                      <button type="button" class="task"><b>4</b> overrides to review</button>
+                      <button type="button" class="task">Handover due <b>14:00</b></button>
+                    </div>
+                    <div class="tasksEnd"><button class="linkBtn" type="button">Show in queue</button></div>
                   </div>
                 </header>
               </div>
             </div>
-            <dl class="g-spec">
-              <dt>Shape</dt>
-              <dd>
-                <code>.topbar</code> holding a <code>.title</code> group (the <code>h1</code>, the
-                <code>.chip.mark</code>, the <code>.sub</code>) and a <code>.state</code> group (a
-                <code>dl.kpis</code> of <code>.kpi</code> tiles and the <code>.clock</code> tile).
-              </dd>
-              <dt>Rules</dt>
-              <dd>
-                The title is the only Newsreader below the wordmark. The chip is neutral. The figures are counted from
-                the data on every render, before any detail. Red appears on one tile only, a breach above zero, and the
-                word Breached is already on it. A zero figure reads as an italic none. The clock is a tile like the
-                others, with the date as its label, so the right side reads as one instrument.
-              </dd>
-              <dt>Laptop</dt>
-              <dd>
-                The title group wraps the disclaimer under the title so the figures keep their row. Below 1000px the
-                state wraps beneath the title and the clock loses its rule.
-              </dd>
+            <dl class="g-spec g-specWide">
+              <div>
+                <dt>Title row</dt>
+                <dd>
+                  <code>.hdrBar</code> holds the <code>.title</code> group (the <code>h1</code>, the
+                  <code>.chip.mark</code>, the <code>.sub</code>) and <code>.hdrTools</code>: the
+                  <code>.search</code> with its slash hint, the scope <code>details.menu</code>, the primary New
+                  referral menu, <code>.who</code>, and More. The title is the only Newsreader below the wordmark. The
+                  chip is neutral. One primary action, and it is the summary with the <code>.primary</code> class.
+                </dd>
+              </div>
+              <div>
+                <dt>Menus</dt>
+                <dd>
+                  Every dropdown is a <code>details.menu</code>: the <code>summary</code> is the control with its own
+                  rest, hover, open and focus states, and the <code>.menuPanel</code> floats beneath with the one lift.
+                  One menu is open at a time, a click outside closes it, Escape closes it and returns focus to the
+                  summary, and opening the All figures menu is announced. The chosen item carries the gilt bar because
+                  it is where the reader is.
+                </dd>
+              </div>
+              <div>
+                <dt>Search</dt>
+                <dd>
+                  Reached with the slash key. Filters by identifier, department, ward and owner as the reader types.
+                  Refuses a risk or acuity score, a best match, and closed or arrived movements, and says so in the
+                  filter bar rather than returning nothing.
+                </dd>
+              </div>
+              <div>
+                <dt>Scope</dt>
+                <dd>
+                  All sites, or one department. The panel is the ward-switcher shape: a search, groups by health service
+                  with a count each, one row per department with its waiting count, and a stated absence for a service
+                  with nothing waiting.
+                </dd>
+              </div>
+              <div>
+                <dt>Statistics strip</dt>
+                <dd>
+                  <code>.stats</code> holds a <code>dl.statsList</code> of <code>.stat</code> tiles divided by
+                  hairlines, then <code>.statsEnd</code> with the <code>.hdrClock</code> and the All figures menu. Six
+                  figures at most, derived on every render. Red on a breach above zero only. Amber on at most two. A
+                  zero reads none. The list scrolls sideways under the edge shade when the window is narrow, and never
+                  wraps.
+                </dd>
+              </div>
+              <div>
+                <dt>All figures</dt>
+                <dd>
+                  The dropdown carries the full set in a <code>.statsGrid</code>: the network now as
+                  <code>.statsFacts</code>, then tables by department, by service, by tier and beds by site, each a
+                  <code>.dataTable</code>, and a <code>.statsFoot</code> with the reconciliation line, the time
+                  reconciled and the invented-figures sentence.
+                </dd>
+              </div>
+              <div>
+                <dt>Outstanding tasks bar</dt>
+                <dd>
+                  <code>.tasks</code> holds the label with its derived count, a <code>.taskList</code> of
+                  <code>.task</code> chips and <code>.tasksEnd</code>. Worst first. A chip is a figure in mono and a
+                  word, with a dot and a border that repeat the tone: red for a deadline passed, amber for look here,
+                  neutral otherwise. A task with a count of zero is not shown. A filtering task carries aria-pressed and
+                  filters the queue beneath, and the filter bar states it in words. When nothing is outstanding the bar
+                  says so in a sentence.
+                </dd>
+              </div>
+              <div>
+                <dt>Widths</dt>
+                <dd>
+                  Below 1000px the tools take their own row under the title, the signed-in name is hidden (it stays in
+                  the rail foot), and both strips scroll sideways. Below 640px the clock keeps its time and loses its
+                  date, and the Show in queue link goes. In print the tools, the menus and the tasks bar's link go and
+                  the strip prints as a record.
+                </dd>
+              </div>
+              <div>
+                <dt>Supersedes</dt>
+                <dd>
+                  The plain masthead of the Command live edition, a title group with the state instrument in the same
+                  row. Its rules stay in the block only until Command is re-cut in Wave 0.
+                </dd>
+              </div>
             </dl>
           </div>
 
@@ -5526,8 +6434,8 @@
               Every state has a word, every absence is stated, every zero reads none, and every direction is a word.
             </li>
             <li>
-              The masthead carries the fixed disclaimer, the rail foot carries the invented-figures note and the
-              reconciliation line, and every count is derived.
+              The header carries the fixed disclaimer, the statistics strip and the outstanding tasks bar, the rail foot
+              carries the invented-figures note and the reconciliation line, and every count is derived.
             </li>
             <li>
               Every contrast pair the page uses appears in the table in section 3, or has been computed and added there
@@ -5719,9 +6627,10 @@
                   </td>
                   <td class="wrap">This standard, live edition of 8 September 2026</td>
                   <td class="wrap">
-                    The reference build. Re-cut from the block in section 13: five sizes move onto the scale, one label
-                    that sat at 10px rises to the floor, and the extension block brings the tap floor for coarse
-                    pointers. Nothing else changes. Supersedes the three earlier Command artifacts.
+                    The reference build. Re-cut from the block in section 13: the universal header replaces the plain
+                    masthead, five sizes move onto the scale, one label that sat at 10px rises to the floor, and the
+                    extension block brings the tap floor for coarse pointers. Nothing else changes. Supersedes the three
+                    earlier Command artifacts.
                   </td>
                 </tr>
                 <tr>
@@ -6420,7 +7329,11 @@
     .apBtn,
     .phBtn,
     .linkBtn,
-    .reveal &gt; summary {
+    .reveal &gt; summary,
+    .task,
+    .menu &gt; summary,
+    .menuItem,
+    .search {
       min-height: 3rem;
     }
   }
@@ -6435,6 +7348,658 @@
     .band {
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+    }
+  }
+
+  /* ─── universal header ───────────────────────────────────────────────
+     Three rows on every screen. The title row: title group, search, the
+     scope switcher, the one primary action, who is signed in, More. The
+     statistics strip: the figures that matter now, the clock, and the All
+     figures dropdown so the strip never crowds. The outstanding tasks bar:
+     every piece of work that is open, worst first, each a filter. All
+     counts are derived from the page&#x27;s data on every render. ──────── */
+  .hdr {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .hdrBar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 13px 24px 11px;
+  }
+  .hdrBar .title {
+    flex: 1 1 20rem;
+  }
+  .hdrBar h1 {
+    font-family: var(--display);
+    font-size: var(--t-6);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+  }
+  /* The disclaimer takes its own line under the title, so it is never squeezed beside the tools. */
+  .hdrBar .sub {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 72ch;
+    font-size: var(--t-1);
+    line-height: 1.45;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+  .hdrTools {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+    min-width: 0;
+  }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 20rem;
+    min-width: 11rem;
+    height: 34px;
+    padding: 0 8px 0 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    color: var(--muted);
+    transition: border-color 0.12s;
+  }
+  .search:hover {
+    border-color: var(--ink-soft);
+  }
+  .search:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .search svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--t-2);
+    color: var(--ink);
+    outline: none;
+  }
+  .search input::placeholder {
+    color: var(--muted);
+  }
+  .search kbd {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 0 5px;
+    line-height: 1.5;
+  }
+  .search .clearBtn {
+    font-size: var(--t-0);
+    color: var(--muted);
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .search .clearBtn:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  /* A menu is a details element: the summary is the control, the panel floats beneath. */
+  .menu {
+    position: relative;
+  }
+  .menu &gt; summary {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s,
+      color 0.12s;
+  }
+  .menu &gt; summary::-webkit-details-marker {
+    display: none;
+  }
+  .menu &gt; summary::after {
+    content: &quot;&quot;;
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-1.5px) rotate(45deg);
+    transition: transform 0.12s;
+  }
+  .menu &gt; summary:hover {
+    background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .menu[open] &gt; summary {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .menu[open] &gt; summary::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .menu &gt; summary .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .menu[open] &gt; summary .count {
+    color: var(--accent-ink);
+  }
+  .menu &gt; summary.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+  .menu &gt; summary.quiet {
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-soft);
+  }
+  .menu &gt; summary.quiet:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .menuPanel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 17rem;
+    max-width: min(92vw, 44rem);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom-color: var(--line-strong);
+    border-radius: var(--r1);
+    box-shadow:
+      var(--lift),
+      inset 0 1px 0 var(--hl);
+    z-index: 20;
+    display: grid;
+    overflow: hidden;
+  }
+  .menuPanel.left {
+    left: 0;
+    right: auto;
+  }
+  .menuHead {
+    padding: 10px 12px 4px;
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .menuHead .count {
+    margin-left: auto;
+    font-family: var(--mono);
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 500;
+  }
+  .menuList {
+    display: grid;
+    padding: 4px 6px 6px;
+  }
+  .menuItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: var(--r2);
+    font-size: var(--t-2);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background 0.12s;
+  }
+  .menuItem:hover {
+    background: var(--sunk);
+  }
+  .menuItem[aria-pressed=&quot;true&quot;],
+  .menuItem[aria-current=&quot;true&quot;] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    box-shadow: inset 3px 0 0 var(--gilt);
+  }
+  .menuItem small {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .menuItem[aria-disabled=&quot;true&quot;] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .menuItem[aria-disabled=&quot;true&quot;]:hover {
+    background: transparent;
+  }
+  .menuDiv {
+    height: 1px;
+    background: var(--line);
+    margin: 4px 0;
+  }
+  .menuNote {
+    padding: 4px 12px 10px;
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 40ch;
+  }
+  .menuPanel .search {
+    margin: 8px 8px 2px;
+    height: 32px;
+  }
+  .who {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.25;
+    padding: 0 4px;
+    white-space: nowrap;
+  }
+  .who b {
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .who span {
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  /* The statistics strip. */
+  .stats {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    min-width: 0;
+  }
+  .statsList {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0;
+  }
+  .statsList::-webkit-scrollbar {
+    display: none;
+  }
+  .statsList[data-overflowing=&quot;true&quot;] {
+    box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+  }
+  .stat {
+    display: grid;
+    gap: 3px;
+    align-content: center;
+    padding: 9px 18px 9px 0;
+    margin-right: 18px;
+    border-right: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .stat:last-child {
+    border-right: 0;
+    margin-right: 0;
+  }
+  .stat dt {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .stat dd {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .stat dd small {
+    font-family: var(--body);
+    font-size: var(--t-1);
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .stat dd i {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .stat[data-tone=&quot;danger&quot;] dd {
+    color: var(--danger);
+  }
+  .stat[data-tone=&quot;warn&quot;] dd {
+    color: var(--warn);
+  }
+  .statsEnd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    margin-left: auto;
+    padding: 6px 0 6px 16px;
+    border-left: 1px solid var(--line);
+  }
+  .hdrClock {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .hdrClock span {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .hdrClock b {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .statsMenu &gt; summary {
+    height: 30px;
+    font-size: var(--t-1);
+    background: var(--surface);
+  }
+  .statsMenu .menuPanel {
+    max-width: none;
+    width: min(94vw, 70rem);
+  }
+  .statsGrid {
+    display: grid;
+    grid-template-columns: 17rem 21rem repeat(2, minmax(0, 1fr));
+  }
+  .statsGrid &gt; section {
+    min-width: 0;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  .statsGrid .dataTable th,
+  .statsGrid .dataTable td {
+    padding: 4px 8px;
+  }
+  .statsGrid .dataTable th:first-child,
+  .statsGrid .dataTable td:first-child {
+    padding-left: 12px;
+  }
+  .statsGrid .dataTable th {
+    background: transparent;
+    border-bottom-color: var(--line);
+  }
+  .statsGrid .dataTable tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .statsFacts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    padding: 4px 12px 6px;
+    font-size: var(--t-1);
+  }
+  .statsFacts dt {
+    color: var(--ink-soft);
+  }
+  .statsFacts dd {
+    font-family: var(--mono);
+    color: var(--ink);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .statsFacts dd i {
+    font-family: var(--body);
+    font-style: italic;
+    color: var(--muted);
+  }
+  .statsFacts dd[data-tone=&quot;danger&quot;] {
+    color: var(--danger);
+  }
+  .statsFacts dd[data-tone=&quot;warn&quot;] {
+    color: var(--warn);
+  }
+  .statsFoot {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  /* The outstanding tasks bar. */
+  .tasks {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    min-width: 0;
+  }
+  .tasksLabel {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    flex: none;
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .tasksLabel .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .taskList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 0;
+    scrollbar-width: none;
+  }
+  .taskList::-webkit-scrollbar {
+    display: none;
+  }
+  .taskList[data-overflowing=&quot;true&quot;] {
+    box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+  }
+  .task {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    height: 28px;
+    padding: 0 11px 0 9px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s,
+      color 0.12s;
+  }
+  .task::before {
+    content: &quot;&quot;;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--line-strong);
+    flex: none;
+  }
+  .task b {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .task[data-tone=&quot;danger&quot;] {
+    border-color: var(--danger);
+  }
+  .task[data-tone=&quot;danger&quot;]::before,
+  .task[data-tone=&quot;danger&quot;] b {
+    background: var(--danger);
+    color: var(--danger);
+  }
+  .task[data-tone=&quot;warn&quot;] {
+    border-color: var(--warn);
+  }
+  .task[data-tone=&quot;warn&quot;]::before,
+  .task[data-tone=&quot;warn&quot;] b {
+    background: var(--warn);
+    color: var(--warn);
+  }
+  .task:hover {
+    background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .task[aria-pressed=&quot;true&quot;] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .task[aria-pressed=&quot;true&quot;] b {
+    color: var(--accent-ink);
+  }
+  .tasksClear {
+    font-size: var(--t-1);
+    color: var(--muted);
+    font-style: italic;
+    white-space: nowrap;
+  }
+  .tasksEnd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    margin-left: auto;
+  }
+  @media (max-width: 1000px) {
+    .hdrBar,
+    .stats,
+    .tasks {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .hdrTools {
+      width: 100%;
+    }
+    .search {
+      flex: 1 1 12rem;
+    }
+    .who {
+      display: none;
+    }
+    .taskList {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .statsGrid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .hdrClock span,
+    .tasksEnd,
+    .statsMenu &gt; summary .count {
+      display: none;
+    }
+    .menuPanel {
+      max-width: 94vw;
+    }
+    .statsGrid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media print {
+    .hdrTools,
+    .statsMenu,
+    .tasksEnd,
+    .menuPanel {
+      display: none !important;
+    }
+    .hdr {
+      border-bottom: 1px solid var(--line-strong);
+    }
+  }
+  @media (forced-colors: active) {
+    .search,
+    .menu &gt; summary,
+    .menuPanel,
+    .task,
+    .stat {
+      border: 1px solid CanvasText;
+      box-shadow: none;
+    }
+    .task::before {
+      background: CanvasText;
     }
   }</pre>
           <h3><span class="num">13.4</span>The whole stylesheet</h3>
@@ -8835,7 +10400,11 @@
     .apBtn,
     .phBtn,
     .linkBtn,
-    .reveal &gt; summary {
+    .reveal &gt; summary,
+    .task,
+    .menu &gt; summary,
+    .menuItem,
+    .search {
       min-height: 3rem;
     }
   }
@@ -8850,6 +10419,658 @@
     .band {
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+    }
+  }
+
+  /* ─── universal header ───────────────────────────────────────────────
+     Three rows on every screen. The title row: title group, search, the
+     scope switcher, the one primary action, who is signed in, More. The
+     statistics strip: the figures that matter now, the clock, and the All
+     figures dropdown so the strip never crowds. The outstanding tasks bar:
+     every piece of work that is open, worst first, each a filter. All
+     counts are derived from the page&#x27;s data on every render. ──────── */
+  .hdr {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .hdrBar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 13px 24px 11px;
+  }
+  .hdrBar .title {
+    flex: 1 1 20rem;
+  }
+  .hdrBar h1 {
+    font-family: var(--display);
+    font-size: var(--t-6);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+  }
+  /* The disclaimer takes its own line under the title, so it is never squeezed beside the tools. */
+  .hdrBar .sub {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 72ch;
+    font-size: var(--t-1);
+    line-height: 1.45;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+  .hdrTools {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+    min-width: 0;
+  }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 20rem;
+    min-width: 11rem;
+    height: 34px;
+    padding: 0 8px 0 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    color: var(--muted);
+    transition: border-color 0.12s;
+  }
+  .search:hover {
+    border-color: var(--ink-soft);
+  }
+  .search:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .search svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--t-2);
+    color: var(--ink);
+    outline: none;
+  }
+  .search input::placeholder {
+    color: var(--muted);
+  }
+  .search kbd {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 0 5px;
+    line-height: 1.5;
+  }
+  .search .clearBtn {
+    font-size: var(--t-0);
+    color: var(--muted);
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .search .clearBtn:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  /* A menu is a details element: the summary is the control, the panel floats beneath. */
+  .menu {
+    position: relative;
+  }
+  .menu &gt; summary {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s,
+      color 0.12s;
+  }
+  .menu &gt; summary::-webkit-details-marker {
+    display: none;
+  }
+  .menu &gt; summary::after {
+    content: &quot;&quot;;
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-1.5px) rotate(45deg);
+    transition: transform 0.12s;
+  }
+  .menu &gt; summary:hover {
+    background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .menu[open] &gt; summary {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .menu[open] &gt; summary::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .menu &gt; summary .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .menu[open] &gt; summary .count {
+    color: var(--accent-ink);
+  }
+  .menu &gt; summary.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+  .menu &gt; summary.quiet {
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-soft);
+  }
+  .menu &gt; summary.quiet:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .menuPanel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 17rem;
+    max-width: min(92vw, 44rem);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom-color: var(--line-strong);
+    border-radius: var(--r1);
+    box-shadow:
+      var(--lift),
+      inset 0 1px 0 var(--hl);
+    z-index: 20;
+    display: grid;
+    overflow: hidden;
+  }
+  .menuPanel.left {
+    left: 0;
+    right: auto;
+  }
+  .menuHead {
+    padding: 10px 12px 4px;
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .menuHead .count {
+    margin-left: auto;
+    font-family: var(--mono);
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 500;
+  }
+  .menuList {
+    display: grid;
+    padding: 4px 6px 6px;
+  }
+  .menuItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: var(--r2);
+    font-size: var(--t-2);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background 0.12s;
+  }
+  .menuItem:hover {
+    background: var(--sunk);
+  }
+  .menuItem[aria-pressed=&quot;true&quot;],
+  .menuItem[aria-current=&quot;true&quot;] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    box-shadow: inset 3px 0 0 var(--gilt);
+  }
+  .menuItem small {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .menuItem[aria-disabled=&quot;true&quot;] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .menuItem[aria-disabled=&quot;true&quot;]:hover {
+    background: transparent;
+  }
+  .menuDiv {
+    height: 1px;
+    background: var(--line);
+    margin: 4px 0;
+  }
+  .menuNote {
+    padding: 4px 12px 10px;
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 40ch;
+  }
+  .menuPanel .search {
+    margin: 8px 8px 2px;
+    height: 32px;
+  }
+  .who {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.25;
+    padding: 0 4px;
+    white-space: nowrap;
+  }
+  .who b {
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .who span {
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  /* The statistics strip. */
+  .stats {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    min-width: 0;
+  }
+  .statsList {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0;
+  }
+  .statsList::-webkit-scrollbar {
+    display: none;
+  }
+  .statsList[data-overflowing=&quot;true&quot;] {
+    box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+  }
+  .stat {
+    display: grid;
+    gap: 3px;
+    align-content: center;
+    padding: 9px 18px 9px 0;
+    margin-right: 18px;
+    border-right: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .stat:last-child {
+    border-right: 0;
+    margin-right: 0;
+  }
+  .stat dt {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .stat dd {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .stat dd small {
+    font-family: var(--body);
+    font-size: var(--t-1);
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .stat dd i {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .stat[data-tone=&quot;danger&quot;] dd {
+    color: var(--danger);
+  }
+  .stat[data-tone=&quot;warn&quot;] dd {
+    color: var(--warn);
+  }
+  .statsEnd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    margin-left: auto;
+    padding: 6px 0 6px 16px;
+    border-left: 1px solid var(--line);
+  }
+  .hdrClock {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .hdrClock span {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .hdrClock b {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .statsMenu &gt; summary {
+    height: 30px;
+    font-size: var(--t-1);
+    background: var(--surface);
+  }
+  .statsMenu .menuPanel {
+    max-width: none;
+    width: min(94vw, 70rem);
+  }
+  .statsGrid {
+    display: grid;
+    grid-template-columns: 17rem 21rem repeat(2, minmax(0, 1fr));
+  }
+  .statsGrid &gt; section {
+    min-width: 0;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  .statsGrid .dataTable th,
+  .statsGrid .dataTable td {
+    padding: 4px 8px;
+  }
+  .statsGrid .dataTable th:first-child,
+  .statsGrid .dataTable td:first-child {
+    padding-left: 12px;
+  }
+  .statsGrid .dataTable th {
+    background: transparent;
+    border-bottom-color: var(--line);
+  }
+  .statsGrid .dataTable tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .statsFacts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    padding: 4px 12px 6px;
+    font-size: var(--t-1);
+  }
+  .statsFacts dt {
+    color: var(--ink-soft);
+  }
+  .statsFacts dd {
+    font-family: var(--mono);
+    color: var(--ink);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .statsFacts dd i {
+    font-family: var(--body);
+    font-style: italic;
+    color: var(--muted);
+  }
+  .statsFacts dd[data-tone=&quot;danger&quot;] {
+    color: var(--danger);
+  }
+  .statsFacts dd[data-tone=&quot;warn&quot;] {
+    color: var(--warn);
+  }
+  .statsFoot {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  /* The outstanding tasks bar. */
+  .tasks {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    min-width: 0;
+  }
+  .tasksLabel {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    flex: none;
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .tasksLabel .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .taskList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 0;
+    scrollbar-width: none;
+  }
+  .taskList::-webkit-scrollbar {
+    display: none;
+  }
+  .taskList[data-overflowing=&quot;true&quot;] {
+    box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+  }
+  .task {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    height: 28px;
+    padding: 0 11px 0 9px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s,
+      color 0.12s;
+  }
+  .task::before {
+    content: &quot;&quot;;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--line-strong);
+    flex: none;
+  }
+  .task b {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .task[data-tone=&quot;danger&quot;] {
+    border-color: var(--danger);
+  }
+  .task[data-tone=&quot;danger&quot;]::before,
+  .task[data-tone=&quot;danger&quot;] b {
+    background: var(--danger);
+    color: var(--danger);
+  }
+  .task[data-tone=&quot;warn&quot;] {
+    border-color: var(--warn);
+  }
+  .task[data-tone=&quot;warn&quot;]::before,
+  .task[data-tone=&quot;warn&quot;] b {
+    background: var(--warn);
+    color: var(--warn);
+  }
+  .task:hover {
+    background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .task[aria-pressed=&quot;true&quot;] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .task[aria-pressed=&quot;true&quot;] b {
+    color: var(--accent-ink);
+  }
+  .tasksClear {
+    font-size: var(--t-1);
+    color: var(--muted);
+    font-style: italic;
+    white-space: nowrap;
+  }
+  .tasksEnd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    margin-left: auto;
+  }
+  @media (max-width: 1000px) {
+    .hdrBar,
+    .stats,
+    .tasks {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .hdrTools {
+      width: 100%;
+    }
+    .search {
+      flex: 1 1 12rem;
+    }
+    .who {
+      display: none;
+    }
+    .taskList {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .statsGrid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .hdrClock span,
+    .tasksEnd,
+    .statsMenu &gt; summary .count {
+      display: none;
+    }
+    .menuPanel {
+      max-width: 94vw;
+    }
+    .statsGrid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media print {
+    .hdrTools,
+    .statsMenu,
+    .tasksEnd,
+    .menuPanel {
+      display: none !important;
+    }
+    .hdr {
+      border-bottom: 1px solid var(--line-strong);
+    }
+  }
+  @media (forced-colors: active) {
+    .search,
+    .menu &gt; summary,
+    .menuPanel,
+    .task,
+    .stat {
+      border: 1px solid CanvasText;
+      box-shadow: none;
+    }
+    .task::before {
+      background: CanvasText;
     }
   }</pre>
           <h3><span class="num">13.5</span>The appearance script</h3>
