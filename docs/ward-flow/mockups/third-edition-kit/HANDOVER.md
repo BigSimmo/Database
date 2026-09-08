@@ -1,5 +1,15 @@
 # Ward Flow third edition: handover
 
+> **Status on 8 September 2026, 15:40 AWST.** The work this document describes is finished. The Command
+> mockup carries the universal header and rail over the real engine, the design system carries them as
+> components, both pages pass the kit harness in both themes (ALL GREEN, recorded in `check-output.txt`),
+> and both are published. Sections 3, 5 and 7 below describe the state at the earlier wind down and are
+> kept as history. What remains for the owner is the decision list in section 8, plus three small choices
+> the graft recorded in the design system's decisions: whether a queue row should also carry the family
+> name, the rail's Pinned group sitting below the fold at 1440 by 900, and the amber against brass hue.
+> The kit's `shell/shell.css` and `shell/shell-script.js` are the pre-graft fragments; the copies inside
+> the Command mockup, between their marker comments, are the ones that carry the review fixes.
+
 Written 8 September 2026 so that another chat can pick this work up without the original session.
 Everything a builder needs is in git on the branch `claude/review-four-mockups-0l9x8c` (pull request
 #2738). The scratch directory of the original session is not needed and may be gone.
