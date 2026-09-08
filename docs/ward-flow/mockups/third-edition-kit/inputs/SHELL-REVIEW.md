@@ -2,7 +2,7 @@
 
 Reviewed: `inputs/rail.html` (the owner's artifact, "Ward Flow Rail"), in both themes at 1920 by
 1080, and the header at 1440, 1280 and 1100. Crops are under
-`docs/ward-flow/mockups/third-edition-shots/shell-review/` and were taken by
+`third-edition-shots/shell-review/` and were taken by
 `third-edition-kit/shell/cap-rail.mjs` with the font css name `premium`. There is no `premium`
 fixture beside the harness, and the network did not serve the fonts, so every crop of the artifact
 shows the fallback faces (DejaVu for the sans and the mono). Measurements that depend on glyph
