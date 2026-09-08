@@ -5,6 +5,12 @@ import { NextRequest } from "next/server";
 import { proxy, shouldBlockProductionMockups } from "../src/proxy";
 import { env } from "@/lib/env";
 import { DEVELOPER_GATED_PATH_PREFIXES } from "@/lib/developer-area/headers";
+import {
+  DEVELOPER_ACCESS_COOKIE,
+  DEVELOPER_ACCESS_QUERY_PARAM,
+  developerAccessTokenValid,
+  issueDeveloperAccessToken,
+} from "@/lib/developer-area/link-access";
 import * as ssr from "@supabase/ssr";
 import { vi } from "vitest";
 
@@ -30,6 +36,12 @@ type ProxyCookieOptions = {
 
 function requestFor(path = "/"): NextRequest {
   return new NextRequest(new URL(`http://localhost${path}`));
+}
+
+function requestWithCookie(path: string, name: string, value: string): NextRequest {
+  return new NextRequest(new URL(`http://localhost${path}`), {
+    headers: { cookie: `${name}=${value}` },
+  });
 }
 
 function scriptSrcOf(csp: string): string {
@@ -405,5 +417,98 @@ describe("developer-gated area comments name the constant instead of counting (L
       expect(source).not.toMatch(/\btwo (?:prototypes|developer-gated|subtrees)/i);
       expect(source).not.toMatch(/\bthe two (?:subtrees|prefixes)\b/i);
     }
+  });
+});
+
+describe("passwordless developer-area access (?devkey)", () => {
+  // src/proxy.ts owns the exchange: the URL secret goes in, a signed cookie
+  // comes back, and the key is stripped from the address bar by a redirect.
+  // This is a production credential on psychiatry.tools, so the assertions below
+  // are written around the ways it could fail OPEN or leak the key onward.
+  const KEY = "0123456789abcdef0123456789abcdef";
+
+  function withKey<T>(run: () => Promise<T>): Promise<T> {
+    const previous = process.env.DEVELOPER_AREA_ACCESS_KEY;
+    process.env.DEVELOPER_AREA_ACCESS_KEY = KEY;
+    return run().finally(() => {
+      if (previous === undefined) delete process.env.DEVELOPER_AREA_ACCESS_KEY;
+      else process.env.DEVELOPER_AREA_ACCESS_KEY = previous;
+    });
+  }
+
+  function accessCookie(response: Response) {
+    return response.headers.getSetCookie().find((cookie) => cookie.startsWith(`${DEVELOPER_ACCESS_COOKIE}=`));
+  }
+
+  it("exchanges a correct key for a signed cookie and redirects the key out of the URL", async () => {
+    await withKey(async () => {
+      const response = await proxy(requestFor(`/mockups/development?${DEVELOPER_ACCESS_QUERY_PARAM}=${KEY}`));
+
+      const location = response.headers.get("location");
+      expect(location).toBeTruthy();
+      // The whole point of the redirect: the secret must not survive into the
+      // address bar, the shared history entry, or an onward Referer header.
+      expect(location).not.toContain(KEY);
+      expect(location).not.toContain(DEVELOPER_ACCESS_QUERY_PARAM);
+
+      const cookie = accessCookie(response);
+      expect(cookie).toBeTruthy();
+      expect(cookie).toContain("HttpOnly");
+      expect(cookie).toContain("SameSite=lax");
+      // The cookie is never sent on a clinical request.
+      expect(cookie).toContain("Path=/mockups");
+      // And it carries a signature, not the key.
+      expect(cookie).not.toContain(KEY);
+
+      const token = cookie!.slice(cookie!.indexOf("=") + 1).split(";")[0];
+      expect(developerAccessTokenValid(token, { DEVELOPER_AREA_ACCESS_KEY: KEY })).toBe(true);
+    });
+  });
+
+  it("issues no cookie for a wrong key, but still strips it from the URL", async () => {
+    await withKey(async () => {
+      const response = await proxy(requestFor(`/mockups/development?${DEVELOPER_ACCESS_QUERY_PARAM}=wrong-guess`));
+
+      expect(accessCookie(response)).toBeUndefined();
+      // Stripped anyway, so a failed guess cannot ride the DEVELOPER_AREA_PATH
+      // header into the sign-in screen's `next` value.
+      expect(response.headers.get("location")).not.toContain("wrong-guess");
+    });
+  });
+
+  it("issues no cookie when the deployment has no key configured", async () => {
+    const previous = process.env.DEVELOPER_AREA_ACCESS_KEY;
+    delete process.env.DEVELOPER_AREA_ACCESS_KEY;
+    try {
+      const response = await proxy(requestFor(`/mockups/development?${DEVELOPER_ACCESS_QUERY_PARAM}=${KEY}`));
+      expect(accessCookie(response)).toBeUndefined();
+    } finally {
+      if (previous !== undefined) process.env.DEVELOPER_AREA_ACCESS_KEY = previous;
+    }
+  });
+
+  it("ignores the parameter outside the developer-gated prefixes", async () => {
+    await withKey(async () => {
+      // A look-alike path and an ordinary clinical path must not be able to mint
+      // this cookie -- only the subtrees the gate actually covers.
+      for (const path of ["/mockups/care-plan-archive", "/documents"]) {
+        const response = await proxy(requestFor(`${path}?${DEVELOPER_ACCESS_QUERY_PARAM}=${KEY}`));
+        expect(accessCookie(response)).toBeUndefined();
+      }
+    });
+  });
+
+  it("renews a valid cookie on an ordinary gated visit, and renews nothing for a forged one", async () => {
+    await withKey(async () => {
+      const token = issueDeveloperAccessToken({ DEVELOPER_AREA_ACCESS_KEY: KEY }) as string;
+
+      const renewed = await proxy(requestWithCookie("/mockups/development", DEVELOPER_ACCESS_COOKIE, token));
+      expect(accessCookie(renewed)).toBeTruthy();
+
+      // Rolling renewal must extend only what already verifies; a forged value
+      // is left to be refused by DeveloperAreaGate, never re-stamped as valid.
+      const forged = await proxy(requestWithCookie("/mockups/development", DEVELOPER_ACCESS_COOKIE, "v1.1.forged"));
+      expect(accessCookie(forged)).toBeUndefined();
+    });
   });
 });

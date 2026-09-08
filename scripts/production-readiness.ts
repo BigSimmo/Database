@@ -303,6 +303,45 @@ function recordMockupsGateProductionCheck() {
   }
 }
 
+/**
+ * The passwordless developer-area link (`DEVELOPER_AREA_ACCESS_KEY`, exchanged
+ * for a signed cookie by `src/proxy.ts`) is a second credential for the same
+ * subtrees the administrator claim gates. Two things about it are worth
+ * catching at release time rather than in a browser.
+ *
+ * A `NEXT_PUBLIC_`-prefixed copy is a hard failure: Next.js inlines those into
+ * the client bundle, so the secret would ship to every visitor and the
+ * developer area would be open to anyone who reads the JavaScript. That is #L30
+ * with a longer string, and there is no legitimate reason for the name to exist.
+ *
+ * A correctly-named key in production is not a failure — it is the feature
+ * working — but it IS a fact a release should state out loud, because it means
+ * the area is reachable without a sign-in by anyone holding the link.
+ */
+export function developerAccessKeyProductionRisk(
+  environment: Record<string, string | undefined> = process.env,
+): "none" | "enabled" | "public-name" {
+  if (environment.NEXT_PUBLIC_DEVELOPER_AREA_ACCESS_KEY?.trim()) return "public-name";
+  const productionLike = environment.NODE_ENV === "production" || environment.VERCEL_ENV === "production";
+  if (!productionLike || !environment.DEVELOPER_AREA_ACCESS_KEY?.trim()) return "none";
+  return "enabled";
+}
+
+function recordDeveloperAccessKeyCheck() {
+  const risk = developerAccessKeyProductionRisk();
+  if (risk === "public-name") {
+    result.failures.push(
+      "NEXT_PUBLIC_DEVELOPER_AREA_ACCESS_KEY is set. Next.js inlines NEXT_PUBLIC_ values into the client bundle, " +
+        "so this would publish the developer-area secret to every visitor — rename it to DEVELOPER_AREA_ACCESS_KEY (server-only).",
+    );
+  } else if (risk === "enabled") {
+    result.warnings.push(
+      "DEVELOPER_AREA_ACCESS_KEY is set: the developer area also opens for anyone holding the ?devkey link, without signing in. " +
+        "Rotate the value to revoke every device.",
+    );
+  }
+}
+
 async function checkFileForServiceRoleExposure() {
   const envFiles = [".env", ".env.production", ".env.development"];
   for (const fileName of envFiles) {
@@ -357,6 +396,7 @@ async function main() {
   recordNoAuthProductionCheck();
   recordDemoModeProductionCheck();
   recordMockupsGateProductionCheck();
+  recordDeveloperAccessKeyCheck();
   recordRawQueryPersistenceProductionCheck();
   recordAnswerPersistenceProductionCheck();
   await checkFileForServiceRoleExposure();

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { issueDeveloperAccessToken } from "../src/lib/developer-area/link-access";
+
 // resolveDeveloperAccessState() is the real authorization decision behind the
 // Development hub and Caring Contact routes in production (src/proxy.ts and
 // mockups/layout.tsx only decide which requests reach it). It must distinguish
@@ -7,9 +9,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // administrator session — because the middle case (someone else's ordinary
 // self-serve account) must NOT be treated the same as "please sign in".
 
+const originalAccessKey = process.env.DEVELOPER_AREA_ACCESS_KEY;
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.resetModules();
+  if (originalAccessKey === undefined) delete process.env.DEVELOPER_AREA_ACCESS_KEY;
+  else process.env.DEVELOPER_AREA_ACCESS_KEY = originalAccessKey;
 });
 
 async function loadWithSupabaseUser(
@@ -107,5 +113,51 @@ describe("developerGateBypassAllowed", () => {
         PLAYWRIGHT_OFFLINE_MODE: "true",
       }),
     ).toBe(false);
+  });
+});
+
+describe("developerLinkAccessGranted", () => {
+  // The passwordless credential the gate checks BEFORE Supabase. It must admit
+  // only a cookie this deployment signed -- an absent, forged, or
+  // differently-keyed value has to fall through to the sign-in screen, because
+  // failing open here publishes the developer area to the internet.
+  const KEY = "0123456789abcdef0123456789abcdef";
+
+  async function loadWithCookie(value: string | undefined) {
+    vi.doMock("server-only", () => ({}));
+    vi.doMock("next/headers", () => ({
+      cookies: vi.fn(async () => ({ get: (name: string) => (value === undefined ? undefined : { name, value }) })),
+    }));
+    vi.doMock("@/lib/supabase/server", () => ({ createSupabaseServerClient: vi.fn(async () => null) }));
+    return import("../src/lib/developer-area/access");
+  }
+
+  it("grants access for a cookie signed by this deployment", async () => {
+    process.env.DEVELOPER_AREA_ACCESS_KEY = KEY;
+    const token = issueDeveloperAccessToken({ DEVELOPER_AREA_ACCESS_KEY: KEY }) as string;
+    const { developerLinkAccessGranted } = await loadWithCookie(token);
+
+    await expect(developerLinkAccessGranted()).resolves.toBe(true);
+  });
+
+  it("refuses an absent cookie, a forged one, and one signed under a rotated key", async () => {
+    process.env.DEVELOPER_AREA_ACCESS_KEY = KEY;
+    const foreign = issueDeveloperAccessToken({
+      DEVELOPER_AREA_ACCESS_KEY: "fedcba9876543210fedcba9876543210",
+    }) as string;
+
+    for (const value of [undefined, "v1.1.forged", foreign]) {
+      vi.resetModules();
+      const { developerLinkAccessGranted } = await loadWithCookie(value);
+      await expect(developerLinkAccessGranted()).resolves.toBe(false);
+    }
+  });
+
+  it("refuses every cookie when the deployment configures no key (fail closed)", async () => {
+    const token = issueDeveloperAccessToken({ DEVELOPER_AREA_ACCESS_KEY: KEY }) as string;
+    delete process.env.DEVELOPER_AREA_ACCESS_KEY;
+    const { developerLinkAccessGranted } = await loadWithCookie(token);
+
+    await expect(developerLinkAccessGranted()).resolves.toBe(false);
   });
 });
