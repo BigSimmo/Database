@@ -13,7 +13,7 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { floatingControl, primaryControl } from "@/components/ui-primitives";
 import { CARING_CONTACTS_ROUTES, patientPlanRoute } from "@/lib/caring-contacts-routes";
@@ -415,6 +415,14 @@ export function PlanWizard({
     readPlanDraft(referralId);
   }, [referralId]);
 
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const draft =
     stored !== null && stored.referralId === referralId ? stored : emptyPlanDraft(referralId, referralPathwayVersionId);
 
@@ -684,13 +692,16 @@ export function PlanWizard({
     const created = await post(CREATE_PLAN_ENDPOINT, body);
     if (!created.ok) {
       // Nothing exists. This is the only path that may say so.
-      setSubmissionState({ status: "refused", refusal: created.refusal });
+      if (isMountedRef.current) setSubmissionState({ status: "refused", refusal: created.refusal });
       return;
     }
 
     // FROM HERE ON THE PLAN EXISTS, and no path below may report otherwise.
-    const notStarted = (refusal: string) =>
-      setSubmissionState({ status: "created-not-started", planId: body.planId, refusal });
+    const notStarted = (refusal: string) => {
+      if (isMountedRef.current) {
+        setSubmissionState({ status: "created-not-started", planId: body.planId, refusal });
+      }
+    };
 
     const expectedVersion = planVersionFromCreateAnswer(created.payload);
     if (expectedVersion === null) {
@@ -712,8 +723,10 @@ export function PlanWizard({
 
     // Both writes are confirmed. Only now, and in this order.
     clearPlanDraft();
-    setSubmissionState({ status: "created", planId: body.planId });
-    router.push(patientPlanRoute(patientId, body.planId));
+    if (isMountedRef.current) {
+      setSubmissionState({ status: "created", planId: body.planId });
+      router.push(patientPlanRoute(patientId, body.planId));
+    }
   }
 
   /**

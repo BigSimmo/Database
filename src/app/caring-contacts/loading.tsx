@@ -56,7 +56,7 @@ export default function LoadingCaringContactsWorkspace() {
               <Skeleton aria-hidden="true" className="size-9 shrink-0 rounded-md" />
               <Skeleton aria-hidden="true" className="h-4 w-28" />
             </div>
-            <SyntheticMarker className="ml-auto" />
+            <SyntheticMarker className="ml-auto" testId="caring-contacts-loading-synthetic-marker" />
           </div>
         </header>
 
