@@ -7,7 +7,12 @@
 />
 <style>
   /* ═══════════════════════════════════════════════════════════════════════
-     WARD FLOW — COMMAND. Live edition, light and dark.
+     WARD FLOW — DESIGN SYSTEM, second edition. The stylesheet every mockup copies.
+
+     Copy this block verbatim. Add only what your screen needs, below a comment naming
+     the screen. To change the block, change it in the design system and re-cut every
+     carrier from it; never hand-patch a copy. The Command live edition is the reference
+     build. Light and dark.
 
      THE RULES THIS FILE KEEPS, in the order they matter:
 
@@ -254,7 +259,7 @@
     background: var(--ground);
     color: var(--ink);
     font-family: var(--body);
-    font-size: 13px;
+    font-size: var(--t-3);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -499,7 +504,7 @@
     width: 100%;
     padding: 8px 10px;
     border-radius: var(--r2);
-    font-size: 13px;
+    font-size: var(--t-3);
     color: var(--ink-soft);
     position: relative;
     transition:
@@ -960,7 +965,7 @@
     box-shadow: inset 0 0 0 1px var(--accent);
   }
   .edCode {
-    font-size: 14px;
+    font-size: var(--t-3);
     font-weight: 600;
     display: flex;
     justify-content: space-between;
@@ -1534,7 +1539,7 @@
   }
   .candName {
     font-weight: 600;
-    font-size: 13px;
+    font-size: var(--t-3);
     letter-spacing: -0.01em;
   }
   .candSvc {
@@ -1597,7 +1602,7 @@
     color: var(--ink-soft);
   }
   .contLine .lbl {
-    font-size: 10px;
+    font-size: var(--t-0);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--muted);
@@ -2185,140 +2190,2892 @@
       print-color-adjust: exact;
     }
   }
+
+  /* ─── extension: what Command does not have and other pages do ──────────
+     Tables, figure bands, deltas, charts, disclosures and the tap floor. The
+     rules these carry come from the statistics pages and the Board language,
+     restated in this system's tokens. ──────────────────────────────────── */
+  .tableWrap {
+    overflow-x: auto;
+    border-top: 1px solid var(--line);
+  }
+  .dataTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--t-2);
+  }
+  .dataTable th {
+    text-align: left;
+    font-size: var(--t-0);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line-strong);
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+  .dataTable td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-soft);
+    vertical-align: top;
+    line-height: 1.45;
+  }
+  .dataTable td:first-child {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .dataTable .n,
+  .dataTable th.n {
+    text-align: right;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .dataTable td.n {
+    color: var(--ink);
+  }
+  /* A nought is a measurement and "none" is a state. */
+  .dataTable .zero {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .dataTable tbody tr:hover td {
+    background: var(--sunk);
+  }
+  /* The totals row is a different kind of row, not the last of the same kind. */
+  .dataTable tr.total td {
+    border-top: 1px solid var(--line-strong);
+    border-bottom: 0;
+    background: var(--surface-2);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .dataTable tr.total:hover td {
+    background: var(--surface-2);
+  }
+  /* The figure band: one strip divided by hairlines, no coloured caps, no cards. */
+  .band {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    border-top: 1px solid var(--line);
+  }
+  .band > .kpi {
+    padding: 12px 16px;
+    border-right: 1px solid var(--line);
+    min-width: 0;
+  }
+  .band > .kpi:last-child {
+    border-right: 0;
+  }
+  .band .kpi dd {
+    font-size: var(--t-6);
+  }
+  /* "Look here": at most two per screen, and the word is already on the tile. */
+  .kpi[data-tone="warn"] dd {
+    color: var(--warn);
+  }
+  /* A delta is a word with a figure, never an arrow alone, never a verdict. */
+  .delta {
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .delta b {
+    font-family: var(--mono);
+    font-weight: 500;
+    color: var(--ink);
+  }
+  /* Charts: lines and arcs on a hairline grid, one emphasised endpoint, a written caption. */
+  .chart {
+    margin: 0;
+    display: grid;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .chart svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .chart figcaption {
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 72ch;
+    text-wrap: pretty;
+  }
+  .chart .grid {
+    stroke: var(--line);
+    stroke-width: 1;
+  }
+  .chart .axis {
+    stroke: var(--line-strong);
+    stroke-width: 1;
+  }
+  .chart .series {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.75;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .chart .end {
+    fill: var(--surface);
+    stroke: var(--accent);
+    stroke-width: 2;
+  }
+  .chart text {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    fill: var(--muted);
+  }
+  /* Disclosures: a quiet summary with the same chevron as the panel-header control. */
+  .reveal {
+    border-top: 1px solid var(--line);
+  }
+  .reveal > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: var(--t-1);
+    font-weight: 600;
+    color: var(--ink-soft);
+    transition:
+      color 0.12s,
+      background 0.12s;
+  }
+  .reveal > summary::-webkit-details-marker {
+    display: none;
+  }
+  .reveal > summary::after {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-1.5px) rotate(45deg);
+    transition: transform 0.12s;
+  }
+  .reveal[open] > summary::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .reveal > summary:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .reveal > summary .count {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .revealBody {
+    padding: 2px 16px 12px;
+  }
+  /* The tap floor: 3rem where a finger is the pointer or the screen is a phone. Never 44. */
+  @media (pointer: coarse), (max-width: 640px) {
+    .ctl,
+    .tabBtn,
+    .railLink,
+    .qRow,
+    .edCard,
+    .cand,
+    .apBtn,
+    .phBtn,
+    .linkBtn,
+    .reveal > summary,
+    .task,
+    .menu > summary,
+    .menuItem,
+    .search {
+      min-height: 3rem;
+    }
+  }
+  @media print {
+    .tableWrap {
+      overflow: visible;
+    }
+    .dataTable tbody tr:hover td {
+      background: transparent;
+    }
+    .kpi,
+    .band {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+
+  /* ─── universal header ───────────────────────────────────────────────
+     Three rows on every screen. The title row: title group, search, the
+     scope switcher, the one primary action, who is signed in, More. The
+     statistics strip: the figures that matter now, the clock, and the All
+     figures dropdown so the strip never crowds. The outstanding tasks bar:
+     every piece of work that is open, worst first, each a filter. All
+     counts are derived from the page's data on every render. ──────── */
+  .hdr {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .hdrBar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 13px 24px 11px;
+  }
+  .hdrBar .title {
+    flex: 1 1 20rem;
+  }
+  .hdrBar h1 {
+    font-family: var(--display);
+    font-size: var(--t-6);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+  }
+  /* The disclaimer takes its own line under the title, so it is never squeezed beside the tools. */
+  .hdrBar .sub {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 72ch;
+    font-size: var(--t-1);
+    line-height: 1.45;
+    color: var(--muted);
+    text-wrap: pretty;
+  }
+  .hdrTools {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+    min-width: 0;
+  }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 20rem;
+    min-width: 11rem;
+    height: 34px;
+    padding: 0 8px 0 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    color: var(--muted);
+    transition: border-color 0.12s;
+  }
+  .search:hover {
+    border-color: var(--ink-soft);
+  }
+  .search:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .search svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: var(--t-2);
+    color: var(--ink);
+    outline: none;
+  }
+  .search input::placeholder {
+    color: var(--muted);
+  }
+  .search kbd {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 0 5px;
+    line-height: 1.5;
+  }
+  .search .clearBtn {
+    font-size: var(--t-0);
+    color: var(--muted);
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .search .clearBtn:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  /* A menu is a details element: the summary is the control, the panel floats beneath. */
+  .menu {
+    position: relative;
+  }
+  .menu > summary {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s,
+      color 0.12s;
+  }
+  .menu > summary::-webkit-details-marker {
+    display: none;
+  }
+  .menu > summary::after {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-1.5px) rotate(45deg);
+    transition: transform 0.12s;
+  }
+  .menu > summary:hover {
+    background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .menu[open] > summary {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .menu[open] > summary::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .menu > summary .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .menu[open] > summary .count {
+    color: var(--accent-ink);
+  }
+  .menu > summary.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+  .menu > summary.quiet {
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-soft);
+  }
+  .menu > summary.quiet:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .menuPanel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 17rem;
+    max-width: min(92vw, 44rem);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom-color: var(--line-strong);
+    border-radius: var(--r1);
+    box-shadow:
+      var(--lift),
+      inset 0 1px 0 var(--hl);
+    z-index: 20;
+    display: grid;
+    overflow: hidden;
+  }
+  .menuPanel.left {
+    left: 0;
+    right: auto;
+  }
+  .menuHead {
+    padding: 10px 12px 4px;
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .menuHead .count {
+    margin-left: auto;
+    font-family: var(--mono);
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 500;
+  }
+  .menuList {
+    display: grid;
+    padding: 4px 6px 6px;
+  }
+  .menuItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: var(--r2);
+    font-size: var(--t-2);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background 0.12s;
+  }
+  .menuItem:hover {
+    background: var(--sunk);
+  }
+  .menuItem[aria-pressed="true"],
+  .menuItem[aria-current="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    box-shadow: inset 3px 0 0 var(--gilt);
+  }
+  .menuItem small {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .menuItem[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .menuItem[aria-disabled="true"]:hover {
+    background: transparent;
+  }
+  .menuDiv {
+    height: 1px;
+    background: var(--line);
+    margin: 4px 0;
+  }
+  .menuNote {
+    padding: 4px 12px 10px;
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 40ch;
+  }
+  .menuPanel .search {
+    margin: 8px 8px 2px;
+    height: 32px;
+  }
+  .who {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.25;
+    padding: 0 4px;
+    white-space: nowrap;
+  }
+  .who b {
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .who span {
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  /* The statistics strip. */
+  .stats {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    min-width: 0;
+  }
+  .statsList {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0;
+  }
+  .statsList::-webkit-scrollbar {
+    display: none;
+  }
+  .statsList[data-overflowing="true"] {
+    box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+  }
+  .stat {
+    display: grid;
+    gap: 3px;
+    align-content: center;
+    padding: 9px 18px 9px 0;
+    margin-right: 18px;
+    border-right: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .stat:last-child {
+    border-right: 0;
+    margin-right: 0;
+  }
+  .stat dt {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .stat dd {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .stat dd small {
+    font-family: var(--body);
+    font-size: var(--t-1);
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .stat dd i {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .stat[data-tone="danger"] dd {
+    color: var(--danger);
+  }
+  .stat[data-tone="warn"] dd {
+    color: var(--warn);
+  }
+  .statsEnd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    margin-left: auto;
+    padding: 6px 0 6px 16px;
+    border-left: 1px solid var(--line);
+  }
+  .hdrClock {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .hdrClock span {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .hdrClock b {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .statsMenu > summary {
+    height: 30px;
+    font-size: var(--t-1);
+    background: var(--surface);
+  }
+  .statsMenu .menuPanel {
+    max-width: none;
+    width: min(94vw, 70rem);
+  }
+  .statsGrid {
+    display: grid;
+    grid-template-columns: 17rem 21rem repeat(2, minmax(0, 1fr));
+  }
+  .statsGrid > section {
+    min-width: 0;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  .statsGrid .dataTable th,
+  .statsGrid .dataTable td {
+    padding: 4px 8px;
+  }
+  .statsGrid .dataTable th:first-child,
+  .statsGrid .dataTable td:first-child {
+    padding-left: 12px;
+  }
+  .statsGrid .dataTable th {
+    background: transparent;
+    border-bottom-color: var(--line);
+  }
+  .statsGrid .dataTable tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .statsFacts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    padding: 4px 12px 6px;
+    font-size: var(--t-1);
+  }
+  .statsFacts dt {
+    color: var(--ink-soft);
+  }
+  .statsFacts dd {
+    font-family: var(--mono);
+    color: var(--ink);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .statsFacts dd i {
+    font-family: var(--body);
+    font-style: italic;
+    color: var(--muted);
+  }
+  .statsFacts dd[data-tone="danger"] {
+    color: var(--danger);
+  }
+  .statsFacts dd[data-tone="warn"] {
+    color: var(--warn);
+  }
+  .statsFoot {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  /* The outstanding tasks bar. */
+  .tasks {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 24px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    min-width: 0;
+  }
+  .tasksLabel {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    flex: none;
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .tasksLabel .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .taskList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 0;
+    scrollbar-width: none;
+  }
+  .taskList::-webkit-scrollbar {
+    display: none;
+  }
+  .taskList[data-overflowing="true"] {
+    box-shadow: inset -22px 0 18px -18px var(--edge-shade);
+  }
+  .task {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    height: 28px;
+    padding: 0 11px 0 9px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      border-color 0.12s,
+      color 0.12s;
+  }
+  .task::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--line-strong);
+    flex: none;
+  }
+  .task b {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .task[data-tone="danger"] {
+    border-color: var(--danger);
+  }
+  .task[data-tone="danger"]::before,
+  .task[data-tone="danger"] b {
+    background: var(--danger);
+    color: var(--danger);
+  }
+  .task[data-tone="warn"] {
+    border-color: var(--warn);
+  }
+  .task[data-tone="warn"]::before,
+  .task[data-tone="warn"] b {
+    background: var(--warn);
+    color: var(--warn);
+  }
+  .task:hover {
+    background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .task[aria-pressed="true"] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .task[aria-pressed="true"] b {
+    color: var(--accent-ink);
+  }
+  .tasksClear {
+    font-size: var(--t-1);
+    color: var(--muted);
+    font-style: italic;
+    white-space: nowrap;
+  }
+  .tasksEnd {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    margin-left: auto;
+  }
+  @media (max-width: 1000px) {
+    .hdrBar,
+    .stats,
+    .tasks {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .hdrTools {
+      width: 100%;
+    }
+    .search {
+      flex: 1 1 12rem;
+    }
+    .who {
+      display: none;
+    }
+    .taskList {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .statsGrid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .hdrClock span,
+    .tasksEnd,
+    .statsMenu > summary .count {
+      display: none;
+    }
+    .menuPanel {
+      max-width: 94vw;
+    }
+    .statsGrid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media print {
+    .hdrTools,
+    .statsMenu,
+    .tasksEnd,
+    .menuPanel {
+      display: none !important;
+    }
+    .hdr {
+      border-bottom: 1px solid var(--line-strong);
+    }
+  }
+  @media (forced-colors: active) {
+    .search,
+    .menu > summary,
+    .menuPanel,
+    .task,
+    .stat {
+      border: 1px solid CanvasText;
+      box-shadow: none;
+    }
+    .task::before {
+      background: CanvasText;
+    }
+  }
+  /* ─── The quiet bar: page-specific rules. Everything above is the design system's block.
+     One row: the title and the mark, universal search, the Service selector, then Activity,
+     Tasks and Tools as matching side drawers, and the one primary action. ───────────────── */
+  .hApp {
+    display: grid;
+    grid-template-columns: 236px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+  .hApp > .rail {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+  }
+  .hFrame {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .hdr1 {
+    position: relative;
+    z-index: 31;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    padding: 8px 20px 8px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .hdr1 .title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    min-width: 0;
+  }
+  .hdr1 h1 {
+    font-family: var(--display);
+    font-size: var(--t-6);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .hdr1 details > summary.srOnly {
+    display: none;
+  }
+  .hdr1 .end {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    flex: none;
+  }
+  .hdr1 .menu > summary .lbl {
+    font-weight: 600;
+  }
+  .glyph {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .badge {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: var(--sunk);
+    border-radius: 999px;
+    padding: 1px 7px;
+    box-shadow: inset 0 0 0 1px var(--line);
+    letter-spacing: 0;
+  }
+  .menu[open] > summary .badge {
+    color: var(--accent-ink);
+    background: var(--surface);
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: none;
+  }
+  .dot[data-tone="danger"] {
+    background: var(--danger);
+  }
+  .dot[data-tone="good"] {
+    background: var(--good);
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+  .dot[data-svc="north"] {
+    background: var(--svc-north);
+  }
+  .dot[data-svc="east"] {
+    background: var(--svc-east);
+  }
+  .dot[data-svc="south"] {
+    background: var(--svc-south);
+  }
+  .dot[data-svc="wachs"] {
+    background: var(--svc-wachs);
+  }
+  .dot[hidden] {
+    display: none;
+  }
+  @keyframes breathe {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
+    50% {
+      box-shadow: 0 0 0 3px var(--good-soft);
+    }
+  }
+  .fresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* universal search: the field and its results */
+  .searchWrap {
+    position: relative;
+    flex: 1 1 14rem;
+    max-width: 30rem;
+    min-width: 10rem;
+  }
+  .searchWrap .search {
+    width: 100%;
+    flex: none;
+    min-width: 0;
+  }
+  .search input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .qPop {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: min(92vw, 36rem);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom-color: var(--line-strong);
+    border-radius: var(--r1);
+    box-shadow:
+      var(--lift),
+      inset 0 1px 0 var(--hl);
+    z-index: 22;
+    display: none;
+    overflow: hidden;
+  }
+  .searchWrap[data-open="true"] .qPop {
+    display: grid;
+  }
+  .qHit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 12px;
+    align-items: baseline;
+    width: 100%;
+    padding: 7px 12px;
+    border-radius: var(--r2);
+    text-align: left;
+    color: var(--ink);
+    font-size: var(--t-2);
+  }
+  .qHit:hover,
+  .qHit[data-active="true"] {
+    background: var(--sunk);
+  }
+  .qHit b {
+    font-weight: 600;
+  }
+  .qHit small {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .qHit .under {
+    grid-column: 1 / -1;
+    font-size: var(--t-1);
+    color: var(--muted);
+  }
+  .qHit .under em {
+    font-style: normal;
+    color: var(--danger);
+  }
+  .qNone {
+    padding: 10px 12px 12px;
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+    max-width: 44ch;
+  }
+
+  /* the Service selector */
+  .svcMenu > summary .dot {
+    margin-right: 1px;
+  }
+  .svcMenu .menuItem .lead {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  /* the drawers: Activity, Tasks and Tools share one shape */
+  .drawerMenu .menuPanel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(94vw, 28rem);
+    max-width: none;
+    border-radius: 0;
+    border-width: 0 0 0 1px;
+    border-color: var(--line-strong);
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    overflow: auto;
+    z-index: 40;
+  }
+  .drawerMenu.wide .menuPanel {
+    width: min(94vw, 36rem);
+  }
+  .drawerMenu[open]::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: var(--edge-shade);
+    opacity: 0.6;
+    z-index: 39;
+  }
+  .popHead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .popHead h2 {
+    font-size: var(--t-3);
+    font-weight: 600;
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .popHead .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .popHead .closeBtn {
+    margin-left: auto;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    font-size: var(--t-1);
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .popHead .closeBtn:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .popHead .fresh {
+    flex-basis: 100%;
+  }
+  .popFoot {
+    padding: 8px 14px 10px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.45;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+  }
+  .popBody {
+    display: grid;
+    align-content: start;
+  }
+  .popBody > section + section {
+    border-top: 1px solid var(--line);
+  }
+  /* the two parts of a drawer, one shown at a time */
+  .seg {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    margin: 10px 14px 4px;
+    border-radius: var(--r2);
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .seg button {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 4px;
+    font-size: var(--t-1);
+    font-weight: 500;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      color 0.12s;
+  }
+  .seg button .count {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  .seg button:hover {
+    color: var(--ink);
+  }
+  .seg button[aria-pressed="true"] {
+    background: var(--surface);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow:
+      inset 0 -2px 0 var(--gilt),
+      var(--lift);
+  }
+  .seg button[aria-pressed="true"] .count {
+    color: var(--ink-soft);
+  }
+  .part[hidden] {
+    display: none;
+  }
+  .taskRows {
+    display: grid;
+    padding: 4px 6px 6px;
+  }
+  .taskRow {
+    display: grid;
+    grid-template-columns: 2.4rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 8px 7px 10px;
+    border-radius: var(--r2);
+    text-align: left;
+    font-size: var(--t-2);
+    color: var(--ink);
+    transition: background 0.12s;
+  }
+  .taskRow:hover {
+    background: var(--sunk);
+  }
+  .taskRow b {
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .taskRow b::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--line-strong);
+    flex: none;
+  }
+  .taskRow b i {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    font-size: var(--t-1);
+    color: var(--muted);
+  }
+  .taskRow[data-tone="danger"] b {
+    color: var(--danger);
+  }
+  .taskRow[data-tone="danger"] b::before {
+    background: var(--danger);
+  }
+  .taskRow[data-tone="warn"] b {
+    color: var(--warn);
+  }
+  .taskRow[data-tone="warn"] b::before {
+    background: var(--warn);
+  }
+  .taskRow small {
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .taskRow[aria-pressed="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    box-shadow: inset 3px 0 0 var(--gilt);
+  }
+  .taskRow[aria-pressed="true"] small {
+    color: var(--accent-ink);
+  }
+  .notices {
+    display: grid;
+    padding: 4px 6px 6px;
+  }
+  .notice {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 4px 10px;
+    padding: 7px 8px 7px 10px;
+    border-radius: var(--r2);
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    line-height: 1.45;
+  }
+  .notice time {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .notice[data-fresh="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+  .notice[data-fresh="true"] time {
+    color: var(--accent-ink);
+  }
+  .notice .seen {
+    font-size: var(--t-0);
+    font-weight: 600;
+    color: var(--accent-ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+  }
+  .actSum {
+    padding: 10px 14px 8px;
+    font-size: var(--t-2);
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    text-wrap: pretty;
+  }
+  .actSum b {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .actSum b[data-tone="danger"] {
+    color: var(--danger);
+  }
+  .feed {
+    display: grid;
+    padding: 2px 6px 6px;
+  }
+  .feedItem {
+    display: grid;
+    grid-template-columns: 3rem auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: 10px;
+    padding: 6px 8px 6px 10px;
+    border-radius: var(--r2);
+    font-size: var(--t-1);
+    line-height: 1.45;
+    color: var(--ink-soft);
+  }
+  .feedItem time {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  .feedItem .dot {
+    background: var(--line-strong);
+    transform: translateY(-1px);
+    animation: none;
+  }
+  .feedItem[data-tone="danger"] .dot {
+    background: var(--danger);
+  }
+  .feedItem[data-tone="warn"] .dot {
+    background: var(--warn);
+  }
+  .feedItem[data-tone="good"] .dot {
+    background: var(--good);
+  }
+  .feedItem b {
+    font-family: var(--mono);
+    font-weight: 500;
+    color: var(--ink);
+  }
+  /* the live tally: core tiles, then the groups */
+  .tally {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px 14px 4px;
+  }
+  .tile {
+    display: grid;
+    gap: 3px;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    background: var(--surface-2);
+  }
+  .tile small {
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .tile b {
+    font-family: var(--mono);
+    font-size: var(--t-5);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+  .tile b i {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    font-size: var(--t-1);
+    color: var(--muted);
+  }
+  .tile[data-tone="danger"] b {
+    color: var(--danger);
+  }
+  .tile[data-tone="warn"] b {
+    color: var(--warn);
+  }
+  .figGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .figGrid > section {
+    min-width: 0;
+    border-top: 1px solid var(--line);
+    padding-bottom: 6px;
+  }
+  .figGrid .dataTable th,
+  .figGrid .dataTable td {
+    padding: 4px 8px;
+  }
+  .figGrid .dataTable th:first-child,
+  .figGrid .dataTable td:first-child {
+    padding-left: 14px;
+  }
+  .figGrid .dataTable th {
+    background: transparent;
+    border-bottom-color: var(--line);
+  }
+  .figGrid .dataTable tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .figGrid .menuHead {
+    padding-left: 14px;
+  }
+  .figGrid .statsFacts {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  /* the tools drawer */
+  .toolList {
+    display: grid;
+    padding: 4px 6px 6px;
+  }
+  .toolItem {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 8px 8px 10px;
+    border-radius: var(--r2);
+    text-align: left;
+    font-size: var(--t-2);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background 0.12s;
+  }
+  .toolItem:hover {
+    background: var(--sunk);
+  }
+  .toolItem .glyph {
+    color: var(--ink-soft);
+  }
+  .toolItem span {
+    display: grid;
+    gap: 1px;
+  }
+  .toolItem span em {
+    font-style: normal;
+    font-size: var(--t-1);
+    color: var(--muted);
+  }
+  .toolItem small {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .toolItem[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .toolItem[aria-disabled="true"]:hover {
+    background: transparent;
+  }
+  .contacts .dataTable td {
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+  .contacts .dataTable td em {
+    display: block;
+    font-style: normal;
+    font-weight: 400;
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  .contacts .tableWrap {
+    overflow-x: auto;
+  }
+  .contacts .dataTable th {
+    padding: 6px 10px;
+  }
+  .contacts .dataTable td.holder {
+    font-family: var(--mono);
+    color: var(--muted);
+    font-size: var(--t-1);
+  }
+  .contacts .dataTable td:first-child {
+    padding-left: 14px;
+  }
+  .contacts .dataTable th:first-child {
+    padding-left: 14px;
+  }
+  .menuPanel .who {
+    align-items: flex-start;
+    padding: 12px 14px 8px;
+  }
+  .menuPanel .appearance {
+    margin: 4px 14px 12px;
+  }
+
+  /* ─── the body ─── */
+  .hScroll {
+    flex: 1;
+    min-width: 0;
+    padding: 14px 24px 24px;
+    display: grid;
+    gap: var(--gap);
+    align-content: start;
+  }
+  .hGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: var(--gap);
+    align-items: start;
+  }
+  .hCol {
+    display: grid;
+    gap: var(--gap);
+    min-width: 0;
+  }
+  .hGrid .qList {
+    max-height: 38rem;
+  }
+  .qName {
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .pageBody[hidden],
+  .hGrid[hidden] {
+    display: none;
+  }
+  .pageNote {
+    padding: 12px 16px;
+    font-size: var(--t-2);
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 72ch;
+    text-wrap: pretty;
+  }
+  .hFeatures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: 16px 24px;
+    padding: 14px 16px 16px;
+  }
+  .hFeatures h3 {
+    font-size: var(--t-2);
+    margin-bottom: 6px;
+  }
+  .hFeatures ul {
+    display: grid;
+    gap: 5px;
+    list-style: disc;
+    padding-left: 16px;
+    font-size: var(--t-1);
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .hFeatures li::marker {
+    color: var(--line-strong);
+  }
+  .hFoot {
+    padding: 12px 16px;
+    display: grid;
+    gap: 6px;
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 100ch;
+  }
+  .hFoot b {
+    color: var(--ink-soft);
+  }
+
+  /* ─── collapse ladder ─── */
+  @media (max-width: 1500px) {
+    .chip.mark .long {
+      display: none;
+    }
+  }
+  @media (max-width: 1240px) {
+    .hdr1 .chip.mark,
+    .hdr1 .menu > summary .lbl.optional {
+      display: none;
+    }
+    .searchWrap {
+      flex-basis: 10rem;
+    }
+  }
+  @media (max-width: 1000px) {
+    .hApp {
+      grid-template-columns: 1fr;
+    }
+    .hApp > .rail {
+      position: static;
+      height: auto;
+    }
+    .hGrid {
+      grid-template-columns: 1fr;
+    }
+    .hScroll {
+      padding: 12px 14px 24px;
+    }
+    .hdr1 {
+      flex-wrap: wrap;
+      padding: 8px 14px;
+    }
+    .hdr1 .end {
+      margin-left: 0;
+      flex-wrap: wrap;
+    }
+    .searchWrap {
+      flex: 1 1 100%;
+      max-width: none;
+    }
+  }
+  @media (max-width: 640px) {
+    .menuPanel {
+      max-width: 94vw;
+    }
+    .tally {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media print {
+    .hdr1 .end,
+    .searchWrap,
+    .menuPanel,
+    .hdr1 .svcMenu {
+      display: none !important;
+    }
+    .hApp,
+    .hGrid {
+      display: block;
+    }
+    .hGrid .qList {
+      max-height: none;
+    }
+    .hdr1 {
+      border-bottom: 1px solid var(--line-strong);
+    }
+  }
+  @media (forced-colors: active) {
+    .qPop,
+    .badge,
+    .seg,
+    .tile {
+      border: 1px solid CanvasText;
+      box-shadow: none;
+    }
+    .dot,
+    .taskRow b::before {
+      background: CanvasText;
+    }
+  }
+
+  /* ─── The rail, open and closed: page-specific rules. Everything above is the design system's block
+     and the quiet bar. One rail, two states. Open, it carries every screen in three groups with its
+     state under it in words, the shift, the current screen's sections and the pinned movements.
+     Closed, it is a strip: a glyph and a word per screen, the counts as tags, the shift as a ring,
+     and a card on hover with the screen's state. The bracket key flips between them. ───────── */
+  .oBar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding: 7px 16px;
+    background: var(--sunk);
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .oBar .oLabel {
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .oSeg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--r2);
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .oBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 4px;
+    font-size: var(--t-1);
+    font-weight: 500;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    transition:
+      background 0.12s,
+      color 0.12s;
+  }
+  .oBtn kbd {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    padding: 0 4px;
+    line-height: 1.4;
+  }
+  .oBtn:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .oBtn[aria-pressed="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .oBtn[aria-pressed="true"] kbd {
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+  .oBar .oNote {
+    font-size: var(--t-1);
+    color: var(--muted);
+    min-width: 0;
+    flex: 1 1 20rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .oBar .appearance {
+    margin-left: auto;
+  }
+  :root {
+    --obar: 43px;
+    --railw: 236px;
+  }
+  .hApp {
+    grid-template-columns: var(--railw) minmax(0, 1fr);
+    min-height: calc(100vh - var(--obar));
+    transition: grid-template-columns 0.18s ease;
+  }
+  .railHost {
+    display: contents;
+  }
+  .railHost > .rail {
+    display: none;
+    position: sticky;
+    top: var(--obar);
+    align-self: start;
+    height: calc(100vh - var(--obar));
+    z-index: 20;
+  }
+  .rail.closed:hover,
+  .rail.closed:focus-within {
+    z-index: 32;
+  }
+  .hApp[data-view="open"] .rail.open,
+  .hApp[data-view="closed"] .rail.closed {
+    display: flex;
+  }
+  .hApp[data-view="closed"] {
+    --railw: 76px;
+  }
+  .hApp[data-view="both"] {
+    grid-template-columns: 236px 76px minmax(0, 1fr);
+  }
+  .hApp[data-view="both"] .railHost > .rail {
+    display: flex;
+  }
+  .hApp[data-view="both"] .railBtn {
+    display: none;
+  }
+  .railCap {
+    display: none;
+    align-items: baseline;
+    gap: 8px;
+    padding: 0 12px 10px;
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .railCap b {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .hApp[data-view="both"] .railCap {
+    display: flex;
+  }
+  .hApp[data-view="both"] .rail.closed .railCap {
+    justify-content: center;
+    padding: 0 0 10px;
+  }
+  .hApp[data-view="both"] .rail.closed .railCap span {
+    display: none;
+  }
+  .hApp[data-view="both"] .hdr1 .chip.mark,
+  .hApp[data-view="both"] .hdr1 .menu > summary .lbl.optional {
+    display: none;
+  }
+  .hApp[data-view="both"] .searchWrap {
+    flex-basis: 10rem;
+  }
+
+  /* ─── shared pieces ─── */
+  .railScroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    display: flex;
+    flex-direction: column;
+  }
+  .rail.open {
+    overflow: hidden;
+  }
+  .rail.closed {
+    overflow: visible;
+  }
+  .svcStripe {
+    display: none;
+    height: 3px;
+    border-radius: 2px;
+    margin: -12px 20px 14px;
+  }
+  .svcStripe[data-svc] {
+    display: block;
+  }
+  .svcStripe[data-svc="north"] {
+    background: var(--svc-north);
+  }
+  .svcStripe[data-svc="east"] {
+    background: var(--svc-east);
+  }
+  .svcStripe[data-svc="south"] {
+    background: var(--svc-south);
+  }
+  .svcStripe[data-svc="wachs"] {
+    background: var(--svc-wachs);
+  }
+  .railBlock {
+    margin: 0 10px 14px;
+    padding: 10px 10px 9px;
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    background: var(--surface-2);
+    display: grid;
+    gap: 6px;
+  }
+  .railBlock .eyebrow {
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .railBlock .eyebrow .count {
+    font-family: var(--mono);
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 500;
+  }
+  .railBlock .big {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: var(--t-4);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .railBlock .big small {
+    font-family: var(--body);
+    font-size: var(--t-1);
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+    white-space: normal;
+  }
+  .shiftRow {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+  }
+  .shiftRow > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+  .shiftRow .big {
+    display: grid;
+    gap: 0;
+  }
+  .meter {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    overflow: hidden;
+  }
+  .meter i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .ring {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .ring.small {
+    width: 36px;
+    height: 36px;
+  }
+  .ring svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+  .ring circle {
+    fill: none;
+    stroke-width: 3;
+  }
+  .ring .track {
+    stroke: var(--line);
+  }
+  .ring .arc {
+    stroke: var(--accent);
+    stroke-linecap: round;
+  }
+  .ring b {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: 0.04em;
+  }
+  .ring.small b {
+    font-size: 9px;
+  }
+  .railText {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+  }
+  .railText > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .railText em {
+    font-style: normal;
+    font-size: var(--t-0);
+    line-height: 1.35;
+    color: var(--muted);
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .railText em b {
+    font-weight: 600;
+  }
+  .railText em b[data-tone="danger"] {
+    color: var(--danger);
+  }
+  .railText em b[data-tone="warn"] {
+    color: var(--warn);
+  }
+  .railLink[aria-current="page"] .railText em {
+    color: var(--accent-ink);
+    opacity: 0.85;
+  }
+  /* the tone lives on a dot beside the glyph, never on the count: red is a breach, amber is look here */
+  .toneDot {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--surface);
+  }
+  .toneDot[data-tone="danger"] {
+    background: var(--danger);
+  }
+  .toneDot[data-tone="warn"] {
+    background: var(--warn);
+  }
+  .rail.open .toneDot {
+    left: 20px;
+    top: 5px;
+  }
+  .rail.open .railLink[aria-current="page"] .toneDot {
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  .rail.closed .toneDot {
+    left: calc(50% - 16px);
+    top: 6px;
+  }
+  .rail.closed .railLink[aria-current="page"] .toneDot {
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  .pinRow {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    border-radius: var(--r2);
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    text-align: left;
+    position: relative;
+  }
+  .pinRow::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 7px;
+    bottom: 7px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    background: var(--line-strong);
+  }
+  .pinRow[data-tone="danger"]::before {
+    background: var(--danger);
+  }
+  .pinRow[data-tone="warn"]::before {
+    background: var(--warn);
+  }
+  .pinRow:hover {
+    background: var(--sunk);
+  }
+  .pinRow[aria-pressed="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+  .pinRow .id {
+    font-family: var(--mono);
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .pinRow .wait {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  .pinRow[data-tone="danger"] .wait {
+    color: var(--danger);
+  }
+  .pinRow b {
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .railBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 10px 0;
+    padding: 7px 10px;
+    border-radius: var(--r2);
+    font-size: var(--t-1);
+    font-weight: 600;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    white-space: nowrap;
+  }
+  .railBtn:hover {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .railBtn .railGlyph {
+    color: var(--ink-soft);
+  }
+  .railBtn kbd {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 500;
+    color: var(--muted);
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    padding: 0 5px;
+    line-height: 1.5;
+  }
+
+  /* ─── open ─── */
+  .rail.open .brand {
+    padding-bottom: 14px;
+  }
+  .rail.open .railLink {
+    align-items: center;
+    padding: 6px 10px;
+  }
+  .rail.open .railLink[data-state="true"] {
+    padding: 4px 10px;
+  }
+  .rail.open .railGroup + .railGroup {
+    margin-top: 10px;
+  }
+  .rail.open .railBlock {
+    margin-bottom: 12px;
+  }
+  .rail.open .railLabel {
+    align-items: center;
+  }
+  .rail.open .railLink .tag {
+    align-self: flex-start;
+    margin-top: 1px;
+  }
+  .rail.open .railLink:not([data-state="true"]) .tag {
+    align-self: center;
+    margin-top: 0;
+  }
+  .rail.open .pinGroup {
+    margin-top: 14px;
+  }
+  .rail.open .railFoot {
+    padding-top: 12px;
+  }
+
+  /* ─── closed: the strip ─── */
+  .rail.closed {
+    padding: 14px 0 12px;
+    align-items: stretch;
+  }
+  .rail.closed .brand {
+    justify-content: center;
+    padding: 0 0 12px;
+    gap: 0;
+  }
+  .rail.closed .brand b {
+    font-size: 19px;
+  }
+  .rail.closed .brand span {
+    display: none;
+  }
+  .rail.closed .svcStripe {
+    margin: -8px 14px 10px;
+  }
+  .rail.closed .railGroup {
+    padding: 0 6px;
+    gap: 2px;
+  }
+  .rail.closed .railGroup + .railGroup {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--line);
+  }
+  .rail.closed .railEyebrow {
+    display: none;
+  }
+  .rail.closed .railLink {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 7px 2px 6px;
+    position: relative;
+  }
+  .rail.closed .railLink::before {
+    left: -6px;
+    top: 9px;
+    bottom: 9px;
+  }
+  .rail.closed .railLabel {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .rail.closed .railLabel .word {
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .rail.closed .railGlyph {
+    width: 17px;
+    height: 17px;
+    flex-basis: 17px;
+  }
+  .rail.closed .railLink .tag {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    padding: 0 4px;
+    font-size: 9px;
+    line-height: 1.5;
+  }
+  .rail.closed .railLink[data-page="handover"] .tag {
+    display: none;
+  }
+  .flyCard {
+    display: none;
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 2px;
+    width: 15.5rem;
+    padding: 10px 12px 11px;
+    border: 1px solid var(--line);
+    border-bottom-color: var(--line-strong);
+    border-radius: var(--r1);
+    background: var(--surface);
+    box-shadow:
+      var(--lift),
+      inset 0 1px 0 var(--hl);
+    z-index: 35;
+    text-align: left;
+    gap: 3px;
+    font-weight: 400;
+    color: var(--ink);
+    pointer-events: none;
+  }
+  .flyCard::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: 16px;
+    width: 8px;
+    height: 8px;
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    transform: rotate(45deg);
+  }
+  .flyCard b {
+    font-size: var(--t-2);
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .flyCard b .tag {
+    position: static;
+    font-size: var(--t-0);
+    line-height: normal;
+    padding: 1px 7px;
+  }
+  .flyCard em {
+    font-style: normal;
+    font-size: var(--t-1);
+    line-height: 1.4;
+    color: var(--muted);
+  }
+  .flyCard .stateLine {
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+  }
+  .flyCard .stateLine b {
+    display: inline;
+    font-size: var(--t-1);
+  }
+  .flyCard .stateLine b[data-tone="danger"] {
+    color: var(--danger);
+  }
+  .flyCard .stateLine b[data-tone="warn"] {
+    color: var(--warn);
+  }
+  .rail.closed .railLink:hover .flyCard,
+  .rail.closed .railLink:focus-visible .flyCard {
+    display: grid;
+  }
+  .rail.closed .railFoot {
+    padding: 10px 0 0;
+    justify-items: center;
+    gap: 8px;
+  }
+  .rail.closed .railFoot .railUser,
+  .rail.closed .railFoot .railNote,
+  .rail.closed .railCheck span {
+    display: none;
+  }
+  .rail.closed .flyMenu {
+    align-self: center;
+  }
+  .rail.closed .flyMenu > summary {
+    height: 34px;
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-soft);
+    position: relative;
+  }
+  .rail.closed .flyMenu > summary::after {
+    display: none;
+  }
+  .rail.closed .flyMenu > summary:hover,
+  .rail.closed .flyMenu[open] > summary {
+    background: var(--sunk);
+    color: var(--ink);
+  }
+  .rail.closed .flyMenu > summary .tag {
+    position: absolute;
+    top: -3px;
+    right: -6px;
+    font-family: var(--mono);
+    font-size: 9px;
+    line-height: 1.5;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--sunk);
+    box-shadow: inset 0 0 0 1px var(--line);
+    color: var(--ink-soft);
+  }
+  .rail.closed .flyMenu .menuPanel {
+    left: calc(100% + 10px);
+    right: auto;
+    top: auto;
+    bottom: 0;
+    min-width: 19rem;
+  }
+  .rail.closed .railBtn {
+    margin: 8px 6px 0;
+    justify-content: center;
+    padding: 6px 0;
+  }
+  .rail.closed .railBtn span,
+  .rail.closed .railBtn kbd {
+    display: none;
+  }
+  .ringRow {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+  }
+
+  /* ─── the screen's layout, drawn ─── */
+  .schema {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 6px;
+    padding: 14px 16px 16px;
+  }
+  .schema .sRail {
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--surface-2);
+    display: grid;
+    align-content: start;
+    gap: 5px;
+    padding: 6px 5px;
+  }
+  .schema .sRail i {
+    display: block;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--line);
+  }
+  .schema .sRail i[data-on] {
+    background: var(--gilt);
+  }
+  .schema .sMain {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+  .schema .sBar {
+    height: 20px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+    font-size: var(--t-0);
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .schema .sBar i {
+    display: inline-block;
+    width: 34px;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--line);
+    margin-left: auto;
+  }
+  .schema .sBar i + i {
+    margin-left: 0;
+  }
+  .schema .sBar i[data-primary] {
+    background: var(--accent);
+  }
+  .schema .sCols {
+    display: grid;
+    gap: 6px;
+    align-items: stretch;
+  }
+  .schema .sCol {
+    display: grid;
+    gap: 6px;
+    align-content: start;
+    min-width: 0;
+  }
+  .schema .sBlock {
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r2);
+    background: var(--surface);
+    padding: 8px 10px 10px;
+    display: grid;
+    gap: 6px;
+    min-height: 3.4rem;
+    text-align: left;
+    width: 100%;
+    color: var(--ink);
+    transition: background 0.12s;
+  }
+  .schema .sBlock:hover {
+    background: var(--sunk);
+  }
+  .schema .sBlock[aria-pressed="true"] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    box-shadow: inset 3px 0 0 var(--gilt);
+  }
+  .schema .sBlock b {
+    font-size: var(--t-1);
+    font-weight: 600;
+  }
+  .schema .sBlock em {
+    font-style: normal;
+    font-size: var(--t-0);
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .schema .sBlock .lines {
+    display: grid;
+    gap: 4px;
+  }
+  .schema .sBlock .lines i {
+    display: block;
+    height: 5px;
+    border-radius: 2px;
+    background: var(--line);
+  }
+  .schema .sBlock .lines i:nth-child(2) {
+    width: 72%;
+  }
+  .schema .sBlock .lines i:nth-child(3) {
+    width: 46%;
+  }
+  .sFacts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 8px 22px;
+    padding: 12px 16px 4px;
+    font-size: var(--t-1);
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+  .sFacts b {
+    display: block;
+    font-size: var(--t-0);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 1px;
+  }
+  .sFacts .primaryChip {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: var(--r2);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: var(--t-1);
+    font-weight: 600;
+  }
+
+  /* ─── every screen, as cards ─── */
+  .map {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+    gap: 12px;
+    padding: 14px 16px 16px;
+  }
+  .card {
+    display: grid;
+    gap: 8px;
+    padding: 10px 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+    background: var(--surface);
+    text-align: left;
+    color: var(--ink);
+    transition:
+      background 0.12s,
+      border-color 0.12s;
+    align-content: start;
+  }
+  .card:hover {
+    background: var(--sunk);
+    border-color: var(--line-strong);
+  }
+  .card[aria-current="page"] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    box-shadow: inset 3px 0 0 var(--gilt);
+  }
+  .thumb {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr);
+    gap: 3px;
+    height: 64px;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--surface-2);
+  }
+  .thumb .tRail {
+    background: var(--line);
+    border-radius: 2px;
+  }
+  .thumb .tMain {
+    display: grid;
+    grid-template-rows: 6px minmax(0, 1fr);
+    gap: 3px;
+    min-width: 0;
+  }
+  .thumb .tBar {
+    background: var(--line);
+    border-radius: 2px;
+  }
+  .thumb .tCols {
+    display: grid;
+    gap: 3px;
+    min-height: 0;
+  }
+  .thumb .tCol {
+    display: grid;
+    gap: 3px;
+    min-height: 0;
+  }
+  .thumb .tBlock {
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    background: var(--surface);
+    min-height: 0;
+  }
+  .card .cTitle {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .card .cTitle b {
+    font-size: var(--t-2);
+    font-weight: 600;
+  }
+  .card .cTitle small {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .card p {
+    font-size: var(--t-1);
+    line-height: 1.45;
+    color: var(--ink-soft);
+  }
+  .card .cFoot {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  .card .cFoot b {
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+  .hFeatures h3 b {
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 600;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-right: 8px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hApp {
+      transition: none;
+    }
+  }
+  @media (max-width: 1000px) {
+    .hApp,
+    .hApp[data-view="both"] {
+      grid-template-columns: 1fr;
+    }
+    .railHost > .rail {
+      position: static;
+      height: auto;
+    }
+    .oBar .oNote {
+      display: none;
+    }
+    .schema {
+      grid-template-columns: 1fr;
+    }
+    .schema .sRail {
+      display: none;
+    }
+    .schema .sCols {
+      grid-template-columns: 1fr !important;
+    }
+  }
+  @media print {
+    .oBar,
+    .railBtn,
+    .railCap,
+    .flyCard {
+      display: none !important;
+    }
+  }
+  @media (forced-colors: active) {
+    .railBlock,
+    .thumb,
+    .card,
+    .flyCard,
+    .schema .sBlock {
+      border: 1px solid CanvasText;
+      box-shadow: none;
+    }
+    .meter i,
+    .ring .arc {
+      background: CanvasText;
+      stroke: CanvasText;
+    }
+  }
+
+  /* ─── Command inside the shell. The rail and the bar are the shell's; these rules seat the
+     Command panels beneath them with the fixed-height dashboard the screen had before. ─── */
+  :root {
+    --obar: 0px;
+  }
+  .cmdState {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    padding: 9px 24px 8px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .cmdState .clock {
+    margin-left: auto;
+  }
+  .cmdScroll {
+    padding: 14px 24px 24px;
+  }
+  @media (min-width: 1400px) {
+    .hApp {
+      height: 100vh;
+      min-height: 46rem;
+      overflow: hidden;
+    }
+    .railHost > .rail {
+      position: static;
+      align-self: stretch;
+      height: auto;
+      min-height: 0;
+    }
+    .hFrame {
+      min-height: 0;
+    }
+    .cmdScroll {
+      min-height: 0;
+      overflow: hidden;
+      grid-template-rows: auto minmax(0, 1fr);
+      align-content: stretch;
+    }
+  }
+  @media (min-width: 1400px) and (max-height: 1024px) {
+    .cmdScroll {
+      padding-bottom: 16px;
+      gap: 12px;
+    }
+    .cmdState {
+      padding: 7px 24px 6px;
+    }
+  }
+  @media (max-width: 1000px) {
+    .cmdScroll {
+      padding: 12px 14px 24px;
+    }
+    .cmdState {
+      padding: 8px 14px;
+    }
+  }
+  @media print {
+    .cmdState {
+      border-bottom: 1px solid var(--line-strong);
+    }
+  }
 </style>
-
-<div class="app">
+<div class="hApp" id="hApp" data-view="open">
   <a class="skip" href="#qpane-patients">Skip to the priority queue</a>
-  <nav class="rail" aria-label="Ward Flow sections">
-    <div class="brand"><b>Ward Flow</b><span>WA</span></div>
+  <div class="railHost" id="railHost">
+    <nav class="rail open" data-rail="open" aria-label="Ward Flow sections, open"></nav>
+    <nav class="rail closed" data-rail="closed" aria-label="Ward Flow sections, closed"></nav>
+  </div>
 
-    <div class="railGroup" role="group" aria-labelledby="rg-operations">
-      <p class="railEyebrow" id="rg-operations">Operations</p>
-      <button class="railLink" aria-current="page" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true">
-            <path d="M3 3h5v5H3zM10 3h5v5h-5zM3 10h5v5H3zM10 10h5v5h-5z" /></svg
-          >Command</span
-        >
-        <span class="tag" id="railOpen" title="Open movements on the pathway">14</span>
-      </button>
-      <button class="railLink" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 9h11M9 5l4 4-4 4" /></svg
-          >Movement</span
-        >
-      </button>
-      <button class="railLink" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true">
-            <path d="M2 6v7M2 9h11a3 3 0 0 1 3 3v1M6 9V7h4v2" /></svg
-          >Capacity</span
-        >
-      </button>
-    </div>
-
-    <div class="railGroup" role="group" aria-labelledby="rg-network">
-      <p class="railEyebrow" id="rg-network">Network</p>
-      <button class="railLink" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true">
-            <path d="M9 2l6 3v5c0 3-2.6 5.3-6 6-3.4-.7-6-3-6-6V5z" /></svg
-          >Wards</span
-        >
-      </button>
-      <button class="railLink" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 3v12M3 9h12" /></svg>Emergency
-          departments</span
-        >
-      </button>
-      <button class="railLink" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true">
-            <path
-              d="M6 7a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM12.5 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM1.5 15c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4M11 11.5c2 .3 3.5 1.6 3.5 3.5"
-            /></svg
-          >Community teams</span
-        >
-      </button>
-    </div>
-
-    <div class="railGroup" role="group" aria-labelledby="rg-records">
-      <p class="railEyebrow" id="rg-records">Records</p>
-      <button class="railLink" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true">
-            <path d="M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12zM12.5 12.5L16 16" /></svg
-          >Patient search</span
-        >
-      </button>
-      <button class="railLink" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 2h6l4 4v10H4zM10 2v4h4" /></svg
-          >Referrals</span
-        >
-      </button>
-      <button class="railLink" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 9h12M3 5h12M3 13h8" /></svg
-          >Handover</span
-        >
-      </button>
-      <button class="railLink" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 15V8M8 15V3M13 15v-5" /></svg
-          >Statistics</span
-        >
-      </button>
-      <button class="railLink" type="button">
-        <span class="railLabel"
-          ><svg class="railGlyph" viewBox="0 0 18 18" aria-hidden="true">
-            <path d="M9 2l6 3v4c0 4-2.7 6.3-6 7-3.3-.7-6-3-6-7V5z" /></svg
-          >Governance</span
-        >
-        <span class="tag" id="railGov" title="Overrides recorded for governance review">4</span>
-      </button>
-    </div>
-
-    <div class="railFoot">
-      <p class="railUser"><span>Signed in as</span><b>Bed coordinator</b></p>
-      <p class="railCheck" id="railCheck" data-ok="true">Reconciling figures</p>
-      <div class="apRow">
-        <span class="apLabel" id="apLabel">Appearance</span>
-        <div class="appearance" id="appearance" role="group" aria-labelledby="apLabel">
-          <button type="button" class="apBtn" data-set-theme="light" aria-pressed="false">Light</button>
-          <button type="button" class="apBtn" data-set-theme="dark" aria-pressed="false">Dark</button>
-          <button type="button" class="apBtn" data-set-theme="auto" aria-pressed="true">Auto</button>
-        </div>
-      </div>
-      <p class="railNote">
-        Every ward state, movement, referral, clock and figure on this screen is invented. The hospital sites and health
-        services are real WA names.
-      </p>
-    </div>
-  </nav>
-
-  <div class="frame">
+  <div class="hFrame">
     <p class="srOnly" id="live" aria-live="polite" aria-atomic="true"></p>
-    <header class="topbar">
+
+    <header class="hdr1" aria-label="Header">
       <div class="title">
-        <h1>Command</h1>
-        <span class="chip mark">Synthetic prototype</span>
-        <span class="sub"
-          >Every ward state, movement, referral and figure on this screen is invented. Not a medical device and not
-          clinical decision support.</span
+        <h1 id="pageTitle">Command</h1>
+        <span
+          class="chip mark"
+          title="Every figure and name on this screen is invented. Not a medical device and not clinical decision support."
+          ><span class="long">Synthetic </span>prototype</span
         >
       </div>
-      <div class="state">
-        <dl class="kpis" id="kpis" aria-label="The state of the day"></dl>
-        <div class="clock" aria-label="Saturday 15 August 2026, 10:42 Australian Western Standard Time">
-          <span>Sat 15 Aug &middot; AWST</span>
-          <b>10:42</b>
+      <div class="searchWrap" id="searchWrap">
+        <label class="search">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5L14 14" />
+          </svg>
+          <input
+            type="search"
+            id="q"
+            placeholder="Search movements, departments, wards"
+            aria-label="Universal search: movements by identifier, cohort or legal status, departments, wards and tools. Risk scores and best matches are not returned."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <kbd id="qHint" aria-hidden="true">/</kbd>
+          <button type="button" class="clearBtn" id="qClear" hidden>Clear</button>
+        </label>
+        <div class="qPop" id="qPop" role="group" aria-label="Search results"></div>
+      </div>
+      <details class="menu svcMenu" id="svcMenu">
+        <summary aria-label="Service. Filters this page.">
+          <span class="dot" id="svcDot" hidden></span><span class="lbl" id="svcLabel">All services</span
+          ><span class="count" id="svcCount"></span>
+        </summary>
+        <div class="menuPanel" role="group" aria-label="Choose a health service">
+          <p class="menuHead">Service<span class="count">filters this page</span></p>
+          <div id="svcList"></div>
+          <p class="menuNote">
+            One service, or all four. The choice follows you to every page that has a service in it.
+          </p>
         </div>
+      </details>
+      <div class="end">
+        <details class="menu drawerMenu wide" id="activityMenu" data-menu="activity">
+          <summary>
+            <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8.5h3l2-5 3 9 2-4h3" /></svg
+            ><span class="lbl optional">Activity</span><span class="dot" id="actDot" data-tone="good"></span>
+          </summary>
+          <div class="menuPanel" id="activityPanel" role="group" aria-label="Activity"></div>
+        </details>
+        <details class="menu drawerMenu" id="tasksMenu" data-menu="tasks">
+          <summary>
+            <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M2.5 4.5l1.5 1.5 3-3M2.5 9.5l1.5 1.5 3-3M9 4h5M9 9h5M9 13h3" /></svg
+            ><span class="lbl optional">Tasks</span><span class="badge" id="tasksCount"></span
+            ><span class="dot" id="tasksDot" hidden></span>
+          </summary>
+          <div class="menuPanel" id="tasksPanel" role="group" aria-label="Outstanding tasks"></div>
+        </details>
+        <details class="menu drawerMenu wide" id="toolsMenu" data-menu="tools">
+          <summary>
+            <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M9.5 2.5a3 3 0 0 0-3.6 3.9L2 10.3V14h3.7l3.9-3.9a3 3 0 0 0 3.9-3.6l-2 2-2-.5-.5-2z" /></svg
+            ><span class="lbl optional">Tools</span>
+          </summary>
+          <div class="menuPanel" id="toolsPanel" role="group" aria-label="Tools"></div>
+        </details>
+        <details class="menu" id="newMenu">
+          <summary class="primary">New referral</summary>
+          <div class="menuPanel">
+            <p class="menuHead">Raise a referral</p>
+            <div class="menuList">
+              <button class="menuItem" type="button" data-new="an emergency department">
+                From an emergency department<small>ED</small>
+              </button>
+              <button class="menuItem" type="button" data-new="a community team">
+                From a community team<small>CMHT</small>
+              </button>
+              <button class="menuItem" type="button" data-new="a GP or private practice">
+                From a GP or private practice<small>GP</small>
+              </button>
+            </div>
+            <p class="menuNote">
+              Opens the Raise a referral screen with the source prefilled. Not wired in this prototype.
+            </p>
+          </div>
+        </details>
       </div>
     </header>
 
-    <div class="scroll">
+    <div class="cmdState" aria-label="The state of the day">
+      <dl class="kpis" id="kpis" aria-label="The state of the day"></dl>
+      <div class="clock" aria-label="Saturday 15 August 2026, 10:42 Australian Western Standard Time">
+        <span>Sat 15 Aug &middot; AWST</span>
+        <b>10:42</b>
+      </div>
+    </div>
+
+    <div class="hScroll cmdScroll">
       <section class="panel" aria-label="Emergency department pressure">
         <div class="ph">
           <h2>Emergency department pressure</h2>
@@ -3611,6 +6368,20 @@
       return m.legalDue !== null && m.legalDue !== undefined && m.legalDue < NOW;
     }
 
+    /* The service chosen in the bar. Null is every service. Everything that lists movements,
+   departments, wards or referrals reads it, and the shell reads the same state back through
+   window.__wfCommand at the foot of this file, so the two can never disagree. The statewide
+   diagram and the shortlist stay statewide: a person's eligibility is asked of every ward. */
+    function inService(m) {
+      return !state.svc || ed(m.ed).service === state.svc;
+    }
+    function unitInService(u) {
+      return !state.svc || u.service === state.svc;
+    }
+    function refInService(r) {
+      return !state.svc || r.homeService === state.svc;
+    }
+
     /* The queue row's route: where this person is now and where they are pointed, in the same three
    states the hub uses (accepted, referred, nothing yet), written as words rather than an arrow. */
     function routeLine(m) {
@@ -3639,7 +6410,7 @@
 
     /* The state of the day, counted from the data on every render. Five figures, before any detail. */
     function figures() {
-      var open = MOVEMENTS.filter(isOpen);
+      var open = MOVEMENTS.filter(isOpen).filter(inService);
       var breached = open.filter(isBreached).length;
       var flagged = open.filter(function (m) {
         return m.flagged;
@@ -3647,7 +6418,8 @@
       var escalated = open.filter(function (m) {
         return !!m.escalation;
       }).length;
-      var current = UNITS.filter(function (u) {
+      var units = UNITS.filter(unitInService);
+      var current = units.filter(function (u) {
         return u.confirmedMinAgo <= u.staleAfter;
       }).length;
       return [
@@ -3663,7 +6435,7 @@
         {
           label: "Wards confirmed",
           value: current,
-          of: UNITS.length,
+          of: units.length,
           title: "Wards whose bed figures were confirmed inside their own window",
         },
       ];
@@ -3768,7 +6540,7 @@
    referral in REFERRALS above is "queued" — this screen holds no accepted/declined state for
    a referral, so unlike the real board there is no second, decided list to filter out. */
     function referralQueueOrder() {
-      return REFERRALS.slice().sort(function (a, b) {
+      return REFERRALS.filter(refInService).sort(function (a, b) {
         return a.urgency - b.urgency || a.raisedAt - b.raisedAt;
       });
     }
@@ -4171,6 +6943,8 @@
       referralId: null,
       queueTab: "patients",
       legendOpen: null,
+      svc: null,
+      filter: null,
     };
 
     /* Exceptions leads: it is the one register that says what is wrong across every open movement. */
@@ -4206,11 +6980,13 @@
     }
 
     function renderEds() {
-      var rows = edPressure();
+      var rows = edPressure().filter(function (r) {
+        return unitInService(r.ed);
+      });
       var maxWait = rows.reduce(function (a, r) {
         return Math.max(a, r.longest);
       }, 1);
-      document.getElementById("edCount").textContent = rows.length + " departments";
+      document.getElementById("edCount").textContent = rows.length + (state.svc ? " in " + state.svc : " departments");
       var html = rows
         .map(function (r) {
           var level = r.breaching > 0 ? "high" : r.longest >= 200 ? "med" : "low";
@@ -4259,7 +7035,8 @@
    ============================================================ */
 
     function queueRows() {
-      var rows = MOVEMENTS.filter(isOpen);
+      var rows = MOVEMENTS.filter(isOpen).filter(inService);
+      if (state.filter) rows = rows.filter(state.filter.test);
       if (state.edFilter)
         rows = rows.filter(function (m) {
           return m.ed === state.edFilter;
@@ -4311,14 +7088,24 @@
         f.innerHTML = "";
         return;
       }
+      var parts = [];
       if (state.edFilter) {
         var e = ed(state.edFilter);
+        parts.push("filtered to " + esc(e.site) + ", " + esc(e.name));
+      }
+      if (state.filter) parts.push(state.filter.label);
+      if (parts.length) {
+        var shown = queueRows().length,
+          open = MOVEMENTS.filter(isOpen).filter(inService).length;
         f.innerHTML =
-          '<div class="filterBar"><span>Filtered to ' +
-          esc(e.site) +
-          " — " +
-          esc(e.name) +
-          "</span>" +
+          '<div class="filterBar"><span>Showing ' +
+          shown +
+          " of " +
+          open +
+          (state.svc ? " in " + esc(state.svc) : "") +
+          ", " +
+          parts.join(", ") +
+          ".</span>" +
           '<button type="button" class="linkBtn" data-clear-filter="1">Clear filter</button></div>';
       } else f.innerHTML = "";
     }
@@ -4586,9 +7373,11 @@
       if (!list) return;
       var overflowing = list.scrollWidth > list.clientWidth + 1;
       list.dataset.overflowing = overflowing ? "true" : "false";
-      var n = edPressure().length;
+      var n = edPressure().filter(function (r) {
+        return unitInService(r.ed);
+      }).length;
       document.getElementById("edCount").textContent =
-        n + " departments" + (overflowing ? " \u00b7 scroll sideways for the rest" : "");
+        n + (state.svc ? " in " + state.svc : " departments") + (overflowing ? ", scroll sideways for the rest" : "");
     }
 
     /* The legend opens by default only where the diagram has room to spare, and the reader can
@@ -5873,37 +8662,45 @@
     }
 
     function renderOverrides() {
-      setTabCount("ovCount", OVERRIDES.length, "Override register");
-      document.getElementById("ovBody").innerHTML =
-        '<ul class="rows">' +
-        OVERRIDES.map(function (o) {
-          return (
-            '<li class="row" data-tone="coord">' +
-            '<span class="rowTop"><strong class="mono pid">' +
-            o.movement +
-            '</strong> <span class="rowSub">' +
-            esc(unit(o.unit).name) +
-            '</span><span class="when">' +
-            hhmm(o.at) +
-            "</span></span>" +
-            '<span class="rowSub">Gate overridden: <strong>' +
-            esc(o.gate) +
-            "</strong></span>" +
-            '<span class="reasonQ">“' +
-            esc(o.reason) +
-            "”</span>" +
-            '<span class="rowWho">' +
-            esc(o.by) +
-            "</span>" +
-            "</li>"
-          );
-        }).join("") +
-        "</ul>";
+      var rows = OVERRIDES.filter(function (o) {
+        var m = byId(MOVEMENTS, o.movement);
+        return !m || inService(m);
+      });
+      setTabCount("ovCount", rows.length, "Override register");
+      document.getElementById("ovBody").innerHTML = !rows.length
+        ? '<p class="none">No override recorded for a movement in ' + esc(state.svc) + ".</p>"
+        : '<ul class="rows">' +
+          rows
+            .map(function (o) {
+              return (
+                '<li class="row" data-tone="coord">' +
+                '<span class="rowTop"><strong class="mono pid">' +
+                o.movement +
+                '</strong> <span class="rowSub">' +
+                esc(unit(o.unit).name) +
+                '</span><span class="when">' +
+                hhmm(o.at) +
+                "</span></span>" +
+                '<span class="rowSub">Gate overridden: <strong>' +
+                esc(o.gate) +
+                "</strong></span>" +
+                '<span class="reasonQ">“' +
+                esc(o.reason) +
+                "”</span>" +
+                '<span class="rowWho">' +
+                esc(o.by) +
+                "</span>" +
+                "</li>"
+              );
+            })
+            .join("") +
+          "</ul>";
     }
 
-    function exceptions() {
+    function exceptions(all) {
       var out = [];
-      MOVEMENTS.filter(isOpen).forEach(function (m) {
+      var open = all ? MOVEMENTS.filter(isOpen) : MOVEMENTS.filter(isOpen).filter(inService);
+      open.forEach(function (m) {
         if (isBreached(m))
           out.push({
             tone: "danger",
@@ -5913,7 +8710,7 @@
             owner: "Bed coordinator · " + ed(m.ed).site,
           });
       });
-      MOVEMENTS.filter(isOpen).forEach(function (m) {
+      open.forEach(function (m) {
         if (m.declines.length >= 3 && !m.accepted && m.referred.length === 0)
           out.push({
             tone: "warn",
@@ -5928,7 +8725,7 @@
             owner: "Bed coordinator · " + ed(m.ed).site,
           });
       });
-      MOVEMENTS.filter(isOpen).forEach(function (m) {
+      open.forEach(function (m) {
         if (m.stage === "accepted_awaiting_bed" && m.waited >= 200)
           out.push({
             tone: "warn",
@@ -5997,26 +8794,31 @@
     }
 
     function renderRefusals() {
-      setTabCount("refCount", REFUSALS.length, "Refused actions");
-      document.getElementById("refBody").innerHTML = REFUSALS.length
+      var rows = REFUSALS.filter(function (r) {
+        return unitInService(unit(r.unit));
+      });
+      setTabCount("refCount", rows.length, "Refused actions");
+      document.getElementById("refBody").innerHTML = rows.length
         ? '<ul class="rows">' +
-          REFUSALS.map(function (r) {
-            var t = refusalText(r);
-            return (
-              '<li class="row">' +
-              '<span class="rowTop"><strong>' +
-              esc(t.attempted) +
-              '</strong><span class="when">' +
-              hhmm(r.at) +
-              "</span></span>" +
-              '<span class="rowSub">' +
-              esc(t.reason) +
-              "</span>" +
-              "</li>"
-            );
-          }).join("") +
+          rows
+            .map(function (r) {
+              var t = refusalText(r);
+              return (
+                '<li class="row">' +
+                '<span class="rowTop"><strong>' +
+                esc(t.attempted) +
+                '</strong><span class="when">' +
+                hhmm(r.at) +
+                "</span></span>" +
+                '<span class="rowSub">' +
+                esc(t.reason) +
+                "</span>" +
+                "</li>"
+              );
+            })
+            .join("") +
           "</ul>"
-        : '<p class="none">No refused actions recorded yet.</p>';
+        : '<p class="none">No refused action recorded' + (state.svc ? " in " + esc(state.svc) : " yet") + ".</p>";
     }
 
     /* ============================================================
@@ -6084,7 +8886,9 @@
       var clear = t.closest ? t.closest("[data-clear-filter]") : null;
       if (clear) {
         state.edFilter = null;
+        state.filter = null;
         renderAll();
+        if (window.__wfShell) window.__wfShell.filtersCleared();
         announce("Queue filter cleared.");
         return;
       }
@@ -6136,6 +8940,9 @@
     /* Escape steps back one level: a selected ward first, then a department filter. */
     document.addEventListener("keydown", function (evt) {
       if (evt.key !== "Escape") return;
+      /* The shell's Escape comes first: an open drawer, open search results, a search or a task
+     filter. Only when none of those is up does Escape reach the page's own two levels. */
+      if (window.__wfShell && window.__wfShell.escapeBusy()) return;
       if (state.unitId) {
         state.unitId = null;
         renderDiagram();
@@ -6618,17 +9425,2471 @@
         });
       });
     })();
+
+    /* The shell, the bar and the rail, reads this page's data and state through one object, so
+   every figure it shows is counted from the same arrays the panels read, in the same service. */
+    window.__wfCommand = {
+      MOVEMENTS: MOVEMENTS,
+      EDS: EDS,
+      UNITS: UNITS,
+      REFERRALS: REFERRALS,
+      OVERRIDES: OVERRIDES,
+      REFUSALS: REFUSALS,
+      NOW: NOW,
+      ed: ed,
+      unit: unit,
+      isOpen: isOpen,
+      isBreached: isBreached,
+      bedIsPulled: bedIsPulled,
+      exceptions: function () {
+        return exceptions(true);
+      },
+      figures: figures,
+      check: function () {
+        return window.__commandCheck || [];
+      },
+      service: function () {
+        return state.svc;
+      },
+      setService: function (name) {
+        state.svc = name || null;
+        state.edFilter = null;
+        var sel = selected();
+        if (sel && !inService(sel)) {
+          var first = queueRows()[0];
+          if (first) {
+            state.movementId = first.id;
+            state.referralId = null;
+            state.unitId = null;
+            state.showBlocked = false;
+          }
+        }
+        renderAll();
+      },
+      setQueueFilter: function (filter) {
+        state.filter = filter || null;
+        state.queueTab = "patients";
+        renderQueues();
+      },
+      queueFilter: function () {
+        return state.filter;
+      },
+      shown: function () {
+        return queueRows().length;
+      },
+      open: function () {
+        return MOVEMENTS.filter(isOpen).filter(inService).length;
+      },
+      selectedId: function () {
+        return state.movementId;
+      },
+      selectMovement: function (id) {
+        selectMovement(id);
+        var row = document.querySelector('.qRow[data-mv="' + id + '"]');
+        if (row) {
+          row.scrollIntoView({ block: "center" });
+          row.focus();
+        }
+      },
+      showPatients: function () {
+        selectQueueTab("patients", true);
+      },
+      showReferrals: function () {
+        selectQueueTab("referrals", true);
+      },
+      showTab: function (name) {
+        selectTab(name, true);
+      },
+    };
   })();
 </script>
-
 <script>
-  /* The appearance control. "Auto" follows the machine and stamps nothing, which is the state
-     most readers are in; Light and Dark stamp the root so the page's own choice wins. The choice
-     is remembered for this browser only, and a browser that refuses storage still gets the page. */
+  /* The shell of the Command screen: the quiet bar and the rail. Every figure here is derived from the
+   page's own data on every render, within the chosen service, and the rail says whether they reconcile. */
+  (function () {
+    "use strict";
+
+    /* Every figure on the bar and the rail is counted from the Command page's own data, read
+     through window.__wfCommand, so the shell can never disagree with the page beneath it.
+     The page's identifiers, tiers, waits, deadlines, wards and referrals are all invented; the
+     sites, the departments and the health services are real WA names. */
+    var C = window.__wfCommand;
+    var SVC = {
+      north: "North Metropolitan",
+      east: "East Metropolitan",
+      south: "South Metropolitan",
+      wachs: "WA Country",
+    };
+    var SVC_ORDER = ["north", "east", "south", "wachs"];
+    var SVC_SHORT = { north: "North Metro", east: "East Metro", south: "South Metro", wachs: "WA Country" };
+    var SVC_KEY = { "North Metro": "north", "East Metro": "east", "South Metro": "south", WACHS: "wachs" };
+    var SVC_PAGE = { north: "North Metro", east: "East Metro", south: "South Metro", wachs: "WACHS" };
+    var SITE_NAME = {
+      RPH: "Royal Perth Hospital",
+      SCGH: "Sir Charles Gairdner Hospital",
+      FSH: "Fiona Stanley Hospital",
+      ARM: "Armadale Health Service",
+      SJGM: "St John of God Midland",
+      RGH: "Rockingham General Hospital",
+      JHC: "Joondalup Health Campus",
+      PEEL: "Peel Health Campus",
+      BTY: "Bentley Health Service",
+      GRY: "Graylands Hospital",
+      FRE: "Fremantle Hospital",
+    };
+    var EDS = {},
+      ED_ORDER = [];
+    C.EDS.forEach(function (e) {
+      var site = e.name.replace(/ Emergency Department$/, "");
+      EDS[e.site] = {
+        id: e.id,
+        name: site + " ED",
+        site: site,
+        short: site.replace(/ (Public Hospital|General Hospital|Hospital|Health Service|Health Campus)$/, ""),
+        svc: SVC_KEY[e.service],
+      };
+      ED_ORDER.push(e.site);
+    });
+    var NOW = "10:42";
+    var NOW_MIN = C.NOW;
+    var HANDOVER = "14:00";
+    var EXC = {};
+    C.exceptions().forEach(function (x) {
+      EXC[x.movement] = EXC[x.movement] || {};
+      if (x.title === "Legal deadline passed") EXC[x.movement].breached = true;
+      if (x.title === "Every ward asked has declined") EXC[x.movement].allDeclined = true;
+      if (x.title === "Accepted, bed not yet pulled") EXC[x.movement].nobed = true;
+    });
+    function refClock(waited) {
+      var opened = NOW_MIN - waited;
+      return opened < 0 ? "yesterday " + minToClock(((opened % 1440) + 1440) % 1440) : minToClock(opened);
+    }
+    var MOVES = C.MOVEMENTS.filter(C.isOpen).map(function (m) {
+      var e = C.ed(m.ed);
+      var x = EXC[m.id] || {};
+      var dest = m.accepted
+        ? { name: C.unit(m.accepted).name, k: "accepted" }
+        : m.referred.length
+          ? {
+              name:
+                C.unit(m.referred[0]).name + (m.referred.length > 1 ? " and " + (m.referred.length - 1) + " more" : ""),
+              k: "referred",
+            }
+          : { name: null, k: "none" };
+      return {
+        id: m.id,
+        t: m.urgency,
+        ed: e.site,
+        wait: m.waited,
+        dl: m.legalDue === null || m.legalDue === undefined ? null : m.legalDue - NOW_MIN,
+        flagged: !!m.flagged,
+        escalated: !!m.escalation,
+        dest: dest,
+        bed: C.bedIsPulled(m),
+        declined: m.declines.map(function (d) {
+          return C.unit(d.unit).name;
+        }),
+        ref: refClock(m.waited),
+        who: m.cohort + ", " + m.security.toLowerCase(),
+        legal: m.legalStatus,
+        allDeclined: !!x.allDeclined,
+        nobed: !!x.nobed,
+      };
+    });
+    var MOVE_BY_ID = {};
+    MOVES.forEach(function (m) {
+      MOVE_BY_ID[m.id] = m;
+    });
+    var REFERRALS_ALL = C.REFERRALS.map(function (r) {
+      return {
+        id: r.id,
+        svc: SVC_KEY[r.homeService],
+        at: minToClock(r.raisedAt),
+        atMin: r.raisedAt,
+        triagedMin: r.triagedAt,
+        age: r.ageBand,
+        urgency: r.urgency,
+        service: r.homeService,
+        triaged: r.triagedAt !== undefined,
+      };
+    });
+    var REFERRALS = REFERRALS_ALL.filter(function (r) {
+      return !r.triaged;
+    });
+    var BEDS = [];
+    C.UNITS.forEach(function (u) {
+      var b = BEDS.filter(function (x) {
+        return x.code === u.site;
+      })[0];
+      if (!b) {
+        b = {
+          code: u.site,
+          site: SITE_NAME[u.site] || u.site,
+          svc: SVC_KEY[u.service],
+          beds: 0,
+          free: 0,
+          held: 0,
+          wards: 0,
+          confirmed: 0,
+        };
+        BEDS.push(b);
+      }
+      b.beds += u.beds;
+      b.free += u.ready;
+      b.held += u.held;
+      b.wards++;
+      if (u.confirmedMinAgo <= u.staleAfter) b.confirmed++;
+    });
+    var WARDS = C.UNITS.map(function (u) {
+      return [u.name, SITE_NAME[u.site] || u.site, SVC_KEY[u.service]];
+    });
+    function moveOf(id) {
+      return (
+        C.MOVEMENTS.filter(function (m) {
+          return m.id === id;
+        })[0] || null
+      );
+    }
+    var OVERRIDES = C.OVERRIDES.map(function (o) {
+      var m = moveOf(o.movement);
+      return { at: o.at, id: o.movement, ed: m ? C.ed(m.ed).site : null, unit: C.unit(o.unit).name, gate: o.gate };
+    });
+    /* Events the page records with a time: overrides, refusals, declines and escalations.
+     Each is consistent with a movement or a ward on the page. */
+    var EXTRA = [];
+    OVERRIDES.forEach(function (o) {
+      EXTRA.push({
+        min: o.at,
+        ed: o.ed,
+        tone: null,
+        text:
+          "Override recorded on <b>" +
+          o.id +
+          "</b> for " +
+          esc(o.unit) +
+          ", " +
+          esc(o.gate.toLowerCase()) +
+          ". For governance review.",
+        notice: true,
+      });
+    });
+    C.REFUSALS.forEach(function (r) {
+      var u = C.unit(r.unit);
+      var m = r.movement ? moveOf(r.movement) : null;
+      EXTRA.push({
+        min: r.at,
+        ed: m ? C.ed(m.ed).site : null,
+        svc: SVC_KEY[u.service],
+        tone: "warn",
+        notice: true,
+        text:
+          r.kind === "pull_no_ready_bed"
+            ? "Refused: a pull at <b>" + esc(u.name) + "</b>. No ready bed."
+            : "Refused: a referral of <b>" +
+              r.movement +
+              "</b> to " +
+              esc(u.name) +
+              ". Blocked by a fact about the ward.",
+      });
+    });
+    C.MOVEMENTS.filter(C.isOpen).forEach(function (m) {
+      var code = C.ed(m.ed).site;
+      m.declines.forEach(function (d) {
+        EXTRA.push({
+          min: d.at,
+          ed: code,
+          tone: "warn",
+          text:
+            "<b>" +
+            esc(C.unit(d.unit).name) +
+            "</b> declined <b>" +
+            m.id +
+            "</b>. Reason: " +
+            esc(d.reason.toLowerCase()) +
+            ".",
+        });
+      });
+      if (m.escalation)
+        EXTRA.push({
+          min: m.escalation.at,
+          ed: code,
+          tone: "danger",
+          notice: true,
+          text:
+            "<b>" +
+            m.id +
+            "</b> escalated to " +
+            esc(m.escalation.contact) +
+            " after " +
+            m.escalation.tried +
+            " declines.",
+        });
+    });
+    /* Pinned: the movement the page opened on, then the flagged, then the breached, to three. */
+    var PINNED = [C.selectedId()];
+    MOVES.forEach(function (m) {
+      if (m.flagged && PINNED.indexOf(m.id) === -1 && PINNED.length < 3) PINNED.push(m.id);
+    });
+    MOVES.forEach(function (m) {
+      if (m.dl !== null && m.dl < 0 && PINNED.indexOf(m.id) === -1 && PINNED.length < 3) PINNED.push(m.id);
+    });
+
+    var state = {
+      q: "",
+      qOpen: false,
+      svc: null,
+      task: null,
+      page: "command",
+      actPart: "activity",
+      seen: {},
+      view: "open",
+    };
+    var CHECK = [];
+    window.__headerCheck = CHECK;
+
+    /* ─── helpers ─── */
+    function $(id) {
+      return document.getElementById(id);
+    }
+    function all(sel, root) {
+      return Array.prototype.slice.call((root || document).querySelectorAll(sel));
+    }
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+    function fmtWait(m) {
+      var h = Math.floor(m / 60),
+        mm = m % 60;
+      return h ? h + "h " + (mm < 10 ? "0" : "") + mm + "m" : mm + "m";
+    }
+    function fmtDl(m) {
+      if (m === null) return "No deadline recorded";
+      if (m < 0) return "Legal deadline passed " + fmtWait(-m) + " ago";
+      return "Deadline in " + fmtWait(m);
+    }
+    function plural(n, one, many) {
+      return n === 1 ? one : many;
+    }
+    function num(n) {
+      return n === 0 ? "<i>none</i>" : String(n);
+    }
+    function cell(n) {
+      return n === 0 ? '<span class="zero">none</span>' : String(n);
+    }
+    function clockToMin(s) {
+      var p = s.split(":");
+      return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+    }
+    function minToClock(m) {
+      var h = Math.floor(m / 60),
+        mm = m % 60;
+      return (h < 10 ? "0" : "") + h + ":" + (mm < 10 ? "0" : "") + mm;
+    }
+    function agoText(min) {
+      var d = NOW_MIN - min;
+      if (d <= 0) return "just now";
+      if (d === 1) return "one minute ago";
+      if (d < 60) return d + " minutes ago";
+      return fmtWait(d) + " ago";
+    }
+    function nameOf(m) {
+      return m.id + ", " + m.who;
+    }
+    var live = $("live");
+    function announce(text) {
+      if (!live) return;
+      live.textContent = live.textContent === text ? text + "\u200b" : text;
+    }
+    function svcName() {
+      return state.svc ? SVC[state.svc] : "all services";
+    }
+
+    /* ─── the service scope: everything below is derived within it ─── */
+    function inSvc(m) {
+      return !state.svc || EDS[m.ed].svc === state.svc;
+    }
+    function scoped() {
+      return MOVES.filter(inSvc);
+    }
+    function scopedRefs() {
+      return REFERRALS.filter(function (r) {
+        return !state.svc || r.svc === state.svc;
+      });
+    }
+    function scopedBeds() {
+      return BEDS.filter(function (b) {
+        return !state.svc || b.svc === state.svc;
+      });
+    }
+    function scopedEds() {
+      return ED_ORDER.filter(function (c) {
+        return !state.svc || EDS[c].svc === state.svc;
+      });
+    }
+    function scopedOverrides() {
+      return OVERRIDES.filter(function (o) {
+        return !state.svc || (o.ed && EDS[o.ed].svc === state.svc);
+      });
+    }
+    function extraInSvc(x) {
+      if (!state.svc) return true;
+      if (x.ed) return EDS[x.ed].svc === state.svc;
+      if (x.svc) return x.svc === state.svc;
+      return true;
+    }
+
+    /* ─── the tasks, each a test over the movements ─── */
+    var TASKS = [
+      {
+        key: "breached",
+        tone: "danger",
+        one: "legal deadline passed",
+        many: "legal deadlines passed",
+        test: function (m) {
+          return m.dl !== null && m.dl < 0;
+        },
+      },
+      {
+        key: "soon",
+        tone: "warn",
+        one: "due within 2 hours",
+        many: "due within 2 hours",
+        test: function (m) {
+          return m.dl !== null && m.dl >= 0 && m.dl <= 120;
+        },
+      },
+      {
+        key: "flagged",
+        tone: "warn",
+        one: "flagged urgent",
+        many: "flagged urgent",
+        test: function (m) {
+          return m.flagged;
+        },
+      },
+      {
+        key: "declined",
+        tone: null,
+        one: "declined by every ward asked",
+        many: "declined by every ward asked",
+        test: function (m) {
+          return m.allDeclined;
+        },
+      },
+      {
+        key: "nobed",
+        tone: null,
+        one: "accepted, bed not yet pulled",
+        many: "accepted, bed not yet pulled",
+        test: function (m) {
+          return m.nobed;
+        },
+      },
+    ];
+    function taskByKey(k) {
+      for (var i = 0; i < TASKS.length; i++) if (TASKS[i].key === k) return TASKS[i];
+      return null;
+    }
+    function countTask(t) {
+      return scoped().filter(t.test).length;
+    }
+
+    /* ─── derived figures ─── */
+    function figures() {
+      var moves = scoped(),
+        refs = scopedRefs(),
+        beds = scopedBeds();
+      var f = { total: moves.length, byEd: {}, bySvc: {}, byTier: { 1: 0, 2: 0, 3: 0 } };
+      var longest = null;
+      moves.forEach(function (m) {
+        f.byEd[m.ed] = f.byEd[m.ed] || { n: 0, longest: 0, breached: 0 };
+        f.byEd[m.ed].n++;
+        if (m.wait > f.byEd[m.ed].longest) f.byEd[m.ed].longest = m.wait;
+        if (m.dl !== null && m.dl < 0) f.byEd[m.ed].breached++;
+        var s = EDS[m.ed].svc;
+        f.bySvc[s] = f.bySvc[s] || { n: 0, breached: 0 };
+        f.bySvc[s].n++;
+        if (m.dl !== null && m.dl < 0) f.bySvc[s].breached++;
+        f.byTier[m.t]++;
+        if (!longest || m.wait > longest.wait) longest = m;
+      });
+      f.longest = longest;
+      f.breached = countTask(TASKS[0]);
+      f.soon = countTask(TASKS[1]);
+      f.flagged = countTask(TASKS[2]);
+      f.allDeclined = countTask(TASKS[3]);
+      f.nobed = countTask(TASKS[4]);
+      f.escalated = moves.filter(function (m) {
+        return m.escalated;
+      }).length;
+      f.refs = refs.length;
+      f.refsQueued = REFERRALS_ALL.filter(function (r) {
+        return !state.svc || r.svc === state.svc;
+      }).length;
+      f.beds = beds.reduce(function (a, b) {
+        return a + b.beds;
+      }, 0);
+      f.free = beds.reduce(function (a, b) {
+        return a + b.free;
+      }, 0);
+      f.held = beds.reduce(function (a, b) {
+        return a + b.held;
+      }, 0);
+      f.wards = beds.reduce(function (a, b) {
+        return a + b.wards;
+      }, 0);
+      f.wardsConfirmed = beds.reduce(function (a, b) {
+        return a + b.confirmed;
+      }, 0);
+      f.sites = beds.length;
+      f.noFree = beds.filter(function (b) {
+        return b.free === 0;
+      });
+      f.mostFree =
+        beds.slice().sort(function (a, b) {
+          return b.free - a.free;
+        })[0] || null;
+      f.refOldest = refs.reduce(function (a, r) {
+        return !a || r.atMin < a.atMin ? r : a;
+      }, null);
+      f.refNewest = refs.reduce(function (a, r) {
+        return !a || r.atMin > a.atMin ? r : a;
+      }, null);
+      f.refOlder = refs.filter(function (r) {
+        return r.age === "Older adult";
+      }).length;
+      f.overrides = scopedOverrides().length;
+      f.outstanding = f.breached + f.soon + f.flagged + f.allDeclined + f.nobed + f.refs + f.overrides + 1;
+      return f;
+    }
+    /* The rail's figures against each other, and against the page's own. */
+    function reconcile(f) {
+      var edSum = 0,
+        svcSum = 0,
+        tierSum = f.byTier[1] + f.byTier[2] + f.byTier[3];
+      ED_ORDER.forEach(function (c) {
+        edSum += f.byEd[c] ? f.byEd[c].n : 0;
+      });
+      SVC_ORDER.forEach(function (s) {
+        svcSum += f.bySvc[s] ? f.bySvc[s].n : 0;
+      });
+      CHECK.length = 0;
+      if (edSum !== f.total) CHECK.push("departments sum to " + edSum + ", not " + f.total);
+      if (svcSum !== f.total) CHECK.push("services sum to " + svcSum + ", not " + f.total);
+      if (tierSum !== f.total) CHECK.push("tiers sum to " + tierSum + ", not " + f.total);
+      var pageCheck = C.check();
+      if (pageCheck.length)
+        CHECK.push(
+          "the page found " +
+            pageCheck.length +
+            " " +
+            plural(pageCheck.length, "discrepancy", "discrepancies") +
+            " of its own",
+        );
+      if (f.total !== C.open()) CHECK.push("the rail counts " + f.total + " open, the page " + C.open());
+      var pf = {};
+      C.figures().forEach(function (x) {
+        pf[x.label] = x;
+      });
+      if (pf.Breached && pf.Breached.value !== f.breached)
+        CHECK.push("breached: rail " + f.breached + ", page " + pf.Breached.value);
+      if (pf["Flagged urgent"] && pf["Flagged urgent"].value !== f.flagged)
+        CHECK.push("flagged: rail " + f.flagged + ", page " + pf["Flagged urgent"].value);
+      if (pf.Escalated && pf.Escalated.value !== f.escalated)
+        CHECK.push("escalated: rail " + f.escalated + ", page " + pf.Escalated.value);
+      if (pf["Wards confirmed"] && pf["Wards confirmed"].value !== f.wardsConfirmed)
+        CHECK.push("wards confirmed: rail " + f.wardsConfirmed + ", page " + pf["Wards confirmed"].value);
+    }
+
+    /* ─── the pages, each with the figures it carries ─── */
+    function table(head, rows, total) {
+      var h = '<div class="tableWrap" style="border-top:0"><table class="dataTable"><thead><tr>';
+      head.forEach(function (c, i) {
+        h += "<th" + (i ? ' class="n"' : "") + ">" + c + "</th>";
+      });
+      h += "</tr></thead><tbody>";
+      if (!rows.length)
+        h += '<tr><td colspan="' + head.length + '"><span class="zero">none in ' + esc(svcName()) + "</span></td></tr>";
+      rows.forEach(function (r) {
+        h += "<tr>";
+        r.forEach(function (c, i) {
+          h += "<td" + (i ? ' class="n"' : "") + ">" + c + "</td>";
+        });
+        h += "</tr>";
+      });
+      if (total && rows.length) {
+        h += '<tr class="total">';
+        total.forEach(function (c, i) {
+          h += "<td" + (i ? ' class="n"' : "") + ">" + c + "</td>";
+        });
+        h += "</tr>";
+      }
+      return h + "</tbody></table></div>";
+    }
+    function facts(rows) {
+      var h = '<dl class="statsFacts">';
+      rows.forEach(function (r) {
+        h += "<dt>" + r[0] + "</dt><dd" + (r[2] ? ' data-tone="' + r[2] + '"' : "") + ">" + r[1] + "</dd>";
+      });
+      return h + "</dl>";
+    }
+    var PAGES = {
+      command: {
+        title: "Command",
+        core: function (f) {
+          return [
+            { label: "Waiting in ED", val: num(f.total) },
+            { label: "Breached", val: num(f.breached), tone: f.breached > 0 ? "danger" : null },
+            { label: "Due within 2 hours", val: num(f.soon), tone: f.soon > 0 ? "warn" : null },
+            {
+              label: "Longest wait",
+              val: f.longest ? fmtWait(f.longest.wait) + " <i>at " + f.longest.ed + "</i>" : "<i>none</i>",
+            },
+          ];
+        },
+        groups: function (f) {
+          var h =
+            '<section><p class="menuHead">Now</p>' +
+            facts([
+              ["Flagged urgent", num(f.flagged), f.flagged > 0 ? "warn" : null],
+              ["Escalated beyond this desk", num(f.escalated)],
+              ["Declined by every ward asked", num(f.allDeclined)],
+              ["Accepted, bed not yet pulled", num(f.nobed)],
+              ["Referrals awaiting triage", num(f.refs) + " <i>of " + f.refsQueued + " queued</i>"],
+              ["Overrides for governance review", num(f.overrides)],
+              ["Beds ready", num(f.free) + " <i>of " + f.beds + "</i>"],
+              ["Wards confirmed in their window", num(f.wardsConfirmed) + " <i>of " + f.wards + "</i>"],
+            ]) +
+            "</section>";
+          h +=
+            '<section><p class="menuHead">By emergency department<span class="count">' +
+            scopedEds().length +
+            "</span></p>" +
+            table(
+              ["ED", "Waiting", "Longest", "Breached"],
+              scopedEds().map(function (c) {
+                var e = f.byEd[c] || { n: 0, longest: 0, breached: 0 };
+                return [c, cell(e.n), e.n ? fmtWait(e.longest) : '<span class="zero">none</span>', cell(e.breached)];
+              }),
+            ) +
+            "</section>";
+          h +=
+            '<section><p class="menuHead">By health service</p>' +
+            table(
+              ["Service", "Waiting", "Breached"],
+              SVC_ORDER.filter(function (s) {
+                return !state.svc || s === state.svc;
+              }).map(function (s) {
+                var e = f.bySvc[s] || { n: 0, breached: 0 };
+                return [SVC_SHORT[s], cell(e.n), cell(e.breached)];
+              }),
+            ) +
+            "</section>";
+          h +=
+            '<section><p class="menuHead">By tier</p>' +
+            table(
+              ["Tier", "Waiting"],
+              [1, 2, 3].map(function (t) {
+                return ["Tier " + t, cell(f.byTier[t])];
+              }),
+            ) +
+            "</section>";
+          h +=
+            '<section><p class="menuHead">Beds by site<span class="count">' +
+            f.sites +
+            " " +
+            plural(f.sites, "site", "sites") +
+            "</span></p>" +
+            table(
+              ["Site", "Beds", "Ready", "Held"],
+              scopedBeds().map(function (b) {
+                return [b.code, b.beds, cell(b.free), cell(b.held)];
+              }),
+              [f.sites + " " + plural(f.sites, "site", "sites"), f.beds, cell(f.free), cell(f.held)],
+            ) +
+            '<p class="menuNote" style="padding-left:14px">WA Country beds are not drawn in this prototype. Absence here means not drawn, not none.</p></section>';
+          return h;
+        },
+        reconcileLine: function (f) {
+          return CHECK.length
+            ? CHECK.length + " figures do not reconcile: " + CHECK.join(", ") + "."
+            : "Figures reconcile: " +
+                f.total +
+                " " +
+                plural(f.total, "movement", "movements") +
+                " across " +
+                scopedEds().length +
+                " " +
+                plural(scopedEds().length, "department", "departments") +
+                " and 3 tiers, in " +
+                svcName() +
+                ", and the page's own checks pass.";
+        },
+      },
+    };
+
+    /* ─── sort and filter ─── */
+    function rank(m) {
+      if (m.dl !== null && m.dl < 0) return 0;
+      if (m.dl !== null) return 1;
+      return 2;
+    }
+    function sorted() {
+      return scoped().sort(function (a, b) {
+        var ra = rank(a),
+          rb = rank(b);
+        if (ra !== rb) return ra - rb;
+        if (ra < 2) return a.dl - b.dl;
+        return b.wait - a.wait;
+      });
+    }
+    function refusal(q) {
+      if (/\b(risk|acuity|score|scores|best match)\b/i.test(q))
+        return "Search does not return a risk or acuity score or a best match. Search by name, identifier, department, ward or owner.";
+      if (/\b(closed|arrived|discharged)\b/i.test(q))
+        return "Closed and arrived movements are not searchable here. They are in the Movement screen's register.";
+      return null;
+    }
+    function matches(m, q) {
+      var hay = [m.id, m.who, m.legal, m.ed, EDS[m.ed].name, m.dest.name || "", m.declined.join(" "), "tier " + m.t]
+        .join(" ")
+        .toLowerCase();
+      return hay.indexOf(q.toLowerCase()) !== -1;
+    }
+    function visible(m) {
+      if (state.task && !taskByKey(state.task).test(m)) return false;
+      if (state.q && !refusal(state.q) && !matches(m, state.q)) return false;
+      return true;
+    }
+
+    /* ─── universal search ─── */
+    var ACTIONS = [
+      { key: "print", label: "Print handover sheet", words: "print handover sheet", small: "Tools" },
+      {
+        key: "tools",
+        label: "Ward and ED contacts",
+        words: "ward contacts phone extension email numbers ed contacts",
+        small: "Tools",
+      },
+      { key: "new", label: "Raise a referral", words: "new referral raise", small: "primary" },
+      {
+        key: "tally",
+        label: "Live tally for this page",
+        words: "figures statistics stats numbers tally",
+        small: "Activity",
+      },
+      { key: "tasks", label: "Outstanding tasks", words: "tasks outstanding work notices", small: "Tasks" },
+      { key: "activity", label: "What is going on", words: "activity events going on log", small: "Activity" },
+    ];
+    function hits(q) {
+      var ql = q.trim().toLowerCase();
+      var r = { patients: [], eds: [], wards: [], owners: [], actions: [] };
+      if (!ql) return r;
+      MOVES.forEach(function (m) {
+        var hay = (m.id + " " + m.who + " " + m.legal).toLowerCase();
+        if (hay.indexOf(ql) !== -1) r.patients.push(m);
+      });
+      ED_ORDER.forEach(function (c) {
+        if ((c + " " + EDS[c].name).toLowerCase().indexOf(ql) !== -1) r.eds.push(c);
+      });
+      var wards = {};
+      MOVES.forEach(function (m) {
+        if (m.dest.name) wards[m.dest.name] = 1;
+        m.declined.forEach(function (w) {
+          wards[w] = 1;
+        });
+      });
+      WARDS.forEach(function (w) {
+        wards[w[0]] = 1;
+      });
+      Object.keys(wards)
+        .sort()
+        .forEach(function (w) {
+          if (w.toLowerCase().indexOf(ql) !== -1) r.wards.push(w);
+        });
+      ACTIONS.forEach(function (a) {
+        if (a.words.indexOf(ql) !== -1 || a.label.toLowerCase().indexOf(ql) !== -1) r.actions.push(a);
+      });
+      r.any = r.patients.length + r.eds.length + r.wards.length + r.owners.length + r.actions.length > 0;
+      return r;
+    }
+    function renderSearch() {
+      var q = state.q.trim();
+      var html = "";
+      if (q) {
+        var ref = refusal(q);
+        if (ref) {
+          html = '<p class="qNone">' + ref + "</p>";
+        } else {
+          var h = hits(q);
+          if (!h.any) {
+            html =
+              '<p class="qNone">Nothing matches “' +
+              esc(q) +
+              "”. Search finds movements by identifier, cohort or legal status, departments, wards and tools.</p>";
+          } else {
+            if (h.patients.length) {
+              html +=
+                '<p class="menuHead">Patients<span class="count">' +
+                h.patients.length +
+                ' open</span></p><div class="menuList">';
+              h.patients.slice(0, 6).forEach(function (m, i) {
+                var under = m.dl !== null && m.dl < 0 ? "<em>" + fmtDl(m.dl) + "</em>" : fmtDl(m.dl);
+                var outside = state.svc && EDS[m.ed].svc !== state.svc ? " Outside " + SVC[state.svc] + "." : "";
+                html +=
+                  '<button type="button" class="qHit" data-hit="patient" data-id="' +
+                  m.id +
+                  '"' +
+                  (i === 0 ? ' data-active="true"' : "") +
+                  "><b>" +
+                  m.id +
+                  "</b><small>Tier " +
+                  m.t +
+                  ", " +
+                  fmtWait(m.wait) +
+                  " at " +
+                  m.ed +
+                  '</small><span class="under">' +
+                  esc(m.who) +
+                  ", " +
+                  esc(m.legal.toLowerCase()) +
+                  ". " +
+                  under +
+                  "." +
+                  outside +
+                  "</span></button>";
+              });
+              html += "</div>";
+            }
+            if (h.eds.length) {
+              html += '<p class="menuHead">Emergency departments</p><div class="menuList">';
+              h.eds.forEach(function (c) {
+                html +=
+                  '<button type="button" class="qHit" data-hit="text" data-text="' +
+                  c +
+                  '"><b>' +
+                  esc(EDS[c].name) +
+                  "</b><small>" +
+                  SVC_SHORT[EDS[c].svc] +
+                  ", filter the queue</small></button>";
+              });
+              html += "</div>";
+            }
+            if (h.wards.length) {
+              html += '<p class="menuHead">Wards</p><div class="menuList">';
+              h.wards.slice(0, 5).forEach(function (w) {
+                html +=
+                  '<button type="button" class="qHit" data-hit="text" data-text="' +
+                  esc(w) +
+                  '"><b>' +
+                  esc(w) +
+                  "</b><small>filter the queue</small></button>";
+              });
+              html += "</div>";
+            }
+            if (h.actions.length) {
+              html += '<p class="menuHead">Tools and views</p><div class="menuList">';
+              h.actions.forEach(function (a) {
+                html +=
+                  '<button type="button" class="qHit" data-hit="action" data-key="' +
+                  a.key +
+                  '"><b>' +
+                  a.label +
+                  "</b><small>" +
+                  a.small +
+                  "</small></button>";
+              });
+              html += "</div>";
+            }
+          }
+        }
+        html +=
+          '<p class="popFoot"><span>Every identifier is invented.</span><span>Search never returns a risk score, an acuity score or a best match.</span></p>';
+      }
+      $("qPop").innerHTML = html;
+      $("searchWrap").setAttribute("data-open", state.qOpen && q ? "true" : "false");
+    }
+
+    /* ─── activity: the events, the notices, the sentence, the tally ─── */
+    function events() {
+      var ev = [];
+      scoped().forEach(function (m) {
+        var opened = NOW_MIN - m.wait;
+        if (opened >= 0)
+          ev.push({
+            min: opened,
+            tone: null,
+            text: "<b>" + m.id + "</b> opened at " + esc(EDS[m.ed].name) + ", Tier " + m.t + ".",
+          });
+        if (m.dl !== null && m.dl < 0)
+          ev.push({
+            min: NOW_MIN + m.dl,
+            tone: "danger",
+            text: "<b>" + m.id + "</b> passed its legal deadline at " + esc(EDS[m.ed].name) + ".",
+          });
+      });
+      REFERRALS_ALL.filter(function (r) {
+        return !state.svc || r.svc === state.svc;
+      }).forEach(function (r) {
+        ev.push({
+          min: r.atMin,
+          tone: null,
+          text:
+            "<b>" +
+            r.id +
+            "</b> raised, urgency " +
+            r.urgency +
+            ", " +
+            r.age.toLowerCase() +
+            ", " +
+            esc(r.service) +
+            ".",
+        });
+        if (r.triaged) ev.push({ min: r.triagedMin, tone: "good", text: "<b>" + r.id + "</b> triaged." });
+      });
+      EXTRA.forEach(function (x) {
+        if (!extraInSvc(x)) return;
+        ev.push({ min: x.min, tone: x.tone, text: x.text });
+      });
+      ev.sort(function (a, b) {
+        return b.min - a.min;
+      });
+      return ev;
+    }
+    function notices() {
+      var n = [];
+      EXTRA.forEach(function (x, i) {
+        if (!x.notice) return;
+        if (!extraInSvc(x)) return;
+        n.push({ key: "x" + i, min: x.min, tone: x.tone, text: x.text });
+      });
+      scoped().forEach(function (m) {
+        if (m.dl !== null && m.dl < 0 && m.dl > -60)
+          n.push({
+            key: m.id,
+            min: NOW_MIN + m.dl,
+            tone: "danger",
+            text: "<b>" + m.id + "</b> passed its legal deadline at " + esc(EDS[m.ed].name) + ".",
+          });
+      });
+      n.sort(function (a, b) {
+        return b.min - a.min;
+      });
+      return n;
+    }
+    function summary(f) {
+      var where = state.svc ? " in " + SVC[state.svc] : "";
+      if (f.total === 0 && f.sites === 0)
+        return (
+          "Nothing is open" +
+          where +
+          ". No department there has a movement open and no site there is drawn in this prototype. Absence here means none, not that nothing exists."
+        );
+      var breachedAt = scopedEds()
+        .filter(function (c) {
+          return f.byEd[c] && f.byEd[c].breached > 0;
+        })
+        .map(function (c) {
+          return EDS[c].short;
+        });
+      var s =
+        "<b>" +
+        f.total +
+        "</b> " +
+        plural(f.total, "person is", "people are") +
+        " waiting in <b>" +
+        scopedEds().length +
+        "</b> emergency " +
+        plural(scopedEds().length, "department", "departments") +
+        where +
+        ". ";
+      if (f.total) {
+        if (f.breached === 0) s += "None has passed a legal deadline. ";
+        else
+          s +=
+            '<b data-tone="danger">' +
+            f.breached +
+            "</b> " +
+            plural(f.breached, "has", "have") +
+            " passed a legal deadline, at " +
+            breachedAt.join(" and ") +
+            ". ";
+        s +=
+          (f.soon
+            ? "<b>" + f.soon + "</b> " + plural(f.soon, "falls", "fall") + " due within two hours"
+            : "None falls due within two hours") + ", ";
+        s += f.flagged
+          ? "<b>" + f.flagged + "</b> " + plural(f.flagged, "is", "are") + " flagged urgent"
+          : "none is flagged urgent";
+        s += f.escalated
+          ? ", and <b>" +
+            f.escalated +
+            "</b> " +
+            plural(f.escalated, "has", "have") +
+            " been escalated beyond this desk. "
+          : ". ";
+      }
+      var withFree = f.sites - f.noFree.length;
+      s +=
+        "<b>" +
+        f.free +
+        "</b> beds are ready at " +
+        withFree +
+        " of the " +
+        f.sites +
+        " " +
+        plural(f.sites, "site", "sites") +
+        " drawn" +
+        (f.noFree.length
+          ? ", none at " +
+            f.noFree
+              .map(function (b) {
+                return b.site;
+              })
+              .join(" or ")
+          : "") +
+        ". ";
+      s +=
+        "<b>" +
+        (f.refs || "No") +
+        "</b> " +
+        plural(f.refs, "referral awaits", "referrals await") +
+        " triage. Handover is due at <b>" +
+        HANDOVER +
+        "</b>.";
+      return s;
+    }
+    function renderActivity(f) {
+      var ev = events();
+      var last = ev.length ? ev[0].min : null;
+      var page = pageOf(state.page);
+      var html =
+        '<div class="popHead"><h2>Activity</h2><span class="count">' +
+        esc(svcName()) +
+        '</span><button type="button" class="closeBtn" data-close="1">Close</button>' +
+        '<span class="fresh"><span class="dot" data-tone="good"></span>Live, reconciled ' +
+        NOW +
+        (last !== null ? ", last event " + minToClock(last) + ", " + agoText(last) : ", no event today") +
+        "</span></div>";
+      html +=
+        '<div class="seg" role="group" aria-label="Two parts"><button type="button" data-part="activity" aria-pressed="' +
+        (state.actPart === "activity" ? "true" : "false") +
+        '">Activity<span class="count">' +
+        ev.length +
+        '</span></button><button type="button" data-part="tally" aria-pressed="' +
+        (state.actPart === "tally" ? "true" : "false") +
+        '">Live tally<span class="count">' +
+        page.title +
+        "</span></button></div>";
+      html +=
+        '<div class="popBody part" data-part="activity"' +
+        (state.actPart === "activity" ? "" : " hidden") +
+        '><section><p class="menuHead">What is going on</p><p class="actSum">' +
+        summary(f) +
+        "</p></section>";
+      html +=
+        '<section><p class="menuHead">Last events<span class="count">' +
+        Math.min(ev.length, 14) +
+        " of " +
+        ev.length +
+        " today</span></p>";
+      if (!ev.length) html += '<p class="menuNote">No event today in ' + esc(svcName()) + ".</p>";
+      else {
+        html += '<ol class="feed">';
+        ev.slice(0, 14).forEach(function (e) {
+          html +=
+            '<li class="feedItem"' +
+            (e.tone ? ' data-tone="' + e.tone + '"' : "") +
+            "><time>" +
+            minToClock(e.min) +
+            '</time><span class="dot"></span><span>' +
+            e.text +
+            "</span></li>";
+        });
+        html += "</ol>";
+      }
+      html += "</section></div>";
+      html +=
+        '<div class="popBody part" data-part="tally"' +
+        (state.actPart === "tally" ? "" : " hidden") +
+        '><p class="menuHead" style="padding-left:14px">' +
+        page.title +
+        ' now<span class="count">' +
+        esc(svcName()) +
+        '</span></p><div class="tally">';
+      page.core(f).forEach(function (c) {
+        html +=
+          '<div class="tile"' +
+          (c.tone ? ' data-tone="' + c.tone + '"' : "") +
+          "><small>" +
+          c.label +
+          "</small><b>" +
+          c.val +
+          "</b></div>";
+      });
+      html += '</div><div class="figGrid">' + page.groups(f) + "</div>";
+      html +=
+        '<p class="statsFoot"><span>' +
+        page.reconcileLine(f) +
+        "</span><span>Reconciled at " +
+        NOW +
+        ".</span><span>Every figure is invented.</span></p></div>";
+      html +=
+        '<p class="popFoot"><span>Events are invented and listed newest first.</span><span>The live product would stream them from the pathway record and say when the stream last spoke.</span></p>';
+      $("activityPanel").innerHTML = html;
+      $("actDot").hidden = !(last !== null && NOW_MIN - last <= 5);
+    }
+
+    /* ─── tasks ─── */
+    function renderTasks(f) {
+      var rows = [];
+      TASKS.forEach(function (t) {
+        var n = countTask(t);
+        if (n === 0) return;
+        rows.push({
+          key: t.key,
+          tone: t.tone,
+          n: n,
+          word: plural(n, t.one, t.many),
+          kind: "filter",
+          hint: "filter the queue",
+        });
+      });
+      if (f.refs)
+        rows.push({
+          key: "referrals",
+          tone: null,
+          n: f.refs,
+          word: plural(f.refs, "referral to triage", "referrals to triage"),
+          kind: "go",
+          hint: "open the referral queue",
+        });
+      if (f.overrides)
+        rows.push({
+          key: "overrides",
+          tone: null,
+          n: f.overrides,
+          word: plural(f.overrides, "override to review", "overrides to review"),
+          kind: "go",
+          hint: "open the register",
+        });
+      rows.push({
+        key: "handover",
+        tone: null,
+        n: null,
+        word: "Handover sheet due " + HANDOVER,
+        kind: "go",
+        hint: "print from Tools",
+      });
+      var outstanding = rows.reduce(function (a, c) {
+        return a + (c.n || 1);
+      }, 0);
+
+      var ns = notices();
+      var unseen = ns.filter(function (n) {
+        return !state.seen[n.key];
+      });
+      var html =
+        '<div class="popHead"><h2>Tasks</h2><span class="count">' +
+        outstanding +
+        " outstanding, " +
+        rows.length +
+        ' kinds</span><button type="button" class="closeBtn" data-close="1">Close</button></div>';
+      html +=
+        '<div class="popBody"><section><p class="menuHead">Notices<span class="count">' +
+        (unseen.length ? unseen.length + " new" : "none new") +
+        "</span></p>";
+      if (!ns.length) html += '<p class="menuNote">No notices since handover in ' + esc(svcName()) + ".</p>";
+      else {
+        html += '<ol class="notices">';
+        ns.forEach(function (n) {
+          var isNew = !state.seen[n.key];
+          html +=
+            '<li class="notice" data-fresh="' +
+            (isNew ? "true" : "false") +
+            '"><time>' +
+            minToClock(n.min) +
+            "</time><span>" +
+            n.text +
+            "</span>" +
+            (isNew ? '<button type="button" class="seen" data-notice="' + n.key + '">Seen</button>' : "<span></span>") +
+            "</li>";
+        });
+        html += "</ol>";
+      }
+      html +=
+        '<p class="menuNote">A notice is something that changed. It stays until it is marked seen, and the dot on the button goes when none is new.</p></section>';
+      html += '<section><p class="menuHead">Work open<span class="count">worst first</span></p><div class="taskRows">';
+      rows.forEach(function (c) {
+        var fig = c.n === null ? "<b><i>at</i></b>" : "<b>" + c.n + "</b>";
+        html +=
+          '<button type="button" class="taskRow" data-task="' +
+          c.key +
+          '" data-kind="' +
+          c.kind +
+          '"' +
+          (c.tone ? ' data-tone="' + c.tone + '"' : "") +
+          (c.kind === "filter" ? ' aria-pressed="' + (state.task === c.key ? "true" : "false") + '"' : "") +
+          ">" +
+          fig +
+          "<span>" +
+          c.word +
+          "</span><small>" +
+          c.hint +
+          "</small></button>";
+      });
+      html +=
+        '</div><div class="menuList" style="padding-top:0"><button type="button" class="linkBtn" data-go="queue" style="padding:4px 10px;text-align:left">Show in queue</button></div></section></div>';
+      html +=
+        '<p class="popFoot"><span>Counts are derived from the open movements in ' +
+        esc(svcName()) +
+        " on every render.</span><span>A task with a count of none is not shown.</span></p>";
+      $("tasksPanel").innerHTML = html;
+      $("tasksCount").textContent = String(outstanding);
+      var dot = $("tasksDot");
+      dot.hidden = unseen.length === 0;
+      if (
+        unseen.some(function (n) {
+          return n.tone === "danger";
+        })
+      )
+        dot.setAttribute("data-tone", "danger");
+      else dot.removeAttribute("data-tone");
+    }
+
+    /* ─── tools ─── */
+    function contactsTable(rows) {
+      return (
+        '<div class="tableWrap" style="border-top:1px solid var(--line)"><table class="dataTable"><thead><tr><th>Name</th><th>Extension</th><th>Email</th></tr></thead><tbody>' +
+        rows.join("") +
+        "</tbody></table></div>"
+      );
+    }
+    function renderTools() {
+      var glyph = function (d) {
+        return '<svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="' + d + '" /></svg>';
+      };
+      var html =
+        '<div class="popHead"><h2>Tools</h2><span class="count">' +
+        esc(svcName()) +
+        '</span><button type="button" class="closeBtn" data-close="1">Close</button></div>';
+      html +=
+        '<div class="popBody"><section><div class="who" aria-label="Signed in as Bed coordinator, day shift, handover at 14:00"><b>Bed coordinator</b><span>Day shift, handover ' +
+        HANDOVER +
+        ", Sat 15 Aug AWST</span></div></section>";
+      html += '<section><p class="menuHead">Do</p><div class="toolList">';
+      html +=
+        '<button type="button" class="toolItem" data-act="print">' +
+        glyph("M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4z") +
+        "<span>Print handover sheet<em>The queue and the exceptions as a record, due " +
+        HANDOVER +
+        "</em></span><small>print</small></button>";
+      html +=
+        '<button type="button" class="toolItem" data-act="export">' +
+        glyph("M8 2v8M5 7l3 3 3-3M3 12v2h10v-2") +
+        "<span>Export the queue<em>The open movements in " +
+        esc(svcName()) +
+        " as a sheet</em></span><small>not wired</small></button>";
+      html +=
+        '<button type="button" class="toolItem" data-act="new">' +
+        glyph("M8 3v10M3 8h10") +
+        "<span>Raise a referral<em>With the source chosen first</em></span><small>primary</small></button>";
+      html += "</div></section>";
+      var wards = WARDS.filter(function (w) {
+        return !state.svc || w[2] === state.svc;
+      });
+      html +=
+        '<section class="contacts"><p class="menuHead">Ward contacts<span class="count">' +
+        wards.length +
+        " " +
+        plural(wards.length, "ward", "wards") +
+        "</span></p>";
+      html +=
+        '<p class="menuNote" style="max-width:none;padding-left:14px">Extensions and addresses are placeholders in the shape the live product would show. None is real. The live product reads the site directory and says when it last did.</p>';
+      html += wards.length
+        ? contactsTable(
+            wards.map(function (w, i) {
+              var slug = w[0].toLowerCase().replace(/\s+/g, ".");
+              return (
+                "<tr><td>" +
+                esc(w[0]) +
+                "<em>" +
+                esc(w[1]) +
+                '</em></td><td class="holder">ext 0' +
+                (WARDS.indexOf(w) + 1) +
+                '</td><td class="holder">' +
+                slug +
+                "@example.invalid</td></tr>"
+              );
+            }),
+          )
+        : '<p class="menuNote" style="padding-left:14px">No ward in ' +
+          esc(svcName()) +
+          " is drawn in this prototype.</p>";
+      html += "</section>";
+      var eds = scopedEds();
+      html +=
+        '<section class="contacts"><p class="menuHead">Emergency department contacts<span class="count">' +
+        eds.length +
+        " " +
+        plural(eds.length, "department", "departments") +
+        "</span></p>";
+      html += eds.length
+        ? contactsTable(
+            eds.map(function (c) {
+              return (
+                "<tr><td>" +
+                c +
+                " ED<em>" +
+                esc(EDS[c].site) +
+                '</em></td><td class="holder">ext 1' +
+                (ED_ORDER.indexOf(c) + 1) +
+                '</td><td class="holder">' +
+                c.toLowerCase() +
+                ".ed@example.invalid</td></tr>"
+              );
+            }),
+          )
+        : '<p class="menuNote" style="padding-left:14px">No department in ' +
+          esc(svcName()) +
+          " is drawn in this prototype.</p>";
+      html += "</section>";
+      html +=
+        '<section><p class="menuHead">Appearance</p><div class="appearance" role="group" aria-label="Appearance"><button type="button" class="apBtn" data-set-theme="light" aria-pressed="false">Light</button><button type="button" class="apBtn" data-set-theme="dark" aria-pressed="false">Dark</button><button type="button" class="apBtn" data-set-theme="auto" aria-pressed="true">Auto</button></div></section>';
+      html +=
+        '<section><div class="toolList"><a class="toolItem" href="https://claude.ai/code/artifact/352faeba-eb50-4cb1-934b-a0dd7b36d642" target="_blank" rel="noopener">' +
+        glyph("M3 3h10v10H3zM3 7h10M7 7v6") +
+        "<span>Design system<em>The rules every Ward Flow screen follows</em></span><small>second edition</small></a>";
+      html +=
+        '<button type="button" class="toolItem" data-act="signout" aria-disabled="true" title="Sign out is not wired in this prototype">' +
+        glyph("M6 3H3v10h3M10 5l3 3-3 3M13 8H6") +
+        "<span>Sign out<em>Ends the shift on this device</em></span><small>not wired</small></button></div></section></div>";
+      html +=
+        '<p class="popFoot"><span>Every extension and address is invented.</span><span>Real numbers belong to the site directory, never to a prototype.</span></p>';
+      $("toolsPanel").innerHTML = html;
+      if (window.__reflectAppearance) window.__reflectAppearance();
+    }
+
+    /* ─── the service selector ─── */
+    function renderService() {
+      var counts = {};
+      MOVES.forEach(function (m) {
+        counts[EDS[m.ed].svc] = (counts[EDS[m.ed].svc] || 0) + 1;
+      });
+      var html =
+        '<div class="menuList"><button type="button" class="menuItem" data-svc="" aria-pressed="' +
+        (state.svc ? "false" : "true") +
+        '"><span class="lead">All services</span><small>' +
+        MOVES.length +
+        " waiting</small></button>";
+      SVC_ORDER.forEach(function (s) {
+        var n = counts[s] || 0;
+        html +=
+          '<button type="button" class="menuItem" data-svc="' +
+          s +
+          '" aria-pressed="' +
+          (state.svc === s ? "true" : "false") +
+          '"><span class="lead"><span class="dot" data-svc="' +
+          s +
+          '"></span>' +
+          SVC[s] +
+          "</span><small>" +
+          (n ? n + " waiting" : "none waiting") +
+          "</small></button>";
+      });
+      html += "</div>";
+      $("svcList").innerHTML = html;
+      $("svcLabel").textContent = state.svc ? SVC_SHORT[state.svc] : "All services";
+      $("svcCount").textContent = String(state.svc ? counts[state.svc] || 0 : MOVES.length);
+      var dot = $("svcDot");
+      dot.hidden = !state.svc;
+      if (state.svc) dot.setAttribute("data-svc", state.svc);
+    }
+
+    function renderAll() {
+      var f = figures();
+      reconcile(f);
+      renderRails(f);
+      renderService();
+      renderActivity(f);
+      renderTasks(f);
+      renderTools();
+      renderSearch();
+    }
+
+    /* ─── state changes: the page's queue follows the bar's search and the task filter ─── */
+    function shownText() {
+      return "Showing " + C.shown() + " of " + C.open() + ".";
+    }
+    function syncPageFilter() {
+      var t = state.task ? taskByKey(state.task) : null;
+      var q = state.q && !refusal(state.q) ? state.q.trim() : "";
+      if (!t && !q) {
+        if (C.queueFilter()) C.setQueueFilter(null);
+        return;
+      }
+      var parts = [];
+      if (t) parts.push(countTask(t) + " " + plural(countTask(t), t.one, t.many));
+      if (q) parts.push("matching \u201c" + esc(q) + "\u201d");
+      C.setQueueFilter({
+        label: parts.join(", "),
+        test: function (pm) {
+          var m = MOVE_BY_ID[pm.id];
+          if (!m) return false;
+          if (t && !t.test(m)) return false;
+          if (q && !matches(m, q)) return false;
+          return true;
+        },
+      });
+    }
+    function setTask(key) {
+      state.task = key;
+      syncPageFilter();
+      renderAll();
+    }
+    function setSvc(s) {
+      state.svc = s;
+      C.setService(s ? SVC_PAGE[s] : null);
+      syncPageFilter();
+      renderAll();
+    }
+    function setQ(q) {
+      state.q = q;
+      if ($("q").value !== q) $("q").value = q;
+      $("qClear").hidden = !q;
+      $("qHint").hidden = !!q;
+      syncPageFilter();
+      renderAll();
+    }
+    function setPage(p) {
+      if (p === "command") {
+        announce("Command. This is the screen on view.");
+        return;
+      }
+      announce(SCREENS[p].title + " is not built in this prototype. Command stays on screen.");
+    }
+    function selectPatient(id) {
+      var m = MOVE_BY_ID[id];
+      if (!m) return;
+      var note = "";
+      if (state.svc && EDS[m.ed].svc !== state.svc) {
+        state.svc = null;
+        C.setService(null);
+        note = " Service set back to all, because this movement is outside it.";
+      }
+      state.qOpen = false;
+      state.task = null;
+      setQ("");
+      C.selectMovement(id);
+      announce(id + ", " + m.who + ", selected. The shortlist now explains it. " + fmtDl(m.dl) + "." + note);
+    }
+    window.__wfShell = {
+      escapeBusy: function () {
+        return (
+          menus.some(function (d) {
+            return d.open;
+          }) ||
+          state.qOpen ||
+          !!state.q ||
+          !!state.task
+        );
+      },
+      filtersCleared: function () {
+        state.task = null;
+        state.q = "";
+        state.qOpen = false;
+        $("q").value = "";
+        $("qClear").hidden = true;
+        $("qHint").hidden = false;
+        renderAll();
+      },
+    };
+
+    /* ─── menus and drawers: one open at a time, close outside, Escape returns focus ─── */
+    var menus = [];
+    function closeMenus(except) {
+      menus.forEach(function (o) {
+        if (o !== except && o.open) o.open = false;
+      });
+    }
+    function openMenu(id) {
+      var d = $(id);
+      if (!d) return;
+      d.open = true;
+      var focusable = d.querySelector(".menuPanel button, .menuPanel input, .menuPanel a");
+      if (focusable) focusable.focus();
+    }
+    function bindMenus() {
+      menus.forEach(function (d) {
+        if (d.__bound) return;
+        d.__bound = true;
+        d.addEventListener("toggle", onToggle);
+      });
+    }
+    function onToggle() {
+      var d = this;
+      {
+        if (!d.open) return;
+        closeMenus(d);
+        state.qOpen = false;
+        renderSearch();
+        if (d.id === "activityMenu")
+          announce(
+            "Activity opened, in two parts: what is going on, and the live tally for the " +
+              pageOf(state.page).title +
+              " page.",
+          );
+        if (d.id === "tasksMenu")
+          announce("Tasks opened. " + $("tasksCount").textContent + " outstanding, notices first.");
+        if (d.id === "toolsMenu")
+          announce("Tools opened. Every extension and address in the contact tables is a placeholder.");
+        if (d.id === "pinMenu") announce("Pinned movements opened.");
+      }
+    }
+    document.addEventListener("click", function (e) {
+      menus.forEach(function (d) {
+        if (!d.open) return;
+        if (e.target === d || !d.contains(e.target)) d.open = false;
+      });
+      if (!e.target.closest(".searchWrap") && state.qOpen) {
+        state.qOpen = false;
+        renderSearch();
+      }
+    });
+
+    /* ─── events ─── */
+    $("q").addEventListener("input", function () {
+      state.qOpen = true;
+      closeMenus(null);
+      setQ(this.value);
+      var ref = refusal(state.q);
+      if (ref) announce(ref);
+    });
+    $("q").addEventListener("focus", function () {
+      if (state.q) {
+        state.qOpen = true;
+        renderSearch();
+      }
+    });
+    $("q").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        var first = $("qPop").querySelector('.qHit[data-active="true"], .qHit');
+        if (first) {
+          first.click();
+          e.preventDefault();
+          return;
+        }
+        announce(refusal(state.q) || shownText());
+      }
+      if (e.key === "ArrowDown") {
+        var hit = $("qPop").querySelector(".qHit");
+        if (hit) {
+          hit.focus();
+          e.preventDefault();
+        }
+      }
+    });
+    $("qClear").addEventListener("click", function () {
+      state.qOpen = false;
+      setQ("");
+      announce("Search cleared. " + shownText());
+      $("q").focus();
+    });
+    document.addEventListener("keydown", function (e) {
+      var tag = (document.activeElement && document.activeElement.tagName) || "";
+      var typing = /input|textarea|select/i.test(tag);
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        $("q").focus();
+        $("q").select();
+        return;
+      }
+      if (e.key !== "Escape") return;
+      var open = null;
+      menus.forEach(function (d) {
+        if (d.open) open = d;
+      });
+      if (open) {
+        open.open = false;
+        open.querySelector("summary").focus();
+        announce("Closed.");
+        return;
+      }
+      if (state.qOpen) {
+        state.qOpen = false;
+        renderSearch();
+        announce("Search results closed. The queue still matches the search.");
+        return;
+      }
+      if (state.q) {
+        setQ("");
+        announce("Search cleared. " + shownText());
+        return;
+      }
+      if (state.task) {
+        setTask(null);
+        announce("Task filter cleared. " + shownText());
+      }
+    });
+    document.addEventListener("click", function (e) {
+      var b;
+      if ((b = e.target.closest(".qHit"))) {
+        var kind = b.getAttribute("data-hit");
+        if (kind === "patient") selectPatient(b.getAttribute("data-id"));
+        else if (kind === "text") {
+          state.qOpen = false;
+          state.page = "command";
+          setQ(b.getAttribute("data-text"));
+          announce(shownText() + " Matching " + b.getAttribute("data-text") + ".");
+        } else if (kind === "action") {
+          var key = b.getAttribute("data-key");
+          state.qOpen = false;
+          setQ("");
+          if (key === "print") window.print();
+          else if (key === "tally") {
+            state.actPart = "tally";
+            renderAll();
+            openMenu("activityMenu");
+          } else openMenu({ tools: "toolsMenu", new: "newMenu", tasks: "tasksMenu", activity: "activityMenu" }[key]);
+        }
+        return;
+      }
+      if ((b = e.target.closest("[data-svc]")) && b.classList.contains("menuItem")) {
+        var s = b.getAttribute("data-svc") || null;
+        setSvc(s);
+        $("svcMenu").open = false;
+        $("svcMenu").querySelector("summary").focus();
+        announce((s ? "Service set to " + SVC[s] + ". " : "Service set to all. ") + shownText());
+        return;
+      }
+      if ((b = e.target.closest("[data-part]")) && b.closest(".seg")) {
+        state.actPart = b.getAttribute("data-part");
+        all("#activityPanel .part").forEach(function (p) {
+          p.hidden = p.getAttribute("data-part") !== state.actPart;
+        });
+        all("#activityPanel .seg button").forEach(function (x) {
+          x.setAttribute("aria-pressed", x.getAttribute("data-part") === state.actPart ? "true" : "false");
+        });
+        announce(
+          state.actPart === "tally"
+            ? "Live tally for the " + pageOf(state.page).title + " page."
+            : "Activity: what is going on, then the last events.",
+        );
+        return;
+      }
+      if ((b = e.target.closest("[data-new]"))) {
+        $("newMenu").open = false;
+        announce(
+          "Raise a referral would open, prefilled from " +
+            b.getAttribute("data-new") +
+            ". Not wired in this prototype.",
+        );
+        return;
+      }
+      if ((b = e.target.closest("[data-act]"))) {
+        var act = b.getAttribute("data-act");
+        if (act === "print") {
+          closeMenus(null);
+          window.print();
+        } else if (act === "export") announce("Export the queue is not wired in this prototype.");
+        else if (act === "new") {
+          closeMenus(null);
+          openMenu("newMenu");
+        } else if (act === "signout") {
+          e.preventDefault();
+          announce(b.getAttribute("title"));
+        }
+        return;
+      }
+      if ((b = e.target.closest("[data-close]"))) {
+        var dc = b.closest("details");
+        dc.open = false;
+        dc.querySelector("summary").focus();
+        announce("Closed.");
+        return;
+      }
+      if ((b = e.target.closest("[data-notice]"))) {
+        state.seen[b.getAttribute("data-notice")] = true;
+        renderAll();
+        announce("Notice marked seen.");
+        return;
+      }
+      if ((b = e.target.closest('[data-go="queue"]'))) {
+        closeMenus(null);
+        C.showPatients();
+        $("qpane-patients").scrollIntoView({ block: "start" });
+        announce(shownText());
+        return;
+      }
+      if ((b = e.target.closest(".taskRow"))) {
+        var tk = b.getAttribute("data-task");
+        if (b.getAttribute("data-kind") === "filter") {
+          var on = state.task === tk;
+          closeMenus(null);
+          setTask(on ? null : tk);
+          if (on) announce("Task filter cleared. " + shownText());
+          else {
+            var tt = taskByKey(tk);
+            var n = countTask(tt);
+            announce("Showing " + n + " " + plural(n, tt.one, tt.many) + " in the queue.");
+            $("qpane-patients").scrollTop = 0;
+          }
+          return;
+        }
+        if (tk === "referrals") {
+          closeMenus(null);
+          C.showReferrals();
+          $("qpane-referrals").scrollIntoView({ block: "start" });
+          announce("The referral queue is on screen, in the queue panel.");
+        } else if (tk === "overrides") {
+          closeMenus(null);
+          C.showTab("overrides");
+          announce("The override register is on screen, in the registers panel.");
+        } else if (tk === "handover") announce("The handover sheet is printed from Tools, due at " + HANDOVER + ".");
+        return;
+      }
+      if ((b = e.target.closest(".railLink[data-page]"))) {
+        state.section = null;
+        setPage(b.getAttribute("data-page"));
+        return;
+      }
+    });
+
+    /* ─── every screen: name, group, purpose, primary action, who, and the layout drawn ─── */
+    var ICON = {
+      command: "M3 3h5v5H3zM10 3h5v5h-5zM3 10h5v5H3zM10 10h5v5h-5z",
+      movement: "M2 9h11M9 5l4 4-4 4",
+      capacity: "M2 6v7M2 9h11a3 3 0 0 1 3 3v1M6 9V7h4v2",
+      wards: "M9 2l6 3v5c0 3-2.6 5.3-6 6-3.4-.7-6-3-6-6V5z",
+      eds: "M9 3v12M3 9h12",
+      teams:
+        "M6 7a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM12.5 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM1.5 15c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4M11 11.5c2 .3 3.5 1.6 3.5 3.5",
+      search: "M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12zM12.5 12.5L16 16",
+      referrals: "M4 2h6l4 4v10H4zM10 2v4h4",
+      handover: "M3 9h12M3 5h12M3 13h8",
+      statistics: "M3 15V8M8 15V3M13 15v-5",
+      governance: "M9 2l6 3v4c0 4-2.7 6.3-6 7-3.3-.7-6-3-6-7V5z",
+      raise: "M9 3v12M3 9h12M4 4l10 10",
+      pin: "M9 2l3 3-2 1v4l2 2H6l2-2V6L6 5z",
+      collapse: "M11 3L6 9l5 6",
+      expand: "M7 3l5 6-5 6",
+    };
+    var GROUPS = [
+      { key: "operations", label: "Operations" },
+      { key: "network", label: "Network" },
+      { key: "records", label: "Records" },
+    ];
+    function col(w, blocks) {
+      return { w: w, blocks: blocks };
+    }
+    function blk(label, note) {
+      return { label: label, note: note };
+    }
+    var SCREENS = {
+      command: {
+        short: "Command",
+        line: "Every open movement, worst first",
+        title: "Command",
+        group: "operations",
+        purpose: "Every open movement across the network, worst first, with what is wrong beside it.",
+        primary: "New referral",
+        roles: "Bed coordinator, coordinator on call",
+        cols: [
+          col(1.25, [
+            blk(
+              "Priority queue",
+              "Deadlines passed, then the nearest deadline, then the longest wait. Each row is a movement.",
+            ),
+          ]),
+          col(1, [
+            blk("Exceptions", "Breaches, acceptances with no bed, movements with no owner."),
+            blk("Referrals awaiting triage", "Oldest first, with the source and the request."),
+          ]),
+        ],
+        count: function (f) {
+          return f.total;
+        },
+      },
+      movement: {
+        short: "Movement",
+        line: "One person's movement, end to end",
+        title: "Movement",
+        group: "operations",
+        purpose: "One person's movement from referral to bed, with every event, decline and decision on it.",
+        primary: "Record a decision",
+        roles: "Bed coordinator, ED liaison, ward",
+        cols: [
+          col(1.4, [
+            blk("Identity and clocks", "Identifier, tier, the wait, the legal deadline, the owner."),
+            blk(
+              "Timeline",
+              "Every event with its time: referral, assessment, asks, declines, acceptance, bed pulled, arrival.",
+            ),
+            blk("Referral and assessment record", "What was asked, by whom, and what was found."),
+          ]),
+          col(1, [
+            blk("Destination and bed", "Suggested, asked, accepted, pulled. One state at a time."),
+            blk("Declines and reasons", "Each ward asked, and the reason it gave."),
+            blk("Escalation", "Who owns it, who is next, and the override if one was recorded."),
+          ]),
+        ],
+        core: function (f) {
+          return [
+            { label: "Open movements", val: num(f.total) },
+            { label: "Breached", val: num(f.breached), tone: f.breached > 0 ? "danger" : null },
+            { label: "Declines to answer", val: num(f.declines) },
+            { label: "Accepted, no bed", val: num(f.nobed), tone: f.nobed > 0 ? "warn" : null },
+          ];
+        },
+      },
+      capacity: {
+        short: "Capacity",
+        line: "Beds by site and by ward",
+        title: "Capacity",
+        group: "operations",
+        purpose: "Beds by site and by ward, what is held, and where the pressure is.",
+        primary: "Hold a bed",
+        roles: "Bed coordinator, ward",
+        cols: [
+          col(1, [
+            blk("Beds by site", "Beds, free, held, for every site drawn."),
+            blk("Holds and pulls", "Named holds with the movement they are for, and pulls in the last shift."),
+          ]),
+          col(1, [
+            blk("Pressure by service", "Free beds against beds, per health service."),
+            blk("Beds by ward", "Open, secure, older adult, and what each will take."),
+          ]),
+        ],
+        count: function (f) {
+          return f.free;
+        },
+      },
+      wards: {
+        short: "Wards",
+        line: "Every ward and what it takes",
+        title: "Wards",
+        group: "network",
+        purpose: "Every ward in the network, what it takes, and how it has answered.",
+        primary: "Ask a ward",
+        roles: "Bed coordinator, ward",
+        cols: [
+          col(1, [blk("Wards by site", "Grouped by site, with beds free and the last answer.")]),
+          col(1.2, [
+            blk("Ward detail", "Beds, holds, restrictions, and what the ward will and will not take."),
+            blk("Recent answers", "Acceptances and declines in the last week, with reasons."),
+          ]),
+        ],
+        core: function (f) {
+          return [
+            { label: "Wards drawn", val: String(WARDS.length) },
+            { label: "Beds free", val: num(f.free) },
+            { label: "Sites with none", val: num(f.noFree.length), tone: f.noFree.length > 0 ? "warn" : null },
+            { label: "Declines today", val: num(f.declines) },
+          ];
+        },
+      },
+      eds: {
+        short: "EDs",
+        line: "Waiting, longest and breached",
+        title: "Emergency departments",
+        group: "network",
+        purpose: "Each department's waiting, longest and breached, and the liaison it works through.",
+        primary: "Open the department",
+        roles: "Bed coordinator, ED liaison",
+        cols: [
+          col(1.2, [blk("Departments", "Waiting, longest wait, breached, per department, worst first.")]),
+          col(1, [
+            blk("Department detail", "The movements there now, and the clocks on each."),
+            blk("Liaison and contacts", "Roles and the placeholder contacts, never a person's number."),
+          ]),
+        ],
+        core: function (f) {
+          return [
+            { label: "Departments", val: String(scopedEds().length) },
+            { label: "Waiting", val: num(f.total) },
+            { label: "Breached", val: num(f.breached), tone: f.breached > 0 ? "danger" : null },
+            {
+              label: "Longest wait",
+              val: f.longest ? fmtWait(f.longest.wait) + " <i>at " + f.longest.ed + "</i>" : "<i>none</i>",
+            },
+          ];
+        },
+      },
+      teams: {
+        short: "Teams",
+        line: "Teams by service and their referrals",
+        title: "Community teams",
+        group: "network",
+        purpose: "The community teams by service, their catchments, and the referrals they send.",
+        primary: "Contact a team",
+        roles: "Bed coordinator, triage",
+        cols: [
+          col(1, [blk("Teams by service", "Every team, grouped by health service.")]),
+          col(1.2, [
+            blk("Team detail", "Catchment, hours, and the referrals it has sent this month."),
+            blk("Contacts", "Roles and placeholder contacts."),
+          ]),
+        ],
+        core: function (f) {
+          return [
+            { label: "Teams drawn", val: "3" },
+            { label: "Referrals waiting", val: num(f.refs) },
+            {
+              label: "From community teams",
+              val: num(
+                scopedRefs().filter(function (r) {
+                  return r.src === "Community team";
+                }).length,
+              ),
+            },
+            {
+              label: "From GPs",
+              val: num(
+                scopedRefs().filter(function (r) {
+                  return r.src === "GP";
+                }).length,
+              ),
+            },
+          ];
+        },
+      },
+      search: {
+        short: "Search",
+        line: "By name or identifier, refusals stated",
+        title: "Patient search",
+        group: "records",
+        purpose: "Find a person by name or identifier and open their movement, with the refusals stated.",
+        primary: "Open the movement",
+        roles: "Everyone signed in",
+        cols: [
+          col(1, [
+            blk("Search", "Name or identifier. Refuses a risk score, a best match, and closed movements, and says so."),
+            blk("Results", "Name, identifier, department, the open movement and its clock."),
+          ]),
+          col(0.9, [
+            blk("Selected person", "The open movement, or a stated absence."),
+            blk("Access record", "Who looked, and when. Every search is recorded."),
+          ]),
+        ],
+        core: function (f) {
+          return [
+            { label: "Open movements", val: num(f.total) },
+            { label: "Searchable", val: num(f.total) + " <i>open only</i>" },
+            { label: "Refusals", val: "3 <i>kinds</i>" },
+            { label: "Searches recorded", val: "<i>every one</i>" },
+          ];
+        },
+      },
+      referrals: {
+        short: "Referrals",
+        line: "Awaiting triage, oldest first",
+        title: "Referrals",
+        group: "records",
+        purpose: "Every referral awaiting triage, oldest first, and the decision on each.",
+        primary: "Triage",
+        roles: "Duty consultant, triage",
+        cols: [
+          col(1.2, [blk("Triage list", "Oldest first, with source, request and age group.")]),
+          col(1, [
+            blk("Referral detail", "What was asked, by whom, and when."),
+            blk("Decision and reasons", "Accept to the pathway, redirect, or decline, with the reason recorded."),
+          ]),
+        ],
+        count: function (f) {
+          return f.refs;
+        },
+      },
+      handover: {
+        short: "Handover",
+        line: "The record for the incoming coordinator",
+        title: "Handover",
+        group: "records",
+        purpose: "The state of the network as a record for the incoming coordinator, and the sign off.",
+        primary: "Sign off the handover",
+        roles: "Bed coordinator, incoming coordinator",
+        cols: [
+          col(1, [
+            blk("Handover sheet", "The queue, the exceptions and the beds as they stand, as a record."),
+            blk("Notes for the incoming coordinator", "What to watch, in the outgoing coordinator's words."),
+          ]),
+          col(0.8, [
+            blk("Shift and sign off", "Who hands over to whom, and when."),
+            blk("Print", "The same sheet on paper."),
+          ]),
+        ],
+        core: function (f) {
+          return [
+            { label: "Handover at", val: HANDOVER },
+            { label: "Time left", val: fmtWait(HANDOVER_MIN - NOW_MIN) },
+            { label: "To hand over", val: num(f.total) + " <i>movements</i>" },
+            { label: "Exceptions", val: num(exceptionsCount()), tone: exceptionsCount() > 0 ? "warn" : null },
+          ];
+        },
+        tag: function () {
+          return HANDOVER;
+        },
+      },
+      statistics: {
+        short: "Statistics",
+        line: "Waits, breaches and flows by period",
+        title: "Statistics",
+        group: "records",
+        purpose: "Waits, breaches and flows over a period, with stated scales and nothing extrapolated.",
+        primary: "Export",
+        roles: "Service leads, governance",
+        cols: [
+          col(1, [
+            blk("Figures by period", "Waits, breaches, flows, by week and by month."),
+            blk("Charts", "Every scale stated, every zero drawn, every gap in the data said out loud."),
+          ]),
+          col(0.8, [
+            blk("Filters", "Period, service, tier, department."),
+            blk("Export", "The figures as a sheet, with the reconciliation line."),
+          ]),
+        ],
+        core: function (f) {
+          return [
+            { label: "Waiting now", val: num(f.total) },
+            { label: "Breached now", val: num(f.breached), tone: f.breached > 0 ? "danger" : null },
+            { label: "Beds free", val: num(f.free) },
+            { label: "Period", val: "<i>this shift</i>" },
+          ];
+        },
+      },
+      governance: {
+        short: "Governance",
+        line: "Every override, for review",
+        title: "Governance",
+        group: "records",
+        purpose: "Every override recorded, oldest first, and the review of each.",
+        primary: "Record a review",
+        roles: "Governance lead, service lead",
+        cols: [
+          col(1.2, [blk("Overrides for review", "Oldest first, with who overrode, what, and the reason given.")]),
+          col(1, [
+            blk("Override detail", "The movement, the rule set aside, and the reason."),
+            blk("Decision and record", "Upheld, not upheld, or referred on, with the reviewer's reason."),
+          ]),
+        ],
+        count: function (f) {
+          return f.overrides;
+        },
+        core: function (f) {
+          return [
+            { label: "Overrides to review", val: num(f.overrides) },
+            { label: "Reviewed this month", val: "<i>none</i>" },
+            { label: "Oldest", val: "<i>today</i>" },
+            { label: "Reviewers", val: "2 <i>roles</i>" },
+          ];
+        },
+      },
+      raise: {
+        title: "Raise a referral",
+        group: "flow",
+        purpose: "The flow behind the primary action: who, from where, what is asked, and what happens next.",
+        primary: "Submit the referral",
+        roles: "ED liaison, community team, GP",
+        cols: [
+          col(1, [
+            blk("Source", "Emergency department, community team, or GP, chosen first."),
+            blk("Person and identifiers", "Name and identifier, with a duplicate check against open movements."),
+            blk("Request", "Admission or assessment, adult or older adult, and the urgency stated."),
+            blk("Submit", "One action, and what was submitted read back."),
+          ]),
+          col(0.8, [
+            blk("What happens next", "Triage by the duty consultant, and the clocks that start."),
+            blk("Duplicate check", "An open movement for the same person is shown before anything is created."),
+          ]),
+        ],
+        core: function (f) {
+          return [
+            { label: "Referrals waiting", val: num(f.refs) },
+            { label: "Sources", val: "3" },
+            { label: "Duplicate checks", val: "<i>every time</i>" },
+            { label: "Clocks started", val: "<i>on submit</i>" },
+          ];
+        },
+      },
+    };
+    var SCREEN_ORDER = [
+      "command",
+      "movement",
+      "capacity",
+      "wards",
+      "eds",
+      "teams",
+      "search",
+      "referrals",
+      "handover",
+      "statistics",
+      "governance",
+      "raise",
+    ];
+    var SHIFT_START_MIN = 7 * 60;
+    var HANDOVER_MIN = clockToMin(HANDOVER);
+    function pageOf(key) {
+      if (PAGES[key]) return PAGES[key];
+      var s = SCREENS[key];
+      return {
+        title: s.title,
+        core: s.core || PAGES.command.core,
+        groups: PAGES.command.groups,
+        reconcileLine: PAGES.command.reconcileLine,
+      };
+    }
+    function screenTag(key, f) {
+      var s = SCREENS[key];
+      if (s.tag) return s.tag(f);
+      if (s.count) {
+        var n = s.count(f);
+        return n === 0 ? "none" : String(n);
+      }
+      return null;
+    }
+    function glyph(key, cls) {
+      return (
+        '<svg class="' +
+        (cls || "railGlyph") +
+        '" viewBox="0 0 18 18" aria-hidden="true"><path d="' +
+        ICON[key] +
+        '" /></svg>'
+      );
+    }
+
+    /* ─── the rail, open and closed, rendered from the same screens and the same figures ─── */
+    function stateLine(key, f) {
+      switch (key) {
+        case "command":
+          if (!f.total) return null;
+          return (
+            (f.breached ? '<b data-tone="danger">' + f.breached + " breached</b>" : "no breach") +
+            ", " +
+            (f.soon ? f.soon + " due soon" : "none due soon")
+          );
+        case "capacity":
+          if (!f.sites) return null;
+          return (
+            f.free +
+            " ready" +
+            (f.noFree.length
+              ? ", none at " +
+                f.noFree
+                  .map(function (b) {
+                    return b.code;
+                  })
+                  .join(", ")
+              : " of " + f.beds)
+          );
+        case "eds":
+          return f.longest ? "longest " + fmtWait(f.longest.wait) + " at " + f.longest.ed : null;
+        case "referrals":
+          if (!f.refOldest) return null;
+          var o = NOW_MIN - clockToMin(f.refOldest.at);
+          return o > 120 ? '<b data-tone="warn">oldest ' + fmtWait(o) + "</b>" : "oldest " + fmtWait(o);
+        case "handover":
+          return "in " + fmtWait(HANDOVER_MIN - NOW_MIN);
+      }
+      return null;
+    }
+    function tagTone(key, f) {
+      if (key === "command" && f.breached > 0) return "danger";
+      if (key === "referrals" && f.refOldest && NOW_MIN - clockToMin(f.refOldest.at) > 120) return "warn";
+      return null;
+    }
+    function railLink(key, f, closed) {
+      var s = SCREENS[key];
+      var tag = screenTag(key, f);
+      var tone = tagTone(key, f);
+      var cur = state.page === key;
+      var line = stateLine(key, f);
+      var tagHtml = tag !== null ? '<span class="tag">' + tag + "</span>" : "";
+      var dotHtml = tone ? '<span class="toneDot" data-tone="' + tone + '" aria-hidden="true"></span>' : "";
+      var h;
+      if (closed) {
+        h =
+          '<button class="railLink" type="button" data-page="' +
+          key +
+          '"' +
+          (cur ? ' aria-current="page"' : "") +
+          ' aria-label="' +
+          esc(s.title) +
+          (tag !== null ? ", " + tag : "") +
+          (tone === "danger" ? ", a legal deadline has passed" : tone === "warn" ? ", look here" : "") +
+          '"><span class="railLabel">' +
+          glyph(key) +
+          '<span class="word">' +
+          s.short +
+          "</span></span>" +
+          tagHtml +
+          dotHtml;
+        h +=
+          '<span class="flyCard" aria-hidden="true"><b>' +
+          esc(s.title) +
+          tagHtml +
+          "</b><em>" +
+          esc(s.purpose) +
+          "</em>" +
+          (line ? '<span class="stateLine">' + line + "</span>" : "") +
+          "</span></button>";
+        return h;
+      }
+      h =
+        '<button class="railLink" type="button" data-page="' +
+        key +
+        '"' +
+        (cur ? ' aria-current="page"' : "") +
+        ' data-state="' +
+        (line ? "true" : "false") +
+        '" title="' +
+        esc(s.purpose) +
+        '"><span class="railLabel">' +
+        glyph(key) +
+        '<span class="railText"><span>' +
+        s.title +
+        "</span>" +
+        (line ? "<em>" + line + "</em>" : "") +
+        "</span></span>" +
+        tagHtml +
+        dotHtml +
+        "</button>";
+      return h;
+    }
+    function railGroups(f, closed) {
+      var h = "";
+      GROUPS.forEach(function (g) {
+        h +=
+          '<div class="railGroup" role="group" aria-label="' + g.label + '"><p class="railEyebrow">' + g.label + "</p>";
+        SCREEN_ORDER.forEach(function (k) {
+          if (SCREENS[k].group === g.key) h += railLink(k, f, closed);
+        });
+        h += "</div>";
+      });
+      return h;
+    }
+    function ringHtml(size, label) {
+      var pct = (NOW_MIN - SHIFT_START_MIN) / (HANDOVER_MIN - SHIFT_START_MIN);
+      var C = 2 * Math.PI * 19;
+      return (
+        '<div class="ring' +
+        (size === "small" ? " small" : "") +
+        '" role="img" aria-label="Day shift, ' +
+        Math.round(pct * 100) +
+        " percent through, handover at " +
+        HANDOVER +
+        '"><svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="19" /><circle class="arc" cx="22" cy="22" r="19" stroke-dasharray="' +
+        (C * pct).toFixed(1) +
+        " " +
+        C.toFixed(1) +
+        '" /></svg><b>' +
+        label +
+        "</b></div>"
+      );
+    }
+    function pinnedRows(f) {
+      var h = "";
+      PINNED.forEach(function (id) {
+        var m = MOVES.filter(function (x) {
+          return x.id === id;
+        })[0];
+        if (!m || !inSvc(m)) return;
+        var tone = m.dl !== null && m.dl < 0 ? "danger" : m.dl !== null && m.dl <= 120 ? "warn" : null;
+        h +=
+          '<button type="button" class="pinRow" data-pin="' +
+          id +
+          '" aria-pressed="' +
+          (C.selectedId() === id ? "true" : "false") +
+          '"' +
+          (tone ? ' data-tone="' + tone + '"' : "") +
+          ' title="' +
+          esc(fmtDl(m.dl)) +
+          '"><span class="id">' +
+          id +
+          "</span><b>" +
+          esc(m.who) +
+          '</b><span class="wait">' +
+          fmtWait(m.wait) +
+          "</span></button>";
+      });
+      return h || '<p class="menuNote" style="padding:2px 10px 4px">No pinned movement in ' + esc(svcName()) + ".</p>";
+    }
+    function pinnedCount() {
+      return PINNED.filter(function (id) {
+        var m = MOVES.filter(function (x) {
+          return x.id === id;
+        })[0];
+        return m && inSvc(m);
+      }).length;
+    }
+    function checkText(f) {
+      return CHECK.length
+        ? CHECK.length + " figures do not reconcile"
+        : "Figures reconcile at " +
+            NOW +
+            ": " +
+            f.total +
+            " " +
+            plural(f.total, "movement", "movements") +
+            ", " +
+            f.refs +
+            " " +
+            plural(f.refs, "referral", "referrals") +
+            (state.svc ? ", " + SVC_SHORT[state.svc] : "");
+    }
+    function renderRail(nav, closed, f) {
+      var pct = Math.round(((NOW_MIN - SHIFT_START_MIN) / (HANDOVER_MIN - SHIFT_START_MIN)) * 100);
+      var ok = CHECK.length === 0;
+      var h =
+        '<p class="railCap"><b>' +
+        (closed ? "Closed" : "Open") +
+        "</b><span>" +
+        (closed ? "76 pixels" : "236 pixels") +
+        '</span></p><div class="brand"><b>' +
+        (closed ? "WF" : "Ward Flow") +
+        '</b><span>WA</span></div><i class="svcStripe"' +
+        (state.svc ? ' data-svc="' + state.svc + '"' : "") +
+        ' aria-hidden="true"></i>';
+      if (!closed) {
+        h += '<div class="railScroll">';
+        h +=
+          '<div class="railBlock" aria-label="Shift"><div class="shiftRow">' +
+          ringHtml("small", pct + "%") +
+          '<div><p class="eyebrow"><span>Day shift</span><span class="count">' +
+          NOW +
+          '</span></p><p class="big">' +
+          fmtWait(HANDOVER_MIN - NOW_MIN) +
+          "<small>to handover at " +
+          HANDOVER +
+          '</small></p></div></div><div class="meter" aria-hidden="true"><i style="width:' +
+          pct +
+          '%"></i></div></div>';
+        h += railGroups(f, false);
+        h +=
+          '<div class="railGroup pinGroup" role="group" aria-label="Pinned movements"><p class="railEyebrow">Pinned</p>' +
+          pinnedRows(f) +
+          "</div>";
+        h += "</div>";
+        h +=
+          '<div class="railFoot"><p class="railUser"><span>Signed in as</span><b>Bed coordinator</b></p><p class="railCheck" data-ok="' +
+          (ok ? "true" : "false") +
+          '"><span>' +
+          checkText(f) +
+          '</span></p><p class="railNote">Every figure here is invented. The sites and wards are real WA names.</p></div>';
+        h +=
+          '<button type="button" class="railBtn" data-rail-toggle="closed" title="Close the rail to a strip. The bracket key does the same.">' +
+          glyph("collapse") +
+          "<span>Close the rail</span><kbd>[</kbd></button>";
+      } else {
+        h += railGroups(f, true);
+        h += '<div class="railFoot">';
+        h +=
+          '<details class="menu flyMenu" id="pinMenu"><summary title="Pinned movements">' +
+          glyph("pin") +
+          '<span class="tag">' +
+          pinnedCount() +
+          '</span></summary><div class="menuPanel"><p class="menuHead">Pinned<span class="count">watching</span></p><div class="menuList">' +
+          pinnedRows(f) +
+          '</div><p class="menuNote">Pin a movement from its row to keep it here through the shift.</p></div></details>';
+        h +=
+          '<div class="ringRow" title="Bed coordinator. Day shift, handover ' +
+          HANDOVER +
+          ", in " +
+          fmtWait(HANDOVER_MIN - NOW_MIN) +
+          '">' +
+          ringHtml("", "BC") +
+          "</div>";
+        h +=
+          '<p class="railCheck" data-ok="' +
+          (ok ? "true" : "false") +
+          '" title="' +
+          esc(checkText(f)) +
+          '"><span>' +
+          checkText(f) +
+          "</span></p>";
+        h += "</div>";
+        h +=
+          '<button type="button" class="railBtn" data-rail-toggle="open" title="Open the rail. The bracket key does the same.">' +
+          glyph("expand") +
+          "<span>Open the rail</span></button>";
+      }
+      nav.innerHTML = h;
+    }
+    function renderRails(f) {
+      renderRail(document.querySelector(".rail.open"), false, f);
+      renderRail(document.querySelector(".rail.closed"), true, f);
+      menus = all("details.menu");
+      bindMenus();
+    }
+
+    /* ─── the views: open, closed, both ─── */
+    var VIEW_KEY = "ward-flow-rail-view";
+    var NOTES = {
+      open: "The rail, open. Every screen in three groups with its state in a line of text, the shift and the pinned movements.",
+      closed:
+        "The rail, closed. A glyph and a word per screen, the counts as tags, the shift as a ring, and a card on hover with the screen's state.",
+    };
+    function setView(v) {
+      if (!NOTES[v]) v = "open";
+      state.view = v;
+      closeMenus(null);
+      $("hApp").setAttribute("data-view", v);
+      try {
+        localStorage.setItem(VIEW_KEY, v);
+      } catch (err) {}
+      announce(NOTES[v].split(". ")[0] + ".");
+    }
+    document.addEventListener("click", function (e) {
+      var b;
+      if ((b = e.target.closest("[data-rail-toggle]"))) {
+        setView(b.getAttribute("data-rail-toggle"));
+        return;
+      }
+      if ((b = e.target.closest("[data-pin]"))) {
+        closeMenus(null);
+        selectPatient(b.getAttribute("data-pin"));
+        return;
+      }
+    });
+    document.addEventListener("keydown", function (e) {
+      var tag = (document.activeElement && document.activeElement.tagName) || "";
+      if (/input|textarea|select/i.test(tag) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "[") setView(state.view === "closed" ? "open" : "closed");
+    });
+    (function restoreView() {
+      var v = "open";
+      try {
+        v = localStorage.getItem(VIEW_KEY) || "open";
+      } catch (err) {}
+      renderAll();
+      setView(v);
+      live.textContent = "";
+    })();
+
+    window.__probe = function () {
+      var f = figures();
+      return {
+        total: f.total,
+        breached: f.breached,
+        soon: f.soon,
+        flagged: f.flagged,
+        free: f.free,
+        refs: f.refs,
+        overrides: f.overrides,
+        outstanding: f.outstanding,
+        check: CHECK.slice(),
+        pageCheck: C.check().length,
+        svc: state.svc,
+        view: state.view,
+        shown: C.shown(),
+        open: C.open(),
+      };
+    };
+  })();
+</script>
+<script>
   (function () {
     var root = document.documentElement;
-    var group = document.getElementById("appearance");
-    if (!group) return;
     var KEY = "ward-flow-command-appearance";
     function remember(v) {
       try {
@@ -6644,12 +11905,12 @@
     }
     function reflect() {
       var cur = root.getAttribute("data-theme") || "auto";
-      var btns = group.querySelectorAll("[data-set-theme]");
+      var btns = document.querySelectorAll("[data-set-theme]");
       for (var i = 0; i < btns.length; i++) {
         btns[i].setAttribute("aria-pressed", btns[i].getAttribute("data-set-theme") === cur ? "true" : "false");
       }
     }
-    group.addEventListener("click", function (e) {
+    document.addEventListener("click", function (e) {
       var b = e.target.closest ? e.target.closest("[data-set-theme]") : null;
       if (!b) return;
       var v = b.getAttribute("data-set-theme");
@@ -6657,7 +11918,12 @@
       else root.setAttribute("data-theme", v);
       remember(v);
       reflect();
+      var live = document.getElementById("live");
+      if (live) live.textContent = "Appearance set to " + (v === "auto" ? "automatic" : v) + ".";
     });
+    if (window.MutationObserver)
+      new MutationObserver(reflect).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    window.__reflectAppearance = reflect;
     restore();
     reflect();
   })();
