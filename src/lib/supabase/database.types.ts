@@ -470,6 +470,9 @@ export type Database = {
       };
       document_corpus_access_snapshots: {
         Row: {
+          published_label_ids: string[];
+          published_summary_ids: string[];
+          published_table_fact_ids: string[];
           activation_id: string;
           captured_at: string;
           document_id: string;
@@ -478,6 +481,9 @@ export type Database = {
           public_corpus_value: Json | null;
         };
         Insert: {
+          published_label_ids?: string[];
+          published_summary_ids?: string[];
+          published_table_fact_ids?: string[];
           activation_id: string;
           captured_at?: string;
           document_id: string;
@@ -486,6 +492,9 @@ export type Database = {
           public_corpus_value?: Json | null;
         };
         Update: {
+          published_label_ids?: string[];
+          published_summary_ids?: string[];
+          published_table_fact_ids?: string[];
           activation_id?: string;
           captured_at?: string;
           document_id?: string;

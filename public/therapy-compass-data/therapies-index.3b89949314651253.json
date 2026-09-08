@@ -6,7 +6,7 @@
     "bestUsedFor": "Most defensible routine psychiatric uses are depression, anxiety-spectrum distress, and broader transdiagnostic emotional disorders when avoidance and fusion are prominent.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -31,7 +31,7 @@
     "bestUsedFor": "Most defensible and specific use is in schizophrenia-spectrum disorders and other long-term psychiatric illnesses where medication non-adherence is clearly driving relapse, symptom persistence, or repeated admission.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -53,7 +53,7 @@
     "bestUsedFor": "Best-supported for adolescent depression and anxiety presentations where CBT mechanisms fit.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -78,7 +78,7 @@
     "bestUsedFor": "Best for children and young people with anorexia nervosa when FT-AN is unacceptable, contraindicated, or ineffective.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Personality/interpersonal",
@@ -98,7 +98,7 @@
     "bestUsedFor": "Best in community psychiatry, rehabilitation, severe mental illness, complex psychosocial presentations, and recovery-oriented care where progress depends on both treatment and access to practical supports.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -116,7 +116,7 @@
     "bestUsedFor": "Best as an adjunct to therapy or as part of structured low-intensity guided digital CBT.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -161,7 +161,7 @@
     "bestUsedFor": "NICE says to consider offering arts therapies to all people with psychosis or schizophrenia, particularly for the alleviation of negative symptoms.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Personality/interpersonal",
@@ -179,7 +179,7 @@
     "bestUsedFor": "Strongest use is when the main maintaining factor is behavioural rather than primarily interpersonal or insight-based.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -247,7 +247,7 @@
     "bestUsedFor": "Best used when the patient is in a committed relationship and the partner is willing to participate.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Substance use",
       "Crisis/risk",
@@ -265,7 +265,7 @@
     "bestUsedFor": "Best for oppositional defiant disorder, conduct disorder, disruptive behaviour, and children at high risk of conduct disorder.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -285,7 +285,7 @@
     "bestUsedFor": "Best as an early-intervention or stepped-care treatment for mild or emerging common mental health problems.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -330,7 +330,7 @@
     "bestUsedFor": "Best as an adjunctive treatment for depressive disorders when a low-burden somatic option is attractive, especially where circadian disruption or preference for non-drug augmentation is relevant.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Sleep",
@@ -350,7 +350,7 @@
     "bestUsedFor": "Strongest guideline-backed use is in psychosis and schizophrenia, where carer-focused education and support programmes are explicitly recommended.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Eating/body image",
@@ -367,7 +367,7 @@
     "bestUsedFor": "Best established in psychosis / schizophrenia, where NICE states that carers of adults with psychosis or schizophrenia should be offered carer-focused education and support programmes, and parents/carers of newly diagnosed children and young people with bipolar disorder, psychosis, or schizophrenia should be given information about carer-focused education and support.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -385,7 +385,7 @@
     "bestUsedFor": "Best supported for carers of adults with psychosis or schizophrenia.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Personality/interpersonal",
@@ -402,7 +402,7 @@
     "bestUsedFor": "Strongest in young people with anorexia nervosa or restrictive eating disorders, especially where family/carer support can be mobilised.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Personality/interpersonal",
@@ -445,7 +445,7 @@
     "bestUsedFor": "Best for child anxiety disorders and selected depressive presentations when adapted to age and formulation.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -467,7 +467,7 @@
     "bestUsedFor": "Best-supported psychiatric uses are 2 main groups.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -489,7 +489,7 @@
     "bestUsedFor": "Most useful as an adjunct across many therapies rather than a stand-alone primary treatment.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Neurodevelopmental",
@@ -530,7 +530,7 @@
     "bestUsedFor": "Strongest broad evidence-backed uses are depression and anxiety disorders.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -556,7 +556,7 @@
     "bestUsedFor": "Best used as an adjunctive psychotherapy in bipolar disorder, especially for bipolar depression, residual symptoms, and relapse prevention in people who are not acutely manic.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -575,7 +575,7 @@
     "bestUsedFor": "Best first-line psychological treatment for chronic insomnia, including insomnia with comorbid mental or physical health problems.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -599,7 +599,7 @@
     "bestUsedFor": "Best used for chronic insomnia disorder in adults of any age, including people with comorbid conditions.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -668,7 +668,7 @@
     "bestUsedFor": "Best supported in rehabilitation for adults with complex psychosis, particularly when cognitive impairment is contributing to poor everyday function, educational difficulty, or problems engaging in vocational recovery.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -730,7 +730,7 @@
     "bestUsedFor": "Strongest use is PTSD in adults.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -754,7 +754,7 @@
     "bestUsedFor": "Best used when the person with substance use disorder is refusing or avoiding treatment, but a partner, parent, or other close support person is seeking help.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Substance use",
@@ -796,7 +796,7 @@
     "bestUsedFor": "Best in severe mental illness, complex psychosis, long-term community care, step-down pathways, and cases where repeated acute treatment has not translated into stable community functioning.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -815,7 +815,7 @@
     "bestUsedFor": "Best when shame and self-criticism are prominent, including some depression, eating-disorder, trauma-related, and transdiagnostic distress presentations.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -838,7 +838,7 @@
     "bestUsedFor": "Best for identity, grief, adjustment, self-meaning, and broader distress where a meaning-construction model fits better than a symptom-protocol model.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -858,7 +858,7 @@
     "bestUsedFor": "Best used for stimulant use disorder, for illicit drug use in methadone maintenance, and for engagement / abstinence targets in drug services.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Substance use",
       "CBT",
@@ -875,7 +875,7 @@
     "bestUsedFor": "Best used as a low-intensity or adjunctive intervention for common mental health problems, subthreshold or mixed distress states, adjustment-related difficulty, stress-related functional decline, and as a bridge while waiting for or building toward more specific treatment.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -984,7 +984,7 @@
     "bestUsedFor": "Strongest psychiatric use is within a comprehensive DBT programme for borderline personality disorder or closely related chronic emotion-dysregulation presentations, especially where recurrent self-harm or severe affective instability is a major treatment target.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -1007,7 +1007,7 @@
     "bestUsedFor": "Most defensible for bulimia nervosa, binge eating disorder, and some complex eating-disorder presentations where emotion dysregulation is clearly central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Anxiety",
       "Personality/interpersonal",
@@ -1028,7 +1028,7 @@
     "bestUsedFor": "Best for autistic children/young people and other developmental presentations where social communication is a clear functional target.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1049,7 +1049,7 @@
     "bestUsedFor": "Best for adolescents with recurrent self-harm, suicidal ideation, severe emotion dysregulation, emerging borderline traits, or repeated crisis presentations where a structured skills-plus-risk model is needed.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -1073,7 +1073,7 @@
     "bestUsedFor": "Best for paediatric OCD and BDD.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1095,7 +1095,7 @@
     "bestUsedFor": "Best supported for borderline personality disorder / borderline personality symptoms, especially when recurrent self-harm is a major treatment priority.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -1141,7 +1141,7 @@
     "bestUsedFor": "The strongest and clearest uses are parent–infant / mother–infant work, especially when maternal mental health and the infant relationship are both clinically relevant.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -1159,7 +1159,7 @@
     "bestUsedFor": "Best-supported use is major depressive disorder, especially when interpersonal patterns, attachment insecurity, relationship loss, or relational conflict are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1184,7 +1184,7 @@
     "bestUsedFor": "Strongest current guideline-backed use is in adults with bulimia nervosa, adults with binge eating disorder, and as one of the main options for adults with anorexia nervosa.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Personality/interpersonal",
       "Substance use",
@@ -1205,7 +1205,7 @@
     "bestUsedFor": "Best used in adults with anorexia nervosa when one of the three main adult psychotherapies already recommended by NICE — CBT-ED, MANTRA, or SSCM — has been unacceptable, contraindicated, or ineffective.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Personality/interpersonal",
       "Eating/body image",
@@ -1225,7 +1225,7 @@
     "bestUsedFor": "Strongest use is severe depressive disorder, especially where rapid response is needed, previous ECT response has been good, or other treatments have not provided adequate benefit.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1243,7 +1243,7 @@
     "bestUsedFor": "Best for emotionally driven distress where maladaptive emotion processing is central, and especially for couple distress in the couples form.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -1285,7 +1285,7 @@
     "bestUsedFor": "Best for patients whose suffering is strongly shaped by meaning, mortality, identity, or existential conflict, including some depressive, anxiety, adjustment, and serious-illness contexts.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1306,7 +1306,7 @@
     "bestUsedFor": "Best when emotional processing difficulty is central, especially in mood, anxiety, personality, and somatic symptom presentations.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1330,7 +1330,7 @@
     "bestUsedFor": "Obsessive-compulsive disorder (OCD) is the clearest and strongest use.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -1351,7 +1351,7 @@
     "bestUsedFor": "Best used for Tourette syndrome and persistent motor or vocal tic disorder when tics are distressing, impairing, painful, socially disruptive, or functionally limiting.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Eating/body image",
       "Pain/somatic",
@@ -1370,7 +1370,7 @@
     "bestUsedFor": "Best for anxiety disorders where avoidance maintains symptoms, including specific phobia, panic/agoraphobia, social anxiety, OCD when paired with response prevention, and PTSD when delivered as trauma-focused exposure such as prolonged exposure.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1411,7 +1411,7 @@
     "bestUsedFor": "For adults with PTSD, Phoenix Australia gives EMDR a strong recommendation.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -1433,7 +1433,7 @@
     "bestUsedFor": "Best supported for adults with psychosis or schizophrenia who live with or are in close contact with family members or carers.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -1451,7 +1451,7 @@
     "bestUsedFor": "Strongest guideline-backed use is psychosis and schizophrenia, where NICE recommends family intervention for families who live with or are in close contact with the patient.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1471,7 +1471,7 @@
     "bestUsedFor": "Most useful for schizophrenia-spectrum and other psychotic disorders when family members or carers are closely involved and need a clearer illness model, relapse plan, and coping framework.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Eating/body image",
@@ -1488,7 +1488,7 @@
     "bestUsedFor": "Best used when the family system is clearly relevant to outcome.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1507,7 +1507,7 @@
     "bestUsedFor": "Best used for children and young people with anorexia nervosa.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Eating/body image",
       "Crisis/risk",
@@ -1526,7 +1526,7 @@
     "bestUsedFor": "Best used for children and young people with bulimia nervosa.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Eating/body image",
       "Crisis/risk",
@@ -1544,7 +1544,7 @@
     "bestUsedFor": "Best used for relapse prevention in bipolar disorder, especially when relatives/carers are closely involved in day-to-day life or episode detection.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1584,7 +1584,7 @@
     "bestUsedFor": "Most defensible use is adolescents with behaviour / antisocial problems and young people with alcohol misuse plus significant comorbidities or limited social support.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1604,7 +1604,7 @@
     "bestUsedFor": "Best as an experiential psychotherapy for people with depression, anxiety, interpersonal distress, self-esteem problems, or broader psychological distress when an experiential present-focused model fits the case.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1626,7 +1626,7 @@
     "bestUsedFor": "Best for borderline personality disorder or clinically significant borderline traits, especially in general psychiatric, community, outpatient, ED follow-up, CL, and public-sector settings where full DBT, MBT, schema therapy, or TFP is unavailable or not required.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1669,7 +1669,7 @@
     "bestUsedFor": "Strongest use is anxiety disorders where exposure is first-line, especially social anxiety disorder, panic disorder with agoraphobia, and specific phobias (though individual exposure is often preferred for highly specific phobias).",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1690,7 +1690,7 @@
     "bestUsedFor": "Strongest use is as an adjunct in bipolar disorder, especially maintenance-phase care and relapse prevention.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -1712,7 +1712,7 @@
     "bestUsedFor": "Best used for maintenance / relapse prevention in bipolar disorder, especially when the patient is not in an acute episode and can engage in a structured group format.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -1731,7 +1731,7 @@
     "bestUsedFor": "Strongest guideline support is for adults with depression at higher risk of relapse, where NICE recommends relapse-prevention interventions including group CBT or MBCT.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -1751,7 +1751,7 @@
     "bestUsedFor": "Best as a rehabilitation or developmental intervention, especially in psychosis rehabilitation, autism social-learning programmes, and functional recovery settings.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1771,7 +1771,7 @@
     "bestUsedFor": "Best as an initial low-intensity or stepped-care treatment for milder depression and anxiety presentations, especially when symptoms are not highly complex and the patient can work independently with support.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1794,7 +1794,7 @@
     "bestUsedFor": "Best used for adults with binge eating disorder as the initial psychological treatment step.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Eating/body image",
       "Crisis/risk",
@@ -1811,7 +1811,7 @@
     "bestUsedFor": "Best used for adults with bulimia nervosa as the first psychological treatment step to consider.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Substance use",
       "Eating/body image",
@@ -1851,7 +1851,7 @@
     "bestUsedFor": "Best used for trichotillomania (hair-pulling disorder) and excoriation disorder (skin-picking disorder) when symptoms cause distress, impairment, visible damage, infection/scarring risk, or major shame/avoidance.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1890,7 +1890,7 @@
     "bestUsedFor": "Best for persistent health anxiety where adequate medical assessment has not found an explanatory serious disease and the main maintaining mechanism is anxiety-driven misinterpretation and reassurance-seeking.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -1913,7 +1913,7 @@
     "bestUsedFor": "Best for depression and broader psychological distress where an exploratory, emotionally focused, relationship-based psychotherapy is appropriate.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -1932,7 +1932,7 @@
     "bestUsedFor": "Most useful in severe mental illness, especially schizophrenia-spectrum disorders and other long-term psychotic illnesses, when the clinical task is ongoing recovery and self-management rather than acute symptom containment alone.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -1952,7 +1952,7 @@
     "bestUsedFor": "Best used for nightmare disorder in adults and for persistent distressing nightmares in broader psychiatric populations.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -1998,7 +1998,7 @@
     "bestUsedFor": "Best as a selective OCD treatment when ERP is refused, poorly tolerated, or the clinical formulation is dominated by obsessional doubt, poor insight, or “imagined possibility” reasoning.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2019,7 +2019,7 @@
     "bestUsedFor": "Best used for co-occurring PTSD and SUD when the patient is stable enough for structured treatment and is willing to address trauma directly.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -2037,7 +2037,7 @@
     "bestUsedFor": "Best for psychosis plus cannabis/stimulant use, mood disorder plus alcohol/drug use, PTSD plus substance use, personality/emotion dysregulation plus substance use, and recurrent admissions where separate mental health and AOD care keeps failing.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2058,7 +2058,7 @@
     "bestUsedFor": "Most defensible for complex mental disorders where there is a combination of syndromal illness and severe personality / vulnerability features, including some borderline personality disorder and treatment-resistant depression presentations.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2078,7 +2078,7 @@
     "bestUsedFor": "Best for mild to moderate common mental health problems, especially depression and anxiety, when access, distance, mobility, or wait times are barriers.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2169,7 +2169,7 @@
     "bestUsedFor": "Best for older adults with depression/loneliness, dementia-care settings, aged care, palliative/CL psychiatry, and patients needing meaning, identity, continuity or life-story work.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2188,7 +2188,7 @@
     "bestUsedFor": "Strongest guideline-backed use is recurrent depression or depression in partial/full remission where relapse risk is higher.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -2208,7 +2208,7 @@
     "bestUsedFor": "Best used for stimulant use disorder, particularly methamphetamine and cocaine use in outpatient settings.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -2225,7 +2225,7 @@
     "bestUsedFor": "Best supported for adults with anorexia nervosa.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Personality/interpersonal",
       "Substance use",
@@ -2245,7 +2245,7 @@
     "bestUsedFor": "Best-supported use is advanced cancer, serious illness, and palliative care, where RCTs and reviews suggest benefit for meaning, spiritual well-being, and existential distress.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2265,7 +2265,7 @@
     "bestUsedFor": "Best supported for borderline personality disorder and related severe personality dysfunction where attachment stress and relational misinterpretation are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2314,7 +2314,7 @@
     "bestUsedFor": "Strongest guideline-backed use is relapse prevention in recurrent depression.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2337,7 +2337,7 @@
     "bestUsedFor": "Best viewed as an adjunctive or selective relapse-prevention treatment for SUDs rather than a clearly dominant stand-alone first-line therapy.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Anxiety",
       "Trauma",
@@ -2360,7 +2360,7 @@
     "bestUsedFor": "Best as a structured mindfulness intervention for stress, depressive symptoms, and broader distress where mindfulness practice is acceptable and safe.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2381,7 +2381,7 @@
     "bestUsedFor": "Best as a structured adjunct or selected primary intervention for stress, depressive symptoms, relapse vulnerability, and transdiagnostic distress where mindfulness practice is acceptable and safe.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2403,7 +2403,7 @@
     "bestUsedFor": "Best viewed as an evidence-supported option for chronic insomnia, especially when arousal, worry, and reactive struggle with sleep are prominent.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2424,7 +2424,7 @@
     "bestUsedFor": "Most defensible use is perinatal / postpartum mental health, especially where maternal symptoms and the mother–infant relationship are both clinically relevant.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2486,7 +2486,7 @@
     "bestUsedFor": "Best used at engagement, assessment, early treatment, and whenever motivation is unstable.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Anxiety",
       "Psychosis",
@@ -2506,7 +2506,7 @@
     "bestUsedFor": "Best supported in psychosis / schizophrenia, where NICE states family intervention should take account of family preference for either single-family intervention or multi-family group intervention.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Personality/interpersonal",
@@ -2523,7 +2523,7 @@
     "bestUsedFor": "Best for adolescents with substance use plus conduct/delinquency or complex family/system involvement.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2543,7 +2543,7 @@
     "bestUsedFor": "NICE recommends offering multimodal interventions, for example MST, to children and young people aged 11 to 17 years for conduct disorder.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Substance use",
       "Eating/body image",
@@ -2562,7 +2562,7 @@
     "bestUsedFor": "In Australian PTSD guidelines, NET has a conditional recommendation for adults with PTSD where trauma is linked to genocide, civil conflict, torture, political detention, or displacement.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2584,7 +2584,7 @@
     "bestUsedFor": "Best when identity, meaning, stigma, trauma-related self-story, family/community narratives, or chronic demoralisation are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2603,7 +2603,7 @@
     "bestUsedFor": "Best in community psychiatry, psychosocial rehabilitation, trauma-informed recovery work, youth or adult community mental health, and severe mental illness where identity, belonging, and social participation are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -2621,7 +2621,7 @@
     "bestUsedFor": "Best whenever a standard psychosocial therapy is clinically indicated but the person’s neurodevelopmental profile makes usual delivery ineffective or inaccessible.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2645,7 +2645,7 @@
     "bestUsedFor": "Best for panic disorder with or without agoraphobia, especially when recurrent panic attacks, bodily-sensation fear, anticipatory anxiety, and avoidance are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2668,7 +2668,7 @@
     "bestUsedFor": "Best supported for children with clinical levels of disruptive behaviour, especially oppositional and conduct-type presentations in younger children.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -2688,7 +2688,7 @@
     "bestUsedFor": "Best supported for children aged 3 to 11 years who are at high risk of oppositional defiant disorder or conduct disorder, who already have oppositional defiant disorder or conduct disorder, or who are in contact with the criminal justice system because of antisocial behaviour.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Neurodevelopmental",
       "Crisis/risk",
@@ -2704,7 +2704,7 @@
     "bestUsedFor": "Best used for children aged 3 to 11 years at high risk of oppositional defiant disorder or conduct disorder, who already have oppositional defiant disorder or conduct disorder, or who are in contact with the criminal justice system because of antisocial behaviour when their problems are severe and complex.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Neurodevelopmental",
       "Crisis/risk",
@@ -2720,7 +2720,7 @@
     "bestUsedFor": "Most defensible use is where the relationship itself is a central treatment target, especially in disruptive behaviour, developmental and attachment-linked difficulty, early childhood mental health, and selected trauma or caregiving contexts.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Neurodevelopmental",
@@ -2738,7 +2738,7 @@
     "bestUsedFor": "Best supported for young children with clinically significant disruptive behaviour problems.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -2758,7 +2758,7 @@
     "bestUsedFor": "Best as an adjunct across the SUD care continuum, especially engagement, post-detox or post-discharge transitions, ED/hospital linkage, community recovery, opioid use disorder care, relapse recovery, and treatment retention.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Substance use",
       "Crisis/risk",
@@ -2774,7 +2774,7 @@
     "bestUsedFor": "Most useful in psychosis rehabilitation, community recovery work, discharge transition, engagement support, group activities, and broader recovery-oriented service delivery.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Eating/body image",
@@ -2791,7 +2791,7 @@
     "bestUsedFor": "Best as an adjunctive recovery-oriented intervention, especially where connection, empowerment, and lived-experience modelling are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -2810,7 +2810,7 @@
     "bestUsedFor": "Best for depression or distress where psychosocial, relationship, or employment problems are contributing and the person would prefer an emotionally exploratory, non-directive therapy.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2852,7 +2852,7 @@
     "bestUsedFor": "Best as a developmentally appropriate therapy or adjunct for younger children with emotional, behavioural, relational, or adjustment difficulties, especially when verbal CBT-style work is too abstract.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2874,7 +2874,7 @@
     "bestUsedFor": "Best for low-resource, community, humanitarian, primary-care, stepped-care, public-health, and service-bridging settings where specialist psychotherapy access is limited.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -2919,7 +2919,7 @@
     "bestUsedFor": "Best for patients whose difficulties are strongly interpersonal or personality-pattern based, especially when they can benefit from observing how they relate to others in the moment.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -2982,7 +2982,7 @@
     "bestUsedFor": "Best supported across common mental disorders, especially depression, some anxiety and panic presentations, somatoform / functional-symptom presentations, substance-related disorders, eating disorders, and personality disorders.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3005,7 +3005,7 @@
     "bestUsedFor": "Broadly useful across most psychiatric disorders.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3026,7 +3026,7 @@
     "bestUsedFor": "Broadly useful across first-episode psychosis, established schizophrenia-spectrum illness, relapse prevention, discharge planning, rehabilitation, and self-management work.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Eating/body image",
@@ -3043,7 +3043,7 @@
     "bestUsedFor": "Strongest use is in severe mental illness, especially schizophrenia-spectrum and other long-term psychiatric disorders where self-management and recovery functioning are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3062,7 +3062,7 @@
     "bestUsedFor": "Best as part of continuing care for psychosis or schizophrenia, especially in community, early psychosis, rehabilitation, and relapse-prevention settings.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -3082,7 +3082,7 @@
     "bestUsedFor": "Best in severe mental illness, rehabilitation, discharge planning, community psychiatry, complex psychosis, repeated admissions, and presentations where functioning, support needs, or service coordination are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -3100,7 +3100,7 @@
     "bestUsedFor": "Best as an adjunctive intervention in longer-term psychiatric care, community recovery settings, step-down services, psychosocial rehabilitation, and chronic illness pathways where personal recovery, self-management, and community participation matter.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Substance use",
@@ -3118,7 +3118,7 @@
     "bestUsedFor": "Best in alcohol and other drug treatment, dual-diagnosis care, inpatient discharge planning, residential rehab step-down, opioid agonist treatment support, relapse-prevention work, and recovery-oriented case management.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3141,7 +3141,7 @@
     "bestUsedFor": "Best in community psychiatry, rehabilitation, severe mental illness, complex psychosis, long-term support pathways, and step-down care where sustained psychosocial coordination is needed.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -3159,7 +3159,7 @@
     "bestUsedFor": "Best supported in rehabilitation for adults with complex psychosis.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -3178,7 +3178,7 @@
     "bestUsedFor": "Best used after initial motivation has improved and the patient is actively trying to reduce, stop, or maintain abstinence, especially in alcohol use disorder and broader substance use disorders.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Substance use",
@@ -3197,7 +3197,7 @@
     "bestUsedFor": "Strongest guideline-backed use is recurrent depression, especially after remission or partial remission in people at higher relapse risk.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3220,7 +3220,7 @@
     "bestUsedFor": "Best for complex depression, personality vulnerability, chronic relational problems, trauma-linked relational patterns, recurrent interpersonal crises, and presentations where symptoms are embedded in long-standing developmental and relational patterns.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3245,7 +3245,7 @@
     "bestUsedFor": "Best when the case formulation is strongly relational, especially in trauma-informed, women’s mental health, identity, marginalisation, or chronic relational-distress presentations.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3265,7 +3265,7 @@
     "bestUsedFor": "Best when relationship problems are contributing to symptoms or recovery.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3287,7 +3287,7 @@
     "bestUsedFor": "Best in severe mental illness, complex psychosis, recurrent admissions, step-down care, discharge planning, community psychiatry, and presentations where progress depends partly on support packages, service access, and continuity across sectors.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -3322,7 +3322,7 @@
     "bestUsedFor": "Strongest and clearest use is personality disorder, especially borderline personality disorder (BPD) and other chronic personality pathology.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3368,7 +3368,7 @@
     "bestUsedFor": "Best viewed as a stabilisation-oriented integrated treatment when the patient needs a present-focused approach, is not ready for trauma processing, or when a service cannot yet deliver trauma-focused integrated treatment.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -3389,7 +3389,7 @@
     "bestUsedFor": "Strongest formal guideline support is in psychosis and schizophrenia, where NICE recommends considering a manualised self-management programme as part of treatment and management.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3431,7 +3431,7 @@
     "bestUsedFor": "Best used for adult depression when relational-emotional patterns and developmental difficulties in close relationships are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3455,7 +3455,7 @@
     "bestUsedFor": "Best when there is a clear, observable skill deficit contributing to ongoing impairment.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3476,7 +3476,7 @@
     "bestUsedFor": "Best used for chronic insomnia disorder when the clinician wants the core logic of sleep restriction but in a more tolerable, gradual format.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3495,7 +3495,7 @@
     "bestUsedFor": "Best used as a selective rehabilitation adjunct in psychosis or schizophrenia when social-cognitive deficits are clearly contributing to poor relationships, poor community functioning, or difficulty using rehabilitation opportunities.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -3514,7 +3514,7 @@
     "bestUsedFor": "Most defensible as a rehabilitation adjunct when there is clear behavioural social-skill deficit affecting recovery.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -3536,7 +3536,7 @@
     "bestUsedFor": "Best for social anxiety disorder in adults, and developmentally adapted CBT for children and young people.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3559,7 +3559,7 @@
     "bestUsedFor": "Best supported for children and young people with autism, especially preschool children where NICE says to consider parent, carer or teacher mediation, and for school-aged children where NICE says to consider peer mediation.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Anxiety",
       "Sleep",
@@ -3577,7 +3577,7 @@
     "bestUsedFor": "Best in severe mental illness, rehabilitation, longer-term community care, step-down settings, and recovery pathways where the main challenge is not just symptom control but re-establishing a life structure and meaningful contribution.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -3597,7 +3597,7 @@
     "bestUsedFor": "Best as a brief pragmatic intervention for adjustment-type problems, mild to moderate distress, engagement work, or situations where a focused collaborative change conversation is clinically useful.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3617,7 +3617,7 @@
     "bestUsedFor": "Best supported for adults with anorexia nervosa.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Eating/body image",
       "Crisis/risk",
@@ -3660,7 +3660,7 @@
     "bestUsedFor": "Best for complex trauma / complex PTSD-type presentations where the dominant problems are emotion regulation and interpersonal functioning.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3701,7 +3701,7 @@
     "bestUsedFor": "Best as a cross-cutting recovery-oriented approach in rehabilitation, community psychiatry, long-term care, and complex severe mental illness, especially when functional recovery, self-management, and meaningful life goals are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3719,7 +3719,7 @@
     "bestUsedFor": "Best for BPD/personality disorder in public-sector or general mental health settings where a structured, consistent, manualised clinical model is needed and specialist therapies may not be available.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3742,7 +3742,7 @@
     "bestUsedFor": "Best as an adjunctive intervention for people or carers who benefit from shared experience, practical coping ideas, and community connection.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3763,7 +3763,7 @@
     "bestUsedFor": "Best as an initial or stepped-care treatment for mild to moderate common mental health problems, especially when access barriers, waiting lists, geography, mobility, or preference for remote care matter.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3785,7 +3785,7 @@
     "bestUsedFor": "Best as a selective access-expanding option for PTSD when the person is stable enough for trauma-focused work but barriers make face-to-face trauma therapy difficult or delayed.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -3806,7 +3806,7 @@
     "bestUsedFor": "Best as a selective option for PTSD or clinically significant post-traumatic stress symptoms when the patient is appropriate for trauma-focused work but remote or digital delivery is preferable or necessary.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3851,7 +3851,7 @@
     "bestUsedFor": "Best supported for psychosis / schizophrenia and complex psychosis rehabilitation when the person wants mainstream employment.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Psychosis",
       "Substance use",
@@ -3952,7 +3952,7 @@
     "bestUsedFor": "Best when an evidence-based psychotherapy is indicated and telehealth is safe and clinically appropriate, especially for rural and remote patients, patients with travel barriers, and situations where continuity would otherwise be disrupted.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3974,7 +3974,7 @@
     "bestUsedFor": "Best as a lower-intensity or access-expanding CBT format for mild to moderate common mental health presentations, especially where distance, mobility, wait times, or preference for phone-based care are major barriers.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -3998,7 +3998,7 @@
     "bestUsedFor": "Best supported for borderline personality disorder and closely related severe personality organisation.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -4022,7 +4022,7 @@
     "bestUsedFor": "Strongest use is PTSD.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -4045,7 +4045,7 @@
     "bestUsedFor": "Most useful when trauma exposure has left the patient with major emotion-regulation or interpersonal difficulties, especially in complex trauma presentations.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Trauma",
       "Psychosis",
@@ -4066,7 +4066,7 @@
     "bestUsedFor": "The strongest evidence is for alcohol use disorder (AUD).",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Substance use",
       "Eating/body image",
@@ -4085,7 +4085,7 @@
     "bestUsedFor": "Best when a values-based mechanism is clearly central, especially in ACT-informed work for transdiagnostic distress, chronic health conditions, and problems maintained by avoidance and overcontrol.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -4140,7 +4140,7 @@
     "bestUsedFor": "Best as a specialist adjunctive intervention for selected depressive episodes where rapid mood improvement is clinically useful and the service can monitor the patient safely.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Psychosis",
@@ -4161,7 +4161,7 @@
     "bestUsedFor": "Best as guided self-help or low-intensity CBT for milder common mental health presentations, especially when a patient prefers written structure or when digital access is limited.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -4183,7 +4183,7 @@
     "bestUsedFor": "Best for GAD or transdiagnostic presentations where worry is the dominant maintaining process rather than panic attacks, compulsions, trauma re-experiencing, or social evaluative fear.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Anxiety",
@@ -4208,7 +4208,7 @@
     "bestUsedFor": "Best as a brief trauma-focused PTSD treatment option when a concise, lower-burden exposure-based therapy is needed.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -4230,7 +4230,7 @@
     "bestUsedFor": "Best-supported for adolescent depression, especially when interpersonal stressors are central.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
@@ -4254,7 +4254,7 @@
     "bestUsedFor": "Best for children and adolescents with PTSD or clinically important PTSD symptoms.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
-    "briefInterventionAvailable": true,
+    "briefInterventionAvailable": false,
     "tags": [
       "Mood",
       "Trauma",
