@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "108effa9-9644-4e33-a05c-2521a3611545",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#X2FP2R",
+    "outcome": "Added scripts/snapshot-repo-awareness.mjs wrapper and verified deterministic ordering of snapshot routes and documents",
+    "baseRowFingerprint": "5b15a86c681e52b70fe4ee8fb2ad48beb0ce73329dd208d7ca057a41eec85e51"
+  }
+}
