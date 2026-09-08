@@ -1,35 +1,58 @@
 /* ═══════════════════════════════════════════════════════════════════════
    WARD FLOW SHELL. Third edition, light and dark.
 
-   The universal header (the quiet bar), the rail open at 236 px and closed
-   at 76 px with its hover cards, the Service selector, the three drawers,
-   the search results and the New referral menu. Loads after the third
-   edition stylesheet and speaks its tokens only: no hex, no solid grey
-   line, no size off the seven step scale, no weight that is not loaded,
-   one elevation step, brass as a bar and never a fill, the slate ring for
-   what is selected, thin scrollbars, a focus ring on every control, and no
-   hover that brightens. Every class, id and data attribute the shell
-   script reads is kept under its original name.
+   The universal header (the quiet bar), one rail that is open at 236 px or
+   closed to a strip with hover cards, the Service selector, the three
+   drawers, the search results and the New referral menu. Loads after the
+   third edition stylesheet and speaks its tokens only: no hex, no solid
+   grey line, no size off the seven step scale, no weight that is not
+   loaded, one elevation step, brass as a bar and never a fill, the slate
+   ring for what is selected, thin scrollbars, a focus ring on every
+   control, and no hover that brightens. Every class, id, data attribute
+   and key the shell script reads is kept under its original name.
+
+   The frame classes ride beside the third edition's own: div.app.hApp,
+   div.frame.hFrame, div.scroll.hScroll. The mockup's locked laptop layout
+   keeps working because its rules still match, and the shell only adds
+   the rail width variable, the transition and the one row bar.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* The brand stripe rises above the bar (31), the rail (20 to 32), the hover cards (35) and the
-   drawers (40), so the shell never paints over the third edition's one brand mark. Pointer
-   events stay off. This adds one row to the build sheet's layer table. */
+/* ─── layers ────────────────────────────────────────────────────────────
+   Body and panels 0. The rail 20, rising to 32 while the closed strip is
+   hovered or holds focus. The bar 31 with its dropdowns at 20 and the
+   search results at 22 inside it. The hover card 35. The drawer backdrop
+   39 and the drawer 40. The brand stripe 45, above every layer, pointer
+   events off. The skip link 50. ───────────────────────────────────────── */
 body::before {
   z-index: 45;
 }
-/* The skip link sits over the rail and the bar, which both carry a z-index the masthead never had. */
 .skip {
   z-index: 50;
 }
+:root {
+  --railw: 236px;
+  --railw-closed: 76px;
+}
+:root[data-rail="closed"] {
+  --railw: var(--railw-closed);
+}
 
-/* ─── extension: what Command does not have and other pages do ──────────
-   Tables, figure bands, deltas, charts, disclosures and the tap floor. ── */
+/* ─── tables and the tap floor: the pieces the drawers depend on ─────── */
 .tableWrap {
   overflow-x: auto;
   border-top: 1px solid var(--line);
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
+}
+.tableWrap::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.tableWrap::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 9px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 .dataTable {
   width: 100%;
@@ -90,142 +113,8 @@ body::before {
 .dataTable tr.total:hover td {
   background: var(--surface-2);
 }
-/* The figure band: one strip divided by hairlines, no coloured caps, no cards. */
-.band {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  border-top: 1px solid var(--line);
-}
-.band > .kpi {
-  padding: 12px 16px;
-  border-right: 1px solid var(--line);
-  min-width: 0;
-}
-.band > .kpi:last-child {
-  border-right: 0;
-}
-.band .kpi dd {
-  font-size: var(--t-6);
-}
-/* "Look here": at most two per screen, and the word is already on the tile. */
-.kpi[data-tone="warn"] dd {
-  color: var(--warn);
-}
-/* A delta is a word with a figure, never an arrow alone, never a verdict. */
-.delta {
-  font-size: var(--t-1);
-  color: var(--ink-soft);
-  white-space: nowrap;
-}
-.delta b {
-  font-family: var(--mono);
-  font-weight: 500;
-  color: var(--ink);
-}
-/* Charts: lines and arcs on a hairline grid, one emphasised endpoint, a written caption. */
-.chart {
-  margin: 0;
-  display: grid;
-  gap: 8px;
-  padding: 12px 16px;
-}
-.chart svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.chart figcaption {
-  font-size: var(--t-1);
-  color: var(--muted);
-  line-height: 1.5;
-  max-width: 72ch;
-  text-wrap: pretty;
-}
-.chart .grid {
-  stroke: var(--line);
-  stroke-width: 1;
-}
-.chart .axis {
-  stroke: var(--line-strong);
-  stroke-width: 1;
-}
-.chart .series {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.75;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-.chart .end {
-  fill: var(--surface);
-  stroke: var(--accent);
-  stroke-width: 2;
-}
-.chart text {
-  font-family: var(--mono);
-  font-size: var(--t-0);
-  fill: var(--muted);
-}
-/* Disclosures: a quiet summary with the same chevron as the panel-header control. */
-.reveal {
-  border-top: 1px solid var(--line);
-}
-.reveal > summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  font-size: var(--t-1);
-  font-weight: 600;
-  color: var(--ink-soft);
-  transition:
-    color 0.12s,
-    background 0.12s;
-}
-.reveal > summary::-webkit-details-marker {
-  display: none;
-}
-.reveal > summary::after {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: translateY(-1.5px) rotate(45deg);
-  transition: transform 0.12s;
-}
-.reveal[open] > summary::after {
-  transform: translateY(1.5px) rotate(-135deg);
-}
-.reveal > summary:hover {
-  background: var(--sunk);
-  color: var(--ink);
-}
-.reveal > summary .count {
-  margin-left: auto;
-  font-family: var(--mono);
-  font-size: var(--t-0);
-  font-weight: 400;
-  color: var(--muted);
-}
-.revealBody {
-  padding: 2px 16px 12px;
-}
 /* The tap floor: 3rem where a finger is the pointer or the screen is a phone. Never 44. */
 @media (pointer: coarse), (max-width: 640px) {
-  .ctl,
-  .tabBtn,
-  .railLink,
-  .qRow,
-  .edCard,
-  .cand,
-  .apBtn,
-  .phBtn,
-  .linkBtn,
-  .reveal > summary,
-  .task,
   .menu > summary,
   .menuItem,
   .search,
@@ -236,74 +125,19 @@ body::before {
   .seg button,
   .closeBtn,
   .railBtn,
-  .clearBtn {
+  .clearBtn,
+  .seen {
     min-height: 3rem;
   }
-}
-@media print {
-  .tableWrap {
-    overflow: visible;
-  }
-  .dataTable tbody tr:hover td {
-    background: transparent;
-  }
-  .kpi,
-  .band {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  .seen,
+  .clearBtn,
+  .closeBtn {
+    display: inline-flex;
+    align-items: center;
   }
 }
 
-/* ─── universal header: the design system's block ─────────────────────
-   The search field, the menu (a details element whose panel floats), the
-   menu panel and its heads, lists, items, notes, and the signed-in line.
-   The three row header's own strips (.hdr, .hdrBar, .stats, .tasks) are
-   kept for the other pages that still carry them; the quiet bar below
-   uses none of them. ──────────────────────────────────────────────── */
-.hdr {
-  position: relative;
-  z-index: 5;
-  display: grid;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-}
-.hdrBar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  padding: 13px 24px 11px;
-}
-.hdrBar .title {
-  flex: 1 1 20rem;
-}
-.hdrBar h1 {
-  font-family: var(--display);
-  font-size: var(--t-6);
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.012em;
-  color: var(--ink);
-}
-/* The disclaimer takes its own line under the title, so it is never squeezed beside the tools. */
-.hdrBar .sub {
-  flex: 1 1 100%;
-  min-width: 0;
-  max-width: 72ch;
-  font-size: var(--t-1);
-  line-height: 1.45;
-  color: var(--muted);
-  text-wrap: pretty;
-}
-.hdrTools {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-left: auto;
-  min-width: 0;
-}
-/* The search field: a secondary control that holds an input. */
+/* ─── the search field: a secondary control that holds an input ─────── */
 .search {
   display: flex;
   align-items: center;
@@ -349,6 +183,10 @@ body::before {
 .search input::placeholder {
   color: var(--muted);
 }
+.search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
 .search kbd {
   font-family: var(--mono);
   font-size: var(--t-0);
@@ -360,16 +198,23 @@ body::before {
 }
 .search .clearBtn {
   font-size: var(--t-0);
+  font-weight: 600;
   color: var(--muted);
-  padding: 2px 4px;
+  padding: 2px 6px;
   border-radius: 4px;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
-.search .clearBtn:hover {
+.search .clearBtn:hover,
+.search .clearBtn:active {
   background: var(--sunk);
   color: var(--ink);
 }
-/* A menu is a details element: the summary is the control, the panel floats beneath. The summary
-   is a secondary button; open, it takes the accent-soft fill and the slate ring. */
+
+/* ─── a menu is a details element: the summary is the control, the panel floats beneath.
+   The summary is a secondary button (brief rule 8). Open, it takes the accent-soft fill, the
+   accent border and the slate ring, because open is a selection. ─── */
 .menu {
   position: relative;
 }
@@ -405,7 +250,8 @@ body::before {
   transform: translateY(-1.5px) rotate(45deg);
   transition: transform 0.12s;
 }
-.menu > summary:hover {
+.menu > summary:hover,
+.menu > summary:active {
   background: var(--sunk);
   border-color: var(--ink-soft);
 }
@@ -427,8 +273,8 @@ body::before {
 .menu[open] > summary .count {
   color: var(--accent-ink);
 }
-/* The one primary control: the accent fill, the highlight along its top edge, and a darker slate
-   on hover and press. It never brightens. */
+/* The one primary control: the accent fill, the highlight along its top edge, and the darker
+   slate on hover, press and open. It never brightens. */
 .menu > summary.primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -436,24 +282,12 @@ body::before {
   box-shadow: inset 0 1px 0 var(--hl-on-accent);
 }
 .menu > summary.primary:hover,
-.menu > summary.primary:active {
-  background: var(--accent-ink);
-  border-color: var(--accent-ink);
-}
+.menu > summary.primary:active,
 .menu[open] > summary.primary {
   background: var(--accent-ink);
   border-color: var(--accent-ink);
   color: var(--on-accent);
   box-shadow: inset 0 1px 0 var(--hl-on-accent);
-}
-.menu > summary.quiet {
-  border-color: transparent;
-  background: transparent;
-  color: var(--ink-soft);
-}
-.menu > summary.quiet:hover {
-  background: var(--sunk);
-  color: var(--ink);
 }
 /* A pop out floats over the page, so it is the one thing beside a panel that takes the
    elevation step: the hairline, the heavier bottom hairline, the top highlight and the lift.
@@ -514,10 +348,11 @@ body::before {
   text-decoration: none;
   transition: background 0.12s;
 }
-.menuItem:hover {
+.menuItem:hover,
+.menuItem:active {
   background: var(--sunk);
 }
-/* The chosen row: accent-soft fill, the slate ring, and the brass bar at its left edge. */
+/* The chosen row: the accent-soft fill, the slate ring, and the brass bar at its left edge. */
 .menuItem[aria-pressed="true"],
 .menuItem[aria-current="true"] {
   background: var(--accent-soft);
@@ -542,11 +377,6 @@ body::before {
 .menuItem[aria-disabled="true"]:hover {
   background: transparent;
 }
-.menuDiv {
-  height: 1px;
-  background: var(--line);
-  margin: 4px 0;
-}
 .menuNote {
   padding: 4px 12px 10px;
   font-size: var(--t-1);
@@ -554,16 +384,12 @@ body::before {
   line-height: 1.45;
   max-width: 40ch;
 }
-.menuPanel .search {
-  margin: 8px 8px 2px;
-  height: 32px;
-}
 .who {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   line-height: 1.25;
-  padding: 0 4px;
+  padding: 12px 14px 8px;
   white-space: nowrap;
 }
 .who b {
@@ -575,372 +401,11 @@ body::before {
   font-size: var(--t-0);
   color: var(--muted);
 }
-/* The statistics strip of the three row header. A strip, so the second surface tone. */
-.stats {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  padding: 0 24px;
-  border-top: 1px solid var(--line);
-  background: var(--surface-2);
-  min-width: 0;
-}
-.statsList {
-  display: flex;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  margin: 0;
-}
-.statsList::-webkit-scrollbar {
-  display: none;
-}
-.statsList[data-overflowing="true"] {
-  box-shadow: inset -22px 0 18px -18px var(--edge-shade);
-}
-.stat {
-  display: grid;
-  gap: 3px;
-  align-content: center;
-  padding: 9px 18px 9px 0;
-  margin-right: 18px;
-  border-right: 1px solid var(--line);
-  white-space: nowrap;
-}
-.stat:last-child {
-  border-right: 0;
-  margin-right: 0;
-}
-.stat dt {
-  font-size: var(--t-0);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 600;
-}
-.stat dd {
-  font-family: var(--mono);
-  font-size: var(--t-4);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  color: var(--ink);
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-}
-.stat dd small {
-  font-family: var(--body);
-  font-size: var(--t-1);
-  font-weight: 400;
-  color: var(--muted);
-  letter-spacing: 0;
-}
-.stat dd i {
-  font-family: var(--body);
-  font-style: italic;
-  font-weight: 400;
-  color: var(--muted);
-  letter-spacing: 0;
-}
-.stat[data-tone="danger"] dd {
-  color: var(--danger);
-}
-.stat[data-tone="warn"] dd {
-  color: var(--warn);
-}
-.statsEnd {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: none;
-  margin-left: auto;
-  padding: 6px 0 6px 16px;
-  border-left: 1px solid var(--line);
-}
-.hdrClock {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  white-space: nowrap;
-}
-.hdrClock span {
-  font-size: var(--t-0);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 600;
-}
-.hdrClock b {
-  font-family: var(--mono);
-  font-size: var(--t-4);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-.statsMenu > summary {
-  height: 30px;
-  font-size: var(--t-1);
-  background: var(--surface);
-}
-.statsMenu .menuPanel {
-  max-width: none;
-  width: min(94vw, 70rem);
-}
-.statsGrid {
-  display: grid;
-  grid-template-columns: 17rem 21rem repeat(2, minmax(0, 1fr));
-}
-.statsGrid > section {
-  min-width: 0;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 6px;
-}
-.statsGrid .dataTable th,
-.statsGrid .dataTable td {
-  padding: 4px 8px;
-}
-.statsGrid .dataTable th:first-child,
-.statsGrid .dataTable td:first-child {
-  padding-left: 12px;
-}
-.statsGrid .dataTable th {
-  background: transparent;
-  border-bottom-color: var(--line);
-}
-.statsGrid .dataTable tbody tr:last-child td {
-  border-bottom: 0;
-}
-/* The facts list the live tally uses: a label, and a mono figure at the right. */
-.statsFacts {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 12px;
-  padding: 4px 12px 6px;
-  font-size: var(--t-1);
-}
-.statsFacts dt {
-  color: var(--ink-soft);
-}
-.statsFacts dd {
-  font-family: var(--mono);
-  color: var(--ink);
-  text-align: right;
-  white-space: nowrap;
-}
-.statsFacts dd i {
-  font-family: var(--body);
-  font-style: italic;
-  color: var(--muted);
-}
-.statsFacts dd[data-tone="danger"] {
-  color: var(--danger);
-}
-.statsFacts dd[data-tone="warn"] {
-  color: var(--warn);
-}
-/* The foot of a tally: the reconciliation line on the second surface tone. */
-.statsFoot {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  padding: 8px 12px;
-  background: var(--surface-2);
-  border-top: 1px solid var(--line);
-  font-size: var(--t-1);
-  color: var(--muted);
-  line-height: 1.45;
-}
-/* The outstanding tasks bar of the three row header. */
-.tasks {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 7px 24px;
-  border-top: 1px solid var(--line);
-  background: var(--surface);
-  min-width: 0;
-}
-.tasksLabel {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  flex: none;
-  font-size: var(--t-0);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  font-weight: 600;
-  white-space: nowrap;
-}
-.tasksLabel .count {
-  font-family: var(--mono);
-  font-size: var(--t-0);
-  font-weight: 500;
-  color: var(--muted);
-  letter-spacing: 0;
-  text-transform: none;
-}
-.taskList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 2px 0;
-  scrollbar-width: none;
-}
-.taskList::-webkit-scrollbar {
-  display: none;
-}
-.taskList[data-overflowing="true"] {
-  box-shadow: inset -22px 0 18px -18px var(--edge-shade);
-}
-/* A task chip: the tone is the dot and the figure, never a fill behind the words. */
-.task {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  flex: none;
-  height: 28px;
-  padding: 0 11px 0 9px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: var(--surface);
-  font-size: var(--t-1);
-  color: var(--ink-soft);
-  white-space: nowrap;
-  transition:
-    background 0.12s,
-    border-color 0.12s,
-    color 0.12s;
-}
-.task::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--line-strong);
-  flex: none;
-}
-.task b {
-  font-family: var(--mono);
-  font-weight: 600;
-  color: var(--ink);
-}
-.task[data-tone="danger"] {
-  border-color: var(--danger);
-}
-.task[data-tone="danger"]::before {
-  background: var(--danger);
-}
-.task[data-tone="danger"] b {
-  color: var(--danger);
-}
-.task[data-tone="warn"] {
-  border-color: var(--warn);
-}
-.task[data-tone="warn"]::before {
-  background: var(--warn);
-}
-.task[data-tone="warn"] b {
-  color: var(--warn);
-}
-.task:hover {
-  background: var(--sunk);
-  border-color: var(--ink-soft);
-}
-.task[aria-pressed="true"] {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-.task[aria-pressed="true"] b {
-  color: var(--accent-ink);
-}
-.tasksClear {
-  font-size: var(--t-1);
-  color: var(--muted);
-  font-style: italic;
-  white-space: nowrap;
-}
-.tasksEnd {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: none;
-  margin-left: auto;
-}
-@media (max-width: 1000px) {
-  .hdrBar,
-  .stats,
-  .tasks {
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-  .hdrTools {
-    width: 100%;
-  }
-  .search {
-    flex: 1 1 12rem;
-  }
-  .who {
-    display: none;
-  }
-  .taskList {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-  }
-  .statsGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 640px) {
-  .hdrClock span,
-  .tasksEnd,
-  .statsMenu > summary .count {
-    display: none;
-  }
-  .menuPanel {
-    max-width: 94vw;
-  }
-  .statsGrid {
-    grid-template-columns: 1fr;
-  }
-}
-@media print {
-  .hdrTools,
-  .statsMenu,
-  .tasksEnd,
-  .menuPanel {
-    display: none !important;
-  }
-  .hdr {
-    border-bottom: 1px solid var(--line-strong);
-  }
-}
-@media (forced-colors: active) {
-  .search,
-  .menu > summary,
-  .menuPanel,
-  .task,
-  .stat {
-    border: 1px solid CanvasText;
-    box-shadow: none;
-  }
-  .task::before {
-    background: CanvasText;
-  }
-}
 
-/* ─── the quiet bar: one row on every screen ─────────────────────────
+/* ─── the quiet bar: one row on every screen ──────────────────────────
    The title and the mark, universal search, the Service selector, then
    Activity, Tasks and Tools as matching side drawers, and the one primary
-   action. The frame classes ride beside the third edition's own (.app,
-   .frame, .scroll), so the locked laptop layout keeps working. ─────── */
+   action. ─────────────────────────────────────────────────────────────── */
 .hApp {
   display: grid;
   grid-template-columns: var(--railw) minmax(0, 1fr);
@@ -979,15 +444,13 @@ body::before {
   color: var(--ink);
   white-space: nowrap;
 }
-.hdr1 details > summary.srOnly {
-  display: none;
-}
 .hdr1 .end {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-left: auto;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .hdr1 .menu > summary .lbl {
   font-weight: 600;
@@ -1002,12 +465,12 @@ body::before {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-/* The count pill on a bar control: mono on the sunk tone with a hairline ring; the slate ring
-   and the accent-soft fill while its menu is open. */
+/* The count pill on a bar control: mono on the sunk tone with a hairline ring, and the
+   accent-soft fill with the slate ring while its menu is open (brief rule 9). */
 .badge {
   font-family: var(--mono);
   font-size: var(--t-0);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ink-soft);
   background: var(--sunk);
   border-radius: 999px;
@@ -1017,10 +480,11 @@ body::before {
 }
 .menu[open] > summary .badge {
   color: var(--accent-ink);
-  background: var(--surface);
+  background: var(--accent-soft);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
-/* A dot carries a tone or a service hue. Green breathes while the feed is live. */
+/* A dot carries a tone or a service hue. Green breathes while the feed is live. Every dot in a
+   summary is aria-hidden and has a hidden sentence beside it. */
 .dot {
   width: 7px;
   height: 7px;
@@ -1081,10 +545,6 @@ body::before {
   flex: none;
   min-width: 0;
 }
-.search input::-webkit-search-cancel-button {
-  -webkit-appearance: none;
-  appearance: none;
-}
 /* The results pop out: the same one elevation step as a menu panel. */
 .qPop {
   position: absolute;
@@ -1116,10 +576,16 @@ body::before {
   text-align: left;
   color: var(--ink);
   font-size: var(--t-2);
+  transition: background 0.12s;
 }
 .qHit:hover,
+.qHit:active {
+  background: var(--sunk);
+}
+/* The first result is what Enter picks, so it reads as chosen: the sunk fill and the slate ring. */
 .qHit[data-active="true"] {
   background: var(--sunk);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 .qHit b {
   font-weight: 600;
@@ -1137,6 +603,7 @@ body::before {
 }
 .qHit .under em {
   font-style: normal;
+  font-weight: 600;
   color: var(--danger);
 }
 .qNone {
@@ -1145,10 +612,6 @@ body::before {
   color: var(--muted);
   line-height: 1.45;
   max-width: 44ch;
-}
-/* The foot of a pop out is a strip, so it sits on the second surface tone. */
-.qPop .popFoot {
-  margin: 0;
 }
 
 /* ─── the Service selector ─── */
@@ -1163,9 +626,8 @@ body::before {
 
 /* ─── the drawers: Activity, Tasks and Tools share one shape ───
    Fixed to the right edge, a heavier hairline on its left, the lift, and
-   the page shaded behind it. The shade is the edge shade token at full
-   strength, because at 0.6 of the third edition's lighter token a drawer
-   in the light theme no longer read as over the page. ─────────────── */
+   the page shaded behind it with the edge shade token at full strength.
+   ─────────────────────────────────────────────────────────────────── */
 .drawerMenu .menuPanel {
   position: fixed;
   top: 0;
@@ -1183,6 +645,15 @@ body::before {
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
   z-index: 40;
+}
+.drawerMenu .menuPanel::-webkit-scrollbar {
+  width: 9px;
+}
+.drawerMenu .menuPanel::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 9px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 .drawerMenu.wide .menuPanel {
   width: min(94vw, 36rem);
@@ -1266,8 +737,8 @@ body::before {
 .popBody > section + section {
   border-top: 1px solid var(--line);
 }
-/* The two parts of a drawer, one shown at a time. The chosen part sits on the surface with the
-   brass bar under it and nothing lifted: a drawer is already the elevation step. */
+/* The two parts of a drawer, one shown at a time. The chosen part sits on the surface with a
+   hairline ring and the brass bar under it, and nothing lifted: the drawer is the elevation. */
 .seg {
   display: flex;
   gap: 2px;
@@ -1299,7 +770,8 @@ body::before {
   font-size: var(--t-0);
   color: var(--muted);
 }
-.seg button:hover {
+.seg button:hover,
+.seg button:active {
   color: var(--ink);
 }
 .seg button[aria-pressed="true"] {
@@ -1334,7 +806,8 @@ body::before {
   color: var(--ink);
   transition: background 0.12s;
 }
-.taskRow:hover {
+.taskRow:hover,
+.taskRow:active {
   background: var(--sunk);
 }
 .taskRow b {
@@ -1379,7 +852,7 @@ body::before {
   color: var(--muted);
   white-space: nowrap;
 }
-/* The pressed filter: accent-soft, the slate ring, the brass bar. The tone dot stays. */
+/* The pressed filter: the accent-soft fill, the slate ring, the brass bar. The tone dot stays. */
 .taskRow[aria-pressed="true"] {
   background: var(--accent-soft);
   color: var(--accent-ink);
@@ -1426,6 +899,12 @@ body::before {
   text-decoration: underline;
   text-underline-offset: 3px;
   white-space: nowrap;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.notice .seen:hover,
+.notice .seen:active {
+  background: var(--sunk);
 }
 .actSum {
   padding: 10px 14px 8px;
@@ -1552,9 +1031,45 @@ body::before {
 .figGrid .menuHead {
   padding-left: 14px;
 }
-.figGrid .statsFacts {
-  padding-left: 14px;
-  padding-right: 14px;
+/* The facts list the live tally uses: a label, and a mono figure at the right. */
+.statsFacts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  padding: 4px 14px 6px;
+  font-size: var(--t-1);
+}
+.statsFacts dt {
+  color: var(--ink-soft);
+}
+.statsFacts dd {
+  font-family: var(--mono);
+  color: var(--ink);
+  text-align: right;
+  white-space: nowrap;
+}
+.statsFacts dd i {
+  font-family: var(--body);
+  font-style: italic;
+  color: var(--muted);
+}
+.statsFacts dd[data-tone="danger"] {
+  color: var(--danger);
+}
+.statsFacts dd[data-tone="warn"] {
+  color: var(--warn);
+}
+/* The foot of a tally: the reconciliation line on the second surface tone. */
+.statsFoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 14px;
+  background: var(--surface-2);
+  border-top: 1px solid var(--line);
+  font-size: var(--t-1);
+  color: var(--muted);
+  line-height: 1.45;
 }
 /* ─── the tools drawer ─── */
 .toolList {
@@ -1575,7 +1090,8 @@ body::before {
   text-decoration: none;
   transition: background 0.12s;
 }
-.toolItem:hover {
+.toolItem:hover,
+.toolItem:active {
   background: var(--sunk);
 }
 .toolItem .glyph {
@@ -1601,7 +1117,8 @@ body::before {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.toolItem[aria-disabled="true"]:hover {
+.toolItem[aria-disabled="true"]:hover,
+.toolItem[aria-disabled="true"]:active {
   background: transparent;
 }
 .contacts .dataTable td {
@@ -1615,9 +1132,6 @@ body::before {
   font-size: var(--t-0);
   color: var(--muted);
 }
-.contacts .tableWrap {
-  overflow-x: auto;
-}
 .contacts .dataTable th {
   padding: 6px 10px;
 }
@@ -1626,21 +1140,15 @@ body::before {
   color: var(--muted);
   font-size: var(--t-1);
 }
-.contacts .dataTable td:first-child {
-  padding-left: 14px;
-}
+.contacts .dataTable td:first-child,
 .contacts .dataTable th:first-child {
   padding-left: 14px;
-}
-.menuPanel .who {
-  align-items: flex-start;
-  padding: 12px 14px 8px;
 }
 .menuPanel .appearance {
   margin: 4px 14px 12px;
 }
 
-/* ─── the body: the frame's scrolling region and the page foot ─── */
+/* ─── the body: the frame's scrolling region ─── */
 .hScroll {
   flex: 1;
   min-width: 0;
@@ -1649,161 +1157,24 @@ body::before {
   gap: var(--gap);
   align-content: start;
 }
-.hGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: var(--gap);
-  align-items: start;
-}
-.hCol {
-  display: grid;
-  gap: var(--gap);
-  min-width: 0;
-}
-.hGrid .qList {
-  max-height: 38rem;
-}
-.qName {
-  font-weight: 600;
-  color: var(--ink);
-}
-.pageBody[hidden],
-.hGrid[hidden] {
-  display: none;
-}
-.pageNote {
-  padding: 12px 16px;
-  font-size: var(--t-2);
-  line-height: 1.5;
-  color: var(--ink-soft);
-  max-width: 72ch;
-  text-wrap: pretty;
-}
-/* The page foot carries the disclosure the closed strip cannot: a strip under the scrolling
-   region, on the second surface tone, so the locked laptop layout keeps its rows. */
-.hFoot {
-  padding: 8px 24px 10px;
-  border-top: 1px solid var(--line);
-  background: var(--surface-2);
-  display: grid;
-  gap: 3px;
-  font-size: var(--t-0);
-  color: var(--muted);
-  line-height: 1.45;
-}
-.hFoot p {
-  max-width: 120ch;
-  text-wrap: pretty;
-}
-.hFoot b {
-  color: var(--ink-soft);
-  font-weight: 600;
-}
 
-/* ─── collapse ladder: the same breakpoints the rail page proved ─── */
-@media (max-width: 1500px) {
-  .chip.mark .long {
-    display: none;
-  }
-}
-@media (max-width: 1240px) {
-  .hdr1 .chip.mark,
-  .hdr1 .menu > summary .lbl.optional {
-    display: none;
-  }
-  .searchWrap {
-    flex-basis: 10rem;
-  }
-}
-@media (max-width: 1000px) {
-  .hApp {
-    grid-template-columns: 1fr;
-  }
-  .hGrid {
-    grid-template-columns: 1fr;
-  }
-  .hScroll {
-    padding: 12px 14px 24px;
-  }
-  .hdr1 {
-    flex-wrap: wrap;
-    padding: 8px 14px;
-  }
-  .hdr1 .end {
-    margin-left: 0;
-    flex-wrap: wrap;
-  }
-  .searchWrap {
-    flex: 1 1 100%;
-    max-width: none;
-  }
-  .hFoot {
-    padding: 8px 14px 10px;
-  }
-}
-@media (max-width: 640px) {
-  .menuPanel {
-    max-width: 94vw;
-  }
-  .tally {
-    grid-template-columns: 1fr;
-  }
-}
-@media print {
-  .hdr1 .end,
-  .searchWrap,
-  .menuPanel,
-  .hdr1 .svcMenu {
-    display: none !important;
-  }
-  .hApp,
-  .hGrid {
-    display: block;
-  }
-  .hGrid .qList {
-    max-height: none;
-  }
-  .hdr1 {
-    border-bottom: 1px solid var(--line-strong);
-  }
-  .drawerMenu[open]::before {
-    display: none;
-  }
-}
-@media (forced-colors: active) {
-  .qPop,
-  .badge,
-  .seg,
-  .tile {
-    border: 1px solid CanvasText;
-    box-shadow: none;
-  }
-  .dot,
-  .taskRow b::before {
-    background: CanvasText;
-  }
-}
-
-/* ─── the rail, open and closed: one rail, two states ──────────────────
-   Open, it carries every screen in three groups with its state under it in
-   words, the shift, the pinned movements and the foot. Closed, it is a
-   strip: a glyph and a word per screen, the counts as tags, the shift as a
-   ring, and a card on hover with the screen's state. The bracket key and
-   the control at the foot of each state flip between them, and the choice
-   is remembered for this browser. ─────────────────────────────────────── */
-:root {
-  --railw: 236px;
-}
-.railHost {
-  display: contents;
-}
-.railHost > .rail {
-  display: none;
-  position: sticky;
-  top: 0;
-  align-self: start;
-  height: 100vh;
+/* ─── the rail: one nav, two states ────────────────────────────────────
+   Open at 236 px it carries every screen in three groups with its state
+   under it in words, the shift, the pinned movements and the foot.
+   Closed it is a strip: a glyph and a word per screen, the counts as
+   tags, the shift as a ring, and a card on hover or focus with the
+   screen's state. The bracket key and the control at the foot of each
+   state flip between them, and the choice is remembered for this browser
+   under ward-flow-rail. The state lives on the root as data-rail, set
+   before first paint, so there is no width jump on load. ─────────────── */
+.hApp > .rail {
   z-index: 20;
+}
+.rail.open {
+  overflow: hidden;
+}
+.rail.closed {
+  overflow: visible;
 }
 /* The closed strip rises above the bar only while it is hovered or holds focus, so a hover card
    can pass over the bar without the drawers ever sitting under the rail. */
@@ -1811,16 +1182,6 @@ body::before {
 .rail.closed:focus-within {
   z-index: 32;
 }
-.hApp[data-view="open"] .rail.open,
-.hApp[data-view="closed"] .rail.closed {
-  display: flex;
-}
-.hApp[data-view="closed"] {
-  --railw: 76px;
-}
-
-/* ─── shared pieces: the scrolling middle, the service stripe, the shift block, the ring, the
-   text under a screen, the tone dot, the pinned rows and the flip control ─── */
 .railScroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -1830,6 +1191,26 @@ body::before {
   display: flex;
   flex-direction: column;
 }
+/* The middle fades into the edge it continues past, measured on every render, scroll and resize
+   like the mockup's own lists, so the Pinned group is never hidden without a sign. */
+.railScroll {
+  --fade-top: 0px;
+  --fade-bottom: 0px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent
+  );
+}
 .railScroll::-webkit-scrollbar {
   width: 9px;
 }
@@ -1838,12 +1219,6 @@ body::before {
   border-radius: 9px;
   border: 2px solid transparent;
   background-clip: padding-box;
-}
-.rail.open {
-  overflow: hidden;
-}
-.rail.closed {
-  overflow: visible;
 }
 /* One service chosen is easy to forget, so the rail carries it as a 3 px bar under the brand. */
 .svcStripe {
@@ -1867,7 +1242,8 @@ body::before {
 .svcStripe[data-svc="wachs"] {
   background: var(--svc-wachs);
 }
-/* The shift block: a block on the second surface tone with a hairline, never lifted. */
+/* The shift block: a block on the second surface tone with a hairline, never lifted. The eyebrow
+   carries the shift and the clock, the line under the time to handover carries the date. */
 .railBlock {
   margin: 0 10px 14px;
   padding: 10px 10px 9px;
@@ -2013,6 +1389,13 @@ body::before {
 .railLink[aria-current="page"] .railText em {
   color: var(--accent-ink);
 }
+/* The current item: the accent-soft fill, the slate ring, and the brass bar the base draws. */
+.railLink[aria-current="page"] {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.railLink:active {
+  background: var(--sunk);
+}
 /* A count of none is the italic word with no pill behind it. */
 .tag[data-zero="true"] {
   font-family: var(--body);
@@ -2071,6 +1454,7 @@ body::before {
   color: var(--ink-soft);
   text-align: left;
   position: relative;
+  transition: background 0.12s;
 }
 .pinRow::before {
   content: "";
@@ -2088,7 +1472,8 @@ body::before {
 .pinRow[data-tone="warn"]::before {
   background: var(--warn);
 }
-.pinRow:hover {
+.pinRow:hover,
+.pinRow:active {
   background: var(--sunk);
 }
 .pinRow[aria-pressed="true"] {
@@ -2109,16 +1494,16 @@ body::before {
 .pinRow[data-tone="danger"] .wait {
   color: var(--danger);
 }
-.pinRow[aria-pressed="true"] .id,
-.pinRow[aria-pressed="true"] b {
-  color: var(--accent-ink);
-}
 .pinRow b {
   font-weight: 500;
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.pinRow[aria-pressed="true"] .id,
+.pinRow[aria-pressed="true"] b {
+  color: var(--accent-ink);
 }
 /* The flip control at the foot: a secondary button with the bracket key as a keycap. */
 .railBtn {
@@ -2195,7 +1580,7 @@ body::before {
   padding-top: 12px;
 }
 
-/* ─── closed: the strip at 76 px ─── */
+/* ─── closed: the strip ─── */
 .rail.closed {
   padding: 14px 0 12px;
   align-items: stretch;
@@ -2242,7 +1627,8 @@ body::before {
   flex-direction: column;
   gap: 4px;
 }
-/* One word under the glyph, at the type floor and never below it. */
+/* One word under the glyph, at the type floor and never below it. If a word does not fit, the
+   strip widens through --railw-closed; the word never shrinks. */
 .rail.closed .railLabel .word {
   font-size: var(--t-0);
   letter-spacing: 0.02em;
@@ -2267,7 +1653,7 @@ body::before {
   display: none;
 }
 /* The hover card: floats beside the strip, so it takes the one elevation step. Pointer events
-   off, so it never traps the cursor. */
+   off, so it never traps the cursor. Shown on hover and on a visible focus. */
 .flyCard {
   display: none;
   position: absolute;
@@ -2314,6 +1700,9 @@ body::before {
   line-height: normal;
   padding: 1px 7px;
 }
+.flyCard b .tag[data-zero="true"] {
+  padding: 0;
+}
 .flyCard em {
   font-style: normal;
   font-size: var(--t-1);
@@ -2344,9 +1733,26 @@ body::before {
   gap: 8px;
 }
 .rail.closed .railFoot .railUser,
-.rail.closed .railFoot .railNote,
-.rail.closed .railCheck span {
+.rail.closed .railFoot .railNote {
   display: none;
+}
+/* The strip keeps its words for a reader: the check sentence and the flip control's label are
+   clipped, never removed from the accessible name. */
+.rail.closed .railCheck span,
+.rail.closed .railBtn span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.rail.closed .railCheck {
+  position: relative;
+  gap: 0;
 }
 /* The pinned fly out: a quiet control in the strip, its count as a pill, its panel to the right. */
 .rail.closed .flyMenu {
@@ -2367,10 +1773,16 @@ body::before {
   display: none;
 }
 .rail.closed .flyMenu > summary:hover,
-.rail.closed .flyMenu[open] > summary {
+.rail.closed .flyMenu > summary:active {
   background: var(--sunk);
   border-color: transparent;
   color: var(--ink);
+}
+.rail.closed .flyMenu[open] > summary {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 .rail.closed .flyMenu > summary .tag {
   position: absolute;
@@ -2378,12 +1790,22 @@ body::before {
   right: -6px;
   font-family: var(--mono);
   font-size: var(--t-0);
+  font-weight: 500;
   line-height: 1.4;
   padding: 0 4px;
   border-radius: 999px;
   background: var(--sunk);
   box-shadow: inset 0 0 0 1px var(--line);
   color: var(--ink-soft);
+}
+.rail.closed .flyMenu > summary .tag[data-zero="true"] {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--muted);
 }
 .rail.closed .flyMenu[open] > summary .tag {
   background: var(--accent-soft);
@@ -2401,8 +1823,8 @@ body::before {
   margin: 8px 6px 0;
   justify-content: center;
   padding: 6px 0;
+  position: relative;
 }
-.rail.closed .railBtn span,
 .rail.closed .railBtn kbd {
   display: none;
 }
@@ -2412,36 +1834,63 @@ body::before {
   gap: 2px;
 }
 
-/* ─── the rail on a phone: the third edition's row of chips, with the shell's extras put away ─── */
-@media (prefers-reduced-motion: reduce) {
-  .hApp {
-    transition: none;
+/* ─── the merged width ladder (RAIL-MAP d.7) ─────────────────────────────
+   1600 and wider: the third edition lock, rail open or closed. 1500: drop
+   "Synthetic". 1400 to 1599: the third edition's outer columns give a rem
+   each. 1300: the chip and the drawer words go, the search basis 10rem.
+   1001 to 1399: two columns. 1000: one column, the rail a wrapping row in
+   the open shape, the header wraps, the search takes its own row, the
+   flip control hidden. 640: the tap floor, one column tally, panels 94vw.
+   The third edition's own rules carry the 1600, 1400 and 1001 steps; the
+   shell adds only what is new. ──────────────────────────────────────── */
+@media (max-width: 1500px) {
+  .chip.mark .long {
+    display: none;
+  }
+}
+@media (max-width: 1300px) {
+  .hdr1 .chip.mark,
+  .hdr1 .menu > summary .lbl.optional {
+    display: none;
+  }
+  .searchWrap {
+    flex-basis: 10rem;
   }
 }
 @media (max-width: 1000px) {
-  .hApp[data-view="closed"] {
+  :root,
+  :root[data-rail="closed"] {
     --railw: 100%;
   }
-  .railHost > .rail {
+  .hApp {
+    grid-template-columns: 1fr;
+  }
+  .hApp > .rail {
     position: static;
     height: auto;
   }
-  .hApp[data-view="closed"] .rail.closed {
-    display: none;
+  .hScroll {
+    padding: 12px 14px 24px;
   }
-  .hApp[data-view="closed"] .rail.open,
-  .hApp[data-view="open"] .rail.open {
-    display: flex;
+  .hdr1 {
+    flex-wrap: wrap;
+    padding: 8px 14px;
   }
+  .hdr1 .end {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+  .searchWrap {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  /* The rail is the third edition's row of chips: the groups flow as one row, and the shell's
+     extras are put away until there is room for them. */
   .rail.open {
     overflow: visible;
   }
   .railScroll {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px;
-    overflow: visible;
+    display: contents;
   }
   .rail.open .railBlock,
   .rail.open .pinGroup,
@@ -2456,14 +1905,59 @@ body::before {
   .rail.open .railLink[data-state="true"] {
     padding: 6px 10px;
   }
+  .rail.open .railLink[aria-current="page"] {
+    box-shadow:
+      inset 0 0 0 1px var(--accent),
+      inset 0 -2px 0 var(--gilt);
+  }
+}
+@media (max-width: 640px) {
+  .menuPanel {
+    max-width: 94vw;
+  }
+  .tally {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hApp {
+    transition: none;
+  }
+  .dot[data-tone="good"] {
+    animation: none;
+  }
 }
 @media print {
+  .hdr1 .end,
+  .searchWrap,
+  .menuPanel,
+  .hdr1 .svcMenu,
   .railBtn,
-  .flyCard {
+  .flyCard,
+  .drawerMenu[open]::before {
     display: none !important;
+  }
+  .hApp {
+    display: block;
+  }
+  .hdr1 {
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .tableWrap {
+    overflow: visible;
+  }
+  .dataTable tbody tr:hover td {
+    background: transparent;
   }
 }
 @media (forced-colors: active) {
+  .search,
+  .menu > summary,
+  .menuPanel,
+  .qPop,
+  .badge,
+  .seg,
+  .tile,
   .railBlock,
   .flyCard,
   .pinRow,
@@ -2471,6 +1965,8 @@ body::before {
     border: 1px solid CanvasText;
     box-shadow: none;
   }
+  .dot,
+  .taskRow b::before,
   .meter i,
   .svcStripe,
   .toneDot {
