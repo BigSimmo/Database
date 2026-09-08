@@ -391,6 +391,8 @@ thresholds map directly onto these fields.
 
 `scripts/lib/operational-alerts.mjs` is the provider-neutral policy owner for the §2 answer SLOs. The hourly digest emits stable alert codes with owner, escalation owner and this runbook, and publishes `alerting`, highest `severity`, and a compact JSON summary to the workflow. Missing SLO telemetry and a zero-query denominator are `unknown`, never healthy. Each authorised deep probe returns only safe internal hybrid-RPC identifiers and counts. The workflow stores the last three identity-only hourly observations in the GitHub Actions cache, then pages `OPS_HYBRID_RPC_ERROR_RATE_PAGE` only when the same RPC has a nonzero count in all three contiguous UTC-hour buckets. A missing, evicted, malformed, incomplete, or non-contiguous history is never promoted to a page. Degraded answers page independently and immediately only above the documented 50% hourly threshold.
 
+The digest's **Service readiness** headline describes the service checks, not answer quality. An exactly 60-minute snapshot with zero answered queries displays **No answered queries observed—answer quality not assessed**, with answer-SLO rates shown as **N/A**. The underlying counters and machine-readable `OPS_ANSWER_SLO_UNKNOWN` alert remain unchanged: this is an unassessed window, not a measured degraded-answer incident or proof of healthy answers. A missing SLO block or invalid window must not be labelled as no answer activity.
+
 Delivery remains configurable without changing policy: the checked-in workflow updates the rolling GitHub issue each hour, but an attention comment requires the `publish_alert_comment` boolean on a manual operator-confirmed dispatch. An operator may route the same summary to a host-native or incident channel. Repository wiring is not proof that provider delivery works.
 
 The rolling issue is the provider-neutral queue. For every alert, the on-duty operator comments `ACK <alert-code> owner=<role> at=<ISO-8601>` before diagnosis and `RECOVERED <alert-code> at=<ISO-8601> evidence=<run-or-dashboard-reference>` only after the recovery condition below is observed. If the owner cannot acknowledge inside 30 minutes, route to the named escalation role using the organisation's configured incident channel; repository roles are routing identities, not GitHub usernames, so automatic issue assignment remains provider-gated.
@@ -398,9 +400,9 @@ The rolling issue is the provider-neutral queue. For every alert, the on-duty op
 ### `OPS_ANSWER_SLO_UNKNOWN`
 
 - **Diagnose:** open the workflow run and deep-probe digest; distinguish a missing `slo` block, zero answered-query denominator, and a window other than exactly 60 minutes. Check probe authentication and the answer-metrics query before interpreting any rate.
-- **Acknowledge:** Platform operations records the failing field and whether queries are still being served.
+- **Acknowledge:** Platform operations records the failing field or zero-query window and whether answers are still being served. Confirm expected inactivity separately; zero recorded queries alone cannot rule out missing telemetry.
 - **Recover:** require a subsequent 60-minute snapshot with a positive denominator and valid rates in `0..1`.
-- **Escalate:** Clinical safety owner immediately if answers are being served without measurable SLO telemetry; otherwise after 30 minutes without a valid snapshot.
+- **Escalate:** Clinical safety owner immediately if answers are being served without measurable SLO telemetry; otherwise after 30 minutes without a valid snapshot unless expected inactivity has been confirmed and acknowledged. During confirmed inactivity, keep quality unknown and continue monitoring; do not mark quality healthy or the alert recovered until answered-query evidence meets the recovery condition.
 
 ### `OPS_HYBRID_RPC_ERROR_RATE_UNKNOWN`
 

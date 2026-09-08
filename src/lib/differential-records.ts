@@ -33,6 +33,12 @@ export function deriveGovernanceFromSnapshot(snapshot: DifferentialSnapshot): {
   validation_status: DifferentialValidationStatus;
 } {
   const reviewStatus = snapshot.governance.reviewStatus.toLowerCase();
+  if (/\b(?:not\s+checked|unchecked|unverified)\b/i.test(reviewStatus)) {
+    return {
+      source_status: "unknown",
+      validation_status: "unverified",
+    };
+  }
   const sourceStatus: DifferentialSourceStatus =
     reviewStatus.includes("checked") || reviewStatus.includes("current")
       ? "current"
@@ -41,7 +47,7 @@ export function deriveGovernanceFromSnapshot(snapshot: DifferentialSnapshot): {
         : "unknown";
   return {
     source_status: sourceStatus,
-    validation_status: "locally_reviewed",
+    validation_status: "unverified",
   };
 }
 

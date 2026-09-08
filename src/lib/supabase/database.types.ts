@@ -470,6 +470,9 @@ export type Database = {
       };
       document_corpus_access_snapshots: {
         Row: {
+          published_label_ids: string[];
+          published_summary_ids: string[];
+          published_table_fact_ids: string[];
           activation_id: string;
           captured_at: string;
           document_id: string;
@@ -478,6 +481,9 @@ export type Database = {
           public_corpus_value: Json | null;
         };
         Insert: {
+          published_label_ids?: string[];
+          published_summary_ids?: string[];
+          published_table_fact_ids?: string[];
           activation_id: string;
           captured_at?: string;
           document_id: string;
@@ -486,6 +492,9 @@ export type Database = {
           public_corpus_value?: Json | null;
         };
         Update: {
+          published_label_ids?: string[];
+          published_summary_ids?: string[];
+          published_table_fact_ids?: string[];
           activation_id?: string;
           captured_at?: string;
           document_id?: string;
@@ -3357,6 +3366,10 @@ export type Database = {
       repair_enrichment_quality_batch: {
         Args: { p_limit?: number };
         Returns: Json;
+      };
+      preview_strict_enrichment_gate_repair: {
+        Args: { p_limit?: number };
+        Returns: Database["public"]["Views"]["document_strict_gate_status"]["Row"][];
       };
       repair_strict_enrichment_gate_batch: {
         Args: { p_limit?: number };

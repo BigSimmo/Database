@@ -215,6 +215,42 @@ describe("considerations block — an unread gate is never an all-clear", () => 
     expect(container.textContent).not.toMatch(/to see whether/i);
   });
 
+  it("formats multi-input contraindications with serial and and plural pronoun", () => {
+    const record = {
+      ...(getMedicationRecord("acamprosate") as MedicationRecord),
+      slug: "plural-contraindication-fixture",
+      sections: [
+        {
+          title: "Contraindications",
+          type: "contra",
+          rows: [
+            {
+              key: "Renal",
+              val: "row text",
+              patient: { factors: ["renal"], action: "contraindication", match: { egfr: { lt: 30 } } },
+            },
+            {
+              key: "Hepatic",
+              val: "row text",
+              patient: { factors: ["hepatic"], action: "contraindication", match: { hepatic: ["severe"] } },
+            },
+          ],
+        },
+      ],
+    } as MedicationRecord;
+
+    seedProfile({ ageYears: 40 });
+    const { container } = render(
+      <PatientProfileProvider>
+        <MedicationConsiderations record={record} />
+      </PatientProfileProvider>,
+    );
+
+    expect(container.textContent).toMatch(
+      /Not assessed\. Contraindication checks for this medication use eGFR and hepatic status, which this profile does not include\. Enter them, or check the source, before treating this panel as complete\./,
+    );
+  });
+
   it("never invites deferring an alert that already fired: no 'to see whether' over a live advisory row", () => {
     // The shape the corpus really has — lithium-carbonate-ir-sr's "Renal
     // Impairment" dose-adjust row is factors renal + allergy-nsaid gated on eGFR.
