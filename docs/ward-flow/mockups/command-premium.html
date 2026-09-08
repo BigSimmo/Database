@@ -7,28 +7,81 @@
 />
 <style>
   /* ═══════════════════════════════════════════════════════════════════════
-     WARD FLOW — COMMAND. Light edition.
+     WARD FLOW — COMMAND. Final edition, light and dark.
 
-     One theme, chosen rather than omitted: this screen is read on a coordinator's
-     monitor under ward lighting, and every colour below was measured against the
-     one ground it will ever sit on. There is no dark palette to keep honest.
+     THE RULES THIS FILE KEEPS, in the order they matter:
 
-     The materials are a hospital's: porcelain ground, white paper panels, navy ink,
-     one institutional blue, and a thread of aged gilt that only ever marks where
-     you are. State is a word first and a colour second. Figures are mono and
-     tabular. Absence is stated, never blank. Every figure is invented and the
-     page says so twice, once at the top and once at the foot.
+     1. State is a word first. A colour, a bar or a tint only ever repeats a
+        word that is already on the screen, so a reader with no colour
+        perception loses nothing, and neither does a greyscale printout.
+     2. Figures are IBM Plex Mono and tabular. Anything a reader compares down
+        a column lines up. Zero reads "none": a nought is a measurement and
+        "none" is a state.
+     3. Absence is stated, never blank. "Not tracked here" and "no destination
+        yet" are the models.
+     4. Nothing is set below 10.5px. Uppercase labels carry 0.08 to 0.12em of
+        tracking, headings a touch of negative tracking, and the type scale is
+        the seven --t-* steps below and nothing in between.
+     5. One elevation step. A panel is lifted off the ground by a hairline and
+        one low shadow, and nothing inside a panel is lifted again. Radii step
+        inward: 10px panels, 6px controls, a pill for chips. Hairlines are
+        solid, never dashed. A scrolling region that overflows shows a soft
+        shade at its edge and a sentence, never a frame.
+     6. Colour has four jobs and they never share a hue. The accent (Prussian
+        blue) means brand and interactive. Gilt means "you are here": the
+        active nav item, the live tab, the selected row, the current stage.
+        Green, amber and red mean status only. The four health services have
+        hues of their own. On the flow map only an eligible or a recorded
+        ward carries a fill; every other verdict is an outline and a word.
+     7. Every text pairing is measured against the surface it sits on, in both
+        themes, at a floor of 4.5:1. The figures below were printed by the
+        script that derived them, not typed.
+     8. Both themes are tokens only. The bare :root is the complete light
+        palette. The dark palette is redefined under prefers-color-scheme,
+        guarded so an explicit light choice beats a dark machine, and again
+        under data-theme="dark" so the control on the page wins the other way.
+        For print every token takes its light value, on all three roots.
+     9. Every figure is invented and the page says so twice, once in the
+        masthead and once in the rail foot, beside the reconciliation line the
+        page derives on every load.
 
-     Contrast, computed rather than judged (text on the surface it sits on). The
-     figures are printed by the script that derived them, not typed:
-       ink      #0E1826 on white 17.8:1 · on ground 16.3:1
-       ink-soft #33415A on white  10.3:1 · on ground  9.4:1
-       muted    #5B6B82 on white  5.4:1 · on ground  5.0:1 · on sunk 4.8:1 · on accent wash 4.8:1
-       accent   #1B4F82 on white  8.4:1 · accent-ink on accent wash 9.8:1 · white on accent 8.4:1
-       gilt     #7F6129 on white  5.8:1 · on accent wash 5.1:1
-       good     #146C43 on its wash 5.7:1 · warn #8A5A00 on its wash 5.4:1 · on sunk 5.3:1
-       danger   #A61B1B on its wash 6.5:1 · danger-ink on its wash 7.9:1
-       services on white: east 8.4:1 · north 8.3:1 · south 6.3:1 · wachs 6.7:1
+     Contrast, computed rather than judged. Light:
+       ink on surface 17.8:1 · ink on ground 16.3:1
+       ink-soft on surface 10.3:1 · ink-soft on ground 9.4:1
+       muted on surface 5.4:1 · muted on ground 5.0:1 · muted on sunk 4.8:1
+       muted on surface-2 5.2:1 · muted on accent-soft 4.8:1
+       accent on surface 8.4:1 · accent-ink on accent-soft 9.8:1
+       on-accent on accent 8.4:1 · gilt on surface 5.8:1
+       gilt on accent-soft 5.1:1 · good on good-soft 5.7:1
+       good on surface 6.4:1 · warn on warn-soft 5.4:1
+       warn on surface 5.9:1 · warn on sunk 5.3:1
+       danger on danger-soft 6.5:1 · danger on surface 7.5:1
+       danger-ink on danger-soft 7.9:1 · svc-east on surface 8.4:1
+       svc-north on surface 8.3:1 · svc-south on surface 6.3:1
+       svc-wachs on surface 6.7:1 · svc-south on surface-2 6.0:1
+       svc-north on surface-2 7.9:1 · ink-soft on accent-soft 9.0:1
+       ink on danger-soft 15.3:1 · ink-soft on danger-soft 8.8:1
+       ink-soft on warn-soft 9.3:1 · ink on good-soft 15.8:1
+       ink-soft on good-soft 9.1:1 · muted on good-soft 4.8:1
+
+     Dark:
+       ink on surface 14.7:1 · ink on ground 15.9:1
+       ink-soft on surface 9.7:1 · ink-soft on ground 10.5:1
+       muted on surface 6.0:1 · muted on ground 6.4:1 · muted on sunk 5.3:1
+       muted on surface-2 5.6:1 · muted on accent-soft 5.1:1
+       accent on surface 7.7:1 · accent-ink on accent-soft 8.9:1
+       on-accent on accent 8.3:1 · gilt on surface 8.7:1
+       gilt on accent-soft 7.4:1 · good on good-soft 7.2:1
+       good on surface 8.2:1 · warn on warn-soft 8.0:1
+       warn on surface 9.0:1 · warn on sunk 8.0:1
+       danger on danger-soft 6.3:1 · danger on surface 7.2:1
+       danger-ink on danger-soft 7.8:1 · svc-east on surface 7.7:1
+       svc-north on surface 7.8:1 · svc-south on surface 8.4:1
+       svc-wachs on surface 7.3:1 · svc-south on surface-2 7.8:1
+       svc-north on surface-2 7.3:1 · ink-soft on accent-soft 8.3:1
+       ink on danger-soft 12.9:1 · ink-soft on danger-soft 8.5:1
+       ink-soft on warn-soft 8.6:1 · ink on good-soft 13.0:1
+       ink-soft on good-soft 8.6:1 · muted on good-soft 5.3:1
      ═══════════════════════════════════════════════════════════════════════ */
   :root {
     color-scheme: light;
@@ -76,6 +129,7 @@
 
     --lift: 0 1px 2px rgba(14, 24, 38, 0.04), 0 14px 34px -22px rgba(14, 24, 38, 0.3);
     --hl: rgba(255, 255, 255, 0.85);
+    --edge-shade: rgba(14, 24, 38, 0.16);
 
     --r1: 10px;
     --r2: 6px;
@@ -92,6 +146,76 @@
     --display: "Newsreader", Georgia, "Times New Roman", serif;
     --body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+  }
+
+  /* The dark palette, redefined twice on purpose: once for a machine set to dark that has
+     made no explicit choice on the page, once for the page's own control. Never a colour
+     whose only definition sits inside one of these blocks. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0c1119;
+      --surface: #131a24;
+      --surface-2: #18202b;
+      --sunk: #1c2531;
+      --ink: #e6ecf3;
+      --ink-soft: #b7c2d0;
+      --muted: #8a98aa;
+      --line: #243040;
+      --line-strong: #364554;
+      --accent: #7fb0e0;
+      --accent-ink: #a9cbef;
+      --accent-soft: #16283a;
+      --on-accent: #0c1119;
+      --gilt: #d2b36f;
+      --gilt-soft: #2a2416;
+      --good: #5cc58c;
+      --good-soft: #12291d;
+      --warn: #e0b45c;
+      --warn-soft: #2b2312;
+      --danger: #f08a7a;
+      --danger-soft: #33201e;
+      --danger-ink: #f4a497;
+      --svc-east: #7fb0e0;
+      --svc-north: #b7a3e0;
+      --svc-south: #66c2bf;
+      --svc-wachs: #d89a78;
+      --lift: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 34px -22px rgba(0, 0, 0, 0.85);
+      --hl: rgba(255, 255, 255, 0.05);
+      --edge-shade: rgba(0, 0, 0, 0.55);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0c1119;
+    --surface: #131a24;
+    --surface-2: #18202b;
+    --sunk: #1c2531;
+    --ink: #e6ecf3;
+    --ink-soft: #b7c2d0;
+    --muted: #8a98aa;
+    --line: #243040;
+    --line-strong: #364554;
+    --accent: #7fb0e0;
+    --accent-ink: #a9cbef;
+    --accent-soft: #16283a;
+    --on-accent: #0c1119;
+    --gilt: #d2b36f;
+    --gilt-soft: #2a2416;
+    --good: #5cc58c;
+    --good-soft: #12291d;
+    --warn: #e0b45c;
+    --warn-soft: #2b2312;
+    --danger: #f08a7a;
+    --danger-soft: #33201e;
+    --danger-ink: #f4a497;
+    --svc-east: #7fb0e0;
+    --svc-north: #b7a3e0;
+    --svc-south: #66c2bf;
+    --svc-wachs: #d89a78;
+    --lift: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 34px -22px rgba(0, 0, 0, 0.85);
+    --hl: rgba(255, 255, 255, 0.05);
+    --edge-shade: rgba(0, 0, 0, 0.55);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -403,6 +527,69 @@
     color: var(--muted);
     text-wrap: pretty;
   }
+  /* The page's own consistency check, said out loud. Green dot and a sentence when the figures
+     reconcile, red dot and a count when they do not. */
+  .railCheck {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: var(--t-1);
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  .railCheck::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+  .railCheck[data-ok="false"] {
+    color: var(--danger);
+  }
+  .railCheck[data-ok="false"]::before {
+    background: var(--danger);
+  }
+  .apRow {
+    display: grid;
+    gap: 6px;
+  }
+  .apLabel {
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .appearance {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--surface);
+    justify-self: start;
+  }
+  .apBtn {
+    padding: 3px 11px;
+    border-radius: 999px;
+    font-size: var(--t-0);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    transition:
+      background 0.12s,
+      color 0.12s;
+  }
+  .apBtn:hover {
+    color: var(--ink);
+    background: var(--sunk);
+  }
+  .apBtn[aria-pressed="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
 
   /* ─── masthead ─────────────────────────────────────────────────────── */
   .topbar {
@@ -410,7 +597,7 @@
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
-    padding: 18px 24px 16px;
+    padding: 14px 24px 12px;
     background: var(--surface);
     border-bottom: 1px solid var(--line);
   }
@@ -423,9 +610,10 @@
     color: var(--ink);
   }
   .topbar .sub {
+    flex: 1 1 22ch;
     font-size: var(--t-1);
     color: var(--muted);
-    max-width: 48ch;
+    max-width: 44ch;
     line-height: 1.45;
     text-wrap: pretty;
   }
@@ -448,11 +636,77 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
-  .clock {
+  /* The state of the day: five figures counted from the data on every render, before any
+     detail. Mono figures, uppercase labels, and no colour except red on a breach above zero. */
+  .state {
     margin-left: auto;
     display: flex;
-    align-items: center;
-    gap: 12px;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .kpis {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    align-items: flex-start;
+  }
+  .kpi {
+    display: grid;
+    gap: 3px;
+    min-width: 4.75rem;
+  }
+  .kpi dt {
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .kpi dd {
+    font-family: var(--mono);
+    font-size: var(--t-5);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .kpi dd small {
+    font-family: var(--body);
+    font-size: var(--t-1);
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+  }
+  .kpi dd i {
+    font-family: var(--body);
+    font-style: italic;
+    font-weight: 400;
+    font-size: var(--t-2);
+    color: var(--muted);
+    line-height: 1.2;
+  }
+  .kpi[data-tone="danger"] dd {
+    color: var(--danger);
+  }
+  /* The clock is a tile like the five figures, with the date as its label, so the whole right
+     side of the masthead reads as one instrument. */
+  .clock {
+    display: grid;
+    gap: 3px;
+    padding-left: 20px;
+    border-left: 1px solid var(--line);
+  }
+  .clock span {
+    font-size: var(--t-0);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
   }
   .clock b {
     font-family: var(--mono);
@@ -766,6 +1020,23 @@
     font-weight: 600;
     color: var(--danger);
   }
+  /* Where this person is and where they are pointed, in words rather than an arrow. */
+  .qRoute {
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    line-height: 1.4;
+  }
+  .qRoute b {
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .qRoute .how {
+    color: var(--muted);
+  }
+  .qRoute .noneYet {
+    color: var(--muted);
+    font-style: italic;
+  }
   .tier {
     font-family: var(--mono);
     font-size: var(--t-0);
@@ -814,7 +1085,7 @@
     max-height: 34rem;
   }
   .diagWrap[data-overflowing="true"] {
-    box-shadow: inset -18px 0 16px -16px rgba(14, 24, 38, 0.16);
+    box-shadow: inset -18px 0 16px -16px var(--edge-shade);
   }
   .diagScrollNote {
     padding: 6px 16px 0;
@@ -847,12 +1118,15 @@
     display: contents;
   }
   .lgTitle {
-    margin: 0 2px 0 6px;
+    margin: 0 2px 0 14px;
     font-size: var(--t-0);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--muted);
     font-weight: 600;
+  }
+  .lgGroup:first-child .lgTitle {
+    margin-left: 0;
   }
   .lgItem {
     display: inline-flex;
@@ -1551,6 +1825,14 @@
     .topbar {
       padding: 12px 14px;
     }
+    .state {
+      margin-left: 0;
+      flex-wrap: wrap;
+    }
+    .clock {
+      border-left: 0;
+      padding-left: 0;
+    }
     .scroll {
       padding: 12px 14px 24px;
     }
@@ -1594,7 +1876,9 @@
     .peer,
     .destBadge,
     .rail,
-    .topbar {
+    .topbar,
+    .apBtn,
+    .appearance {
       border: 1px solid CanvasText;
       box-shadow: none;
       background: Canvas;
@@ -1607,17 +1891,41 @@
     }
   }
   @media print {
-    :root {
-      --ground: #fff;
-      --surface: #fff;
-      --surface-2: #fff;
+    /* Every token takes its light value on all three roots, so a dark reader never sends
+       pale ink to white paper. */
+    :root,
+    :root[data-theme="dark"],
+    :root:not([data-theme="light"]) {
+      color-scheme: light;
+      --ground: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #ffffff;
       --sunk: #f3f3f3;
-      --ink: #000;
-      --ink-soft: #222;
-      --muted: #555;
-      --line: #bbb;
-      --line-strong: #888;
+      --ink: #000000;
+      --ink-soft: #1a1a1a;
+      --muted: #444444;
+      --line: #9a9a9a;
+      --line-strong: #666666;
+      --accent: #1b4f82;
+      --accent-ink: #143d66;
+      --accent-soft: #eaf1f8;
+      --on-accent: #ffffff;
+      --gilt: #7f6129;
+      --gilt-soft: #f6f0e3;
+      --good: #146c43;
+      --good-soft: #e8f4ed;
+      --warn: #8a5a00;
+      --warn-soft: #fbf3e0;
+      --danger: #a61b1b;
+      --danger-soft: #fbeaea;
+      --danger-ink: #8e1717;
+      --svc-east: #1b4f82;
+      --svc-north: #5b3f8c;
+      --svc-south: #0f6b6e;
+      --svc-wachs: #8b4a2b;
       --lift: none;
+      --hl: none;
+      --edge-shade: transparent;
     }
     body {
       background: #fff;
@@ -1763,6 +2071,15 @@
 
     <div class="railFoot">
       <p class="railUser"><span>Signed in as</span><b>Bed coordinator</b></p>
+      <p class="railCheck" id="railCheck" data-ok="true">Reconciling figures</p>
+      <div class="apRow">
+        <span class="apLabel" id="apLabel">Appearance</span>
+        <div class="appearance" id="appearance" role="group" aria-labelledby="apLabel">
+          <button type="button" class="apBtn" data-set-theme="light" aria-pressed="false">Light</button>
+          <button type="button" class="apBtn" data-set-theme="dark" aria-pressed="false">Dark</button>
+          <button type="button" class="apBtn" data-set-theme="auto" aria-pressed="true">Auto</button>
+        </div>
+      </div>
       <p class="railNote">
         Every ward state, movement, referral, clock and figure on this screen is invented. The hospital sites and health
         services are real WA names.
@@ -1778,9 +2095,12 @@
         >Every ward state, movement, referral and figure on this screen is invented. Not a medical device and not
         clinical decision support.</span
       >
-      <div class="clock" aria-label="Saturday 15 August 2026, 10:42 Australian Western Standard Time">
-        <span class="chip">Sat 15 Aug 2026 &middot; AWST</span>
-        <b>10:42</b>
+      <div class="state">
+        <dl class="kpis" id="kpis" aria-label="The state of the day"></dl>
+        <div class="clock" aria-label="Saturday 15 August 2026, 10:42 Australian Western Standard Time">
+          <span>Sat 15 Aug &middot; AWST</span>
+          <b>10:42</b>
+        </div>
       </div>
     </header>
 
@@ -1854,8 +2174,20 @@
             <div class="legend" id="legend"></div>
           </section>
 
-          <section class="panel tabsPanel" aria-label="Declines, overrides and exceptions">
+          <section class="panel tabsPanel" aria-label="Exceptions, declines, overrides and refused actions">
             <div class="tabbar" role="tablist" aria-label="Registers">
+              <button
+                type="button"
+                class="tabBtn"
+                role="tab"
+                id="tab-exceptions"
+                data-tab="exceptions"
+                aria-controls="pane-exceptions"
+                aria-selected="true"
+                tabindex="0"
+              >
+                Exceptions <span class="tabNum" id="exCount"></span>
+              </button>
               <button
                 type="button"
                 class="tabBtn"
@@ -1863,8 +2195,8 @@
                 id="tab-declines"
                 data-tab="declines"
                 aria-controls="pane-declines"
-                aria-selected="true"
-                tabindex="0"
+                aria-selected="false"
+                tabindex="-1"
               >
                 Declines <span class="tabNum" id="decCount"></span>
               </button>
@@ -1884,18 +2216,6 @@
                 type="button"
                 class="tabBtn"
                 role="tab"
-                id="tab-exceptions"
-                data-tab="exceptions"
-                aria-controls="pane-exceptions"
-                aria-selected="false"
-                tabindex="-1"
-              >
-                Exceptions <span class="tabNum" id="exCount"></span>
-              </button>
-              <button
-                type="button"
-                class="tabBtn"
-                role="tab"
                 id="tab-refused"
                 data-tab="refused"
                 aria-controls="pane-refused"
@@ -1909,10 +2229,27 @@
               <div
                 class="tabPane"
                 role="tabpanel"
+                id="pane-exceptions"
+                data-pane="exceptions"
+                aria-labelledby="tab-exceptions"
+                tabindex="0"
+              >
+                <h3 class="paneH">Exceptions and escalation</h3>
+                <p class="paneScope">
+                  Every open movement, not only the selected one: a legal deadline that has passed, a movement every
+                  ward asked has declined, or an acceptance with no bed pulled yet. This register leads because it is
+                  the one that says what is wrong across the whole network.
+                </p>
+                <div id="exBody"></div>
+              </div>
+              <div
+                class="tabPane"
+                role="tabpanel"
                 id="pane-declines"
                 data-pane="declines"
                 aria-labelledby="tab-declines"
                 tabindex="0"
+                hidden
               >
                 <h3 class="paneH">Declines</h3>
                 <p class="paneScope" id="decScope"></p>
@@ -1936,19 +2273,6 @@
                   movements, not only the selected one.
                 </p>
                 <div id="ovBody"></div>
-              </div>
-              <div
-                class="tabPane"
-                role="tabpanel"
-                id="pane-exceptions"
-                data-pane="exceptions"
-                aria-labelledby="tab-exceptions"
-                tabindex="0"
-                hidden
-              >
-                <h3 class="paneH">Exceptions and escalation</h3>
-                <p class="paneScope">Every open movement, not only the selected one.</p>
-                <div id="exBody"></div>
               </div>
               <div
                 class="tabPane"
@@ -3057,6 +3381,85 @@
       return m.legalDue !== null && m.legalDue !== undefined && m.legalDue < NOW;
     }
 
+    /* The queue row's route: where this person is now and where they are pointed, in the same three
+   states the hub uses (accepted, referred, nothing yet), written as words rather than an arrow. */
+    function routeLine(m) {
+      var from = "<b>" + esc(ed(m.ed).site) + "</b>";
+      if (m.accepted)
+        return from + " to <b>" + esc(unit(m.accepted).name) + '</b> <span class="how">&middot; accepted</span>';
+      if (m.referred.length) {
+        var more = m.referred.length - 1;
+        return (
+          from +
+          " to <b>" +
+          esc(unit(m.referred[0]).name) +
+          "</b>" +
+          (more ? " and " + more + " more" : "") +
+          ' <span class="how">&middot; referred</span>'
+        );
+      }
+      return from + ' <span class="noneYet">&middot; no destination yet</span>';
+    }
+
+    /* A ward whose own figures are older than its window, said in two words and a figure. */
+    function staleWord(u) {
+      var mins = u.confirmedMinAgo;
+      return "Stale " + (mins >= 60 ? Math.round(mins / 60) + " h" : mins + " min");
+    }
+
+    /* The state of the day, counted from the data on every render. Five figures, before any detail. */
+    function figures() {
+      var open = MOVEMENTS.filter(isOpen);
+      var breached = open.filter(isBreached).length;
+      var flagged = open.filter(function (m) {
+        return m.flagged;
+      }).length;
+      var escalated = open.filter(function (m) {
+        return !!m.escalation;
+      }).length;
+      var current = UNITS.filter(function (u) {
+        return u.confirmedMinAgo <= u.staleAfter;
+      }).length;
+      return [
+        { label: "Open", value: open.length, title: "Open movements on the pathway" },
+        {
+          label: "Breached",
+          value: breached,
+          tone: breached ? "danger" : "",
+          title: "Legal deadlines that have already passed",
+        },
+        { label: "Flagged urgent", value: flagged, title: "Movements a coordinator has flagged" },
+        { label: "Escalated", value: escalated, title: "Movements escalated beyond this desk" },
+        {
+          label: "Wards confirmed",
+          value: current,
+          of: UNITS.length,
+          title: "Wards whose bed figures were confirmed inside their own window",
+        },
+      ];
+    }
+    function renderFigures() {
+      var el = document.getElementById("kpis");
+      if (!el) return;
+      el.innerHTML = figures()
+        .map(function (f) {
+          return (
+            '<div class="kpi"' +
+            (f.tone ? ' data-tone="' + f.tone + '"' : "") +
+            ' title="' +
+            esc(f.title) +
+            '">' +
+            "<dt>" +
+            esc(f.label) +
+            "</dt><dd>" +
+            (f.value === 0 ? "<i>none</i>" : f.value) +
+            (f.of !== undefined ? "<small>of " + f.of + "</small>" : "") +
+            "</dd></div>"
+          );
+        })
+        .join("");
+    }
+
     /* The two referral clocks, mirroring the real screen's `referralClocks` (ward-referrals.ts)
    exactly: `sinceReferral` stops the moment triage happens after the referral was raised —
    for someone already in the department when referred there is nothing left to stop, so it
@@ -3491,12 +3894,13 @@
       unitId: null,
       edFilter: null,
       showBlocked: false,
-      tab: "declines",
+      tab: "exceptions",
       referralId: null,
       queueTab: "patients",
     };
 
-    var TABS = ["declines", "overrides", "exceptions", "refused"];
+    /* Exceptions leads: it is the one register that says what is wrong across every open movement. */
+    var TABS = ["exceptions", "declines", "overrides", "refused"];
     var QTABS = ["patients", "referrals"];
 
     function selected() {
@@ -3676,14 +4080,14 @@
             '<span class="qWait">' +
             dur(m.waited) +
             "</span></span>" +
+            '<span class="qRoute">' +
+            routeLine(m) +
+            "</span>" +
             '<span class="qMeta">' +
             esc(m.cohort) +
             " &middot; " +
             esc(m.security) +
-            " &middot; from " +
-            esc(e.site) +
-            "</span>" +
-            '<span class="qMeta">' +
+            " &middot; " +
             esc(m.legalStatus) +
             "</span>" +
             (isBreached(m) ? '<span class="qBreach">' + esc(legalLine(m)) + "</span>" : "") +
@@ -4115,6 +4519,9 @@
         var sel = state.unitId === u.id;
         var cont = contention(u.id, m.id);
 
+        /* Only an eligible or a recorded ward carries a fill. Every other verdict is an outline and
+       the word beneath it, so a map where most wards need a recorded reason does not read as a
+       map on fire. */
         var stroke = "var(--line)",
           sw = 1,
           dash = "",
@@ -4130,15 +4537,73 @@
         } else if (isCand && c.availability === "declined") {
           stroke = "var(--warn)";
           sw = 1.5;
-          fill = "var(--warn-soft)";
+          dash = ' stroke-dasharray="2 3"';
         } else if (isCand) {
           stroke = "var(--danger)";
           sw = 1.5;
-          fill = "var(--danger-soft)";
+          dash = ' stroke-dasharray="5 4"';
         }
         if (sel) {
           stroke = "var(--ink)";
           sw = 2;
+          dash = "";
+        }
+
+        /* Corner badges, laid from the right edge inwards: other movements aimed here, then a stale
+       mark when the ward's own figures are older than its window. Both are words; the dot and
+       the tint only reinforce them. A long name gives way to the badges rather than under them. */
+        var stale = u.confirmedMinAgo > u.staleAfter;
+        var badges = "",
+          bx = n.x + n.w - 8;
+        if (cont.count > 0) {
+          bx -= 50;
+          badges +=
+            '<g><rect x="' +
+            bx +
+            '" y="' +
+            (n.y + 6) +
+            '" width="50" height="14" rx="3" fill="var(--sunk)" stroke="var(--line-strong)"/>' +
+            '<circle cx="' +
+            (bx + 8) +
+            '" cy="' +
+            (n.y + 13) +
+            '" r="3" fill="' +
+            (cont.highest === 1 ? "var(--danger)" : cont.highest === 2 ? "var(--warn)" : "var(--ward)") +
+            '"/>' +
+            '<text x="' +
+            (bx + 15) +
+            '" y="' +
+            (n.y + 16.5) +
+            '" class="t-cont">' +
+            cont.count +
+            " aimed</text></g>";
+          bx -= 6;
+        }
+        if (stale) {
+          var staleLabel = staleWord(u),
+            bw = 12 + staleLabel.length * 5.9;
+          bx -= bw;
+          badges +=
+            '<g><rect x="' +
+            bx +
+            '" y="' +
+            (n.y + 6) +
+            '" width="' +
+            bw +
+            '" height="14" rx="3" fill="var(--warn-soft)" stroke="var(--warn)"/>' +
+            '<text x="' +
+            (bx + bw / 2) +
+            '" y="' +
+            (n.y + 16.5) +
+            '" text-anchor="middle" class="t-cont" style="fill:var(--warn)">' +
+            esc(staleLabel) +
+            "</text></g>";
+        }
+        var shownName = u.name,
+          perChar = u.name.length > 24 ? 5.3 : 6.4,
+          nameMax = bx - 6 - (n.x + 10);
+        if (badges && shownName.length * perChar > nameMax) {
+          shownName = shownName.slice(0, Math.max(6, Math.floor(nameMax / perChar) - 1)) + "\u2026";
         }
 
         nodes +=
@@ -4157,6 +4622,7 @@
               u.blocked +
               ", occupied " +
               u.occupied +
+              (stale ? ", bed figures stale, last confirmed " + u.confirmedMinAgo + " minutes ago" : "") +
               ", " +
               (cont.count === 0
                 ? "no other movement pointed here"
@@ -4189,7 +4655,7 @@
           '" class="t-wn"' +
           (u.name.length > 24 ? ' style="font-size:9.5px"' : "") +
           ">" +
-          esc(u.name) +
+          esc(shownName) +
           "</text>" +
           svgText(n.x + 10, n.y + 30, designation(u) + " · " + u.cohort + " · " + u.beds + " beds", "t-wc") +
           bedGrid(n.x + 10, n.y + 36, u) +
@@ -4199,27 +4665,7 @@
             "Ready " + u.ready + " · Held " + u.held + " · Blocked " + u.blocked + " · Occupied " + u.occupied,
             "t-wc",
           ) +
-          (cont.count > 0
-            ? '<g><rect x="' +
-              (n.x + n.w - 58) +
-              '" y="' +
-              (n.y + 6) +
-              '" width="50" height="14" rx="3" fill="var(--sunk)" stroke="var(--line-strong)"/>' +
-              '<circle cx="' +
-              (n.x + n.w - 50) +
-              '" cy="' +
-              (n.y + 13) +
-              '" r="3" fill="' +
-              (cont.highest === 1 ? "var(--danger)" : cont.highest === 2 ? "var(--warn)" : "var(--ward)") +
-              '"/>' +
-              '<text x="' +
-              (n.x + n.w - 43) +
-              '" y="' +
-              (n.y + 16.5) +
-              '" class="t-cont">' +
-              cont.count +
-              " aimed</text></g>"
-            : "") +
+          badges +
           (isCand
             ? /* One colour per availability, the same one the route line and the legend swatch use.
            A "Declined before" node used to be lettered in --danger while its own route line
@@ -4373,9 +4819,10 @@
         '<div class="lgGroup"><span class="lgTitle">Health service</span>' +
         svcItems +
         "</div>" +
-        '<div class="lgGroup"><span class="lgTitle">Aimed</span>' +
+        '<div class="lgGroup"><span class="lgTitle">Marks</span>' +
         '<span class="lgItem"><span class="peer" style="gap:3px"><i data-t="1" aria-hidden="true"></i><span class="pid">2 aimed</span></span>' +
         "Other open movements pointed at this ward. The dot is their highest tier</span>" +
+        '<span class="lgItem"><i class="sw" style="background:var(--warn-soft);border-color:var(--warn)"></i>Stale: bed figures older than the ward\u2019s own confirmation window</span>' +
         "</div>" +
         '<span class="schematic">Schematic, not geographic</span>';
     }
@@ -5279,6 +5726,7 @@
    ============================================================ */
 
     function renderAll() {
+      renderFigures();
       renderEds();
       renderQueues();
       renderDiagram();
@@ -5779,6 +6227,31 @@
       });
       state.unitId = savedUnitId;
 
+      /* THE MASTHEAD FIGURES. Each is counted from the same arrays the panels read, and the two
+     marks this edition adds (a stale ward on the map, a breach in red) must both be reachable
+     in this fixture, or the screen ships a state nothing has exercised. */
+      var figs = {};
+      figures().forEach(function (f) {
+        figs[f.label] = f;
+      });
+      if (figs["Open"].value !== MOVEMENTS.filter(isOpen).length)
+        problems.push("the masthead open count disagrees with the movement list");
+      if (figs["Wards confirmed"].of !== UNITS.length)
+        problems.push("the masthead ward count is not the number of wards");
+      if (figs["Wards confirmed"].value === UNITS.length)
+        problems.push("no ward is stale, so the stale mark on the map is never exercised");
+      if (figs["Breached"].value === 0)
+        problems.push("no open movement is breached, so the red masthead figure is never exercised");
+      MOVEMENTS.filter(isOpen).forEach(function (m) {
+        var r = routeLine(m);
+        if (m.accepted && r.indexOf("accepted") === -1)
+          problems.push(m.id + ": accepted, but the queue route does not say so");
+        if (!m.accepted && m.referred.length && r.indexOf("referred") === -1)
+          problems.push(m.id + ": referred, but the queue route does not say so");
+        if (!m.accepted && !m.referred.length && r.indexOf("no destination yet") === -1)
+          problems.push(m.id + ": has no destination, but the queue route does not say so");
+      });
+
       if (problems.length && typeof console !== "undefined")
         console.error("Ward Flow reconciliation failed:", problems);
       return problems;
@@ -5787,6 +6260,18 @@
     /* Exposed so a browser check can read the list rather than scrape the console. */
     window.__commandCheck = reconcile();
     renderAll();
+
+    /* The check, said out loud in the rail foot. */
+    (function () {
+      var el = document.getElementById("railCheck");
+      if (!el) return;
+      var p = window.__commandCheck;
+      el.setAttribute("data-ok", p.length === 0 ? "true" : "false");
+      el.textContent =
+        p.length === 0
+          ? "Figures reconciled at load. No discrepancies."
+          : count(p.length, "discrepancy", "discrepancies") + " found at load. Open the console to read them.";
+    })();
 
     /* The diagram's own width never changes on resize (layout() takes no viewport input), only
    diagWrap's does, so the overflow affordance needs re-measuring here even though nothing about
@@ -5798,5 +6283,31 @@
         raf = requestAnimationFrame(updateDiagramAffordance);
       });
     })();
+  })();
+</script>
+
+<script>
+  /* The appearance control. "Auto" follows the machine and stamps nothing, which is the state
+     most readers are in; Light and Dark stamp the root so the page's own choice wins. */
+  (function () {
+    var root = document.documentElement;
+    var group = document.getElementById("appearance");
+    if (!group) return;
+    function reflect() {
+      var cur = root.getAttribute("data-theme") || "auto";
+      var btns = group.querySelectorAll("[data-set-theme]");
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].setAttribute("aria-pressed", btns[i].getAttribute("data-set-theme") === cur ? "true" : "false");
+      }
+    }
+    group.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-set-theme]") : null;
+      if (!b) return;
+      var v = b.getAttribute("data-set-theme");
+      if (v === "auto") root.removeAttribute("data-theme");
+      else root.setAttribute("data-theme", v);
+      reflect();
+    });
+    reflect();
   })();
 </script>
