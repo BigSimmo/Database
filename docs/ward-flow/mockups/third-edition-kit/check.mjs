@@ -170,7 +170,15 @@ await route(p);
 await p.goto("file://" + process.cwd() + "/" + file, { waitUntil: "load" });
 await p.waitForTimeout(500);
 const bg0 = await p.evaluate(() => getComputedStyle(document.body).backgroundColor);
-const btn = (await p.$(".apBtn >> text=Light")) || (await p.$("#themeToggle"));
+let btn = (await p.$(".apBtn >> text=Light")) || (await p.$("#themeToggle"));
+// A page whose appearance control lives in the Tools drawer (build sheet 9.6) shows no .apBtn
+// until the drawer is open, so open it first rather than time out, as check-preview.mjs does.
+if (!(btn && (await btn.isVisible())) && (await p.$("#toolsMenu summary"))) {
+  await p.click("#toolsMenu summary");
+  await p.waitForTimeout(300);
+  btn = await p.$(".apBtn >> text=Light");
+  if (btn) await btn.scrollIntoViewIfNeeded();
+}
 if (btn) {
   await btn.click();
   await p.waitForTimeout(300);
