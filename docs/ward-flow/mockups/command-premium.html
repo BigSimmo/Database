@@ -7,7 +7,7 @@
 />
 <style>
   /* ═══════════════════════════════════════════════════════════════════════
-     WARD FLOW — COMMAND. Final edition, light and dark.
+     WARD FLOW — COMMAND. Live edition, light and dark.
 
      THE RULES THIS FILE KEEPS, in the order they matter:
 
@@ -25,11 +25,20 @@
      5. One elevation step. A panel is lifted off the ground by a hairline and
         one low shadow, and nothing inside a panel is lifted again. Radii step
         inward: 10px panels, 6px controls, a pill for chips. Hairlines are
-        solid, never dashed. A scrolling region that overflows shows a soft
-        shade at its edge and a sentence, never a frame.
+        solid, never dashed. A scrolling region that overflows sideways shows
+        a soft shade at its edge and a sentence, never a frame. A list that
+        continues past its window fades into the edge it continues past, and
+        the fade is lifted the moment the end is reached: it is measured on
+        every render, scroll and resize, never declared. The legend is a
+        disclosure, open where the diagram has room to spare and closed where
+        it does not, and the reader's own choice wins from then on. The map's
+        caveat, schematic not geographic, stays on the page either way.
      6. Colour has four jobs and they never share a hue. The accent (Prussian
         blue) means brand and interactive. Gilt means "you are here": the
-        active nav item, the live tab, the selected row, the current stage.
+        active nav item, the live tab, the selected row, the current stage,
+        and nothing else, which is why the prototype chip in the masthead is
+        neutral. The two letters beside the wordmark are the page's one
+        ornament and the only other gilt on it.
         Green, amber and red mean status only. The four health services have
         hues of their own. On the flow map only an eligible or a recorded
         ward carries a fill; every other verdict is an outline and a word.
@@ -43,7 +52,15 @@
         For print every token takes its light value, on all three roots.
      9. Every figure is invented and the page says so twice, once in the
         masthead and once in the rail foot, beside the reconciliation line the
-        page derives on every load.
+        page derives on every load. The two counts on the rail are derived
+        too: open movements, and overrides recorded for governance review.
+    10. Optical, not arithmetic. A tracked uppercase label that ends a line
+        carries its own trailing tracking as a negative margin, so it sits
+        flush with whatever is under it. An inner corner is one pixel tighter
+        than the panel it sits in. Every control draws rest, hover, pressed
+        and focus, a disabled control says why and does not light on hover,
+        and every change of subject is spoken to a screen reader as a
+        sentence. The appearance choice is remembered for this browser only.
 
      Contrast, computed rather than judged. Light:
        ink on surface 17.8:1 · ink on ground 16.3:1
@@ -315,8 +332,30 @@
   .cand:focus-visible,
   .edCard:focus-visible,
   .tabBtn:focus-visible,
-  .railLink:focus-visible {
+  .railLink:focus-visible,
+  .qList:focus-visible,
+  .tabPane:focus-visible {
     outline-offset: -2px;
+  }
+  /* Keyboard readers land on the queue first. Visible only while focused. */
+  .skip {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    z-index: 10;
+    padding: 8px 12px;
+    border-radius: var(--r2);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 600;
+    font-size: var(--t-2);
+    text-decoration: none;
+    transform: translateY(-300%);
+    box-shadow: var(--lift);
+  }
+  .skip:focus-visible {
+    transform: none;
+    outline-offset: 2px;
   }
   .dNode:focus-visible {
     outline: none;
@@ -360,6 +399,35 @@
     border-radius: 9px;
     border: 2px solid transparent;
     background-clip: padding-box;
+  }
+  /* A list that continues past its window fades into that edge. Both fades are switched by a
+     measurement (updateFades in the script), so the last row is never softened once the end has
+     been reached, and a region that does not scroll shows no fade at all. */
+  .qList,
+  .tabBody,
+  .slBody {
+    --fade-top: 0px;
+    --fade-bottom: 0px;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--fade-top),
+      #000 calc(100% - var(--fade-bottom)),
+      transparent
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--fade-top),
+      #000 calc(100% - var(--fade-bottom)),
+      transparent
+    );
+  }
+  [data-fade-top="true"] {
+    --fade-top: 22px;
+  }
+  [data-fade-bottom="true"] {
+    --fade-bottom: 26px;
   }
 
   /* ─── frame and rail ───────────────────────────────────────────────── */
@@ -572,7 +640,7 @@
     justify-self: start;
   }
   .apBtn {
-    padding: 3px 11px;
+    padding: 3px calc(11px - 0.04em) 3px 11px;
     border-radius: 999px;
     font-size: var(--t-0);
     font-weight: 600;
@@ -609,11 +677,21 @@
     letter-spacing: -0.012em;
     color: var(--ink);
   }
+  /* Title, chip and disclaimer are one flex group, so on a laptop the disclaimer drops under
+     the title while the figures keep their row, instead of the figures dropping under both. */
+  .title {
+    flex: 1 1 24rem;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
   .topbar .sub {
     flex: 1 1 22ch;
     font-size: var(--t-1);
     color: var(--muted);
-    max-width: 44ch;
+    max-width: 60ch;
     line-height: 1.45;
     text-wrap: pretty;
   }
@@ -630,11 +708,12 @@
     white-space: nowrap;
   }
   .chip.mark {
-    border-color: var(--gilt);
-    color: var(--gilt);
+    border-color: var(--line-strong);
+    color: var(--ink-soft);
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    padding-right: calc(10px - 0.08em);
   }
   /* The state of the day: five figures counted from the data on every render, before any
      detail. Mono figures, uppercase labels, and no colour except red on a breach above zero. */
@@ -743,7 +822,7 @@
     padding: 11px 16px;
     border-bottom: 1px solid var(--line);
     background: var(--surface-2);
-    border-radius: var(--r1) var(--r1) 0 0;
+    border-radius: calc(var(--r1) - 1px) calc(var(--r1) - 1px) 0 0;
   }
   .ph h2,
   .ph h3 {
@@ -757,6 +836,45 @@
     font-size: var(--t-0);
     color: var(--muted);
     white-space: nowrap;
+  }
+  /* A quiet disclosure control in a panel header: uppercase like the count beside it, with a
+     chevron that turns. The legend it controls opens by default only where the diagram has room
+     to spare; the media query is stated once, in the script. */
+  .phBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 7px;
+    margin: -2px -7px -2px 0;
+    border-radius: 4px;
+    font-size: var(--t-0);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    transition:
+      color 0.12s,
+      background 0.12s;
+  }
+  .phBtn::after {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-1.5px) rotate(45deg);
+    transition: transform 0.12s;
+  }
+  .phBtn[aria-expanded="true"]::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .phBtn:hover {
+    color: var(--ink);
+    background: var(--sunk);
+  }
+  .phBtn[aria-expanded="true"] {
+    color: var(--ink);
   }
   .note {
     font-size: var(--t-1);
@@ -799,9 +917,14 @@
     overflow-x: auto;
     padding: 12px 16px;
   }
+  /* Same affordance as the diagram: a soft shade at the edge the strip continues past, and the
+     header count says so in words. */
+  .edList[data-overflowing="true"] {
+    box-shadow: inset -18px 0 16px -16px var(--edge-shade);
+  }
   .edList > li {
     flex: 1 1 10rem;
-    min-width: 9.5rem;
+    min-width: 9rem;
     display: flex;
   }
   .edCard {
@@ -859,7 +982,15 @@
   .edStat {
     font-size: var(--t-1);
     color: var(--ink-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+  .edStat.quiet {
+    color: var(--muted);
+  }
+  /* The bar is the longest wait against the longest in the network. Its colour repeats the
+     card's own pressure word, so a quiet department never carries a red bar. */
   .edBar {
     height: 4px;
     border-radius: 2px;
@@ -870,7 +1001,13 @@
     display: block;
     height: 100%;
     border-radius: 2px;
-    background: var(--ed);
+    background: var(--muted);
+  }
+  .edCard[data-p="high"] .edBar i {
+    background: var(--danger);
+  }
+  .edCard[data-p="med"] .edBar i {
+    background: var(--warn);
   }
   .edBreach {
     font-size: var(--t-1);
@@ -886,13 +1023,13 @@
     overflow-x: auto;
   }
   .tabsPanel .tabbar {
-    border-radius: var(--r1) var(--r1) 0 0;
+    border-radius: calc(var(--r1) - 1px) calc(var(--r1) - 1px) 0 0;
   }
   .tabBtn {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: calc(7px - 0.08em);
     padding: 10px 14px;
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
@@ -1087,30 +1224,48 @@
   .diagWrap[data-overflowing="true"] {
     box-shadow: inset -18px 0 16px -16px var(--edge-shade);
   }
+  /* One line under the diagram, always: the sideways-scroll sentence when the diagram is wider
+     than its window, and the reminder that the map is a schematic. The legend continues the same
+     band below it when it is open. */
+  .diagFoot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 16px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    border-radius: 0 0 calc(var(--r1) - 1px) calc(var(--r1) - 1px);
+  }
   .diagScrollNote {
-    padding: 6px 16px 0;
+    flex: 1 1 auto;
     font-size: var(--t-0);
     line-height: 1.4;
     color: var(--muted);
   }
+  .diagFoot .schematic {
+    margin-left: auto;
+    white-space: nowrap;
+  }
   .dNode {
     cursor: pointer;
   }
+  /* Hover lifts the node a touch instead of recolouring it, so an eligible ward's fill and a
+     declined ward's dashed outline keep saying what they say while the pointer is over them. */
   .dNode rect.body {
-    transition: fill 0.12s;
+    transition: filter 0.12s;
   }
   .dNode:hover rect.body {
-    fill: var(--sunk);
+    filter: drop-shadow(0 1px 2px var(--edge-shade));
   }
   .legend {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 5px 14px;
-    padding: 10px 16px;
-    border-top: 1px solid var(--line);
+    padding: 2px 16px 10px;
     background: var(--surface-2);
-    border-radius: 0 0 var(--r1) var(--r1);
+    border-radius: 0 0 calc(var(--r1) - 1px) calc(var(--r1) - 1px);
   }
   /* Titles and swatches flow as one wrapping line, so the legend costs the diagram
      three lines of height rather than six. */
@@ -1144,6 +1299,7 @@
   }
   .schematic {
     margin-left: auto;
+    margin-right: -0.1em;
     font-size: var(--t-0);
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -1292,9 +1448,12 @@
       background 0.12s,
       border-color 0.12s;
   }
-  .ctl:hover,
-  .ctl:active {
+  .ctl:hover {
     background: var(--sunk);
+    border-color: var(--ink-soft);
+  }
+  .ctl:active {
+    background: var(--line);
     border-color: var(--ink-soft);
   }
   .ctl.primary {
@@ -1315,6 +1474,16 @@
     opacity: 0.5;
     cursor: not-allowed;
     box-shadow: none;
+  }
+  .ctl[aria-disabled="true"]:not(.primary):hover,
+  .ctl[aria-disabled="true"]:not(.primary):active {
+    background: var(--surface);
+    border-color: var(--line-strong);
+  }
+  .ctl.primary[aria-disabled="true"]:hover,
+  .ctl.primary[aria-disabled="true"]:active {
+    background: var(--accent);
+    border-color: var(--accent);
   }
   .candList {
     display: grid;
@@ -1370,6 +1539,7 @@
   }
   .candSvc {
     margin-left: auto;
+    margin-right: -0.08em;
     font-size: var(--t-0);
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1576,6 +1746,7 @@
     font-weight: 600;
     font-size: var(--t-0);
     letter-spacing: 0.1em;
+    margin-right: -0.1em;
     text-transform: uppercase;
     text-align: right;
     white-space: nowrap;
@@ -1685,6 +1856,14 @@
       display: flex;
       flex-direction: column;
     }
+    /* Only the scrolling body of a locked column may give up height. Headers, tab strips, the
+       diagram foot and the legend keep theirs, or a short screen squeezes a tab strip shut. */
+    .qPanel > :not(.qList),
+    .diagPanel > :not(.diagWrap),
+    .tabsPanel > :not(.tabBody),
+    .slPanel > :not(.slBody) {
+      flex: 0 0 auto;
+    }
     .qList {
       flex: 1 1 auto;
       min-height: 0;
@@ -1748,13 +1927,33 @@
       padding: 9px 16px;
     }
   }
+  /* Between a laptop and a full desktop the outer columns give up a little so the diagram keeps
+     more, and the register tabs and masthead figures sit closer. */
+  @media (min-width: 1400px) and (max-width: 1599px) {
+    .grid3 {
+      grid-template-columns: 14rem minmax(0, 1fr) 23rem;
+    }
+    .tabBtn {
+      padding: 10px 11px;
+    }
+    .kpis {
+      gap: 6px 14px;
+    }
+  }
   @media (max-width: 1399px) and (min-width: 1001px) {
     .grid3 {
       grid-template-columns: 15rem minmax(0, 1fr);
     }
+    /* The queue stays in view while the shortlist below scrolls past it. */
     .grid3 > .qPanel {
       grid-column: 1;
       grid-row: 1 / span 2;
+      position: sticky;
+      top: 12px;
+      align-self: start;
+      max-height: calc(100vh - 24px);
+      display: flex;
+      flex-direction: column;
     }
     .grid3 > .midCol {
       grid-column: 2;
@@ -1765,7 +1964,9 @@
       grid-row: 2;
     }
     .qList {
-      max-height: 52rem;
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
     }
     .slBody {
       display: grid;
@@ -1960,6 +2161,15 @@
     .slBody {
       max-height: none !important;
       overflow: visible !important;
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+    .skip,
+    .phBtn {
+      display: none;
+    }
+    .legend[hidden] {
+      display: flex !important;
     }
     .tabPane[hidden] {
       display: block !important;
@@ -1978,6 +2188,7 @@
 </style>
 
 <div class="app">
+  <a class="skip" href="#qpane-patients">Skip to the priority queue</a>
   <nav class="rail" aria-label="Ward Flow sections">
     <div class="brand"><b>Ward Flow</b><span>WA</span></div>
 
@@ -1989,7 +2200,7 @@
             <path d="M3 3h5v5H3zM10 3h5v5h-5zM3 10h5v5H3zM10 10h5v5h-5z" /></svg
           >Command</span
         >
-        <span class="tag">14</span>
+        <span class="tag" id="railOpen" title="Open movements on the pathway">14</span>
       </button>
       <button class="railLink" type="button">
         <span class="railLabel"
@@ -2065,7 +2276,7 @@
             <path d="M9 2l6 3v4c0 4-2.7 6.3-6 7-3.3-.7-6-3-6-7V5z" /></svg
           >Governance</span
         >
-        <span class="tag">4</span>
+        <span class="tag" id="railGov" title="Overrides recorded for governance review">4</span>
       </button>
     </div>
 
@@ -2088,13 +2299,16 @@
   </nav>
 
   <div class="frame">
+    <p class="srOnly" id="live" aria-live="polite" aria-atomic="true"></p>
     <header class="topbar">
-      <h1>Command</h1>
-      <span class="chip mark">Synthetic prototype</span>
-      <span class="sub"
-        >Every ward state, movement, referral and figure on this screen is invented. Not a medical device and not
-        clinical decision support.</span
-      >
+      <div class="title">
+        <h1>Command</h1>
+        <span class="chip mark">Synthetic prototype</span>
+        <span class="sub"
+          >Every ward state, movement, referral and figure on this screen is invented. Not a medical device and not
+          clinical decision support.</span
+        >
+      </div>
       <div class="state">
         <dl class="kpis" id="kpis" aria-label="The state of the day"></dl>
         <div class="clock" aria-label="Saturday 15 August 2026, 10:42 Australian Western Standard Time">
@@ -2169,8 +2383,24 @@
             <div class="ph">
               <h2>Statewide flow</h2>
               <span class="count" id="diagStatus"></span>
+              <button
+                type="button"
+                class="phBtn"
+                id="legendToggle"
+                data-toggle-legend="1"
+                aria-controls="legend"
+                aria-expanded="true"
+              >
+                Legend
+              </button>
             </div>
             <div class="diagWrap" id="diagWrap"></div>
+            <div class="diagFoot">
+              <span class="diagScrollNote" id="diagScrollNote" hidden
+                >This diagram is wider than the panel. Scroll sideways to see the rest.</span
+              >
+              <span class="schematic">Schematic, not geographic</span>
+            </div>
             <div class="legend" id="legend"></div>
           </section>
 
@@ -3438,7 +3668,50 @@
         },
       ];
     }
+    /* Every change of subject is said as one sentence to assistive technology, since the panels
+   re-render silently. A zero-width mark alternates so the same sentence twice is still spoken. */
+    function announce(text) {
+      var el = document.getElementById("live");
+      if (!el) return;
+      el.textContent = el.textContent === text ? text + "\u200b" : text;
+    }
+
+    /* The vertical scroll regions: a fade at whichever edge content continues past, measured rather
+   than declared, and re-measured on every render, scroll and resize. The four regions are the
+   two queue lists, the register body and the shortlist body. */
+    var FADE_IDS = ["qpane-patients", "qpane-referrals", "tabBody"];
+    function fadeTargets() {
+      var els = FADE_IDS.map(function (id) {
+        return document.getElementById(id);
+      });
+      var sl = document.querySelector(".slBody");
+      if (sl) els.push(sl);
+      return els.filter(Boolean);
+    }
+    function updateFades() {
+      fadeTargets().forEach(function (el) {
+        var more = el.scrollHeight - el.clientHeight;
+        var top = more > 1 && el.scrollTop > 1;
+        var bottom = more > 1 && el.scrollTop < more - 1;
+        el.setAttribute("data-fade-top", top ? "true" : "false");
+        el.setAttribute("data-fade-bottom", bottom ? "true" : "false");
+      });
+    }
+    document.addEventListener(
+      "scroll",
+      function (evt) {
+        var t = evt.target;
+        if (!t || t.nodeType !== 1) return;
+        if (FADE_IDS.indexOf(t.id) !== -1 || (t.classList && t.classList.contains("slBody"))) updateFades();
+      },
+      true,
+    );
+
     function renderFigures() {
+      var railOpen = document.getElementById("railOpen");
+      if (railOpen) railOpen.textContent = String(MOVEMENTS.filter(isOpen).length);
+      var railGov = document.getElementById("railGov");
+      if (railGov) railGov.textContent = String(OVERRIDES.length);
       var el = document.getElementById("kpis");
       if (!el) return;
       el.innerHTML = figures()
@@ -3897,6 +4170,7 @@
       tab: "exceptions",
       referralId: null,
       queueTab: "patients",
+      legendOpen: null,
     };
 
     /* Exceptions leads: it is the one register that says what is wrong across every open movement. */
@@ -3928,7 +4202,7 @@
     function deadlineLine(r) {
       if (r.waiting === 0) return "Nobody waiting here";
       if (r.withDeadline > 0) return count(r.withDeadline, "deadline", "deadlines") + " being met";
-      return "No deadline recorded here";
+      return "No deadline recorded";
     }
 
     function renderEds() {
@@ -3961,21 +4235,23 @@
             esc(r.ed.service) +
             "</em></span>" +
             '<span class="edStat" aria-hidden="true">' +
-            (r.waiting === 0 ? "None waiting" : r.waiting + " waiting &middot; longest " + dur(r.longest)) +
+            (r.waiting === 0 ? "None waiting" : r.waiting + " waiting") +
+            "</span>" +
+            '<span class="edStat quiet" aria-hidden="true">' +
+            (r.waiting === 0 ? "\u00a0" : "Longest " + dur(r.longest)) +
             "</span>" +
             '<span class="edBar" aria-hidden="true"><i style="width:' +
             pct +
             '%"></i></span>' +
             (r.breaching > 0
               ? '<span class="edBreach" aria-hidden="true">' + r.breaching + " breaching</span>"
-              : '<span class="edStat" aria-hidden="true" style="color:var(--muted)">' +
-                esc(deadlineLine(r)) +
-                "</span>") +
+              : '<span class="edStat quiet" aria-hidden="true">' + esc(deadlineLine(r)) + "</span>") +
             "</button></li>"
           );
         })
         .join("");
       document.getElementById("edList").innerHTML = html;
+      updateStripAffordance();
     }
 
     /* ============================================================
@@ -4007,6 +4283,7 @@
       if (QTABS.indexOf(name) === -1) return;
       state.queueTab = name;
       renderQueueTabs();
+      updateFades();
       if (focus) document.getElementById("qtab-" + name).focus();
     }
 
@@ -4050,6 +4327,7 @@
       renderPatientQueue();
       renderReferralQueue();
       renderQueueTabs();
+      updateFades();
     }
 
     function renderPatientQueue() {
@@ -4140,14 +4418,14 @@
    ============================================================ */
 
     var GEO = {
-      pad: 12,
+      pad: 10,
       edX: 14,
       edW: 150,
       hubX: 218,
       hubW: 180,
       wardX: 454,
       wardColW: 236,
-      wardGap: 36,
+      wardGap: 30,
       nodeH: 70,
       nodeGap: 7,
     };
@@ -4299,17 +4577,31 @@
       var overflowing = !!svg && wrap.scrollWidth > wrap.clientWidth + 1;
       wrap.dataset.overflowing = overflowing ? "true" : "false";
       var note = document.getElementById("diagScrollNote");
-      if (!overflowing) {
-        if (note) note.parentNode.removeChild(note);
-        return;
-      }
-      if (!note) {
-        note = document.createElement("p");
-        note.id = "diagScrollNote";
-        note.className = "diagScrollNote";
-        wrap.parentNode.insertBefore(note, wrap.nextSibling);
-      }
-      note.textContent = "This diagram is wider than the panel — scroll sideways to see the rest.";
+      if (note) note.hidden = !overflowing;
+    }
+
+    /* The pressure strip: the same measured affordance as the diagram, in the header count. */
+    function updateStripAffordance() {
+      var list = document.getElementById("edList");
+      if (!list) return;
+      var overflowing = list.scrollWidth > list.clientWidth + 1;
+      list.dataset.overflowing = overflowing ? "true" : "false";
+      var n = edPressure().length;
+      document.getElementById("edCount").textContent =
+        n + " departments" + (overflowing ? " \u00b7 scroll sideways for the rest" : "");
+    }
+
+    /* The legend opens by default only where the diagram has room to spare, and the reader can
+   change that at any time from the panel header. Stated once, here, for the default and the
+   toggle alike. */
+    var LEGEND_OPEN_QUERY = "(min-width: 1600px) and (min-height: 960px)";
+    function renderLegendState() {
+      if (state.legendOpen === null)
+        state.legendOpen = !!(window.matchMedia && window.matchMedia(LEGEND_OPEN_QUERY).matches);
+      var lg = document.getElementById("legend"),
+        b = document.getElementById("legendToggle");
+      if (lg) lg.hidden = !state.legendOpen;
+      if (b) b.setAttribute("aria-expanded", state.legendOpen ? "true" : "false");
     }
 
     function renderDiagram() {
@@ -4784,7 +5076,7 @@
           SERVICE_COLOR[s] +
           '"></i>' +
           esc(s) +
-          (n === 0 ? ' <em style="color:var(--muted);font-style:normal">— no unit in this view</em>' : " (" + n + ")") +
+          (n === 0 ? ' <em style="color:var(--muted);font-style:normal">none in this view</em>' : " (" + n + ")") +
           "</span>"
         );
       }).join("");
@@ -4793,22 +5085,25 @@
         '<div class="lgGroup"><span class="lgTitle">Lines</span>' +
         '<span class="lgItem">' +
         lineSwatch("var(--ed)", 2.5, "") +
-        "Demand from origin ED</span>" +
+        "From the origin ED</span>" +
         '<span class="lgItem">' +
         lineSwatch(AV_COLOUR.eligible, 2, "") +
-        "Route — eligible candidate</span>" +
+        esc(AV_LABEL.eligible) +
+        "</span>" +
         '<span class="lgItem">' +
         lineSwatch(AV_COLOUR.declined, 1.5, "2 3") +
-        "Route — declined before</span>" +
+        esc(AV_LABEL.declined) +
+        "</span>" +
         '<span class="lgItem">' +
         lineSwatch(AV_COLOUR.overridable, 1.5, "5 4") +
-        "Route — needs a recorded reason</span>" +
+        esc(AV_LABEL.overridable) +
+        "</span>" +
         '<span class="lgItem">' +
         lineSwatch("var(--good)", 3, "") +
         "Recorded destination</span>" +
         '<span class="lgItem">' +
         lineSwatch("var(--line-strong)", 1, "") +
-        "Network, not routed</span>" +
+        "Not routed</span>" +
         "</div>" +
         '<div class="lgGroup"><span class="lgTitle">Beds</span>' +
         '<span class="lgItem"><i class="sw" style="background:var(--good);border-color:var(--good)"></i>Ready</span>' +
@@ -4821,10 +5116,10 @@
         "</div>" +
         '<div class="lgGroup"><span class="lgTitle">Marks</span>' +
         '<span class="lgItem"><span class="peer" style="gap:3px"><i data-t="1" aria-hidden="true"></i><span class="pid">2 aimed</span></span>' +
-        "Other open movements pointed at this ward. The dot is their highest tier</span>" +
-        '<span class="lgItem"><i class="sw" style="background:var(--warn-soft);border-color:var(--warn)"></i>Stale: bed figures older than the ward\u2019s own confirmation window</span>' +
-        "</div>" +
-        '<span class="schematic">Schematic, not geographic</span>';
+        "Other movements pointed here, the dot is their highest tier</span>" +
+        '<span class="lgItem"><i class="sw" style="background:var(--warn-soft);border-color:var(--warn)"></i>Stale, figures older than the ward\u2019s window</span>' +
+        "</div>";
+      renderLegendState();
     }
 
     function lineSwatch(color, width, dash) {
@@ -5272,6 +5567,7 @@
         wardDetailHtml() +
         "</div>" +
         "</div>";
+      updateFades();
     }
 
     /* ============================================================
@@ -5335,6 +5631,7 @@
         wardDetailHtml() +
         "</div>" +
         "</div>";
+      updateFades();
     }
 
     /* A bed is pulled from the moment the pull is recorded until the movement leaves the
@@ -5537,6 +5834,7 @@
       if (focus) document.getElementById("tab-" + name).focus();
       var body = document.getElementById("tabBody");
       if (body) body.scrollTop = 0;
+      updateFades();
     }
 
     function renderDeclines() {
@@ -5736,6 +6034,7 @@
       renderExceptions();
       renderRefusals();
       renderTabs();
+      updateFades();
     }
 
     function selectMovement(id) {
@@ -5745,6 +6044,7 @@
       state.unitId = null; /* a ward choice belongs to the movement it was made for */
       state.showBlocked = false;
       renderAll();
+      announce("Shortlist now explains " + id + ".");
     }
 
     function selectReferral(id) {
@@ -5752,6 +6052,9 @@
       state.referralId = state.referralId === id ? null : id;
       state.unitId = null;
       renderShortlist();
+      announce(
+        state.referralId ? "Referral placement now shows " + id + "." : "Shortlist back to " + state.movementId + ".",
+      );
     }
 
     document.addEventListener("click", function (evt) {
@@ -5768,10 +6071,21 @@
         return;
       }
 
+      var lgt = t.closest ? t.closest("[data-toggle-legend]") : null;
+      if (lgt) {
+        state.legendOpen = !state.legendOpen;
+        renderLegendState();
+        updateDiagramAffordance();
+        updateFades();
+        announce(state.legendOpen ? "Legend shown." : "Legend hidden.");
+        return;
+      }
+
       var clear = t.closest ? t.closest("[data-clear-filter]") : null;
       if (clear) {
         state.edFilter = null;
         renderAll();
+        announce("Queue filter cleared.");
         return;
       }
 
@@ -5800,6 +6114,7 @@
         state.unitId = state.unitId === uid ? null : uid;
         renderDiagram();
         renderShortlist();
+        announce(state.unitId ? "Eligibility checks now for " + unit(uid).name + "." : "Ward selection cleared.");
         return;
       }
 
@@ -5813,7 +6128,23 @@
        already follows. */
         state.queueTab = "patients";
         renderAll();
+        announce(state.edFilter ? "Queue filtered to " + ed(eid).site + "." : "Queue filter cleared.");
         return;
+      }
+    });
+
+    /* Escape steps back one level: a selected ward first, then a department filter. */
+    document.addEventListener("keydown", function (evt) {
+      if (evt.key !== "Escape") return;
+      if (state.unitId) {
+        state.unitId = null;
+        renderDiagram();
+        renderShortlist();
+        announce("Ward selection cleared.");
+      } else if (state.edFilter) {
+        state.edFilter = null;
+        renderAll();
+        announce("Queue filter cleared.");
       }
     });
 
@@ -6280,7 +6611,11 @@
       var raf = null;
       window.addEventListener("resize", function () {
         if (raf) cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(updateDiagramAffordance);
+        raf = requestAnimationFrame(function () {
+          updateDiagramAffordance();
+          updateStripAffordance();
+          updateFades();
+        });
       });
     })();
   })();
@@ -6288,11 +6623,25 @@
 
 <script>
   /* The appearance control. "Auto" follows the machine and stamps nothing, which is the state
-     most readers are in; Light and Dark stamp the root so the page's own choice wins. */
+     most readers are in; Light and Dark stamp the root so the page's own choice wins. The choice
+     is remembered for this browser only, and a browser that refuses storage still gets the page. */
   (function () {
     var root = document.documentElement;
     var group = document.getElementById("appearance");
     if (!group) return;
+    var KEY = "ward-flow-command-appearance";
+    function remember(v) {
+      try {
+        if (v === "auto") localStorage.removeItem(KEY);
+        else localStorage.setItem(KEY, v);
+      } catch (e) {}
+    }
+    function restore() {
+      try {
+        var v = localStorage.getItem(KEY);
+        if (v === "light" || v === "dark") root.setAttribute("data-theme", v);
+      } catch (e) {}
+    }
     function reflect() {
       var cur = root.getAttribute("data-theme") || "auto";
       var btns = group.querySelectorAll("[data-set-theme]");
@@ -6306,8 +6655,10 @@
       var v = b.getAttribute("data-set-theme");
       if (v === "auto") root.removeAttribute("data-theme");
       else root.setAttribute("data-theme", v);
+      remember(v);
       reflect();
     });
+    restore();
     reflect();
   })();
 </script>
