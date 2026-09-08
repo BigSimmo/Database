@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (307 files) and the `package.json` script surface (300 entries),
+Curated map of `scripts/` (312 files) and the `package.json` script surface (306 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -85,6 +85,7 @@ Also catalogued (2026-09-02), gate and CI helpers:
 - `check-ledger-write-discipline.mjs` (`check:ledger-write-discipline`) — enforces the conflict-free ledger architecture at the Git boundary: immutable review records, one serial outstanding-issues reconciliation.
 - `check-mockup-retirement.mjs` (`check:mockups`) — makes the written record in `mockups/README.md`, not a reachability scan, the gate on retiring a mockup.
 - `check-outstanding-issues-snapshot.mjs` (`check:outstanding-issues-snapshot`) + `generate-outstanding-issues-snapshot.mjs` (`snapshot:issues`; also `prebuild`/`postbuild`) — `data/outstanding-issues-snapshot.json` freshness and generation.
+- `generate-hazard-register-snapshot.mjs` (`snapshot:hazards`) — builds `data/hazard-register-snapshot.json` for the developer hub's hazard register from `docs/clinical-hazard-controls.json`, `docs/clinical-hazard-analysis.md` and `docs/caring-contacts/hazard-log.md`, keeping the three registers separate and recording Ward Flow's missing register as an absence.
 - `check-repo-awareness-snapshot.ts` (`check:repo-awareness-snapshot`) + `generate-repo-awareness-snapshot.ts` (`snapshot:repo-awareness`) — `data/repo-awareness-snapshot.json` (routes, documentation catalogue coverage, review state) freshness and generation.
 - `check-privacy-readiness.mjs` (`check:privacy-readiness`, `check:privacy-readiness:release`) — validates `docs/governance/privacy-readiness.v1.json` required ids and release-blocking states.
 - `check-source-catalogue.ts` (`check:source-catalogue`) — repository source references, providers and coverage issues from `src/lib/sources/repository-providers`.

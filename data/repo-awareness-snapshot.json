@@ -795,6 +795,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/development/hazards",
+        "file": "src/app/mockups/development/hazards/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/caring-contacts/guidance",
         "file": "src/app/caring-contacts/guidance/page.tsx",
         "area": "product"
