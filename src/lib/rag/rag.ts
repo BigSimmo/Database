@@ -2751,6 +2751,7 @@ async function answerQuestionWithScopeUncoalesced(
       ? answerInputResults.filter((result) => validatedExtractiveShortCircuit.resultIds?.includes(result.id))
       : answerInputResults;
     const builtSourceSafeExtractiveAnswer = buildExtractiveAnswer({
+      allowSourceProseRecovery: true,
       query: args.query,
       queryClass,
       results: validatedExtractiveResults,
@@ -3492,6 +3493,7 @@ ${qualityRetryInstruction}`
     let numericVerificationSources: SearchResult[] | undefined;
     if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
       answer = buildExtractiveAnswer({
+        allowSourceProseRecovery: true,
         query: args.query,
         queryClass,
         results: answerInputResults,
@@ -3738,6 +3740,7 @@ ${qualityRetryInstruction}`
       const candidatePlan = buildCurrentSmartApiPlan("extractive", extractiveFallbackRouteReason, candidateResults);
       return {
         ...buildExtractiveAnswer({
+          allowSourceProseRecovery: true,
           query: args.query,
           queryClass,
           results: candidateResults,
