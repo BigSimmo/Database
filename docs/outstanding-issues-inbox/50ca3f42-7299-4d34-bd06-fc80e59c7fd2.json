@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "50ca3f42-7299-4d34-bd06-fc80e59c7fd2",
+  "createdOn": "2026-09-08",
+  "action": "cancel",
+  "payload": {
+    "requestId": "b7ec4f03-4820-4132-a470-6eece99e3cec",
+    "reason": "Fixed on main before this request was reconciled: a81fba485 'fix(ui): pair forced-colors danger text with its canvas' sets --danger to CanvasText in both ckb-v2-tokens.css and globals.css, and 824ae33ed re-pins the resolved values. The accompanying test change is a strengthening, not a relaxation: tests/ui-sources.spec.ts now runs in both light and dark schemes and asserts the Excluded chip is visible, which pins the data-dependence that made this intermittent. Nothing outstanding."
+  }
+}
