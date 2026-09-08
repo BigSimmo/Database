@@ -910,6 +910,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/dsm-favourites",
+        "file": "src/app/mockups/dsm-favourites/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/therapy-navigation-rail",
         "file": "src/app/mockups/therapy-navigation-rail/page.tsx",
         "area": "mockup"
@@ -5593,6 +5598,11 @@
       {
         "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-figures-report.md",
         "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/audit/codex-cloud-reliability-20260907.md",
+        "section": "audit",
         "catalogued": false
       },
       {

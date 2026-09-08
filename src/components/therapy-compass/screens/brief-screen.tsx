@@ -67,6 +67,12 @@ export function BriefScreen() {
   const durationLabel = duration.label;
   const durationText = duration.text(t);
   const steps = parseSteps(durationText, 6);
+  // `briefVersion` is a copy of `deliverySteps` on every catalogue record, so the
+  // duration tabs can present the record's full delivery protocol as though it
+  // were a version cut down to the time available. Say so rather than imply it.
+  const duplicatesFullProtocol = Boolean(
+    durationText && t.deliverySteps && durationText.trim() === t.deliverySteps.trim(),
+  );
   const interventionText = [
     `${t.name} — ${durationLabel} intervention`,
     "",
@@ -245,6 +251,12 @@ export function BriefScreen() {
                     <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-4">
                       {durationLabel} delivery
                     </div>
+                    {duplicatesFullProtocol ? (
+                      <p className="mt-0 mb-4 text-2xs leading-normal text-[color:var(--warning-text)]">
+                        This record carries no separate {durationLabel.toLowerCase()} protocol. The steps below are its
+                        full delivery protocol, so judge what fits the time you have.
+                      </p>
+                    ) : null}
                     {steps.length ? (
                       <div className="flex flex-col gap-3.5">
                         {steps.map((step, i) => (
