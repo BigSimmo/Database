@@ -4,7 +4,7 @@ The owner's universal header and rail (`inputs/rail.html`) restyled to the third
 ready fragments. The review that drove the changes is `inputs/SHELL-REVIEW.md`. Everything here
 was verified on `shell/preview.html` with `shell/check-preview.mjs` (the third edition harness
 adapted for a page that is not Command) and looked at in both themes at 1920 by 1080, 1440 by 900,
-1280 by 800 and 1100 by 800 under `docs/ward-flow/mockups/third-edition-shots/shell-preview/`.
+1280 by 800 and 1100 by 800 under `third-edition-shots/shell-preview/`.
 
 ## The files
 
