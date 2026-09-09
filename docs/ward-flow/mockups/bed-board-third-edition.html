@@ -4342,34 +4342,28 @@
      Everything above this line is the third edition stylesheet copied from
      command-third-edition.html, the shell block included. The rules below
      are only what this screen needs and could not take from a component
-     that already exists: the release of Command's locked layout, the figure
-     band of section 6.16 (which the shared stylesheet does not carry), the
-     bed tile, the two column board with its docked record, and the record's
-     zones. Every colour is a token and every size is a step.
+     that already exists: the figure band of section 6.16 (which the shared
+     stylesheet does not carry), the ward strip, the hub, the bed tile, the
+     shift tile and the record's zones. Every colour is a token and every
+     size is a step.
      ═══════════════════════════════════════════════════════════════════════ */
 
-  /* ─── the locked layout is Command's, and this page is not Command ─────
+  /* ─── the locked shell, kept, with one column scrolling inside it ──────
      At 1400px and wider the shared stylesheet locks the page to the window
-     and gives .scroll two grid rows, because Command's body is three
-     columns with flush bottoms. This body is a working column of panels
-     that is taller than any window, so the lock is released here and the
-     page scrolls normally at every width. The rail keeps its own sticky
-     full height column, which is its behaviour below 1400px already. */
+     so that the bar and the rail never scroll away. Command then gives
+     .scroll two grid rows because its body is three flush columns. This
+     body is a hub: one strip and one board of two columns. The lock is
+     kept, because a board a coordinator works from should not lose its bar,
+     and .scroll becomes the one scrolling region inside it. */
   @media (min-width: 1400px) {
-    .app.hApp {
-      height: auto;
-      overflow: visible;
-    }
-    .rail {
-      position: sticky;
-      top: 0;
-      align-self: start;
-      height: 100vh;
-    }
     .scroll.hScroll {
-      overflow: visible;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
       grid-template-rows: none;
       align-content: start;
+      scrollbar-width: thin;
+      scrollbar-color: var(--line-strong) transparent;
     }
   }
 
@@ -4381,16 +4375,16 @@
      reserve two lines so every figure sits on one baseline. */
   .band {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(6.25rem, 1fr));
     border-top: 1px solid var(--line);
     border-left: 1px solid var(--line);
   }
   .kpi {
     border-right: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
-    padding: 10px 14px;
+    padding: 8px 12px;
     display: grid;
-    gap: 3px;
+    gap: 2px;
     align-content: start;
     min-width: 0;
   }
@@ -4407,7 +4401,7 @@
   .kpi dd {
     font-family: var(--mono);
     font-variant-numeric: tabular-nums;
-    font-size: var(--t-6);
+    font-size: var(--t-5);
     font-weight: 500;
     letter-spacing: -0.02em;
     line-height: 1;
@@ -4426,41 +4420,85 @@
      face in italic and keeps the figure's own size and baseline. */
   .kpi dd .zero {
     font-family: var(--body);
-    font-size: var(--t-3);
+    font-size: var(--t-2);
     font-style: italic;
     font-weight: 400;
     color: var(--muted);
   }
 
-  /* ─── the ward block: facts, chips and the two controls above them ───── */
-  .wardTop {
+  /* ─── the ward strip ───────────────────────────────────────────────────
+     The name, the two screens, the switcher and the day's nine figures, in
+     one panel about as tall as a bed tile. The six ward facts and the note
+     about what this board is for fold away, because they are read once. */
+  .wardPh {
+    row-gap: 8px;
+  }
+  .wardPh .segNav,
+  .wardPh .wardSwitch {
+    align-self: center;
+  }
+  .wardPh .count {
+    margin-left: auto;
+  }
+  .stripFoot {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px 0;
+    align-items: baseline;
+    gap: 6px 18px;
+    padding: 10px 16px 12px;
   }
-  .wardCols {
-    display: grid;
-    gap: 4px 24px;
-    padding: 6px 16px 14px;
+  .stripFoot > .note {
+    flex: 1 1 22rem;
+    min-width: 0;
   }
-  @media (min-width: 60rem) {
-    .wardCols {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    }
+  .stripFoot > .tell {
+    flex: 0 0 auto;
   }
-  .wardCols .slFacts {
-    margin-top: 6px;
+  .stripFoot > .tell[open] {
+    flex: 1 1 100%;
   }
   .wardScope {
-    max-width: 72ch;
+    max-width: 74ch;
     margin-top: 8px;
   }
   .svcName[data-svc="South Metro"] {
     color: var(--svc-south);
     font-weight: 600;
   }
+  /* A quiet disclosure in the body of a panel: the same chevron as the
+     header's own control, at the body's own size. */
+  .tell > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: var(--t-1);
+    font-weight: 600;
+    color: var(--ink-soft);
+    list-style: none;
+    cursor: pointer;
+    padding: 3px 0;
+  }
+  .tell > summary::-webkit-details-marker {
+    display: none;
+  }
+  .tell > summary::after {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-1.5px) rotate(45deg);
+  }
+  .tell[open] > summary::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .tell > summary:hover {
+    color: var(--ink);
+  }
+  .tellBody {
+    padding-bottom: 4px;
+  }
+
   /* The two screens this ward has. A group of buttons, in the flow of the
      panel, never a second fixed navigation bar. */
   .segNav {
@@ -4488,8 +4526,15 @@
     color: var(--ink);
     box-shadow: inset 0 0 0 1px var(--accent);
   }
+
   /* The ward switcher of section 6.18: a disclosure whose summary carries
-     the words and a derived count, and whose body is the list. */
+     the words and a derived count. Its body is a panel that hangs from the
+     summary rather than pushing the strip open, so the board below never
+     moves when the switcher is opened. It sits under the bar's own layer,
+     never over it. */
+  .wardSwitch {
+    position: relative;
+  }
   .wardSwitch > summary {
     display: inline-flex;
     align-items: center;
@@ -4533,13 +4578,23 @@
     border-color: var(--accent);
   }
   .switchBody {
-    margin-top: 10px;
-    border: 1px solid var(--line);
+    position: absolute;
+    z-index: 15;
+    top: calc(100% + 6px);
+    right: 0;
+    width: min(26rem, calc(100vw - 48px));
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
     border-radius: var(--r2);
+    box-shadow: var(--lift);
     overflow: hidden;
   }
+  .switchFoot {
+    padding: 10px 14px;
+    border-top: 1px solid var(--line);
+  }
   .switchList {
-    max-height: 21rem;
+    max-height: 19rem;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--line-strong) transparent;
@@ -4604,38 +4659,54 @@
     margin-left: 7px;
   }
 
-  /* ─── the two column board: the grid, and the record docked beside it ──
-     The dock is a container query on the board itself, not a window width,
+  /* ─── the hub: the board, and the record docked beside it ──────────────
+     The dock is a container query on the hub itself, not a window width,
      because the rail is 236px open and 76px closed and the question is how
      much room the board actually has, not how wide the window is. Below the
      threshold the record un-docks to a full width block under the grid,
-     where it already sits in the markup. */
-  .board {
+     where it already sits in the markup, and the record column widens in
+     two steps as the hub gets the room for it. */
+  .hubWrap {
     container-type: inline-size;
-    container-name: board;
+    container-name: hub;
+    min-width: 0;
+  }
+  .hub {
     display: grid;
     gap: var(--gap);
     align-items: start;
+    --side-top: 16px;
+    --side-max: calc(100vh - 32px);
   }
-  .boardLeft {
+  @media (min-width: 1400px) {
+    .hub {
+      --side-top: 0px;
+      --side-max: calc(100vh - 88px);
+    }
+  }
+  .hubMain {
     display: grid;
     gap: var(--gap);
     min-width: 0;
+    align-content: start;
   }
-  @container board (min-width: 74rem) {
-    .board {
-      grid-template-columns: minmax(0, 1fr) 27rem;
+  .hubSide {
+    min-width: 0;
+  }
+  @container hub (min-width: 56rem) {
+    .hub {
+      grid-template-columns: minmax(0, 1fr) 22rem;
     }
-    .record {
+    .hubSide {
       position: sticky;
-      top: 16px;
+      top: var(--side-top);
     }
-    .record > .panel {
+    .hubSide > .panel {
       display: flex;
       flex-direction: column;
-      max-height: calc(100vh - 32px);
+      max-height: var(--side-max);
     }
-    .record > .panel > .ph {
+    .hubSide > .panel > .ph {
       flex: none;
     }
     .recordBody {
@@ -4646,12 +4717,96 @@
       scrollbar-color: var(--line-strong) transparent;
     }
   }
+  @container hub (min-width: 76rem) {
+    .hub {
+      grid-template-columns: minmax(0, 1fr) 25rem;
+    }
+  }
+  @container hub (min-width: 98rem) {
+    .hub {
+      grid-template-columns: minmax(0, 1fr) 29rem;
+    }
+  }
+
+  /* ─── needs you this shift, condensed ──────────────────────────────────
+     One digest line in the header and a row of tiles under it. A tile says
+     which bed, how late it is, what the matter is and what can be done
+     about it. The bed number is itself the control that opens that bed's
+     record, so the list and the grid are one thing. */
+  .shiftGrid {
+    display: grid;
+    gap: 7px;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    padding: 10px 12px 12px;
+  }
+  /* A tile's controls sit on one line rather than stacking, so four tiles are one strip and not
+     a second panel's worth of height. The words are unchanged; only the padding is. */
+  .shiftTile .ctl {
+    padding: 5px 9px;
+    font-size: var(--t-1);
+  }
+  .shiftTile {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+    padding: 8px 11px;
+    border-radius: var(--r2);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line-strong);
+    min-width: 0;
+  }
+  .shiftTile[data-tone="warn"] {
+    border-left-color: var(--warn);
+  }
+  .shiftTile[data-tone="danger"] {
+    border-left-color: var(--danger);
+  }
+  .shiftTop {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+  .bedLink {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--accent-ink);
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 3px;
+  }
+  .bedLink:hover {
+    text-decoration-color: currentColor;
+  }
+  .shiftTop .when {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    color: var(--muted);
+  }
+  .shiftSub {
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    line-height: 1.45;
+  }
+  .shiftPanel .tabbar {
+    border-top: 0;
+  }
 
   /* ─── the bed tile ─────────────────────────────────────────────────────
      A row of the queue's kind, laid out as a tile: the status is a 3px bar
      along the left and a word inside, never colour alone. Selection keeps
      the bar and adds the slate ring on the other three sides, so choosing a
-     bed never hides its state. */
+     bed never hides its state.
+
+     The tracks are laid out for the column, not for the number of beds in
+     it: auto-fill keeps every track the grid has room for, so a filter that
+     leaves four beds draws four tiles the same size as eighteen, in the
+     same places. A floor on the height keeps a bare tile square beside a
+     full one. */
   .bedGroup + .bedGroup {
     border-top: 1px solid var(--line);
   }
@@ -4678,11 +4833,12 @@
   .beds {
     display: grid;
     gap: 6px;
-    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
     padding: 10px 16px 14px;
   }
   .bed {
     width: 100%;
+    min-height: 6.5rem;
     display: grid;
     gap: 2px;
     align-content: start;
@@ -4795,7 +4951,8 @@
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    margin-top: 2px;
+    margin-top: auto;
+    padding-top: 4px;
   }
   .bedMark {
     font-size: var(--t-0);
@@ -4806,7 +4963,8 @@
     border-radius: 999px;
     box-shadow: inset 0 0 0 1px currentColor;
     color: var(--ink-soft);
-    white-space: nowrap;
+    max-width: 100%;
+    overflow-wrap: anywhere;
     margin-right: -0.06em;
   }
   .bedMark[data-tone="warn"] {
@@ -4816,8 +4974,14 @@
     color: var(--danger);
   }
 
-  /* ─── the toolbar over the grid: one filter set and one order control ── */
+  /* ─── the toolbar over the grid: one filter set and one order control ──
+     It stays at the top of the grid while the grid scrolls, because the
+     answer to which beds am I looking at should not scroll away from the
+     beds themselves. */
   .boardBar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -4875,35 +5039,52 @@
     border: 1px solid var(--line-strong);
     border-radius: var(--r2);
   }
-
-  /* ─── the flow either side of the ward: two columns, one shared head ─── */
-  .flow {
-    display: grid;
+  .bedsFoot {
+    padding: 0 16px 12px;
   }
-  .flowCol {
-    min-width: 0;
-    padding: 12px 16px 14px;
-  }
-  .flowCol + .flowCol {
+  .checkRow {
+    padding: 11px 16px;
     border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    border-radius: 0 0 var(--r1i) var(--r1i);
   }
-  @media (min-width: 52rem) {
-    .flow {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    }
-    .flowCol + .flowCol {
-      border-top: 0;
-      border-left: 1px solid var(--line);
-    }
+
+  /* ─── an action says what kind of action it is ─────────────────────────
+     One filled control per row, and it is the thing most likely to be done
+     next. A control that closes something out takes the good ink and its
+     own edge, one that records a problem takes the caution ink. Neither is
+     a fill, so red stays a breach and brass stays a bar, and the word is
+     still doing the work the colour only seconds. */
+  .ctl[data-tone="good"] {
+    color: var(--good);
+    border-color: var(--good);
   }
-  .flowNote {
-    margin-top: 10px;
+  .ctl[data-tone="warn"] {
+    color: var(--warn);
+    border-color: var(--warn);
+  }
+  .ctl[data-tone="good"]:hover,
+  .ctl[data-tone="good"]:active,
+  .ctl[data-tone="warn"]:hover,
+  .ctl[data-tone="warn"]:active {
+    background: var(--sunk);
   }
   .rowActs {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     margin-top: 6px;
+  }
+
+  /* ─── either side of this ward: three tabs of one panel ──────────────── */
+  .flowPane {
+    display: block;
+  }
+  .flowNote {
+    padding: 10px 16px 12px;
+  }
+  .flowList .qRow:last-child {
+    border-bottom: 0;
   }
   .rowLine {
     display: flex;
@@ -4920,8 +5101,6 @@
     color: var(--ink);
     font-weight: 600;
   }
-
-  /* ─── since yesterday, and where the beds free up to ─────────────────── */
   .sinceList {
     display: grid;
   }
@@ -4934,9 +5113,6 @@
     border-bottom: 1px solid var(--line);
     font-size: var(--t-2);
     color: var(--ink-soft);
-  }
-  .sinceList > div:last-child {
-    border-bottom: 0;
   }
   .sinceList b {
     font-family: var(--mono);
@@ -5059,12 +5235,41 @@
     border-radius: var(--r2);
     max-width: 100%;
   }
+  .recFoot {
+    padding: 10px 16px 14px;
+    border-top: 1px solid var(--line);
+  }
   .quiet {
     color: var(--muted);
     font-style: italic;
   }
 
-  /* ─── the foot: what is invented and what is real ─────────────────────── */
+  /* ─── the foot: what is invented and what is real, folded away ───────── */
+  .footNote > summary {
+    list-style: none;
+    cursor: pointer;
+  }
+  .footNote > summary::-webkit-details-marker {
+    display: none;
+  }
+  .footNote > summary::after {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid var(--muted);
+    border-bottom: 1.5px solid var(--muted);
+    transform: translateY(-2px) rotate(45deg);
+    flex: none;
+  }
+  .footNote[open] > summary::after {
+    transform: translateY(1px) rotate(-135deg);
+  }
+  .footNote > summary:hover {
+    background: var(--sunk);
+  }
+  .footNote .sec {
+    padding: 12px 16px 14px;
+  }
   .footNote h3 {
     font-family: var(--display);
     font-size: var(--t-3);
@@ -5124,6 +5329,27 @@
   .boardCheck .dot {
     position: relative;
     top: -1px;
+    animation: none;
+  }
+
+  /* A flow row is a record, not a control: it holds its own controls, so the
+     row itself is a container and the chosen one takes the queue row's own
+     selected wash and brass bar. */
+  .qRow[data-sel="true"] {
+    background: var(--accent-soft);
+    border-left-color: var(--gilt);
+  }
+
+  /* ─── selected surfaces keep the ink one step up ───────────────────────
+     The muted ink is the lightest text allowed and it sits at the floor on
+     the selected wash, so on a chosen tile or the current ward every quiet
+     line steps up to ink-soft rather than being read at the floor. */
+  .bed[aria-pressed="true"] .bedWho,
+  .bed[aria-pressed="true"] .bedNote,
+  .bed[aria-pressed="true"] .bedState,
+  .switchRow[aria-current="true"] .swMeta,
+  .switchRow[aria-current="true"] .swFree i {
+    color: var(--ink-soft);
   }
 
   /* ─── the tap floor, forced colours and print ──────────────────────────
@@ -5146,6 +5372,7 @@
     .band,
     .kpi,
     .bed,
+    .shiftTile,
     .idBlock,
     .recNote,
     .segNav,
@@ -5153,7 +5380,8 @@
     .switchBody {
       border: 1px solid CanvasText;
     }
-    .bed {
+    .bed,
+    .shiftTile {
       border-left-width: 4px;
     }
     .bed[aria-pressed="true"],
@@ -5163,17 +5391,20 @@
     }
   }
   @media print {
-    .board {
+    .hub {
       grid-template-columns: minmax(0, 1fr) !important;
     }
-    .record {
+    .hubSide {
       position: static !important;
     }
-    .record > .panel {
+    .hubSide > .panel {
       max-height: none !important;
     }
     .recordBody {
       overflow: visible !important;
+    }
+    .boardBar {
+      position: static !important;
     }
     .boardBar,
     .segNav,
@@ -5186,39 +5417,6 @@
     .beds {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
-  }
-
-  /* ─── the two flow lists: queue rows, bled to the column's edges ─────── */
-  .flowList {
-    margin: 8px -16px 0;
-    border-top: 1px solid var(--line);
-  }
-  .flowList .qRow:last-child {
-    border-bottom: 0;
-  }
-
-  /* ─── selected surfaces keep the ink one step up ───────────────────────
-     The muted ink is the lightest text allowed and it sits at the floor on
-     the selected wash, so on a chosen tile or the current ward every quiet
-     line steps up to ink-soft rather than being read at the floor. */
-  .bed[aria-pressed="true"] .bedWho,
-  .bed[aria-pressed="true"] .bedNote,
-  .bed[aria-pressed="true"] .bedState,
-  .switchRow[aria-current="true"] .swMeta,
-  .switchRow[aria-current="true"] .swFree i {
-    color: var(--ink-soft);
-  }
-
-  /* The reconciliation dot is a state, not the Activity drawer's live pulse. */
-  .boardCheck .dot {
-    animation: none;
-  }
-  /* A flow row is a record, not a control: it holds its own controls, so the
-     row itself is a container and the chosen one takes the queue row's own
-     selected wash and brass bar. */
-  .qRow[data-sel="true"] {
-    background: var(--accent-soft);
-    border-left-color: var(--gilt);
   }
 
   /* ─── the drawer words at 1300px and narrower ──────────────────────────
@@ -5342,17 +5540,17 @@
       </div>
     </header>
     <div class="scroll hScroll">
-      <!-- ═══════════ THE WARD THIS BOARD BELONGS TO ═══════════
-           Its facts, its five bed states as the Network screen draws them, the two screens this
-           ward has, and the switcher. Every figure here is read from the engine's own ward row,
-           never typed. -->
-      <section class="panel" aria-labelledby="wardH">
-        <div class="ph">
+      <!-- ═══════════ THE WARD STRIP ═══════════
+           One condensed strip, not three stacked panels. It carries the ward's name, its two
+           screens, the switcher, and the day's nine figures on one ruled band. The ward's own
+           six facts and the note about what this board is for fold away behind a disclosure,
+           because they are read once and then known. Every figure is read from the engine's own
+           ward row, never typed. -->
+      <section class="panel wardStrip" aria-labelledby="wardH">
+        <div class="ph wardPh">
           <h2 id="wardH">FSH Adult Secure</h2>
           <p class="note" id="wardSub"></p>
           <span class="count" id="wardConfirmed"></span>
-        </div>
-        <div class="wardTop">
           <nav class="segNav" aria-label="This ward's two screens">
             <button type="button" data-screen="home">Ward home</button>
             <button type="button" data-screen="board" aria-current="page">Bed board</button>
@@ -5361,308 +5559,368 @@
             <summary>Change ward<span class="count" id="switchCount"></span></summary>
             <div class="switchBody">
               <div class="switchList" id="switchList"></div>
-              <p class="note" style="padding: 10px 14px; border-top: 1px solid var(--line)" id="switchFoot"></p>
+              <p class="note switchFoot" id="switchFoot"></p>
             </div>
           </details>
         </div>
-        <div class="wardCols">
-          <div>
-            <dl class="slFacts" id="wardFacts"></dl>
-          </div>
-          <div>
-            <div class="bedChips" id="wardChips"></div>
-            <p class="note" id="wardChipNote" style="margin-top: 7px"></p>
-            <p class="note" id="scopeNote" style="margin-top: 7px" hidden></p>
-            <p class="note wardScope">
-              <b>This board is the ward's own working view of its people.</b> The ward home page answers what this ward
-              can offer and what needs an answer from it. This page answers who is in every bed and what is happening to
-              them today. Nothing here is a clinical record: it holds only what the ward needs in order to move people
-              safely, and every action here is recorded against FSH Adult Secure and no other ward.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ═══════════ NEEDS YOU THIS SHIFT ═══════════
-           The digest sits in the header strip and is never hidden. The list itself is a
-           disclosure, open by default, so a reader who has met the control can fold it away. The
-           quiet shift is a designed empty state, kept from the source as a second tab. -->
-      <section class="panel" aria-labelledby="shiftH">
-        <div class="ph">
-          <h2 id="shiftH">Needs you this shift</h2>
-          <span class="count" id="shiftCount"></span>
-          <button type="button" class="phBtn" id="shiftToggle" aria-expanded="true" aria-controls="shiftBody">
-            Hide the list
-          </button>
-        </div>
-        <p class="note" id="shiftDigest" style="padding: 9px 16px 0"></p>
-        <div class="tabbar" role="tablist" aria-label="Which shift is drawn">
-          <button
-            type="button"
-            class="tabBtn"
-            role="tab"
-            id="shiftTabBusy"
-            aria-selected="true"
-            aria-controls="shiftBody"
-            tabindex="0"
-          >
-            This shift<span class="tabNum" id="shiftTabCount"></span>
-          </button>
-          <button
-            type="button"
-            class="tabBtn"
-            role="tab"
-            id="shiftTabQuiet"
-            aria-selected="false"
-            aria-controls="shiftBody"
-            tabindex="-1"
-          >
-            Preview: a quiet shift
-          </button>
-        </div>
-        <div id="shiftBody" role="tabpanel" aria-labelledby="shiftTabBusy" tabindex="0"></div>
-      </section>
-
-      <!-- ═══════════ TODAY ON THIS WARD ═══════════
-           One ruled instrument, not a row of boxes: the figure band of section 6.16, every cell
-           counted from the ward row or from the eighteen tiles below. -->
-      <section class="panel" aria-labelledby="bandH">
-        <div class="ph">
-          <h2 id="bandH">Today on this ward</h2>
-          <p class="note">Counted from this board and from the ward's own row in the network's data.</p>
-          <span class="count" id="bandCount"></span>
-        </div>
         <dl class="band" id="band"></dl>
+        <div class="stripFoot">
+          <p class="note" id="wardChipNote"></p>
+          <p class="note" id="scopeNote" hidden></p>
+          <details class="tell">
+            <summary>This ward's own facts, and what this board is for</summary>
+            <div class="tellBody">
+              <dl class="slFacts" id="wardFacts"></dl>
+              <p class="note wardScope">
+                <b>This board is the ward's own working view of its people.</b> The ward home page answers what this
+                ward can offer and what needs an answer from it. This page answers who is in every bed and what is
+                happening to them today. Nothing here is a clinical record: it holds only what the ward needs in order
+                to move people safely, and every action here is recorded against FSH Adult Secure and no other ward.
+              </p>
+            </div>
+          </details>
+        </div>
       </section>
 
-      <div class="board">
-        <div class="boardLeft">
-          <!-- ═══════════ EVERY BED, AND WHO IS IN IT ═══════════ -->
-          <section class="panel" id="beds" tabindex="-1" aria-labelledby="bedsH">
-            <div class="ph">
-              <h2 id="bedsH">Every bed, and who is in it</h2>
-              <span class="count" id="bedsShowing"></span>
-            </div>
-            <div class="boardBar">
-              <div class="filterSet" role="group" aria-label="Narrow the board" id="bedFilters"></div>
-              <label class="orderCtl"
-                >Order
-                <select id="bedOrder" aria-label="Order the beds">
-                  <option value="number">By bed number</option>
-                  <option value="stay">Longest stay first</option>
-                  <option value="leaving">Soonest to leave first</option>
-                  <option value="locked">Locked beds first, in one list</option>
-                </select>
-              </label>
-            </div>
-            <div id="bedGroups"></div>
-            <p class="note" style="padding: 0 16px 12px" id="bedsFoot"></p>
-            <div class="ph" style="border-top: 1px solid var(--line); border-bottom: 0; border-radius: 0 0 9px 9px">
-              <p class="boardCheck" id="boardCheck"></p>
-            </div>
-          </section>
-
-          <!-- ═══════════ THE FLOW EITHER SIDE OF THE WARD ═══════════
-               Going out is this ward's own record. Coming in is read from the network's
-               movements: the people accepted here, and the one already on the way. -->
-          <section class="panel" aria-labelledby="flowH">
-            <div class="ph">
-              <h2 id="flowH">The flow either side of the ward</h2>
-              <span class="count" id="flowCount"></span>
-            </div>
-            <div class="flow">
-              <div class="flowCol">
-                <h3 class="secH" style="border: 0; padding: 0">
-                  Going out today<span class="count" id="outCount"></span>
-                </h3>
-                <div class="flowList" id="goingOut"></div>
-                <p class="note flowNote">
-                  A discharge that is decided and stuck is still a decided discharge, and it keeps counting as one. The
-                  bed becomes Ready only when it has actually been released.
-                </p>
+      <!-- ═══════════ THE HUB ═══════════
+           The board is the page. The grid holds the main column and the record is docked beside
+           it, filled by whichever bed is chosen and scrolling on its own. Where the column is too
+           narrow for both, the record un-docks to a full width block under the grid, where it
+           already sits in the markup, and choosing a bed brings it into view. -->
+      <div class="hubWrap">
+        <div class="hub">
+          <div class="hubMain">
+            <!-- ═══════════ NEEDS YOU THIS SHIFT ═══════════
+               Condensed to one line and a row of tiles. The digest says how many and by when; the
+               tiles say which bed, how late, and what can be done about it, one action apiece. The
+               quiet shift is a designed empty state, kept from the source as a second tab. -->
+            <section class="panel shiftPanel" aria-labelledby="shiftH">
+              <div class="ph">
+                <h2 id="shiftH">Needs you this shift</h2>
+                <p class="note" id="shiftDigest"></p>
+                <span class="count" id="shiftCount"></span>
+                <button type="button" class="phBtn" id="shiftToggle" aria-expanded="true" aria-controls="shiftBody">
+                  Hide
+                </button>
               </div>
-              <div class="flowCol">
-                <h3 class="secH" style="border: 0; padding: 0">Coming in<span class="count" id="inCount"></span></h3>
-                <div class="flowList" id="qpane-patients" aria-label="People coming in to this ward"></div>
-                <p class="note flowNote" id="comingInNote"></p>
+              <div class="tabbar" role="tablist" aria-label="Which shift is drawn">
+                <button
+                  type="button"
+                  class="tabBtn"
+                  role="tab"
+                  id="shiftTabBusy"
+                  aria-selected="true"
+                  aria-controls="shiftBody"
+                  tabindex="0"
+                >
+                  This shift<span class="tabNum" id="shiftTabCount"></span>
+                </button>
+                <button
+                  type="button"
+                  class="tabBtn"
+                  role="tab"
+                  id="shiftTabQuiet"
+                  aria-selected="false"
+                  aria-controls="shiftBody"
+                  tabindex="-1"
+                >
+                  Preview: a quiet shift
+                </button>
               </div>
-            </div>
-          </section>
+              <div id="shiftBody" role="tabpanel" aria-labelledby="shiftTabBusy" tabindex="0"></div>
+            </section>
 
-          <!-- ═══════════ SINCE YESTERDAY ═══════════ -->
-          <section class="panel" aria-labelledby="sinceH">
-            <div class="ph">
-              <h2 id="sinceH">Since yesterday</h2>
-              <span class="count">This ward only</span>
-            </div>
-            <div class="sinceList" id="sinceList"></div>
-            <p class="note" style="padding: 10px 16px 12px">
-              A count of none means nothing was recorded, which is not the same as nothing having happened.
-            </p>
-          </section>
+            <!-- ═══════════ EVERY BED, AND WHO IS IN IT ═══════════
+               The tiles keep their size when a filter narrows the set: the tracks are laid out for
+               the column, not for the number of beds left in it. -->
+            <section class="panel bedsPanel" id="beds" tabindex="-1" aria-labelledby="bedsH">
+              <div class="ph">
+                <h2 id="bedsH">Every bed, and who is in it</h2>
+                <span class="count" id="bedsShowing"></span>
+              </div>
+              <div class="boardBar">
+                <div class="filterSet" role="group" aria-label="Narrow the board" id="bedFilters"></div>
+                <label class="orderCtl"
+                  >Order
+                  <select id="bedOrder" aria-label="Order the beds">
+                    <option value="number">By bed number</option>
+                    <option value="stay">Longest stay first</option>
+                    <option value="leaving">Soonest to leave first</option>
+                    <option value="locked">Locked beds first, in one list</option>
+                  </select>
+                </label>
+              </div>
+              <div id="bedGroups"></div>
+              <p class="note bedsFoot" id="bedsFoot"></p>
+              <div class="checkRow">
+                <p class="boardCheck" id="boardCheck"></p>
+              </div>
+            </section>
 
-          <!-- ═══════════ WHERE THESE BEDS FREE UP TO ═══════════ -->
-          <section class="panel" aria-labelledby="freeH">
-            <div class="ph">
-              <h2 id="freeH">Where these beds free up to</h2>
-              <p class="note">Expected within 7 days, soonest first.</p>
-              <span class="count" id="freeCount"></span>
-            </div>
-            <div class="flowList" id="freeList" style="margin: 0"></div>
-            <p class="note" style="padding: 10px 16px 12px" id="freeFoot"></p>
-          </section>
-        </div>
+            <!-- ═══════════ EITHER SIDE OF THIS WARD ═══════════
+               Four panels in the first build, one here. Going out is this ward's own record, and it
+               now carries where each bed frees up to and whether that team has been told, which was
+               a second panel saying the same thing about the same beds. Coming in is read from the
+               network's movements. Since yesterday is this ward's own day count. -->
+            <section class="panel flowPanel" aria-labelledby="flowH">
+              <div class="ph">
+                <h2 id="flowH">Either side of this ward</h2>
+                <span class="count" id="flowCount"></span>
+              </div>
+              <div class="tabbar" role="tablist" aria-label="Which side of the ward is drawn">
+                <button
+                  type="button"
+                  class="tabBtn"
+                  role="tab"
+                  id="flowTabOut"
+                  data-flow="out"
+                  aria-selected="true"
+                  aria-controls="flowBody"
+                  tabindex="0"
+                >
+                  Going out<span class="tabNum" id="outNum"></span>
+                </button>
+                <button
+                  type="button"
+                  class="tabBtn"
+                  role="tab"
+                  id="flowTabIn"
+                  data-flow="in"
+                  aria-selected="false"
+                  aria-controls="flowBody"
+                  tabindex="-1"
+                >
+                  Coming in<span class="tabNum" id="inNum"></span>
+                </button>
+                <button
+                  type="button"
+                  class="tabBtn"
+                  role="tab"
+                  id="flowTabSince"
+                  data-flow="since"
+                  aria-selected="false"
+                  aria-controls="flowBody"
+                  tabindex="-1"
+                >
+                  Since yesterday
+                </button>
+              </div>
+              <div id="flowBody" role="tabpanel" aria-labelledby="flowTabOut" tabindex="0">
+                <div class="flowPane" id="pane-out">
+                  <div class="flowList" id="goingOut"></div>
+                  <p class="note flowNote" id="outFoot"></p>
+                </div>
+                <div class="flowPane" id="pane-in" hidden>
+                  <div
+                    class="flowList"
+                    id="qpane-patients"
+                    tabindex="-1"
+                    aria-label="People coming in to this ward"
+                  ></div>
+                  <p class="note flowNote" id="comingInNote"></p>
+                </div>
+                <div class="flowPane" id="pane-since" hidden>
+                  <div class="sinceList" id="sinceList"></div>
+                  <p class="note flowNote">
+                    This ward only, and this ward's own record. A count of none means nothing was recorded, which is not
+                    the same as nothing having happened.
+                  </p>
+                </div>
+              </div>
+            </section>
 
-        <!-- ═══════════ THE RECORD ═══════════
-             Docked beside the grid where the board has the room, a full width block under it
+            <!-- ═══════════ THE FOOT ═══════════
+               Folded away, because it is read once. Nothing in it has been dropped. -->
+            <details class="panel footNote" id="footNote">
+              <summary class="ph">
+                <h2>Every figure here is invented</h2>
+                <span class="count">Read this before you trust a number</span>
+              </summary>
+              <div class="sec">
+                <h3>What is invented</h3>
+                <ul>
+                  <li>
+                    <b>Which bed holds which person</b>, every length of stay from 3 to 156 days, and every home region
+                    except bed 09's.
+                  </li>
+                  <li>
+                    <b>Every time and date on this board</b>: 08:15 and 07:40 on bed 09, 04:50 on bed 07, 09:01 on bed
+                    17, 27 July for bed 09's arrival, 12 August for bed 14's lapsed date, and the whole of Since
+                    yesterday.
+                  </li>
+                  <li>
+                    <b>The three moves of bed 09's discharge date</b>, and the statement that it is the most moved date
+                    on the ward.
+                  </li>
+                  <li>
+                    <b>The person in bed 09</b>, whose name follows the standard's own rule for invented names: an
+                    uncommon given name and a word for a plant. No record number, UMRN, address, phone number or
+                    clinician's name is drawn anywhere on this page.
+                  </li>
+                  <li>
+                    <b>Which two beds are the ward's two held beds.</b> The ward's row in the network's data records two
+                    held beds and no reason for either. Bed 07 is drawn as one of them because its own occupant is away
+                    at an emergency department. The second is bed 10, and the board says that no reason is recorded
+                    rather than filling one in.
+                  </li>
+                </ul>
+              </div>
+              <div class="sec">
+                <h3>What is real</h3>
+                <ul>
+                  <li>
+                    <b>The ward</b>: FSH Adult Secure at Fiona Stanley Hospital, 18 beds, 12 locked and 6 open, male
+                    only, an authorised hospital, and its ready, held, confirmed, expected and blocked counts, all read
+                    from the same ward row the Command screen reads.
+                  </li>
+                  <li>
+                    <b>The people coming in</b>: both are movements from the network's own data, with their own tier,
+                    wait, legal status and emergency department. Nothing about them is written here that Command does
+                    not hold.
+                  </li>
+                  <li>
+                    <b>The hospital sites, the health services and the community team names</b> are real Western
+                    Australian names from the repository's tables. Joondalup Health Campus and Peel Health Campus have
+                    an emergency department and no inpatient ward, so neither appears in the switcher.
+                  </li>
+                  <li>
+                    <b>The seven leaving destinations</b>, the admission states, the home regions, the discharge date
+                    moved count, the blocker list, the away at an emergency department state, and the rule that a pulled
+                    bed is taken rather than free.
+                  </li>
+                </ul>
+              </div>
+              <div class="sec">
+                <h3>What was changed to agree with Command</h3>
+                <ul>
+                  <li>
+                    <b>The day and the clock.</b> The source board stood at 21:51 on a different day. This page stands
+                    where Command stands: Saturday 15 August 2026, 10:42 AWST, day shift, handover at 14:00. Every
+                    duration on the source board is kept and its clock time moved back to fit, so bed 09 is 2h 27m past
+                    its time rather than 7h, and bed 17 was pulled 1h 41m ago as before.
+                  </li>
+                  <li>
+                    <b>The ward's own partition.</b> The source drew 14 occupied beds and no held bed. The ward row
+                    holds 12 occupied and 2 held, so beds 07 and 10 are drawn as held and the board's eighteen tiles now
+                    sum to the row. The occupancy line reads 12 men and no women, which is the row's own sex mix.
+                  </li>
+                  <li>
+                    <b>Bed 09's discharge is confirmed, not merely expected.</b> The ward row records one confirmed
+                    discharge today and none expected. The control that read Confirm the discharge is therefore They
+                    have left, because the confirming has already happened and the bed has still not been released.
+                  </li>
+                  <li>
+                    <b>Specialling.</b> The source said both of this ward's two specialling shifts were in use. The ward
+                    row records two free, and the board follows the row.
+                  </li>
+                  <li>
+                    <b>The people coming in are the network's own.</b> WF-355 and WF-361 were invented for the source
+                    board. The two movements accepted to this ward in the network's data are WF-031, whose bed is pulled
+                    and who is moving, and WF-002, accepted with no bed pulled. Both are drawn here under their own
+                    identifiers.
+                  </li>
+                  <li>
+                    <b>Red is a breach and nothing else.</b> The source drew an overdue discharge and a lapsed date in
+                    red. Both are amber here, which is the standard's look here, and red is kept for the blocked bed.
+                  </li>
+                  <li>
+                    <b>The switcher counts what is drawn.</b> It said 23 wards and 15 hospitals and listed four. It now
+                    lists every ward the network's data carries, with its own ready count, and says how many of the
+                    network's twenty-three wards are drawn.
+                  </li>
+                </ul>
+              </div>
+              <div class="sec">
+                <h3>What the second pass changed about the layout, and nothing else</h3>
+                <ul>
+                  <li>
+                    <b>The grid is the page and the record is docked beside it.</b> The first build stacked the ward,
+                    the shift list and the figure band above a board that began below the fold. The board now begins at
+                    the top of the working column and the record fills the column beside it, so choosing a bed never
+                    scrolls the grid away.
+                  </li>
+                  <li>
+                    <b>A tile keeps its size when a filter narrows the set.</b> The grid used to lay out one track per
+                    bed shown, so four beds became four wide tiles. The tracks are laid out for the column now, and the
+                    tiles are the same size whichever filter is on.
+                  </li>
+                  <li>
+                    <b>The five bed chips were removed because the figure band already carried them.</b> Ready, Held,
+                    Confirmed, Expected and Blocked were drawn twice on the same screen, once as chips and once as the
+                    first five cells of the band. The band is kept, because it carries four more figures as well.
+                  </li>
+                  <li>
+                    <b>Where these beds free up to was folded into Going out.</b> Both panels listed the same beds, the
+                    ones with a discharge date. The destination team, whether that team has been told, and the note
+                    about the eleven occupied beds with no date at all are all kept, inside Going out.
+                  </li>
+                  <li>
+                    <b>Going out, Coming in and Since yesterday became three tabs of one panel</b>, and the shift digest
+                    no longer repeats the list underneath it. No count, note or action was dropped in either change.
+                  </li>
+                  <li>
+                    <b>An action's colour now says what kind of action it is.</b> One filled control per row is the
+                    thing most likely to be done next. A control that closes something out carries the good ink, one
+                    that records a problem carries the caution ink, and neither is a fill, so red stays a breach and
+                    brass stays a bar.
+                  </li>
+                </ul>
+              </div>
+              <div class="sec">
+                <h3>Why this page exists next to the ward home page</h3>
+                <ul>
+                  <li>
+                    <b>The home page answers two questions</b>: what can this ward offer, and what needs an answer from
+                    it. It is read in seconds, several times a day, and it is where a ward confirms its numbers.
+                  </li>
+                  <li>
+                    <b>This page answers a third</b>: who is in every bed, and what is happening to them today. It is
+                    where a ward works, confirming discharges, recording where someone is going, noticing a date that
+                    has moved three times, and finding the person who has been here 156 days.
+                  </li>
+                  <li>
+                    <b>Nothing is duplicated between them by accident.</b> The bed map appears on both because both
+                    questions need it, but here it carries a stay, a home region and every marker, and it is filterable
+                    and sortable. On the home page it carries only state.
+                  </li>
+                </ul>
+              </div>
+              <div class="sec">
+                <h3>One thing this page proposes that the model cannot do today</h3>
+                <ul>
+                  <li>
+                    <b
+                      >An earlier draft said a bed cannot be joined to a person. That was wrong, and the correction
+                      matters.</b
+                    >
+                    <code>Admission</code> carries no patient field, which is true, but it carries
+                    <code>referralId</code>, and <code>Referral</code> carries an optional <code>patientId</code>. The
+                    chain from admission to referral to patient exists and resolves today.
+                  </li>
+                  <li>
+                    <b>It is optional on purpose, and that is the real design constraint.</b> The reducer's own comment
+                    on the line that sets it reads: "undefined here means the referral was raised without a person on
+                    file, which is a real case, not a gap to be filled." So some occupied beds have no linked person,
+                    permanently and correctly.
+                  </li>
+                  <li>
+                    <b>Two fields are deliberately absent.</b> The patient record also holds Aboriginal or Torres Strait
+                    Islander status and interpreter language, and the code marks both as not settled for display,
+                    pending the Aboriginal health review. Neither is drawn here.
+                  </li>
+                </ul>
+              </div>
+            </details>
+          </div>
+
+          <!-- ═══════════ THE RECORD ═══════════
+             Docked beside the grid where the column has the room, a full width block under it
              where it does not. Choosing a bed fills it, and closing it leaves nothing chosen. -->
-        <div class="record">
-          <section class="panel" id="recordPanel" aria-label="The bed you have chosen"></section>
+          <aside class="hubSide">
+            <section class="panel" id="recordPanel" aria-label="The bed you have chosen"></section>
+          </aside>
         </div>
       </div>
-
-      <!-- ═══════════ THE FOOT ═══════════ -->
-      <section class="panel footNote" aria-labelledby="footH">
-        <div class="ph">
-          <h2 id="footH">Every figure here is invented</h2>
-          <span class="count">Read this before you trust a number</span>
-        </div>
-        <div class="sec">
-          <h3>What is invented</h3>
-          <ul>
-            <li>
-              <b>Which bed holds which person</b>, every length of stay from 3 to 156 days, and every home region except
-              bed 09's.
-            </li>
-            <li>
-              <b>Every time and date on this board</b>: 08:15 and 07:40 on bed 09, 04:50 on bed 07, 09:01 on bed 17, 27
-              July for bed 09's arrival, 12 August for bed 14's lapsed date, and the whole of Since yesterday.
-            </li>
-            <li>
-              <b>The three moves of bed 09's discharge date</b>, and the statement that it is the most moved date on the
-              ward.
-            </li>
-            <li>
-              <b>The person in bed 09</b>, whose name follows the standard's own rule for invented names: an uncommon
-              given name and a word for a plant. No record number, UMRN, address, phone number or clinician's name is
-              drawn anywhere on this page.
-            </li>
-            <li>
-              <b>Which two beds are the ward's two held beds.</b> The ward's row in the network's data records two held
-              beds and no reason for either. Bed 07 is drawn as one of them because its own occupant is away at an
-              emergency department. The second is bed 10, and the board says that no reason is recorded rather than
-              filling one in.
-            </li>
-          </ul>
-        </div>
-        <div class="sec">
-          <h3>What is real</h3>
-          <ul>
-            <li>
-              <b>The ward</b>: FSH Adult Secure at Fiona Stanley Hospital, 18 beds, 12 locked and 6 open, male only, an
-              authorised hospital, and its ready, held, confirmed, expected and blocked counts, all read from the same
-              ward row the Command screen reads.
-            </li>
-            <li>
-              <b>The people coming in</b>: both are movements from the network's own data, with their own tier, wait,
-              legal status and emergency department. Nothing about them is written here that Command does not hold.
-            </li>
-            <li>
-              <b>The hospital sites, the health services and the community team names</b> are real Western Australian
-              names from the repository's tables. Joondalup Health Campus and Peel Health Campus have an emergency
-              department and no inpatient ward, so neither appears in the switcher.
-            </li>
-            <li>
-              <b>The seven leaving destinations</b>, the admission states, the home regions, the discharge date moved
-              count, the blocker list, the away at an emergency department state, and the rule that a pulled bed is
-              taken rather than free.
-            </li>
-          </ul>
-        </div>
-        <div class="sec">
-          <h3>What was changed to agree with Command</h3>
-          <ul>
-            <li>
-              <b>The day and the clock.</b> The source board stood at 21:51 on a different day. This page stands where
-              Command stands: Saturday 15 August 2026, 10:42 AWST, day shift, handover at 14:00. Every duration on the
-              source board is kept and its clock time moved back to fit, so bed 09 is 2h 27m past its time rather than
-              7h, and bed 17 was pulled 1h 41m ago as before.
-            </li>
-            <li>
-              <b>The ward's own partition.</b> The source drew 14 occupied beds and no held bed. The ward row holds 12
-              occupied and 2 held, so beds 07 and 10 are drawn as held and the board's eighteen tiles now sum to the
-              row. The occupancy line reads 12 men and no women, which is the row's own sex mix.
-            </li>
-            <li>
-              <b>Bed 09's discharge is confirmed, not merely expected.</b> The ward row records one confirmed discharge
-              today and none expected. The control that read Confirm the discharge is therefore They have left, because
-              the confirming has already happened and the bed has still not been released.
-            </li>
-            <li>
-              <b>Specialling.</b> The source said both of this ward's two specialling shifts were in use. The ward row
-              records two free, and the board follows the row.
-            </li>
-            <li>
-              <b>The people coming in are the network's own.</b> WF-355 and WF-361 were invented for the source board.
-              The two movements accepted to this ward in the network's data are WF-031, whose bed is pulled and who is
-              moving, and WF-002, accepted with no bed pulled. Both are drawn here under their own identifiers.
-            </li>
-            <li>
-              <b>Red is a breach and nothing else.</b> The source drew an overdue discharge and a lapsed date in red.
-              Both are amber here, which is the standard's look here, and red is kept for the blocked bed.
-            </li>
-            <li>
-              <b>The switcher counts what is drawn.</b> It said 23 wards and 15 hospitals and listed four. It now lists
-              every ward the network's data carries, with its own ready count, and says how many of the network's
-              twenty-three wards are drawn.
-            </li>
-          </ul>
-        </div>
-        <div class="sec">
-          <h3>Why this page exists next to the ward home page</h3>
-          <ul>
-            <li>
-              <b>The home page answers two questions</b>: what can this ward offer, and what needs an answer from it. It
-              is read in seconds, several times a day, and it is where a ward confirms its numbers.
-            </li>
-            <li>
-              <b>This page answers a third</b>: who is in every bed, and what is happening to them today. It is where a
-              ward works, confirming discharges, recording where someone is going, noticing a date that has moved three
-              times, and finding the person who has been here 156 days.
-            </li>
-            <li>
-              <b>Nothing is duplicated between them by accident.</b> The bed map appears on both because both questions
-              need it, but here it carries a stay, a home region and every marker, and it is filterable and sortable. On
-              the home page it carries only state.
-            </li>
-          </ul>
-        </div>
-        <div class="sec">
-          <h3>One thing this page proposes that the model cannot do today</h3>
-          <ul>
-            <li>
-              <b
-                >An earlier draft said a bed cannot be joined to a person. That was wrong, and the correction
-                matters.</b
-              >
-              <code>Admission</code> carries no patient field, which is true, but it carries <code>referralId</code>,
-              and <code>Referral</code> carries an optional <code>patientId</code>. The chain from admission to referral
-              to patient exists and resolves today.
-            </li>
-            <li>
-              <b>It is optional on purpose, and that is the real design constraint.</b> The reducer's own comment on the
-              line that sets it reads: "undefined here means the referral was raised without a person on file, which is
-              a real case, not a gap to be filled." So some occupied beds have no linked person, permanently and
-              correctly.
-            </li>
-            <li>
-              <b>Two fields are deliberately absent.</b> The patient record also holds Aboriginal or Torres Strait
-              Islander status and interpreter language, and the code marks both as not settled for display, pending the
-              Aboriginal health review. Neither is drawn here.
-            </li>
-          </ul>
-        </div>
-      </section>
     </div>
   </div>
 </div>
@@ -6811,10 +7069,11 @@
       queueTab: "patients",
       /* The board's own. */
       bed: "09",
-      filter: "look",
+      filter: "all",
       order: "number",
       shiftTab: "busy",
       shiftOpen: true,
+      flowTab: "out",
     };
 
     /* ============================================================
@@ -6925,7 +7184,7 @@
       if (b.awayAt !== undefined) out.push({ word: "At an ED " + dur(NOW - b.awayAt), tone: "warn" });
       if (b.leaving && b.leaving.at < NOW) out.push({ word: dur(NOW - b.leaving.at) + " past", tone: "warn" });
       if (b.lapsed) out.push({ word: b.lapsed.days + " days past", tone: "warn" });
-      if (b.state === "held" && b.awayAt === undefined) out.push({ word: "No reason recorded", tone: "warn" });
+      if (b.state === "held" && b.awayAt === undefined) out.push({ word: "No reason", tone: "warn" });
       if (b.pulledAt !== undefined) out.push({ word: "Pulled " + hhmm(b.pulledAt), tone: null });
       return out;
     }
@@ -7014,28 +7273,13 @@
           return "<dt>" + f[0] + "</dt><dd>" + f[1] + "</dd>";
         })
         .join("");
-      var chips = [
-        ["available", "Ready", nReady()],
-        ["held", "Held", nHeld()],
-        ["confirmed", "Confirmed", leavingBeds(true).length],
-        ["expected", "Expected", leavingBeds(false).length],
-        ["blocked", "Blocked", nBlocked()],
-      ];
-      $("wardChips").innerHTML = chips
-        .map(function (c) {
-          return (
-            '<span class="bedChip" data-state="' +
-            c[0] +
-            '"><span>' +
-            c[1] +
-            "</span> " +
-            (c[2] === 0 ? '<span class="zero">none</span>' : "<b>" + c[2] + "</b>") +
-            "</span>"
-          );
-        })
-        .join("");
       $("wardChipNote").textContent =
-        nOccupied() + " occupied of " + W.beds + " beds. Confirmed and expected beds are not allocatable yet.";
+        nOccupied() +
+        " occupied of " +
+        W.beds +
+        " beds, " +
+        count(nReady(), "ready", "ready") +
+        " to fill. Confirmed and expected beds are not allocatable yet.";
       renderScopeNote();
       renderSwitch();
     }
@@ -7118,8 +7362,8 @@
         { label: "Held", n: nHeld() },
         { label: "Confirmed out today", n: leavingBeds(true).length },
         { label: "Expected out today", n: leavingBeds(false).length },
-        { label: "Discharges with a blocker", n: blockerBeds().length },
-        { label: "Away at an emergency department", n: awayBeds().length, tone: awayBeds().length ? "warn" : null },
+        { label: "With a blocker", n: blockerBeds().length },
+        { label: "Away at an ED", n: awayBeds().length, tone: awayBeds().length ? "warn" : null },
         { label: "Pulled, not arrived", n: pulledHere().length },
         { label: "Out of service", n: nBlocked(), tone: nBlocked() ? "danger" : null },
         { label: "Here over 3 months", n: longStayBeds().length },
@@ -7137,7 +7381,6 @@
           );
         })
         .join("");
-      $("bandCount").textContent = cells.length + " figures";
     }
 
     function shiftItems() {
@@ -7158,7 +7401,7 @@
               ".",
             acts: [
               { word: "They have left", primary: true, say: "would release bed " + b.n + " and make it ready" },
-              { word: "Record a blocker", say: "would record what is holding this discharge up" },
+              { word: "Record a blocker", tone: "warn", say: "would record what is holding this discharge up" },
             ],
           });
         if (b.state === "blocked")
@@ -7169,7 +7412,13 @@
             chip: b.since + " days",
             short: "out of service",
             text: "Out of service. No return date recorded.",
-            acts: [{ word: "Set a return date", say: "would record when bed " + b.n + " comes back into service" }],
+            acts: [
+              {
+                word: "Set a return date",
+                primary: true,
+                say: "would record when bed " + b.n + " comes back into service",
+              },
+            ],
           });
         if (b.awayAt !== undefined)
           items.push({
@@ -7180,7 +7429,11 @@
             short: "away at an emergency department",
             text: "Their patient is away at an emergency department. The bed is still held for them.",
             acts: [
-              { word: "Mark them back", say: "would record that the person in bed " + b.n + " is back on the ward" },
+              {
+                word: "Mark them back",
+                primary: true,
+                say: "would record that the person in bed " + b.n + " is back on the ward",
+              },
             ],
           });
         if (b.pulledAt !== undefined) {
@@ -7196,12 +7449,37 @@
               : "Pulled, taken and not yet arrived.",
             acts: [
               { word: "They have arrived", primary: true, say: "would record the arrival and fill bed " + b.n },
-              { word: "Release the bed", say: "would give bed " + b.n + " back to the ward as ready" },
+              { word: "Release the bed", tone: "good", say: "would give bed " + b.n + " back to the ward as ready" },
             ],
           });
         }
       });
       return items;
+    }
+
+    /* The digest says how many and by when. The tiles say which bed, how late, what the matter is
+     and what can be done about it. The first build repeated every tile inside the digest; one of
+     the two had to go, and the digest is the one a reader can hold in their head. */
+    function bedsNamed(items) {
+      var out = [];
+      items.forEach(function (i) {
+        if (out.indexOf(i.bed.n) === -1) out.push(i.bed.n);
+      });
+      return out;
+    }
+
+    function actHtml(a) {
+      return (
+        '<button type="button" class="ctl' +
+        (a.primary ? " primary" : "") +
+        '"' +
+        (!a.primary && a.tone ? ' data-tone="' + a.tone + '"' : "") +
+        ' data-say="' +
+        esc(a.say) +
+        '">' +
+        a.word +
+        "</button>"
+      );
     }
 
     function renderShift() {
@@ -7210,26 +7488,21 @@
       $("shiftCount").textContent = items.length + " open";
       $("shiftTabCount").textContent = String(items.length);
       $("shiftDigest").innerHTML = quiet
-        ? "A quiet shift, drawn on purpose so the empty state is designed rather than left to look broken. This ward has " +
-          items.length +
-          " open on the tab beside it."
+        ? "A quiet shift, drawn on purpose so the empty state is designed rather than left to look broken."
         : "<b>" +
           items.length +
           " " +
           plural(items.length, "thing needs", "things need") +
-          " you this shift</b> &middot; " +
-          items
-            .map(function (i) {
-              return "bed " + i.bed.n + " " + i.short + ", " + i.chip.toLowerCase();
-            })
-            .join(" &middot; ");
+          " you</b> before the handover at 14:00, on " +
+          count(bedsNamed(items).length, "bed", "beds") +
+          ".";
       $("shiftTabBusy").setAttribute("aria-selected", quiet ? "false" : "true");
       $("shiftTabQuiet").setAttribute("aria-selected", quiet ? "true" : "false");
       $("shiftTabBusy").setAttribute("tabindex", quiet ? "-1" : "0");
       $("shiftTabQuiet").setAttribute("tabindex", quiet ? "0" : "-1");
       $("shiftBody").setAttribute("aria-labelledby", quiet ? "shiftTabQuiet" : "shiftTabBusy");
       $("shiftToggle").setAttribute("aria-expanded", state.shiftOpen ? "true" : "false");
-      $("shiftToggle").textContent = state.shiftOpen ? "Hide the list" : "Show the list";
+      $("shiftToggle").textContent = state.shiftOpen ? "Hide" : "Show";
       if (!state.shiftOpen) {
         $("shiftBody").innerHTML = "";
         return;
@@ -7240,39 +7513,29 @@
         return;
       }
       $("shiftBody").innerHTML =
-        '<div class="pb"><div class="rows">' +
+        '<div class="shiftGrid">' +
         items
           .map(function (i) {
             return (
-              '<div class="row"' +
+              '<div class="shiftTile"' +
               (i.tone ? ' data-tone="' + i.tone + '"' : "") +
-              '><span class="rowTop"><strong>Bed ' +
+              '><span class="shiftTop"><button type="button" class="bedLink" data-bed="' +
               i.bed.n +
-              '</strong><span class="tag">' +
+              '">Bed ' +
+              i.bed.n +
+              '</button><span class="tag">' +
               i.chip +
               '</span><span class="when">' +
               i.when +
-              '</span></span><span class="rowSub">' +
+              '</span></span><span class="shiftSub">' +
               i.text +
               '</span><span class="rowActs">' +
-              i.acts
-                .map(function (a) {
-                  return (
-                    '<button type="button" class="ctl' +
-                    (a.primary ? " primary" : "") +
-                    '" data-say="' +
-                    esc(a.say) +
-                    '">' +
-                    a.word +
-                    "</button>"
-                  );
-                })
-                .join("") +
+              i.acts.map(actHtml).join("") +
               "</span></div>"
             );
           })
           .join("") +
-        "</div></div>";
+        "</div>";
     }
 
     function orderedBeds(list) {
@@ -7481,10 +7744,10 @@
         (bedIsPulled(m)
           ? '<button type="button" class="ctl primary" data-say="would record that ' +
             m.id +
-            ' has arrived and fill the bed pulled for them">They have arrived</button><button type="button" class="ctl" data-say="would give the pulled bed back to the ward as ready">Release the bed</button>'
+            ' has arrived and fill the bed pulled for them">They have arrived</button><button type="button" class="ctl" data-tone="good" data-say="would give the pulled bed back to the ward as ready">Release the bed</button>'
           : '<button type="button" class="ctl primary" data-say="would pull one of this ward\'s ready beds for ' +
             m.id +
-            '">Pull a bed</button><button type="button" class="ctl" data-say="would withdraw this ward\'s acceptance of ' +
+            '">Pull a bed</button><button type="button" class="ctl" data-tone="warn" data-say="would withdraw this ward\'s acceptance of ' +
             m.id +
             '">Withdraw the acceptance</button>') +
         "</span></div>"
@@ -7520,49 +7783,90 @@
       );
     }
 
+    /* ─── either side of this ward ────────────────────────────────────────
+       Three tabs of one panel where the first build had three panels and a
+       fourth. Going out is this ward's own record and now carries where the
+       bed frees up to and whether that team has been told, which the fourth
+       panel said about the same beds. Coming in is read from the network's
+       movements. Since yesterday is this ward's own day count.
+
+       The pane the shell's search reaches, qpane-patients, stays in the
+       document at all times and the facade brings its tab forward, so a
+       person chosen in the bar is always shown rather than focused behind a
+       hidden tab. */
+
+    function flowTabs() {
+      var t = state.flowTab;
+      [
+        ["flowTabOut", "out"],
+        ["flowTabIn", "in"],
+        ["flowTabSince", "since"],
+      ].forEach(function (p) {
+        var on = t === p[1];
+        $(p[0]).setAttribute("aria-selected", on ? "true" : "false");
+        $(p[0]).setAttribute("tabindex", on ? "0" : "-1");
+        $("pane-" + p[1]).hidden = !on;
+      });
+      $("flowBody").setAttribute(
+        "aria-labelledby",
+        t === "in" ? "flowTabIn" : t === "since" ? "flowTabSince" : "flowTabOut",
+      );
+    }
+
+    function goingOutRow(b) {
+      var l = b.leaving;
+      return (
+        '<div class="qRow" data-sel="' +
+        (state.bed === b.n ? "true" : "false") +
+        '"><span class="qTop"><span class="qId">Bed ' +
+        b.n +
+        '</span><span class="tag">' +
+        dur(NOW - l.at) +
+        ' past</span><span class="qWait">' +
+        hhmm(l.at) +
+        '</span></span><span class="qRoute">' +
+        (l.confirmed ? "Confirmed out" : "Expected out") +
+        " today, still here. Home to <b>" +
+        esc(l.team) +
+        "</b>, in " +
+        esc(b.region) +
+        ". " +
+        (l.told ? "The team has been told." : "Nobody has been told yet.") +
+        '</span><span class="qMeta">Waiting on ' +
+        l.waitingOn.toLowerCase() +
+        " &middot; " +
+        (l.blocker ? "Blocker: " + esc(l.blocker) : "no blocker recorded") +
+        " &middot; date moved " +
+        l.moved +
+        ' times</span><span class="rowActs"><button type="button" class="ctl primary" data-say="would release bed ' +
+        b.n +
+        ' and make it ready">They have left</button><button type="button" class="ctl" data-tone="warn" data-say="would record what is holding this discharge up">Record a blocker</button><button type="button" class="ctl" data-say="would tell ' +
+        esc(l.team) +
+        ' that this bed is freeing up">Tell the team</button><button type="button" class="ctl" data-bed="' +
+        b.n +
+        '">Show bed ' +
+        b.n +
+        "</button></span></div>"
+      );
+    }
+
     function renderFlow() {
       var out = BOARD.filter(function (b) {
         return b.leaving;
       });
       var inc = incoming();
-      $("flowCount").innerHTML = out.length + " going out &middot; " + inc.length + " coming in";
-      $("outCount").textContent =
-        leavingBeds(true).length + " confirmed, " + (leavingBeds(false).length || "none") + " expected";
-      $("inCount").textContent = inc.length + " accepted here";
+      flowTabs();
+      $("flowCount").innerHTML =
+        out.length + " going out &middot; " + inc.length + " coming in &middot; " + SINCE.length + " counted since";
+      $("outNum").textContent = String(out.length);
+      $("inNum").textContent = String(inc.length);
       $("goingOut").innerHTML = out.length
-        ? out
-            .map(function (b) {
-              var l = b.leaving;
-              return (
-                '<div class="qRow" data-sel="' +
-                (state.bed === b.n ? "true" : "false") +
-                '"><span class="qTop"><span class="qId">Bed ' +
-                b.n +
-                '</span><span class="tag">' +
-                dur(NOW - l.at) +
-                ' past</span><span class="qWait">' +
-                hhmm(l.at) +
-                '</span></span><span class="qRoute">' +
-                (l.confirmed ? "Confirmed out" : "Expected out") +
-                " today, still here. Home to <b>" +
-                esc(l.team) +
-                '</b>.</span><span class="qMeta">Waiting on ' +
-                l.waitingOn.toLowerCase() +
-                " &middot; " +
-                (l.blocker ? "Blocker: " + esc(l.blocker) : "no blocker recorded") +
-                " &middot; date moved " +
-                l.moved +
-                ' times</span><span class="rowActs"><button type="button" class="ctl" data-bed="' +
-                b.n +
-                '">Show bed ' +
-                b.n +
-                '</button><button type="button" class="ctl primary" data-say="would release bed ' +
-                b.n +
-                ' and make it ready">They have left</button><button type="button" class="ctl" data-say="would record what is holding this discharge up">Record a blocker</button></span></div>'
-              );
-            })
-            .join("")
+        ? out.map(goingOutRow).join("")
         : '<p class="none">Nobody is recorded as leaving this ward today. Absence here means no date has been set, not that nobody is going home.</p>';
+      $("outFoot").innerHTML =
+        "A discharge that is decided and stuck is still a decided discharge, and it keeps counting as one. The bed becomes Ready only when it has actually been released. <b>The other " +
+        noDateBeds().length +
+        " occupied beds have no expected discharge date recorded at all</b>, which means nobody has planned them, not that nobody is leaving.";
       var html = inc
         .map(function (m) {
           return movementRow(
@@ -7601,58 +7905,15 @@
             .join(" and ") +
           ". They are answered on the Command screen, not here."
         : "These are the movements the network has accepted to this ward. No movement is waiting on an answer from this ward.";
-    }
-
-    function renderSince() {
-      $("sinceList").innerHTML = SINCE.map(function (s) {
+      $("sinceList").innerHTML = SINCE.map(function (x) {
         return (
           "<div><span>" +
-          s.label +
+          x.label +
           "</span>" +
-          (s.n === 0 ? '<span class="zero">none</span>' : "<b>" + s.n + "</b>") +
+          (x.n === 0 ? '<span class="zero">none</span>' : "<b>" + x.n + "</b>") +
           "</div>"
         );
       }).join("");
-    }
-
-    function renderFree() {
-      var withDate = BOARD.filter(function (b) {
-        return b.leaving;
-      });
-      $("freeCount").textContent = withDate.length + " of " + nOccupied() + " occupied";
-      $("freeList").innerHTML = withDate.length
-        ? withDate
-            .map(function (b) {
-              return (
-                '<div class="qRow" data-sel="' +
-                (state.bed === b.n ? "true" : "false") +
-                '"><span class="qTop"><span class="qId">Bed ' +
-                b.n +
-                '</span><span class="tag">' +
-                dur(NOW - b.leaving.at) +
-                ' past</span><span class="qWait">' +
-                esc(b.region) +
-                '</span></span><span class="qRoute">Home to <b>' +
-                esc(b.leaving.team) +
-                "</b>. " +
-                (b.leaving.told ? "The team has been told." : "Nobody has been told yet.") +
-                '</span><span class="rowActs"><button type="button" class="ctl" data-bed="' +
-                b.n +
-                '">Show bed ' +
-                b.n +
-                '</button><button type="button" class="ctl" data-say="would tell ' +
-                esc(b.leaving.team) +
-                ' that this bed is freeing up">Tell the team</button></span></div>'
-              );
-            })
-            .join("")
-        : '<p class="none">No bed here has a date inside the next seven days.</p>';
-      $("freeFoot").innerHTML =
-        "Only " +
-        count(withDate.length, "bed", "beds") +
-        " here has a date inside the next seven days. <b>The other " +
-        noDateBeds().length +
-        " occupied beds have no expected discharge date recorded at all</b>, which means nobody has planned them, not that nobody is leaving.";
     }
 
     /* ─── the record ─────────────────────────────────────────────────────
@@ -7734,9 +7995,9 @@
         '</option></select><button type="button" class="ctl primary" data-say="would record the destination against bed ' +
         b.n +
         '">Record it</button></div></div>' +
-        '<div class="recBlock"><h4>Actions</h4><div class="ctlRow"><button type="button" class="ctl" data-say="would release bed ' +
+        '<div class="recBlock"><h4>Actions</h4><div class="ctlRow"><button type="button" class="ctl primary" data-say="would release bed ' +
         b.n +
-        ' and make it ready">They have left</button><button type="button" class="ctl" data-say="would move this discharge date and record who moved it">Move the date</button><button type="button" class="ctl" data-say="would record what is holding this discharge up">Record a blocker</button><button type="button" class="ctl" data-say="would record that this person has gone to an emergency department">Mark away at an emergency department</button><button type="button" class="ctl" data-say="would open the full clinical record, which is not part of this prototype">Open the full record</button></div></div></div>';
+        ' and make it ready">They have left</button><button type="button" class="ctl" data-tone="warn" data-say="would move this discharge date and record who moved it">Move the date</button><button type="button" class="ctl" data-tone="warn" data-say="would record what is holding this discharge up">Record a blocker</button><button type="button" class="ctl" data-say="would record that this person has gone to an emergency department">Mark away at an emergency department</button><button type="button" class="ctl" data-say="would open the full clinical record, which is not part of this prototype">Open the full record</button></div></div></div>';
       var zone3 =
         '<div class="zone"><h3 class="secH">The record</h3><div class="recBlock"><h4>This admission</h4>' +
         facts([
@@ -7760,7 +8021,7 @@
         zone1 +
         zone2 +
         zone3 +
-        '</div><p class="note" style="padding: 10px 16px 14px; border-top: 1px solid var(--line)">Nothing is chosen for you: choosing a bed above is what fills this panel, and closing it leaves the board with nothing chosen. Every action here is recorded against FSH Adult Secure only.</p></div>'
+        '</div><p class="note recFoot">Nothing is chosen for you: choosing a bed on the grid is what fills this panel, and closing it leaves the board with nothing chosen. Every action here is recorded against FSH Adult Secure only.</p></div>'
       );
     }
 
@@ -7810,7 +8071,7 @@
         zone1 +
         zone2 +
         zone3 +
-        '</div><p class="note" style="padding: 10px 16px 14px; border-top: 1px solid var(--line)">Nothing is chosen for you: choosing a bed above is what fills this panel, and closing it leaves the board with nothing chosen. Every action here is recorded against FSH Adult Secure only.</p></div>'
+        '</div><p class="note recFoot">Nothing is chosen for you: choosing a bed on the grid is what fills this panel, and closing it leaves the board with nothing chosen. Every action here is recorded against FSH Adult Secure only.</p></div>'
       );
     }
 
@@ -7818,7 +8079,7 @@
       var b = state.bed ? bedByNo(state.bed) : null;
       if (!b) {
         $("recordPanel").innerHTML =
-          '<div class="ph"><h2>No bed chosen</h2><span class="count">Choose one above</span></div><div class="recordBody"><p class="none">Choose any bed on the grid and its record opens here. Nothing is chosen for you, and closing a record leaves the board with nothing chosen.</p></div>';
+          '<div class="ph"><h2>No bed chosen</h2><span class="count">Choose one on the grid</span></div><div class="recordBody"><p class="none">Choose any bed on the grid and its record opens here beside it. Nothing is chosen for you, and closing a record leaves the board with nothing chosen.</p></div>';
         return;
       }
       $("recordPanel").innerHTML = b.person ? fullRecord(b) : lightRecord(b);
@@ -7830,8 +8091,6 @@
       renderShift();
       renderBeds();
       renderFlow();
-      renderSince();
-      renderFree();
       renderRecord();
       if (window.WardFlowShell) window.WardFlowShell.render();
     }
@@ -7840,12 +8099,21 @@
    What the reader does.
    ============================================================ */
 
+    /* Where the hub is wide enough the record is docked beside the grid and is already in
+     view. Where it is not, the record is a block under the grid, so choosing a bed brings it
+     up rather than leaving the reader to find it. The dock is a container query, so the page
+     asks the panel what it actually is rather than guessing from the window's width. */
+    function recordIsDocked() {
+      var side = document.querySelector(".hubSide");
+      return !!side && getComputedStyle(side).position === "sticky";
+    }
+
     function selectBed(n, speak) {
       state.bed = n;
       renderBeds();
       renderFlow();
-      renderFree();
       renderRecord();
+      if (!recordIsDocked()) $("recordPanel").scrollIntoView({ block: "nearest" });
       var b = bedByNo(n);
       if (speak && b)
         announce(
@@ -7861,7 +8129,6 @@
       state.bed = null;
       renderBeds();
       renderFlow();
-      renderFree();
       renderRecord();
       announce("No bed chosen. The board is showing every bed and nothing is selected.");
     }
@@ -7925,6 +8192,10 @@
         announce(state.shiftOpen ? "The list is open." : "The list is folded away. The digest above stays.");
         return;
       }
+      if ((el = t.closest(".tabBtn[data-flow]"))) {
+        showFlow(el.getAttribute("data-flow"), true);
+        return;
+      }
       if ((el = t.closest(".tabBtn[role='tab']"))) {
         state.shiftTab = el.id === "shiftTabQuiet" ? "quiet" : "busy";
         renderShift();
@@ -7937,20 +8208,76 @@
       }
     });
 
+    /* The bar's Tasks drawer sends the reader to the queue pane with data-go, and the shell then
+     scrolls that pane into view. On this page the pane is one of three tabs, so the tab is
+     brought forward first. This listener is registered before the shell's, so the pane is
+     already showing by the time the shell looks for it. */
+    document.addEventListener("click", function (e) {
+      var t = e.target;
+      if (t.closest && t.closest('[data-go="queue"]') && state.flowTab !== "in") showFlow("in", false);
+    });
+
+    /* Arrow keys walk the grid the way a board is read, along a row and down a column. Every tile
+     stays in the tab order, so this adds a way through and takes none away. */
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      var here = document.activeElement;
+      if (!here || !here.classList || !here.classList.contains("bed")) return;
+      var grid = here.parentNode;
+      var tiles = Array.prototype.slice.call(grid.querySelectorAll(".bed"));
+      var cols = getComputedStyle(grid).gridTemplateColumns.split(" ").length;
+      var at = tiles.indexOf(here);
+      var step = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" ? -cols : cols;
+      var next = tiles[at + step];
+      if (!next) return;
+      next.focus();
+      e.preventDefault();
+    });
+
     $("bedOrder").addEventListener("change", function () {
       state.order = this.value;
       renderBeds();
       announce("The board is ordered " + this.options[this.selectedIndex].text.toLowerCase() + ".");
     });
 
-    /* Arrow keys across the two tabs, as a tab list takes them. */
-    document.querySelector(".tabbar").addEventListener("keydown", function (e) {
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      state.shiftTab = state.shiftTab === "quiet" ? "busy" : "quiet";
-      renderShift();
-      var el = $(state.shiftTab === "quiet" ? "shiftTabQuiet" : "shiftTabBusy");
-      el.focus();
-      e.preventDefault();
+    /* Arrow keys across a tab list, as a tab list takes them. Both lists on this page take them,
+     and each moves within its own. */
+    function showFlow(name, speak) {
+      state.flowTab = name;
+      renderFlow();
+      if (!speak) return;
+      announce(
+        name === "in"
+          ? "Coming in. " + count(incoming().length, "movement", "movements") + " accepted to this ward."
+          : name === "since"
+            ? "Since yesterday, this ward's own record."
+            : "Going out today. " +
+              count(
+                BOARD.filter(function (b) {
+                  return b.leaving;
+                }).length,
+                "bed",
+                "beds",
+              ) +
+              " with a date.",
+      );
+    }
+
+    Array.prototype.forEach.call(document.querySelectorAll(".tabbar"), function (bar) {
+      bar.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        var tabs = Array.prototype.slice.call(bar.querySelectorAll(".tabBtn"));
+        var at = tabs.indexOf(document.activeElement);
+        if (at === -1) return;
+        var to = tabs[(at + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+        if (to.hasAttribute("data-flow")) showFlow(to.getAttribute("data-flow"), false);
+        else {
+          state.shiftTab = to.id === "shiftTabQuiet" ? "quiet" : "busy";
+          renderShift();
+        }
+        $(to.id).focus();
+        e.preventDefault();
+      });
     });
 
     /* Escape. The shell owns the one Escape order and this page adds one step to the end of it,
@@ -8009,6 +8336,10 @@
       },
       selectQueueTab: function (name) {
         state.queueTab = name;
+        if (name === "patients" && state.flowTab !== "in") {
+          state.flowTab = "in";
+          renderFlow();
+        }
       },
     };
 
