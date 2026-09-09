@@ -4350,6 +4350,26 @@
   .hScroll.rrScroll {
     padding-bottom: 28px;
   }
+
+  /* At 1300px and narrower the shell hides the word on Activity, Tasks and Tools, which leaves a
+     summary whose only remaining content is an aria-hidden glyph, so the control has no accessible
+     name at all and a screen reader cannot say which drawer it opens. The word is taken out of the
+     picture rather than out of the tree. The shell's own rule is left exactly as it is; this one
+     sits later in the sheet at the same specificity and overrides it for this screen. */
+  @media (max-width: 1300px) {
+    .hdr1 .menu > summary .lbl.optional {
+      display: inline;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  }
   @media (min-width: 1400px) {
     .hApp.rrApp {
       height: auto;
@@ -8180,11 +8200,11 @@
       referralQueueOrder: referralQueueOrder,
       announce: announce,
       renderAll: renderAll,
-      /* This screen has no queue to select into, so choosing a person in the universal search says
-         where the movement is instead of pretending to show it here. */
+      /* This screen has no queue to select into. The shell writes the one sentence for a person
+         chosen in the universal search, and says where the movement actually is, so nothing is
+         announced from here: two sentences would mean the second silently replaced the first. */
       selectMovement: function (id) {
         state.movementId = id;
-        announce(id + " is open on the Command screen. This screen is the Raise a referral flow.");
       },
       selectQueueTab: function (name) {
         state.queueTab = name;
@@ -10309,7 +10329,13 @@
       state.qOpen = false;
       setQ("");
       showInQueue(id);
-      announce(nameOf(m) + (hasName(m) ? ", " + id : "") + ", selected in the queue. " + fmtDl(m) + "." + note);
+      /* A screen with no queue has nowhere to select the person into, so it says where the movement
+         is instead of naming a destination the reader would then look for and never find. Command
+         has the pane and keeps the original sentence. */
+      var into = $("qpane-patients")
+        ? ", selected in the queue. "
+        : ". The movement is open on the Command screen, not on this one. ";
+      announce(nameOf(m) + (hasName(m) ? ", " + id : "") + into + fmtDl(m) + "." + note);
     }
 
     /* ─── menus and drawers: one open at a time, close outside, Escape returns focus ─── */
