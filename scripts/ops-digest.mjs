@@ -150,7 +150,7 @@ export function renderDigest(health, meta = {}) {
         : status === "unknown"
           ? "⚪ unknown"
           : "🔴 unreachable";
-  lines.push(`### Ops digest — ${stamp}`, "", `**Status:** ${badge}`);
+  lines.push(`### Ops digest — ${stamp}`, "", `**Service readiness:** ${badge}`);
   if (meta.error) lines.push("", `> Probe error: \`${meta.error}\``);
 
   if (health) {
@@ -167,14 +167,17 @@ export function renderDigest(health, meta = {}) {
 
     if (health.slo) {
       const s = health.slo;
+      const noAnswerActivity = s.windowMinutes === 60 && s.totalQueries === 0;
+      const sloPct = (value) => (noAnswerActivity ? "N/A" : pct(value));
       lines.push(
         "",
         "**Answer SLO** (trailing " + (s.windowMinutes ?? "?") + "m)",
+        noAnswerActivity ? "**No answered queries observed—answer quality not assessed.**" : "",
         `- queries: ${s.totalQueries ?? 0}`,
-        `- hybrid RPC errors: ${s.hybridRpcErrorQueries ?? 0} (${pct(s.hybridRpcErrorRate)})`,
-        `- degraded/source-only: ${s.degradedQueries ?? 0} (${pct(s.degradedRate)})`,
-        `- truncation fallbacks: ${s.truncationFallbackQueries ?? 0} (${pct(s.truncationFallbackRate)})`,
-        `- timeout fallbacks: ${s.timeoutFallbackQueries ?? 0} (${pct(s.timeoutFallbackRate)})`,
+        `- hybrid RPC errors: ${s.hybridRpcErrorQueries ?? 0} (${sloPct(s.hybridRpcErrorRate)})`,
+        `- degraded/source-only: ${s.degradedQueries ?? 0} (${sloPct(s.degradedRate)})`,
+        `- truncation fallbacks: ${s.truncationFallbackQueries ?? 0} (${sloPct(s.truncationFallbackRate)})`,
+        `- timeout fallbacks: ${s.timeoutFallbackQueries ?? 0} (${sloPct(s.timeoutFallbackRate)})`,
       );
     }
 

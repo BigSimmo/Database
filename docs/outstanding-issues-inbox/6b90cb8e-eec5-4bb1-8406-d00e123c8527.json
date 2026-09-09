@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6b90cb8e-eec5-4bb1-8406-d00e123c8527",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Do not refresh the Lighthouse performance baseline until main has one genuinely green run",
+    "detail": "The Lighthouse budget cells on the release browser matrix have drifted from their recorded baseline, and the obvious remedy (re-record the baseline from a recent main run) is unsafe right now. All four cells drifted together, which points at an environment/runner-level shift rather than any one PR, and main is not currently in a known-good state because release-browser-matrix fails on every run with 15 Firefox/WebKit failures. Refreshing the baseline from a red main would stamp unattributable drift as 'the new normal' and permanently lose the ability to attribute it. NEXT ACTION, in this order: (1) fix or triage the release-browser-matrix Firefox/WebKit failures, (2) obtain one main run where the whole matrix is genuinely green, (3) only then re-record the Lighthouse baseline from that SHA and note the SHA in the commit message. STOP RULE: if step 2 cannot be reached, do not proceed to step 3 - raise it with the owner instead. Related but distinct: #QSHHGK covers the bundle-budget baseline refresh, which is a different artefact.",
+    "source": "Session 2026-09-07 (DSM diagnosis page work). Reversal of my own earlier advice in the same session: I first suggested refreshing the baseline, then withdrew that after establishing main is red. Offline analysis plus GitHub Actions run reads; no baseline was changed.",
+    "issueUlid": "01M1XFZZ550H0S89B5N5XKHAVT"
+  }
+}
