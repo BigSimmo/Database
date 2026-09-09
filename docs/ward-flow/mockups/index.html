@@ -218,7 +218,9 @@
       .grid {
         display: grid;
         gap: 0.75rem;
-        grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+        /* min() caps the track at the space actually available, so the cards shrink
+           rather than pushing the page sideways on a 320px phone. */
+        grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr));
       }
       .card {
         background: var(--surface);
@@ -449,9 +451,10 @@
 
     <main id="main">
       <p class="lede">
-        Every Ward Flow HTML page, where it lives, and whether it is real yet. Nothing here is a clinical system. Every
-        person, bed, movement and figure on every page listed below is invented. Facts on this page were read from the
-        repository on 9 September 2026 and are stated as at that read.
+        Every Ward Flow HTML file in the repository, where it lives, and whether it is real yet: the screens, the
+        standard, the kit they are built from, the prototypes they are lifted off, and the two odd files at the end.
+        Nothing here is a clinical system. Every person, bed, movement and figure on every page listed below is
+        invented. Facts on this page were read from the repository on 9 September 2026 and are stated as at that read.
       </p>
 
       <section aria-labelledby="h-screens">
@@ -622,8 +625,9 @@
               <span class="chip" data-tone="good">On main</span>
             </div>
             <p>
-              The harness every rebuild is proved against, plus the shell markup, the rail map and the merge brief. Run
-              it with <code>node third-edition-kit/check.mjs &lt;file&gt; platinum</code>.
+              The harness every rebuild is proved against, plus the four pages it is built from: the shell preview and
+              its markup, and the owner's rail and build sheet artifacts that the third edition was drawn over. Run the
+              harness with <code>node third-edition-kit/check.mjs &lt;file&gt; platinum</code>.
             </p>
             <dl>
               <dt>Folder</dt>
@@ -633,6 +637,9 @@
             </dl>
             <div class="links">
               <a href="third-edition-kit/shell/preview.html">Shell preview</a>
+              <a href="third-edition-kit/shell/shell-markup.html">Shell markup</a>
+              <a href="third-edition-kit/inputs/rail.html">Rail source</a>
+              <a href="third-edition-kit/inputs/buildsheet.html">Build sheet</a>
               <a href="third-edition-kit/MERGE-BRIEF.md">Merge brief</a>
               <a href="third-edition-kit/inputs/RAIL-MAP.md">Rail map</a>
             </div>
@@ -971,6 +978,41 @@
             <a href="../design/prototypes/DESIGN-LANGUAGE.md">DESIGN-LANGUAGE.md</a> describe the set.
           </p>
         </details>
+      </section>
+
+      <section aria-labelledby="h-rest">
+        <h2 id="h-rest">The rest of the Ward Flow HTML</h2>
+        <p class="note">
+          Two files that are neither a screen nor a prototype, listed so the count above is honest rather than tidy.
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">File</th>
+                <th scope="col">What it is</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">
+                  <a href="../design/evidence/print-hoist-cascade-probe.html">print-hoist-cascade-probe.html</a>
+                </td>
+                <td>
+                  A probe kept as evidence, not a screen. It reproduces how a print stylesheet hoists a cascade, for the
+                  design decision that answered it.
+                </td>
+              </tr>
+              <tr>
+                <td class="mono">control/evidence/artifacts/ward-board/&hellip;tmp-board.html</td>
+                <td>
+                  A captured test artifact under the control evidence tree, named by content hash. Machine output, not a
+                  page anyone opens.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <footer class="foot">
