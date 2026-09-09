@@ -4756,6 +4756,7 @@
           <div class="ph">
             <h2 id="subjectHeading">At a glance</h2>
             <span class="count" id="subjectCount"></span>
+            <span id="subjectPin"></span>
           </div>
           <div class="slBody" id="subject" tabindex="0" aria-label="The subject"></div>
           <div class="hubSource">
@@ -5412,6 +5413,44 @@
       state.railClosed = localStorage.getItem("ward-flow-rail") === "closed";
     } catch (e) {}
 
+    /* Pinned places, kept in the rail's own Pinned group as the standard has it.
+       Remembered for this browser only. A browser that refuses storage still gets
+       the page, with nothing pinned. */
+    var PIN_KEY = "ward-flow-search-hub-pinned";
+    var pinned = [];
+    try {
+      var rawPins = localStorage.getItem(PIN_KEY);
+      if (rawPins)
+        pinned = JSON.parse(rawPins).filter(function (id) {
+          return !!BY_ID[id];
+        });
+    } catch (e) {}
+    function savePins() {
+      try {
+        localStorage.setItem(PIN_KEY, JSON.stringify(pinned));
+      } catch (e) {}
+    }
+    function isPinned(id) {
+      return pinned.indexOf(id) !== -1;
+    }
+    function togglePin(id) {
+      if (isPinned(id))
+        pinned = pinned.filter(function (x) {
+          return x !== id;
+        });
+      else pinned = [id].concat(pinned);
+      savePins();
+    }
+    function pinnedInScope() {
+      return pinned
+        .map(function (id) {
+          return BY_ID[id];
+        })
+        .filter(function (it) {
+          return it && inSvc(it);
+        });
+    }
+
     /* ─── scope ───────────────────────────────────────────────────────── */
     function inSvc(it) {
       return !state.svc || it.svc === state.svc;
@@ -5581,6 +5620,7 @@
       handover: "M3 9h12M3 5h12M3 13h8",
       statistics: "M3 15V8M8 15V3M13 15v-5",
       governance: "M9 2l6 3v4c0 4-2.7 6.3-6 7-3.3-.7-6-3-6-7V5z",
+      pin: "M9 2l3 3-2 1v4l2 2H6l2-2V6L6 5z",
       collapse: "M11 3L6 9l5 6",
       expand: "M7 3l5 6-5 6",
     };
@@ -5792,6 +5832,34 @@
         "</b></div>"
       );
     }
+    function pinnedRows() {
+      var h = "";
+      pinnedInScope().forEach(function (it) {
+        var st = rowStatus(it);
+        h +=
+          '<button type="button" class="pinRow" data-pin="' +
+          it.id +
+          '" aria-pressed="' +
+          (state.subject === it.id ? "true" : "false") +
+          '"' +
+          (st && st.tone !== "good" ? ' data-tone="' + st.tone + '"' : "") +
+          ' title="' +
+          esc(kindWord(it.kind) + ", " + SVC[it.svc]) +
+          '"><span class="id">' +
+          (it.kind === "ward" ? "Ward" : it.kind === "ed" ? "Dept" : "Team") +
+          "</span><b>" +
+          esc(it.name) +
+          '</b><span class="wait">' +
+          (it.kind === "ward" ? (it.w.ready === 0 ? "<i>none</i>" : it.w.ready + " ready") : "") +
+          "</span></button>";
+      });
+      return (
+        h ||
+        '<p class="menuNote" style="padding:2px 10px 4px">No pinned place in ' +
+          esc(svcName()) +
+          ". Pin one from the panel on the right.</p>"
+      );
+    }
     var narrow = window.matchMedia ? window.matchMedia("(max-width: 1000px)") : { matches: false };
     function railClosed() {
       return state.railClosed && !narrow.matches;
@@ -5826,6 +5894,13 @@
           '%"></i></div></div>';
         h += railGroups(f, false);
         h +=
+          '<div class="railGroup pinGroup" role="group" aria-label="Pinned places"><p class="railEyebrow">Pinned</p>' +
+          pinnedRows() +
+          "</div>";
+        /* Closes .railScroll. Without it the foot and the flip control parse
+           inside the scrolling region and scroll away with the links. */
+        h += "</div>";
+        h +=
           '<div class="railFoot"><p class="railUser"><span>Signed in as</span><b>Bed coordinator</b></p>' +
           '<p class="railCheck" id="railCheck" data-ok="' +
           (ok ? "true" : "false") +
@@ -5833,6 +5908,7 @@
           esc(checkText(f)) +
           "</span></p>" +
           '<p class="railNote">Nine of the twelve screens carry no count here, because this screen holds no movement or referral data to derive one from. An absent count is not a count of none.</p>' +
+          '<p class="railNote">Pinned places are remembered for this browser only, and follow the chosen service like every other count.</p>' +
           '<p class="railNote">Every ward state, bed figure, clock and team name on this screen is invented. The hospital sites and health services are real WA names.</p></div>';
         h +=
           '<button type="button" class="railBtn" data-rail-toggle="closed" title="Close the rail to a strip. The bracket key does the same.">' +
@@ -5841,6 +5917,17 @@
       } else {
         h += railGroups(f, true);
         h += '<div class="railFoot">';
+        h +=
+          '<details class="menu flyMenu" id="pinMenu"><summary title="Pinned places"><span class="srOnly">Pinned places</span>' +
+          glyph("pin") +
+          tagHtml(
+            pinnedInScope().length
+              ? { text: String(pinnedInScope().length), zero: false }
+              : { text: "none", zero: true },
+          ) +
+          '</summary><div class="menuPanel"><p class="menuHead">Pinned<span class="count">watching</span></p><div class="menuList">' +
+          pinnedRows() +
+          '</div><p class="menuNote">Pin a place from the panel on the right to keep it here through the shift. Nothing is pinned to begin with.</p></div></details>';
         h +=
           '<div class="ringRow" title="Bed coordinator. Day shift, handover ' +
           HANDOVER +
@@ -6749,6 +6836,18 @@
         $("subjectCount").textContent = kindWord(it.kind);
         body.innerHTML = it.kind === "ward" ? renderWard(it) : it.kind === "ed" ? renderEd(it) : renderTeam(it);
       }
+      var on = it && isPinned(it.id);
+      $("subjectPin").innerHTML = it
+        ? '<button type="button" class="pinBtn" data-pin-toggle="' +
+          it.id +
+          '" aria-pressed="' +
+          (on ? "true" : "false") +
+          '" title="' +
+          (on ? "Unpin this place from the rail" : "Pin this place to the rail") +
+          '">' +
+          (on ? "Pinned" : "Pin") +
+          "</button>"
+        : "";
       fade(body);
       $("sourceReal").innerHTML =
         "<b>Real.</b> The " +
@@ -6946,6 +7045,27 @@
         state.kind = state.taskKey ? "ward" : state.kind;
         render();
         announce(state.taskKey ? shownText(figures()) : "Task filter cleared. " + shownText(figures()));
+        return;
+      }
+      var pinToggle = t.closest && t.closest("[data-pin-toggle]");
+      if (pinToggle) {
+        var pid = pinToggle.getAttribute("data-pin-toggle");
+        togglePin(pid);
+        render();
+        announce(
+          (isPinned(pid) ? BY_ID[pid].name + " pinned to the rail. " : BY_ID[pid].name + " unpinned. ") +
+            countWord(pinnedInScope().length, "place", "places") +
+            " pinned in " +
+            svcName() +
+            ".",
+        );
+        return;
+      }
+      var pinRow = t.closest && t.closest("[data-pin]");
+      if (pinRow) {
+        var m2 = pinRow.closest("details.menu");
+        if (m2) m2.open = false;
+        setSubject(pinRow.getAttribute("data-pin"));
         return;
       }
       var flip = t.closest && t.closest("[data-rail-toggle]");
