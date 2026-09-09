@@ -397,6 +397,12 @@
         padding: 0.75rem 1rem;
         margin-bottom: 0.75rem;
       }
+      .callout[data-kind="hazard"] {
+        border-left-color: var(--danger);
+      }
+      .callout[data-kind="settled"] {
+        border-left-color: var(--good);
+      }
       .callout p {
         margin: 0.25rem 0 0;
         font-size: 0.875rem;
@@ -778,12 +784,12 @@
               <dt>Branch</dt>
               <dd>claude/compassionate-ride-p2xcgn @ b4b3a598b</dd>
               <dt>Artifact</dt>
-              <dd>stale, see below</dd>
+              <dd>verified same page</dd>
             </dl>
             <div class="links">
               <span class="dead">Not in this checkout</span>
               <a href="https://github.com/BigSimmo/Database/pull/2750">Pull request 2750</a>
-              <a href="https://claude.ai/code/artifact/f6b61d92-aa46-41f8-91f9-b405376ef749">Artifact, older</a>
+              <a href="https://claude.ai/code/artifact/f6b61d92-aa46-41f8-91f9-b405376ef749">Artifact</a>
             </div>
           </article>
 
@@ -873,13 +879,35 @@
         <h2 id="h-open">Open decisions and things that do not line up</h2>
         <p class="note">None of these block a merge. They are the questions the build sessions could not settle.</p>
 
-        <div class="callout">
-          <b>The community team statistics artifact is older than the file.</b>
+        <div class="callout" data-kind="settled">
+          <b>Compare these pages by hash, never by size.</b>
           <p>
-            Its delivery said the artifact and the committed file were byte for byte identical at 294,587 bytes. The
-            file at that commit is 298,900 bytes, and the commit before it is 298,004. Neither matches. The artifact was
-            published before the review fix that made the definition lists valid and named the print control, so the
-            branch is the newer copy and the artifact should not be treated as the same page.
+            This index first recorded the community team statistics artifact as stale, on the grounds that its stated
+            294,587 did not match the file's 298,900 bytes. That was wrong. The 294,587 was a count of characters, not
+            bytes, and the file holds 294,588 characters in 298,900 bytes because its comments are drawn with
+            box-drawing rules. The artifact was then fetched and compared: its body is the committed file byte for byte,
+            plus the two closing tags the artifact host appends. Same page.
+          </p>
+          <p>
+            The lesson is worth keeping. Every page here is mostly multi-byte drawing characters, so a size in
+            &ldquo;bytes&rdquo; and a size in characters differ by thousands and look like two different files. Check a
+            copy against its sha256, which is why every entry above carries one.
+          </p>
+        </div>
+
+        <div class="callout" data-kind="hazard">
+          <b>Opened from disk, these pages can be decoded as the wrong language.</b>
+          <p>
+            Every third edition mockup is a fragment: it starts at its <code>&lt;title&gt;</code> and carries no
+            doctype, no head and no <code>&lt;meta charset&gt;</code>, because the artifact host supplies those at
+            publish time. Opened as a local file there is nothing to declare UTF-8, so the browser guesses.
+          </p>
+          <p>
+            It does guess wrong. Chromium opening <code>design-system-third-edition.html</code> from disk reports its
+            encoding as IBM866, a Cyrillic DOS codepage, and renders 36 Cyrillic characters into the standard's own
+            prose. <code>command-third-edition.html</code> happens to be sniffed as UTF-8, so the fault is silent until
+            it is not. Serving the folder over HTTP, or opening a page from its artifact rather than the file, both
+            avoid it. This hub declares its own charset, so the index itself is never affected.
           </p>
         </div>
 
@@ -1037,8 +1065,13 @@
             so neither file could be read.
           </li>
           <li>
-            Not checked: whether the artifacts still resolve, and whether any artifact other than the community team one
-            matches its committed file.
+            Checked: the community team statistics artifact was fetched and compared against its committed file byte for
+            byte, after an earlier claim here that they differed. They do not differ. The encoding fault above was
+            measured in Chromium against the files on <code>main</code>.
+          </li>
+          <li>
+            Not checked: whether any artifact other than the community team one matches its committed file, and whether
+            the Movement and Delays artifacts still resolve.
           </li>
         </ul>
         <p>
