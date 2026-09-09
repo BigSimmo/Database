@@ -206,7 +206,9 @@ describe("Codex Run PR operator workflow", () => {
   });
 
   it("collects the complete bounded Run PR control-plane evidence", () => {
-    expect(prepare).toContain("open_pull_requests: openPullRequests");
+    expect(prepare).toContain(
+      "open_pull_requests: batchContext ? openPullRequests.filter((item) => item.number === prNumber) : openPullRequests",
+    );
     expect(prepare).toContain("unresolved_review_thread_count: unresolvedThreadCount");
     expect(prepare).toContain("reviews,");
     expect(prepare).toContain("issue_comments: issueComments");
@@ -249,16 +251,18 @@ describe("Codex Run PR operator workflow", () => {
   it("seals only bounded descendants and excludes policy or credential-bearing paths", () => {
     expect(repair).toContain('git merge-base --is-ancestor "$EXPECTED_HEAD" HEAD');
     expect(repair).toContain("OPERATOR_START_SHA=$operator_start_sha");
-    expect(repair).toContain('git diff --name-only --no-renames -z "$OPERATOR_START_SHA"');
+    expect(repair).toContain('git diff --name-only --no-renames -z "$OPERATOR_COMPARE_TREE"');
     expect(repair).toContain("mapfile -d '' -t changed_paths");
     expect(repair).toContain(".github/*|.codex/*|.claude/*|.agents/*");
     expect(repair).toContain("supabase/*|.env|.env.*");
     expect(repair).toContain(".npmrc|*/.npmrc");
-    expect(repair).toContain('git diff --cached --raw "$OPERATOR_START_SHA"');
-    expect(repair).toContain('git diff --cached --binary "$OPERATOR_START_SHA"');
+    expect(repair).toContain('git diff --cached --raw "$OPERATOR_COMPARE_TREE"');
+    expect(repair).toContain('git diff --cached --binary "$OPERATOR_COMPARE_TREE"');
     expect(repair).toContain("(120000|160000)");
     expect(repair).toContain("sha256sum .codex-run-pr/context.json");
-    expect(repair).toContain('keys == ["checks", "rerun_failed_run_ids", "summary", "thread_dispositions"]');
+    expect(repair).toContain(
+      'keys == ["checks", "progress_outcome", "rerun_failed_run_ids", "summary", "thread_dispositions"]',
+    );
     expect(repair).toContain("1048576");
     expect(repair).toContain("git bundle create");
   });
@@ -266,7 +270,8 @@ describe("Codex Run PR operator workflow", () => {
   it("publishes only an exact, race-free, ordinary feature-branch update as BigSimmo", () => {
     expect(publish).toContain("secrets.GH_TOKEN");
     expect(publish).toContain('test "$identity" = "BigSimmo"');
-    expect(publish).toContain('test "$remote_head" = "$EXPECTED_HEAD"');
+    expect(publish).toContain('[ "$remote_head" != "$EXPECTED_HEAD" ]');
+    expect(publish).toContain('test "$remote_head" = "$result_sha"');
     expect(publish).toContain('gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$HEAD_REF"');
     expect(publish).not.toContain("git ls-remote origin");
     expect(publish).toContain('git push origin "$RESULT_SHA:refs/heads/$HEAD_REF"');

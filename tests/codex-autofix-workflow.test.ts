@@ -114,6 +114,7 @@ const requestScript = new AsyncFunction("github", "context", "core", requestScri
 const threadScript = new AsyncFunction("github", "context", "core", threadScriptSource);
 
 async function runRequestScript(options?: {
+  batchReserved?: boolean;
   createError?: unknown;
   existingComments?: ExistingComment[];
   existingCommentsError?: unknown;
@@ -162,6 +163,18 @@ async function runRequestScript(options?: {
       throw new Error("Unexpected paginate target");
     },
     rest: {
+      repos: {
+        getContent: async () => {
+          if (!options?.batchReserved) throw Object.assign(new Error("No batch"), { status: 404 });
+          return {
+            data: {
+              content: Buffer.from(
+                JSON.stringify({ version: 1, status: "running", entries: [{ number: 42, state: "queued" }] }),
+              ).toString("base64"),
+            },
+          };
+        },
+      },
       issues: {
         createComment: async (request: CreateCommentRequest) => {
           createdComments.push(request);
@@ -214,6 +227,7 @@ async function runRequestScript(options?: {
 }
 
 async function runThreadScript(options?: {
+  batchReserved?: boolean;
   comment?: Partial<Comment>;
   graphqlError?: unknown;
   graphqlResults?: unknown[];
@@ -233,6 +247,20 @@ async function runThreadScript(options?: {
   };
 
   const github = {
+    rest: {
+      repos: {
+        getContent: async () => {
+          if (!options?.batchReserved) throw Object.assign(new Error("No batch"), { status: 404 });
+          return {
+            data: {
+              content: Buffer.from(
+                JSON.stringify({ version: 1, status: "paused", entries: [{ number: 42, state: "repairing" }] }),
+              ).toString("base64"),
+            },
+          };
+        },
+      },
+    },
     graphql: async (query: string, variables: Record<string, unknown>) => {
       graphqlCalls.push({ query, variables });
       if (options?.graphqlError !== undefined) throw options.graphqlError;
@@ -280,6 +308,14 @@ function runGuard(workflow: string) {
 }
 
 describe("Codex auto-resolve workflow guard", () => {
+  it("yields both automatic repair and resolution for batch-owned PRs", async () => {
+    const request = await runRequestScript({ batchReserved: true });
+    expect(request.createdComments).toHaveLength(0);
+    expect(request.notices.join(" ")).toContain("reserved by the batch runner");
+    const resolution = await runThreadScript({ batchReserved: true });
+    expect(resolution.graphqlCalls).toHaveLength(0);
+    expect(resolution.notices.join(" ")).toContain("reserved by the batch runner");
+  });
   it("accepts the hardened workflow", () => {
     const result = runGuard(originalWorkflow);
 
@@ -480,10 +516,10 @@ describe("Codex auto-resolve workflow guard", () => {
   it("rejects workflow-level concurrency that includes unrelated events", () => {
     const workflow = originalWorkflow.replace(
       `    concurrency:
-      group: codex-autoresolve-\${{ github.event.pull_request.number }}
+      group: pr-batch-mutation
       cancel-in-progress: false`,
       `concurrency:
-  group: codex-autoresolve-\${{ github.event.pull_request.number }}
+  group: pr-batch-mutation
   cancel-in-progress: false`,
     );
     expect(workflow).not.toBe(originalWorkflow);

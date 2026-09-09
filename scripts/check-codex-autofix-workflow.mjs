@@ -155,8 +155,9 @@ for (const requiredCheck of requiredMissingTokenHandlingChecks) {
 
 const requiredConcurrencyChecks = [
   "    concurrency:",
-  "      group: codex-autoresolve-${{ github.event.pull_request.number }}",
+  "      group: pr-batch-mutation",
   "      cancel-in-progress: false",
+  "      queue: max",
 ];
 
 for (const requiredCheck of requiredConcurrencyChecks) {

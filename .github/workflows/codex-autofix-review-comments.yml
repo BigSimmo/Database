@@ -28,8 +28,9 @@ jobs:
     permissions:
       contents: read
     concurrency:
-      group: codex-autoresolve-${{ github.event.pull_request.number }}
+      group: pr-batch-mutation
       cancel-in-progress: false
+      queue: max
     env:
       # Assigned to job env so a step-level `if` can detect an unconfigured
       # secret and skip gracefully instead of hard-failing the check.
@@ -41,6 +42,8 @@ jobs:
       - name: Ask Codex to resolve review comments
         if: ${{ env.CODEX_TRIGGER_TOKEN != '' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          BATCH_READ_TOKEN: ${{ github.token }}
         with:
           # A fine-grained PAT from a real (non-bot) account. The Codex connector
           # ignores @codex commands authored by github-actions[bot], so the
@@ -48,6 +51,19 @@ jobs:
           github-token: ${{ secrets.CODEX_TRIGGER_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
+            // Same reservation contract as the batch operator: queued, active and
+            // parked members remain owned until the batch completes.
+            try {
+              const stored = await github.rest.repos.getContent({ ...context.repo, path: 'state.json', ref: 'codex/pr-batch-state', headers: { authorization: `Bearer ${process.env.BATCH_READ_TOKEN}` } });
+              const state = JSON.parse(Buffer.from(stored.data.content, 'base64').toString('utf8'));
+              if (state.version !== 1 || !Array.isArray(state.entries)) throw new Error('Invalid batch state');
+              if (['running', 'paused'].includes(state.status) && state.entries.some((entry) => entry.number === pr.number && !['merged', 'excluded'].includes(entry.state))) {
+                core.notice('PR is reserved by the batch runner; yielding automatic repair.');
+                return;
+              }
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
             const review = context.payload.review;
             const allowedCodexBotLogins = new Set([
               "chatgpt-codex-connector",
@@ -352,12 +368,12 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    # Each reply resolves a distinct thread, so key concurrency per comment —
-    # a per-PR group would cap at one running + one pending and drop resolutions
-    # during a burst of disposition replies.
+    # Queue every resolution while serializing ownership checks with the batch.
+    # queue:max avoids replacing a pending resolution during a comment burst.
     concurrency:
-      group: codex-autoresolve-thread-${{ github.event.pull_request.number }}-${{ github.event.comment.id }}
+      group: pr-batch-mutation
       cancel-in-progress: false
+      queue: max
     steps:
       - name: Resolve Codex review thread on disposition marker
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -365,6 +381,17 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const pr = context.payload.pull_request;
+            try {
+              const stored = await github.rest.repos.getContent({ ...context.repo, path: 'state.json', ref: 'codex/pr-batch-state' });
+              const state = JSON.parse(Buffer.from(stored.data.content, 'base64').toString('utf8'));
+              if (state.version !== 1 || !Array.isArray(state.entries)) throw new Error('Invalid batch state');
+              if (['running', 'paused'].includes(state.status) && state.entries.some((entry) => entry.number === pr.number && !['merged', 'excluded'].includes(entry.state))) {
+                core.notice('PR is reserved by the batch runner; yielding thread resolution.');
+                return;
+              }
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
             const reviewComment = context.payload.comment;
             const allowedCodexBotLogins = new Set([
               "chatgpt-codex-connector",
