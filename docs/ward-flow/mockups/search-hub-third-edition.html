@@ -4345,7 +4345,7 @@
 
   .hubGrid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     gap: var(--gap);
     align-items: start;
     min-width: 0;
@@ -4374,6 +4374,52 @@
      the second track back rather than letting a table land in a 15px column. */
   #subject.slBody {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* THE PAGE-OWNED COMPOSER. Owner ruling, 9 September 2026: the search belongs
+     at the head of the directory, not in the bar, because finding a place is the
+     whole job of this screen. It is still the only composer on the page, so the
+     bar carries none and the one-composer rule holds. A strip on surface-2, like
+     every other strip inside a panel, with the block's own search control in it. */
+  .hubComposer {
+    position: relative;
+    max-width: none;
+    padding: 10px 16px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .hubComposer .search {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    flex: none;
+  }
+  .hubComposer .qPop {
+    left: 16px;
+    width: calc(100% - 32px);
+  }
+
+  /* The glance column is a third of the page, so it is set tighter than a full
+     width panel: shorter sections, a two column tally and a two column table. */
+  .slPanel .sec {
+    padding: 10px 14px;
+  }
+  .slPanel .tally {
+    padding: 0;
+    gap: 6px;
+  }
+  .slPanel .tile {
+    padding: 7px 9px;
+  }
+  .slPanel .dataTable th,
+  .slPanel .dataTable td {
+    padding: 5px 14px;
+  }
+  .slPanel .rows {
+    gap: 5px;
+  }
+  .slPanel .row {
+    padding: 7px 10px;
   }
 
   /* A directory row. The block's queue row carries the shape: the name, the
@@ -4570,7 +4616,7 @@
   }
 
   .hubNote {
-    margin: 10px 0 0;
+    margin: 8px 0 0;
     font-size: var(--t-1);
     line-height: 1.55;
     color: var(--muted);
@@ -4610,7 +4656,7 @@
   .hubSource {
     border-top: 1px solid var(--line);
     background: var(--surface-2);
-    padding: 11px 16px;
+    padding: 9px 14px;
     border-radius: 0 0 var(--r1i) var(--r1i);
   }
   .hubSource h3 {
@@ -4650,25 +4696,6 @@
           title="Every figure and name on this screen is invented. Not a medical device and not clinical decision support."
           ><span class="long">Synthetic </span>prototype</span
         >
-      </div>
-      <div class="searchWrap" id="searchWrap">
-        <label class="search">
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <circle cx="7" cy="7" r="4.5" />
-            <path d="M10.5 10.5L14 14" />
-          </svg>
-          <input
-            type="search"
-            id="q"
-            placeholder="Search wards, departments, teams"
-            aria-label="Universal search: wards, emergency departments and community teams by name, site, health service or region. Risk scores and best matches are not returned."
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <kbd id="qHint" aria-hidden="true">/</kbd>
-          <button type="button" class="clearBtn" id="qClear" hidden>Clear</button>
-        </label>
-        <div class="qPop" id="qPop" role="group" aria-label="Search results"></div>
       </div>
       <details class="menu svcMenu" id="svcMenu">
         <summary>
@@ -4748,6 +4775,25 @@
             </p>
             <span class="count" id="dirCount"></span>
           </div>
+          <div class="hubComposer searchWrap" id="searchWrap">
+            <label class="search">
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="7" cy="7" r="4.5" />
+                <path d="M10.5 10.5L14 14" />
+              </svg>
+              <input
+                type="search"
+                id="q"
+                placeholder="Search wards, departments, teams"
+                aria-label="Search wards, emergency departments and community teams by name, site, health service or region. Risk scores and best matches are not returned."
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <kbd id="qHint" aria-hidden="true">/</kbd>
+              <button type="button" class="clearBtn" id="qClear" hidden>Clear</button>
+            </label>
+            <div class="qPop" id="qPop" role="group" aria-label="Search results"></div>
+          </div>
           <div class="tabbar" role="tablist" aria-label="Kinds of place" id="kindTabs"></div>
           <div id="filterBar"></div>
           <div class="qList" id="results" role="listbox" tabindex="0" aria-label="The network, a list of places"></div>
@@ -4780,12 +4826,13 @@
      reference build's block copied verbatim, with the screen's own rules
      under their own comment and nothing else.
 
-     One rail, one bar, one stripe and ONE COMPOSER. The bar's universal
-     search is the only search box on the page: the panel below it carries no
-     second field, because the app's one-composer rule governs where a search
-     box may sit. Typing filters the directory and offers the top hits in the
-     popover, the slash key reaches the field from anywhere, Enter takes the
-     first hit and the down key walks into them.
+     One rail, one bar, one stripe and ONE COMPOSER. Owner ruling, 9 September
+     2026: the composer sits at the head of the directory rather than in the
+     bar, because finding a place is the whole job of this screen. It is still
+     the only search box on the page, so the bar carries none and the
+     one-composer rule holds. Typing filters the directory and offers the top
+     hits in the popover, the slash key reaches the field from anywhere, Enter
+     takes the first hit and the down key walks into them.
 
      Every count, tag, tile, line, sentence and the reconciliation line is
      derived from the arrays below on every render. Nothing is typed twice.
@@ -6089,20 +6136,12 @@
           "<tr><td>" +
           esc(SVC[s]) +
           '</td><td class="n">' +
-          b.wards +
-          '</td><td class="n">' +
           (b.ready === 0 ? '<span class="zero">none</span>' : b.ready) +
-          '</td><td class="n">' +
-          b.beds +
           "</td></tr>";
       });
       h +=
         '<tr class="total"><td>Total</td><td class="n">' +
-        f.wards +
-        '</td><td class="n">' +
         (f.ready === 0 ? '<span class="zero">none</span>' : f.ready) +
-        '</td><td class="n">' +
-        f.beds +
         "</td></tr>";
       return h;
     }
@@ -6231,6 +6270,12 @@
         '<p class="menuNote">The bracket key does the same. The choice is remembered in this browser only.</p></section>';
       h +=
         '<section><p class="menuHead">Contacts</p><p class="menuNote">No extension, address or contact detail is held on this screen. The standard forbids inventing one, and the repository holds none for these wards, departments or teams, so none is shown rather than a placeholder that could be read as real.</p></section>';
+      h +=
+        '<section><p class="menuHead">Reported gaps<span class="count">not closed on the page</span></p><p class="menuNote">' +
+        "<b>No rail link is current.</b> This screen is none of the twelve the standard names, so nothing in the rail is marked as where you are. Either the standard gains a screen for it, or it folds into Wards, Emergency departments and Community teams as a shared front door." +
+        '</p><p class="menuNote">' +
+        "<b>No hue for a private hospital.</b> The standard gives each of the four health services a colour. St John of God Subiaco is private and is not one of them, so its two wards are drawn in the label ink rather than given an invented fifth hue." +
+        "</p></section>";
       h +=
         '<section><p class="menuHead">Export</p><div class="menuList">' +
         '<button type="button" class="menuItem" data-tool="export"><span class="lead">Export the directory</span><small>CSV</small></button></div>' +
@@ -6555,20 +6600,21 @@
     function renderOverview(f) {
       var h = "";
       h +=
-        '<div class="sec"><p class="secH">In scope<span class="count">' +
-        f.places +
-        " " +
-        plural(f.places, "place", "places") +
-        "</span></p>" +
-        '<p class="hubNote">' +
-        summary(f) +
-        "</p>" +
+        '<div class="sec"><p class="secH">Beds now<span class="count">' +
+        esc(svcName()) +
+        '</span></p><div class="tally">' +
+        '<div class="tile"><small>Ready to admit</small><b>' +
+        (f.ready === 0 ? "<i>none</i>" : f.ready) +
+        "</b></div>" +
+        '<div class="tile"><small>Empty, not cleared</small><b>' +
+        (f.uncleared === 0 ? "<i>none</i>" : f.uncleared) +
+        "</b></div></div>" +
         meterHtml(f.ready, f.uncleared, f.blocked, f.beds) +
         "</div>";
 
-      h += '<div class="sec"><p class="secH">Beds by health service</p>';
+      h += '<div class="sec"><p class="secH">Ready beds by service</p>';
       h +=
-        '<div class="tableWrap"><table class="dataTable"><thead><tr><th>Health service</th><th class="n">Wards</th><th class="n">Ready</th><th class="n">Beds</th></tr></thead><tbody>' +
+        '<div class="tableWrap"><table class="dataTable"><thead><tr><th>Health service</th><th class="n">Ready</th></tr></thead><tbody>' +
         readyByServiceRows(f) +
         "</tbody></table></div></div>";
 
@@ -6584,7 +6630,7 @@
           " needs a check. Every ward has a bed confirmed ready and a confirmation inside its own freshness window. Absence here means every ward has answered, not that none was asked.</p>";
       } else {
         h += '<div class="rows">';
-        att.slice(0, 5).forEach(function (it) {
+        att.slice(0, 3).forEach(function (it) {
           var w = it.w;
           var why =
             w.ready === 0 && stale(w)
@@ -6623,12 +6669,12 @@
             '">Show this ward</button></p></div>';
         });
         h += "</div>";
-        if (att.length > 5)
+        if (att.length > 3)
           h +=
             '<p class="hubNote">' +
-            (att.length - 5) +
+            (att.length - 3) +
             " more " +
-            plural(att.length - 5, "ward is", "wards are") +
+            plural(att.length - 3, "ward is", "wards are") +
             " on the list. The Tasks drawer holds every one.</p>";
       }
       h += "</div>";
@@ -6875,15 +6921,15 @@
       $("sourceReal").innerHTML =
         "<b>Real.</b> The " +
         WARDS.length +
-        " wards with their sites, health services, cohorts, bed totals, locked beds, sex designations, the one forensic bed and the two Subiaco wards' authorisation status are the repository's own ward fixture, field for field. The " +
+        " wards with their sites, services, cohorts, bed totals, locked beds, sex designations, the one forensic bed and the two Subiaco wards' authorisation, the " +
         EDS.length +
-        " emergency departments and their host hospitals are the same real network, including that Joondalup and Peel run departments with no mental health bed on site while Fremantle and Bentley run beds with no department of their own. The " +
+        " departments with their host hospitals, and the " +
         TEAMS.length +
-        " regions are real WA geography.";
+        " regions. All from the repository's own tables.";
       $("sourceInvented").innerHTML =
         "<b>Invented.</b> Every bed figure, every confirmation clock, the shift and the handover time. The " +
         TEAMS.length +
-        " team names are placeholders. The standard names four health services and gives each one a colour, and St John of God Subiaco is a private hospital rather than one of them, so it is drawn without a service colour rather than given an invented fifth hue. That gap is reported here, not closed on the page.";
+        " team names are placeholders. No contact detail is held or invented. Tools carries the reported gaps.";
     }
 
     /* ═══════════════════════════════════════════════════════════════════
