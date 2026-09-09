@@ -4743,7 +4743,8 @@
           <div class="ph">
             <h2>The network</h2>
             <p class="note" style="margin-left: 12px">
-              Every ward, department and team in one list. Wards are ordered by what is ready first.
+              Every ward, department and team in one list. Wards come worst first: no bed ready, then a confirmation out
+              of date, then the fewest beds ready.
             </p>
             <span class="count" id="dirCount"></span>
           </div>
@@ -5408,7 +5409,17 @@
     }
 
     /* ─── state ───────────────────────────────────────────────────────── */
-    var state = { q: "", qOpen: false, kind: "all", svc: null, subject: null, railClosed: false, taskKey: null };
+    var state = {
+      q: "",
+      qOpen: false,
+      kind: "all",
+      svc: null,
+      subject: null,
+      railClosed: false,
+      taskKey: null,
+      kindBefore: null,
+      spokenRefusal: null,
+    };
     try {
       state.railClosed = localStorage.getItem("ward-flow-rail") === "closed";
     } catch (e) {}
@@ -5462,6 +5473,7 @@
       return ITEMS.filter(inSvc);
     }
     function visibleItems() {
+      if (refusal(state.q)) return [];
       return ITEMS.filter(function (it) {
         if (!inSvc(it)) return false;
         if (state.kind !== "all" && it.kind !== state.kind) return false;
@@ -6380,7 +6392,9 @@
           h += rowHtml(it);
         });
       });
-      if (!any) {
+      if (!any && refusal(state.q)) {
+        h = '<p class="qEmpty">' + esc(refusal(state.q)) + " Nothing is returned, and this is not an empty result.</p>";
+      } else if (!any) {
         var why = state.q
           ? "Nothing in " + esc(svcName()) + " matches “" + esc(state.q) + "”."
           : state.taskKey
@@ -6461,6 +6475,14 @@
       }
       if (state.svc) bits.push("scoped to " + esc(SVC[state.svc]));
       var el = $("filterBar");
+      var ref = refusal(state.q);
+      if (ref) {
+        el.innerHTML =
+          '<div class="filterBar">' +
+          esc(ref) +
+          '<button type="button" class="linkBtn" data-clear="all">Clear the search</button></div>';
+        return;
+      }
       if (!bits.length) {
         el.innerHTML = "";
         return;
@@ -6828,6 +6850,7 @@
       var body = $("subject");
       if (!it || !inSvc(it)) {
         if (it && !inSvc(it)) state.subject = null;
+        it = null;
         $("subjectHeading").textContent = "At a glance";
         $("subjectCount").textContent = svcName();
         body.innerHTML = renderOverview(f);
@@ -6896,6 +6919,15 @@
       state.q = v.toLowerCase().trim();
       $("q").value = v;
       render();
+      speakRefusal();
+    }
+    /* Spoken once, on the edge where the query becomes refused, so a reader hears
+       the reason without hearing it again on every keystroke. */
+    function speakRefusal() {
+      var ref = refusal(state.q);
+      if (ref === state.spokenRefusal) return;
+      state.spokenRefusal = ref;
+      if (ref) announce(ref);
     }
 
     /* ─── menus, one open at a time ───────────────────────────────────── */
@@ -6976,6 +7008,8 @@
       }
       if (state.taskKey) {
         state.taskKey = null;
+        state.kind = state.kindBefore || "all";
+        state.kindBefore = null;
         render();
         announce("Task filter cleared. " + shownText(figures()));
         return true;
@@ -7041,8 +7075,15 @@
       var task = t.closest && t.closest("[data-task]");
       if (task) {
         var k = task.getAttribute("data-task");
-        state.taskKey = state.taskKey === k ? null : k;
-        state.kind = state.taskKey ? "ward" : state.kind;
+        if (state.taskKey === k) {
+          state.taskKey = null;
+          state.kind = state.kindBefore || "all";
+          state.kindBefore = null;
+        } else {
+          if (!state.taskKey) state.kindBefore = state.kind;
+          state.taskKey = k;
+          state.kind = "ward";
+        }
         render();
         announce(state.taskKey ? shownText(figures()) : "Task filter cleared. " + shownText(figures()));
         return;
@@ -7087,6 +7128,8 @@
         state.q = "";
         state.kind = "all";
         state.taskKey = null;
+        state.kindBefore = null;
+        state.spokenRefusal = null;
         state.svc = null;
         $("q").value = "";
         render();
@@ -7126,6 +7169,7 @@
       state.q = this.value.toLowerCase().trim();
       state.qOpen = true;
       render();
+      speakRefusal();
     });
     $("q").addEventListener("focus", function () {
       if (state.q) {
