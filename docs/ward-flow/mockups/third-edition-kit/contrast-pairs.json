@@ -379,6 +379,18 @@
   },
   {
     "a": "ink",
+    "b": "accent-soft",
+    "light": 13.99,
+    "dark": 12.27
+  },
+  {
+    "a": "danger",
+    "b": "accent-soft",
+    "light": 4.79,
+    "dark": 6.38
+  },
+  {
+    "a": "ink",
     "b": "danger-soft",
     "light": 14.47,
     "dark": 12.98
