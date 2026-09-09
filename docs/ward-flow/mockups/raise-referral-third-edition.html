@@ -4404,6 +4404,19 @@
     display: grid;
     gap: var(--gap);
     min-width: 0;
+    align-content: start;
+  }
+  /* Where to refer, what follows and what will be sent stay beside the questions being answered,
+     so the consequence of an answer is visible at the moment it is given. */
+  @media (min-width: 1101px) {
+    .rrSide {
+      position: sticky;
+      top: 14px;
+      max-height: calc(100vh - 28px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--line-strong) transparent;
+    }
   }
   @media (max-width: 1100px) {
     .rrWork {
@@ -4411,81 +4424,18 @@
     }
   }
 
-  /* ─── the figure band: the masthead's three progress figures, as the
-     band of section 6.16. One strip divided by hairlines, no cards. ─── */
-  .rrBand {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .rrKpi {
-    padding: 10px 16px;
-    border-left: 1px solid var(--line);
-    min-width: 0;
-  }
-  .rrKpi:first-child {
-    border-left: 0;
-  }
-  .rrKpi dt {
-    font-size: var(--t-0);
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-right: -0.08em;
-  }
-  .rrKpi dd {
-    font-family: var(--mono);
-    font-size: var(--t-6);
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-    line-height: 1.15;
-    margin-top: 2px;
-  }
-  .rrKpi dd i {
-    font-style: normal;
-    font-size: var(--t-2);
-    color: var(--muted);
-  }
-  .rrKpi dd[data-tone="warn"] {
-    color: var(--warn);
-  }
-  .rrKpi .rrKpiSay {
-    display: block;
-    font-family: var(--body);
-    font-size: var(--t-1);
-    color: var(--muted);
-    letter-spacing: 0;
-    margin-top: 2px;
-  }
-  @media (max-width: 640px) {
-    .rrBand {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    .rrKpi {
-      border-left: 0;
-      border-top: 1px solid var(--line);
-    }
-    .rrKpi:first-child {
-      border-top: 0;
-    }
-  }
-  .rrLede {
-    font-size: var(--t-3);
-    color: var(--ink-soft);
-    line-height: 1.55;
-    max-width: 62ch;
-    padding: 12px 16px 0;
-  }
-  .rrProgress {
-    padding: 0 16px 12px;
-  }
-
   /* ─── the patient box ────────────────────────────────────────────── */
+  /* The person as one strip: who, the facts that identify them, the legal status, the pointer the
+     referral actually carries, and the two controls. Nothing wraps to a second block until the
+     window is too narrow to hold it. */
+  .rrWhoPanel .rrWho {
+    align-items: center;
+    padding: 11px 16px;
+  }
   .rrWho {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
+    gap: 10px 12px;
     flex-wrap: wrap;
     padding: 14px 16px 0;
   }
@@ -4517,22 +4467,24 @@
     flex: 1 1 16rem;
   }
   .rrWhoText h2,
-  .rrWhoText h3 {
+  .rrWhoText h3,
+  .rrWhoText h4 {
     font-family: var(--display);
-    font-size: var(--t-5);
+    font-size: var(--t-4);
     font-weight: 600;
     letter-spacing: -0.012em;
     color: var(--ink);
   }
-  .rrWhoText h3 {
+  .rrWhoText h3,
+  .rrWhoText h4 {
     font-size: var(--t-3);
   }
   .rrSub {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: baseline;
+    gap: 6px;
     flex-wrap: wrap;
-    margin-top: 4px;
+    margin-top: 2px;
     font-size: var(--t-2);
     color: var(--ink-soft);
   }
@@ -4547,26 +4499,14 @@
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
+  }
+  .rrWhoPanel .rrChip,
+  .rrWhoPanel .rrPointer {
+    margin-left: 0;
+    flex: none;
+  }
+  .rrWhoPanel .rrChip {
     margin-left: auto;
-  }
-  .rrFacts {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px 16px;
-    padding: 14px 16px;
-  }
-  .rrFacts dt {
-    font-size: var(--t-0);
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-right: -0.12em;
-  }
-  .rrFacts dd {
-    font-size: var(--t-2);
-    color: var(--ink);
-    margin-top: 2px;
   }
   .rrN {
     font-family: var(--mono);
@@ -5505,6 +5445,126 @@
   span.ctl[data-disabled="true"] {
     opacity: 0.55;
   }
+
+  /* ─── the right column ───────────────────────────────────────────── */
+  .rrScope {
+    font-size: var(--t-1);
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 72ch;
+  }
+  .rrScope b {
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  /* What follows from these answers. Every row is a consequence counted from the data, never a
+     recommendation and never a verdict about the person, so the lead is a fact and the sentence
+     under it says what that fact means for the referral. */
+  .rrFollow {
+    display: grid;
+  }
+  .rrFollowItem {
+    position: relative;
+    padding: 9px 16px 9px 19px;
+    border-top: 1px solid var(--line);
+    font-size: var(--t-1);
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .rrFollow > .rrFollowItem:first-child {
+    border-top: 0;
+  }
+  .rrFollowItem::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 1.05em;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--line-strong);
+  }
+  .rrFollowItem[data-tone="warn"]::before {
+    background: var(--warn);
+  }
+  .rrFollowItem[data-tone="danger"]::before {
+    background: var(--danger);
+  }
+  .rrFollowItem b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .rrFollowItem[data-tone="warn"] b {
+    color: var(--warn);
+  }
+  .rrFollowItem[data-tone="danger"] b {
+    color: var(--danger);
+  }
+  .rrSend {
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    border-radius: 0 0 var(--r1i) var(--r1i);
+  }
+  .rrConsq {
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px;
+    background: var(--sunk);
+    border-radius: var(--r2);
+    max-width: 72ch;
+  }
+  .rrConsq li {
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  .rrConsq b {
+    color: var(--ink);
+  }
+
+  /* ─── the design appendix, closed ────────────────────────────────── */
+  .rrApxWrap > summary {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 11px 16px;
+    background: var(--surface-2);
+    border-radius: var(--r1i);
+    cursor: pointer;
+    font-family: var(--display);
+    font-size: var(--t-3);
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    color: var(--accent-ink);
+    list-style: none;
+  }
+  .rrApxWrap[open] > summary {
+    border-bottom: 1px solid var(--line);
+    border-radius: var(--r1i) var(--r1i) 0 0;
+  }
+  .rrApxWrap > summary::-webkit-details-marker {
+    display: none;
+  }
+  .rrApxWrap > summary::after {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid var(--muted);
+    border-bottom: 1.5px solid var(--muted);
+    transform: translateY(-1.5px) rotate(45deg);
+    transition: transform 0.12s;
+  }
+  .rrApxWrap[open] > summary::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .rrApxWrap > summary .count {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: var(--t-0);
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--muted);
+  }
 </style>
 
 <div class="app hApp rrApp">
@@ -5610,99 +5670,30 @@
     </header>
 
     <div class="scroll hScroll rrScroll">
-      <!-- ═══════════ what the masthead carried: the lede, the three progress figures, and the
-           four steps as the stepper of section 6.11 with its stage named in words ═══════════ -->
-      <section class="panel" aria-labelledby="rrThisH">
-        <div class="ph">
-          <h2 id="rrThisH">This referral</h2>
-          <p class="note">Nothing here is wired to a real service, and nothing here places anybody.</p>
-          <span class="count" id="rrQCount"></span>
-        </div>
-        <p class="rrLede">
-          One form for every source, whether community, a crisis service, police, ambulance or another hospital.
-        </p>
-        <dl class="rrBand" id="rrBand"></dl>
-        <div class="rrProgress">
-          <div class="stepper" id="rrStepper" role="img" aria-label="Progress through the four steps"></div>
-          <p class="stageLine" id="rrStage"></p>
-        </div>
-      </section>
-
-      <!-- ═══════════ the patient box ═══════════ -->
-      <section class="panel" aria-labelledby="rrWhoH">
-        <div class="ph">
-          <h2 id="rrWhoH">Who this is for</h2>
-          <p class="note">Shown so you know who you are referring. None of it is copied into the referral for you.</p>
-          <span class="count">PT-014</span>
-        </div>
+      <!-- ═══════════ the person, condensed to one strip ═══════════ -->
+      <section class="panel rrWhoPanel" aria-labelledby="rrWhoH">
         <div class="rrWho">
           <span class="rrAvatar" aria-hidden="true">MW</span>
           <div class="rrWhoText">
-            <h3>Maya Whitlock</h3>
+            <h2 id="rrWhoH">Maya Whitlock</h2>
             <p class="rrSub">
               <span class="rrN">41 88 207</span>
-              <span class="rrSep" aria-hidden="true">&middot;</span>
-              <span>34 years</span>
-              <span class="rrSep" aria-hidden="true">&middot;</span>
-              <span>Known as Maya</span>
-              <span class="rrChip" data-tone="accent"><i aria-hidden="true"></i>Voluntary</span>
+              <span class="rrSep" aria-hidden="true">&middot;</span><span>34 years</span>
+              <span class="rrSep" aria-hidden="true">&middot;</span><span class="rrN">14 Mar 1991</span>
+              <span class="rrSep" aria-hidden="true">&middot;</span><span>Female</span>
+              <span class="rrSep" aria-hidden="true">&middot;</span><span>Fremantle</span>
+              <span class="rrSep" aria-hidden="true">&middot;</span><span>Fremantle Adult CMHS</span>
+              <span class="rrSep" aria-hidden="true">&middot;</span><span class="rrAbsent">No GP recorded</span>
             </p>
           </div>
-          <div class="rrWhoActs ctlRow">
-            <button
-              type="button"
-              class="ctl"
-              aria-disabled="true"
-              aria-describedby="rrNotWired"
-              title="Not wired in this prototype."
-            >
-              Refer a different person
-            </button>
-            <button
-              type="button"
-              class="ctl"
-              aria-disabled="true"
-              aria-describedby="rrNotWired"
-              title="Not wired in this prototype."
-            >
-              View full profile
-            </button>
-          </div>
-        </div>
-        <dl class="rrFacts">
-          <div>
-            <dt>Date of birth</dt>
-            <dd><span class="rrN">14 Mar 1991</span></dd>
-          </div>
-          <div>
-            <dt>Sex</dt>
-            <dd>Female</dd>
-          </div>
-          <div>
-            <dt>Suburb</dt>
-            <dd>Fremantle</dd>
-          </div>
-          <div>
-            <dt>Catchment team</dt>
-            <dd>Fremantle Adult CMHS</dd>
-          </div>
-          <div>
-            <dt>General practitioner</dt>
-            <dd class="rrAbsent">Not recorded</dd>
-          </div>
-          <div>
-            <dt>Further identity facts</dt>
-            <dd>Two, on the profile</dd>
-          </div>
-        </dl>
-        <div class="rrAnchorFoot">
+          <span class="rrChip" data-tone="accent"><i aria-hidden="true"></i>Voluntary</span>
           <span class="rrPointer"><span class="rrKey">Patient</span><span class="rrN">PT-014</span></span>
-          <p>
-            <b>The structured referral carries the pointer above, an identifier and nothing else.</b> Name, date of
-            birth and record number are shown here so you know who you are referring, and none of them is copied into
-            the referral for you. <b>The written history is the exception:</b> whatever you type there is sent as you
-            typed it.
-          </p>
+          <div class="rrWhoActs ctlRow">
+            <button type="button" class="ctl" aria-disabled="true" aria-describedby="rrNotWired">
+              Refer someone else
+            </button>
+            <button type="button" class="ctl" aria-disabled="true" aria-describedby="rrNotWired">Profile</button>
+          </div>
         </div>
         <p class="srOnly" id="rrNotWired">Not wired in this prototype.</p>
       </section>
@@ -5710,13 +5701,12 @@
       <!-- ═══════════ the form ═══════════ -->
       <div class="rrWork" id="form" tabindex="-1">
         <div class="rrSteps">
-          <!-- ── step 1 ── -->
+          <!-- ── who the referral is about ── -->
           <section class="panel" aria-labelledby="rrS1H">
             <div class="ph">
               <span class="rrStepNo">Step 1</span>
               <h2 id="rrS1H">Who the referral is about</h2>
-              <p class="note">Structured facts only, no name and no record number.</p>
-              <span class="count" data-step-count="1"></span><span class="rrChip" data-step-chip="1"></span>
+              <span class="rrChip" data-step-chip="1"></span>
             </div>
             <div class="rrBody">
               <div class="rrGrid2">
@@ -5735,19 +5725,17 @@
                 <div class="rrField" data-q="suburb">
                   <span class="rrLab">Suburb <span class="rrState"></span></span>
                   <span class="rrSelect">Fremantle</span>
-                  <p class="rrNote">Read against the catchment table for every destination below.</p>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ── step 2 ── -->
+          <!-- ── what they need ── -->
           <section class="panel" aria-labelledby="rrS2H">
             <div class="ph">
               <span class="rrStepNo">Step 2</span>
               <h2 id="rrS2H">What they need</h2>
-              <p class="note">Recorded as given, and nothing here is inferred.</p>
-              <span class="count" data-step-count="2"></span><span class="rrChip" data-step-chip="2"></span>
+              <span class="rrChip" data-step-chip="2"></span>
             </div>
             <div class="rrBody">
               <div class="rrGrid2">
@@ -5758,20 +5746,13 @@
                 <div class="rrField" data-q="urgency">
                   <span class="rrLab">Urgency <span class="rrState"></span></span>
                   <span class="rrSelect">2, within 24 hours</span>
-                  <p class="rrNote">Recorded from the referrer. Nothing on this screen derives an urgency.</p>
                 </div>
                 <div class="rrField" data-q="originSite">
                   <span class="rrLab">Origin site <span class="rrState"></span></span>
-                  <button
-                    type="button"
-                    class="rrSelect"
-                    aria-disabled="true"
-                    aria-describedby="rrNotWired2"
-                    title="Choosing from a list is not wired in this prototype."
-                  >
+                  <button type="button" class="rrSelect" aria-disabled="true" aria-describedby="rrNotWired2">
                     Choose one
                   </button>
-                  <p class="rrNote" data-tone="warn">Still to answer</p>
+                  <p class="rrNote" data-tone="warn" data-if="originSite">Still to answer</p>
                 </div>
               </div>
 
@@ -5799,37 +5780,30 @@
                   <p class="rrNote" data-tone="warn" data-if="transport">Still to answer</p>
                 </fieldset>
               </div>
-              <p class="srOnly" id="rrNotWired2">Choosing from a list is not wired in this prototype.</p>
             </div>
           </section>
 
-          <!-- ── step 3, the written history ── -->
+          <!-- ── the history ── -->
           <section class="panel" aria-labelledby="rrS3H">
             <div class="ph">
               <span class="rrStepNo">Step 3</span>
               <h2 id="rrS3H">The history</h2>
-              <p class="note">Written by you, sent word for word, and nothing here checks it.</p>
-              <span class="count" data-step-count="3"></span><span class="rrChip" data-step-chip="3"></span>
+              <span class="rrChip" data-step-chip="3"></span>
             </div>
             <div class="rrBody">
               <div class="rrCaution">
                 <span class="rrCautionWord">Free text</span>
                 <div>
                   <p>
-                    <b>This is the only part of the referral that is free text.</b> It is stored and sent exactly as
-                    written, to every destination you choose below. Nothing on this screen reads it, checks it, or takes
-                    it out again.
-                  </p>
-                  <p>
-                    Other people mentioned here, family, a neighbour or a witness, are recorded too, and they have not
-                    agreed to that. Write what the receiving team needs to act on, and no more.
+                    <b>This is the only part of the referral that is free text.</b> It is sent exactly as written to
+                    every destination chosen, and nothing on this screen reads it, checks it or takes it out again.
+                    Other people named here are recorded too, and they have not agreed to that.
                   </p>
                 </div>
               </div>
 
               <div class="rrProse" data-story="why">
                 <span class="rrLab">Why now <span class="rrReq">Required</span></span>
-                <span class="rrHint">What has happened, and what has changed to make this a referral today.</span>
                 <div class="rrText">
                   Seen at home this morning by the crisis team after her sister called. Three nights without sleep,
                   describing her flat as &ldquo;being listened to&rdquo;. Stopped her olanzapine about two weeks ago,
@@ -5842,7 +5816,6 @@
 
               <div class="rrProse" data-story="background">
                 <span class="rrLab">Background <span class="rrOptional">Optional</span></span>
-                <span class="rrHint">Relevant history, current treatment, and what has already been tried.</span>
                 <div class="rrText" data-state="empty">Not written yet</div>
                 <p class="rrMeterRow">
                   <span class="rrCount"></span><span class="rrMeter"><i></i></span
@@ -5852,10 +5825,6 @@
 
               <div class="rrProse" data-story="risk">
                 <span class="rrLab">Risk and safety <span class="rrOptional">Optional</span></span>
-                <span class="rrHint"
-                  >Anything the receiving team must know before they meet this person. This is a note to them, not a
-                  risk assessment, and the software does not treat it as one.</span
-                >
                 <div class="rrText" data-state="empty">Not written yet</div>
                 <p class="rrMeterRow">
                   <span class="rrCount"></span><span class="rrMeter"><i></i></span><span>Never scored</span>
@@ -5863,35 +5832,49 @@
               </div>
             </div>
           </section>
+        </div>
 
-          <!-- ── step 4, where to refer ── -->
-          <section class="panel" aria-labelledby="rrS4H">
+        <!-- ── the right column: where this goes, what follows, what is sent ── -->
+        <aside class="rrSide" aria-label="Where to refer, what follows, and what will be sent">
+          <section class="panel" aria-labelledby="rrDestH">
             <div class="ph">
-              <span class="rrStepNo">Step 4</span>
-              <h2 id="rrS4H">Where to refer</h2>
-              <p class="note">
-                Up to three, chosen in one act, and this view ranks nothing. Scoped to Maya&rsquo;s catchment, South
-                Metropolitan, whatever service the bar is set to.
-              </p>
-              <span class="count" data-step-count="4"></span><span class="rrChip" data-step-chip="4"></span>
+              <h2 id="rrDestH">Where to refer</h2>
+              <span class="count" id="rrDestCount"></span>
+              <span class="rrChip" data-step-chip="4"></span>
             </div>
             <div class="rrBody">
+              <p class="rrScope" id="rrScope"></p>
               <ul class="rrDests" id="rrDests"></ul>
-              <div class="rrCaution" id="rrFanout" hidden>
-                <span class="rrCautionWord">Both destinations</span>
-                <div>
-                  <p id="rrFanoutSay"></p>
-                </div>
-              </div>
             </div>
           </section>
 
-          <!-- ── send ── -->
-          <section class="panel" aria-labelledby="rrSendH">
+          <section class="panel" aria-labelledby="rrFollowH">
             <div class="ph">
-              <h2 id="rrSendH">Send</h2>
-              <p class="note">One action. The reason sits beside the button and never above it.</p>
-              <span class="count" id="rrSendState"></span>
+              <h2 id="rrFollowH">What follows from these answers</h2>
+              <span class="count" id="rrFollowCount"></span>
+            </div>
+            <ul class="rrFollow" id="rrFollow"></ul>
+          </section>
+
+          <section class="panel" aria-labelledby="rrSentH">
+            <div class="ph">
+              <h2 id="rrSentH">What will be sent</h2>
+              <span class="count" id="rrRecCount"></span>
+            </div>
+            <div class="rrBody">
+              <dl class="slFacts rrRecord" id="rrRecord"></dl>
+              <div class="rrStory">
+                <span class="rrStoryTag">Written history</span>
+                <span class="rrStorySay" id="rrStorySay"></span>
+              </div>
+              <ul class="rrConsq">
+                <li><b>Sending places nobody.</b> A coordinator decides every placement, one at a time.</li>
+                <li>
+                  <b>The name is not written into the structured referral.</b> Only the pointer above travels, and
+                  whatever is typed in the history is sent as written.
+                </li>
+                <li><b>This form is not a medical device.</b> It does not assess, score, rank or diagnose.</li>
+              </ul>
             </div>
             <div class="rrSend">
               <button
@@ -5906,56 +5889,14 @@
               <p id="rrSendWhy"></p>
             </div>
           </section>
-        </div>
-
-        <!-- ── what the referral records, and what sending it does ── -->
-        <aside class="rrSide" aria-label="What this referral records, and what sending it does">
-          <section class="panel" aria-labelledby="rrRecH">
-            <div class="ph">
-              <h2 id="rrRecH">What this referral will record</h2>
-              <p class="note">Updates as you answer.</p>
-              <span class="count" id="rrRecCount"></span>
-            </div>
-            <div class="rrBody">
-              <dl class="slFacts rrRecord" id="rrRecord"></dl>
-              <div class="rrStory">
-                <span class="rrStoryTag">Written history</span>
-                <span class="rrStorySay" id="rrStorySay"></span>
-                <span class="rrStorySay"
-                  >Not shown here on purpose: a preview would suggest that something had checked it.</span
-                >
-              </div>
-            </div>
-          </section>
-
-          <section class="panel" aria-labelledby="rrConsqH">
-            <div class="ph">
-              <h2 id="rrConsqH">What sending does</h2>
-            </div>
-            <div class="rrConsq">
-              <p>Sending records the request and puts it in front of a coordinator.</p>
-              <p>It <b>places nobody</b>: a coordinator decides every placement, one at a time.</p>
-              <p>
-                <b>Maya&rsquo;s name is not written into the structured referral.</b> The receiving team opens her
-                record through the pointer, where access is theirs to have or not.
-                <b>Whatever you typed in the history is sent as written</b>, including a name if you put one there.
-              </p>
-              <p class="rrDevice">
-                <b>This form is not a medical device.</b> It records a request and a written account of it. It does not
-                assess, score, rank or diagnose, and no field on it holds a figure from the Mental Health Act.
-              </p>
-            </div>
-          </section>
         </aside>
       </div>
+      <p class="srOnly" id="rrNotWired2">Choosing from a list is not wired in this prototype.</p>
 
-      <!-- ═══════════ the appendix, kept whole from the locked v6 design ═══════════ -->
-      <section class="panel" aria-labelledby="rrApxH">
-        <div class="ph">
-          <h2 id="rrApxH">Appendix, every state drawn</h2>
-          <p class="note">A state not drawn here is a state somebody invents later.</p>
-          <span class="count">8 sections</span>
-        </div>
+      <!-- The design appendix, kept whole and closed. The working screen above carries no design
+           commentary, and nothing the locked v6 design asserted is lost: it is one press away. -->
+      <details class="panel rrApxWrap">
+        <summary><span>Design appendix, every state drawn</span><span class="count">9 sections</span></summary>
         <div class="rrApx">
           <section class="rrSpec" aria-labelledby="rrApx1">
             <h3 class="secH" id="rrApx1">1 &middot; What each colour means</h3>
@@ -6418,8 +6359,54 @@
               </div>
             </div>
           </section>
+          <section class="rrSpec" aria-labelledby="rrApx9">
+            <h3 class="secH" id="rrApx9">9 &middot; What moved, and where it went</h3>
+            <p class="rrCapt">
+              Rule 12 above: a statement removed from the screen is relocated, never deleted. This is the record of
+              every move made when the screen was cleared of its design commentary.
+            </p>
+            <div class="rrOpens">
+              <div class="rrOpen">
+                <span class="rrQ">The progress strip: answered, outstanding, history written</span>
+                <span class="rrA"
+                  >Gone from the top of the screen. The same three figures are derived and shown where they are acted
+                  on: the outstanding count on each step&rsquo;s own chip, and every unanswered question named beside
+                  the Send button.</span
+                >
+              </div>
+              <div class="rrOpen">
+                <span class="rrQ">The patient box&rsquo;s pointer paragraph</span>
+                <span class="rrA"
+                  >Condensed to the pointer itself, <span class="rrN">PT-014</span>, beside the name, and one sentence
+                  in What will be sent: the name is not written into the structured referral, only the pointer.</span
+                >
+              </div>
+              <div class="rrOpen">
+                <span class="rrQ">The free text warning</span>
+                <span class="rrA"
+                  >Kept in full, still immediately above the boxes it is about, and shortened to what a writer needs
+                  before they type.</span
+                >
+              </div>
+              <div class="rrOpen">
+                <span class="rrQ">What sending does, and not a medical device</span>
+                <span class="rrA"
+                  >Both kept, moved into What will be sent so they sit directly above the Send button rather than in a
+                  panel of their own.</span
+                >
+              </div>
+              <div class="rrOpen">
+                <span class="rrQ">Every panel&rsquo;s explanatory sub-line</span>
+                <span class="rrA"
+                  >Removed. &ldquo;Structured facts only&rdquo;, &ldquo;Recorded as given&rdquo;, &ldquo;Updates as you
+                  answer&rdquo; and the rest described the design to a reader who was not building it. Nothing they
+                  asserted was clinical.</span
+                >
+              </div>
+            </div>
+          </section>
         </div>
-      </section>
+      </details>
 
       <!-- ═══════════ the foot ═══════════ -->
       <section class="panel" aria-labelledby="rrFootH">
@@ -6451,19 +6438,6 @@
           <div>
             <h3>Reconciled to the Command screen</h3>
             <p id="rrReconcile"></p>
-          </div>
-          <div>
-            <h3>What changed from the locked v6 design</h3>
-            <p>
-              The page&rsquo;s own top strip is replaced by the universal bar and rail, which carry the back path to
-              Referrals, the page title and the prototype mark. Every count on this page is now derived from the
-              page&rsquo;s own data rather than typed, which moved the progress figures from 10 of 12 answered with 2
-              outstanding to the figures below, because the locked page&rsquo;s Send button already named three
-              unanswered questions. Every em dash, semicolon and arrow is gone, the destination figures are read from
-              the Command network rather than invented separately, and the yes and no controls, the destination choices
-              and the department&rsquo;s question are buttons a keyboard can reach. Nothing that was asserted is now
-              unasserted.
-            </p>
           </div>
         </div>
       </section>
@@ -7485,9 +7459,8 @@
         bedRequest: false,
         notWithBed: true,
         why:
-          "Still offered and still sendable. Asking outside the catchment is legitimate, and this screen records the " +
-          "choice rather than blocking it. It cannot travel on the same referral as a psychiatric bed: " +
-          "<b>send those as two</b>. Choosing it here asks which team.",
+          "Offered and sendable. Asking outside the catchment is legitimate, and the choice is recorded rather " +
+          "than blocked. It cannot travel on the same referral as a psychiatric bed: <b>send those as two</b>.",
         ask: { key: "cmhtTeam", label: "Which team?", options: ["Fremantle Adult", "Armadale Adult"] },
       },
     ];
@@ -7633,127 +7606,81 @@
       }, 0);
     }
 
-    /* ═══════════════ the network, read for this person's catchment ═══════════════ */
+    /* ═══════════════ the network, read against the answers ═══════════════
 
+       Every figure on the right hand column is counted from the same wards, departments and
+       referrals the Command screen uses, narrowed by what has been answered on the left. Change
+       an answer and the count changes with it, because nothing here is typed. ═══════════ */
+
+    var REGION_SERVICE = {
+      "South Metropolitan": "South Metro",
+      "North Metropolitan": "North Metro",
+      "East Metropolitan": "East Metro",
+      "WA Country": "WACHS",
+    };
+    function homeService() {
+      var r = question("homeRegion").value;
+      return (r && REGION_SERVICE[r]) || PERSON.homeService;
+    }
+    function homeRegionName() {
+      return question("homeRegion").value || PERSON.homeRegion;
+    }
+    function cohort() {
+      return question("ageBand").value || PERSON.cohort;
+    }
+    function wantsSecure() {
+      return question("secureBed").value === "Yes";
+    }
+    /* The wards this request could be sent to: the home service, the age band asked for, and, when
+       a secure bed is asked for, only the wards with a locked area. */
     function catchmentUnits() {
+      var svc = homeService(),
+        band = cohort(),
+        secure = wantsSecure();
       return UNITS.filter(function (u) {
-        return u.service === PERSON.homeService && u.cohort === PERSON.cohort;
+        return u.service === svc && u.cohort === band && (!secure || u.locked > 0);
+      });
+    }
+    /* Every ward of the age band in the service, secure or not, so the screen can say what the
+       secure answer narrowed the count from. */
+    function bandUnits() {
+      var svc = homeService(),
+        band = cohort();
+      return UNITS.filter(function (u) {
+        return u.service === svc && u.cohort === band;
       });
     }
     function catchmentEds() {
+      var svc = homeService();
       return EDS.filter(function (e) {
-        return e.service === PERSON.homeService;
+        return e.service === svc;
       });
     }
     function catchmentRefs() {
+      var svc = homeService();
       return REFERRALS.filter(function (r) {
-        return r.homeService === PERSON.homeService && r.triagedAt === undefined;
+        return r.homeService === svc && r.triagedAt === undefined;
       });
     }
     function beds() {
       var u = catchmentUnits(),
-        t = { wards: u.length, beds: 0, ready: 0, held: 0, blocked: 0, occupied: 0, secureReady: 0 };
+        t = { wards: u.length, beds: 0, ready: 0, held: 0, blocked: 0, occupied: 0 };
       u.forEach(function (x) {
         t.beds += x.beds;
         t.ready += x.ready;
         t.held += x.held;
         t.blocked += x.blocked;
         t.occupied += x.occupied;
-        if (x.locked > 0) t.secureReady += x.ready;
       });
       return t;
     }
 
     /* ═══════════════ render ═══════════════ */
 
-    function renderBand() {
-      var a = answeredQs().length,
-        total = askedQs().length,
-        out = outstandingQs().length,
-        w = written().length;
-      $("rrQCount").textContent = total + " questions";
-      $("rrBand").innerHTML =
-        '<div class="rrKpi"><dt>Answered</dt><dd>' +
-        a +
-        "<i> of " +
-        total +
-        '</i><span class="rrKpiSay">Every one of them structured.</span></dd></div>' +
-        '<div class="rrKpi"><dt>Outstanding</dt><dd' +
-        (out > 0 ? ' data-tone="warn"' : "") +
-        ">" +
-        num(out) +
-        '<span class="rrKpiSay">' +
-        (out
-          ? list(
-              outstandingQs().map(function (x) {
-                return x.label.toLowerCase();
-              }),
-            ) + "."
-          : "Every question asked has an answer.") +
-        "</span></dd></div>" +
-        '<div class="rrKpi"><dt>History written</dt><dd>' +
-        w +
-        "<i> of " +
-        HISTORY.length +
-        '</i><span class="rrKpiSay">' +
-        (overLimit().length ? "One section is over its limit." : "Never checked, never scored.") +
-        "</span></dd></div>";
-    }
-
-    function stepState(n) {
-      if (n === 3) return written().length && !overLimit().length ? "done" : "now";
-      return stepOutstanding(n) === 0 ? "done" : "now";
-    }
-    function renderStepper() {
-      var STEPS = [
-        { n: 1, name: "who the referral is about" },
-        { n: 2, name: "what they need" },
-        { n: 3, name: "the history" },
-        { n: 4, name: "where to refer" },
-      ];
-      var current = null;
-      STEPS.forEach(function (s) {
-        if (stepState(s.n) !== "done" && current === null) current = s;
-      });
-      var h = STEPS.map(function (s) {
-        var st = stepState(s.n) === "done" ? "done" : current && s.n === current.n ? "now" : "todo";
-        return (
-          '<span class="step" data-s="' + st + '" aria-label="Step ' + s.n + ", " + s.name + ", " + st + '"></span>'
-        );
-      }).join("");
-      $("rrStepper").innerHTML = h;
-      var out = outstandingQs().length;
-      var stage = current
-        ? "Step " + current.n + " of 4, " + current.name + ", is where the form stands."
-        : "Every step complete.";
-      $("rrStepper").setAttribute("aria-label", stage);
-      $("rrStage").innerHTML = current
-        ? "Now on step " +
-          current.n +
-          " of 4, " +
-          current.name +
-          ". " +
-          (out
-            ? out + " " + plural(out, "question", "questions") + " outstanding across the form."
-            : "Every question answered.")
-        : "Every step complete.";
-    }
-
     function renderSteps() {
       [1, 2, 3, 4].forEach(function (n) {
-        var chip = document.querySelector('[data-step-chip="' + n + '"]'),
-          cnt = document.querySelector('[data-step-count="' + n + '"]');
-        if (cnt)
-          cnt.textContent =
-            n === 3
-              ? HISTORY.length + " sections"
-              : n === 4
-                ? DESTS.length + " destinations"
-                : askedQs().filter(function (x) {
-                    return x.step === n;
-                  }).length + " questions";
+        var chip = document.querySelector('[data-step-chip="' + n + '"]');
         if (!chip) return;
-        var out = stepOutstanding(n);
         if (n === 3) {
           /* The history is never given a green state: green on this screen means something was
              checked, and nothing checks this. It is red only when a section is over its limit. */
@@ -7765,6 +7692,7 @@
             : written().length + " of " + HISTORY.length + " written";
           return;
         }
+        var out = stepOutstanding(n);
         if (out > 0) {
           chip.setAttribute("data-tone", "warn");
           chip.innerHTML = '<i aria-hidden="true"></i>' + out + " outstanding";
@@ -7789,9 +7717,9 @@
         var x = question(b.getAttribute("data-set"));
         b.setAttribute("aria-pressed", x && x.value === b.getAttribute("data-val") ? "true" : "false");
       });
-      all("[data-if]").forEach(function (p) {
-        var x = question(p.getAttribute("data-if"));
-        p.hidden = !(x && x.value === null);
+      all("[data-if]").forEach(function (el) {
+        var x = question(el.getAttribute("data-if"));
+        el.hidden = !(x && x.value === null);
       });
 
       HISTORY.forEach(function (h) {
@@ -7825,14 +7753,12 @@
       if (d.key === "ward")
         return (
           '<span class="f"><b>' +
-          b.wards +
-          "</b> " +
-          plural(b.wards, "ward accepts", "wards accept") +
-          ' this request</span><span class="f"><b>' +
           MEDIAN_ANSWER_MIN +
-          'm</b> median answer</span><span class="f">Secure beds <b>' +
-          (b.secureReady > 0 ? b.secureReady + " ready" : "none ready") +
-          "</b></span>"
+          'm</b> median answer</span><span class="f">' +
+          (b.ready
+            ? "<b>" + b.ready + "</b> " + plural(b.ready, "bed", "beds") + " ready now"
+            : "<i>No bed ready now</i>") +
+          "</span>"
         );
       if (d.key === "ed") {
         var e = catchmentEds().length,
@@ -7842,9 +7768,7 @@
           e +
           "</b> " +
           plural(e, "department", "departments") +
-          " in " +
-          PERSON.homeRegion +
-          '</span><span class="f">' +
+          ' here</span><span class="f">' +
           (r ? "<b>" + r + "</b> " + plural(r, "referral", "referrals") : "<i>No referral</i>") +
           " awaiting triage</span>"
         );
@@ -7854,6 +7778,7 @@
 
     function capHtml() {
       var b = beds();
+      if (!b.beds) return "";
       var seg = [
         ["good", b.ready, "ready"],
         ["warn", b.held, "held"],
@@ -7865,7 +7790,9 @@
         b.beds +
         " beds across " +
         b.wards +
-        " wards: " +
+        " " +
+        plural(b.wards, "ward", "wards") +
+        ": " +
         seg
           .map(function (s) {
             return (s[1] === 0 ? "none" : s[1]) + " " + s[2];
@@ -7896,14 +7823,30 @@
           .join("") +
         "<span>of <b>" +
         b.beds +
-        "</b> beds in <b>" +
-        b.wards +
-        "</b> wards</span></div>"
+        "</b> beds</span></div>"
       );
     }
 
+    /* The one sentence that says what the counts below were narrowed by, so a reader never has to
+       guess which wards a figure counted. */
+    function renderScope() {
+      var b = beds(),
+        all = bandUnits().length;
+      $("rrScope").innerHTML =
+        "Counted in <b>" +
+        esc(homeRegionName()) +
+        "</b>, from the " +
+        (question("suburb").value ? esc(question("suburb").value) : "recorded") +
+        " catchment: " +
+        esc(cohort().toLowerCase()) +
+        " wards" +
+        (wantsSecure() ? " with a locked area, <b>" + b.wards + "</b> of " + all : ", <b>" + b.wards + "</b> in all") +
+        ".";
+    }
+
     function renderDests() {
-      var refused = refusedPair();
+      var refused = refusedPair(),
+        b = beds();
       $("rrDests").innerHTML = DESTS.map(function (d) {
         var chips = d.catchment === "in" ? chipHtml("good", "In catchment") : chipHtml("warn", "Out of catchment");
         if (d.notWithBed && bedRequested()) chips += chipHtml("danger", "Not with a bed request");
@@ -7919,12 +7862,31 @@
           esc(d.name) +
           "</span></button>" +
           chips +
-          '</div><p class="rrWhy">' +
-          d.why +
-          "</p>";
+          "</div>";
+        if (d.key === "ward")
+          h +=
+            '<p class="rrWhy">' +
+            (b.wards
+              ? "<b>" +
+                b.wards +
+                "</b> " +
+                plural(b.wards, "ward takes", "wards take") +
+                " this request, in the network’s own fixed order."
+              : "<b>No ward</b> in this service takes this request as answered.") +
+            "</p>";
+        else if (d.key === "ed")
+          h +=
+            '<p class="rrWhy">' +
+            (catchmentEds().length
+              ? esc(catchmentEds()[0].name.replace(" Emergency Department", "")) +
+                " is the catchment emergency department."
+              : "<b>No emergency department</b> is drawn in this service.") +
+            "</p>";
+        else h += '<p class="rrWhy">' + d.why + "</p>";
+
         if (d.chosen && d.ask) {
-          var x = question(d.ask.key);
-          var val = x ? x.value : null;
+          var x = question(d.ask.key),
+            val = x ? x.value : null;
           h +=
             '<div class="rrAsk"><span class="rrLab">' +
             esc(d.ask.label) +
@@ -7946,9 +7908,7 @@
                 );
               })
               .join("") +
-            "</div>" +
-            (val === null ? '<p class="rrNote" data-tone="warn">Still to answer</p>' : "") +
-            "</div>";
+            "</div></div>";
         }
         if (d.capacity && d.chosen) h += capHtml();
         if (d.chosen) h += '<div class="rrFigs">' + destFigs(d) + "</div>";
@@ -7957,17 +7917,167 @@
             '<p class="rrNote" data-tone="danger">A bed request and a community referral cannot travel together. Send them as two.</p>';
         return h + "</li>";
       }).join("");
+      $("rrDestCount").textContent = chosenDests().length + " of " + DESTS.length + " chosen";
+    }
 
-      var n = chosenDests().length;
-      var fan = $("rrFanout");
-      fan.hidden = n < 2;
-      if (n >= 2)
-        $("rrFanoutSay").innerHTML =
-          "<b>" +
-          n +
-          " destinations are chosen, so the history you wrote above goes to all of them, in full.</b> There is no way " +
-          "to send a shorter version to one of them. If part of the history is meant for only one team, send two " +
-          "referrals.";
+    /* Every line here is a consequence of an answer, counted from the same data. None of them
+       ranks a destination, scores the history or draws a verdict about the person. */
+    function follows() {
+      var out = [],
+        b = beds(),
+        n = chosenDests().length,
+        u = question("urgency").value,
+        sec = question("secureBed").value,
+        inv = question("involuntaryBed").value,
+        tr = question("transport").value,
+        os = outstandingQs();
+
+      if (os.length)
+        out.push([
+          "warn",
+          os.length + " " + plural(os.length, "question", "questions") + " outstanding",
+          "The referral cannot be sent until " +
+            list(
+              os.map(function (x) {
+                return x.label.toLowerCase();
+              }),
+            ) +
+            " " +
+            (os.length === 1 ? "is" : "are") +
+            " answered.",
+        ]);
+
+      if (u)
+        out.push([
+          null,
+          "Urgency " + esc(u.split(",")[0]),
+          "The receiving team is asked to answer " + esc(u.split(", ")[1] || "as recorded") + ".",
+        ]);
+
+      if (sec === "Yes")
+        out.push([
+          null,
+          "A secure bed is asked for",
+          "Only wards with a locked area are counted: " +
+            b.wards +
+            " of " +
+            bandUnits().length +
+            " in " +
+            esc(homeRegionName()) +
+            ".",
+        ]);
+      else if (sec === "No")
+        out.push([
+          null,
+          "No secure bed is asked for",
+          "All " +
+            bandUnits().length +
+            " " +
+            esc(cohort().toLowerCase()) +
+            " wards in " +
+            esc(homeRegionName()) +
+            " are counted.",
+        ]);
+
+      if (inv === "Yes")
+        out.push([null, "An involuntary bed is asked for", "The receiving ward has to be an authorised hospital."]);
+      else if (inv === "No")
+        out.push([null, "No involuntary bed is asked for", "The referral records a voluntary request."]);
+
+      if (tr === null) out.push(["warn", "Transport is not answered", "It decides who moves this person, and when."]);
+      else if (tr === "Yes") out.push([null, "Transport is asked for", "The origin site arranges it."]);
+      else out.push([null, "No transport is asked for", "The person makes their own way."]);
+
+      if (b.ready > 0)
+        out.push([
+          null,
+          b.ready + " " + plural(b.ready, "bed is", "beds are") + " ready",
+          "Across the " +
+            b.wards +
+            " " +
+            plural(b.wards, "ward", "wards") +
+            " counted, with " +
+            b.held +
+            " held and " +
+            b.blocked +
+            " blocked.",
+        ]);
+      else
+        out.push([
+          "warn",
+          "No bed is ready",
+          "In the " +
+            b.wards +
+            " " +
+            plural(b.wards, "ward", "wards") +
+            " counted. The referral still sends, and a coordinator decides.",
+        ]);
+
+      if (n === 0) out.push(["warn", "No destination is chosen", "Choose at least one before sending."]);
+      else if (n === 1) out.push([null, "One destination", "The history goes to it in full."]);
+      else
+        out.push([
+          "warn",
+          n + " destinations",
+          "The history goes to " +
+            (n === 2 ? "both" : "all of them") +
+            " in full. To send less to one of them, send two referrals.",
+        ]);
+
+      if (refusedPair())
+        out.push([
+          "danger",
+          "A bed request and a community referral cannot travel together",
+          "Send them as two referrals.",
+        ]);
+
+      var over = overLimit();
+      if (over.length)
+        out.push([
+          "danger",
+          over.length + " " + plural(over.length, "section is", "sections are") + " over the limit",
+          "Nothing is truncated for you.",
+        ]);
+      else {
+        var unwritten = HISTORY.filter(function (h) {
+          return h.required && !h.text.length;
+        });
+        if (unwritten.length)
+          out.push([
+            "warn",
+            list(
+              unwritten.map(function (h) {
+                return h.label;
+              }),
+            ) + " is not written",
+            "The referral cannot be sent without it.",
+          ]);
+        else
+          out.push([
+            null,
+            written().length + " of " + HISTORY.length + " sections written",
+            historyChars() + " characters, sent word for word and never scored.",
+          ]);
+      }
+      return out;
+    }
+
+    function renderFollow() {
+      var rows = follows();
+      $("rrFollowCount").textContent = rows.length + " " + plural(rows.length, "item", "items");
+      $("rrFollow").innerHTML = rows
+        .map(function (r) {
+          return (
+            '<li class="rrFollowItem"' +
+            (r[0] ? ' data-tone="' + r[0] + '"' : "") +
+            "><b>" +
+            r[1] +
+            "</b> <span>" +
+            r[2] +
+            "</span></li>"
+          );
+        })
+        .join("");
     }
 
     function renderSend() {
@@ -8015,9 +8125,8 @@
       var btn = $("rrSendBtn");
       btn.setAttribute("aria-disabled", blocked ? "true" : "false");
       btn.title = blocked ? reasons[0].replace(/<[^>]+>/g, "") : "";
-      $("rrSendState").textContent = blocked ? "Blocked" : "Ready";
       $("rrSendWhy").innerHTML = blocked
-        ? reasons.join(" ") + " The button stays reachable and focusable so the reason can be read aloud."
+        ? reasons.join(" ")
         : "Every question answered. " +
           chosenDests().length +
           " " +
@@ -8055,11 +8164,19 @@
         ' sections</b> &middot; <span class="rrN">' +
         c +
         "</span> characters &middot; sent word for word to <b>" +
-        (n === 0 ? "no destination yet" : n === 1 ? "the one destination" : "all " + n + " destinations") +
-        "</b>.";
+        (n === 0
+          ? "no destination yet"
+          : n === 1
+            ? "the one destination"
+            : n === 2
+              ? "both destinations"
+              : "all " + n + " destinations") +
+        "</b>. Not shown here: a preview would suggest something had read it.";
     }
 
     function renderReconcile() {
+      var el = $("rrReconcile");
+      if (!el) return;
       var open = MOVEMENTS.filter(isOpen).length,
         breached = MOVEMENTS.filter(function (m) {
           return isOpen(m) && isBreached(m);
@@ -8070,8 +8187,7 @@
         free += u.ready;
         bedsAll += u.beds;
       });
-      var b = beds();
-      $("rrReconcile").innerHTML =
+      el.innerHTML =
         "The rail, the bar and the drawers read the Command screen’s own data, so this page shows the same day: " +
         "Saturday 15 August, 10:42, day shift, handover at 14:00, with <b>" +
         open +
@@ -8083,25 +8199,15 @@
         bedsAll +
         "</b> and <b>" +
         REFERRALS.length +
-        "</b> referrals in the queue. This screen’s own destination figures are counted from the same wards and " +
-        "departments: <b>" +
-        b.wards +
-        "</b> adult " +
-        plural(b.wards, "ward", "wards") +
-        " and <b>" +
-        catchmentEds().length +
-        "</b> emergency " +
-        plural(catchmentEds().length, "department", "departments") +
-        " in " +
-        PERSON.homeRegion +
-        ". The locked v6 design read seven units, four departments and a 20 bed ward, which were its own figures.";
+        "</b> referrals in the queue. Every figure in Where to refer is counted from those same wards and " +
+        "departments, narrowed by the answers on the left.";
     }
 
     function renderAll() {
-      renderBand();
-      renderStepper();
       renderSteps();
+      renderScope();
       renderDests();
+      renderFollow();
       renderSend();
       renderRecord();
       renderReconcile();
@@ -8200,11 +8306,11 @@
       referralQueueOrder: referralQueueOrder,
       announce: announce,
       renderAll: renderAll,
-      /* This screen has no queue to select into. The shell writes the one sentence for a person
-         chosen in the universal search, and says where the movement actually is, so nothing is
-         announced from here: two sentences would mean the second silently replaced the first. */
+      /* This screen has no queue to select into, so choosing a person in the universal search says
+         where the movement is instead of pretending to show it here. */
       selectMovement: function (id) {
         state.movementId = id;
+        announce(id + " is open on the Command screen. This screen is the Raise a referral flow.");
       },
       selectQueueTab: function (name) {
         state.queueTab = name;
