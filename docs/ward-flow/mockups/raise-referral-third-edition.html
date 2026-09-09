@@ -5077,30 +5077,64 @@
     flex: none;
   }
 
-  /* ─── what the referral will record ──────────────────────────────── */
-  /* The record's label column is capped rather than left to auto, so a long label can never take
-     the whole width from the value beside it, and it stacks at a phone's width. */
+  /* ─── what will be sent ──────────────────────────────────────────── */
+  /* One row per field, flush to the panel's edges and separated by a hairline, so the record reads
+     as a stack of small modules rather than a paragraph of pairs. The label column is capped
+     rather than left to auto, so a long label can never take the whole width from its value, and
+     it stacks at a phone's width. */
   .rrRecord {
-    margin-top: 0;
-    grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+    display: grid;
+    grid-template-columns: minmax(0, 8.5rem) minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0;
+    margin: 0;
+  }
+  .rrRecord dt,
+  .rrRecord dd {
+    padding-top: 7px;
+    padding-bottom: 7px;
+    border-top: 1px solid var(--line);
+  }
+  .rrRecord dt {
+    padding-left: 16px;
+    padding-right: 12px;
+    font-size: var(--t-0);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .rrRecord dd {
+    padding-right: 16px;
+    font-size: var(--t-1);
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .rrRecord dt:first-of-type,
+  .rrRecord dt:first-of-type + dd {
+    border-top: 0;
   }
   @media (max-width: 700px) {
     .rrRecord {
       grid-template-columns: minmax(0, 1fr);
-      gap: 2px;
+    }
+    .rrRecord dt {
+      padding: 8px 16px 0;
     }
     .rrRecord dd {
-      margin-bottom: 7px;
+      padding: 1px 16px 8px;
+      border-top: 0;
     }
   }
+  /* The written history is the one part of the record that is prose, so it sits as the panel's
+     foot rather than as another row. */
   .rrStory {
-    margin-top: 12px;
-    padding: 10px 12px;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: var(--r2);
     display: grid;
     gap: 5px;
+    padding: 9px 16px 10px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+    border-radius: 0 0 var(--r1i) var(--r1i);
   }
   .rrStoryTag {
     font-size: var(--t-0);
@@ -5116,20 +5150,6 @@
     line-height: 1.55;
   }
   .rrStorySay .rrN {
-    color: var(--ink);
-  }
-  .rrConsq {
-    display: grid;
-    gap: 9px;
-    padding: 12px 16px;
-  }
-  .rrConsq p {
-    font-size: var(--t-2);
-    color: var(--ink-soft);
-    line-height: 1.6;
-    max-width: 72ch;
-  }
-  .rrConsq p b {
     color: var(--ink);
   }
   .rrDevice {
@@ -5465,7 +5485,7 @@
   }
   .rrFollowItem {
     position: relative;
-    padding: 9px 16px 9px 19px;
+    padding: 9px 16px 9px 29px;
     border-top: 1px solid var(--line);
     font-size: var(--t-1);
     line-height: 1.5;
@@ -5477,7 +5497,7 @@
   .rrFollowItem::before {
     content: "";
     position: absolute;
-    left: 8px;
+    left: 17px;
     top: 1.05em;
     width: 7px;
     height: 7px;
@@ -5500,26 +5520,41 @@
   .rrFollowItem[data-tone="danger"] b {
     color: var(--danger);
   }
-  .rrSend {
-    border-top: 1px solid var(--line);
-    background: var(--surface-2);
-    border-radius: 0 0 var(--r1i) var(--r1i);
-  }
+  /* What sending does: the same hairline-separated rows as the record above it, so the column has
+     one rhythm from top to bottom instead of a card inside a card. */
   .rrConsq {
     display: grid;
-    gap: 6px;
-    padding: 10px 12px;
-    background: var(--sunk);
-    border-radius: var(--r2);
-    max-width: 72ch;
   }
   .rrConsq li {
+    padding: 9px 16px;
+    border-top: 1px solid var(--line);
     font-size: var(--t-1);
     color: var(--ink-soft);
     line-height: 1.55;
   }
+  .rrConsq > li:first-child {
+    border-top: 0;
+  }
   .rrConsq b {
     color: var(--ink);
+  }
+  /* Send is the column's own foot, not a panel's. It stays on screen while the column scrolls, so
+     the button and the reason it is blocked are never scrolled away from each other. */
+  .rrSide > .rrSend {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-bottom-color: var(--line-strong);
+    border-radius: var(--r1);
+    box-shadow:
+      var(--lift),
+      inset 0 1px 0 var(--hl);
+  }
+  .rrSide > .rrSend p {
+    flex: 1 1 12rem;
   }
 
   /* ─── the design appendix, closed ────────────────────────────────── */
@@ -5848,6 +5883,18 @@
             </div>
           </section>
 
+          <section class="panel" aria-labelledby="rrSentH">
+            <div class="ph">
+              <h2 id="rrSentH">What will be sent</h2>
+              <span class="count" id="rrRecCount"></span>
+            </div>
+            <dl class="rrRecord" id="rrRecord"></dl>
+            <div class="rrStory">
+              <span class="rrStoryTag">Written history</span>
+              <span class="rrStorySay" id="rrStorySay"></span>
+            </div>
+          </section>
+
           <section class="panel" aria-labelledby="rrFollowH">
             <div class="ph">
               <h2 id="rrFollowH">What follows from these answers</h2>
@@ -5856,39 +5903,26 @@
             <ul class="rrFollow" id="rrFollow"></ul>
           </section>
 
-          <section class="panel" aria-labelledby="rrSentH">
+          <section class="panel" aria-labelledby="rrConsqH">
             <div class="ph">
-              <h2 id="rrSentH">What will be sent</h2>
-              <span class="count" id="rrRecCount"></span>
+              <h2 id="rrConsqH">What sending does</h2>
             </div>
-            <div class="rrBody">
-              <dl class="slFacts rrRecord" id="rrRecord"></dl>
-              <div class="rrStory">
-                <span class="rrStoryTag">Written history</span>
-                <span class="rrStorySay" id="rrStorySay"></span>
-              </div>
-              <ul class="rrConsq">
-                <li><b>Sending places nobody.</b> A coordinator decides every placement, one at a time.</li>
-                <li>
-                  <b>The name is not written into the structured referral.</b> Only the pointer above travels, and
-                  whatever is typed in the history is sent as written.
-                </li>
-                <li><b>This form is not a medical device.</b> It does not assess, score, rank or diagnose.</li>
-              </ul>
-            </div>
-            <div class="rrSend">
-              <button
-                type="button"
-                class="ctl primary"
-                id="rrSendBtn"
-                aria-disabled="true"
-                aria-describedby="rrSendWhy"
-              >
-                Send referral
-              </button>
-              <p id="rrSendWhy"></p>
-            </div>
+            <ul class="rrConsq">
+              <li><b>Sending places nobody.</b> A coordinator decides every placement, one at a time.</li>
+              <li>
+                <b>The name is not written into the structured referral.</b> Only the pointer travels, and whatever is
+                typed in the history is sent as written.
+              </li>
+              <li><b>This form is not a medical device.</b> It does not assess, score, rank or diagnose.</li>
+            </ul>
           </section>
+
+          <div class="rrSend">
+            <button type="button" class="ctl primary" id="rrSendBtn" aria-disabled="true" aria-describedby="rrSendWhy">
+              Send referral
+            </button>
+            <p id="rrSendWhy"></p>
+          </div>
         </aside>
       </div>
       <p class="srOnly" id="rrNotWired2">Choosing from a list is not wired in this prototype.</p>
@@ -7850,7 +7884,7 @@
       $("rrDests").innerHTML = DESTS.map(function (d) {
         var chips = d.catchment === "in" ? chipHtml("good", "In catchment") : chipHtml("warn", "Out of catchment");
         if (d.notWithBed && bedRequested()) chips += chipHtml("danger", "Not with a bed request");
-        chips += d.chosen ? chipHtml("accent", "Chosen") : chipHtml(null, "Not chosen");
+        if (d.chosen) chips += chipHtml("accent", "Chosen");
         var h =
           '<li class="rrDest" data-chosen="' +
           d.chosen +
