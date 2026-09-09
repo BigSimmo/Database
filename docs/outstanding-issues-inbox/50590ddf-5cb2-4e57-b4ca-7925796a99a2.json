@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "50590ddf-5cb2-4e57-b4ca-7925796a99a2",
+  "createdOn": "2026-09-09",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Ward Flow: Mental Health Act authorisation is overridable with a recorded reason, against the standard's own stated test",
+    "detail": "FOUND 2026-09-09 by review of artifacts d821a155 and e7f7b6f2 against src/components/ward-management/. THE STATED TEST, section 8.4 of the third-edition standard and repeated in the reducer: 'A judgement about the patient is overridable by a named coordinator with a recorded reason. A fact about the world is not.' THE CLASSIFICATION: both sides put authorisation on the overridable side. Command omits it from ABSOLUTE_GATES; ward-flow-reducer.ts lists it in SUITABILITY_GATES between age and cohort, grouped as a clinical judgement. THE OBJECTION: whether a ward is an authorised hospital is a fact about that ward's legal status, not a judgement about the patient. Under the Mental Health Act 2014 (WA) an involuntary patient must be detained at an authorised hospital, and no reason a coordinator types can make an unauthorised placement lawful, in the same way none creates a bed. On the standard's own test the gate belongs beside allocatable_bed. The same reading applies to 'security', where whether a locked bed physically exists is also a fact rather than a judgement. NOT ASSERTED: that the current classification is wrong. It may rest on an owner ruling this review did not find; docs/ward-flow/owner-rulings-*.md were not searched for one. What is asserted is that the classification and the stated test disagree and nothing on either surface explains why. NEXT ACTION: owner ruling either way, then record the reasoning in section 8.4 and beside SUITABILITY_GATES, so the next reader does not have to re-derive it. If it moves to absolute, ABSOLUTE_GATES needs its own sentence for the gate, which reconcile() already enforces.",
+    "source": "Artifact review 2026-09-09 (d821a155, e7f7b6f2, ward-flow-reducer.ts)",
+    "issueUlid": "01M22T7W66MF6MZ7NDHPMMMANG"
+  }
+}
