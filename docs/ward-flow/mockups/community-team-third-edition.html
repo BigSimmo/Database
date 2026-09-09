@@ -4737,6 +4737,23 @@
       z-index: -1;
     }
   }
+
+  /* A row a search result scrolled to is focusable programmatically only, and shows the same ring
+     every other control shows, so a keyboard reader can see where they landed. */
+  [data-row]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .ctScroll [data-row] {
+    scroll-margin: 84px 0 24px;
+  }
+
+  /* The caveat under the acceptance table is a stated limit, not a note, so it keeps the italic the
+     standard gives a stated absence and sits at the prose width. */
+  #beforeCaveat {
+    padding: 6px 0 0;
+    max-width: 72ch;
+  }
 </style>
 
 <div class="app hApp ctApp">
@@ -4934,6 +4951,13 @@
         </div>
         <div class="pb">
           <p class="note" id="beforeNote"></p>
+          <p class="none" id="beforeCaveat">
+            This table says the team had accepted these people before their bed began. It does not say they were still
+            with the team on the day they were admitted. Nothing in this prototype records a community team closing
+            somebody, so there is no team discharge, no episode end and no closing date anywhere on the record. Somebody
+            the team closed months ago would still appear here and the screen has no way to know. Read it as a prompt to
+            check the team's own notes, never as a statement of who is under this team's care.
+          </p>
         </div>
         <div class="tableWrap">
           <table class="dataTable ctTable">
@@ -4942,8 +4966,8 @@
                 <th scope="col">Movement</th>
                 <th scope="col">Unit</th>
                 <th scope="col" class="n">Days in a bed</th>
-                <th scope="col" class="n">Days with you before the bed</th>
-                <th scope="col" class="n">Days with you altogether</th>
+                <th scope="col" class="n">Days from acceptance to the bed</th>
+                <th scope="col" class="n">Days since acceptance</th>
               </tr>
             </thead>
             <tbody id="beforeBody"></tbody>
@@ -4977,10 +5001,11 @@
             <summary>What on this screen is real<span class="count">2 kinds</span></summary>
             <div class="revealBody">
               <p class="note">
-                Real, from the repository's own tables: the community team names, the health service they sit under, and
-                the hospital sites and ward names. Invented: every referral, admission, movement identifier, wait, date,
-                count and catchment figure. No phone number, address, record number or person's name is held on this
-                screen or invented for it.
+                Real, from the repository's own tables: the community team names, the suburb count beside each one,
+                which is read from the catchment table, and the hospital sites and ward names. Invented: every referral,
+                admission, movement, identifier, wait, date and every count derived from them. No health service is
+                shown for a team, because the catchment table carries a team name and nothing else. No phone number,
+                address, record number or person's name is held on this screen or invented for it.
               </p>
             </div>
           </details>
@@ -5245,8 +5270,14 @@
       var pulled = t.moves.filter(function (m) {
         return m.state === "bed pulled";
       });
+      /* Accepted before the bed began, and actually in that bed. A movement whose bed was pulled
+         before the person arrived has no admission to be accepted before, so it is a group of its
+         own and is deliberately not counted here, as categoriseTeamAdmission does in the product. */
       var pre = t.moves.filter(function (m) {
-        return m.camePre !== null;
+        return m.camePre !== null && m.state === "in bed";
+      });
+      var preNotArrived = t.moves.filter(function (m) {
+        return m.camePre !== null && m.state !== "in bed";
       });
       var backSoon = t.moves.filter(function (m) {
         return m.back === "in";
@@ -5271,6 +5302,7 @@
         inBed: inBed,
         pulled: pulled,
         pre: pre,
+        preNotArrived: preNotArrived,
         backSoon: backSoon,
         backPassed: backPassed,
         noDate: noDate,
@@ -5475,7 +5507,7 @@
     function railClosed() {
       return document.documentElement.getAttribute("data-rail") === "closed" && !narrow.matches;
     }
-    function renderRail(f) {
+    function renderRail(f, moveFocus) {
       var nav = document.getElementById("rail"),
         closed = railClosed();
       var ok = checks.length === 0;
@@ -5523,6 +5555,12 @@
       }
       nav.className = "rail " + (closed ? "closed" : "open");
       nav.innerHTML = h;
+      /* innerHTML replaces the control that was activated, so focus would fall to the body. The
+         rail contract in section 6.1 puts it on the newly rendered control instead. */
+      if (moveFocus) {
+        var next = nav.querySelector("[data-rail-toggle]");
+        if (next) next.focus();
+      }
     }
 
     /* ─── the body ─── */
@@ -5648,7 +5686,9 @@
       document.getElementById("bedsBody").innerHTML = f.moves
         .map(function (m) {
           return (
-            "<tr><td>" +
+            '<tr data-row="' +
+            m.id +
+            '" tabindex="-1"><td>' +
             m.id +
             "</td><td>" +
             esc(m.unit) +
@@ -5690,7 +5730,9 @@
         ? f.pre
             .map(function (m) {
               return (
-                "<tr><td>" +
+                '<tr data-row="' +
+                m.id +
+                '" tabindex="-1"><td>' +
                 m.id +
                 "</td><td>" +
                 esc(m.unit) +
@@ -5708,8 +5750,20 @@
       document.getElementById("beforeCount").innerHTML = f.pre.length
         ? f.pre.length + " of " + f.moves.length
         : "<i>none</i>";
+      var excluded = f.preNotArrived.length;
       document.getElementById("beforeNote").textContent =
-        "People this team had already accepted before their bed began. The last column is the whole time they have been with you, in a bed and before it.";
+        "People this team had accepted before their bed began. The last column is the gap between the two recorded dates, acceptance and today, not a length of care." +
+        (excluded
+          ? " " +
+            excluded +
+            " other " +
+            plural(excluded, "movement was", "movements were") +
+            " accepted before a bed that was then pulled before anyone arrived. There is no admission to be accepted before, so " +
+            plural(excluded, "it is", "they are") +
+            " a group of its own and " +
+            plural(excluded, "is", "are") +
+            " deliberately not counted here."
+          : "");
     }
     function renderDischarges(f) {
       var list = document.getElementById("dischList");
@@ -5717,7 +5771,9 @@
         ? f.discharges
             .map(function (d) {
               return (
-                '<li class="row"><p class="rowTop"><b>' +
+                '<li class="row" data-row="' +
+                d.id +
+                '" tabindex="-1"><p class="rowTop"><b>' +
                 d.id +
                 '</b><span class="when">' +
                 d.days +
@@ -5777,11 +5833,11 @@
           tone: "warn",
           title: longestPre.id,
           sub:
-            "With this team " +
+            "Accepted by this team " +
             longestPre.camePre +
             " days before the bed began, the longest of the " +
             f.pre.length +
-            " on this screen.",
+            " on this screen. That is a gap between two recorded dates, not a statement of care.",
         });
       return out;
     }
@@ -6011,8 +6067,8 @@
         try {
           localStorage.setItem("ward-flow-rail", closed ? "closed" : "open");
         } catch (err) {}
-        renderRail(figures());
-        announce(closed ? "Rail closed to a strip." : "Rail opened.");
+        renderRail(figures(), true);
+        announce(closed ? "The rail, closed." : "The rail, open.");
         return;
       }
       if ((b = e.target.closest("[data-team]"))) {
@@ -6099,27 +6155,99 @@
         hits = [];
       f.waiting.forEach(function (r) {
         if ((r.id + " " + r.from + " " + r.cohort).toLowerCase().indexOf(q) !== -1)
-          hits.push([r.id, "referral waiting " + dur(NOW_MIN - r.raisedAt) + ", from " + r.from]);
+          hits.push({
+            id: r.id,
+            kind: "referral",
+            detail: "waiting " + dur(NOW_MIN - r.raisedAt),
+            under: r.cohort + " referral, from " + r.from,
+          });
       });
       f.moves.forEach(function (m) {
         if ((m.id + " " + m.unit).toLowerCase().indexOf(q) !== -1)
-          hits.push([m.id, m.state === "in bed" ? "in a bed at " + m.unit : "bed pulled at " + m.unit]);
+          hits.push({
+            id: m.id,
+            kind: "movement",
+            detail: m.state === "in bed" ? m.bedDays + " days" : "no arrival",
+            under: (m.state === "in bed" ? "In a bed at " : "Bed pulled at ") + m.unit,
+          });
+      });
+      f.discharges.forEach(function (d) {
+        if ((d.id + " " + d.unit).toLowerCase().indexOf(q) !== -1)
+          hits.push({
+            id: d.id,
+            kind: "discharge",
+            detail: d.days + " days ago",
+            under: "Left " + d.unit + ", into this team's catchment",
+          });
       });
       pop.innerHTML = hits.length
-        ? '<div class="menuList">' +
-          hits
-            .map(function (h) {
+        ? hits
+            .map(function (h, i) {
               return (
-                '<button class="menuItem" type="button">' + esc(h[0]) + "<small>" + esc(h[1]) + "</small></button>"
+                '<button class="qHit" type="button" data-hit="' +
+                h.id +
+                '" data-hit-kind="' +
+                h.kind +
+                '"' +
+                (i === 0 ? ' data-active="true"' : "") +
+                "><b>" +
+                esc(h.id) +
+                "</b><small>" +
+                esc(h.detail) +
+                '</small><span class="under">' +
+                esc(h.under) +
+                "</span></button>"
               );
             })
             .join("") +
-          '</div><p class="menuNote">Names are invented. Search never returns a risk score, an acuity score or a best match.</p>'
-        : '<p class="none">Nothing matches “' +
+          '<p class="menuNote">Names are invented. Search never returns a risk score, an acuity score or a best match.</p>'
+        : '<p class="none">Nothing matches \u201c' +
           esc(v.trim()) +
-          "”. Search finds referrals and movements by identifier, and wards and sites by name.</p>";
+          "\u201d. Search finds referrals and movements by identifier, and wards and sites by name.</p>";
       announce(hits.length + " " + plural(hits.length, "result", "results") + " for " + v.trim() + ".");
     }
+
+    /* Picking a result selects its row, scrolls to it and clears the search, and says all of it in
+       one sentence, as section 6.2 requires. Enter picks the first result and Down moves into the
+       list. A result is never an inert control. */
+    function pickHit(btn) {
+      if (!btn) return;
+      var id = btn.getAttribute("data-hit"),
+        kind = btn.getAttribute("data-hit-kind"),
+        said;
+      if (kind === "referral") {
+        state.referralId = id;
+        renderQueue(figures());
+        said = "Referral " + id + " chosen, and the queue scrolled to it.";
+      } else {
+        said = id + " found, and the screen scrolled to its row.";
+      }
+      document.getElementById("q").value = "";
+      runSearch("");
+      var row = document.querySelector('[data-row="' + id + '"], [data-ref="' + id + '"]');
+      if (row) {
+        row.scrollIntoView({ block: "center", behavior: "auto" });
+        if (row.focus) row.focus();
+      }
+      announce(said + " The search is cleared.");
+    }
+    document.addEventListener("click", function (e) {
+      if (e.target.closest) pickHit(e.target.closest(".qHit[data-hit]"));
+    });
+    document.getElementById("q").addEventListener("keydown", function (e) {
+      var pop = document.getElementById("qPop");
+      if (e.key === "Enter") {
+        e.preventDefault();
+        pickHit(pop.querySelector('.qHit[data-active="true"]'));
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        var first = pop.querySelector(".qHit");
+        if (first) first.focus();
+      }
+    });
+
     document.getElementById("q").addEventListener("input", function (e) {
       runSearch(e.target.value);
     });
@@ -6146,8 +6274,8 @@
         try {
           localStorage.setItem("ward-flow-rail", closed ? "closed" : "open");
         } catch (err) {}
-        renderRail(figures());
-        announce(closed ? "Rail closed to a strip." : "Rail opened.");
+        renderRail(figures(), true);
+        announce(closed ? "The rail, closed." : "The rail, open.");
         return;
       }
       if (e.key !== "Escape") return;
