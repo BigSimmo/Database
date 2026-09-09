@@ -4399,12 +4399,276 @@
     align-content: start;
   }
 
-  /* The day in five figures. */
+  /* The day in five figures, with what is severe in it directly underneath. One
+     header band, because the size of the problem and the names in it are one thought
+     and cost two panels to say separately. */
   .figRow {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 1px;
-    padding: 12px 14px 14px;
+    padding: 12px 14px;
+  }
+  .attnStrip {
+    padding: 0 14px 12px;
+  }
+  .attnLead {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 2px 8px;
+    border-top: 1px solid var(--line);
+  }
+  .attnTitle {
+    font-size: var(--t-0);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-right: -0.12em;
+  }
+  .attnRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .attnChip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    text-align: left;
+    transition:
+      background 0.12s,
+      border-color 0.12s;
+  }
+  .attnChip:hover {
+    background: var(--sunk);
+  }
+  .attnChip:active {
+    background: var(--sunk);
+  }
+  .attnChip .mono {
+    font-size: var(--t-2);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .attnChip[data-tone="danger"] {
+    border-color: var(--danger);
+    background: var(--danger-soft);
+  }
+  .attnChip[data-tone="danger"] .mono,
+  .attnChip[data-tone="danger"] .attnWhy {
+    color: var(--danger-ink);
+  }
+  .attnChip[data-tone="warn"] {
+    border-color: var(--warn);
+    background: var(--warn-soft);
+  }
+  .attnChip[data-tone="warn"] .mono,
+  .attnChip[data-tone="warn"] .attnWhy {
+    color: var(--warn);
+  }
+  .attnChip .attnWhy {
+    font-weight: 600;
+  }
+  .attnChip .attnWait {
+    color: var(--muted);
+  }
+  .attnChip[data-tone] .attnWait {
+    color: inherit;
+    opacity: 0.85;
+  }
+  .attnNone {
+    font-size: var(--t-1);
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* The diagram, and the register of the diagram beside it. */
+  .diagSplit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 16.5rem;
+    align-items: start;
+  }
+  .diagMain {
+    min-width: 0;
+  }
+  .corridorStrip {
+    min-width: 0;
+    border-left: 1px solid var(--line);
+    padding: 12px 14px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .corridorStrip > .secH {
+    margin-bottom: 6px;
+  }
+  .stripSeg {
+    margin: 0 0 8px;
+    padding: 2px;
+  }
+  .stripSeg button {
+    height: 24px;
+    padding: 0 6px;
+    gap: 5px;
+    font-size: var(--t-0);
+  }
+  .stripList {
+    display: grid;
+    gap: 3px;
+    max-height: 26rem;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .stripList::-webkit-scrollbar {
+    width: 9px;
+  }
+  .stripList::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 9px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .stripRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1px 8px;
+    width: 100%;
+    padding: 6px 8px;
+    text-align: left;
+    border-radius: var(--r2);
+    border: 1px solid transparent;
+    transition:
+      background 0.12s,
+      border-color 0.12s;
+  }
+  .stripRow:hover {
+    background: var(--sunk);
+  }
+  .stripRow:active {
+    background: var(--sunk);
+  }
+  .stripRow[aria-pressed="true"] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .stripFrom {
+    font-size: var(--t-1);
+    font-weight: 600;
+    color: var(--ink);
+    min-width: 0;
+  }
+  .stripFig {
+    font-size: var(--t-0);
+    color: var(--muted);
+    white-space: nowrap;
+    align-self: baseline;
+  }
+  .stripRow[aria-pressed="true"] .stripFig,
+  .stripRow[aria-pressed="true"] .stripFrom,
+  .stripRow[aria-pressed="true"] .stripTo {
+    color: var(--accent-ink);
+  }
+  .stripTo {
+    grid-column: 1 / -1;
+    font-size: var(--t-1);
+    color: var(--ink-soft);
+    line-height: 1.35;
+  }
+  .stripWhy {
+    grid-column: 1 / -1;
+    font-size: var(--t-0);
+    color: var(--danger);
+    line-height: 1.35;
+  }
+  .stripNote {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+    font-size: var(--t-0);
+    color: var(--muted);
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+
+  /* Five shapes, one panel. The tab figures are the shape of the day; the panes are
+     the detail behind each. One scroll region, so the column cannot run away. */
+  .shapePanel .tabBody {
+    max-height: 38rem;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .shapePanel .tabBody::-webkit-scrollbar {
+    width: 9px;
+  }
+  .shapePanel .tabBody::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 9px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .shapePanel .tabBtn {
+    padding: 9px 11px;
+  }
+  .shapePanel .tabPane > .paneH {
+    font-size: var(--t-1);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0 0 8px;
+  }
+
+  /* The honesty at the foot: the reconciliation sentence always visible, the rest
+     one press away. */
+  .footNote {
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+  }
+  .footNote > summary {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: var(--t-0);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 2px 0;
+  }
+  .footNote > summary::-webkit-details-marker {
+    display: none;
+  }
+  .footNote > summary::after {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-1.5px) rotate(45deg);
+    transition: transform 0.12s;
+  }
+  .footNote[open] > summary::after {
+    transform: translateY(1.5px) rotate(-135deg);
+  }
+  .footNote > summary:hover {
+    color: var(--ink);
+  }
+  .footBody {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
   }
   .figRow .tile {
     border-radius: 0;
@@ -4972,6 +5236,23 @@
     color: var(--ink);
   }
 
+  /* The strip beside the diagram is the first thing to give way: below this width it
+     is wider than the picture it annotates, so it drops underneath and runs as a wide
+     row instead. Nothing is hidden at any width. */
+  @media (max-width: 1250px) {
+    .diagSplit {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .corridorStrip {
+      border-left: 0;
+      border-top: 1px solid var(--line);
+    }
+    .stripList {
+      grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+      max-height: 18rem;
+    }
+  }
+
   @media (max-width: 1100px) {
     .grid2,
     .grid2.handover {
@@ -5003,6 +5284,24 @@
     .diagWrap {
       max-height: none;
       overflow: visible;
+    }
+    .diagSplit {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .stripList,
+    .shapePanel .tabBody {
+      max-height: none;
+      overflow: visible;
+    }
+    /* A printed record has no tabs to press, so every pane prints. */
+    .shapePanel .tabPane[hidden] {
+      display: block !important;
+    }
+    .footNote > summary {
+      display: none;
+    }
+    .footBody {
+      display: grid !important;
     }
     .mvFoot {
       box-shadow: none;
@@ -5115,32 +5414,40 @@
     </header>
 
     <!--
-      VERTICAL ORDER, DECIDED DELIBERATELY. (1) The day in five figures, so the
-      first thing read is the size of the problem. (2) What is severe, because
-      nothing below it should be read first. (3) Today's traffic — short, recessive,
-      and it answers "what kind of day is this" in one glance. (4) The open list,
-      which is the page's only dense type and what a coordinator actually works
-      down, with the shape of the same population beside it rather than behind a
-      tab. (5) What has already resolved, for the shift taking over. (6) The
-      reconciliation and the honesty last, where they are checkable but not in
-      the way.
+      VERTICAL ORDER, DECIDED DELIBERATELY, AND WHY IT IS THIS COMPACT.
+      (1) One header band: the day in five figures, and directly beneath them the
+      few movements those figures are worried about, as one line of chips rather
+      than a panel of its own. The size of the problem and the names in it belong
+      together, and separating them cost a whole panel to say something a strip
+      says.
+      (2) Today's traffic, with the corridor list beside it in a narrow strip. A
+      diagram is good at shape and bad at exact quantity, so the strip carries the
+      same corridors as ranked text with their counts, and choosing either one
+      filters the list below. The picture and the register of the picture, side by
+      side.
+      (3) The open list, the page's only dense type and the thing actually worked
+      down, with the shape of the same population beside it. The five shapes share
+      one panel and one scroll region, and each tab carries its own figure, so the
+      numbers stay glanceable without switching and only the detail is behind a
+      tab.
+      (4) The reconciliation sentence, always visible, with what is invented and
+      what is real behind a disclosure under it. Checkable, and not in the way.
     -->
 
     <div class="scroll hScroll">
-      <section class="panel" aria-label="The day in five figures">
+      <section class="panel dayPanel" aria-label="The day, and what is severe in it">
         <div class="ph">
           <h2>The day</h2>
           <p class="note" id="asAt"></p>
         </div>
         <div class="figRow" id="figs"></div>
-      </section>
-
-      <section class="panel" aria-label="Worth your attention">
-        <div class="ph">
-          <h2>Worth your attention</h2>
-          <p class="note" id="attnNote"></p>
+        <div class="attnStrip">
+          <p class="attnLead">
+            <span class="attnTitle">Worth your attention</span>
+            <span class="note" id="attnNote"></span>
+          </p>
+          <div class="attnChips" id="attnBody"></div>
         </div>
-        <div class="pb" id="attnBody"></div>
       </section>
 
       <section class="panel diagPanel" aria-label="Today’s traffic">
@@ -5153,17 +5460,49 @@
           </button>
         </div>
         <div id="diagramArea">
-          <div class="diagWrap" id="diagWrap" tabindex="0" aria-label="Today’s traffic, scrolls sideways">
-            <div class="tip" id="tip" aria-hidden="true"></div>
+          <div class="diagSplit">
+            <div class="diagMain">
+              <div class="diagWrap" id="diagWrap" tabindex="0" aria-label="Today’s traffic, scrolls sideways">
+                <div class="tip" id="tip" aria-hidden="true"></div>
+              </div>
+              <div class="diagFoot">
+                <span class="diagScrollNote" id="diagScrollNote" hidden
+                  >This diagram is wider than the panel. Scroll sideways to see the receiving wards.</span
+                >
+                <span class="diagScope" id="diagScope" hidden></span>
+                <span class="schematic">Schematic, not geographic</span>
+              </div>
+              <div class="legend" id="legend"></div>
+            </div>
+            <!--
+              The register of the picture. Every corridor the diagram draws, ranked, in
+              the three kinds it draws, with the count the line is trying to convey.
+              Choosing a row does exactly what choosing its line does, so the diagram
+              gains a keyboard-reachable, precisely readable second face rather than a
+              second source of truth.
+            -->
+            <aside class="corridorStrip" aria-label="Corridors, ranked">
+              <h3 class="secH">Corridors<span class="count" id="corridorCount"></span></h3>
+              <div class="seg stripSeg" id="corridorSeg" role="group" aria-label="Which corridors to list">
+                <button type="button" data-corridors="carried" aria-pressed="true">
+                  Carried<span class="count"></span>
+                </button>
+                <button type="button" data-corridors="refused" aria-pressed="false">
+                  Refused<span class="count"></span>
+                </button>
+                <button type="button" data-corridors="theoretical" aria-pressed="false">
+                  Unused<span class="count"></span>
+                </button>
+              </div>
+              <div
+                class="stripList"
+                id="corridorList"
+                tabindex="0"
+                aria-label="Corridors, ranked. Choose one to show only the open movements on it."
+              ></div>
+              <p class="stripNote" id="corridorNote"></p>
+            </aside>
           </div>
-          <div class="diagFoot">
-            <span class="diagScrollNote" id="diagScrollNote" hidden
-              >This diagram is wider than the panel. Scroll sideways to see the receiving wards.</span
-            >
-            <span class="diagScope" id="diagScope" hidden></span>
-            <span class="schematic">Schematic, not geographic</span>
-          </div>
-          <div class="legend" id="legend"></div>
           <p class="diagText" id="diagFootText"></p>
         </div>
       </section>
@@ -5202,73 +5541,158 @@
           <p class="listFoot" id="listFoot"></p>
         </section>
 
-        <div class="mvCol">
-          <section class="panel" aria-label="Stage">
-            <div class="ph">
-              <h2>Stage</h2>
-              <span class="count" id="stageCount"></span>
+        <!--
+          Five shapes, one panel, one scroll region. Each tab carries its own figure,
+          so the shape of the day is readable without pressing anything and only the
+          detail behind each figure needs a press. The last two tabs count a different
+          population from the first three — closed, not open — so each pane says which
+          population it counted in the words on screen.
+        -->
+        <section class="panel shapePanel tabsPanel" aria-label="The shape of the same day">
+          <div class="tabbar" role="tablist" aria-label="The shape of the same day">
+            <button
+              type="button"
+              class="tabBtn"
+              role="tab"
+              id="stab-stage"
+              data-shape="stage"
+              aria-controls="spane-stage"
+              aria-selected="true"
+              tabindex="0"
+            >
+              Stage <span class="tabNum" id="stageCount"></span>
+            </button>
+            <button
+              type="button"
+              class="tabBtn"
+              role="tab"
+              id="stab-transport"
+              data-shape="transport"
+              aria-controls="spane-transport"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              Transport <span class="tabNum" id="transportCount"></span>
+            </button>
+            <button
+              type="button"
+              class="tabBtn"
+              role="tab"
+              id="stab-wait"
+              data-shape="wait"
+              aria-controls="spane-wait"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              Waiting <span class="tabNum" id="waitCount"></span>
+            </button>
+            <button
+              type="button"
+              class="tabBtn"
+              role="tab"
+              id="stab-resolved"
+              data-shape="resolved"
+              aria-controls="spane-resolved"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              Resolved <span class="tabNum" id="resolvedCount"></span>
+            </button>
+            <button
+              type="button"
+              class="tabBtn"
+              role="tab"
+              id="stab-noowner"
+              data-shape="noowner"
+              aria-controls="spane-noowner"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              No owner <span class="tabNum" id="noOwnerCount"></span>
+            </button>
+          </div>
+          <div class="tabBody" id="tabBody">
+            <div class="tabPane pb" role="tabpanel" id="spane-stage" aria-labelledby="stab-stage" tabindex="0">
+              <h3 class="paneH">Where each open movement stands</h3>
+              <div id="stageBody"></div>
             </div>
-            <div class="pb" id="stageBody"></div>
-          </section>
-          <section class="panel" aria-label="Transport">
-            <div class="ph">
-              <h2>Transport</h2>
-              <span class="count" id="transportCount"></span>
+            <div
+              class="tabPane pb"
+              role="tabpanel"
+              id="spane-transport"
+              aria-labelledby="stab-transport"
+              tabindex="0"
+              hidden
+            >
+              <h3 class="paneH">Transport legs, and what has none</h3>
+              <div id="transportBody"></div>
             </div>
-            <div class="pb" id="transportBody"></div>
-          </section>
-          <section class="panel" aria-label="How long they have waited">
-            <div class="ph">
-              <h2>How long they have waited</h2>
-              <span class="count" id="waitCount"></span>
+            <div class="tabPane pb" role="tabpanel" id="spane-wait" aria-labelledby="stab-wait" tabindex="0" hidden>
+              <h3 class="paneH">How long they have waited</h3>
+              <div id="waitBody"></div>
             </div>
-            <div class="pb" id="waitBody"></div>
-          </section>
-        </div>
+            <div
+              class="tabPane pb"
+              role="tabpanel"
+              id="spane-resolved"
+              aria-labelledby="stab-resolved"
+              tabindex="0"
+              hidden
+            >
+              <h3 class="paneH">Resolved today</h3>
+              <div id="resolvedBody"></div>
+            </div>
+            <div
+              class="tabPane pb"
+              role="tabpanel"
+              id="spane-noowner"
+              aria-labelledby="stab-noowner"
+              tabindex="0"
+              hidden
+            >
+              <h3 class="paneH">Movements with no named person</h3>
+              <div id="noOwnerBody"></div>
+            </div>
+          </div>
+        </section>
       </div>
 
-      <div class="grid2 handover">
-        <section class="panel" aria-label="Resolved today">
-          <div class="ph">
-            <h2>Resolved today</h2>
-            <span class="count" id="resolvedCount"></span>
-          </div>
-          <div class="pb" id="resolvedBody"></div>
-        </section>
-        <section class="panel" aria-label="Movements with no named person">
-          <div class="ph">
-            <h2>Movements with no named person</h2>
-            <span class="count" id="noOwnerCount"></span>
-          </div>
-          <div class="pb" id="noOwnerBody"></div>
-        </section>
-      </div>
-
+      <!--
+        The reconciliation sentence stays visible, because it is the one line that
+        says the figures above add up. What is invented and what is real sits under a
+        disclosure: it must be reachable and exact, and it does not have to occupy a
+        screen of a working page to be either.
+      -->
       <footer class="panel mvFoot" aria-label="What reconciles, what is invented and what is real">
         <p class="mvRecon" id="recon"></p>
-        <p id="fineprint"></p>
-        <p>
-          <b>Every figure here is invented</b>: the fourteen open movements and their names, identifiers, age bands,
-          waits, legal forms and deadlines, every decline and its reason, the escalation, the three transport legs, the
-          seven movements that left the pathway earlier today, and the clock at 10:42. None of it describes a real
-          patient or a real day. The names are an uncommon given name and a word for a plant, a bird or a stone, so that
-          none matches a real person.
-        </p>
-        <p>
-          <b>What is real</b>: the eight emergency departments, the hospital sites, the sixteen ward names and the four
-          health services, which come from the repository’s own tables. Every extension and address in the Tools
-          drawer’s contact tables is a placeholder in the shape of the real thing and none is real.
-        </p>
-        <p>
-          <b>Reconciled with Command</b>: this screen carries the same day, the same network and the same people as the
-          Command third edition, from one dataset, so a figure here and a figure there cannot disagree. Movements are
-          named WF-0xx as they are on Command, rather than the WF-1xx of the earlier Movements mockup, because the same
-          person may not hold two identifiers across two screens. Two things Command does not record are declared on
-          this screen and nowhere else — the transport legs that have been booked, and the movements that left the
-          pathway earlier today — and the wards each of those journeys reached is checked against Command’s own count of
-          admissions confirmed today. Everything else is derived from Command’s arrays on every render, and the rail
-          foot says whether the sums reconcile.
-        </p>
+        <details class="footNote">
+          <summary>What is invented, and what is real</summary>
+          <div class="footBody">
+            <p id="fineprint"></p>
+            <p>
+              <b>Every figure here is invented</b>: the fourteen open movements and their names, identifiers, age bands,
+              waits, legal forms and deadlines, every decline and its reason, the escalation, the three transport legs,
+              the seven movements that left the pathway earlier today, and the clock at 10:42. None of it describes a
+              real patient or a real day. The names are an uncommon given name and a word for a plant, a bird or a
+              stone, so that none matches a real person.
+            </p>
+            <p>
+              <b>What is real</b>: the eight emergency departments, the hospital sites, the sixteen ward names and the
+              four health services, which come from the repository’s own tables. Every extension and address in the
+              Tools drawer’s contact tables is a placeholder in the shape of the real thing and none is real.
+            </p>
+            <p>
+              <b>Reconciled with Command</b>: this screen carries the same day, the same network and the same people as
+              the Command third edition, from one dataset, so a figure here and a figure there cannot disagree.
+              Movements are named WF-0xx as they are on Command, rather than the WF-1xx of the earlier Movements mockup,
+              because the same person may not hold two identifiers across two screens. Two things Command does not
+              record are declared on this screen and nowhere else — the transport legs that have been booked, and the
+              movements that left the pathway earlier today — and the wards each of those journeys reached is checked
+              against Command’s own count of admissions confirmed today. Everything else is derived from Command’s
+              arrays on every render, and the rail foot says whether the sums reconcile.
+            </p>
+          </div>
+        </details>
       </footer>
     </div>
   </div>
@@ -6985,6 +7409,8 @@
       edFilter: null,
       queueTab: "patients",
       group: "cause",
+      corridorKind: "carried",
+      shapeTab: "stage",
       filter: null,
       diagramShown: true,
       actions: {},
@@ -7671,46 +8097,131 @@
       byIdEl("asAt").textContent = "Every open movement in the network, as at " + hhmm(NOW) + " on " + DAY_LABEL + ".";
     }
 
+    /* WORTH YOUR ATTENTION, AS A STRIP RATHER THAN A PANEL. The same predicate as the
+       Severe figure beside it — one function, read twice, never two conditions that
+       happen to agree today. A panel of three-line rows said no more than a line of
+       chips does, and cost a whole band of the page to say it. Each chip names the
+       movement, why it is severe and how long it has waited, and opens it. */
     function renderAttention() {
       var items = severeList();
       byIdEl("attnNote").textContent =
         wordZero(items.length) +
         " of " +
         open.length +
-        " open movements — the same count as the Severe figure above, from the same predicate.";
+        " open movements, from the same predicate as the Severe figure above";
       if (!items.length) {
         byIdEl("attnBody").innerHTML =
-          '<p class="qNone" data-testid="attention-empty">Nothing on the open list is severe right now. That is a state, not an empty panel.</p>';
+          '<p class="attnNone" data-testid="attention-empty">Nothing on the open list is severe right now. That is a state, not an empty strip.</p>';
         return;
       }
       byIdEl("attnBody").innerHTML =
-        '<div class="rows" data-testid="attention-list">' +
+        '<div class="attnRow" data-testid="attention-list">' +
         items
           .map(function (m) {
             return (
-              '<button class="row mvAttn" type="button" data-mv="' +
+              '<button class="attnChip mvAttn" type="button" data-mv="' +
               m.id +
               '" data-tone="' +
               (isBreached(m) ? "danger" : causeOf(m) === "legal_expiring" ? "warn" : "danger") +
-              '"><span class="rowTop"><strong class="mono">' +
+              '" title="' +
+              esc(m.family + ", " + m.given + " · " + edSite(m.ed) + " ED · " + (m.owner || "no named person")) +
+              '"><span class="mono">' +
               m.id +
-              "</strong><span>" +
-              esc(m.family + ", " + m.given) +
-              '</span><span class="when">' +
-              dur(m.waited) +
-              " waited</span></span>" +
-              '<span class="rowSub">' +
+              '</span><span class="attnWhy">' +
               esc(causeDef(m).title) +
-              " · " +
-              esc(legalDisplay(m).text) +
-              "</span>" +
-              '<span class="rowWho">' +
-              esc(edSite(m.ed) + " ED · " + (m.owner || "no named person")) +
+              '</span><span class="attnWait mono">' +
+              dur(m.waited) +
               "</span></button>"
             );
           })
           .join("") +
         "</div>";
+    }
+
+    /* THE REGISTER OF THE PICTURE. Every corridor the diagram draws, ranked, in the
+       three kinds it draws, with the count the line is trying to convey. A diagram is
+       good at shape and poor at exact quantity, and this morning's range is one journey
+       to two, so the strip is where the quantity actually lives. Choosing a row does
+       exactly what choosing its line does — one setFilter, one highlight — so this is a
+       second face on the same data and never a second source of truth. */
+    var CORRIDOR_KINDS = [
+      { key: "carried", label: "Carried" },
+      { key: "refused", label: "Refused" },
+      { key: "theoretical", label: "Unused" },
+    ];
+    function corridorsOfKind(kind) {
+      return CORRIDORS.filter(function (c) {
+        return c.kind === kind;
+      }).sort(function (a, b) {
+        if (kind === "carried") return b.journeys - a.journeys || a.head.localeCompare(b.head);
+        if (kind === "refused") return b.refusals - a.refusals || a.head.localeCompare(b.head);
+        return a.head.localeCompare(b.head);
+      });
+    }
+    function renderCorridorStrip() {
+      var kind = state.corridorKind;
+      byIdEl("corridorSeg")
+        .querySelectorAll("[data-corridors]")
+        .forEach(function (b) {
+          var k = b.getAttribute("data-corridors");
+          b.setAttribute("aria-pressed", String(k === kind));
+          var n = corridorsOfKind(k).length;
+          var c = b.querySelector(".count");
+          if (c) {
+            c.textContent = wordZero(n);
+            c.setAttribute("data-zero", n === 0 ? "true" : "false");
+          }
+        });
+      byIdEl("corridorCount").textContent = CORRIDORS.length + " of " + EDS.length * UNITS.length + " drawn";
+
+      var rows = corridorsOfKind(kind);
+      byIdEl("corridorList").innerHTML = rows.length
+        ? rows
+            .map(function (c) {
+              var figure =
+                kind === "carried"
+                  ? c.journeys + (c.journeys === 1 ? " journey" : " journeys")
+                  : kind === "refused"
+                    ? c.refusals + (c.refusals === 1 ? " refusal" : " refusals")
+                    : "never used";
+              return (
+                '<button class="stripRow" type="button" data-corridor="' +
+                c.id +
+                '" data-kind="' +
+                c.kind +
+                '" aria-pressed="' +
+                (state.filter && state.filter.cid === c.id) +
+                '"><span class="stripFrom">' +
+                esc(edSite(c.from)) +
+                ' ED</span><span class="stripTo">' +
+                esc(unitName(c.to)) +
+                '</span><span class="stripFig mono">' +
+                esc(figure) +
+                "</span>" +
+                (kind === "refused" ? '<span class="stripWhy">' + esc(c.reason) + "</span>" : "") +
+                "</button>"
+              );
+            })
+            .join("")
+        : '<p class="attnNone">No corridor of this kind is drawn today.</p>';
+
+      byIdEl("corridorNote").textContent =
+        kind === "carried"
+          ? "Ranked by journeys completed. Nobody still waiting is counted on a corridor."
+          : kind === "refused"
+            ? "A ward that was asked from this department and said no. Declines only, never a journey."
+            : "Both ends moved somebody today, just never to each other.";
+    }
+
+    /* A tab carries a bare figure, so the shape of the day is readable without pressing
+       anything. A bare figure is never the digit 0: it is the word, in the same italic
+       the rest of the page uses for an honest nothing. The population each figure counts
+       is named inside its own pane, not in the tab, because a tab has no room to say it
+       and a figure with no population named is the drift this screen exists to avoid. */
+    function setTabNum(id, v) {
+      var el = byIdEl(id);
+      el.textContent = wordZero(v);
+      el.setAttribute("data-zero", v === 0 ? "true" : "false");
     }
 
     function renderStage() {
@@ -7729,7 +8240,8 @@
           return r.v;
         }),
       );
-      var h = rows
+      var h = '<p class="paneScope">All ' + open.length + " open movements, by the stage each has reached.</p>";
+      h += rows
         .map(function (r) {
           return (
             '<button class="sRow" type="button" data-jump="' +
@@ -7776,7 +8288,7 @@
         ALL.length +
         " movements raised in the network today.</p>";
       byIdEl("stageBody").innerHTML = h;
-      byIdEl("stageCount").textContent = open.length + " open";
+      setTabNum("stageCount", open.length);
     }
 
     function renderTransport() {
@@ -7799,7 +8311,13 @@
       var notRecorded = noLeg.filter(function (m) {
         return transportNeed(m) === "not_recorded";
       }).length;
-      var h = legs
+      var h =
+        '<p class="paneScope">' +
+        count(legs.length, "transport leg", "transport legs") +
+        " booked against the " +
+        open.length +
+        " open movements, longest since its last update first. The figure on each row is the minutes since that leg last spoke.</p>";
+      h += legs
         .map(function (m) {
           var l = leg(m);
           return (
@@ -7817,7 +8335,7 @@
           );
         })
         .join("");
-      if (!legs.length) h = '<p class="qNone">No open movement has a transport leg booked.</p>';
+      if (!legs.length) h += '<p class="qNone">No open movement has a transport leg booked.</p>';
       h +=
         '<p class="paneScope"><b>' +
         noLeg.length +
@@ -7831,7 +8349,7 @@
         wordZero(notRecorded) +
         " no ward has accepted yet, so there is nothing to book against. Not tracked here is not the same as none required.</p>";
       byIdEl("transportBody").innerHTML = h;
-      byIdEl("transportCount").textContent = count(legs.length, "leg", "legs") + " · minutes since each last spoke";
+      setTabNum("transportCount", legs.length);
     }
 
     function renderWait() {
@@ -7849,6 +8367,9 @@
         return !a || m.waited > a.waited ? m : a;
       }, null);
       byIdEl("waitBody").innerHTML =
+        '<p class="paneScope">All ' +
+        tot +
+        " open movements, by how long they have been waiting.</p>" +
         '<div class="wSplit" aria-hidden="true"><i style="width:' +
         (short / tot) * 100 +
         '%" data-band="short"></i><i style="width:' +
@@ -7877,7 +8398,7 @@
           ? "<b>" + longest.id + "</b>, " + dur(longest.waited) + " in " + esc(edSite(longest.ed)) + " ED"
           : "none") +
         ".</p>";
-      byIdEl("waitCount").textContent = tot + " open";
+      setTabNum("waitCount", tot);
     }
 
     /* "Resolved today" is the CLOSED population and "No named person" is the OPEN
@@ -7885,7 +8406,7 @@
        population it counted in the words on screen rather than in a comment only a
        developer reads. */
     function renderResolved() {
-      byIdEl("resolvedCount").textContent = count(closedAll.length, "closed", "closed");
+      setTabNum("resolvedCount", closedAll.length);
       var parts = [];
       if (arrived.length) parts.push(arrived.length + (arrived.length === 1 ? " has" : " have") + " arrived");
       if (didNotProceed.length) parts.push(didNotProceed.length + " did not proceed");
@@ -7903,6 +8424,11 @@
           hhmm(last.at) +
           ".";
       byIdEl("resolvedBody").innerHTML =
+        '<p class="paneScope"><b>' +
+        count(closedAll.length, "movement", "movements") +
+        " closed today.</b> This tab counts the closed population, not the " +
+        open.length +
+        " open ones every tab before it counts.</p>" +
         '<p class="paneScope" data-testid="resolved-today-text">' +
         esc(body) +
         " They are kept here for the rest of the day so a shift handing over can see what moved, and then they go.</p>" +
@@ -7938,8 +8464,13 @@
       var none = open.filter(function (m) {
         return !m.owner;
       });
-      byIdEl("noOwnerCount").textContent = wordZero(none.length) + " of " + open.length + " open";
+      setTabNum("noOwnerCount", none.length);
       var h =
+        '<p class="paneScope"><b>' +
+        wordZero(none.length) +
+        " of " +
+        open.length +
+        " open movements have nobody named against them.</b></p>" +
         '<p class="paneScope" data-testid="no-owner-text">' +
         (none.length
           ? "A movement with nobody named against it has no one to chase it, and no one a ward can ring back. " +
@@ -8378,6 +8909,11 @@
 
     function setFilter(f) {
       state.filter = f;
+      /* The strip is the register of the picture, so it follows the picture. Choosing a
+         carried line while the strip is listing refusals used to leave the strip showing
+         a kind that could not contain the corridor now filtering, so the row that ought
+         to be pressed was not on screen at all. */
+      if (f && f.kind && state.corridorKind !== f.kind) state.corridorKind = f.kind;
       var bar = byIdEl("corridorBar");
       var clear = byIdEl("clearCorridor");
       if (!f) {
@@ -8427,6 +8963,7 @@
           " open</button></div>";
       }
       renderList();
+      renderCorridorStrip();
       document.querySelectorAll(".corridor, .cLabel").forEach(function (p) {
         p.classList.remove("hot", "dim");
         if (!f) return;
@@ -8435,11 +8972,37 @@
       });
     }
 
+    /* ═══════════════════════════════════════════════════════ the shape tabs */
+
+    var SHAPE_TABS = ["stage", "transport", "wait", "resolved", "noowner"];
+    function renderShapeTabs() {
+      SHAPE_TABS.forEach(function (k) {
+        var tab = byIdEl("stab-" + k);
+        var pane = byIdEl("spane-" + k);
+        var on = k === state.shapeTab;
+        tab.setAttribute("aria-selected", String(on));
+        tab.setAttribute("tabindex", on ? "0" : "-1");
+        pane.hidden = !on;
+      });
+    }
+    function selectShapeTab(k, focus) {
+      if (SHAPE_TABS.indexOf(k) === -1) return;
+      state.shapeTab = k;
+      renderShapeTabs();
+      updateFades();
+      if (focus) byIdEl("stab-" + k).focus();
+      announce(
+        byIdEl("stab-" + k).textContent.trim() + ". " + byIdEl("spane-" + k).querySelector(".paneH").textContent + ".",
+      );
+    }
+
     /* ═══════════════════════════════════════════════════════ render */
 
     function renderAll() {
       renderFigures();
       renderAttention();
+      renderCorridorStrip();
+      renderShapeTabs();
       renderList();
       renderStage();
       renderTransport();
@@ -8601,9 +9164,40 @@
         announce(state.diagramShown ? "Today’s traffic shown." : "Today’s traffic hidden. Nothing else changed.");
         return;
       }
+      var ck = ev.target.closest("[data-corridors]");
+      if (ck) {
+        state.corridorKind = ck.getAttribute("data-corridors");
+        renderCorridorStrip();
+        announce(byIdEl("corridorNote").textContent);
+        return;
+      }
+      /* A row in the strip is the same control as its line in the picture: one filter,
+         one highlight, and pressing the row that is already filtering clears it, exactly
+         as pressing its line again does. */
+      var cr = ev.target.closest("[data-corridor]");
+      if (cr) {
+        var cid = cr.getAttribute("data-corridor");
+        if (state.filter && state.filter.cid === cid) {
+          setFilter(null);
+          announce("Corridor filter cleared. All " + open.length + " open movements shown.");
+          return;
+        }
+        var cc = CORRIDORS.filter(function (x) {
+          return x.id === cid;
+        })[0];
+        setFilter({ cid: cid, from: cc.from, to: cc.to, kind: cc.kind, journeys: cc.journeys, refusals: cc.refusals });
+        announce(edSite(cc.from) + " ED to " + unitName(cc.to) + ". " + byIdEl("corridorBar").textContent);
+        return;
+      }
+      var st = ev.target.closest("[data-shape]");
+      if (st) {
+        selectShapeTab(st.getAttribute("data-shape"), false);
+        return;
+      }
       var jump = ev.target.closest("[data-jump]");
       if (jump) {
         state.group = "stage";
+        if (state.shapeTab !== "stage") selectShapeTab("stage", false);
         renderList();
         announce(byIdEl("listHeading").textContent + ". " + byIdEl("listCount").textContent + ".");
         return;
@@ -8647,6 +9241,23 @@
         return;
       }
     });
+
+    /* A tablist is walked with the arrow keys, not with Tab: Tab leaves the strip and
+       the arrows move between the tabs, which is what a screen reader tells its user to
+       expect the moment the role is on the element. */
+    byIdEl("tabBody")
+      .parentNode.querySelector(".tabbar")
+      .addEventListener("keydown", function (ev) {
+        var i = SHAPE_TABS.indexOf(state.shapeTab);
+        var next = null;
+        if (ev.key === "ArrowRight") next = SHAPE_TABS[(i + 1) % SHAPE_TABS.length];
+        else if (ev.key === "ArrowLeft") next = SHAPE_TABS[(i - 1 + SHAPE_TABS.length) % SHAPE_TABS.length];
+        else if (ev.key === "Home") next = SHAPE_TABS[0];
+        else if (ev.key === "End") next = SHAPE_TABS[SHAPE_TABS.length - 1];
+        if (!next) return;
+        ev.preventDefault();
+        selectShapeTab(next, true);
+      });
 
     /* ONE ESCAPE ORDER, AND THE SHELL OWNS IT. The shell walks the whole order,
        this screen's two steps included — its own copy carries them where the ward
@@ -8954,9 +9565,11 @@
 
       /* 15. nothing renders a bare zero */
       var zeros = [];
-      document.querySelectorAll("#figs b, .sVal, .wKey b, .gc, .tabNum").forEach(function (el) {
-        if (el.textContent.trim() === "0") zeros.push(el.className || el.tagName);
-      });
+      document
+        .querySelectorAll("#figs b, .sVal, .wKey b, .gc, .tabNum, .stripSeg .count, .stripFig")
+        .forEach(function (el) {
+          if (el.textContent.trim() === "0") zeros.push(el.className || el.tagName);
+        });
       if (zeros.length) problems.push("a zero rendered as “0” in: " + zeros.join(", "));
 
       /* 16. what is severe is the Severe figure, not a second list that merely agrees */
@@ -8974,11 +9587,14 @@
       if (byIdEl("attnNote").textContent.indexOf("open") === -1)
         problems.push("the attention panel does not name the population it counts");
 
-      /* 17. resolved today is the closed population, computed */
-      var rt = byIdEl("resolvedCount").textContent;
-      if (rt.indexOf(String(closedAll.length)) === -1 || rt.indexOf("closed") === -1)
-        problems.push("the resolved-today count does not read " + closedAll.length + " closed");
+      /* 17. resolved today is the closed population, computed, and its pane says so.
+             The tab beside it carries a bare figure with no room to name a population,
+             so the pane is where that claim has to live and where it is checked. */
       var rb = byIdEl("resolvedBody").textContent;
+      if (rb.indexOf(String(closedAll.length)) === -1 || rb.indexOf("closed") === -1)
+        problems.push("the resolved-today pane does not say " + closedAll.length + " closed");
+      if (rb.indexOf("not the " + open.length + " open") === -1)
+        problems.push("the resolved-today pane does not distinguish its population from the open one");
       if (closedAll.length && rb.indexOf(String(arrived.length)) === -1)
         problems.push("resolved-today does not account for the " + arrived.length + " arrived movements");
       if (closedAll.length && rb.indexOf(String(didNotProceed.length)) === -1)
@@ -8988,15 +9604,14 @@
           "resolved-today claims every resolved movement is now placed, which is false for one that did not proceed",
         );
 
-      /* 18. the no-named-person panel names the population it checked, and is never blank */
-      var no = byIdEl("noOwnerCount").textContent;
+      /* 18. the no-named-person pane names the population it checked, and is never blank */
       var unowned = open.filter(function (m) {
         return !m.owner;
       }).length;
+      var no = byIdEl("noOwnerBody").textContent;
       if (no.indexOf(wordZero(unowned)) === -1 || no.indexOf(String(open.length)) === -1 || no.indexOf("open") === -1)
-        problems.push("the no-named-person panel does not name the open population it checked");
-      if (byIdEl("noOwnerBody").textContent.trim() === "")
-        problems.push("the no-named-person panel is blank rather than stating what it found");
+        problems.push("the no-named-person pane does not name the open population it checked");
+      if (no.trim() === "") problems.push("the no-named-person pane is blank rather than stating what it found");
 
       /* 19. every escalation carries a contact, reaches the row and the drawer, and its
              tried wards are the declines rather than a second list somebody typed */
@@ -9070,7 +9685,52 @@
         if (d.indexOf("data-profile") !== -1) problems.push(m.id + "’s drawer carries an inert data-profile control");
       });
 
-      /* 21. a group this screen ranks but nobody is in is named, never silently dropped */
+      /* 21. THE STRIP AND THE PICTURE ARE ONE SET OF CORRIDORS, NOT TWO. The strip beside
+             the diagram exists because a line cannot state an exact quantity. If it ever
+             listed a corridor the picture does not draw, or dropped one it does, it would
+             be a second source of truth rather than a second face on the same one. */
+      CORRIDOR_KINDS.forEach(function (k) {
+        var listed = corridorsOfKind(k.key);
+        var drawn = CORRIDORS.filter(function (c) {
+          return c.kind === k.key;
+        });
+        if (listed.length !== drawn.length)
+          problems.push(
+            "the strip lists " + listed.length + " " + k.key + " corridors but the picture draws " + drawn.length,
+          );
+        listed.forEach(function (c) {
+          if (!document.querySelector('.corridor[data-cid="' + c.id + '"]'))
+            problems.push("the strip lists " + c.id + ", which the picture does not draw");
+        });
+      });
+      (function () {
+        var shown = document.querySelectorAll("#corridorList .stripRow").length;
+        var expect = corridorsOfKind(state.corridorKind).length;
+        if (shown !== expect) problems.push("the strip renders " + shown + " rows for " + expect + " corridors");
+      })();
+
+      /* 22. every shape tab has a pane, exactly one is shown, and each names its own
+             population somewhere a reader can see it. */
+      (function () {
+        var shownTabs = 0;
+        SHAPE_TABS.forEach(function (k) {
+          var tab = byIdEl("stab-" + k);
+          var pane = byIdEl("spane-" + k);
+          if (!tab || !pane) {
+            problems.push("the shape tab " + k + " has no tab or no pane");
+            return;
+          }
+          if (!pane.hidden) shownTabs += 1;
+          if (tab.getAttribute("aria-controls") !== pane.id)
+            problems.push("the shape tab " + k + " does not point at its own pane");
+          if (!pane.querySelector(".paneH")) problems.push("the shape pane " + k + " has no heading");
+          if (pane.textContent.indexOf("open") === -1 && pane.textContent.indexOf("closed") === -1)
+            problems.push("the shape pane " + k + " does not name the population it counts");
+        });
+        if (shownTabs !== 1) problems.push(shownTabs + " shape panes are shown at once, not exactly one");
+      })();
+
+      /* 23. a group this screen ranks but nobody is in is named, never silently dropped */
       modes.forEach(function (g) {
         var missing = emptyGroupTitles(g, worklist());
         if (state.group !== g) return;
