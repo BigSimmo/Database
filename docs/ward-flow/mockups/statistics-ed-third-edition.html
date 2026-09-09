@@ -6120,6 +6120,14 @@
         return isOpen(m) && !inDepartment(m) && shellVisible(m);
       });
     }
+    /* The rail's own basis: open movements in the chosen service, and nothing else. The shell's
+   figures() scopes by service only, so a caption that names the rail's count must ignore the task
+   filter and the search text the way the rail does. */
+    function railOpen() {
+      return MOVEMENTS.filter(function (m) {
+        return isOpen(m) && (window.WardFlowShell ? window.WardFlowShell.edVisible(ed(m.ed)) : true);
+      }).length;
+    }
     function scopedEds() {
       return EDS.filter(function (e) {
         return window.WardFlowShell ? window.WardFlowShell.edVisible(e) : true;
@@ -6361,11 +6369,7 @@
         {
           label: "Waiting now",
           val: num(rows.length),
-          cap: state.edFilter
-            ? "in this department"
-            : "in the eight departments, of " +
-              (standing().length + departed().length) +
-              " open movements the rail counts",
+          cap: state.edFilter ? "in this department" : "of " + railOpen() + " open movements the rail counts",
         },
         {
           label: "Longest wait",
@@ -6493,12 +6497,28 @@
       return s;
     }
 
+    /* Which rows the median falls on. An odd list has one median case and an even list has two, so
+   the sentence under the table names whichever it is rather than assuming one shape. */
+    function medianRows() {
+      var asc = chosen()
+        .slice()
+        .sort(function (a, b) {
+          return a.waited - b.waited;
+        });
+      if (asc.length < MEDIAN_FLOOR) return [];
+      var i = Math.floor(asc.length / 2);
+      return asc.length % 2 ? [asc[i]] : [asc[i - 1], asc[i]];
+    }
     function waitingNow() {
       var rows = chosen()
         .slice()
         .sort(function (a, b) {
           return b.waited - a.waited;
         });
+      var mid = medianRows();
+      var mids = mid.map(function (m) {
+        return m.id;
+      });
       var gone = departed().filter(function (m) {
         return !state.edFilter || m.ed === state.edFilter;
       });
@@ -6524,6 +6544,9 @@
                 (state.shown === m.id ? ' data-shown="true"' : "") +
                 '><th scope="row" class="mono">' +
                 m.id +
+                (mids.indexOf(m.id) >= 0
+                  ? '<span class="flagWord">' + (mids.length === 1 ? "median case" : "middle two") + "</span>"
+                  : "") +
                 "</th><td>" +
                 esc(nameOf(m)) +
                 "</td>" +
@@ -6552,11 +6575,23 @@
           ? "Everybody standing " +
             (state.edFilter ? "in this department" : "in a department") +
             " is listed, longest first, so this is the whole list and not a sample of its tail. " +
-            (median(chosen()) === null
+            (mids.length === 0
               ? "No median is marked, because a median needs " + MEDIAN_FLOOR + " people waiting."
-              : "With " +
-                chosen().length +
-                " waiting the median is the midpoint of the middle two waits, so no single row is the median case.")
+              : mids.length === 1
+                ? "With " +
+                  rows.length +
+                  " waiting the median falls on one row, " +
+                  mids[0] +
+                  " at " +
+                  dur(mid[0].waited) +
+                  ", marked as the median case."
+                : "With " +
+                  rows.length +
+                  " waiting the median is the midpoint of the middle two waits, " +
+                  mids[0] +
+                  " and " +
+                  mids[1] +
+                  ", both marked, so no single row is the median case.")
           : "") +
         (gone.length
           ? (rows.length ? " " : "") +
@@ -7078,7 +7113,7 @@
      qPop, searchWrap, svcMenu, svcList, svcLabel, svcCount, svcDot,
      activityMenu, activityPanel, actDot, actDotText, tasksMenu, tasksPanel,
      tasksCount, tasksDot, tasksDotText, toolsMenu, toolsPanel, newMenu,
-     rail, qpane-patients (the engine's queue pane). Ids it creates: pinMenu.
+     rail, waitingNow (this page's list of who is waiting). Ids it creates: pinMenu.
 
      CLASSES it queries: rail, menu, menuPanel, searchWrap, qHit, qRow,
      taskRow, seg, part, railLink, railBtn, flyMenu.
@@ -7121,6 +7156,7 @@
        sentences that name the queue Command has and this screen does not. */
     var PAGE_KEY = "statistics";
     var PAGE_TITLE = "Emergency department statistics";
+    var QUEUE_PANE = "waitingNow";
     var DATE = "Sat 15 Aug";
     var SHIFT_START_MIN = 7 * 60;
     var HANDOVER_MIN = 14 * 60;
@@ -8374,7 +8410,7 @@
           "</small></button>";
       });
       html +=
-        '</div><div class="menuList" style="padding-top:0"><button type="button" class="linkBtn" data-go="queue" style="padding:4px 10px;text-align:left">Show in queue</button></div></section></div>';
+        '</div><div class="menuList" style="padding-top:0"><button type="button" class="linkBtn" data-go="queue" style="padding:4px 10px;text-align:left">Show in the figures</button></div></section></div>';
       html +=
         '<p class="popFoot"><span>Counts are derived from the open movements in ' +
         esc(svcName()) +
@@ -9105,7 +9141,7 @@
       announce(closed ? "The rail, closed." : "The rail, open.");
     }
     function queueRow(id) {
-      var pane = $("qpane-patients");
+      var pane = $(QUEUE_PANE);
       return pane ? pane.querySelector('.qRow[data-mv="' + id + '"]') : null;
     }
     function showInQueue(id) {
@@ -9391,7 +9427,7 @@
       }
       if ((b = e.target.closest('[data-go="queue"]'))) {
         closeMenus(null);
-        var pane = $("qpane-patients");
+        var pane = $(QUEUE_PANE);
         if (pane) {
           pane.scrollIntoView({ block: "start" });
           pane.focus();
@@ -9409,9 +9445,9 @@
           else {
             var tt = taskByKey(tk);
             var n = countTask(tt);
-            announce("Showing " + n + " " + plural(n, tt.one, tt.many) + " in the queue.");
-            var qp = $("qpane-patients");
-            if (qp) qp.scrollTop = 0;
+            announce("Showing " + n + " " + plural(n, tt.one, tt.many) + " on this page.");
+            var qp = $(QUEUE_PANE);
+            if (qp) qp.scrollIntoView({ block: "start" });
           }
           return;
         }
