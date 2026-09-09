@@ -144,8 +144,11 @@ for (const scheme of ["light", "dark"]) {
       say(`weights ${tag}`, r.badWeights.length === 0, r.badWeights.join(", ") || "all loaded");
     }
     say(`errors ${tag}`, errs.length === 0, errs.join(" | "));
-    if (r.isCommand) say(`reconcile ${tag}`, r.reconcile === 0, String(r.reconcile));
-    else say(`reconcile ${tag}`, r.reconcile === "absent", `not a Command page (${r.reconcile})`);
+    // Every page built to the standard carries one check array, and the shell appends to it and
+    // never creates it, so a page that has the hook is verified green whatever its title. Only a
+    // page without the hook reports the line as not applicable, which is what section 10 says.
+    if (r.reconcile === "absent") say(`reconcile ${tag}`, !r.isCommand, "no reconcile hook on this page");
+    else say(`reconcile ${tag}`, r.reconcile === 0, String(r.reconcile));
     say(`overflow ${tag}`, r.ovx === 0, r.ovx + "px");
     if (vp[0] >= 1200) {
       say(
