@@ -4390,14 +4390,19 @@
     }
   }
 
-  /* ─── the two columns of the form: the steps, then what the referral
-     records and what sending it does. 1 and 0.8, the weights the screens
-     index gives screen 12. ──────────────────────────────────────────── */
+  /* ─── the two columns of the form: the questions take the width, and the
+     column beside them is a fixed narrow track rather than a share of what
+     is left, so the answers never lose room as the window grows. ─────── */
   .rrWork {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+    grid-template-columns: minmax(0, 1fr) 20.5rem;
     gap: var(--gap);
     align-items: start;
+  }
+  @media (max-width: 1360px) {
+    .rrWork {
+      grid-template-columns: minmax(0, 1fr) 18.5rem;
+    }
   }
   .rrSteps,
   .rrSide {
@@ -4416,6 +4421,78 @@
       overflow-y: auto;
       scrollbar-width: thin;
       scrollbar-color: var(--line-strong) transparent;
+      gap: 10px;
+    }
+    /* A narrow column keeps the same rhythm on a shorter gutter: 12px rather than 16px, and rows
+       a little shallower, so more of the referral is on screen at once without anything crowding
+       its own hairline. */
+    .rrSide .ph {
+      padding: 9px 12px;
+      gap: 8px;
+    }
+    .rrSide .rrBody {
+      padding: 10px 12px 11px;
+      gap: 10px;
+    }
+    .rrSide .rrDest {
+      padding: 8px 10px 8px 13px;
+      gap: 6px;
+    }
+    /* In a narrow column the destination's name takes its own line, so the chips beneath it always
+       pack from the left instead of being pushed about by whatever room the name leaves. */
+    .rrSide .rrDestTop {
+      gap: 6px;
+    }
+    .rrSide .rrDestTop .rrChoose {
+      flex: 1 0 100%;
+    }
+    /* .rrChip carries an auto left margin so it sits right in a panel header. On a destination
+       card and beside a narrow title it is one of a pair reading left to right, so the margin is
+       taken back and the derived count keeps the right edge to itself. */
+    .rrSide .rrDestTop .rrChip,
+    .rrSide .ph .rrChip {
+      margin-left: 0;
+    }
+    .rrSide .rrAsk {
+      padding: 8px 10px;
+    }
+    .rrSide .rrRecord {
+      grid-template-columns: minmax(0, 6.75rem) minmax(0, 1fr);
+    }
+    .rrSide .rrRecord dt,
+    .rrSide .rrRecord dd {
+      padding-top: 5px;
+      padding-bottom: 5px;
+    }
+    .rrSide .rrRecord dt {
+      padding-left: 12px;
+      padding-right: 9px;
+      letter-spacing: 0.07em;
+    }
+    .rrSide .rrRecord dd {
+      padding-right: 12px;
+    }
+    .rrSide .rrStory {
+      padding: 8px 12px 9px;
+    }
+    .rrSide .rrFollowItem {
+      padding: 7px 12px 7px 24px;
+    }
+    .rrSide .rrFollowItem::before {
+      left: 13px;
+    }
+    .rrSide .rrConsq li {
+      padding: 7px 12px;
+    }
+    .rrSide > .rrSend {
+      padding: 10px 12px;
+      gap: 10px;
+    }
+    .rrSide .rrCapKey {
+      gap: 3px 10px;
+    }
+    .rrSide .rrFigs {
+      gap: 4px 12px;
     }
   }
   @media (max-width: 1100px) {
@@ -5874,8 +5951,8 @@
           <section class="panel" aria-labelledby="rrDestH">
             <div class="ph">
               <h2 id="rrDestH">Where to refer</h2>
-              <span class="count" id="rrDestCount"></span>
               <span class="rrChip" data-step-chip="4"></span>
+              <span class="count" id="rrDestCount"></span>
             </div>
             <div class="rrBody">
               <p class="rrScope" id="rrScope"></p>
@@ -5908,12 +5985,9 @@
               <h2 id="rrConsqH">What sending does</h2>
             </div>
             <ul class="rrConsq">
-              <li><b>Sending places nobody.</b> A coordinator decides every placement, one at a time.</li>
-              <li>
-                <b>The name is not written into the structured referral.</b> Only the pointer travels, and whatever is
-                typed in the history is sent as written.
-              </li>
-              <li><b>This form is not a medical device.</b> It does not assess, score, rank or diagnose.</li>
+              <li><b>Sending places nobody.</b> A coordinator decides every placement.</li>
+              <li><b>The name is not in the structured referral.</b> Only the pointer travels.</li>
+              <li><b>Not a medical device.</b> It does not assess, score, rank or diagnose.</li>
             </ul>
           </section>
 
@@ -6425,8 +6499,31 @@
               <div class="rrOpen">
                 <span class="rrQ">What sending does, and not a medical device</span>
                 <span class="rrA"
-                  >Both kept, moved into What will be sent so they sit directly above the Send button rather than in a
-                  panel of their own.</span
+                  >Both kept, in their own module directly above the Send button, and shortened to the statement itself:
+                  a coordinator decides every placement, only the pointer travels, and the form does not assess, score,
+                  rank or diagnose.</span
+                >
+              </div>
+              <div class="rrOpen">
+                <span class="rrQ">&ldquo;Not shown here: a preview would suggest something had read it&rdquo;</span>
+                <span class="rrA"
+                  >Removed from the written history line, which now carries only its three derived figures. The reason
+                  it is not previewed is a design decision, and it is written here instead.</span
+                >
+              </div>
+              <div class="rrOpen">
+                <span class="rrQ">The written-history row in What follows from these answers</span>
+                <span class="rrA"
+                  >Removed as a repeat: the same sections, characters and destinations are stated one panel above it.
+                  Its two blocking forms, a section over its limit and a required section unwritten, are kept, because
+                  those stop the referral being sent.</span
+                >
+              </div>
+              <div class="rrOpen">
+                <span class="rrQ">The catchment sentences on the destination cards</span>
+                <span class="rrA"
+                  >Shortened to what the answers make true. The catchment itself is already a chip on the same card and
+                  a sentence in the scope line above, so the cards no longer restate it.</span
                 >
               </div>
               <div class="rrOpen">
@@ -7467,9 +7564,7 @@
         chosen: true,
         catchment: "in",
         bedRequest: true,
-        why:
-          "Fremantle sits in the South Metropolitan catchment. Wards are listed in the network’s own fixed " +
-          "order. <b>Nothing here ranks a ward, and nothing here places anybody.</b>",
+        why: "Wards are listed in the network’s own fixed order. <b>Nothing here ranks a ward, and nothing here places anybody.</b>",
         capacity: true,
       },
       {
@@ -7478,7 +7573,7 @@
         chosen: true,
         catchment: "in",
         bedRequest: false,
-        why: "Fiona Stanley Hospital is the catchment emergency department for Fremantle.",
+        why: "Fiona Stanley Hospital is the catchment emergency department.",
         ask: {
           key: "edAsk",
           label: "What is the department being asked for?",
@@ -7492,9 +7587,7 @@
         catchment: "out",
         bedRequest: false,
         notWithBed: true,
-        why:
-          "Offered and sendable. Asking outside the catchment is legitimate, and the choice is recorded rather " +
-          "than blocked. It cannot travel on the same referral as a psychiatric bed: <b>send those as two</b>.",
+        why: "Offered and sendable, outside the catchment. It cannot travel on the same referral as a psychiatric bed: <b>send those as two</b>.",
         ask: { key: "cmhtTeam", label: "Which team?", options: ["Fremantle Adult", "Armadale Adult"] },
       },
     ];
@@ -8086,12 +8179,6 @@
             ) + " is not written",
             "The referral cannot be sent without it.",
           ]);
-        else
-          out.push([
-            null,
-            written().length + " of " + HISTORY.length + " sections written",
-            historyChars() + " characters, sent word for word and never scored.",
-          ]);
       }
       return out;
     }
@@ -8205,7 +8292,7 @@
             : n === 2
               ? "both destinations"
               : "all " + n + " destinations") +
-        "</b>. Not shown here: a preview would suggest something had read it.";
+        "</b>.";
     }
 
     function renderReconcile() {
