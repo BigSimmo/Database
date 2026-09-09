@@ -5249,8 +5249,8 @@
         <p id="fineprint"></p>
         <p>
           <b>Every figure here is invented</b>: the fourteen open movements and their names, identifiers, age bands,
-          waits, legal forms and deadlines, every decline and its reason, the two escalations, the three transport legs,
-          the seven movements that left the pathway earlier today, and the clock at 10:42. None of it describes a real
+          waits, legal forms and deadlines, every decline and its reason, the escalation, the three transport legs, the
+          seven movements that left the pathway earlier today, and the clock at 10:42. None of it describes a real
           patient or a real day. The names are an uncommon given name and a word for a plant, a bird or a stone, so that
           none matches a real person.
         </p>
@@ -6632,17 +6632,18 @@
       { from: "fsh-ed", to: "scgh-adult-open" },
     ];
 
-    /* ── An escalation before any ward has answered. Command records one escalation
-          (WF-009, five wards tried). This screen adds the second state the panel has
-          to be able to say: escalated with nothing yet tried. WF-026 is sixteen, and
-          the network holds one youth unit; the state desk was rung while that unit
-          still held the question, so no ward has declined and "tried already" is
-          genuinely empty rather than missing. The tried wards themselves are never
-          typed — they are the declines, read off Command's own array. ── */
-    MOVEMENTS.forEach(function (m) {
-      if (m.id === "WF-026" && !m.escalation)
-        m.escalation = { at: 618, contact: "State bed coordination desk", tried: 0 };
-    });
+    /* ⚠️ COMMAND'S MOVEMENTS ARE READ, NEVER WRITTEN. An earlier draft of this file
+       added an escalation to WF-026 so the "No units recorded" wording — escalated
+       before any ward had answered — would have somebody to render. It worked, and it
+       silently made this screen disagree with Command and with the detail screen about
+       how many movements are escalated, while the foot went on claiming that only the
+       transport legs and the closed movements differ. A screen whose whole point is
+       that its figures reconcile cannot quietly edit the figures it reconciles with.
+
+       The wording is now proved on the function instead, in the self-check at the foot,
+       exactly as the missing-legal-form wording is. That is the better test anyway: it
+       holds on a day that has no such movement, which is most days. The guard in the
+       self-check fails if any field is ever added to a movement here again. ── */
 
     /* ═══════════════════════════════════════════════════════ derive */
 
@@ -8358,6 +8359,21 @@
         '<p class="popFoot"><span>Every figure on this screen is invented.</span><span>Reconciled with Command: same day, same network, same people.</span></p>';
     }
 
+    /* Redraw the drawer and put the keyboard back where it was. The selector names the
+       control in the new panel that replaces the one that was pressed. Focus is only
+       restored if it was inside the drawer to begin with, so a mouse user is not dragged
+       anywhere, and the fallback is the drawer's Close button rather than the page body. */
+    function redrawDrawerKeeping(selector) {
+      var wasInside = !!(document.activeElement && document.activeElement.closest("#mvDetailPanel"));
+      requestAnimationFrame(function () {
+        renderDrawer();
+        if (!wasInside) return;
+        var panel = byIdEl("mvDetailPanel");
+        var next = panel.querySelector(selector) || panel.querySelector("[data-close]");
+        if (next) next.focus();
+      });
+    }
+
     /* ═══════════════════════════════════════════════════════ the corridor filter */
 
     function setFilter(f) {
@@ -8593,14 +8609,17 @@
         return;
       }
       /* Re-rendering the drawer detaches the control that was pressed, and the shell
-         closes any pop-out the click did not land inside. So the redraw waits one
-         frame, until the shell has seen the click land where it did. */
+         closes any pop-out the click did not land inside. So the redraw waits one frame,
+         until the shell has seen the click land where it did — and then puts the keyboard
+         back on the control that was pressed. Without that last step a keyboard user
+         pressing Enter on an action loses focus to the document body and has to Tab in
+         from the top of the page to reach the next one. */
       var act = ev.target.closest("[data-act]");
       if (act) {
         var k = actKey(act.getAttribute("data-mv"), act.getAttribute("data-act"));
         var label = act.textContent.trim();
         state.actions[k] = !state.actions[k];
-        requestAnimationFrame(renderDrawer);
+        redrawDrawerKeeping('[data-act="' + act.getAttribute("data-act") + '"]');
         announce(label + (state.actions[k] ? " recorded." : " cleared."));
         return;
       }
@@ -8609,7 +8628,7 @@
         var k2 = actKey(tgl.getAttribute("data-mv"), tgl.getAttribute("data-toggle"));
         var t2 = tgl.getAttribute("data-toggle");
         state.actions[k2] = !state.actions[k2];
-        requestAnimationFrame(renderDrawer);
+        redrawDrawerKeeping('[data-toggle="' + tgl.getAttribute("data-toggle") + '"]');
         announce(t2 + (state.actions[k2] ? " set." : " cleared."));
         return;
       }
@@ -9006,16 +9025,42 @@
       });
       if (
         !escalated.some(function (m) {
-          return (m.declines || []).length === 0;
-        })
-      )
-        problems.push("no escalation exercises the “No units recorded” wording");
-      if (
-        !escalated.some(function (m) {
           return (m.declines || []).length > 0;
         })
       )
         problems.push("no escalation exercises the tried-wards wording");
+      /* Escalated before any ward had answered. No movement is in that state today, so
+         the wording is proved on the function rather than left unproved, and rather than
+         inventing a movement to carry it — which is what made this screen disagree with
+         Command once already. */
+      (function () {
+        var probe = escalationLine({
+          escalation: { at: NOW - 30, contact: "State bed coordination desk", tried: 0 },
+          declines: [],
+        });
+        if (probe.indexOf("No units recorded") === -1)
+          problems.push("an escalation with nothing tried does not say “No units recorded”");
+        if (probe.indexOf("State bed coordination desk") === -1)
+          problems.push("an escalation with nothing tried does not name the contact rung");
+      })();
+
+      /* THE DATASET IS COMMAND'S, AND THIS SCREEN DOES NOT WRITE TO IT. Every field a
+         movement may carry is one Command declares. Anything else means this file has
+         started editing the data it claims to reconcile with, which is how a figure here
+         and a figure on Command drift apart with the foot still promising they cannot. */
+      (function () {
+        var allowed = {};
+        "id given family owner urgency stage legalStatus ed suburb homeService cohort security sex ageBand waited highAcuity specialling dx flagged referred accepted declines escalation legalForm legalDue"
+          .split(" ")
+          .forEach(function (k) {
+            allowed[k] = true;
+          });
+        open.forEach(function (m) {
+          Object.keys(m).forEach(function (k) {
+            if (!allowed[k]) problems.push(m.id + " carries “" + k + "”, a field this screen added to Command's data");
+          });
+        });
+      })();
 
       /* 20. the drawer's way out is a real link with a real address */
       open.forEach(function (m) {

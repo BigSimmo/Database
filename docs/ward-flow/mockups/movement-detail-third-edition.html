@@ -6902,7 +6902,18 @@
       if (!m) return;
       state.movementId = id;
       state.unitId = null;
+      /* renderAll() rebuilds the queue, which detaches the row that was pressed. Without
+         restoring the keyboard's place afterwards, a keyboard user moving between
+         movements loses focus to the document body on every selection and has to Tab in
+         from the top of the page again. Only restored if focus was in the queue, so a
+         mouse click does not move it. */
+      var wasInQueue = !!(document.activeElement && document.activeElement.closest("#qpane-patients"));
       renderAll();
+      if (wasInQueue) {
+        var pane = document.getElementById("qpane-patients");
+        var row = pane && pane.querySelector('[data-mv="' + id + '"]');
+        (row || pane).focus();
+      }
       announce(
         nameOf(m) +
           ", " +
