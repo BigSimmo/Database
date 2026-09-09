@@ -2,6 +2,7 @@
 <html lang="en-AU">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script>
       (function () {
         document.documentElement.lang = "en-AU";
@@ -14,7 +15,6 @@
       })();
     </script>
     <title>Ward Flow Statistics</title>
-
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -4920,7 +4920,7 @@
           </div>
         </header>
 
-        <div class="scroll hScroll">
+        <main class="scroll hScroll" id="statsMain">
           <p class="note scopeNote">
             <b id="scopeWard">SCGH Adult Open</b> at Sir Charles Gairdner Hospital, North Metropolitan Health Service,
             adult acute, <b id="scopeBeds"></b> beds. Every count below belongs to this ward and to the
@@ -5225,7 +5225,7 @@
               </div>
             </details>
           </section>
-        </div>
+        </main>
       </div>
     </div>
 
@@ -6169,6 +6169,21 @@
         try {
           state.railClosed = localStorage.getItem("ward-flow-rail") === "closed";
         } catch (e) {}
+        /* The Tools item says what it will do, not what it did. A control that reads
+     "Close the rail" while the rail is already a strip advertises the opposite
+     of the action it performs, and the mismatch is there from first paint for a
+     reader whose stored state is closed. */
+        function reflectRailAction() {
+          var b = $("railToolBtn");
+          if (!b) return;
+          b.firstChild.nodeValue = state.railClosed ? "Open the rail" : "Close the rail";
+          b.setAttribute(
+            "title",
+            state.railClosed
+              ? "Open the rail. The bracket key does the same."
+              : "Close the rail to a strip. The bracket key does the same.",
+          );
+        }
         function setRail(closed) {
           state.railClosed = closed;
           if (closed) document.documentElement.setAttribute("data-rail", "closed");
@@ -6177,6 +6192,7 @@
             localStorage.setItem("ward-flow-rail", closed ? "closed" : "open");
           } catch (e) {}
           renderRail();
+          reflectRailAction();
           var b = $("rail").querySelector(".railBtn");
           if (b) b.focus();
           announce(closed ? "Rail closed to a strip." : "Rail open.");
@@ -6450,6 +6466,7 @@
         renderLongStays();
         renderGovernance();
         reflectAppearance();
+        reflectRailAction();
         var ck = checkSentence();
         announce("Statistics for " + DATA.ward + ", " + DATA.windowDays + " days ending today. " + ck.text);
       })();
