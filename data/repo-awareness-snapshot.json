@@ -1641,6 +1641,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow/mockups/WARD-FLOW-DESIGN-SYSTEM.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/specs/2026-09-05-ward-flow-merges-1-3-design-lock.md",
         "section": "superpowers",
         "catalogued": false
@@ -2811,6 +2816,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow/mockups/third-edition-kit/HANDOVER.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/handovers/ward-builder-one-integration-2026-09-02.md",
         "section": "ward-flow",
         "catalogued": false
@@ -3561,6 +3571,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow/mockups/third-edition-kit/MERGE-BRIEF.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/sdd-rescued/ward-community-index/task-1-report.md",
         "section": "ward-flow",
         "catalogued": false
@@ -4056,6 +4071,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/SHELL-REVIEW.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-nine-claims-brief.md",
         "section": "ward-flow",
         "catalogued": false
@@ -4394,6 +4414,11 @@
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-brief.md",
         "section": "caring-contacts",
         "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow/mockups/third-edition-kit/fonts/README.md",
+        "section": "ward-flow",
+        "catalogued": false
       },
       {
         "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
@@ -5651,6 +5676,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/SHELL-SPEC.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-phase-3-workspace/progress.md",
         "section": "ward-flow-phase-3-workspace",
         "catalogued": true
@@ -5779,6 +5809,11 @@
         "path": "docs/archive/search-rag-pre-phase-2-diff-classification.md",
         "section": "archive",
         "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow/mockups/third-edition-kit/shell/SHELL-NOTES.md",
+        "section": "ward-flow",
+        "catalogued": false
       },
       {
         "path": "docs/caring-contacts/phase-2b-pr-body.md",
@@ -6154,6 +6189,11 @@
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-report.md",
         "section": "caring-contacts",
         "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/RAIL-MAP.md",
+        "section": "ward-flow",
+        "catalogued": false
       }
     ],
     "sections": [
