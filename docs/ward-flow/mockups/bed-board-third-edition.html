@@ -5220,6 +5220,26 @@
     background: var(--accent-soft);
     border-left-color: var(--gilt);
   }
+
+  /* ─── the drawer words at 1300px and narrower ──────────────────────────
+     Codex review, P2. The shell block above hides the words on Activity,
+     Tasks and Tools with display none at this width, which takes them out of
+     the accessibility tree as well as off the screen and leaves the Tools
+     summary with no accessible name at all. They are clipped here instead:
+     the bar looks the same and every summary keeps its name. The same rule
+     sits in the shell, so Command and the design system carry the defect
+     until it is fixed there. */
+  @media (max-width: 1300px) {
+    .hdr1 .menu > summary .lbl.optional {
+      display: inline;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
 </style>
 
 <div class="app hApp">
@@ -7859,7 +7879,7 @@
       if (!t.closest) return;
       var el;
       if (!t.closest("#wardSwitch")) closeSwitch(false);
-      if ((el = t.closest("[data-close]"))) {
+      if ((el = t.closest("#recordPanel [data-close]"))) {
         clearBed();
         var first = document.querySelector(".bed");
         if (first) first.focus();
@@ -7933,10 +7953,20 @@
       e.preventDefault();
     });
 
-    /* Escape. The shell owns the one Escape order for the bar, the search and the service, and
-     this page never takes a press the shell has a step for: it acts only when no pop out is
-     open and the search is empty, which is where the shell's own order runs out on a screen
-     with no queue of its own. */
+    /* Escape. The shell owns the one Escape order and this page adds one step to the end of it,
+     for the bed the reader has chosen. A press is this page's only once the shell has nothing
+     left to unwind: no pop out open, no search results showing, no search text, and nothing in
+     the filter bar the shell writes from its own service and task state. Codex review, P2. */
+    function shellHasAStep() {
+      var pop = $("qPop");
+      if (pop && getComputedStyle(pop).display !== "none") return true;
+      var q = $("q");
+      if (q && q.value) return true;
+      if (state.unitId || state.referralId || state.edFilter) return true;
+      var shell = window.WardFlowShell;
+      return !!(shell && shell.filterBar && shell.filterBar() !== "");
+    }
+
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
       if (document.querySelector("details.menu[open]")) return;
@@ -7945,8 +7975,7 @@
         e.stopImmediatePropagation();
         return;
       }
-      var q = $("q");
-      if (!state.bed || (q && q.value)) return;
+      if (!state.bed || shellHasAStep()) return;
       clearBed();
       e.stopImmediatePropagation();
     });
