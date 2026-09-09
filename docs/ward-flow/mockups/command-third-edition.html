@@ -8964,7 +8964,9 @@
 
      GLOBALS: reads window.WardFlow. Writes window.WardFlowShell and
      window.__reflectAppearance. Appends its sum checks to
-     window.__commandCheck when that array exists, and never creates it.
+     window.__commandCheck when that array exists, and never creates it,
+     rewriting its own part of that array on every render so the rail, the
+     tally and a harness all read one list.
      ═══════════════════════════════════════════════════════════════════════ */
   (function () {
     "use strict";
@@ -9311,10 +9313,29 @@
         if (eng.Breached !== f.breached)
           CHECK.push("the rail's breached count is " + f.breached + ", the engine's " + eng.Breached);
       }
+      publishCheck();
+    }
+    /* The one check array on the page: the engine creates it and the shell appends its own sums
+       to it, so the rail, the tally and any harness read one list rather than three. The engine's
+       problems are taken once, because the engine computes them once at load, and the shell's
+       part is rewritten on every render rather than accumulated. Without this the rail could say
+       the figures disagree while a reader of window.__commandCheck saw an empty array. */
+    var ENGINE_CHECK = null;
+    function publishCheck() {
+      var arr = window.__commandCheck;
+      if (!Array.isArray(arr)) return;
+      if (ENGINE_CHECK === null) ENGINE_CHECK = arr.slice();
+      arr.length = 0;
+      ENGINE_CHECK.forEach(function (p) {
+        arr.push(p);
+      });
+      CHECK.forEach(function (p) {
+        arr.push(p);
+      });
     }
     function allProblems() {
-      var engine = Array.isArray(window.__commandCheck) ? window.__commandCheck : [];
-      return engine.concat(CHECK);
+      if (Array.isArray(window.__commandCheck)) return window.__commandCheck.slice();
+      return CHECK.slice();
     }
 
     /* ─── the pages, each with the figures it carries in the live tally ─── */

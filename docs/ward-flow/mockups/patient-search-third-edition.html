@@ -6128,11 +6128,23 @@
     function nameOf(m) {
       return m.family + ", " + m.given;
     }
+    /* Every ward the search matches on, and it is deliberately the same set the
+   shell's own matcher uses: accepted, referred and declined. A ward that said
+   no is still a ward this movement has been to, and a coordinator asking which
+   movements a ward has turned down is asking a real question. Matching a
+   declined ward asserts nothing about a destination: the destination badge and
+   the route line still name only a ward that has accepted. If this list and
+   the shell's ever part company, the Ward field would report none beside
+   results the shell had already matched, which is the contradiction this
+   comment exists to prevent. */
     function wardsOf(m) {
       var list = [];
       if (m.accepted) list.push(unit(m.accepted).name);
       m.referred.forEach(function (id) {
         list.push(unit(id).name);
+      });
+      m.declines.forEach(function (d) {
+        list.push(unit(d.unit).name);
       });
       return list;
     }
@@ -6168,7 +6180,7 @@
       },
       {
         label: "Ward",
-        note: "A ward that has accepted, or one the movement has been referred to. Never a ward that was merely considered.",
+        note: "A ward that has accepted, one the movement has been referred to, or one that has declined it. Matching a ward is not a destination.",
         test: function (m, s) {
           return wardsOf(m).some(function (n) {
             return hit(n, s);
@@ -6190,6 +6202,10 @@
     /* The shell's predicate carries the chosen service, the pressed task and
    the search text, and it refuses a query before it matches one. */
     function results() {
+      /* A refused query returns nothing. The shell's own predicate lets every row
+         through while it refuses, so the refusal sentence would otherwise stand
+         above a full list of results and read as though the search had run. */
+      if (refusalFor(term())) return [];
       var rows = openMoves();
       if (window.WardFlowShell) rows = rows.filter(window.WardFlowShell.visible);
       if (state.edFilter)
@@ -6202,7 +6218,7 @@
     }
     function fieldCount(f) {
       var s = term();
-      if (!s) return null;
+      if (!s || refusalFor(s)) return null;
       return openMoves().filter(function (m) {
         return f.test(m, s);
       }).length;
@@ -6229,6 +6245,26 @@
    with the sentence section 8.6 fixes.
    ============================================================ */
 
+    /* The two refusals of section 8.6, with the terms the shell's own matcher
+   refuses on. They are written here as well as there because this screen has to
+   agree with the shell about which queries are refused: the shell states the
+   refusal in the filter bar, and the page must not then draw a list of results
+   under it. The sentences are the fixed ones and are not reworded. */
+    var REFUSALS = [
+      {
+        test: /\b(risk|acuity|score|scores|best match)\b/i,
+        line: "Search does not return a risk or acuity score or a best match. Search by name, identifier, department, ward or owner.",
+      },
+      {
+        test: /\b(closed|arrived|discharged)\b/i,
+        line: "Closed and arrived movements are not searchable here. They are in the Movement screen's register.",
+      },
+    ];
+    function refusalFor(q) {
+      for (var i = 0; i < REFUSALS.length; i++) if (REFUSALS[i].test.test(q)) return REFUSALS[i].line;
+      return null;
+    }
+
     var REFUSED = [
       {
         kind: "score",
@@ -6252,12 +6288,18 @@
 
     function renderSearch() {
       var s = term();
+      var refused = refusalFor(s);
       var open = openMoves().length;
       var h = '<p class="srchQ">';
       h += s
         ? 'Searching for <span class="term">' + esc(s) + "</span>"
         : '<span class="idle">Nothing typed yet. The search in the bar above is the one search on this screen.</span>';
       h += "</p>";
+
+      /* A refused query is not searched at all, so the fields report that they
+         were not searched rather than reporting a count of none, which would
+         read as a search that ran and found nothing. */
+      if (refused) h += '<p class="note"><b>This search was refused.</b> ' + esc(refused) + "</p>";
 
       h += '<dl class="fieldList">';
       FIELDS.forEach(function (f) {
@@ -6269,7 +6311,7 @@
           f.note +
           "</dd>" +
           (n === null
-            ? '<dd class="n zero">not searched yet</dd>'
+            ? '<dd class="n zero">' + (refused ? "not searched" : "not searched yet") + "</dd>"
             : n === 0
               ? '<dd class="n zero">none</dd>'
               : '<dd class="n">' + n + "</dd>");
@@ -6296,7 +6338,7 @@
       h += "</div>";
 
       document.getElementById("srchBody").innerHTML = h;
-      document.getElementById("srchCount").textContent = s ? "matching “" + s + "”" : "no query";
+      document.getElementById("srchCount").textContent = refused ? "refused" : s ? "matching “" + s + "”" : "no query";
     }
 
     /* ============================================================
@@ -6351,10 +6393,17 @@
 
       var f = document.getElementById("resFilter");
       f.innerHTML = window.WardFlowShell ? window.WardFlowShell.filterBar() : "";
-      document.getElementById("resCount").textContent = rows.length + " of " + openMoves().length + " open";
+      document.getElementById("resCount").textContent = refusalFor(term())
+        ? "refused, none returned"
+        : rows.length + " of " + openMoves().length + " open";
     }
 
     function emptyText() {
+      /* Section 8.6: a refusal is never shown as an empty list. The sentence that
+         says why nothing was returned stands where the rows would be, and the
+         shell has already put the same sentence in the filter bar above. */
+      var refused = refusalFor(term());
+      if (refused) return refused;
       if (window.WardFlowShell && window.WardFlowShell.emptyReason) return window.WardFlowShell.emptyReason();
       return "No open movement matches. Absence here means none, not that nothing exists.";
     }
@@ -6752,7 +6801,9 @@
 
      GLOBALS: reads window.WardFlow. Writes window.WardFlowShell and
      window.__reflectAppearance. Appends its sum checks to
-     window.__commandCheck when that array exists, and never creates it.
+     window.__commandCheck when that array exists, and never creates it,
+     rewriting its own part of that array on every render so the rail, the
+     tally and a harness all read one list.
      ═══════════════════════════════════════════════════════════════════════ */
   (function () {
     "use strict";
@@ -7099,10 +7150,29 @@
         if (eng.Breached !== f.breached)
           CHECK.push("the rail's breached count is " + f.breached + ", the engine's " + eng.Breached);
       }
+      publishCheck();
+    }
+    /* The one check array on the page: the engine creates it and the shell appends its own sums
+       to it, so the rail, the tally and any harness read one list rather than three. The engine's
+       problems are taken once, because the engine computes them once at load, and the shell's
+       part is rewritten on every render rather than accumulated. Without this the rail could say
+       the figures disagree while a reader of window.__commandCheck saw an empty array. */
+    var ENGINE_CHECK = null;
+    function publishCheck() {
+      var arr = window.__commandCheck;
+      if (!Array.isArray(arr)) return;
+      if (ENGINE_CHECK === null) ENGINE_CHECK = arr.slice();
+      arr.length = 0;
+      ENGINE_CHECK.forEach(function (p) {
+        arr.push(p);
+      });
+      CHECK.forEach(function (p) {
+        arr.push(p);
+      });
     }
     function allProblems() {
-      var engine = Array.isArray(window.__commandCheck) ? window.__commandCheck : [];
-      return engine.concat(CHECK);
+      if (Array.isArray(window.__commandCheck)) return window.__commandCheck.slice();
+      return CHECK.slice();
     }
 
     /* ─── the pages, each with the figures it carries in the live tally ─── */

@@ -1,6 +1,15 @@
 import { chromium } from "playwright";
 const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const file = process.argv[2];
+// A probe that prints FAIL and exits 0 is a probe that reports a regression as a
+// pass to anything reading its exit status, which is how a green report gets
+// written over a red run. Every verdict goes through say(), and the process
+// exits nonzero if any of them is false.
+let ok = true;
+const say = (pass, name, detail) => {
+  ok = ok && pass;
+  console.log((pass ? "PASS" : "FAIL") + "  " + name + "  " + detail);
+};
 const url = "file://" + process.cwd() + "/" + file;
 
 // 1 · rendered text: no em dash, no arrow, no semicolon as punctuation
@@ -26,10 +35,10 @@ const text = await p.evaluate(() => {
   }
   return bad;
 });
-console.log(
-  text.length
-    ? "FAIL  punctuation  " + JSON.stringify(text.slice(0, 8))
-    : "PASS  punctuation  no em dash, en dash, arrow or semicolon in rendered text",
+say(
+  text.length === 0,
+  "punctuation",
+  text.length ? JSON.stringify(text.slice(0, 8)) : "no em dash, en dash, arrow or semicolon in rendered text",
 );
 
 // 2 · every control at a true 390px layout is at least 48px tall
@@ -56,10 +65,10 @@ const taps = await p.evaluate(() => {
   });
   return bad;
 });
-console.log(
-  taps.length
-    ? "FAIL  tap floor 390px  " + JSON.stringify(taps.slice(0, 10))
-    : "PASS  tap floor 390px  every visible control is at least 48px tall",
+say(
+  taps.length === 0,
+  "tap floor 390px",
+  taps.length ? JSON.stringify(taps.slice(0, 10)) : "every visible control is at least 48px tall",
 );
 
 // 3 · print: the ink and hairline tokens take their light values on all three roots
@@ -74,9 +83,9 @@ const printed = await p.evaluate(() => {
   return { ink: g("--ink"), line: g("--line"), lineStrong: g("--line-strong"), surface: g("--surface") };
 });
 const wantInk = "#161a20";
-console.log(
-  printed.ink.toLowerCase() === wantInk
-    ? "PASS  print tokens  " + JSON.stringify(printed)
-    : "FAIL  print tokens  " + JSON.stringify(printed),
-);
+say(printed.ink.toLowerCase() === wantInk, "print tokens", JSON.stringify(printed));
 await b.close();
+if (!ok) {
+  console.log("SOME PROBES FAILED");
+  process.exitCode = 1;
+}
