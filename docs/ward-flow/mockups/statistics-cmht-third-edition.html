@@ -4451,11 +4451,19 @@
   }
   /* The caption the source carried under each figure: it says what the figure
      counts and where else on the page the same people are counted, so a tile is
-     never a number on its own. It wraps, so it is not a .delta. */
-  .kpiNote {
+     never a number on its own. It is a second dd under the same dt, because a dl
+     grouping admits only dt and dd and a span there is invalid markup that costs
+     a screen reader the association between the term, its value and its note. It
+     wraps over several lines, so it is not a .delta. */
+  .kpi dd.kpiNote,
+  .band .kpi dd.kpiNote {
+    display: block;
+    font-family: var(--body);
     font-size: var(--t-1);
-    color: var(--muted);
+    font-weight: 400;
+    letter-spacing: normal;
     line-height: 1.45;
+    color: var(--muted);
     text-wrap: pretty;
   }
 
@@ -5218,9 +5226,9 @@
             (t.of ? "<small>of " + esc(t.of) + "</small>" : "") +
             (t.unit ? "<small>" + esc(t.unit) + "</small>" : "") +
             (t.delta ? '<span class="delta">' + t.delta + "</span>" : "") +
-            '</dd><span class="kpiNote">' +
+            '</dd><dd class="kpiNote">' +
             t.note +
-            "</span></div>"
+            "</dd></div>"
           );
         })
         .join("");
@@ -8310,12 +8318,20 @@
         DATE +
         " AWST</span></div></section>";
       html += '<section><p class="menuHead">Do</p><div class="toolList">';
+      /* A control names what will happen. Printing produces the screen you are on,
+         so on Command that is the handover sheet, and on a screen with no queue
+         and no registers it is that screen's own record. */
       html +=
         '<button type="button" class="toolItem" data-act="print">' +
         glyph("M4 6V2h8v4M4 12H2V7h12v5h-2M4 10h8v4H4z") +
-        "<span>Print handover sheet<em>The queue and the registers as a record, due " +
-        HANDOVER +
-        "</em></span><small>print</small></button>";
+        (hasQueue()
+          ? "<span>Print handover sheet<em>The queue and the registers as a record, due " + HANDOVER + "</em></span>"
+          : "<span>Print this screen<em>" +
+            esc($("pageTitle") ? $("pageTitle").textContent : "This screen") +
+            " as a record, with every table and disclosure opened out. The handover sheet is printed from " +
+            QUEUE_HOME +
+            "</em></span>") +
+        "<small>print</small></button>";
       html +=
         '<button type="button" class="toolItem" data-act="export">' +
         glyph("M8 2v8M5 7l3 3 3-3M3 12v2h10v-2") +
