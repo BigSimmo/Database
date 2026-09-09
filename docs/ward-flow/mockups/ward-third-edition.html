@@ -5491,10 +5491,78 @@
       align-content: start;
     }
   }
-</style>
 
+  /* ─── the restructure, 2026-09 ───────────────────────────────────────
+     Status before task, decision before record, reference behind a
+     disclosure. These rules carry the compaction and nothing above them
+     changed. */
+
+  /* Change ward and About this view cost one band of height between them
+     rather than two. Either one opening turns the row into a stack, so an
+     open ward search is never squeezed into half a column. */
+  .revealRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    border-top: 1px solid var(--line);
+  }
+  .revealRow > .reveal {
+    border-top: 0;
+    min-width: 0;
+  }
+  .revealRow > .reveal + .reveal {
+    border-left: 1px solid var(--line);
+  }
+  .revealRow:has(> .reveal[open]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .revealRow:has(> .reveal[open]) > .reveal + .reveal {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  @media (max-width: 900px) {
+    .revealRow {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .revealRow > .reveal + .reveal {
+      border-left: 0;
+      border-top: 1px solid var(--line);
+    }
+  }
+
+  /* The one line of standing explanation a panel keeps in the open. It
+     replaces the paragraph blocks the panels used to carry above their
+     lists, and it is capped so it never runs the width of a wide screen. */
+  .note.lede {
+    padding: 10px 16px 0;
+    max-width: 78ch;
+  }
+
+  /* A disclosure inside a disclosure, for the record's earlier entries.
+     One step quieter than its parent and inset to its body, so the nesting
+     reads without a second rule across the panel. */
+  .reveal.sub {
+    margin-top: 8px;
+  }
+  .reveal.sub > summary {
+    padding: 8px 0;
+    font-size: var(--t-0);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .reveal.sub > .revealBody {
+    padding: 2px 0 6px;
+  }
+
+  /* The handover sheet shares the tools panel with the catchment lookup, so
+     it takes a rule above it rather than a panel of its own. */
+  #refer .printBlock {
+    border-top: 1px solid var(--line);
+    margin-top: 4px;
+  }
+</style>
 <div class="app hApp">
-  <a class="skip" href="#return">Skip to today&rsquo;s return</a>
+  <a class="skip" href="#glance">Skip to this ward&rsquo;s figures</a>
   <nav class="rail open" id="rail" aria-label="Ward Flow sections"></nav>
 
   <div class="frame hFrame">
@@ -5595,12 +5663,14 @@
     </header>
 
     <div class="scroll hScroll">
-      <!-- ══════════ THE PAGE HEADING ══════════
+      <!-- ══════════ 1. WHO AND WHERE ══════════
            The bar above says which screen this is, Ward. This panel says which
-           ward, what it is in one sentence, and the identity facts a placement
-           turns on. The switcher the Board carried in its own application bar
-           survives here as a disclosure, because the bar is now the one row
-           every screen shares and cannot hold a second scope control. -->
+           ward, in one line, with the identity facts a placement turns on and
+           the two ways off this page. Everything that explains the page rather
+           than reporting it now sits behind a disclosure, so the first screen
+           the reader meets is the ward and not the rationale. The switcher the
+           Board carried in its own application bar survives here, because the
+           bar is now the one row every screen shares. -->
       <section class="panel" aria-labelledby="wardName">
         <div class="wardTop">
           <div>
@@ -5618,55 +5688,155 @@
           </div>
         </div>
         <p class="scopeNote" id="scopeNote" hidden></p>
-        <details class="reveal">
-          <summary>About this view<span class="count">what this page is, and is not</span></summary>
-          <div class="revealBody">
-            <p class="note">
-              <b>This is FSH Adult Secure&rsquo;s own view.</b> Every figure and every referral below belongs to this
-              ward, never another one. <b>No bed is ever allocated automatically:</b> a person here confirms every step,
-              an unanswered question never closes the ward, and most rules that refuse a referral record the refusal
-              rather than blocking the decision.
-            </p>
-            <p class="note">
-              The ward states, movements, referrals, clocks and figures are invented. The hospital sites, the health
-              services and the ward names are real WA names. The page says so again in its foot, where what is real and
-              what is invented are listed apart.
-            </p>
-          </div>
-        </details>
-        <details class="reveal" id="switcher">
-          <summary>Change ward<span class="count" id="swCount"></span></summary>
-          <div class="revealBody">
-            <div class="swSearch">
-              <label class="search">
-                <svg viewBox="0 0 16 16" aria-hidden="true">
-                  <circle cx="7" cy="7" r="4.5" />
-                  <path d="M10.5 10.5L14 14" />
-                </svg>
-                <input
-                  type="search"
-                  id="swQ"
-                  placeholder="Find a ward or a hospital"
-                  aria-label="Find a ward or a hospital"
-                  autocomplete="off"
-                  spellcheck="false"
-                />
-              </label>
-              <span class="swCount" id="swShown"></span>
+        <div class="revealRow">
+          <details class="reveal" id="switcher">
+            <summary>Change ward<span class="count" id="swCount"></span></summary>
+            <div class="revealBody">
+              <div class="swSearch">
+                <label class="search">
+                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <circle cx="7" cy="7" r="4.5" />
+                    <path d="M10.5 10.5L14 14" />
+                  </svg>
+                  <input
+                    type="search"
+                    id="swQ"
+                    placeholder="Find a ward or a hospital"
+                    aria-label="Find a ward or a hospital"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </label>
+                <span class="swCount" id="swShown"></span>
+              </div>
+              <div id="swList"></div>
+              <p class="note" id="swFoot"></p>
             </div>
-            <div id="swList"></div>
-            <p class="note" id="swFoot"></p>
+          </details>
+          <details class="reveal">
+            <summary>About this view<span class="count">what this page is, and is not</span></summary>
+            <div class="revealBody">
+              <p class="note">
+                <b>This is FSH Adult Secure&rsquo;s own view.</b> Every figure and every referral below belongs to this
+                ward, never another one. <b>No bed is ever allocated automatically:</b> a person here confirms every
+                step, an unanswered question never closes the ward, and most rules that refuse a referral record the
+                refusal rather than blocking the decision.
+              </p>
+              <p class="note">
+                The ward states, movements, referrals, clocks and figures are invented. The hospital sites, the health
+                services and the ward names are real WA names. The page says so again in its foot, where what is real
+                and what is invented are listed apart.
+              </p>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <!-- ══════════ 2. THE FIGURES, FIRST ══════════
+           Promoted above every task on the page, because the count of empty
+           beds is what this screen is opened for. The partition bar and the
+           strip now sit together, so the shape and the numbers are read in one
+           glance rather than a scroll apart, and the page's own reconciliation
+           check sits with the figures it checks. The six that travel to
+           handover are a disclosure: they are reported once a shift, not read
+           continuously. -->
+      <section class="panel" id="glance" aria-labelledby="figuresH">
+        <div class="ph">
+          <h2 id="figuresH">Ward figures, right now</h2>
+          <span class="count" id="figuresWhen"></span>
+        </div>
+        <div class="occ">
+          <div class="occBar" id="occBar" role="img" aria-label="" tabindex="-1"></div>
+          <ul class="occKey" id="occKey"></ul>
+        </div>
+        <dl class="band" id="bandNow"></dl>
+        <div class="pb">
+          <p class="wardCheck" id="wardCheck" data-ok="true"></p>
+        </div>
+        <details class="reveal">
+          <summary>Reported at handover<span class="count">the six that travel together</span></summary>
+          <div class="revealBody">
+            <dl class="band" id="bandDay"></dl>
+            <p class="note" id="figuresFoot"></p>
           </div>
         </details>
       </section>
 
-      <!-- ══════════ TODAY'S RETURN ══════════
+      <!-- ══════════ 3. WHAT NEEDS YOU ══════════
+           Everything that carries a decision or a movement, above everything
+           the ward only reads. The left column is this ward's own state, read
+           top to bottom: what is flagged, who is arriving, which beds are
+           leaving. The right column is the one thing this ward owes somebody
+           else, in the wider half because each row carries controls. Putting
+           the three short lists against the one long one is what keeps the two
+           columns level, so neither ends in a screen of empty canvas.
+           Each list's standing explanation is one line under its heading, and
+           the rest is gone rather than reworded. -->
+      <div class="wardGrid">
+        <div class="wardCol">
+          <section class="panel" aria-labelledby="attnH">
+            <div class="ph">
+              <h2 id="attnH">Worth your attention</h2>
+              <span class="count" id="attnCount"></span>
+            </div>
+            <ul class="attention" id="attnList"></ul>
+          </section>
+
+          <section class="panel" aria-labelledby="comingH">
+            <div class="ph">
+              <h2 id="comingH">Coming in</h2>
+              <span class="count" id="comingCount"></span>
+            </div>
+            <ul class="stack" id="comingList"></ul>
+            <div class="pb">
+              <p class="note">
+                A bed pulled for a named person is counted here and under Ready on the strip above. That is a second
+                count of one bed rather than a second bed.
+              </p>
+            </div>
+          </section>
+
+          <section class="panel" aria-labelledby="outH">
+            <div class="ph">
+              <h2 id="outH">Beds on the way out</h2>
+              <span class="count" id="outCount"></span>
+            </div>
+            <ul class="stack" id="outList"></ul>
+            <div class="pb">
+              <p class="note">
+                A discharge that is decided and stuck is still a decided discharge, and it keeps counting as one.
+                Nothing here records anything about the departing person.
+              </p>
+            </div>
+          </section>
+        </div>
+        <div class="wardCol">
+          <section class="panel" aria-labelledby="askedH">
+            <div class="ph">
+              <h2 id="askedH">Awaiting your answer</h2>
+              <span class="count" id="askedCount"></span>
+            </div>
+            <p class="note lede">
+              Longest waiting first. Accepting records a decision. It does not move anyone and it never allocates a bed
+              on its own.
+            </p>
+            <ul class="stack" id="askedList"></ul>
+            <div class="pb">
+              <p class="note" id="askedFoot"></p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ══════════ 4. TODAY'S RETURN ══════════
            One panel for everything this ward types each day, in the order it
            would be answered: beds empty, beds it can allocate, anything
            limiting who can come in, a bed coming free, a bed going on leave.
            It replaces three separate entry points that asked overlapping
            questions in different places, and the fast path is layered into
-           this same list rather than repeating it, so every row lives once. -->
+           this same list rather than repeating it, so every row lives once.
+           It sits below the figures and the decisions because it is a task
+           done once a day, not a thing read all day. -->
       <section class="panel return" id="return" aria-labelledby="returnH">
         <div class="ph">
           <h2 id="returnH">Today&rsquo;s return</h2>
@@ -5674,8 +5844,8 @@
         </div>
         <div class="returnHead">
           <p class="note">
-            If nothing has changed, confirm with one tap. You never re-enter a number that is already right. Leaving a
-            row unanswered does not close the ward and does not block a referral.
+            If nothing has changed, confirm with one tap. Leaving a row unanswered does not close the ward and does not
+            block a referral.
           </p>
           <span class="progress" id="returnProgress"></span>
           <button type="button" class="ctl stepOnly" id="stepStart" data-hide-stepping="true">
@@ -5702,199 +5872,96 @@
         </div>
       </section>
 
-      <!-- ══════════ THE WARD'S FIGURES ══════════
-           One strip divided by hairlines, no cards and no coloured caps. Every
-           figure is counted from the ward's own row and its bed list on every
-           load, and the six the ward reports at handover follow underneath. -->
-      <section class="panel" aria-labelledby="figuresH">
+      <!-- ══════════ 5. EVERY BED ══════════
+           The full list, below the summary that stands for it. The partition
+           bar and the key that used to head this panel now open the page, so
+           this panel is the detail and nothing else. -->
+      <section class="panel" id="beds" aria-labelledby="bedsH">
         <div class="ph">
-          <h2 id="figuresH">Ward figures, right now</h2>
-          <span class="count" id="figuresWhen"></span>
+          <h2 id="bedsH">Every bed on this ward</h2>
+          <span class="count" id="bedsCount"></span>
         </div>
-        <dl class="band" id="bandNow"></dl>
-        <div class="ph" style="border-top: 1px solid var(--line); border-bottom: 0; border-radius: 0">
-          <h3>Reported at handover</h3>
-          <span class="count">the six that travel together</span>
-        </div>
-        <dl class="band" id="bandDay"></dl>
+        <div id="bedGroups"></div>
         <div class="pb">
-          <p class="note" id="figuresFoot"></p>
+          <p class="note" id="bedsFoot"></p>
         </div>
       </section>
 
-      <div class="wardGrid">
-        <div class="wardCol">
-          <!-- ══════════ WHAT THIS WARD IS ASKED ══════════ -->
-          <section class="panel" aria-labelledby="askedH">
-            <div class="ph">
-              <h2 id="askedH">Awaiting your answer</h2>
-              <span class="count" id="askedCount"></span>
-            </div>
-            <p class="note" style="padding: 10px 16px 0">
-              Every open movement a coordinator has pointed at this ward, longest waiting first. Accepting records a
-              decision. It does not move anyone, and it never allocates a bed on its own.
-            </p>
-            <ul class="stack" id="askedList"></ul>
-            <div class="pb">
-              <p class="note" id="askedFoot"></p>
-            </div>
-          </section>
-
-          <!-- ══════════ COMING IN ══════════ -->
-          <section class="panel" aria-labelledby="comingH">
-            <div class="ph">
-              <h2 id="comingH">Coming in</h2>
-              <span class="count" id="comingCount"></span>
-            </div>
-            <ul class="stack" id="comingList"></ul>
-            <div class="pb">
-              <p class="note">
-                A bed pulled for a named person is counted here and under Ready on the strip above. That is a second
-                count of one bed rather than a second bed.
-              </p>
-            </div>
-          </section>
-
-          <!-- ══════════ BEDS ON THE WAY OUT ══════════ -->
-          <section class="panel" aria-labelledby="outH">
-            <div class="ph">
-              <h2 id="outH">Beds on the way out</h2>
-              <span class="count" id="outCount"></span>
-            </div>
-            <ul class="stack" id="outList"></ul>
-            <div class="pb">
-              <p class="note">
-                A discharge that is decided and stuck is still a decided discharge, and it keeps counting as one.
-                Nothing here records anything about the departing person. Both are flagged from row 4 of today&rsquo;s
-                return.
-              </p>
-            </div>
-          </section>
-        </div>
-
-        <div class="wardCol">
-          <!-- ══════════ EVERY BED ON THIS WARD ══════════ -->
-          <section class="panel" id="beds" aria-labelledby="bedsH">
-            <div class="ph">
-              <h2 id="bedsH">Every bed on this ward</h2>
-              <span class="count" id="bedsCount"></span>
-            </div>
-            <div class="occ">
-              <div class="occBar" id="occBar" role="img" aria-label="" tabindex="-1"></div>
-              <ul class="occKey" id="occKey"></ul>
-            </div>
-            <div id="bedGroups"></div>
-            <div class="pb">
-              <p class="wardCheck" id="wardCheck" data-ok="true"></p>
-              <p class="note" id="bedsFoot"></p>
-            </div>
-          </section>
-
-          <!-- ══════════ WORTH YOUR ATTENTION ══════════ -->
-          <section class="panel" aria-labelledby="attnH">
-            <div class="ph">
-              <h2 id="attnH">Worth your attention</h2>
-              <span class="count" id="attnCount"></span>
-            </div>
-            <ul class="attention" id="attnList"></ul>
-          </section>
-        </div>
-      </div>
-
-      <!-- ══════════ TODAY ON THIS WARD ══════════ -->
-      <section class="panel" id="today" aria-labelledby="todayH">
+      <!-- ══════════ 6. THE RECORD ══════════
+           Five panels became one. Everything here is read, never acted on, and
+           none of it is read every day, so each part is a disclosure that says
+           its own count on the closed row. A count of none is still worth
+           opening, because an empty record says nothing was written down
+           rather than that nothing happened, and each part says which. -->
+      <section class="panel" id="today" aria-labelledby="recordH">
         <div class="ph">
-          <h2 id="todayH">Today on this ward</h2>
+          <h2 id="recordH">The record for today</h2>
           <span class="count" id="todayCount"></span>
         </div>
-        <p class="note" style="padding: 10px 16px 0">
-          This ward&rsquo;s record for Saturday 15 August, most recent first. Nothing else has been recorded, and that
-          means nothing was recorded rather than that nothing happened. There is no roster, no ward round time and no
-          meeting here, because this ward records none of those, and a schedule drawn from nothing would be the most
-          believable thing on the page.
+        <p class="note lede">
+          Saturday 15 August, most recent first. There is no roster, no ward round time and no meeting here, because
+          this ward records none of those.
         </p>
-        <div class="pb">
-          <ul class="dayLog" id="dayRecent"></ul>
-        </div>
-        <details class="reveal">
-          <summary>The earlier entries<span class="count" id="dayMoreCount"></span></summary>
+        <details class="reveal" open>
+          <summary>What happened today<span class="count">most recent first</span></summary>
           <div class="revealBody">
-            <ul class="dayLog" id="dayEarlier"></ul>
+            <ul class="dayLog" id="dayRecent"></ul>
+            <details class="reveal sub">
+              <summary>The earlier entries<span class="count" id="dayMoreCount"></span></summary>
+              <div class="revealBody">
+                <ul class="dayLog" id="dayEarlier"></ul>
+              </div>
+            </details>
+            <p class="note" id="todayFoot"></p>
           </div>
         </details>
-        <div class="pb">
-          <p class="note" id="todayFoot"></p>
-        </div>
+        <details class="reveal">
+          <summary>Declines recorded here<span class="count" id="declCount"></span></summary>
+          <div class="revealBody" id="declBody"></div>
+        </details>
+        <details class="reveal">
+          <summary>Withdrawn from this ward<span class="count" id="withdrawnCount"></span></summary>
+          <div class="revealBody" id="withdrawnBody"></div>
+        </details>
+        <details class="reveal">
+          <summary>Overrides recorded here<span class="count" id="ovCount"></span></summary>
+          <div class="revealBody">
+            <div id="ovBody"></div>
+            <p class="note">
+              An override is always recorded, never silent, and it never blocks the decision it records. A judgement
+              about the patient is overridable by a named coordinator with a recorded reason. A fact about the world is
+              not.
+            </p>
+          </div>
+        </details>
+        <details class="reveal">
+          <summary>Beds on leave<span class="count" id="leaveCount"></span></summary>
+          <div class="revealBody">
+            <div id="leaveBody"></div>
+            <p class="note">
+              Confirmed through row 5 of today&rsquo;s return. Both questions there are about the bed. Nothing here
+              records anything about the person on leave.
+            </p>
+          </div>
+        </details>
       </section>
 
-      <!-- ══════════ THE RECORD AND THE AUDIT TRAIL ══════════
-           Read here, never acted on. Each panel says what it holds and, when
-           it holds nothing, why the emptiness is not the same as nothing
-           having happened. -->
-      <div class="wardGrid">
-        <div class="wardCol">
-          <section class="panel" aria-labelledby="declH">
-            <div class="ph">
-              <h2 id="declH">Declines recorded here</h2>
-              <span class="count" id="declCount"></span>
-            </div>
-            <div class="pb" id="declBody"></div>
-          </section>
-
-          <section class="panel" aria-labelledby="withdrawnH">
-            <div class="ph">
-              <h2 id="withdrawnH">Withdrawn from this ward</h2>
-              <span class="count" id="withdrawnCount"></span>
-            </div>
-            <div class="pb" id="withdrawnBody"></div>
-          </section>
-        </div>
-        <div class="wardCol">
-          <section class="panel" aria-labelledby="ovH">
-            <div class="ph">
-              <h2 id="ovH">Overrides recorded here</h2>
-              <span class="count" id="ovCount"></span>
-            </div>
-            <div class="pb" id="ovBody"></div>
-            <div class="pb" style="padding-top: 0">
-              <p class="note">
-                An override is always recorded, never silent, and it never blocks the decision it records. A judgement
-                about the patient is overridable by a named coordinator with a recorded reason. A fact about the world
-                is not.
-              </p>
-            </div>
-          </section>
-
-          <section class="panel" aria-labelledby="leaveH">
-            <div class="ph">
-              <h2 id="leaveH">Beds on leave</h2>
-              <span class="count" id="leaveCount"></span>
-            </div>
-            <div class="pb" id="leaveBody"></div>
-            <div class="pb" style="padding-top: 0">
-              <p class="note">
-                Confirmed through row 5 of today&rsquo;s return. Both questions there are about the bed. Nothing here
-                records anything about the person on leave.
-              </p>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <!-- ══════════ WHERE TO REFER ══════════
+      <!-- ══════════ 7. TOOLS ══════════
            A referral points one way. Asking for a bed and asking for community
            care are two referrals rather than one act, so this raises the
-           community referral on its own when discharge is being planned. It
-           does not deny that a patient may need both. -->
+           community referral on its own when discharge is being planned. The
+           four worked answers behind the disclosure are what the lookup can
+           return and why, which is read once and then trusted, so they no
+           longer occupy a screen of their own. The handover sheet sits beside
+           the lookup because both are things taken off this page. -->
       <section class="panel" id="refer" aria-labelledby="referH">
         <div class="ph">
           <h2 id="referH">Where to refer</h2>
           <span class="count">community referral, raised separately</span>
         </div>
-        <p class="note" style="padding: 10px 16px 0">
-          The key is the <b>suburb</b> and never the postcode. Postcode is missing for about 42 suburbs and appears in
-          only one of the five source documents. Nothing on this panel asks for a bed, and nothing here is sent until
-          somebody sends it.
+        <p class="note lede">
+          The key is the <b>suburb</b> and never the postcode. Nothing on this panel asks for a bed, and nothing here is
+          sent until somebody sends it.
         </p>
         <form class="referForm" onsubmit="return false;">
           <label>
@@ -5909,65 +5976,64 @@
             Look up the team
           </button>
         </form>
-        <ul class="answers">
-          <li data-state="reviewed">
-            <p class="line"><span class="suburb">Ashfield</span><span class="qWait">one answer, reviewed</span></p>
-            <p class="team">Midland</p>
-            <p class="provenance">
-              Statewide catchment table, 22 November 2015, page 1. The cell reads <code>Midland</code>. Postcode
-              <code>6054</code> is shown for reference and is not what the answer was found by.
+        <details class="reveal">
+          <summary>The four answers a lookup can return<span class="count">worked from the source table</span></summary>
+          <div class="revealBody">
+            <ul class="answers">
+              <li data-state="reviewed">
+                <p class="line"><span class="suburb">Ashfield</span><span class="qWait">one answer, reviewed</span></p>
+                <p class="team">Midland</p>
+                <p class="provenance">
+                  Statewide catchment table, 22 November 2015, page 1. The cell reads <code>Midland</code>. Postcode
+                  <code>6054</code> is shown for reference and is not what the answer was found by.
+                </p>
+              </li>
+              <li data-state="marked">
+                <p class="line">
+                  <span class="suburb">Calista</span><span class="qWait">a set, and the row is marked</span>
+                </p>
+                <p class="team">Peel <i>and</i> Rockingham</p>
+                <p class="provenance">
+                  The cell reads <code>Peel /Rockingham</code> verbatim, page 2. A slash is not a typo. It is a set
+                  written by somebody with no field for one, so <b>both teams are the answer</b>.
+                  <b>Marked, not trusted silently:</b> this row is one of exactly two in 537 where the source names
+                  <code>Kwinana</code> as the approved hospital while every other Kwinana area suburb says
+                  <code>Rockingham</code>. The anomaly is unexplained, and the hospital column is not carried into this
+                  software at all, so only the mark travels.
+                </p>
+              </li>
+              <li data-state="contested">
+                <p class="line">
+                  <span class="suburb">Woodbridge</span><span class="qWait">contested, will not route</span>
+                </p>
+                <p class="team">Rockingham <i>or</i> Midland</p>
+                <p class="provenance">
+                  Two rows, same name, same document, same page 11: <code>6168</code> to <code>Rockingham</code> and
+                  <code>6056</code> to <code>Midland</code>. <b>Both readings are shown and neither is chosen.</b>
+                  Nothing is sent automatically from a contested answer. A person picks, because rendering both and then
+                  quietly routing on one would make the display honest and the behaviour dishonest.
+                </p>
+              </li>
+              <li>
+                <p class="line">
+                  <span class="suburb">Christmas Island</span><span class="qWait">no catchment recorded</span>
+                </p>
+                <p class="team"><i>No team is held for this suburb</i></p>
+                <p class="provenance">
+                  The suburb is in the source table, at <code>6798</code>, page 3, and the follow-up clinic cell on it
+                  is empty. <b>This is the only such row in all 537.</b> That is a different answer from the suburb not
+                  being in the table, and the two are never merged: one means nobody wrote it down, the other means the
+                  suburb is unknown here.
+                </p>
+              </li>
+            </ul>
+            <p class="note">
+              Postcode is missing for about 42 suburbs and appears in only one of the five source documents. No spelling
+              is corrected and no answer is guessed at from a similar name. A variant only resolves through an alias
+              somebody wrote down and a clinician can review.
             </p>
-          </li>
-          <li data-state="marked">
-            <p class="line">
-              <span class="suburb">Calista</span><span class="qWait">a set, and the row is marked</span>
-            </p>
-            <p class="team">Peel <i>and</i> Rockingham</p>
-            <p class="provenance">
-              The cell reads <code>Peel /Rockingham</code> verbatim, page 2. A slash is not a typo. It is a set written
-              by somebody with no field for one, so <b>both teams are the answer</b>.
-              <b>Marked, not trusted silently:</b> this row is one of exactly two in 537 where the source names
-              <code>Kwinana</code> as the approved hospital while every other Kwinana area suburb says
-              <code>Rockingham</code>. The anomaly is unexplained, and the hospital column is not carried into this
-              software at all, so only the mark travels.
-            </p>
-          </li>
-          <li data-state="contested">
-            <p class="line">
-              <span class="suburb">Woodbridge</span><span class="qWait">contested, will not route</span>
-            </p>
-            <p class="team">Rockingham <i>or</i> Midland</p>
-            <p class="provenance">
-              Two rows, same name, same document, same page 11: <code>6168</code> to <code>Rockingham</code> and
-              <code>6056</code> to <code>Midland</code>. <b>Both readings are shown and neither is chosen.</b> Nothing
-              is sent automatically from a contested answer. A person picks, because rendering both and then quietly
-              routing on one would make the display honest and the behaviour dishonest.
-            </p>
-          </li>
-          <li>
-            <p class="line">
-              <span class="suburb">Christmas Island</span><span class="qWait">no catchment recorded</span>
-            </p>
-            <p class="team"><i>No team is held for this suburb</i></p>
-            <p class="provenance">
-              The suburb is in the source table, at <code>6798</code>, page 3, and the follow-up clinic cell on it is
-              empty. <b>This is the only such row in all 537.</b> That is a different answer from the suburb not being
-              in the table, and the two are never merged: one means nobody wrote it down, the other means the suburb is
-              unknown here.
-            </p>
-          </li>
-        </ul>
-        <div class="pb">
-          <p class="note">
-            No spelling is corrected and no answer is guessed at from a similar name. A variant only resolves through an
-            alias somebody wrote down and a clinician can review. The four suburbs drawn are the four answer states the
-            lookup can return.
-          </p>
-        </div>
-      </section>
-
-      <!-- ══════════ PRINT ══════════ -->
-      <section class="panel" aria-labelledby="printH">
+          </div>
+        </details>
         <div class="printBlock">
           <div>
             <h3 id="printH">Print the handover sheet</h3>
