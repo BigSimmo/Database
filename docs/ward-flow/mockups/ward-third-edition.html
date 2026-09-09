@@ -5901,7 +5901,13 @@
             <span class="fieldLabel">Patient&rsquo;s suburb</span>
             <input class="field" id="suburb" type="text" value="Ashfield" />
           </label>
-          <button type="submit" class="ctl primary">Look up the team</button>
+          <button
+            type="submit"
+            class="ctl primary"
+            data-would="Looking up a suburb would return the catchment team recorded for it, in the four shapes drawn below"
+          >
+            Look up the team
+          </button>
         </form>
         <ul class="answers">
           <li data-state="reviewed">
@@ -7022,7 +7028,21 @@
 
     var WARD = byId(UNITS, WARD_ID);
     var CONFIRMED_AT = NOW - WARD.confirmedMinAgo; /* 10:32 */
-    var EMPTY = WARD.ready + WARD.held; /* a bed with nobody in it and not out of service */
+    /* A bed with nobody in it and not out of service. Offered plus held, so it
+       moves whenever the ward changes either in its return. */
+    function emptyCount() {
+      return WARD.ready + WARD.held;
+    }
+    /* The ward's figures as the merge reconciled them. The foot's account of
+       what moved describes that reconciliation, which does not change when a
+       ward edits its own return, so it quotes these rather than the live row. */
+    var AS_BUILT = {
+      ready: WARD.ready,
+      held: WARD.held,
+      blocked: WARD.blocked,
+      occupied: WARD.occupied,
+      empty: WARD.ready + WARD.held,
+    };
 
     /* ═══════════════════════════════════════════════════════════════════════
        THE BED LIST. Invented, and the only thing on this page that is. The
@@ -7104,12 +7124,22 @@
       },
       {
         at: NOW,
-        html: "<b>Now.</b> The feed reads 5 beds empty and 3 offered. Neither has been confirmed since this page opened.",
+        now: true,
       },
     ];
     function dayEntries() {
       var rows = TYPED_DAY.map(function (e) {
-        return { at: e.at, html: e.html, src: e.real ? "real" : "recorded" };
+        return {
+          at: e.at,
+          src: e.real ? "real" : "recorded",
+          html: e.now
+            ? "<b>Now.</b> The feed reads " +
+              emptyCount() +
+              " beds empty and " +
+              WARD.ready +
+              " offered. Neither has been confirmed since this page opened."
+            : e.html,
+        };
       });
       rows.push({
         at: CONFIRMED_AT,
@@ -7160,7 +7190,13 @@
     /* ─── the movements that name this ward ─── */
     function askedOf() {
       return MOVEMENTS.filter(function (m) {
-        return isOpen(m) && !m.accepted && (m.referred || []).indexOf(WARD_ID) !== -1;
+        if (!isOpen(m) || m.accepted) return false;
+        if ((m.referred || []).indexOf(WARD_ID) === -1) return false;
+        /* Once this ward has recorded a decline, the movement is answered and
+           moves to the record. It is not still awaiting an answer. */
+        return !(m.declines || []).some(function (d) {
+          return d.unit === WARD_ID;
+        });
       }).sort(function (a, b) {
         return b.waited - a.waited;
       });
@@ -7204,80 +7240,279 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
-       THE RETURN. Five questions, one place for each. Rows 1 and 2 carry the
-       figures the rest of the service reads, and held falls out of the two:
-       what is empty less what is offered.
+       THE RETURN. Five questions, one place for each, and one place for the
+       answers. Every row reads from RETURN and every Save writes back to it,
+       so what the page shows after a save is what was submitted rather than
+       what was there before. Rows 1 and 2 also move the ward's own figures,
+       because those two are the figures the rest of the service reads.
        ═══════════════════════════════════════════════════════════════════════ */
+    var RETURN = {
+      empty: emptyCount(),
+      offered: WARD.ready,
+      limit: "Male only ward, no female admissions today.",
+      free: { bed: "09", waitingOn: "Awaiting ward round", at: "08:30", blocker: "No blocker" },
+      leave: null,
+    };
+
+    function intOr(v, fallback) {
+      var n = parseInt(String(v), 10);
+      return isNaN(n) ? fallback : n;
+    }
+
+    /* Rewriting the ward's row means rewriting the bed list with it, or the
+       page would show eighteen tiles that disagree with their own totals. The
+       beds already empty stay empty, then the shortest stays give way, so the
+       arrangement moves as little as it can. A bed that becomes empty loses
+       the stay it no longer has, and a bed that becomes occupied says that no
+       length of stay is recorded for it rather than being given an invented
+       one. */
+    function applyCounts(empty, offered) {
+      var free = WARD.beds - WARD.blocked;
+      if (offered > empty) return "A ward cannot offer more beds than it has empty.";
+      if (empty < 0 || empty > free) return "Beds empty must be between 0 and " + free + " on this ward.";
+      if (offered < 0) return "Beds offered cannot be less than none.";
+
+      var pool = BEDS.filter(function (b) {
+        return b.state !== "blocked";
+      }).slice();
+      var rank = { ready: 0, held: 1, leave: 3 };
+      pool.sort(function (a, b) {
+        var ra = rank[a.state] === undefined ? 2 : rank[a.state];
+        var rb = rank[b.state] === undefined ? 2 : rank[b.state];
+        if (ra !== rb) return ra - rb;
+        return (a.stay || 0) - (b.stay || 0);
+      });
+      pool.forEach(function (b, i) {
+        var was = b.state;
+        b.state = i < offered ? "ready" : i < empty ? "held" : "occupied";
+        if (b.state === "occupied") {
+          if (was === "ready" || was === "held") {
+            delete b.stay;
+            delete b.flag;
+            b.note = "Newly occupied, no length of stay recorded";
+          }
+        } else {
+          delete b.stay;
+          if (was === "occupied") {
+            delete b.flag;
+            delete b.note;
+          }
+          if (b.state === "held" && !b.note) b.note = "No movement is recorded against this hold";
+          if (b.state === "ready") delete b.note;
+        }
+      });
+      /* A bed the ward has flagged as going on leave keeps its person, so it
+         sits inside the row's occupied figure and is shown apart in the key. */
+      if (RETURN.leave) {
+        var lb = BEDS.filter(function (b) {
+          return b.n === RETURN.leave.bed;
+        })[0];
+        if (lb && lb.state === "occupied") lb.state = "leave";
+      }
+      WARD.ready = offered;
+      WARD.held = empty - offered;
+      WARD.occupied = free - empty;
+      RETURN.empty = empty;
+      RETURN.offered = offered;
+      return null;
+    }
+
     var ASKS = [
       {
         step: 1,
         answered: false,
         label: "Beds empty right now",
-        when: "The feed reads " + EMPTY + " as at " + clock(NOW) + ". Nobody has confirmed that reading today.",
-        value: String(EMPTY),
-        edit:
-          '<label><span class="fieldLabel">Beds empty</span><input class="field" id="fEmpty" type="number" min="0" max="' +
-          WARD.beds +
-          '" value="' +
-          EMPTY +
-          '" /></label>',
+        when: function () {
+          return "The feed reads " + RETURN.empty + " as at " + clock(NOW) + ".";
+        },
+        value: function () {
+          return { text: String(RETURN.empty) };
+        },
+        edit: function () {
+          return (
+            '<label><span class="fieldLabel">Beds empty</span><input class="field" id="fEmpty" type="number" min="0" max="' +
+            (WARD.beds - WARD.blocked) +
+            '" value="' +
+            RETURN.empty +
+            '" /></label>'
+          );
+        },
+        save: function (form) {
+          return applyCounts(intOr(form.querySelector("#fEmpty").value, RETURN.empty), RETURN.offered);
+        },
       },
       {
         step: 2,
         answered: false,
         label: "Of those, how many you can actually allocate",
-        when:
-          "Confirmed " +
-          clock(CONFIRMED_AT) +
-          " by NUM " +
-          WARD.name +
-          ". The coordinator asked for a fresh number at 10:38.",
-        value: String(WARD.ready),
-        edit:
-          '<label><span class="fieldLabel">Allocatable beds</span><input class="field" id="fCap" type="number" min="0" max="' +
-          WARD.beds +
-          '" value="' +
-          WARD.ready +
-          '" /></label>',
+        when: function () {
+          return (
+            "Confirmed " +
+            clock(CONFIRMED_AT) +
+            " by NUM " +
+            WARD.name +
+            ". The coordinator asked for a fresh number at 10:38."
+          );
+        },
+        value: function () {
+          return { text: String(RETURN.offered) };
+        },
+        edit: function () {
+          return (
+            '<label><span class="fieldLabel">Allocatable beds</span><input class="field" id="fCap" type="number" min="0" max="' +
+            RETURN.empty +
+            '" value="' +
+            RETURN.offered +
+            '" /></label>'
+          );
+        },
+        save: function (form) {
+          return applyCounts(RETURN.empty, intOr(form.querySelector("#fCap").value, RETURN.offered));
+        },
       },
       {
         step: 3,
         answered: true,
         label: "Anything limiting who can come in right now",
-        when: "Answered 10:36 by NUM " + WARD.name,
-        answer: "Male only ward, no female admissions today.",
-        edit: '<label class="wide"><span class="fieldLabel">Anything limiting who can come in</span><input class="field" id="fLimit" type="text" value="Male only ward, no female admissions today." /></label>',
+        when: function () {
+          return "Answered 10:36 by NUM " + WARD.name;
+        },
+        answer: function () {
+          return RETURN.limit || "No constraint is recorded against these beds today.";
+        },
+        edit: function () {
+          return (
+            '<label class="wide"><span class="fieldLabel">Anything limiting who can come in</span><input class="field" id="fLimit" type="text" value="' +
+            esc(RETURN.limit) +
+            '" /></label>'
+          );
+        },
+        save: function (form) {
+          RETURN.limit = form.querySelector("#fLimit").value.trim();
+          return null;
+        },
       },
       {
         step: 4,
         answered: true,
         label: "A bed coming free",
-        when: "Flagged 08:05 by NUM " + WARD.name,
-        text: "Bed 09, waiting on ward round, expected free 08:30",
-        edit:
-          '<label><span class="fieldLabel">Waiting on</span><select class="field" id="fWait"><option>Awaiting ward round</option><option>Awaiting transport</option><option>Awaiting accommodation</option><option>Awaiting family</option><option>Awaiting pharmacy</option></select></label>' +
-          '<label><span class="fieldLabel">Expected free</span><input class="field" id="fFree" type="time" value="08:30" /></label>' +
-          '<label><span class="fieldLabel">Blocker</span><select class="field" id="fBlock"><option>No blocker</option><option>No transport available</option><option>No accommodation</option><option>Awaiting a decision elsewhere</option></select></label>',
+        when: function () {
+          return "Flagged 08:05 by NUM " + WARD.name;
+        },
+        value: function () {
+          if (!RETURN.free) return { text: "none", zero: true };
+          return {
+            long:
+              "Bed " +
+              RETURN.free.bed +
+              ", " +
+              RETURN.free.waitingOn.replace(/^Awaiting/, "waiting on").toLowerCase() +
+              ", expected free " +
+              RETURN.free.at +
+              (RETURN.free.blocker === "No blocker" ? "" : ", " + RETURN.free.blocker.toLowerCase()),
+          };
+        },
+        edit: function () {
+          function opts(list, chosen) {
+            return list
+              .map(function (o) {
+                return "<option" + (o === chosen ? " selected" : "") + ">" + o + "</option>";
+              })
+              .join("");
+          }
+          var f = RETURN.free || { bed: "09", waitingOn: "Awaiting ward round", at: "08:30", blocker: "No blocker" };
+          return (
+            '<label><span class="fieldLabel">Which bed</span><select class="field" id="fFreeBed">' +
+            opts(
+              BEDS.filter(function (b) {
+                return b.state === "occupied" || b.state === "leave";
+              }).map(function (b) {
+                return b.n;
+              }),
+              f.bed,
+            ) +
+            '</select></label><label><span class="fieldLabel">Waiting on</span><select class="field" id="fWait">' +
+            opts(
+              [
+                "Awaiting ward round",
+                "Awaiting transport",
+                "Awaiting accommodation",
+                "Awaiting family",
+                "Awaiting pharmacy",
+              ],
+              f.waitingOn,
+            ) +
+            '</select></label><label><span class="fieldLabel">Expected free</span><input class="field" id="fFree" type="time" value="' +
+            f.at +
+            '" /></label><label><span class="fieldLabel">Blocker</span><select class="field" id="fBlock">' +
+            opts(
+              ["No blocker", "No transport available", "No accommodation", "Awaiting a decision elsewhere"],
+              f.blocker,
+            ) +
+            "</select></label>"
+          );
+        },
+        save: function (form) {
+          RETURN.free = {
+            bed: form.querySelector("#fFreeBed").value,
+            waitingOn: form.querySelector("#fWait").value,
+            at: form.querySelector("#fFree").value || "08:30",
+            blocker: form.querySelector("#fBlock").value,
+          };
+          return null;
+        },
       },
       {
         step: 5,
         answered: true,
         label: "A bed going on leave",
-        when: "Confirmed none at 08:05 by NUM " + WARD.name,
-        value: "none",
-        zero: true,
+        when: function () {
+          return "Confirmed none at 08:05 by NUM " + WARD.name;
+        },
         confirmWord: "Confirm, still none",
         changeWord: "Flag a bed on leave",
-        edit:
-          '<label><span class="fieldLabel">Which bed</span><select class="field" id="fLeaveBed">' +
-          BEDS.filter(function (b) {
-            return b.state === "occupied";
-          })
-            .map(function (b) {
-              return "<option>Bed " + b.n + "</option>";
-            })
-            .join("") +
-          '</select></label><label><span class="fieldLabel">Expected back</span><input class="field" id="fLeaveBack" type="date" /></label>',
+        value: function () {
+          if (!RETURN.leave) return { text: "none", zero: true };
+          return { long: "Bed " + RETURN.leave.bed + ", expected back " + (RETURN.leave.back || "not recorded") };
+        },
+        edit: function () {
+          var occ = BEDS.filter(function (b) {
+            return b.state === "occupied" || b.state === "leave";
+          });
+          return (
+            '<label><span class="fieldLabel">Which bed</span><select class="field" id="fLeaveBed"><option value="">None on leave</option>' +
+            occ
+              .map(function (b) {
+                return (
+                  '<option value="' +
+                  b.n +
+                  '"' +
+                  (RETURN.leave && RETURN.leave.bed === b.n ? " selected" : "") +
+                  ">Bed " +
+                  b.n +
+                  "</option>"
+                );
+              })
+              .join("") +
+            '</select></label><label><span class="fieldLabel">Expected back</span><input class="field" id="fLeaveBack" type="date" value="' +
+            ((RETURN.leave && RETURN.leave.back) || "") +
+            '" /></label>'
+          );
+        },
+        save: function (form) {
+          var bed = form.querySelector("#fLeaveBed").value;
+          BEDS.forEach(function (b) {
+            if (b.state === "leave") b.state = "occupied";
+          });
+          RETURN.leave = bed ? { bed: bed, back: form.querySelector("#fLeaveBack").value } : null;
+          if (RETURN.leave) {
+            var lb = BEDS.filter(function (b) {
+              return b.n === RETURN.leave.bed;
+            })[0];
+            if (lb && lb.state === "occupied") lb.state = "leave";
+          }
+          return null;
+        },
       },
     ];
     var step = 1;
@@ -7300,19 +7535,26 @@
     function reconcile() {
       var p = [];
       if (BEDS.length !== WARD.beds) p.push("the bed list holds " + BEDS.length + " beds, the ward row " + WARD.beds);
-      ["ready", "held", "blocked", "occupied"].forEach(function (s) {
+      ["ready", "held", "blocked"].forEach(function (s) {
         if (bedsIn(s).length !== WARD[s])
           p.push(
             "beds drawn as " + STATE_WORD[s].toLowerCase() + " are " + bedsIn(s).length + ", the ward row " + WARD[s],
           );
       });
+      /* A bed on leave still belongs to the person who is away, so it sits
+         inside the row's occupied figure and is shown apart in the key. */
+      var occupiedDrawn = bedsIn("occupied").length + bedsIn("leave").length;
+      if (occupiedDrawn !== WARD.occupied)
+        p.push("beds drawn as occupied or on leave are " + occupiedDrawn + ", the ward row " + WARD.occupied);
       var locked = BEDS.filter(function (b) {
         return b.bay === "locked";
       }).length;
       if (locked !== WARD.locked)
         p.push("beds drawn in the locked bay are " + locked + ", the ward row " + WARD.locked);
-      if (EMPTY - WARD.ready !== WARD.held)
-        p.push("empty less offered is " + (EMPTY - WARD.ready) + ", the ward row holds " + WARD.held);
+      if (emptyCount() - WARD.ready !== WARD.held)
+        p.push("empty less offered is " + (emptyCount() - WARD.ready) + ", the ward row holds " + WARD.held);
+      if (RETURN.empty !== emptyCount() || RETURN.offered !== WARD.ready)
+        p.push("the return's answers no longer match the ward's row");
       if (WARD.confirmedToday + WARD.expectedToday > WARD.occupied)
         p.push("confirmed and expected releases exceed the beds that are occupied");
       var byBay = {};
@@ -7464,11 +7706,10 @@
       if (done >= ASKS.length) panel.classList.remove("stepping");
 
       $("returnList").innerHTML = ASKS.map(function (a) {
+        var v = a.value ? a.value() : null;
         var val = "";
-        if (a.text) val = '<span class="askValText">' + esc(a.text) + "</span>";
-        else if (a.answer) val = "";
-        else if (a.value !== undefined)
-          val = '<span class="askVal"' + (a.zero ? ' data-zero="true"' : "") + ">" + esc(a.value) + "</span>";
+        if (v && v.long) val = '<span class="askValText">' + esc(v.long) + "</span>";
+        else if (v) val = '<span class="askVal"' + (v.zero ? ' data-zero="true"' : "") + ">" + esc(v.text) + "</span>";
         return (
           '<li class="ask" data-step="' +
           a.step +
@@ -7480,9 +7721,9 @@
           esc(a.label) +
           '</span><span class="askWhen">' +
           (a.answered ? "Answered today. " : "Not answered today. ") +
-          esc(a.when) +
+          esc(a.when()) +
           "</span>" +
-          (a.answer ? '<span class="askAnswer">' + esc(a.answer) + "</span>" : "") +
+          (a.answer ? '<span class="askAnswer">' + esc(a.answer()) + "</span>" : "") +
           "</span>" +
           val +
           '<span class="askActs"><button type="button" class="ctl" data-ask="confirm" data-step="' +
@@ -7496,7 +7737,7 @@
           '</button></span><form class="askEdit" data-step="' +
           a.step +
           '" onsubmit="return false;">' +
-          a.edit +
+          a.edit() +
           '<button type="submit" class="ctl primary">Save</button></form></li>'
         );
       }).join("");
@@ -7520,14 +7761,22 @@
         "Row 2 writes to " +
         esc(WARD.name) +
         " only, never to any other ward, and it is the figure the coordinator reads. <b>Held is what row 1 leaves over row 2:</b> " +
-        EMPTY +
+        emptyCount() +
         " empty less " +
         WARD.ready +
         " offered is " +
         WARD.held +
         " held. Of the " +
         WARD.ready +
-        " this ward is offering, <b>two are locked beds and one is open</b>, and that split is what decides whether a detained patient can be offered a bed here at all, so it is shown wherever the figure is. Row 4 records what a discharge is waiting on, when the bed is expected free and any blocker, and nothing about the departing person. Leaving row 3 blank would not stop anyone opening this ward. It would only mean the coordinator sees no constraint recorded against these beds.";
+        " this ward is offering, <b>" +
+        BEDS.filter(function (b) {
+          return b.state === "ready" && b.bay === "locked";
+        }).length +
+        " are locked beds and " +
+        BEDS.filter(function (b) {
+          return b.state === "ready" && b.bay === "open";
+        }).length +
+        " open</b>, and that split is what decides whether a detained patient can be offered a bed here at all, so it is shown wherever the figure is. Row 4 records what a discharge is waiting on, when the bed is expected free and any blocker, and nothing about the departing person. Leaving row 3 blank would not stop anyone opening this ward. It would only mean the coordinator sees no constraint recorded against these beds.";
     }
 
     /* ─── the two figure bands ─── */
@@ -7660,7 +7909,9 @@
                     esc(ovs[0].reason) +
                     "&rdquo;. The override is recorded and it does not decide the answer for you.</p>"
                   : "") +
-                '<p class="acts"><button type="button" class="ctl primary">Accept in principle</button><button type="button" class="ctl" data-reasons="' +
+                '<p class="acts"><button type="button" class="ctl primary" data-decide="accept" data-mvid="' +
+                m.id +
+                '">Accept in principle</button><button type="button" class="ctl" data-reasons="' +
                 m.id +
                 '" aria-expanded="' +
                 open +
@@ -7692,7 +7943,9 @@
                     );
                   })
                   .join("") +
-                '<p class="acts"><button type="button" class="ctl primary">Record the decline</button><button type="button" class="ctl" data-reasons-cancel="' +
+                '<p class="acts"><button type="button" class="ctl primary" data-decide="decline" data-mvid="' +
+                m.id +
+                '">Record the decline</button><button type="button" class="ctl" data-reasons-cancel="' +
                 m.id +
                 '">Cancel</button></p></fieldset></li>'
               );
@@ -7740,8 +7993,16 @@
                 esc(m.legalStatus) +
                 '</p><p class="acts">' +
                 (pulled
-                  ? '<button type="button" class="ctl primary">They have arrived</button><button type="button" class="ctl">Release the bed</button>'
-                  : '<button type="button" class="ctl primary">Pull a bed</button><button type="button" class="ctl">Withdraw the acceptance</button>') +
+                  ? '<button type="button" class="ctl primary" data-would="Recording that ' +
+                    m.id +
+                    ' has arrived would close the movement and free the bed for the next person">They have arrived</button><button type="button" class="ctl" data-would="Releasing the bed would put it back to ready and leave ' +
+                    m.id +
+                    ' accepted with no bed">Release the bed</button>'
+                  : '<button type="button" class="ctl primary" data-would="Pulling a bed would name one of this ward\'s ready beds for ' +
+                    m.id +
+                    '">Pull a bed</button><button type="button" class="ctl" data-would="Withdrawing the acceptance would send ' +
+                    m.id +
+                    ' back to the coordinator with a recorded reason">Withdraw the acceptance</button>') +
                 "</p></li>"
               );
             })
@@ -7761,13 +8022,25 @@
         h +=
           '<li data-tone="danger"><p class="line"><span class="rid">Bed ' +
           b.n +
-          '</span><span class="tier" data-t="1">Overdue 2h</span><span class="qWait">was expected free 08:30</span></p><p class="attrs"><b>Waiting on</b> ward round &middot; <b>no blocker recorded</b> &middot; it is counted in neither Expected today nor Discharges held up</p><p class="acts"><button type="button" class="ctl">Confirm the discharge</button><button type="button" class="ctl">Record a blocker</button><button type="button" class="ctl">Being made ready</button><button type="button" class="ctl">The bed is now free</button></p></li>';
+          '</span><span class="tier" data-t="1">Overdue 2h</span><span class="qWait">was expected free 08:30</span></p><p class="attrs"><b>Waiting on</b> ward round &middot; <b>no blocker recorded</b> &middot; it is counted in neither Expected today nor Discharges held up</p><p class="acts"><button type="button" class="ctl" data-would="Confirming the discharge would count bed ' +
+          b.n +
+          ' under Confirmed today">Confirm the discharge</button><button type="button" class="ctl" data-would="Recording a blocker would count bed ' +
+          b.n +
+          ' under Discharges held up and say what it is waiting on">Record a blocker</button><button type="button" class="ctl" data-would="Being made ready would keep bed ' +
+          b.n +
+          ' occupied and say the person has left">Being made ready</button><button type="button" class="ctl" data-would="Marking bed ' +
+          b.n +
+          ' free would move it to ready and change what this ward is offering">The bed is now free</button></p></li>';
       });
       confirmed.forEach(function (b) {
         h +=
           '<li data-tone="good"><p class="line"><span class="rid">Bed ' +
           b.n +
-          '</span><span class="destBadge" data-k="accepted">Discharge confirmed</span><span class="qWait">confirmed 09:12</span></p><p class="attrs">The bed is still occupied, so it is still counted under Occupied and not yet under Ready.</p><p class="acts"><button type="button" class="ctl">Being made ready</button><button type="button" class="ctl">The bed is now free</button></p></li>';
+          '</span><span class="destBadge" data-k="accepted">Discharge confirmed</span><span class="qWait">confirmed 09:12</span></p><p class="attrs">The bed is still occupied, so it is still counted under Occupied and not yet under Ready.</p><p class="acts"><button type="button" class="ctl" data-would="Being made ready would keep bed ' +
+          b.n +
+          ' occupied and say the person has left">Being made ready</button><button type="button" class="ctl" data-would="Marking bed ' +
+          b.n +
+          ' free would move it to ready and change what this ward is offering">The bed is now free</button></p></li>';
       });
       $("outList").innerHTML =
         h ||
@@ -7863,7 +8136,7 @@
         WARD.beds +
         " beds</b>, and no bed is recorded as on leave, which keeps its place in the key so its absence is readable rather than invisible. <b>Ready means empty and offered. It does not mean free to give to somebody else:</b> bed 17 is one of the three and was pulled for WF-031 at 10:05, so two of the three are the locked beds and the third is spoken for. <b>Held means empty and not offered</b>, and this ward's row carries " +
         WARD.held +
-        " held with no movement recorded against either, which is why neither tile names one. Which particular bed is in which state, and every length of stay, are invented. The counts are the ward&rsquo;s own row, and this page checks itself against them on every load.";
+        " held with no movement recorded against any of them, which is why no tile names one. A bed flagged as going on leave keeps the person who is away, so it sits inside the row's occupied figure and is shown apart in the key. Which particular bed is in which state, and every length of stay, are invented. The counts are the ward&rsquo;s own row, and this page checks itself against them on every load.";
     }
 
     /* ─── worth your attention ─── */
@@ -8066,18 +8339,18 @@
         clock(NOW) +
         ", the day shift, with the coordinator&rsquo;s handover at 14:00 and this ward&rsquo;s morning handover at 08:00, already passed. Every clock time moved with it and no event was dropped.</li>" +
         "<li><b>The bed figures were reconciled to the engine&rsquo;s ward row.</b> The sources drew 3 ready, no bed held and 14 occupied. The row this network reads carries " +
-        WARD.ready +
+        AS_BUILT.ready +
         " ready, " +
-        WARD.held +
+        AS_BUILT.held +
         " held, " +
-        WARD.blocked +
+        AS_BUILT.blocked +
         " out of service and " +
-        WARD.occupied +
+        AS_BUILT.occupied +
         " occupied, so beds empty is " +
-        EMPTY +
+        AS_BUILT.empty +
         " rather than 3 and the sources&rsquo; own rule, that held is what is empty less what is offered, now yields " +
-        WARD.held +
-        ". Two beds moved from occupied to held and the arrangement follows.</li>" +
+        AS_BUILT.held +
+        ". Two beds moved from occupied to held and the arrangement follows. Those are the figures this page opens with. Answering the return changes them, and the check beside the bed board follows the change.</li>" +
         "<li><b>The referrals are the network&rsquo;s.</b> The sources invented three referrals awaiting this ward&rsquo;s answer and two arrivals. The engine records two movements pointed at this ward, two accepted to it, one it has declined and three overrides against it, so those are what is drawn. <b>One example did not survive:</b> the sources showed a female referral refused by the male only designation, and no female movement is pointed at this ward today. The rule, the refusal and the seven decline reasons are all still on the page, and the absence is stated rather than filled with an invented person.</li>" +
         "<li><b>The ward switcher</b> moved out of the Board&rsquo;s own application bar, which the one row bar and the rail replace, and became a disclosure in the page&rsquo;s heading. It lists the " +
         UNITS.length +
@@ -8170,6 +8443,60 @@
         announce("Decline cancelled. Nothing was recorded.");
         return;
       }
+      /* The two decisions this panel says it records, recorded for real. An
+         acceptance names this ward as the destination and the movement leaves
+         the waiting list for Coming in. A decline is written into the
+         movement's own decline list with the reason that was chosen, and the
+         movement leaves the waiting list for the record below. */
+      var d = e.target.closest ? e.target.closest("[data-decide]") : null;
+      if (d) {
+        var mv = byId(MOVEMENTS, d.getAttribute("data-mvid"));
+        if (!mv) return;
+        if (d.getAttribute("data-decide") === "accept") {
+          mv.accepted = WARD_ID;
+          mv.stage = "accepted_awaiting_bed";
+          renderAll();
+          announce(
+            mv.id +
+              ", " +
+              nameOf(mv) +
+              ", accepted in principle by " +
+              WARD.name +
+              ". No bed is pulled. The movement now sits under Coming in.",
+          );
+        } else {
+          var picked = document.querySelector('input[name="why-' + mv.id + '"]:checked');
+          if (!picked) {
+            announce("Choose a reason first. Nothing was recorded.");
+            return;
+          }
+          mv.declines = (mv.declines || []).concat([
+            { unit: WARD_ID, reason: picked.parentElement.textContent.trim(), at: NOW },
+          ]);
+          renderAll();
+          announce(
+            mv.id +
+              ", " +
+              nameOf(mv) +
+              ", declined by " +
+              WARD.name +
+              ", " +
+              picked.parentElement.textContent.trim().toLowerCase() +
+              ". The decline is recorded and the movement is still open.",
+          );
+        }
+        return;
+      }
+      /* A control that is drawn and not wired says what it would do and that it
+         is not wired, rather than doing nothing in silence. The attribute is
+         data-would, not data-act: the shell already uses data-act for its own
+         Tools controls, and a second meaning on one name would have this
+         handler answering for the shell's buttons. */
+      var act = e.target.closest ? e.target.closest("[data-would]") : null;
+      if (act) {
+        announce(act.getAttribute("data-would") + ". Not wired in this prototype.");
+        return;
+      }
       var w = e.target.closest ? e.target.closest("[data-ward]") : null;
       if (w) {
         var u = byId(UNITS, w.getAttribute("data-ward"));
@@ -8216,15 +8543,35 @@
         return;
       }
     });
+    /* Save reads the submitted values, validates them and writes them into the
+       return before anything is re-rendered. A row that will not take a value
+       says why and records nothing, because a screen that reports a save it
+       did not make is worse than one that refuses. */
     document.addEventListener("submit", function (e) {
       var form = e.target.closest ? e.target.closest(".askEdit") : null;
       if (!form) return;
       e.preventDefault();
       var a = ASKS[Number(form.getAttribute("data-step")) - 1];
+      var refused = a.save ? a.save(form) : null;
+      if (refused) {
+        renderAll();
+        announce(refused + " Nothing was saved.");
+        return;
+      }
       markAnswered(a);
       advance();
       renderAll();
-      announce(a.label + " saved. " + answeredCount() + " of " + ASKS.length + " answered today.");
+      var v = a.value ? a.value() : null;
+      announce(
+        a.label +
+          " saved as " +
+          (a.answer ? a.answer() : v && v.long ? v.long : v ? v.text : "answered") +
+          ". " +
+          answeredCount() +
+          " of " +
+          ASKS.length +
+          " answered today.",
+      );
     });
     document.addEventListener("input", function (e) {
       if (e.target && e.target.id === "swQ") renderSwitcher();
@@ -8247,13 +8594,43 @@
     });
 
     /* ─── the facade the shell reads ─── */
+    /* The shell was written for Command, where every movement is a row in the
+       queue, and it announces that one has been "selected in the queue". This
+       page has no queue: it draws only the movements that name this ward. So a
+       movement this ward is involved in is scrolled to and focused here, and
+       one it is not gets a sentence saying where it actually is. The shell
+       speaks first, from its own handler, so the correction is said after it
+       rather than being overwritten by it. */
     function selectMovement(id) {
       var el = document.querySelector('[data-mv="' + id + '"]');
       if (el) {
         el.scrollIntoView({ block: "center" });
         var btn = el.querySelector("button");
         if (btn) btn.focus();
+        return;
       }
+      var m = byId(MOVEMENTS, id);
+      var where = m
+        ? m.accepted
+          ? "It is accepted to " + ((byId(UNITS, m.accepted) || {}).name || m.accepted) + "."
+          : (m.referred || []).length
+            ? "It is with " +
+              (m.referred || [])
+                .map(function (u) {
+                  return (byId(UNITS, u) || {}).name || u;
+                })
+                .join(" and ") +
+              "."
+            : "It has no destination yet."
+        : "";
+      setTimeout(function () {
+        announce(
+          (m ? id + ", " + nameOf(m) : id) +
+            " is not on this ward, so this page does not draw it. " +
+            where +
+            " This is one ward's own view, not the network queue.",
+        );
+      }, 0);
     }
     window.WardFlow = {
       NOW: NOW,
@@ -8399,8 +8776,10 @@
     var NOW_MIN = WF.NOW;
     var NOW = minToClock(NOW_MIN);
     /* The movements the coordinator is watching. Three to start, and the shortlist's header pins
-       or unpins its subject for the rest of the shift. Not remembered across a reload. */
-    var PINNED = ["WF-021", "WF-009", "WF-014"];
+       or unpins its subject for the rest of the shift. Not remembered across a reload.
+       On this Ward page the three are the movements this ward is answering or
+       receiving, so every pinned row points at something the page draws. */
+    var PINNED = ["WF-021", "WF-011", "WF-002"];
     function isPinned(id) {
       return PINNED.indexOf(id) !== -1;
     }
