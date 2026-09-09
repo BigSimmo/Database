@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-08"
+    "committed_at": "2026-09-09"
   },
   "routes": {
     "modes": [
@@ -10686,6 +10686,14 @@
         "scope": "pr-1336",
         "outcome": "nav-port-ready; UI chrome gate pending",
         "checks": "vitest-51+58+4186,tsc,eslint"
+      },
+      {
+        "date": "2026-09-08",
+        "ref": "claude/review-four-mockups-0l9x8c (PR #2738)",
+        "head": "3717589deb70271aef584d855e056fd15aa3460d",
+        "scope": "Ward Flow Command mockup and design system, third edition, with the universal header and rail (docs only)",
+        "outcome": "Handoff. The Live edition Command re-cut in the Platinum identity with the owner's header and rail grafted over the real engine, plus the design system page and document and the verification kit. Reviewed by five and then two independent reviewers with fix passes applied. Kit harness ALL GREEN in both themes for both artifacts (106 PASS, 0 FAIL). CI on the previous head passed every job that ran to completion; the final head's CI was not observed at handoff.",
+        "checks": "kit harness check.mjs on both artifacts (ALL GREEN), prettier --check on every changed file, docs:check-links, check:mockups, check:diff-integrity, check:repo-awareness-snapshot; lint, typecheck, test and build left to CI as on the previous green head"
       },
       {
         "date": "2026-08-26",
