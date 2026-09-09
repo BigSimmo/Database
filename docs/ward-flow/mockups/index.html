@@ -1,0 +1,1047 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ward Flow HTML Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    />
+    <style>
+      /* Tokens are the Ward Flow third edition's Platinum Raised Cool palette, copied from
+         command-third-edition.html so the hub sits in the same world as the pages it lists.
+         Three-state theme pattern: bare :root is light, the media block carries dark for the
+         system default, and [data-theme] wins over both. */
+      :root {
+        color-scheme: light;
+        --ground: #e6eaef;
+        --surface: #fdfdfe;
+        --surface-2: #f4f7fa;
+        --sunk: #eef2f6;
+        --ink: #161a20;
+        --ink-soft: #414953;
+        --muted: #5f6873;
+        --line: rgba(22, 30, 40, 0.11);
+        --line-strong: rgba(22, 30, 40, 0.26);
+        --accent: #2f4c66;
+        --accent-soft: #dfe7f0;
+        --on-accent: #ffffff;
+        --good: #227550;
+        --good-soft: #e2f0e8;
+        --warn: #825d10;
+        --warn-soft: #f6eeda;
+        --danger: #b03b2e;
+        --danger-soft: #f8e6e2;
+        --lift: 0 1px 1px rgba(22, 30, 40, 0.06), 0 14px 30px -22px rgba(22, 30, 40, 0.5);
+        --display: "Source Serif 4", Georgia, "Times New Roman", serif;
+        --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          color-scheme: dark;
+          --ground: #0f1216;
+          --surface: #171b21;
+          --surface-2: #1b2026;
+          --sunk: #13171c;
+          --ink: #e8ecf1;
+          --ink-soft: #b2bac5;
+          --muted: #8a929d;
+          --line: rgba(255, 255, 255, 0.09);
+          --line-strong: rgba(255, 255, 255, 0.21);
+          --accent: #a7bcd2;
+          --accent-soft: #1f2a36;
+          --on-accent: #0f1216;
+          --good: #6fd39b;
+          --good-soft: #15291f;
+          --warn: #e3bc5e;
+          --warn-soft: #2b2415;
+          --danger: #ff8b76;
+          --danger-soft: #33201b;
+          --lift: 0 1px 1px rgba(0, 0, 0, 0.4), 0 16px 34px -22px rgba(0, 0, 0, 0.95);
+        }
+      }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --ground: #0f1216;
+        --surface: #171b21;
+        --surface-2: #1b2026;
+        --sunk: #13171c;
+        --ink: #e8ecf1;
+        --ink-soft: #b2bac5;
+        --muted: #8a929d;
+        --line: rgba(255, 255, 255, 0.09);
+        --line-strong: rgba(255, 255, 255, 0.21);
+        --accent: #a7bcd2;
+        --accent-soft: #1f2a36;
+        --on-accent: #0f1216;
+        --good: #6fd39b;
+        --good-soft: #15291f;
+        --warn: #e3bc5e;
+        --warn-soft: #2b2415;
+        --danger: #ff8b76;
+        --danger-soft: #33201b;
+        --lift: 0 1px 1px rgba(0, 0, 0, 0.4), 0 16px 34px -22px rgba(0, 0, 0, 0.95);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        font-size: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--ground);
+        color: var(--ink);
+        font-family: var(--body);
+        font-size: 0.9375rem;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      .skip {
+        position: absolute;
+        left: -9999px;
+      }
+      .skip:focus {
+        left: 0.75rem;
+        top: 0.75rem;
+        z-index: 20;
+        background: var(--surface);
+        color: var(--ink);
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--line-strong);
+        border-radius: 6px;
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: 3px;
+      }
+
+      header.bar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        padding: 0.75rem 1.5rem;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+      }
+      header.bar h1 {
+        font-family: var(--display);
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      .mark {
+        font-family: var(--mono);
+        font-size: 0.6875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.1rem 0.5rem;
+        white-space: nowrap;
+      }
+      .bar .spacer {
+        margin-left: auto;
+      }
+      .appearance {
+        display: inline-flex;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .appearance button {
+        font: inherit;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.6rem;
+        background: var(--surface);
+        color: var(--muted);
+        border: 0;
+        border-right: 1px solid var(--line);
+        cursor: pointer;
+      }
+      .appearance button:last-child {
+        border-right: 0;
+      }
+      .appearance button[aria-pressed="true"] {
+        background: var(--accent);
+        color: var(--on-accent);
+      }
+
+      main {
+        max-width: 68rem;
+        margin: 0 auto;
+        padding: 1.75rem 1.5rem 4rem;
+      }
+      .lede {
+        font-size: 1rem;
+        color: var(--ink-soft);
+        max-width: 46rem;
+        margin: 0 0 1.75rem;
+      }
+      section {
+        margin: 0 0 2.5rem;
+      }
+      h2 {
+        font-family: var(--display);
+        font-size: 1.0625rem;
+        font-weight: 700;
+        margin: 0 0 0.25rem;
+      }
+      h2 + p.note {
+        margin: 0 0 1rem;
+        color: var(--muted);
+        font-size: 0.875rem;
+        max-width: 46rem;
+      }
+      h3 {
+        font-family: var(--body);
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--muted);
+        margin: 1.5rem 0 0.5rem;
+      }
+
+      .grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        box-shadow: var(--lift);
+        padding: 0.875rem 1rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .card .head {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .card .name {
+        font-family: var(--display);
+        font-size: 1rem;
+        font-weight: 700;
+      }
+      .card .screen {
+        font-family: var(--mono);
+        font-size: 0.6875rem;
+        color: var(--muted);
+      }
+      .card p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 0.875rem;
+      }
+      .card dl {
+        margin: 0.25rem 0 0;
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 0.15rem 0.6rem;
+        font-size: 0.8125rem;
+      }
+      .card dt {
+        color: var(--muted);
+      }
+      .card dd {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        word-break: break-all;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.5rem;
+      }
+      .links a,
+      .links span.dead {
+        font-size: 0.8125rem;
+        text-decoration: none;
+        border: 1px solid var(--line-strong);
+        border-radius: 6px;
+        padding: 0.2rem 0.6rem;
+        color: var(--accent);
+      }
+      .links a:hover {
+        background: var(--accent-soft);
+      }
+      .links span.dead {
+        color: var(--muted);
+        border-style: dashed;
+        cursor: default;
+      }
+
+      .chip {
+        font-family: var(--mono);
+        font-size: 0.625rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        border-radius: 999px;
+        padding: 0.12rem 0.5rem;
+        white-space: nowrap;
+      }
+      .chip[data-tone="good"] {
+        background: var(--good-soft);
+        color: var(--good);
+      }
+      .chip[data-tone="warn"] {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+      .chip[data-tone="danger"] {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+      .chip[data-tone="quiet"] {
+        background: var(--sunk);
+        color: var(--muted);
+      }
+
+      .tablewrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.875rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      thead th {
+        font-size: 0.6875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        background: var(--surface-2);
+        white-space: nowrap;
+      }
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      td.mono {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+      }
+      td a {
+        color: var(--accent);
+      }
+
+      details.fold {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 0.5rem 1rem;
+      }
+      details.fold > summary {
+        cursor: pointer;
+        font-weight: 600;
+        padding: 0.35rem 0;
+      }
+      details.fold ul {
+        margin: 0.5rem 0 0.75rem;
+        padding-left: 1.1rem;
+        columns: 2;
+        column-gap: 2rem;
+        font-size: 0.8125rem;
+      }
+      @media (max-width: 40rem) {
+        details.fold ul {
+          columns: 1;
+        }
+      }
+      details.fold li {
+        break-inside: avoid;
+        margin-bottom: 0.15rem;
+      }
+      details.fold a {
+        color: var(--accent);
+        font-family: var(--mono);
+        font-size: 0.75rem;
+      }
+
+      .callout {
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--warn);
+        background: var(--surface);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.75rem;
+      }
+      .callout p {
+        margin: 0.25rem 0 0;
+        font-size: 0.875rem;
+        color: var(--ink-soft);
+      }
+      .callout b {
+        font-size: 0.875rem;
+      }
+      .callout code,
+      p code,
+      li code {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        background: var(--sunk);
+        border-radius: 4px;
+        padding: 0.05rem 0.3rem;
+      }
+
+      footer.foot {
+        border-top: 1px solid var(--line);
+        margin-top: 2rem;
+        padding-top: 1rem;
+        color: var(--muted);
+        font-size: 0.8125rem;
+      }
+      footer.foot ul {
+        padding-left: 1.1rem;
+        margin: 0.5rem 0;
+      }
+      footer.foot li {
+        margin-bottom: 0.3rem;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to the list</a>
+    <header class="bar">
+      <h1>Ward Flow HTML Hub</h1>
+      <span class="mark">Synthetic prototypes</span>
+      <span class="spacer"></span>
+      <div class="appearance" role="group" aria-label="Appearance">
+        <button type="button" data-set-theme="light" aria-pressed="false">Light</button>
+        <button type="button" data-set-theme="dark" aria-pressed="false">Dark</button>
+        <button type="button" data-set-theme="auto" aria-pressed="true">Auto</button>
+      </div>
+    </header>
+
+    <main id="main">
+      <p class="lede">
+        Every Ward Flow HTML page, where it lives, and whether it is real yet. Nothing here is a clinical system. Every
+        person, bed, movement and figure on every page listed below is invented. Facts on this page were read from the
+        repository on 9 September 2026 and are stated as at that read.
+      </p>
+
+      <section aria-labelledby="h-screens">
+        <h2 id="h-screens">The eleven screens</h2>
+        <p class="note">
+          The rail in <code>command-third-edition.html</code> names eleven screens in three groups. This is what has
+          been built against that list, and what has not.
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Screen</th>
+                <th scope="col">Group</th>
+                <th scope="col">Third edition page</th>
+                <th scope="col">State</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Command</th>
+                <td>Operations</td>
+                <td><a href="command-third-edition.html">command-third-edition.html</a></td>
+                <td><span class="chip" data-tone="good">On main</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Movement</th>
+                <td>Operations</td>
+                <td class="mono">movement-third-edition.html</td>
+                <td><span class="chip" data-tone="danger">Artifact only</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Capacity</th>
+                <td>Operations</td>
+                <td class="mono">&mdash;</td>
+                <td><span class="chip" data-tone="quiet">Not built</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Wards</th>
+                <td>Network</td>
+                <td class="mono">ward-third-edition.html, bed-board-third-edition.html</td>
+                <td><span class="chip" data-tone="warn">PR open</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Emergency departments</th>
+                <td>Network</td>
+                <td class="mono">&mdash;</td>
+                <td><span class="chip" data-tone="quiet">Not built</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Teams</th>
+                <td>Network</td>
+                <td class="mono">&mdash;</td>
+                <td><span class="chip" data-tone="quiet">Not built</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Search</th>
+                <td>Records</td>
+                <td><a href="patient-search-console.html">patient-search-console.html</a></td>
+                <td><span class="chip" data-tone="warn">Earlier edition</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Referrals</th>
+                <td>Records</td>
+                <td class="mono">raise-referral-third-edition.html</td>
+                <td><span class="chip" data-tone="warn">PR open</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Handover</th>
+                <td>Records</td>
+                <td class="mono">&mdash;</td>
+                <td><span class="chip" data-tone="quiet">Not built</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Statistics</th>
+                <td>Records</td>
+                <td class="mono">statistics-ed-third-edition.html, statistics-cmht-third-edition.html</td>
+                <td><span class="chip" data-tone="warn">PR open</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Governance</th>
+                <td>Records</td>
+                <td class="mono">&mdash;</td>
+                <td><span class="chip" data-tone="quiet">Not built</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note" style="margin-top: 0.75rem">
+          Delays is an eleventh page with no rail item of its own. Its build session recommends adding it to Operations
+          after Movement. That is an open decision.
+        </p>
+      </section>
+
+      <section aria-labelledby="h-main">
+        <h2 id="h-main">On main, open them now</h2>
+        <p class="note">These files are in the working copy. The links open them from this folder.</p>
+        <div class="grid">
+          <article class="card">
+            <div class="head">
+              <span class="name">Command</span>
+              <span class="screen">rail: Command</span>
+              <span class="chip" data-tone="good">On main</span>
+            </div>
+            <p>
+              Every open movement across the network, worst first. The reference implementation of the third edition:
+              its stylesheet, bar and rail are what every other page copies.
+            </p>
+            <dl>
+              <dt>File</dt>
+              <dd>command-third-edition.html</dd>
+              <dt>Size</dt>
+              <dd>384,654 bytes</dd>
+            </dl>
+            <div class="links"><a href="command-third-edition.html">Open</a></div>
+          </article>
+
+          <article class="card">
+            <div class="head">
+              <span class="name">Design system</span>
+              <span class="screen">the standard</span>
+              <span class="chip" data-tone="good">On main</span>
+            </div>
+            <p>
+              The third edition standard itself. Tokens, type scale, elevation, the bar and rail contract, and the rules
+              every rebuild is checked against.
+            </p>
+            <dl>
+              <dt>File</dt>
+              <dd>design-system-third-edition.html</dd>
+              <dt>Size</dt>
+              <dd>664,297 bytes</dd>
+              <dt>Prose</dt>
+              <dd>WARD-FLOW-DESIGN-SYSTEM.md</dd>
+            </dl>
+            <div class="links">
+              <a href="design-system-third-edition.html">Open</a>
+              <a href="WARD-FLOW-DESIGN-SYSTEM.md">Read the standard</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="head">
+              <span class="name">Patient search console</span>
+              <span class="screen">rail: Search</span>
+              <span class="chip" data-tone="warn">Earlier edition</span>
+            </div>
+            <p>
+              Find a person and open their movement, with the refusals stated. Predates the third edition, so it does
+              not carry the universal bar or rail. A rebuild is outstanding.
+            </p>
+            <dl>
+              <dt>File</dt>
+              <dd>patient-search-console.html</dd>
+              <dt>Size</dt>
+              <dd>71,869 bytes</dd>
+            </dl>
+            <div class="links">
+              <a href="patient-search-console.html">Open</a>
+              <a href="patient-search-working.html">Working variant</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="head">
+              <span class="name">Third edition kit</span>
+              <span class="screen">tooling</span>
+              <span class="chip" data-tone="good">On main</span>
+            </div>
+            <p>
+              The harness every rebuild is proved against, plus the shell markup, the rail map and the merge brief. Run
+              it with <code>node third-edition-kit/check.mjs &lt;file&gt; platinum</code>.
+            </p>
+            <dl>
+              <dt>Folder</dt>
+              <dd>third-edition-kit/</dd>
+              <dt>Harness</dt>
+              <dd>check.mjs, 52 checks</dd>
+            </dl>
+            <div class="links">
+              <a href="third-edition-kit/shell/preview.html">Shell preview</a>
+              <a href="third-edition-kit/MERGE-BRIEF.md">Merge brief</a>
+              <a href="third-edition-kit/inputs/RAIL-MAP.md">Rail map</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="h-pr">
+        <h2 id="h-pr">Built and pushed, waiting on a merge</h2>
+        <p class="note">
+          The file exists on a branch and a pull request is open. It is not in your working copy until that merges, so
+          the local link is dead for now. Fetch a single page with
+          <code>git show origin/&lt;branch&gt;:&lt;path&gt; &gt; page.html</code>.
+        </p>
+        <div class="grid">
+          <article class="card">
+            <div class="head">
+              <span class="name">Ward, one unit</span>
+              <span class="screen">rail: Wards</span>
+              <span class="chip" data-tone="warn">PR 2748</span>
+            </div>
+            <p>One ward in the network: what it takes, what it holds, and how it has answered.</p>
+            <dl>
+              <dt>File</dt>
+              <dd>ward-third-edition.html</dd>
+              <dt>Size</dt>
+              <dd>362,119 bytes</dd>
+              <dt>sha256</dt>
+              <dd>896dd92a70f7c2ea</dd>
+              <dt>Branch</dt>
+              <dd>claude/trusting-pasteur-dq2z28 @ 3ea02c4dd</dd>
+            </dl>
+            <div class="links">
+              <span class="dead">Not in this checkout</span>
+              <a href="https://github.com/BigSimmo/Database/pull/2748">Pull request 2748</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="head">
+              <span class="name">Bed board</span>
+              <span class="screen">rail: Wards</span>
+              <span class="chip" data-tone="warn">PR 2749</span>
+            </div>
+            <p>
+              The ward's eighteen beds, what each holds and what is blocking it. Reconciled to the network's own ward
+              row, so its partition and its two inbound people are the network's, not the source page's inventions.
+            </p>
+            <dl>
+              <dt>File</dt>
+              <dd>bed-board-third-edition.html</dd>
+              <dt>Size</dt>
+              <dd>334,682 bytes</dd>
+              <dt>sha256</dt>
+              <dd>dd1713bced0eb49f</dd>
+              <dt>Branch</dt>
+              <dd>claude/zealous-cori-6o05vh @ ee0b33675</dd>
+              <dt>Harness</dt>
+              <dd>52 PASS, 0 FAIL, reported</dd>
+            </dl>
+            <div class="links">
+              <span class="dead">Not in this checkout</span>
+              <a href="https://github.com/BigSimmo/Database/pull/2749">Pull request 2749</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="head">
+              <span class="name">Raise a referral</span>
+              <span class="screen">rail: Referrals</span>
+              <span class="chip" data-tone="warn">PR 2751</span>
+            </div>
+            <p>The referral queue and the decision on each, oldest first inside its tier.</p>
+            <dl>
+              <dt>File</dt>
+              <dd>raise-referral-third-edition.html</dd>
+              <dt>Size</dt>
+              <dd>338,446 bytes</dd>
+              <dt>sha256</dt>
+              <dd>453e1f6aa2ce9c26</dd>
+              <dt>Branch</dt>
+              <dd>claude/brave-maxwell-kovw4s @ 8ca78b3b7</dd>
+            </dl>
+            <div class="links">
+              <span class="dead">Not in this checkout</span>
+              <a href="https://github.com/BigSimmo/Database/pull/2751">Pull request 2751</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="head">
+              <span class="name">Emergency department statistics</span>
+              <span class="screen">rail: Statistics</span>
+              <span class="chip" data-tone="warn">PR 2747</span>
+            </div>
+            <p>
+              The eight departments, their waits in five bands, and the last seven and thirty days. Thirteen people
+              standing at 10:42 on Saturday 15 August, against the fourteen open movements the rail counts.
+            </p>
+            <dl>
+              <dt>File</dt>
+              <dd>statistics-ed-third-edition.html</dd>
+              <dt>Size</dt>
+              <dd>300,563 bytes</dd>
+              <dt>sha256</dt>
+              <dd>74ce99b7e30ebf2c</dd>
+              <dt>Branch</dt>
+              <dd>claude/festive-noether-c72iqy @ db82ae79e</dd>
+              <dt>Harness</dt>
+              <dd>52 PASS, 0 FAIL, reported</dd>
+            </dl>
+            <div class="links">
+              <span class="dead">Not in this checkout</span>
+              <a href="https://github.com/BigSimmo/Database/pull/2747">Pull request 2747</a>
+              <a href="https://claude.ai/code/artifact/53cd52e3-2c29-4397-a414-219b704899db">Artifact</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="head">
+              <span class="name">Community team statistics</span>
+              <span class="screen">rail: Statistics</span>
+              <span class="chip" data-tone="warn">PR 2750</span>
+            </div>
+            <p>
+              One community team, Armadale in East Metropolitan Health Service. Every figure derives from a single team
+              object, and every ward name is read from the network's units rather than invented.
+            </p>
+            <dl>
+              <dt>File</dt>
+              <dd>statistics-cmht-third-edition.html</dd>
+              <dt>Size</dt>
+              <dd>298,900 bytes</dd>
+              <dt>sha256</dt>
+              <dd>6aabe76c30560285</dd>
+              <dt>Branch</dt>
+              <dd>claude/compassionate-ride-p2xcgn @ b4b3a598b</dd>
+              <dt>Artifact</dt>
+              <dd>stale, see below</dd>
+            </dl>
+            <div class="links">
+              <span class="dead">Not in this checkout</span>
+              <a href="https://github.com/BigSimmo/Database/pull/2750">Pull request 2750</a>
+              <a href="https://claude.ai/code/artifact/f6b61d92-aa46-41f8-91f9-b405376ef749">Artifact, older</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="head">
+              <span class="name">Command, premium light</span>
+              <span class="screen">variant</span>
+              <span class="chip" data-tone="warn">PR 2737</span>
+            </div>
+            <p>
+              A separate light treatment of Command, with its own header, rail, build sheet and design standard files. A
+              styling variant rather than a new screen.
+            </p>
+            <dl>
+              <dt>Files</dt>
+              <dd>command-premium.html and four others</dd>
+              <dt>Branch</dt>
+              <dd>claude/hospital-mockup-premium-qzq6cx @ 795b03e93</dd>
+            </dl>
+            <div class="links">
+              <span class="dead">Not in this checkout</span>
+              <a href="https://github.com/BigSimmo/Database/pull/2737">Pull request 2737</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="h-artifact">
+        <h2 id="h-artifact">Built, but nowhere you can fetch</h2>
+        <p class="note">
+          These pages exist only as a published artifact and as an uncommitted file inside a build container that will
+          be reclaimed. Neither branch is on the remote. If the container is gone, the artifact is the only copy.
+        </p>
+        <div class="grid">
+          <article class="card">
+            <div class="head">
+              <span class="name">Movement</span>
+              <span class="screen">rail: Movement</span>
+              <span class="chip" data-tone="danger">Artifact only</span>
+            </div>
+            <p>
+              One person's movement from referral to bed, with every event, decline and decision on it. Built from the
+              standard's own specification, because the source mockup it was meant to lift could not be found in the
+              repository or its history.
+            </p>
+            <dl>
+              <dt>File</dt>
+              <dd>movement-third-edition.html</dd>
+              <dt>Branch</dt>
+              <dd>claude/trusting-thompson-cr5q3m, absent from the remote</dd>
+              <dt>Identifiers</dt>
+              <dd>WF-0xx, not the WF-1xx section 6.7 specifies</dd>
+            </dl>
+            <div class="links">
+              <a href="https://claude.ai/code/artifact/f82a4204-68dc-40b3-8c45-6892ad398009">Artifact</a>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="head">
+              <span class="name">Delays</span>
+              <span class="screen">no rail item</span>
+              <span class="chip" data-tone="danger">Artifact only</span>
+            </div>
+            <p>
+              Who is stuck, why, and whose move it is. Five owners, ten blockers, sixteen people with both clocks. The
+              rail has no Delays item, so the page marks Movement current and the bar reads Delays.
+            </p>
+            <dl>
+              <dt>File</dt>
+              <dd>delays-third-edition.html</dd>
+              <dt>Size</dt>
+              <dd>299,493 bytes, as reported</dd>
+              <dt>sha256</dt>
+              <dd>a4ea44dd739b6d15</dd>
+              <dt>Branch</dt>
+              <dd>claude/festive-pascal-8f5k7f, absent from the remote</dd>
+            </dl>
+            <div class="links">
+              <a href="https://claude.ai/code/artifact/24f6ef55-ce72-407e-b4bb-9e608ca06e3a">Artifact</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="h-open">
+        <h2 id="h-open">Open decisions and things that do not line up</h2>
+        <p class="note">None of these block a merge. They are the questions the build sessions could not settle.</p>
+
+        <div class="callout">
+          <b>The community team statistics artifact is older than the file.</b>
+          <p>
+            Its delivery said the artifact and the committed file were byte for byte identical at 294,587 bytes. The
+            file at that commit is 298,900 bytes, and the commit before it is 298,004. Neither matches. The artifact was
+            published before the review fix that made the definition lists valid and named the print control, so the
+            branch is the newer copy and the artifact should not be treated as the same page.
+          </p>
+        </div>
+
+        <div class="callout">
+          <b>Two deliveries cite a rebuild brief that is not in the repository.</b>
+          <p>
+            Both name <code>third-edition-kit/REBUILD-BRIEF.md</code> as the contract they were built to. That path does
+            not exist on main or on any of the delivery branches. Only <code>MERGE-BRIEF.md</code> is there. Either the
+            brief was never committed or it was renamed, and the pages that cite it have no readable contract.
+          </p>
+        </div>
+
+        <div class="callout">
+          <b>Does Delays get its own rail item?</b>
+          <p>
+            The build session recommends yes, in Operations after Movement. Until that is settled the page borrows
+            Movement's rail position, which is why its rail count reads 16 rather than Command's 14. The sixteen are its
+            own stuck people, not Command's movements.
+          </p>
+        </div>
+
+        <div class="callout">
+          <b>Five decisions sit on the Bed board.</b>
+          <p>
+            Bed 09's control reads "They have left" rather than "Confirm the discharge", bed 10 is a held bed with no
+            reason recorded, the figure band of section 6.16 has no rules in the shared stylesheet so the page writes
+            its own, two shell sentences still assume Command's referral queue, and Escape clears a chosen bed only
+            after the shell's own steps. All five are listed in the page's own foot.
+          </p>
+        </div>
+
+        <div class="callout">
+          <b>Three decisions sit on the emergency department statistics.</b>
+          <p>
+            Whether Export should be the page's primary action, the size ladder for the bar title, and whether the
+            waiting figure should read 13 or 14.
+          </p>
+        </div>
+
+        <div class="callout">
+          <b>Ownership is a word on Delays, not a colour.</b>
+          <p>
+            The source page carried whose-move as five hues down each row's left edge. The third edition gives colour
+            four jobs and ownership is not one of them, so the owner is named instead and the left edge carries
+            severity. Worth a look before it becomes the pattern.
+          </p>
+        </div>
+      </section>
+
+      <section aria-labelledby="h-second">
+        <h2 id="h-second">Second edition prototypes</h2>
+        <p class="note">
+          The earlier set, under <code>../design/prototypes/</code>. Superseded by the third edition but kept as the
+          source material every rebuild is lifted from. Thirty four pages.
+        </p>
+        <details class="fold">
+          <summary>Show all thirty four</summary>
+          <ul>
+            <li><a href="../design/prototypes/design-language.html">design-language</a></li>
+            <li><a href="../design/prototypes/community-home.html">community-home</a></li>
+            <li><a href="../design/prototypes/mockup-community-gateway-v1.html">community-gateway-v1</a></li>
+            <li><a href="../design/prototypes/mockup-community-hub-v2.html">community-hub-v2</a></li>
+            <li><a href="../design/prototypes/mockup-community-hub-v3.html">community-hub-v3</a></li>
+            <li><a href="../design/prototypes/mockup-community-team-hub-v1.html">community-team-hub-v1</a></li>
+            <li><a href="../design/prototypes/mockup-community-team-hub-v2.html">community-team-hub-v2</a></li>
+            <li><a href="../design/prototypes/mockup-ed-home.html">ed-home</a></li>
+            <li><a href="../design/prototypes/mockup-ed-hub.html">ed-hub</a></li>
+            <li><a href="../design/prototypes/mockup-ed-hub-v2.html">ed-hub-v2</a></li>
+            <li><a href="../design/prototypes/mockup-ed-hub-desktop.html">ed-hub-desktop</a></li>
+            <li><a href="../design/prototypes/mockup-front-doors-v3.html">front-doors-v3</a></li>
+            <li><a href="../design/prototypes/mockup-front-doors-v5.html">front-doors-v5</a></li>
+            <li><a href="../design/prototypes/mockup-patient.html">patient</a></li>
+            <li><a href="../design/prototypes/mockup-referral.html">referral</a></li>
+            <li><a href="../design/prototypes/mockup-referral-intake-v1.html">referral-intake-v1</a></li>
+            <li><a href="../design/prototypes/mockup-referral-intake-v2.html">referral-intake-v2</a></li>
+            <li><a href="../design/prototypes/mockup-referral-intake-v3.html">referral-intake-v3</a></li>
+            <li><a href="../design/prototypes/mockup-referral-intake-v4.html">referral-intake-v4</a></li>
+            <li><a href="../design/prototypes/mockup-referral-intake-v5.html">referral-intake-v5</a></li>
+            <li><a href="../design/prototypes/mockup-referral-intake-v6.html">referral-intake-v6</a></li>
+            <li><a href="../design/prototypes/mockup-search.html">search</a></li>
+            <li><a href="../design/prototypes/mockup-statistics.html">statistics</a></li>
+            <li><a href="../design/prototypes/mockup-statistics-overview-v1.html">statistics-overview-v1</a></li>
+            <li><a href="../design/prototypes/mockup-statistics-ed-v1.html">statistics-ed-v1</a></li>
+            <li><a href="../design/prototypes/mockup-statistics-ward-v1.html">statistics-ward-v1</a></li>
+            <li><a href="../design/prototypes/mockup-statistics-cmht-v1.html">statistics-cmht-v1</a></li>
+            <li><a href="../design/prototypes/mockup-transport.html">transport</a></li>
+            <li><a href="../design/prototypes/mockup-ward-board-v3.html">ward-board-v3</a></li>
+            <li><a href="../design/prototypes/mockup-ward-entry.html">ward-entry</a></li>
+            <li><a href="../design/prototypes/mockup-ward-home.html">ward-home</a></li>
+            <li><a href="../design/prototypes/mockup-ward-home-v2.html">ward-home-v2</a></li>
+            <li><a href="../design/prototypes/mockup-ward-home-v3.html">ward-home-v3</a></li>
+            <li><a href="../design/prototypes/mockup-ward-home-v4.html">ward-home-v4</a></li>
+          </ul>
+          <p style="font-size: 0.8125rem; color: var(--muted)">
+            <a href="../design/prototypes/README.md">README</a> and
+            <a href="../design/prototypes/DESIGN-LANGUAGE.md">DESIGN-LANGUAGE.md</a> describe the set.
+          </p>
+        </details>
+      </section>
+
+      <footer class="foot">
+        <p><b>What was checked here, and what was taken on trust.</b></p>
+        <ul>
+          <li>
+            Checked: every branch, commit, path, byte count and sha256 above was read from the repository with
+            <code>git cat-file</code> and <code>sha256sum</code> on 9 September 2026. Pull request numbers, titles and
+            open state were read from GitHub the same day.
+          </li>
+          <li>
+            Checked: the eleven screen names, their groups and their purposes were read out of the rail definition in
+            <code>command-third-edition.html</code>, not from any summary of it.
+          </li>
+          <li>
+            Taken on trust: every harness result. No page listed here was re-run through
+            <code>third-edition-kit/check.mjs</code> for this index. The 52 PASS claims are each build session's own
+            report.
+          </li>
+          <li>
+            Taken on trust: the size and hash of Delays, and everything about Movement. Neither branch is on the remote,
+            so neither file could be read.
+          </li>
+          <li>
+            Not checked: whether the artifacts still resolve, and whether any artifact other than the community team one
+            matches its committed file.
+          </li>
+        </ul>
+        <p>
+          This hub is maintained by hand. When a page merges, move it up into the first section and drop its dead link.
+        </p>
+      </footer>
+    </main>
+
+    <script>
+      (function () {
+        var KEY = "wardflow-hub-appearance";
+        var root = document.documentElement;
+        var buttons = Array.prototype.slice.call(document.querySelectorAll("[data-set-theme]"));
+
+        function apply(mode) {
+          if (mode === "auto") {
+            root.removeAttribute("data-theme");
+          } else {
+            root.setAttribute("data-theme", mode);
+          }
+          buttons.forEach(function (b) {
+            b.setAttribute("aria-pressed", String(b.getAttribute("data-set-theme") === mode));
+          });
+        }
+
+        var stored = "auto";
+        try {
+          stored = localStorage.getItem(KEY) || "auto";
+        } catch (e) {
+          stored = "auto";
+        }
+        apply(stored);
+
+        buttons.forEach(function (b) {
+          b.addEventListener("click", function () {
+            var mode = b.getAttribute("data-set-theme");
+            apply(mode);
+            try {
+              localStorage.setItem(KEY, mode);
+            } catch (e) {
+              /* a private window refuses storage; the choice just does not persist */
+            }
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>
