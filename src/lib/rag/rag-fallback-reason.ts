@@ -1,5 +1,5 @@
 import type { ProviderFailureKind } from "@/lib/rag/rag-provider";
-import type { RagFallbackReasonCode, RagInsufficiencyReason } from "@/lib/types";
+import type { RagAnswer, RagFallbackReasonCode, RagInsufficiencyReason, RetrievalDiagnostics } from "@/lib/types";
 
 const fallbackCodes = new Set<RagFallbackReasonCode>([
   "provider_offline",
@@ -89,7 +89,7 @@ function legacyFallbackReason(reason: string): RagFallbackReasonCode {
   if (/(?:claim[_ -]?support|numeric[_ -]?faithfulness|generation[_ -]?quality)(?:[_ -]|$)/.test(normalized)) {
     return "citation_or_claim_gate";
   }
-  if (/\b(?:no[_ -]?candidates?|no[_ -]?results?)\b/.test(normalized)) return "no_candidates";
+  if (/\b(?:no[_ -]?(?:candidates?|results?|retrieved[_ -]?sources?))\b/.test(normalized)) return "no_candidates";
   if (/\b(?:confidence[_ -]?gate[_ -]?blocked|low[_ -]?signal|below[_ -]?threshold)\b/.test(normalized)) {
     return "low_signal";
   }
@@ -161,10 +161,14 @@ const strongerGovernanceCodes = new Set<RagFallbackReasonCode>([
   "citation_or_claim_gate",
 ]);
 
+export function isStrongerGovernanceFallbackReasonCode(code?: RagFallbackReasonCode | null): boolean {
+  return code != null && strongerGovernanceCodes.has(code);
+}
+
 /** Return only governance failures that may supersede an earlier provider/base fallback. */
 export function strongerGovernanceFallbackReasonFromRouting(reason?: string | null): RagFallbackReasonCode | null {
   const inferred = fallbackReasonFromRouting(reason);
-  return inferred && strongerGovernanceCodes.has(inferred) ? inferred : null;
+  return isStrongerGovernanceFallbackReasonCode(inferred) ? inferred : null;
 }
 
 const providerGenerationFallbackCodes = new Set<RagFallbackReasonCode>([
@@ -217,4 +221,28 @@ const publicReasons: Record<RagFallbackReasonCode, string> = {
 
 export function publicFallbackReason(code: RagFallbackReasonCode): string {
   return publicReasons[code] ?? publicReasons.unknown;
+}
+
+/** Annotate answer with diagnostics. */
+export function annotateAnswerWithDiagnostics<T extends RagAnswer>(
+  answer: T,
+  diagnostics: RetrievalDiagnostics,
+  override?: { fallbackReason?: string | null; fallbackReasonCode?: RagFallbackReasonCode | null },
+): T {
+  const fallbackReason = override?.fallbackReason ?? diagnostics.fallbackReason ?? null;
+  return {
+    ...answer,
+    ...(override?.fallbackReasonCode == null
+      ? {}
+      : {
+          fallbackReasonCode: isStrongerGovernanceFallbackReasonCode(answer.fallbackReasonCode)
+            ? answer.fallbackReasonCode
+            : override.fallbackReasonCode,
+        }),
+    retrievalDiagnostics: {
+      ...diagnostics,
+      fallbackReason,
+      retrievalReason: fallbackReason,
+    },
+  };
 }

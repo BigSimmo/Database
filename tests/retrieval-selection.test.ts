@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRetrievalIntent,
   selectRetrievalEvidence,
+  selectAnswerRouteEvidence,
   summarizeRetrievalSelection,
 } from "../src/lib/retrieval-selection";
 import type { SearchResult } from "../src/lib/types";
@@ -45,6 +46,43 @@ function sourceMetadata(
 }
 
 describe("retrieval source selection", () => {
+  it("FR2 retains the empty governed selection and its source-role reason", () => {
+    const query = "How should acute psychosis be treated?";
+    const selected = selectAnswerRouteEvidence({
+      query,
+      queryClass: "broad_summary",
+      queryPlan: {
+        version: "rag-query-plan-v1",
+        kind: "single",
+        originalQuery: query,
+        interpretation: query,
+        subquestions: [{ id: "sq-1", question: query, purpose: "primary", required: true }],
+        targetSiteDomains: [],
+        siteDomainDecision: "none",
+        reasonCodes: [],
+      },
+      results: [
+        source({
+          id: "excluded-service-id",
+          document_id: "excluded-service-doc",
+          corpus_scope: "clinical_kb_site",
+          site_content_domain: "services",
+          content: "Acute psychosis treatment requires urgent specialist assessment.",
+          source_metadata: sourceMetadata({
+            source_kind: "registry_record",
+            corpus_scope: "clinical_kb_site",
+            source_role: "service_directory",
+            content_mode: "link_only",
+          }),
+        }),
+      ],
+    });
+    expect(selected.rawResults).toEqual([]);
+    expect(selected.routeSelection.results).toEqual([]);
+    expect(selected.routeSelection.coverage?.insufficiencyReason).toBe("source_role_mismatch");
+    expect(JSON.stringify(selected.routeSelection)).not.toMatch(/excluded-service-id|excluded-service-doc/);
+  });
+
   // Audit H3 disposition (2026-07-02): SUPERSEDED by PR #118, which removed
   // source-governance metadata weighting from retrieval selection entirely —
   // measured on the golden retrieval eval (doc-recall@5 1.0 -> 0.76 with

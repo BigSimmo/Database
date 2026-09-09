@@ -90,6 +90,25 @@ afterEach(() => {
 });
 
 describe("GET /api/health", () => {
+  it("P09 exposes only bounded programme defaults to authenticated detailed health", async () => {
+    mockEnv({ configured: false, demoMode: true, deepSecret: true });
+    const { healthResponse } = await import("../src/lib/health-response");
+    const authenticated = await payload(
+      await healthResponse(healthRequest("?deep=1", { "x-health-deep-token": DEEP_TOKEN })),
+    );
+    expect(authenticated.ragProgramme).toMatchObject({
+      configuredMode: "legacy",
+      candidatePercentage: 0,
+      components: { siteContent: false, australianAugmentation: false, adaptiveAnswer: false, adaptiveRender: false },
+    });
+    const publicHealth = await payload(await healthResponse(healthRequest()));
+    const publicReady = await payload(
+      await healthResponse(healthRequest(), { forceDeep: true, allowUnauthenticatedDeep: true }),
+    );
+    expect(publicHealth).not.toHaveProperty("ragProgramme");
+    expect(publicReady).not.toHaveProperty("ragProgramme");
+    expect(JSON.stringify(authenticated.ragProgramme)).not.toMatch(/salt|ownerId|cohortBucket/i);
+  });
   it("treats the documented blank site-content digest as an unset optional binding", async () => {
     vi.resetModules();
     vi.stubEnv("SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST", "");

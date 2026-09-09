@@ -12,6 +12,7 @@ import { attachDocumentRankingMetadata, attachPageVisualEvidence } from "@/lib/r
 import { isSourceOnlyMode, SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag/rag-provider";
 import type { RagProgrammeMode } from "@/lib/rag/rag-programme-eval";
 import { buildRagQueryPlan } from "@/lib/rag/rag-query-plan";
+import { revalidateReviewedPolicyRequest } from "@/lib/rag/rag-reviewed-policy-input";
 import { buildRagRetrievalVariantPlan, fetchEnabledRagAliases } from "@/lib/rag/rag-retrieval-variants";
 import { applySecondStageRerankIfNeeded } from "@/lib/rag/rag-second-stage";
 import { selectRetrievalEvidence } from "@/lib/retrieval-selection";
@@ -63,6 +64,7 @@ export async function planGovernedCandidateSearch(input: {
   analysis: Promise<ClinicalQueryAnalysis>;
   mode: RagProgrammeMode;
   query: string;
+  originalAdaptiveRequest?: string;
   queryClass?: RagQueryClass;
   signal?: AbortSignal;
   supabase: ReturnType<typeof createAdminClient>;
@@ -73,7 +75,7 @@ export async function planGovernedCandidateSearch(input: {
     fetchEnabledRagAliases(input.supabase, undefined, governedPublicRetrievalAccessScope(), input.signal),
   ]);
   const analysis = input.queryClass ? { ...resolvedAnalysis, queryClass: input.queryClass } : resolvedAnalysis;
-  const queryPlan = buildRagQueryPlan(input.query, analysis);
+  const queryPlan = buildRagQueryPlan(input.query, analysis, input.originalAdaptiveRequest);
   return {
     analysis,
     queryPlan,
@@ -127,7 +129,8 @@ export async function routeGovernedSearch(input: {
     minSimilarity: args.minSimilarity,
     snapshot: args.ragRequestContext.snapshot,
     components: args.governedCorpusComponents,
-    targetSiteDomains: queryPlan.targetSiteDomains,
+    targetSiteDomains: queryPlan.siteDomainDecision === "inferred" ? [] : queryPlan.targetSiteDomains,
+    answerSourcePolicy: args.answerSourcePolicy ?? queryPlan.sourcePolicy,
     signal: args.signal,
     maxRpcCalls: shadow ? 1 : 3,
     onRpcCall: () => {
@@ -147,6 +150,10 @@ export async function routeGovernedSearch(input: {
   }
 
   const hydrated = await attachDocumentRankingMetadata(supabase, candidateResults, undefined, undefined, args.signal);
+  const reviewed = revalidateReviewedPolicyRequest(args, hydrated);
+  telemetry.reviewed_input_state = reviewed.state;
+  args.sourcePolicyConflicts = reviewed.conflicts;
+  args.captureSourcePolicyConflicts?.(reviewed.conflicts);
   const topK = args.topK ?? 8;
   const maxResultsPerDocument = queryClass === "comparison" ? 2 : 4;
   const coverageSelections = mergeEvidenceByCoverageAndSourceRole({

@@ -1,3 +1,6 @@
+export { ragAnswerQualityEvaluationVersion } from "@/lib/rag/rag-versioning";
+import { adaptiveAnswerLimits, legacyAnswerLimits, answerWithinLimits } from "@/lib/rag/rag-answer-contract-limits";
+import { ragAdaptiveAnswerPromptVersion } from "@/lib/rag/rag-versioning";
 import { isDangerSourceGovernanceMessage } from "@/lib/source-governance";
 import {
   documentExpectationAlternatives,
@@ -78,7 +81,57 @@ export type RagEvalCase = {
    * never a second list of questions.
    */
   programmeExpectation?: RagProgrammeExpectation;
+  /** Content-only variants share their canonical registry owner; they do not assert live admission. */
+  deliveryVariants?: Readonly<
+    Record<
+      string,
+      {
+        question: string;
+        scope: "consumer_only";
+        supportingPassages: readonly string[];
+        expectation: NonNullable<RagEvalCase["deliveryExpectation"]>;
+      }
+    >
+  >;
+  deliveryExpectation?: {
+    tags: readonly ("adaptive_answer" | "partial_coverage" | "false_insufficiency")[];
+    requiredConcepts: readonly (readonly string[])[];
+    sectionRange: readonly [number, number];
+    exactGap?: string;
+    forbiddenConcepts?: readonly string[];
+  };
 };
+
+/** Content/delivery fixture scoring only; source admission and claim safety need their own evidence. */
+export function evaluateRagCase(testCase: RagEvalCase, answer: RagAnswer, variantId?: string) {
+  const variant = variantId ? testCase.deliveryVariants?.[variantId] : undefined;
+  if (variantId && !variant) return { pass: false, failures: ["unknown_delivery_variant"] };
+  const expected = variant?.expectation ?? testCase.deliveryExpectation;
+  if (!expected) return { pass: true, failures: [] as string[] };
+  const text = answerTextForQuality(answer).replace(/\*\*/g, "").toLowerCase();
+  const failures: string[] = [];
+  const retained = expected.requiredConcepts.map((alternatives) =>
+    alternatives.some((concept) => text.includes(concept.toLowerCase())),
+  );
+  if (retained.some((present) => !present)) failures.push("missing_required_subquestion_coverage");
+  if (
+    expected.tags.includes("false_insufficiency") &&
+    retained.every((present) => !present) &&
+    (!answer.grounded || /\b(?:no current source|insufficient evidence|no relevant source)\b/.test(text))
+  )
+    failures.push("false_insufficiency");
+  const sectionCount = (answer.answerSections ?? []).filter(
+    (section) => section.kind !== "source_gap" && section.kind !== "source_conflict",
+  ).length;
+  if (sectionCount < expected.sectionRange[0] || sectionCount > expected.sectionRange[1])
+    failures.push("answer_section_range");
+  const gaps = (answer.answerSections ?? []).filter((section) => section.kind === "source_gap");
+  if (expected.exactGap && (gaps.length !== 1 || gaps[0]?.body !== expected.exactGap))
+    failures.push("missing_exact_gap");
+  if (expected.forbiddenConcepts?.some((concept) => text.includes(concept.toLowerCase())))
+    failures.push("forbidden_claim");
+  return { pass: failures.length === 0, failures };
+}
 
 export type AnswerQualityEvalCase = RagEvalCase & {
   expectedIntent: AnswerQualityIntent;
@@ -94,7 +147,7 @@ export type AnswerQualityMetricScore = {
 
 export const answerQualityMetricLabels: Record<AnswerQualityMetric, string> = {
   relevance: "Answer addresses the requested entity and task.",
-  readability: "Answer is not fragment-like, and its length is within the v19 answer+sections contract.",
+  readability: "Answer is not fragment-like or duplicated, and fits its selected answer contract.",
   artifact_leaks: "Answer avoids backend, admin, provenance, and template wording.",
   intent_coverage: "Answer includes the action, dose, schedule, document list, or gap required by intent.",
   fail_closed: "Unsupported or weakly supported answers refuse specifically instead of guessing.",
@@ -145,38 +198,10 @@ function citesOrNamesExpectedDocument(testCase: AnswerQualityEvalCase, answer: R
   );
 }
 
-// Readability is scored as TWO independent checks that share one metric key, because
-// `AnswerQualityMetric` is a closed union consumed by `scripts/eval-answer-quality.ts` as a total
-// `Record<AnswerQualityMetric, number>` — a sixth key would break that aggregation (and the metric-key
-// pins in tests/rag-eval-cases.test.ts) without adding evaluative power. Each check therefore reports
-// its own reason so a failure names which contract it broke.
-//
-// Check 1 — FRAGMENTATION (unchanged): the regression this metric exists to catch. Answer text that
-// carries OCR/table run-together artefacts.
-//
-// Check 2 — LENGTH: a floor for empty/stub answers, and a ceiling derived from what prompt
-// `clinical-rag-answer-v19` can legitimately emit. Before packet S2 the ceiling was a flat 220 words
-// over `answerTextForQuality` (answer + every section heading and body). S2 (#2097, `dda4956ff`) moved
-// the answer field to 60–110 words and sections to three-to-six, so a correctly shaped v19 answer can
-// exceed 220 — at which point one conflated boolean could no longer separate "longer by design" from
-// "fragmented", the regression it is here for.
-//
-// Derivation of ANSWER_MAX_WORDS, from S2's own targets and the enforced response schema:
-//   answer field        110 words   `rag-answer-instructions.ts` upper target ("about 60-110 words")
-//   sections                6       `answerSections.maxItems` in `rag.ts` (= the prompt's "three to six")
-//   per section       648 chars     `heading` maxLength 48 + `body` maxLength 600, both in `rag.ts`
-//   chars per word          5       deliberately low, so the char->word conversion OVERSTATES the word
-//                                   ceiling; this bound must never fail a well-formed answer.
-//   => 110 + 6 * (648 / 5) = 110 + 777.6 -> 900 words (rounded up)
-//
-// This is a CONTRACT ceiling, not a style ceiling: conciseness is enforced by the prompt itself and
-// measured by `scoreAnswerTargeting`. Exceeding 900 words means the answer could not have come from a
-// schema-conformant generation — runaway duplication, or a deterministic composition path
-// (`rag-extractive-answer.ts`, `rag-comparison.ts`) that builds a RagAnswer in code without the JSON
-// schema. Both are real defects. Raising or lowering either bound is a gate-semantic change and needs
-// an `eval_config_version` bump in `scripts/fixtures/rag-adversarial-baseline.v1.json`.
+// Fragmentation and runaway duplication are independent from the selected legal
+// prose allocation. Character bounds avoid the false five-characters-per-word
+// assumption: a legal short-word answer must not fail a style-derived ceiling.
 const ANSWER_MIN_WORDS = 5;
-const ANSWER_MAX_WORDS = 900;
 
 export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answer: RagAnswer) {
   const text = answerTextForQuality(answer);
@@ -201,12 +226,21 @@ export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answ
       : answer.grounded && answer.citations.length >= testCase.minCitations && expectedClassOk
     : unsupported;
   const fragmentedText = fragmentPattern.test(text);
-  const lengthOk = wordCount >= ANSWER_MIN_WORDS && wordCount <= ANSWER_MAX_WORDS;
+  const limits =
+    answer.answerContractVersion === ragAdaptiveAnswerPromptVersion ? adaptiveAnswerLimits : legacyAnswerLimits;
+  const bounded = answerWithinLimits(answer, limits);
+  const sentences = text
+    .split(/[.!?]+/)
+    .map((sentence) => sentence.toLowerCase().replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  const duplicated = sentences.length > 8 && new Set(sentences).size < sentences.length / 2;
+  const lengthOk = wordCount >= ANSWER_MIN_WORDS && bounded && !duplicated;
   const readabilityOk = !fragmentedText && lengthOk;
   const readabilityReasons = [
     ...(fragmentedText ? ["fragmented"] : []),
     ...(wordCount < ANSWER_MIN_WORDS ? [`too short (${wordCount} words < ${ANSWER_MIN_WORDS})`] : []),
-    ...(wordCount > ANSWER_MAX_WORDS ? [`too long (${wordCount} words > ${ANSWER_MAX_WORDS})`] : []),
+    ...(!bounded ? ["too long for selected answer contract"] : []),
+    ...(duplicated ? ["runaway duplication"] : []),
   ];
   const artifactOk = !artifactPattern.test(text) && containsNone(text, testCase.mustNotContain);
   const intentOk = !sourceBackedReviewStub && containsAny(text, testCase.mustContainAny);
@@ -428,6 +462,12 @@ function expectedFilesForCapturedCase(row: CapturedEvalCaseRow, rating: "good" |
   return [];
 }
 
+/**
+ * Maps the separate administrator capture population. Feedback triage nominations
+ * are not captured cases: a human must first de-identify the reproduction and
+ * review its evidence/behaviour expectations through the existing capture path.
+ * Programme fixture promotion still requires a reviewed code change.
+ */
 export function mapCapturedEvalCase(row: CapturedEvalCaseRow): RagEvalCase {
   const rating = capturedCaseRating(row);
   const feedbackType = capturedFeedbackType(row);
@@ -803,7 +843,7 @@ type ProgrammeCaseDefinition = Pick<
   RagEvalCase,
   "id" | "question" | "category" | "supported" | "allowedRoutes" | "minCitations" | "latencyTargetMs"
 > &
-  Partial<Pick<RagEvalCase, "expectedQueryClass" | "acceptSourceOnly">>;
+  Partial<Pick<RagEvalCase, "expectedQueryClass" | "acceptSourceOnly" | "deliveryExpectation" | "deliveryVariants">>;
 
 const programmeCaseDefinitions: ProgrammeCaseDefinition[] = [
   {
@@ -826,6 +866,13 @@ const programmeCaseDefinitions: ProgrammeCaseDefinition[] = [
   },
   {
     id: "broad-multi-intent-partial",
+    deliveryExpectation: {
+      tags: ["adaptive_answer", "partial_coverage", "false_insufficiency"],
+      requiredConcepts: [["renal function"], ["six months"], ["lithium levels"], ["three months"]],
+      sectionRange: [0, 8],
+      exactGap: "risk: The active sources support only part of this question.",
+      forbiddenConcepts: ["vomiting", "tremor"],
+    },
     question: "Summarise management, monitoring, and risk actions, naming any subtopic the indexed guidance omits.",
     category: "complex",
     expectedQueryClass: "broad_summary",
@@ -866,6 +913,28 @@ const programmeCaseDefinitions: ProgrammeCaseDefinition[] = [
   },
   {
     id: "site-medication-direct",
+    deliveryVariants: {
+      "medication-differential-specifier": {
+        question: "What do the medication, differential and specifier records list?",
+        scope: "consumer_only",
+        supportingPassages: [
+          "The medication record lists lithium.",
+          "The differential record lists medication-induced symptoms.",
+          "The specifier record lists current episode severity.",
+        ],
+        expectation: {
+          tags: ["adaptive_answer", "false_insufficiency"],
+          requiredConcepts: [
+            ["medication record", "medication: lithium"],
+            ["differential record"],
+            ["medication-induced symptoms"],
+            ["specifier record"],
+            ["current episode severity"],
+          ],
+          sectionRange: [3, 3],
+        },
+      },
+    },
     question: "What does the current Clinical KB medication record state?",
     category: "routine",
     supported: true,
@@ -895,6 +964,18 @@ const programmeCaseDefinitions: ProgrammeCaseDefinition[] = [
   },
   {
     id: "site-product-primary",
+    deliveryVariants: {
+      "concise-catalogue": {
+        question: "Which lithium tool record is available?",
+        scope: "consumer_only",
+        supportingPassages: ["The lithium tool record is available in the tools catalogue."],
+        expectation: {
+          tags: ["adaptive_answer"],
+          requiredConcepts: [["lithium tool record"], ["tools catalogue"]],
+          sectionRange: [0, 1],
+        },
+      },
+    },
     question: "Which current Clinical KB catalogue item matches the requested product?",
     category: "routine",
     supported: true,
@@ -904,6 +985,20 @@ const programmeCaseDefinitions: ProgrammeCaseDefinition[] = [
   },
   {
     id: "site-changed-deleted-stale",
+    deliveryVariants: {
+      "supported-guideline-site-gap": {
+        question: "What monitoring does the uploaded guideline support, and which site tool record is current?",
+        scope: "consumer_only",
+        supportingPassages: ["Lithium monitoring includes renal function every six months."],
+        expectation: {
+          tags: ["adaptive_answer", "partial_coverage", "false_insufficiency"],
+          requiredConcepts: [["renal function"], ["six months"]],
+          sectionRange: [0, 1],
+          exactGap: "site content: The current site release does not contain the requested record.",
+          forbiddenConcepts: ["retired tool is current"],
+        },
+      },
+    },
     question: "What does the current release say about a site record that was changed or deleted?",
     category: "unsupported",
     supported: false,
@@ -997,6 +1092,11 @@ const programmeCaseDefinitions: ProgrammeCaseDefinition[] = [
   },
   {
     id: "narrow-fact-concise",
+    deliveryExpectation: {
+      tags: ["adaptive_answer"],
+      requiredConcepts: [["lithium levels"], ["three months"]],
+      sectionRange: [0, 1],
+    },
     question: "What single fact does the indexed local guideline state?",
     category: "routine",
     supported: true,
@@ -1006,6 +1106,24 @@ const programmeCaseDefinitions: ProgrammeCaseDefinition[] = [
   },
   {
     id: "broad-supported-sections",
+    deliveryExpectation: {
+      tags: ["adaptive_answer", "false_insufficiency"],
+      requiredConcepts: [
+        ["shared decision"],
+        ["treatment plan"],
+        ["current medicines"],
+        ["starting treatment"],
+        ["renal function"],
+        ["six months"],
+        ["lithium levels"],
+        ["three months"],
+        ["toxicity"],
+        ["vomiting"],
+        ["tremor"],
+        ["urgent"],
+      ],
+      sectionRange: [3, 8],
+    },
     question: "Provide the complete supported management, action, monitoring, and risk sections.",
     category: "complex",
     expectedQueryClass: "broad_summary",
@@ -1692,4 +1810,37 @@ export function selectRagEvalCases(args: { limit?: number; question?: string; po
   }
 
   return eligibleCases.slice(0, args.limit ?? eligibleCases.length);
+}
+
+/** Fault mechanisms only; clinical questions remain in the canonical registry above. */
+export const generationDegradationOfflineCases = [
+  { fault: "initial_timeout", expectedReason: "provider_initial_attempt_timeout", completedResponses: 0 },
+  { fault: "quality_retry_exhausted", expectedReason: "provider_quality_retry_exhausted", completedResponses: 1 },
+  { fault: "max_output_tokens", expectedReason: "provider_incomplete_max_output_tokens", completedResponses: 1 },
+  { fault: "parse_failure", expectedReason: "parse_failure_after_healthy_retrieval", completedResponses: 1 },
+  {
+    fault: "verification_collapse",
+    expectedReason: "verification_collapse_after_healthy_retrieval",
+    completedResponses: 1,
+  },
+] as const satisfies ReadonlyArray<{
+  fault: string;
+  expectedReason: import("@/lib/rag/rag-generation-degradation").RagGenerationDegradationReason;
+  completedResponses: number;
+}>;
+
+export function scoreGenerationDegradationObservation(
+  record: import("@/lib/rag/rag-generation-degradation").RagGenerationDegradationRecord | null | undefined,
+  expected: (typeof generationDegradationOfflineCases)[number],
+) {
+  return Boolean(
+    record &&
+    record.reason === expected.expectedReason &&
+    record.completedResponseCount === expected.completedResponses &&
+    record.attempts.every((a) => a.retrievalHealthy && a.coverage === "complete") &&
+    record.completedOutput.useful &&
+    record.completedOutput.invalidCitationCount === 0 &&
+    record.completedOutput.unverifiedNumericCount === 0 &&
+    record.totalAttemptLatencyMs <= record.routeBudgetMs,
+  );
 }

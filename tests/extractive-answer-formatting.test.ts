@@ -60,6 +60,51 @@ function figureChunk(overrides: Partial<SearchResult>): SearchResult {
 }
 
 describe("source-bound clozapine red-range extraction", () => {
+  it.each([
+    ["absent", "Withhold clozapine at this ANC threshold."],
+    [
+      "foreign medicine",
+      "An ANC below 1.0 x 10^9/L requires withholding lithium. Withhold clozapine at this ANC threshold.",
+    ],
+    [
+      "inapplicable population",
+      "In children, an ANC below 1.0 x 10^9/L requires withholding clozapine. Withhold clozapine at this ANC threshold.",
+    ],
+  ])("A2 E18 retains useful action without borrowing an %s threshold", (_label, content) => {
+    const evidence = figureChunk({
+      title: "Clozapine guideline",
+      file_name: "Clozapine.pdf",
+      section_heading: null,
+      content,
+    });
+    const result = extractiveAnswerFor("What ANC threshold requires withholding clozapine in adults?", [evidence]);
+    const visible = [result.answer, ...(result.answerSections ?? []).map((section) => section.body)].join(" ");
+    expect(visible).not.toMatch(/1\.0/);
+    expect(result.answer).toMatch(/withhold/i);
+    expect(result.citations.map((citation) => citation.chunk_id)).toContain(evidence.id);
+    expect(result.conflictsOrGaps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "gap", message: expect.stringMatching(/requested blood-count threshold/) }),
+      ]),
+    );
+  });
+  it("A2 E18 keeps a pure action answer without requiring a threshold figure", () => {
+    const result = extractiveAnswerFor("Should I withhold clozapine after a red ANC result?", [
+      figureChunk({
+        title: "Clozapine guideline",
+        file_name: "Clozapine.pdf",
+        section_heading: null,
+        content: "Withhold clozapine after a red ANC result.",
+      }),
+    ]);
+    expect(result.answer).toMatch(/withhold/i);
+    expect(result.grounded).toBe(true);
+    expect(result.conflictsOrGaps).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringMatching(/requested blood-count threshold/) }),
+      ]),
+    );
+  });
   const query = "What FBC threshold should withhold clozapine?";
   const redRangeSource = figureChunk({
     id: "nmhs-clozapine-red-range",

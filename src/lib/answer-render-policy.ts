@@ -1,16 +1,15 @@
 import { citationIdentity, documentCitationHref, formatCitationLabel } from "@/lib/citations";
 import { normalizeAccessibleTable } from "@/lib/accessible-table-normalization";
-import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
-import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import type {
-  BestSourceRecommendation,
-  Citation,
-  EvidenceRelevance,
-  QuoteCard,
-  RelatedDocument,
-  SourceStrength,
-  VisualEvidenceCard,
-} from "@/lib/types";
+  ClientBestSourceRecommendation,
+  ClientCitation,
+  ClientQuoteCard,
+  ClientRagAnswerPayload,
+  ClientSearchResult,
+  ClientRelatedDocument,
+} from "@/lib/answer-client-payload";
+import { normalizeSourceMetadata } from "@/lib/source-metadata";
+import type { EvidenceRelevance, SourceStrength, VisualEvidenceCard } from "@/lib/types";
 import { formatDisplayedVisualEvidenceForClipboard } from "@/lib/ward-output";
 
 export type AnswerRenderTrust = "unsupported" | "low" | "medium" | "high";
@@ -36,10 +35,10 @@ export type SourceLink = {
   label: string;
   sourceStrength: SourceStrength | "none";
   reason: string;
-  sourceMetadata?: Citation["source_metadata"] | null;
+  sourceMetadata?: ClientCitation["source_metadata"] | null;
   snippet?: string;
   score?: number;
-  provenance?: Citation["provenance"];
+  provenance?: ClientCitation["provenance"];
 };
 
 export type EvidenceRow = {
@@ -79,10 +78,10 @@ export type AnswerRenderModel = {
   primarySources: SourceLink[];
   reviewSources: ClientSearchResult[];
   evidenceRows: EvidenceRow[];
-  quoteCards: QuoteCard[];
+  quoteCards: ClientQuoteCard[];
   visualEvidence: VisualEvidenceCard[];
-  relatedDocuments: RelatedDocument[];
-  bestSource: BestSourceRecommendation | null;
+  relatedDocuments: ClientRelatedDocument[];
+  bestSource: ClientBestSourceRecommendation | null;
   warnings: string[];
   tables: CanonicalAnswerTableRecord[];
   copyText: string;
@@ -90,11 +89,11 @@ export type AnswerRenderModel = {
 };
 
 type SourceCandidate = {
-  citation: Citation;
+  citation: ClientCitation;
   reason: string;
   triggerField: string;
   href?: string;
-  sourceMetadata?: Citation["source_metadata"] | null;
+  sourceMetadata?: ClientCitation["source_metadata"] | null;
   snippet?: string;
   score?: number;
   sourceStrength?: SourceStrength | "none";
@@ -187,7 +186,7 @@ function sourceLinkFromCandidate(candidate: SourceCandidate): SourceLink {
   };
 }
 
-function candidateFromBestSource(source: BestSourceRecommendation, triggerField: string): SourceCandidate {
+function candidateFromBestSource(source: ClientBestSourceRecommendation, triggerField: string): SourceCandidate {
   return {
     citation: source,
     reason: "Pinned by backend as the best source.",
@@ -201,8 +200,8 @@ function candidateFromBestSource(source: BestSourceRecommendation, triggerField:
 
 function citationFromClientResult(
   source: ClientSearchResult,
-  provenance: NonNullable<Citation["provenance"]> = "retrieval_only",
-): Citation {
+  provenance: NonNullable<ClientCitation["provenance"]> = "retrieval_only",
+): ClientCitation {
   return {
     chunk_id: source.id,
     document_id: source.document_id,
@@ -228,7 +227,7 @@ function candidateFromSearchResult(source: ClientSearchResult, triggerField: str
   };
 }
 
-function candidateFromCitation(citation: Citation, triggerField: string): SourceCandidate {
+function candidateFromCitation(citation: ClientCitation, triggerField: string): SourceCandidate {
   const reason =
     citation.provenance === "review_only"
       ? "Added for source review; not accepted as claim support."
@@ -341,11 +340,11 @@ function hasDirectVisualNeed(answer: ClientRagAnswerPayload) {
   );
 }
 
-function dedupeQuotes(quotes: QuoteCard[], primarySources: SourceLink[], limit: number) {
+function dedupeQuotes(quotes: ClientQuoteCard[], primarySources: SourceLink[], limit: number) {
   if (limit <= 0) return [];
   const primaryIds = new Set(primarySources.map((source) => source.chunk_id));
   const seen = new Set<string>();
-  const output: QuoteCard[] = [];
+  const output: ClientQuoteCard[] = [];
   for (const quote of quotes) {
     const quoteText = quote.quote.replace(/\s+/g, " ").trim();
     if (!quoteText || /^(?:n\/a|none|null|not available)$/i.test(quoteText)) continue;
@@ -375,11 +374,11 @@ function dedupeVisualEvidence(evidence: VisualEvidenceCard[], primarySources: So
   return output;
 }
 
-function dedupeRelatedDocuments(documents: RelatedDocument[], primarySources: SourceLink[], limit: number) {
+function dedupeRelatedDocuments(documents: ClientRelatedDocument[], primarySources: SourceLink[], limit: number) {
   if (limit <= 0) return [];
   const primaryDocumentIds = new Set(primarySources.map((source) => source.document_id));
   const seen = new Set<string>();
-  const output: RelatedDocument[] = [];
+  const output: ClientRelatedDocument[] = [];
   for (const document of documents) {
     if (primaryDocumentIds.has(document.document_id)) continue;
     if (seen.has(document.document_id)) continue;
@@ -494,7 +493,7 @@ function buildCanonicalTables(visualEvidence: VisualEvidenceCard[]) {
 function buildEvidenceRows(
   answer: ClientRagAnswerPayload,
   primarySources: SourceLink[],
-  quoteCards: QuoteCard[],
+  quoteCards: ClientQuoteCard[],
   visualEvidence: VisualEvidenceCard[],
   limit: number,
 ) {

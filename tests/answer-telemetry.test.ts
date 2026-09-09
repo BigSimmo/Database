@@ -72,6 +72,31 @@ function answer(overrides: Partial<AnswerTelemetrySource> = {}): AnswerTelemetry
 type AnswerMetadata = { answer: Record<string, unknown> & { tokens: Record<string, number | null> } };
 
 describe("buildAnswerLogRow (per-answer observability)", () => {
+  it("P08C projects reconstructed diagnostics through one content-free allowlist", () => {
+    const diagnostic = {
+      required_part_count: 2,
+      represented_part_count: 1,
+      australian_candidate_count: 3,
+      selected_site_domains: ["medications", "PRIVATE_CONTEXT_CANARY"],
+      private_context: "PRIVATE_CONTEXT_CANARY",
+      reviewed_input_state: "not_assessed",
+    };
+    const row = buildAnswerLogRow({
+      query: 'Follow-up to "PRIVATE_CONTEXT_CANARY": what about this?',
+      interactionId: INTERACTION_ID,
+      answer: answer({ ragDiagnostics: diagnostic as never }),
+    });
+    const emitted = (row.metadata as unknown as { answer: { rag_diagnostics: Record<string, unknown> } }).answer
+      .rag_diagnostics;
+    expect(emitted).toMatchObject({
+      required_part_count: 2,
+      represented_part_count: 1,
+      required_part_loss_count: 1,
+      australian_candidate_count: 3,
+      reviewed_input_state: "not_assessed",
+    });
+    expect(JSON.stringify(row)).not.toContain("PRIVATE_CONTEXT_CANARY");
+  });
   it("persists route, model, and token usage in metadata.answer", () => {
     const row = buildAnswerLogRow({
       query: "max clozapine dose?",

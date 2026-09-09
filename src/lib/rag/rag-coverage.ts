@@ -1,13 +1,15 @@
+import { sanitizeRagEvalDiagnostics } from "@/lib/rag/rag-eval-diagnostics";
 import { evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
 import type { RagCandidateMatchCounts } from "@/lib/rag/rag-contracts";
 import { classifyRagQuery, medicationDoseEvidenceQueryIntent } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
+import { coverageQueryForSubquestion } from "@/lib/rag/rag-query-plan";
 import {
   compareAustralianSourcesWithinRelevanceBand,
   selectAustralianClinicalContext,
 } from "@/lib/australian-source-priority";
 import { evidenceFamilyKeys, siteContentClaimPolicy } from "@/lib/site-content/site-content-registry";
-import { classifyRagFallbackReason } from "@/lib/rag/rag-fallback-reason";
+import { classifyRagFallbackReason, isStrongerGovernanceFallbackReasonCode } from "@/lib/rag/rag-fallback-reason";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { normalizeClinicalSourceMetadata } from "@/lib/source-metadata";
 import {
@@ -153,7 +155,12 @@ export function evidenceFamilyIdsForResult(result: SearchResult) {
 
 function productIntent(plan: RagQueryPlan, question: string, result: SearchResult) {
   if (result.corpus_scope !== "clinical_kb_site" || !result.site_content_domain) return false;
-  if (plan.targetSiteDomains.length > 0 && !plan.targetSiteDomains.includes(result.site_content_domain)) return false;
+  if (
+    plan.siteDomainDecision === "explicit" &&
+    plan.targetSiteDomains.length > 0 &&
+    !plan.targetSiteDomains.includes(result.site_content_domain)
+  )
+    return false;
   const queryClass = classifyRagQuery(question).queryClass;
   const doseIntent = medicationDoseEvidenceQueryIntent(question);
   const explicitProductTarget =
@@ -449,22 +456,29 @@ export function selectConflictAwareCoverageEvidence(
 export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput): CoverageEvidenceSelection[] {
   const indexed = input.candidates.map((result, inputIndex) => ({ result, inputIndex }));
   return input.plan.subquestions.map((subquestion) => {
-    const claimRole = claimRoleForSubquestion(input, subquestion);
+    const relevanceQuery = coverageQueryForSubquestion(input.plan, subquestion);
+    const claimRole =
+      input.claimRole ??
+      (relevanceQuery !== subquestion.question &&
+      subquestion.requestedFacets?.length === 1 &&
+      subquestion.requestedFacets[0] === "service_workflow"
+        ? "service_workflow"
+        : claimRoleForSubquestion(input, { ...subquestion, question: relevanceQuery }));
     let roleMismatch = false;
     const eligible = indexed.flatMap((candidate) => {
       const decision = eligibilityForCandidate({
         input,
-        question: subquestion.question,
+        question: relevanceQuery,
         claimRole,
         result: candidate.result,
       });
       roleMismatch ||= decision.roleMismatch;
-      return decision.eligible ? [annotateSubquestionRelevance(subquestion.question, candidate)] : [];
+      return decision.eligible ? [annotateSubquestionRelevance(relevanceQuery, candidate)] : [];
     });
     const relevant = eligible.filter(({ result }) => relevanceRank(result) < 2);
     const { ordered, conflicts, sourcePolicyReview } = orderedByPolicy({
       input,
-      question: subquestion.question,
+      question: relevanceQuery,
       candidates: relevant,
       claimRole,
     });
@@ -472,7 +486,7 @@ export function mergeEvidenceByCoverageAndSourceRole(input: CoverageMergeInput):
     const eligibleProductRecordIds = new Set(
       collapsed.orderedEvidence.flatMap((result) => {
         const metadata = normalizeClinicalSourceMetadata(result.source_metadata);
-        return productIntent(input.plan, subquestion.question, result) && metadata.source_kind === "registry_record"
+        return productIntent(input.plan, relevanceQuery, result) && metadata.source_kind === "registry_record"
           ? [result.id]
           : [];
       }),
@@ -565,8 +579,31 @@ export function reconcileAnswerSourcePolicyConflicts(
   selections: readonly CoverageEvidenceSelection[],
   coveragePlan: AnswerCoveragePlan | null,
 ) {
-  if (!answer.fallbackReasonCode && coveragePlan?.insufficiencyReason) {
-    answer.fallbackReasonCode = classifyRagFallbackReason({ insufficiencyReason: coveragePlan.insufficiencyReason });
+  if (coveragePlan?.insufficiencyReason) {
+    const coverageCode = classifyRagFallbackReason({ insufficiencyReason: coveragePlan.insufficiencyReason });
+    if (
+      !answer.fallbackReasonCode ||
+      (isStrongerGovernanceFallbackReasonCode(coverageCode) &&
+        !isStrongerGovernanceFallbackReasonCode(answer.fallbackReasonCode))
+    ) {
+      answer.fallbackReasonCode = coverageCode;
+    }
+  }
+  if (coveragePlan) {
+    const required = coveragePlan.subquestions.filter((part) => part.required);
+    const represented = required.filter((part) =>
+      coveragePlan.coverage.some(
+        (entry) => entry.subquestionId === part.id && entry.status !== "absent" && entry.chunkIds.length > 0,
+      ),
+    );
+    const counts = { direct: 0, partial: 0, conflicting: 0, absent: 0 };
+    for (const entry of coveragePlan.coverage) counts[entry.status] += 1;
+    answer.ragDiagnostics = sanitizeRagEvalDiagnostics({
+      ...answer.ragDiagnostics,
+      required_part_count: required.length,
+      represented_part_count: represented.length,
+      coverage_counts: counts,
+    });
   }
   const candidateConflicts = selections.flatMap((selection) => selection.conflicts);
   const nonPolicyFlags = (answer.conflictsOrGaps ?? []).filter(
@@ -848,6 +885,37 @@ export function evaluateAnswerCoverage(input: EvaluateAnswerCoverageInput): Answ
   );
   for (const item of coverage) {
     if (item.chunkIds.some((id) => conflictChunkIds.has(id))) item.status = "conflicting";
+  }
+
+  // A compound primary answer can compose independent, role-checked facets.
+  // This is coverage of the request, never authority for one row to answer every facet.
+  const primary = input.plan.subquestions.find((part) => part.question === input.plan.originalQuery && part.required);
+  const primaryCoverage = coverage.find((entry) => entry.subquestionId === primary?.id);
+  if (primary?.requestedFacets?.length && primary.requestedFacets.length > 1 && primaryCoverage && !conflicts.length) {
+    const independent = input.plan.subquestions.filter(
+      (part) =>
+        part.required && part.id !== primary.id && coverageQueryForSubquestion(input.plan, part) !== part.question,
+    );
+    const coveredFacets = new Set(independent.flatMap((part) => part.requestedFacets ?? []));
+    const completePartition =
+      coveredFacets.size === primary.requestedFacets.length &&
+      primary.requestedFacets.every((facet) => coveredFacets.has(facet)) &&
+      independent.every((part) =>
+        coverage.some(
+          (entry) =>
+            entry.subquestionId === part.id &&
+            entry.status === "direct" &&
+            entry.chunkIds.length > 0 &&
+            !entry.reasonCodes.includes("source_policy_not_evaluated"),
+        ),
+      );
+    if (completePartition) {
+      primaryCoverage.status = "direct";
+      primaryCoverage.chunkIds = [
+        ...new Set(independent.flatMap((part) => coverage.find((entry) => entry.subquestionId === part.id)!.chunkIds)),
+      ];
+      primaryCoverage.reasonCodes = ["composed_from_direct_facet_coverage"];
+    }
   }
 
   const requiredIds = new Set(input.plan.subquestions.filter((item) => item.required).map((item) => item.id));

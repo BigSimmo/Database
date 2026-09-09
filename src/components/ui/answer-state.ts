@@ -30,7 +30,7 @@ export type AnswerStateSource = {
   document_id?: string | null;
   title?: string | null;
   page_number?: number | null;
-  source_metadata?: Pick<ClinicalSourceMetadata, "document_status" | "review_date"> | null;
+  source_metadata?: Partial<Pick<ClinicalSourceMetadata, "document_status" | "review_date">> | null;
 };
 
 /**
@@ -56,6 +56,7 @@ export type AnswerStateInput = {
   /** Claim-level supporting chunk ids — same filter as citations when present. */
   supportingChunkIds?: readonly string[] | null;
   answerQualityTier?: "model_synthesis" | "source_only" | "cached" | null;
+  routingMode?: "strong" | "fast" | "extractive" | "unsupported" | null;
   fallbackReasonCode?: RagFallbackReasonCode | null;
   fallbackReason?: string | null;
   routingReason?: string | null;
@@ -113,6 +114,12 @@ export function answerUsesDegradedMode(input: AnswerStateInput): boolean {
   return (
     input.answerQualityTier === "source_only" || input.degradedMode?.active === true || input.fallbackReasonCode != null
   );
+}
+
+/** Provenance is explicit; degradation alone does not prove that no model wrote the prose. */
+export function answerUsesSourceOnlyProvenance(input: AnswerStateInput): boolean {
+  if (input.answerQualityTier === "model_synthesis") return false;
+  return input.answerQualityTier === "source_only" || input.routingMode === "extractive";
 }
 
 const recordStateDefect = createBoundedDiagnosticRecorder({
@@ -267,7 +274,7 @@ export function answerStateFromRetrieval(input: AnswerStateInput): AnswerState {
   const ungroundedReason = ungroundedReasonFrom(input);
   if (ungroundedReason) return { kind: "ungrounded", reason: ungroundedReason, sourceCount };
 
-  if (answerUsesDegradedMode(input)) {
+  if (answerUsesSourceOnlyProvenance(input)) {
     const generationFailed = input.fallbackReasonCode
       ? generationUnavailableCodes.has(input.fallbackReasonCode)
       : generationFallbackMarker.test(`${input.fallbackReason ?? ""} ${input.routingReason ?? ""}`);

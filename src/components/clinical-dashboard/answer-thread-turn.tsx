@@ -9,11 +9,16 @@ import {
   NaturalLanguageAnswer,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
-import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
 import { answerSurface, cn, textMuted } from "@/components/ui-primitives";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
-import { answerUsesDegradedMode } from "@/components/ui/answer-state";
+import { AnswerInlineSections } from "@/components/clinical-dashboard/answer-inline-sections";
+import {
+  answerUsesAdaptiveMainSurface,
+  projectAnswerForMainSurface,
+} from "@/components/clinical-dashboard/answer-section-projector";
+import { answerUsesDegradedMode, answerUsesSourceOnlyProvenance } from "@/components/ui/answer-state";
 import type { AnswerPayload } from "@/components/clinical-dashboard/search-utils";
+import { demoAnswerDisclosure } from "@/lib/answer-client-payload";
 import type { ClientSearchResult } from "@/lib/answer-client-payload";
 
 /**
@@ -23,6 +28,7 @@ import type { ClientSearchResult } from "@/lib/answer-client-payload";
 export type AnswerTurn = {
   id: string;
   query: string;
+  resolvedQuery?: string;
   answer: AnswerPayload;
   sources: ClientSearchResult[];
 };
@@ -56,20 +62,33 @@ export function PriorAnswerTurnSurface({
     [turn.answer, turn.sources],
   );
   const turnPreformatted = isPreformattedGroundedAnswer(turn.answer);
-  const safeText = useMemo(
-    () => sanitizeAnswerDisplayText(turn.answer.answer, { preformatted: turnPreformatted }),
-    [turn.answer.answer, turnPreformatted],
+  const projectedAnswer = useMemo(
+    () =>
+      projectAnswerForMainSurface({
+        answer: turn.answer,
+        sources: turn.answer.sources.length > 0 ? turn.answer.sources : turn.sources,
+        preformatted: turnPreformatted,
+      }),
+    [turn.answer, turn.sources, turnPreformatted],
   );
-  const sourceCount =
+  const renderAdaptiveAnswer = answerUsesAdaptiveMainSurface(turn.answer);
+  const legacySourceCount =
     renderModel.primarySources.length ||
     turn.sources.length ||
     turn.answer.sources?.length ||
     turn.answer.citations.length;
-  const previewText = safeText || turn.answer.answer;
+  const leadSourceLinks = renderAdaptiveAnswer ? [] : renderModel.primarySources;
+  const leadBestSource = renderAdaptiveAnswer ? null : renderModel.bestSource;
+  const leadSourceCount = renderAdaptiveAnswer ? projectedAnswer.leadCitationSources.length : legacySourceCount;
+  const previewText = projectedAnswer.leadText || turn.answer.answer;
   const degradedAnswer = answerUsesDegradedMode({
     answerQualityTier: turn.answer.answerQualityTier,
     fallbackReasonCode: turn.answer.fallbackReasonCode,
     degradedMode: turn.answer.degradedMode,
+  });
+  const sourceOnlyAnswer = answerUsesSourceOnlyProvenance({
+    answerQualityTier: turn.answer.answerQualityTier,
+    routingMode: turn.answer.routingMode,
   });
   const needsSourceReview =
     degradedAnswer ||
@@ -89,6 +108,11 @@ export function PriorAnswerTurnSurface({
     >
       <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
         <UserQuestionBubble query={turn.query} />
+        {turn.answer.demoMode === true || turn.answer.fallbackMode === "non_production_demo" ? (
+          <p role="note" className="text-sm text-[color:var(--warning)]">
+            {demoAnswerDisclosure}
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={onToggleCollapsed}
@@ -103,14 +127,14 @@ export function PriorAnswerTurnSurface({
         ) : (
           <>
             <NaturalLanguageAnswer
-              text={turn.answer.answer}
+              text={projectedAnswer.leadText}
               query={turn.query}
               preformatted={turnPreformatted}
-              sourceCount={sourceCount}
-              sourceOnly={degradedAnswer}
-              bestSource={renderModel.bestSource}
-              sources={renderModel.reviewSources}
-              sourceLinks={renderModel.primarySources}
+              sourceCount={leadSourceCount}
+              sourceOnly={sourceOnlyAnswer}
+              bestSource={leadBestSource}
+              sources={projectedAnswer.leadCitationSources}
+              sourceLinks={leadSourceLinks}
               copied={copied}
               onCopy={() =>
                 onCopy(
@@ -123,6 +147,7 @@ export function PriorAnswerTurnSurface({
                 )
               }
             />
+            {renderAdaptiveAnswer ? <AnswerInlineSections sections={projectedAnswer.sections} /> : null}
             {needsSourceReview ? (
               <div
                 role="note"

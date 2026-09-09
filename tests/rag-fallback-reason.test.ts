@@ -5,12 +5,76 @@ import {
   isRagFallbackReasonCode,
   publicFallbackReason,
 } from "@/lib/rag/rag-fallback-reason";
+import { finalizeRagAnswerQuality } from "@/lib/rag/rag-extractive-answer";
+import type { RagAnswer, RagFallbackReasonCode, SearchResult } from "@/lib/types";
 
 describe("sanitized RAG fallback reasons", () => {
   it("accepts only canonical non-null runtime codes", () => {
     expect(isRagFallbackReasonCode("provider_timeout")).toBe(true);
     expect(isRagFallbackReasonCode(null)).toBe(false);
     expect(isRagFallbackReasonCode("provider_future_mode")).toBe(false);
+  });
+
+  it.each(["provider_timeout", "provider_quota", "provider_failure"] as const)(
+    "preserves the typed %s code through extractive recovery labelling",
+    (fallbackReasonCode) => {
+      const source: SearchResult = {
+        id: "chunk-1",
+        document_id: "doc-1",
+        title: "Clinical monitoring guideline",
+        file_name: "monitoring.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        section_heading: "Monitoring",
+        content: "Monitor renal function every three months.",
+        image_ids: [],
+        images: [],
+        similarity: 0.95,
+      };
+      const answer: RagAnswer = {
+        answer: "Monitor renal function every three months.",
+        grounded: true,
+        confidence: "high",
+        citations: [
+          {
+            chunk_id: source.id,
+            document_id: source.document_id,
+            title: source.title,
+            file_name: source.file_name,
+            page_number: source.page_number,
+            chunk_index: source.chunk_index,
+          },
+        ],
+        sources: [source],
+        routingMode: "extractive",
+        routingReason: `generation_fallback:${fallbackReasonCode}; source_backed_extractive_fallback`,
+        fallbackReasonCode,
+        answerQualityTier: "source_only",
+        preformatted: true,
+      };
+
+      expect(
+        finalizeRagAnswerQuality(answer, "What renal monitoring is required?", "document_lookup", [source]),
+      ).toHaveProperty("fallbackReasonCode", fallbackReasonCode);
+    },
+  );
+
+  it("lets a shared stronger governance code supersede a typed provider recovery code", () => {
+    const answer = {
+      answer: "The source set cannot safely support this claim.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+      routingMode: "unsupported",
+      routingReason: "generation_fallback:provider_timeout; post_generation_claim_quality_gate",
+      fallbackReasonCode: "provider_timeout",
+      answerQualityTier: "source_only",
+      preformatted: true,
+    } satisfies RagAnswer;
+
+    const result = finalizeRagAnswerQuality(answer, "What monitoring is required?", "document_lookup");
+    expect(result.fallbackReasonCode satisfies RagFallbackReasonCode | null | undefined).toBe("citation_or_claim_gate");
   });
 
   it("maps provider failures to stable public codes without internals", () => {
@@ -79,6 +143,7 @@ describe("sanitized RAG fallback reasons", () => {
       [{ routingReason: "generation_fallback:provider_generation_failed" }, "provider_failure"],
       [{ routingReason: "limited_retrieval; vector_fallback" }, "retrieval_degraded"],
       [{ routingReason: "retrieval_miss; no_candidates" }, "no_candidates"],
+      [{ routingReason: "no_retrieved_sources" }, "no_candidates"],
       [{ routingReason: "confidence_gate_blocked; low_signal" }, "low_signal"],
       [{ routingReason: "source_only_offline_mode; comparison_evidence_gap" }, "coverage_gap"],
       [

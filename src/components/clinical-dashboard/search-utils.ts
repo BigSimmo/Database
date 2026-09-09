@@ -3,8 +3,7 @@ import {
   type AnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
 import { isAnswerStreamEventName, type VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
-import type { ClientDegradedMode, ClientRagAnswerPayload } from "@/lib/answer-client-payload";
-import { isRagFallbackReasonCode } from "@/lib/rag/rag-fallback-reason";
+import { projectClientAnswerPayload, type ClientRagAnswerPayload } from "@/lib/answer-client-payload";
 import type { RagAnswer } from "@/lib/types";
 
 export { keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
@@ -24,29 +23,25 @@ export function evidencePreviewReconcilesWithFinal(preview: VerifiedEvidencePrev
   );
 }
 
-const answerConfidenceValues = new Set<AnswerPayload["confidence"]>(["high", "medium", "low", "unsupported"]);
-
-function isClientDegradedMode(value: unknown): value is ClientDegradedMode {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const candidate = value as Record<string, unknown>;
-  return typeof candidate.active === "boolean" && (candidate.reason == null || typeof candidate.reason === "string");
+function projectAnswerPayload(value: unknown): AnswerPayload | null {
+  const projected = projectClientAnswerPayload(value, true);
+  if (!projected || !value || typeof value !== "object" || Array.isArray(value)) return null;
+  const extensions = value as Record<string, unknown>;
+  if (extensions.interactionId !== undefined && typeof extensions.interactionId !== "string") return null;
+  if (extensions.feedbackToken !== undefined && typeof extensions.feedbackToken !== "string") return null;
+  if (extensions.demoMode !== undefined && typeof extensions.demoMode !== "boolean") return null;
+  if (extensions.fallbackMode !== undefined && extensions.fallbackMode !== "non_production_demo") return null;
+  return {
+    ...projected,
+    ...(typeof extensions.interactionId === "string" ? { interactionId: extensions.interactionId } : {}),
+    ...(typeof extensions.feedbackToken === "string" ? { feedbackToken: extensions.feedbackToken } : {}),
+    ...(typeof extensions.demoMode === "boolean" ? { demoMode: extensions.demoMode } : {}),
+    ...(extensions.fallbackMode === "non_production_demo" ? { fallbackMode: extensions.fallbackMode } : {}),
+  };
 }
 
 export function isAnswerPayload(value: unknown): value is AnswerPayload {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const payload = value as Record<string, unknown>;
-  return (
-    typeof payload.answer === "string" &&
-    typeof payload.grounded === "boolean" &&
-    answerConfidenceValues.has(payload.confidence as AnswerPayload["confidence"]) &&
-    Array.isArray(payload.citations) &&
-    Array.isArray(payload.sources) &&
-    (payload.fallbackReasonCode == null || isRagFallbackReasonCode(payload.fallbackReasonCode)) &&
-    (payload.retrievalGateBlocked === undefined || typeof payload.retrievalGateBlocked === "boolean") &&
-    (payload.authorityTrustCapRequired === undefined || typeof payload.authorityTrustCapRequired === "boolean") &&
-    (payload.degradedMode === undefined || isClientDegradedMode(payload.degradedMode)) &&
-    (payload.demoMode === undefined || typeof payload.demoMode === "boolean")
-  );
+  return projectAnswerPayload(value) !== null;
 }
 
 export type SearchError = Error & {
@@ -170,7 +165,8 @@ export async function readAnswerStream(
       );
     }
     if (event === "final") {
-      if (!isAnswerPayload(data)) {
+      const finalPayload = projectAnswerPayload(data);
+      if (!finalPayload) {
         pendingCompletion = null;
         clearEvidencePreview();
         throw makeSearchError("Answer stream returned an invalid final payload.", 502, true);
@@ -179,14 +175,14 @@ export async function readAnswerStream(
         // The final payload is authoritative in both outcomes. Reconciliation is
         // deliberately evaluated before the preview is discarded so client tests
         // guard the byte-identical subset contract without ever withholding final.
-        evidencePreviewReconcilesWithFinal(evidencePreview, data);
+        evidencePreviewReconcilesWithFinal(evidencePreview, finalPayload);
       }
       clearEvidencePreview();
       if (pendingCompletion) {
         onProgress(pendingCompletion);
         pendingCompletion = null;
       }
-      return data;
+      return finalPayload;
     }
 
     return null;

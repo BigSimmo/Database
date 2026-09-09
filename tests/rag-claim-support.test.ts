@@ -66,6 +66,342 @@ function answer(text: string, sources: SearchResult[], citations = sources.map((
 }
 
 describe("deterministic claim support", () => {
+  describe("A2 R4 preservation boundaries", () => {
+    it.each([
+      ["INR 2.0", "The INR is 2.0.", true],
+      ["The INR is 2.0.", "INR 2.0", true],
+      ["INR 2.0", "An INR is 2.0.", true],
+      ["INR 2.0", "A pH is 2.0.", false],
+      ["pH 2.0", "A pH is 2.0.", true],
+      ["INR 2.0", "The INR is not 2.0.", false],
+      ["INR not 2.0", "The INR is not 2.0.", true],
+      ["INR not 2.0", "The INR is 2.0.", false],
+      ["INR 2.0", "The INR may be 2.0.", false],
+      ["INR may be 2.0", "The INR may be 2.0.", true],
+      ["INR 2.0", "The INR is only 2.0.", false],
+      ["INR 2.0", "The INR 2.0 is not the result.", false],
+      ["INR 2.0", "Only the INR is 2.0.", false],
+    ] as const)("normalizes only harmless leading articles: %s / %s", (claim, passage, supported) => {
+      expect(sourceDirectlySupportsAnswerText(claim, source("short-article", passage))).toBe(supported);
+    });
+
+    it.each(["title", "section_heading"] as const)("does not borrow an article fact from %s", (field) => {
+      const cited = source("article-metadata", "The pH is 2.0.", { [field]: "The INR is 2.0." });
+      expect(sourceDirectlySupportsAnswerText("INR 2.0", cited)).toBe(false);
+    });
+
+    it.each(
+      ["if", "unless", "when"].flatMap((condition) =>
+        [false, true].flatMap((supported) => [false, true].map((reverse) => ({ condition, supported, reverse }))),
+      ),
+    )(
+      "retains monitoring beside an independent $condition instruction, supported=$supported reverse=$reverse",
+      ({ condition, supported, reverse }) => {
+        const monitoring = "Monitor clozapine with regular blood counts";
+        const instruction = `${condition} fever occurs, stop Drug B`;
+        const candidate = `${(reverse ? [instruction, monitoring] : [monitoring, instruction]).join("; ")}.`;
+        const cited = source("independent-condition", `${monitoring}.${supported ? ` ${instruction}.` : ""}`);
+        const result = assessAndEnforceClaimSupport(answer(candidate, [cited]));
+        expect(result.grounded).toBe(true);
+        expect(result.answer).toContain(monitoring);
+        expect(result.answer.includes(instruction)).toBe(supported);
+        expect(result.citations.map((item) => item.chunk_id)).toEqual([cited.id]);
+        expect(result.supportedClaims?.every((claim) => claim.supportStatus === "direct")).toBe(true);
+        if (supported) expect(result.answer).toBe(candidate);
+        else {
+          expect(result.answer.replace(/\.$/, "")).toBe(monitoring);
+          expect(result.routingReason).toContain("claim_support_unsupported_claims_withheld");
+          expect(result.conflictsOrGaps).toContainEqual({
+            type: "gap",
+            message: "Answer claims were withheld because their cited evidence did not directly support them.",
+          });
+        }
+      },
+    );
+
+    it.each([
+      "if Drug B is stopped",
+      "unless Drug B is stopped",
+      "when Drug B is stopped",
+      "if Drug B is stopped, escalate urgently",
+      "if fever occurs, stop clozapine",
+    ])("keeps a dependent or same-subject safety continuation atomic: %s", (continuation) => {
+      const ordinary = "The clinic offers appointments.";
+      const monitoring = "Monitor clozapine with regular blood counts";
+      const cited = source("dependent-condition", `${ordinary} ${monitoring}.`);
+      const result = assessAndEnforceClaimSupport(answer(`${ordinary}\n${monitoring}; ${continuation}.`, [cited]));
+      expect(result.grounded).toBe(true);
+      expect(result.answer).toBe(ordinary);
+      expect(result.conflictsOrGaps?.some((gap) => gap.type === "gap")).toBe(true);
+    });
+  });
+  describe("A2 R3 clause boundaries", () => {
+    it.each([
+      ["INR 2.0", "INR is 2.0", true],
+      ["INR 2.0", "INR is not 2.0", false],
+      ["INR 2.0", "Not INR 2.0", false],
+      ["INR 2.0", "INR 2.0 is not the result", false],
+      ["INR not 2.0", "INR is not 2.0", true],
+      ["INR not 2.0", "INR is 2.0", false],
+      ["Not INR 2.0", "Not INR 2.0", true],
+      ["INR 2.0", "INR may be 2.0", false],
+      ["INR may be 2.0", "INR may be 2.0", true],
+    ] as const)("binds short fact polarity: %s / %s", (claim, passage, supported) => {
+      expect(sourceDirectlySupportsAnswerText(claim, source("short-polarity", passage))).toBe(supported);
+    });
+    it.each([
+      ["title", false],
+      ["section_heading", false],
+      ["title", true],
+      ["section_heading", true],
+    ] as const)("binds short fact to passage with %s metadata, actual passage=%s", (field, supported) => {
+      const evidence = source("short-metadata", supported ? "INR is 2.0" : "pH 2.0", { [field]: "INR 2.0" });
+      expect(sourceDirectlySupportsAnswerText("INR 2.0", evidence)).toBe(supported);
+    });
+    it.each(
+      ["only if", "if", "unless", "when"].flatMap((condition) =>
+        [false, true].map((supported) => ({ condition, supported })),
+      ),
+    )("keeps $condition dependent on the instruction, supported=$supported", ({ condition, supported }) => {
+      const ordinary = "The clinic offers appointments.";
+      const claim = `Stop Drug A; ${condition} fever occurs.`;
+      const evidence = source(
+        "conditional",
+        `${ordinary} ${supported ? claim : "Stop Drug A when myocarditis develops."}`,
+      );
+      const result = assessAndEnforceClaimSupport(answer(`${ordinary}\n${claim}`, [evidence]));
+      expect(result.grounded).toBe(true);
+      expect(result.answer).toContain(ordinary);
+      expect(result.answer.includes("Stop Drug A")).toBe(supported);
+      expect(result.answer.includes(`${condition} fever occurs`)).toBe(supported);
+    });
+  });
+  describe("A2 R2 review regressions", () => {
+    it.each(["lead", "section"].flatMap((scope) => [true, false].map((supported) => ({ scope, supported }))))(
+      "preserves short numeric labels in $scope supported=$supported",
+      ({ scope, supported }) => {
+        const ordinary = "The clinic offers appointments.";
+        const primary = source("short-value", `${ordinary} ${supported ? "INR" : "pH"} 2.0`);
+        const other = source("uncited-inr", "INR 2.0");
+        const input = answer(
+          scope === "lead" ? `${ordinary}\nINR 2.0` : ordinary,
+          [primary, other],
+          [citation(primary)],
+        );
+        if (scope === "section")
+          input.answerSections = [{ heading: "Result", body: "INR 2.0", citation_chunk_ids: [primary.id] }];
+        expect(assessClaimSupport(input).claims.find((claim) => claim.text === "INR 2.0")).toMatchObject({
+          supportStatus: supported ? "direct" : "unsupported",
+          supportingChunkIds: supported ? [primary.id] : [],
+        });
+        const result = assessAndEnforceClaimSupport(input);
+        expect(result.grounded).toBe(true);
+        expect(result.answer).toContain(ordinary);
+        expect(
+          [result.answer, ...(result.answerSections ?? []).map((section) => section.body)]
+            .join(" ")
+            .includes("INR 2.0"),
+        ).toBe(supported);
+      },
+    );
+    it("does not let a title bind another labelled numeric result", () => {
+      expect(
+        sourceDirectlySupportsAnswerText("INR 2.0", source("labelled", "INR 1.0; pH 2.0", { title: "INR guide" })),
+      ).toBe(false);
+    });
+    it.each([
+      "Monitor clozapine with regular blood counts; the clinic opens on Tuesdays.",
+      "The clinic opens on Tuesdays; monitor clozapine with regular blood counts.",
+    ])("retains the independent supported semicolon clause in %s", (claim) => {
+      const result = assessAndEnforceClaimSupport(
+        answer(claim, [source("independent-monitor", "Monitor clozapine with regular blood counts.")]),
+      );
+      expect(result.grounded).toBe(true);
+      expect(result.answer).toMatch(/monitor clozapine with regular blood counts/i);
+      expect(result.answer).not.toMatch(/Tuesday|clinic/i);
+      expect(result.conflictsOrGaps?.some((gap) => gap.type === "gap")).toBe(true);
+    });
+  });
+
+  describe("A2 R1 review regressions", () => {
+    it.each(
+      [24, 25].flatMap((position) =>
+        ["lead", "section"].flatMap((scope) => [true, false].map((supported) => ({ position, scope, supported }))),
+      ),
+    )("assesses short directive $position in $scope supported=$supported", ({ position, scope, supported }) => {
+      const ordinary = "The clinic offers appointments.";
+      const primary = source("short-primary", `${ordinary} ${supported ? "No CPR." : ""}`);
+      const uncited = source("short-other", "No CPR.");
+      const prose = [...Array.from({ length: position - 1 }, () => ordinary), "No CPR."].join("\n");
+      const input = answer(scope === "lead" ? prose : ordinary, [primary, uncited], [citation(primary)]);
+      if (scope === "section")
+        input.answerSections = [{ heading: "Directive", body: prose, citation_chunk_ids: [primary.id] }];
+      const assessed = assessClaimSupport(input);
+      expect(assessed.claims.find((claim) => claim.text === "No CPR.")).toMatchObject({
+        supportStatus: supported ? "direct" : "unsupported",
+        supportingChunkIds: supported ? [primary.id] : [],
+      });
+      const result = assessAndEnforceClaimSupport(input);
+      const displayed = [result.answer, ...(result.answerSections ?? []).map((section) => section.body)].join("\n");
+      expect(result.grounded).toBe(true);
+      expect(displayed).toContain(ordinary);
+      expect(displayed.includes("No CPR.")).toBe(supported);
+    });
+
+    it.each([
+      [
+        "Sleep loss causes fatigue and stress causes anxiety.",
+        "Sleep loss causes fatigue and stress causes anxiety.",
+        true,
+      ],
+      [
+        "Sleep loss causes fatigue and stress causes anxiety.",
+        "Sleep loss causes anxiety and stress causes fatigue.",
+        false,
+      ],
+      [
+        "Sleep loss causes anxiety and stress causes fatigue.",
+        "Sleep loss causes anxiety and stress causes fatigue.",
+        true,
+      ],
+      [
+        "Sleep loss causes anxiety and stress causes fatigue.",
+        "Sleep loss causes fatigue and stress causes anxiety.",
+        false,
+      ],
+    ] as const)("binds each compound relation: %s / %s", (evidence, claim, supported) => {
+      const cited = source("compound", evidence);
+      expect(sourceDirectlySupportsAnswerText(claim, cited)).toBe(supported);
+      expect(assessAndEnforceClaimSupport(answer(claim, [cited])).grounded).toBe(supported);
+    });
+
+    it.each([
+      ["Sleep loss can cause fatigue.", "Sleep loss can result in fatigue.", true],
+      ["Sleep loss can result in fatigue.", "Sleep loss can cause fatigue.", true],
+      ["In adults, sleep loss can cause fatigue.", "In adults, sleep loss can result in fatigue.", true],
+      ["In adults, sleep loss can cause fatigue.", "In children, sleep loss can result in fatigue.", false],
+    ] as const)("keeps predicate complements out of population scope: %s / %s", (claim, evidence, supported) => {
+      expect(sourceDirectlySupportsAnswerText(claim, source("complement", evidence))).toBe(supported);
+    });
+
+    it.each([true, false])("keeps semicolon-then safety coordination atomic supported=%s", (supported) => {
+      const cited = source(
+        "coordination",
+        supported ? "Stop Drug A; then escalate urgently." : "Stop Drug A; urgent escalation is not required.",
+      );
+      const result = assessAndEnforceClaimSupport(answer("Stop Drug A; then escalate urgently.", [cited]));
+      expect(result.grounded).toBe(supported);
+      if (supported) expect(result.answer).toContain("then escalate urgently");
+      else expect(result.answer).not.toContain("Stop Drug A");
+    });
+    it("retains an independent supported sentence beside failed semicolon coordination", () => {
+      const cited = source(
+        "independent",
+        "The clinic offers appointments. Stop Drug A; urgent escalation is not required.",
+      );
+      const result = assessAndEnforceClaimSupport(
+        answer("The clinic offers appointments. Stop Drug A; then escalate urgently.", [cited]),
+      );
+      expect(result.grounded).toBe(true);
+      expect(result.answer).toBe("The clinic offers appointments.");
+    });
+  });
+
+  describe("A2 every displayed claim", () => {
+    it.each(
+      [24, 25].flatMap((position) =>
+        ["lead", "section"].flatMap((scope) =>
+          ["numeric", "nonnumeric"].flatMap((kind) =>
+            [true, false].map((supported) => ({ position, scope, kind, supported })),
+          ),
+        ),
+      ),
+    )("assesses position $position in $scope: $kind supported=$supported", ({ position, scope, kind, supported }) => {
+      const ordinary = "The clinic offers appointments.";
+      const tail = kind === "numeric" ? "Give Drug A 300 mg." : "Counselling improves wellbeing.";
+      const primary = source("primary", `${ordinary} ${supported ? tail : ""}`);
+      const other = source("other", tail);
+      const prose = [...Array.from({ length: position - 1 }, () => ordinary), tail].join("\n");
+      const input = answer(scope === "lead" ? prose : ordinary, [primary, other], [citation(primary)]);
+      input.answerSections =
+        scope === "section"
+          ? [{ heading: "Details", body: prose, citation_chunk_ids: [primary.id] }]
+          : [{ heading: "Independent", body: ordinary, citation_chunk_ids: [primary.id] }];
+      const assessed = assessClaimSupport(input);
+      expect(assessed.claims).toHaveLength(position + 1);
+      const assessedTail = assessed.claims.find((claim) => claim.text === tail);
+      expect(assessedTail?.supportStatus).toBe(supported ? "direct" : "unsupported");
+      expect(assessedTail?.supportingChunkIds).toEqual(supported ? [primary.id] : []);
+      const result = assessAndEnforceClaimSupport(input);
+      const displayed = [result.answer, ...(result.answerSections ?? []).map((section) => section.body)].join("\n");
+      expect(result.grounded).toBe(true);
+      expect(displayed).toContain(ordinary);
+      if (supported) expect(displayed).toContain(tail);
+      else expect(displayed).not.toContain(tail);
+      expect(result.supportedClaims?.every((claim) => claim.supportStatus === "direct")).toBe(true);
+    });
+  });
+
+  describe("A2 relationship support", () => {
+    const claim = "In adults, sleep loss can cause fatigue.";
+    it.each([
+      ["direct paraphrase", "In adults, sleep loss may lead to fatigue.", true],
+      ["passive paraphrase", "In adults, fatigue may be caused by sleep loss.", true],
+      ["explanatory paraphrase", "Fatigue can result from sleep loss in adults.", true],
+      ["co-occurrence", "In adults, sleep loss and fatigue were recorded.", false],
+      ["reversal", "In adults, fatigue can cause sleep loss.", false],
+      ["negation", "In adults, sleep loss does not cause fatigue.", false],
+      ["negated object", "In adults, sleep loss causes no fatigue.", false],
+      ["population shift", "In children, sleep loss can cause fatigue.", false],
+      ["qualified association", "In adults, sleep loss is associated with fatigue.", false],
+      ["dropped qualification", "In adults, severe sleep loss can cause fatigue.", false],
+      ["dropped condition", "In adults, sleep loss can cause fatigue if ill.", false],
+    ] as const)("distinguishes %s from causal support", (_label, evidence, supported) => {
+      const cited = source("relation", evidence);
+      expect(sourceDirectlySupportsAnswerText(claim, cited)).toBe(supported);
+      const result = assessAndEnforceClaimSupport(answer(claim, [cited]));
+      expect(result.grounded).toBe(supported);
+    });
+    it.each([
+      ["Fatigue is higher than alertness in adults.", true],
+      ["Alertness is higher than fatigue in adults.", false],
+      ["Fatigue is lower than alertness in adults.", false],
+      ["Fatigue and alertness were assessed in adults.", false],
+    ] as const)("binds comparison direction in %s", (evidence, supported) => {
+      expect(
+        sourceDirectlySupportsAnswerText(
+          "In adults, fatigue is higher than alertness.",
+          source("comparison", evidence),
+        ),
+      ).toBe(supported);
+    });
+    it("rejects overgeneralization while retaining the independently supported lead", () => {
+      const cited = source("relation", "The clinic offers appointments. In adults, sleep loss may lead to fatigue.");
+      const input = answer("The clinic offers appointments.", [cited]);
+      input.answerSections = [
+        {
+          heading: "Explanation",
+          body: "Sleep loss always causes fatigue in everyone.",
+          citation_chunk_ids: [cited.id],
+        },
+      ];
+      const result = assessAndEnforceClaimSupport(input);
+      expect(result.grounded).toBe(true);
+      expect(result.answer).toBe(input.answer);
+      expect(result.answerSections).toEqual([]);
+      expect(result.conflictsOrGaps?.some((gap) => gap.type === "gap")).toBe(true);
+    });
+    it.each([
+      ["Counselling improves wellbeing.", true],
+      ["Counselling and wellbeing were recorded.", false],
+      ["Counselling does not improve wellbeing.", false],
+    ] as const)("requires the asserted improvement in %s", (evidence, supported) => {
+      expect(sourceDirectlySupportsAnswerText("Counselling improves wellbeing.", source("improvement", evidence))).toBe(
+        supported,
+      );
+    });
+  });
+
   it("uses the exact packed verification corpus instead of a wider unpacked source corpus", () => {
     const unpacked = source("packed-corpus", "See the selected management passage.");
     const packed = { ...unpacked, content: "Stop clozapine when ANC is below 1.0 x10^9/L." };
@@ -1117,11 +1453,11 @@ describe("deterministic claim support", () => {
     expect(result.routingReason).toContain("claim_support_high_risk_gap");
   });
 
-  it("keeps routine partial prose but caps confidence", () => {
+  it("withholds routine partial factual prose instead of grounding it at medium confidence", () => {
     const cited = source("c1", "The service operates a clozapine clinic.");
     const result = assessAndEnforceClaimSupport(answer("The clinic offers appointments on Tuesdays.", [cited]));
-    expect(result.responseMode).not.toBe("evidence_gap");
-    expect(result.confidence).toBe("medium");
+    expect(result.responseMode).toBe("evidence_gap");
+    expect(result.confidence).toBe("unsupported");
   });
 
   it("assesses newline-delimited claims independently instead of merging their evidence scopes", () => {
@@ -1147,7 +1483,7 @@ describe("deterministic claim support", () => {
     expect(assessAndEnforceClaimSupport(input).responseMode).not.toBe("evidence_gap");
   });
 
-  it("fails closed when a numeric claim falls beyond the 24-claim assessment cap", () => {
+  it("assesses numeric claim 25 and withholds it while retaining independently supported claims", () => {
     const routineClaims =
       "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey"
         .split(" ")
@@ -1157,14 +1493,16 @@ describe("deterministic claim support", () => {
     const input = answer([...assessedClaims, "Give Drug B 300 mg."].join("\n"), [cited]);
 
     const result = assessAndEnforceClaimSupport(input);
+    expect(assessClaimSupport(input).claims).toHaveLength(25);
+    expect(assessClaimSupport(input).claims[24]?.supportStatus).not.toBe("direct");
     expect(result.supportedClaims).toHaveLength(24);
     expect(result).toMatchObject({
-      grounded: false,
-      confidence: "unsupported",
-      responseMode: "evidence_gap",
-      unverifiedNumericTokens: ["300mg"],
+      grounded: true,
+      confidence: "medium",
     });
-    expect(result.routingReason).toContain("numeric_faithfulness_gate_source_gap");
+    expect(result.answer).toContain("Give Drug A 300 mg.");
+    expect(result.answer).not.toContain("Drug B");
+    expect(result.routingReason).toContain("claim_support_unsupported_claims_withheld");
   });
 
   it("ignores incidental outdated or poor retrieval-only sources but fails closed when direct support is dangerous", () => {

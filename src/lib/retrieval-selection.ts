@@ -48,11 +48,15 @@ export function selectAnswerRouteEvidence(args: {
   const eligible = selectModelContextEvidence(selectionArgs);
   const crossDocumentPlan = buildCrossDocumentSynthesisPlan(args.query, eligible.results, args.queryClass);
   const rawResults = crossDocumentPlan.enabled ? crossDocumentPlan.results : eligible.results;
-  const routeSelection = selectModelContextEvidence({
-    ...selectionArgs,
-    results: rawResults,
-    crossDocument: crossDocumentPlan.enabled,
-  });
+  // An empty governed selection still carries the reason candidates were
+  // excluded. Reselecting an empty list would erase that coverage verdict.
+  const routeSelection = rawResults.length
+    ? selectModelContextEvidence({
+        ...selectionArgs,
+        results: rawResults,
+        crossDocument: crossDocumentPlan.enabled,
+      })
+    : eligible;
   return { crossDocumentPlan, rawResults, routeSelection };
 }
 

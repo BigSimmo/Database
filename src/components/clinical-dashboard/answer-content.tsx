@@ -34,14 +34,8 @@ import { SignedImage } from "@/components/clinical-dashboard/signed-image";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
 import { type SourceLink } from "@/lib/answer-render-policy";
-import type {
-  AnswerSection,
-  AnswerSectionKind,
-  BestSourceRecommendation,
-  RagAnswer,
-  VisualEvidenceCard,
-} from "@/lib/types";
-import type { ClientSearchResult } from "@/lib/answer-client-payload";
+import type { AnswerSection, AnswerSectionKind, RagAnswer, VisualEvidenceCard } from "@/lib/types";
+import type { ClientBestSourceRecommendation, ClientSearchResult } from "@/lib/answer-client-payload";
 
 export const SourceImage = memo(function SourceImage({
   endpoint,
@@ -156,7 +150,9 @@ type CapsulePreviewSource = {
   href: string;
   snippet?: string;
   sourceStrength?:
-    SourceLink["sourceStrength"] | BestSourceRecommendation["source_strength"] | ClientSearchResult["source_strength"];
+    | SourceLink["sourceStrength"]
+    | ClientBestSourceRecommendation["source_strength"]
+    | ClientSearchResult["source_strength"];
 };
 
 function sourceBadgeLabel(index: number) {
@@ -195,7 +191,7 @@ function sourcePreviewPageCountLabel(previewSources: CapsulePreviewSource[]) {
 }
 
 function capsulePreviewSources(
-  bestSource: BestSourceRecommendation | null,
+  bestSource: ClientBestSourceRecommendation | null,
   sources: ClientSearchResult[],
   sourceLinks: SourceLink[] = [],
 ) {
@@ -430,7 +426,7 @@ export function NaturalLanguageAnswer({
   preformatted?: boolean;
   sourceCount: number;
   sourceOnly: boolean;
-  bestSource: BestSourceRecommendation | null;
+  bestSource: ClientBestSourceRecommendation | null;
   sources: ClientSearchResult[];
   sourceLinks: SourceLink[];
   copied: boolean;

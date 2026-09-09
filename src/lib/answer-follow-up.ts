@@ -1,30 +1,24 @@
+import { resolveAnswerRequestContext, renderAnswerRequestContext } from "@/lib/answer-request-context";
 import { buildRelatedInformationMenu, type RelatedInformationMenuKey } from "@/lib/rag/answer-composition";
 import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
 import type { AnswerSectionKind } from "@/lib/types";
 
-// Client-side follow-up context for the single-query answer API.
-// The /api/answer/stream schema accepts one query string (max 2000 chars), so
-// a short conversational follow-up ("what about renal impairment?") loses the
-// topic established by the previous turn. Rather than extending the API with a
-// messages/history payload, the client wraps ambiguous follow-ups with the
-// prior question so retrieval still sees the topic terms.
-
-/** Matches the z.string().max(2000) limit in src/app/api/answer/stream/route.ts. */
-const answerQueryMaxLength = 2000;
-
-/**
- * A follow-up at or above this length is treated as self-contained: users who
- * type a full clinical question almost always restate the topic, and wrapping
- * long questions dilutes retrieval with the previous query's terms.
- */
-const selfContainedFollowUpLength = 80;
-
-const followUpCuePattern =
-  /\b(what about|how about|and (?:for|in|with|the)|also|too\??$|same (?:for|with)|instead|as well|it\b|they\b|them\b|this\b|that\b|those\b|these\b)\b/i;
-
 const questionLeadPattern = /^(what|how|when|where|which|who|why|can|should|does|do|is|are)\b/i;
 
 const followUpTopicNoise = new Set([
+  "what",
+  "how",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "can",
+  "should",
+  "does",
+  "are",
+  "required",
+  "requirements",
   "action",
   "actions",
   "dosing",
@@ -52,40 +46,10 @@ function significantTokens(text: string): string[] {
   );
 }
 
-/**
- * True when the follow-up already names the prior topic (shares a significant
- * token with the previous question), so no wrapping is needed.
- */
-function followUpRestatesTopic(priorQuery: string, followUp: string): boolean {
-  const priorTokens = new Set(significantTokens(priorQuery));
-  if (priorTokens.size === 0) return false;
-  return significantTokens(followUp).some((token) => priorTokens.has(token));
-}
-
-/**
- * Build the query text sent to the answer API for a follow-up turn.
- *
- * Returns the follow-up unchanged when there is no prior question, when the
- * follow-up is long enough to be self-contained, or when it already restates
- * the prior topic. Otherwise prepends the prior question so single-query
- * retrieval keeps the conversation's subject.
- */
+/** Build one bounded resolved user request for the strict query-only API. */
 export function buildAnswerFollowUpQuery(priorQuery: string | undefined, followUp: string): string {
-  const trimmedFollowUp = followUp.trim();
-  const trimmedPrior = priorQuery?.trim();
-  if (!trimmedPrior || !trimmedFollowUp) return trimmedFollowUp;
-  if (trimmedFollowUp.length >= selfContainedFollowUpLength) return trimmedFollowUp;
-  if (followUpRestatesTopic(trimmedPrior, trimmedFollowUp)) return trimmedFollowUp;
-  // Only wrap when the follow-up reads like a continuation; a short but
-  // complete question on a new topic should be searched as-is.
-  if (!followUpCuePattern.test(trimmedFollowUp)) return trimmedFollowUp;
-
-  const wrapped = `Follow-up to "${trimmedPrior}": ${trimmedFollowUp}`;
-  if (wrapped.length <= answerQueryMaxLength) return wrapped;
-  // Keep the follow-up intact and truncate the prior-question context instead.
-  const budget = answerQueryMaxLength - `Follow-up to "": ${trimmedFollowUp}`.length;
-  if (budget <= 0) return trimmedFollowUp.slice(0, answerQueryMaxLength);
-  return `Follow-up to "${trimmedPrior.slice(0, budget)}": ${trimmedFollowUp}`;
+  if (!followUp.trim()) return "";
+  return renderAnswerRequestContext(resolveAnswerRequestContext(priorQuery, followUp));
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +78,10 @@ export function buildAnswerFollowUpQuery(priorQuery: string | undefined, followU
 // and no chip row renders; that is the intended conservative outcome, not a bug.
 // ---------------------------------------------------------------------------
 
+// Suggestion anchoring retains its existing short-continuation heuristic.
+const selfContainedFollowUpLength = 80;
+const followUpCuePattern =
+  /\b(what about|how about|and (?:for|in|with|the)|also|too\??$|same (?:for|with)|instead|as well|it\b|they\b|them\b|this\b|that\b|those\b|these\b)\b/i;
 const maxFollowUpSuggestions = 4;
 
 /** Bounded evidence scan: chips must cost nothing measurable inside the render memo. */
@@ -125,10 +93,47 @@ function normalizeSuggestionKey(value: string) {
   return value.trim().toLowerCase();
 }
 
+function normalizedEvidenceTokens(value: string): string[] {
+  return value.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+}
+
+// Only these menu concepts accept the listed inflections. Query subjects are
+// always exact tokens; a clinical acronym cannot license an unrelated prefix.
+const menuInflections: Record<string, readonly string[]> = {
+  monitor: ["monitors", "monitored", "monitoring"],
+  contraindicat: ["contraindicate", "contraindicated", "contraindication", "contraindications"],
+  discontinu: ["discontinue", "discontinued", "discontinuing", "discontinuation"],
+  escalat: ["escalate", "escalated", "escalating", "escalation"],
+  refer: ["refers", "referred", "referring", "referral", "referrals"],
+  manage: ["managed", "managing", "management"],
+  treat: ["treated", "treating", "treatment", "treatments"],
+  differ: ["differs", "differing", "difference", "differences", "different"],
+  require: ["requires", "required", "requiring", "requirement", "requirements"],
+};
+
+/** Match adjacent normalized tokens, with optional bounded menu inflections. */
+function evidenceIncludesTerm(haystack: string, term: string, menuConcept = false): boolean {
+  const haystackTokens = normalizedEvidenceTokens(haystack);
+  const termTokens = normalizedEvidenceTokens(term);
+  if (termTokens.length === 0 || termTokens.length > haystackTokens.length) return false;
+  return haystackTokens.some((_, start) =>
+    termTokens.every((termToken, offset) => {
+      const actual = haystackTokens[start + offset];
+      return (
+        actual === termToken ||
+        (menuConcept &&
+          actual !== undefined &&
+          (menuInflections[termToken]?.includes(actual) ||
+            (termToken.length > 3 && ["s", "ed", "ing"].some((suffix) => actual === `${termToken}${suffix}`))))
+      );
+    }),
+  );
+}
+
 /**
  * One deterministic follow-up candidate.
  *
- * `evidenceTerms` are lowercase substrings; at least one must appear in the
+ * `evidenceTerms` are lowercase token/phrase stems; at least one must appear in the
  * retrieved evidence for the candidate to be offered. `answeredTerms` are the
  * narrow concept words that mark the question as already answered by the answer
  * body — deliberately a subset of `evidenceTerms`, so a passing mention in a
@@ -349,8 +354,8 @@ function bounded(value: string | null | undefined): string {
  * server-derived safety findings add the passages the UI already shows. Query
  * analysis is deliberately excluded — canonical terms are query-derived, so
  * counting them here would let a query term vouch for corpus coverage it does
- * not have. The subject is instead the evidence-backed intersection of the
- * clinician's query tokens and this haystack.
+ * not have. The bounded query subject must match an adjacent whole phrase
+ * in this haystack before it can license a suggestion.
  */
 function buildEvidenceHaystack(answer: ClientRagAnswerPayload): string {
   const parts: string[] = [];
@@ -363,17 +368,16 @@ function buildEvidenceHaystack(answer: ClientRagAnswerPayload): string {
   return parts.join(" \n").toLowerCase();
 }
 
-function topicLabel(priorQuery: string, evidenceHaystack: string) {
+function topicLabel(priorQuery: string) {
   const trimmed = priorQuery.trim();
   if (!trimmed) return "this topic";
 
-  const evidenceBackedTopic = (trimmed.match(/[A-Za-z][A-Za-z-]{2,}/g) ?? [])
+  const candidateTopic = (trimmed.match(/[A-Za-z][A-Za-z-]{2,}/g) ?? [])
     .filter((token) => !followUpTopicNoise.has(token.toLowerCase()))
-    .filter((token) => evidenceHaystack.includes(token.toLowerCase()))
     .slice(0, 3)
     .join(" ");
-  if (evidenceBackedTopic) {
-    return evidenceBackedTopic.length > 48 ? `${evidenceBackedTopic.slice(0, 45).trimEnd()}…` : evidenceBackedTopic;
+  if (candidateTopic) {
+    return candidateTopic.length > 48 ? `${candidateTopic.slice(0, 45).trimEnd()}…` : candidateTopic;
   }
 
   // Long or interrogative queries: use a short topic phrase instead of the full question.
@@ -467,8 +471,8 @@ export function buildAnswerFollowUpSuggestions(
   const evidenceHaystack = buildEvidenceHaystack(answer);
   const subjectHaystack = evidenceHaystack;
 
-  const topic = topicLabel(anchorQuery, evidenceHaystack);
-  const topicSupported = significantTokens(topic).some((token) => subjectHaystack.includes(token));
+  const topic = topicLabel(anchorQuery);
+  const topicSupported = evidenceIncludesTerm(subjectHaystack, topic);
 
   const seen = new Set(priorQueries.map(normalizeSuggestionKey));
   seen.add(normalizeSuggestionKey(trimmedPrior));
@@ -500,7 +504,7 @@ export function buildAnswerFollowUpSuggestions(
     if (suggestions.length >= maxFollowUpSuggestions) break;
     // (2) evidence gate.
     const supported = template.evidenceTerms.some((term) =>
-      term === "reported_gap" ? hasReportedGap : evidenceHaystack.includes(term),
+      term === "reported_gap" ? hasReportedGap : evidenceIncludesTerm(evidenceHaystack, term, true),
     );
     if (!supported) continue;
     // (3) already-answered suppression: an emitted section of this kind, the
@@ -508,7 +512,7 @@ export function buildAnswerFollowUpSuggestions(
     // already asking the specific question.
     if (emittedSectionKinds.has(template.kind)) continue;
     if (template.kind === "source_gap" && suggestions.length > 0) continue;
-    if (template.answeredTerms.some((term) => answerText.includes(term))) continue;
+    if (template.answeredTerms.some((term) => evidenceIncludesTerm(answerText, term, true))) continue;
     push(template.question(topic));
   }
 

@@ -1,3 +1,4 @@
+import { ragProgrammeHealth } from "@/lib/rag/rag-rollout";
 import { NextResponse } from "next/server";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 import { env, isDemoMode } from "@/lib/env";
@@ -145,6 +146,9 @@ export async function healthResponse(request: Request, options: HealthResponseOp
       ...(coalescing ? { coalescing } : {}),
       ...(spend ? { spend } : {}),
       ...(siteContent ? { siteContent } : {}),
+      ...(deep && allowDeepHealthProbe(request)
+        ? { ragProgramme: { ...ragProgrammeHealth(), siteContentFreshness: siteContent?.state ?? "unavailable" } }
+        : {}),
     },
     { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );

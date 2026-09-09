@@ -48,6 +48,12 @@ export function sanitizeRagCandidateMatchCounts(
 
 export type SearchChunksArgs = {
   query: string;
+  /** Explicit request policy; document filters remain restrictive in either mode. */
+  answerSourcePolicy?: "only_this_source" | "primary_plus_approved_supplements";
+  /** Server-configured reviewed-input adapter; never accepted from an HTTP payload. */
+  loadReviewedSourcePolicyInput?: import("@/lib/rag/rag-reviewed-policy-input").ReviewedSourcePolicyLoader;
+  reviewedPolicyRequest?: import("@/lib/rag/rag-reviewed-policy-input").ReviewedPolicyRequest;
+  captureSourcePolicyConflicts?: (conflicts: readonly SourcePolicyConflict[]) => void;
   topK?: number;
   minSimilarity?: number;
   documentId?: string;
@@ -78,6 +84,8 @@ export type SearchChunksArgs = {
   ragQueryPlanVersion?: string;
   /** Internal programme mode for shadow diagnostics and cache partitioning. */
   ragQueryPlanMode?: RagProgrammeMode;
+  /** Server-issued immutable decision; unissued caller objects cannot activate a rollout. */
+  ragProgrammeRollout?: import("@/lib/rag/rag-rollout").RagProgrammeRolloutDecision;
   /** Internal bounded diagnostics carried into answer cache/programme observation. */
   ragQueryPlanKind?: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
   ragSubquestionCount?: number;
@@ -137,6 +145,8 @@ export type GovernedCorpusCandidateDiagnostics = Readonly<{
 }>;
 
 export type SearchTelemetry = {
+  shadow_retrieval_state?: "pending" | "completed" | "failed" | "cancelled";
+  reviewed_input_state?: "not_assessed" | "unavailable" | "reviewed";
   search_cache_hit: boolean;
   search_total_latency_ms?: number;
   retrieval_phase_latencies_ms?: Record<string, number>;

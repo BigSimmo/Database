@@ -170,7 +170,10 @@ export async function POST(request: Request) {
         miss_reason: missReason,
         expected_document_id: expectedDocumentId,
         expected_chunk_id: expectedChunkId,
-        candidate_aliases: queryDerivedTokensForStorage(normalizedClinicalSearchTokens(parsed.query).slice(0, 12)),
+        candidate_aliases: queryDerivedTokensForStorage(
+          normalizedClinicalSearchTokens(parsed.query).slice(0, 12),
+          parsed.query,
+        ),
         promoted_eval_case: true,
         promoted_at: new Date().toISOString(),
         metadata: {

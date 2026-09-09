@@ -335,6 +335,7 @@ export async function searchGovernedCorpora(args: {
   snapshot: RagContextSnapshot;
   components: GovernedCorpusComponents;
   targetSiteDomains: SiteContentDomain[];
+  answerSourcePolicy?: "only_this_source" | "primary_plus_approved_supplements";
   /** @deprecated Supplementary retrieval derives from eligible uncovered subquestions. */
   internationalCoverageGap?: boolean;
   signal?: AbortSignal;
@@ -342,6 +343,9 @@ export async function searchGovernedCorpora(args: {
   onRpcCall?: () => void;
 }): Promise<SearchResult[]> {
   throwIfAborted(args.signal);
+  const targetSiteDomains = args.queryPlan?.siteDomainDecision === "inferred" ? [] : args.targetSiteDomains;
+  const restricted = args.answerSourcePolicy === "only_this_source" || Boolean(args.documentFilters?.length);
+  if (args.answerSourcePolicy === "only_this_source" && !args.documentFilters?.length) return [];
   const siteEligible = siteSnapshotEligible(args.snapshot, args.components.siteContent);
   const phases = retrievalCorpusScopes({
     siteContentEnabled: siteEligible,
@@ -363,7 +367,7 @@ export async function searchGovernedCorpora(args: {
     expected_site_release_id: siteEligible ? args.snapshot.publicSiteContent.releaseId : null,
     expected_site_release_digest: siteEligible ? args.snapshot.publicSiteContent.releaseDigest : null,
     expected_site_change_epoch: siteEligible ? args.snapshot.publicSiteContent.changeEpoch : null,
-    site_content_domains: siteEligible && args.targetSiteDomains.length > 0 ? args.targetSiteDomains : null,
+    site_content_domains: siteEligible && targetSiteDomains.length > 0 ? targetSiteDomains : null,
   });
   const consumeRpc = async (
     name: "match_document_chunks_text_v3" | "match_document_chunks_hybrid_v3" | "match_document_chunks_v3",
@@ -381,9 +385,11 @@ export async function searchGovernedCorpora(args: {
     );
     const rows = data?.length
       ? sanitizeGovernedCandidateRows({
-          rows: data,
+          rows: args.documentFilters?.length
+            ? data.filter((row) => args.documentFilters!.includes(row.document_id))
+            : data,
           requestedScopes: phase.corpusScopes,
-          targetSiteDomains: args.targetSiteDomains,
+          targetSiteDomains,
           snapshot: args.snapshot,
         })
       : [];
@@ -457,7 +463,7 @@ export async function searchGovernedCorpora(args: {
   };
 
   const primary = phases.find(({ phase }) => phase === "primary");
-  const supplementary = phases.find(({ phase }) => phase === "supplementary");
+  const supplementary = restricted ? undefined : phases.find(({ phase }) => phase === "supplementary");
   if (primary) {
     await runQuery(primary, originalQuery);
     const primarySubquestionId = args.queryPlan?.subquestions[0]?.id;

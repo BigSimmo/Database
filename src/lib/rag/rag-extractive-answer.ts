@@ -1,3 +1,19 @@
+import { adaptiveAnswerLimits, answerWithinLimits } from "@/lib/rag/rag-answer-contract-limits";
+import { buildSourceConflictSection } from "@/lib/rag/source-conflict-section";
+import { classifyRagFallbackReason, publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
+import type { SearchChunksArgs } from "@/lib/rag/rag-contracts";
+import type {
+  AnswerCoveragePlan,
+  RagInsufficiencyReason,
+  RagQueryPlan,
+  RagAskedPart,
+  RagRequestedFacetDetail,
+} from "@/lib/types";
+import {
+  legacyAnswerGenerationContract,
+  ragAdaptiveAnswerPromptVersion,
+  type RagAnswerGenerationContract,
+} from "@/lib/rag/rag-versioning";
 import { boldHighYieldClinicalText } from "@/lib/answer-ranking";
 import {
   adjacentLabelledNumericBandConflicts,
@@ -7,7 +23,7 @@ import {
   LABELLED_NUMERIC_BAND_CONFLICT_NOTE,
   textReferencesAdjacentBandConflict,
 } from "@/lib/answer-verification";
-import { hasClinicalActionSignal } from "@/lib/rag/rag-clinical-language-signals";
+import { hasClinicalActionSignal, hasClinicalPopulationSignal } from "@/lib/rag/rag-clinical-language-signals";
 export { labelledNumericBandConflictChunkIds } from "@/lib/answer-verification";
 import { citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
 import {
@@ -15,6 +31,7 @@ import {
   classifyRagQuery,
   hasForeignThresholdLabel,
   medicationMonitoringQuerySubjects,
+  medicationDoseEvidenceQueryIntent,
   normalizedClinicalSearchTokens,
 } from "@/lib/clinical-search";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
@@ -28,7 +45,11 @@ import {
   extractQuoteCards,
   selectBestSourceRecommendation,
 } from "@/lib/evidence";
-import { buildEvidenceRelevance } from "@/lib/evidence-relevance";
+import {
+  buildEvidenceRelevance,
+  deliveredProseRelevance,
+  hasBoundMonitoringCadence as deliveredMonitoringFrequencyPresent,
+} from "@/lib/evidence-relevance";
 import {
   hasForeignMedicationClinicalValueBinding,
   isAntipsychoticMedicationEntity,
@@ -496,6 +517,9 @@ function queryEntityTokens(query: string, intent: AnswerIntent) {
 function queryEntitySubject(query: string, intent: AnswerIntent) {
   const tokens = queryEntityTokens(query, intent);
   if (tokens.includes("agitation") && tokens.includes("arousal")) return "agitation and arousal";
+  // A requested risk facet is not the medication being monitored.
+  const medicines = medicationEntitiesInText(query);
+  if (intent === "monitoring_schedule" && tokens[0] === "risk" && medicines.length === 1) return medicines[0];
   return tokens[0];
 }
 
@@ -594,8 +618,8 @@ const monitoringUnitRangeFigurePattern =
 /**
  * Whether extracted fact text carries the figure/schedule the intent asks for:
  * a concrete dose value (or equivalent maximum-dose wording) for dose intent,
- * an interval/schedule token or unit-bearing level range for monitoring intent.
- * Other intents have no figure requirement and always return false.
+ * an interval/schedule token or unit-bearing level range for monitoring intent,
+ * or an atomic blood-count boundary/action for an explicit threshold request.
  */
 function factCarriesIntentFigure(intent: AnswerIntent, text: string, query?: string) {
   return intentFigureMatchText(intent, text, query) !== null;
@@ -605,6 +629,14 @@ function factCarriesIntentFigure(intent: AnswerIntent, text: string, query?: str
  * guard verify a zero-atom figure (e.g. "every 6 weeks") verbatim in the
  * claim-support corpus rather than trusting it atom-free. */
 function intentFigureMatchText(intent: AnswerIntent, text: string, query?: string) {
+  if (
+    intent === "red_result_action" &&
+    query &&
+    asksForBloodCountThreshold(query) &&
+    hasAtomicBloodCountWithholdThresholdEvidence(text, query)
+  ) {
+    return extractClinicalValueAtoms(text).find((atom) => atom.comparator)?.rawText ?? null;
+  }
   if (intent === "dose") {
     return clinicalDoseValuePattern.exec(text)?.[0] ?? maximumDoseEquivalentPattern.exec(text)?.[0] ?? null;
   }
@@ -619,7 +651,7 @@ function intentFigureMatchText(intent: AnswerIntent, text: string, query?: strin
 
 /**
  * Whether an extractive answer's text carries the asked-for figure for a
- * figure-seeking query (dose or monitoring-schedule intent). Used by the
+ * figure-seeking query (dose, monitoring schedule or blood-count threshold). Used by the
  * generation-fallback candidate preference in rag.ts so a safe single-chunk
  * candidate that states the requested figure wins over an equally safe
  * figure-less candidate. Non-figure intents return false, leaving the
@@ -627,8 +659,11 @@ function intentFigureMatchText(intent: AnswerIntent, text: string, query?: strin
  */
 export function extractiveAnswerCarriesIntentFigure(answerText: string, query: string, queryClass: RagQueryClass) {
   const intent = classifyAnswerIntent(query, queryClass);
-  if (intent !== "dose" && intent !== "monitoring_schedule") return false;
   return factCarriesIntentFigure(intent, answerText.replace(/\*\*/g, ""), query);
+}
+
+function asksForBloodCountThreshold(query: string) {
+  return requiresBloodCountEvidence(query) && /\b(?:threshold|cut[- ]?off|what\s+(?:value|count|level))\b/i.test(query);
 }
 
 /** Requires blood count evidence. */
@@ -785,7 +820,8 @@ function hasRelevantQueryOverlap(
   if (intent === "general" || intent === "unsupported")
     return tokens.some((token) => queryTokenMatchesText(token, text));
   const monitoringFigureCovered =
-    intent === "monitoring_schedule" && intentFigureMatchText(intent, normalized, query) !== null;
+    intent === "monitoring_schedule" &&
+    (intentFigureMatchText(intent, normalized, query) !== null || deliveredMonitoringFrequencyPresent(text));
   return (
     answerIntentEvidencePattern(intent).test(normalized) &&
     (intentTokens.length === 0 ||
@@ -993,6 +1029,7 @@ function factKindForSentence(sentence: string, query: string, intent: AnswerInte
   ) {
     return "contraindication";
   }
+  if (intent === "monitoring_schedule" && deliveredMonitoringFrequencyPresent(text)) return "monitoring";
   if (/\b(?:renal|kidney|eGFR|creatinine|CrCl)\b/i.test(text)) return "renal_limit";
   const numericRepeatDoseSchedule =
     intent === "dose" && numericRepeatDoseSchedulePattern.test(text) && repeatDoseScheduleFigurePattern.test(text);
@@ -1214,6 +1251,56 @@ function factSentenceMatchesQueryFromResult(
   query: string,
   intent: AnswerIntent,
 ) {
+  if (
+    intent === "red_result_action" &&
+    asksForBloodCountThreshold(query) &&
+    extractClinicalValueAtoms(sentence).length > 0
+  ) {
+    // Reuse canonical population signals; a population-bound value cannot be
+    // borrowed into a differently scoped request by figure promotion.
+    const queryTokens = new Set(normalizedClinicalSearchTokens(query));
+    const populationTokens = normalizedClinicalSearchTokens(sentence).filter(hasClinicalPopulationSignal);
+    if (populationTokens.some((token) => !queryTokens.has(token))) return false;
+    // Keep modifiers intact as well as the canonical population noun. Token
+    // membership alone makes "older adults" equal "adults" and loses both
+    // direction and age from "under/over 65 years".
+    const ageQualifiers = (text: string) =>
+      [
+        ...text
+          .toLowerCase()
+          .matchAll(
+            /\b(?:(?:older|younger)[ -]+(?:adults?|people|patients?)|(?:over|under|above|below|at least|at most|up to)\s+\d+(?:\.\d+)?\s*(?:years?|months?)(?:\s+old)?|(?:aged?\s+)?\d+(?:\s*(?:-|to)\s*\d+)?[ -]*(?:years?|months?)(?:[ -]old)?)\b/g,
+          ),
+      ]
+        .filter((match) => {
+          // A duration becomes an age restriction only when it modifies a
+          // population or explicitly says age/aged/old. Treatment intervals
+          // such as "the first 6 months of treatment" remain evidence content.
+          // Parentheses around an explicit age preserve its population link;
+          // they do not turn an age restriction into a treatment duration.
+          const prefix = text
+            .slice(0, match.index)
+            .toLowerCase()
+            .replace(/[()[\]]/g, " ");
+          const precedingWord = prefix.match(/\b([a-z]+)(?:\s+(?:who\s+(?:is|are)|is|are|aged?))?\s*$/)?.[1] ?? "";
+          return (
+            /\b(?:older|younger|aged?|old)\b/.test(match[0]) ||
+            /\bage(?:d)?\s*(?:of\s*)?$/.test(prefix) ||
+            hasClinicalPopulationSignal(precedingWord) ||
+            /^(?:patients?|persons?|people)$/.test(precedingWord)
+          );
+        })
+        .map((match) =>
+          match[0]
+            .replace(/\byears\b/g, "year")
+            .replace(/\bmonths\b/g, "month")
+            .replace(/\badults\b/g, "adult")
+            .replace(/[ -]+/g, " ")
+            .trim(),
+        );
+    const requestedAgeQualifiers = new Set(ageQualifiers(query));
+    if (ageQualifiers(sentence).some((qualifier) => !requestedAgeQualifiers.has(qualifier))) return false;
+  }
   if (mentionsDifferentMedicationEntity(sentence, query)) return false;
   if (hasForeignThresholdLabel(query, sentence)) return false;
   if (!hasBoundedMedicationSubjectForNumericRepeatDoseSchedule(sentence, result, query)) return false;
@@ -1557,12 +1644,12 @@ function promotedFactFigureIsClaimSupportable(
 }
 
 /**
- * Lead-slot figure guarantee for dose and monitoring-schedule answers: when no
+ * Lead-slot figure guarantee for dose, monitoring and blood-count thresholds: when no
  * lead fact carries the asked-for figure/schedule but a later extracted fact
  * does (and its figure survives the claim-support guard), surface that fact in
  * the lead — dose swaps it into the last of its two lead slots; monitoring
- * appends it as a second lead sentence. A lead that already carries a figure is
- * returned unchanged, and other intents never reach this function.
+ * and threshold requests append it as a second lead sentence. A lead that already
+ * carries a figure is returned unchanged.
  */
 function promoteIntentFigureLeadFacts(
   leadFacts: ExtractedClinicalFact[],
@@ -2350,7 +2437,11 @@ function buildFactSynthesizedAnswer(args: {
   }
 
   let leadFacts = facts.slice(0, args.intent === "dose" ? 2 : 1);
-  if (args.intent === "dose" || args.intent === "monitoring_schedule") {
+  if (
+    args.intent === "dose" ||
+    args.intent === "monitoring_schedule" ||
+    (args.intent === "red_result_action" && asksForBloodCountThreshold(args.query))
+  ) {
     leadFacts = promoteIntentFigureLeadFacts(leadFacts, facts, args.intent, args.results, args.query);
   }
   // Once the lead answer names the query entity, later lead sentences skip
@@ -2864,7 +2955,19 @@ export function buildExtractiveAnswer(args: {
         ]
       : rebuildDerivedArtifacts
         ? detectConflictsOrGaps(answerSources)
-        : args.conflictsOrGaps;
+        : [...args.conflictsOrGaps];
+  if (
+    hasExtractedAnswer &&
+    answerIntent === "red_result_action" &&
+    asksForBloodCountThreshold(args.query) &&
+    !factCarriesIntentFigure(answerIntent, deliveredNaturalText, args.query)
+  ) {
+    conflictsOrGaps.push({
+      type: "gap",
+      message:
+        "The cited evidence supports the action but does not establish the requested blood-count threshold for this request.",
+    });
+  }
   if (rebuiltSmartPanel) rebuiltSmartPanel.conflictsOrGaps = conflictsOrGaps;
 
   return {
@@ -3338,6 +3441,15 @@ export function isSafeExtractiveFallbackCandidate(candidate: RagAnswer, query: s
   if (!candidate.grounded || candidate.confidence === "unsupported") return false;
   if (generatedAnswerQualityFailureReason(candidate, query, queryClass)) return false;
   const verified = finalizeRagAnswerQuality(cloneAnswer(candidate), query, queryClass, candidate.sources);
+  // This predicate admits the supplied candidate, not an independently salvaged
+  // replacement produced by finalization. The caller still holds the original.
+  if (/claim_support_unsupported_(?:claims|sections)_withheld/.test(verified.routingReason ?? "")) {
+    const prose = (value: RagAnswer) =>
+      [value.answer, ...(value.answerSections ?? []).map((section) => section.body)]
+        .map((text) => normalizeSectionText(text.replace(/\*\*/g, "")))
+        .join("\n");
+    if (prose(candidate) !== prose(verified)) return false;
+  }
   return (
     verified.grounded &&
     verified.confidence !== "unsupported" &&
@@ -3929,6 +4041,354 @@ function recoverFinalGateGapExtractively(
   return merged;
 }
 
+/** Reserve metadata slots without combining different evidence or silently dropping prose. */
+function reserveMetadataSlots(answer: RagAnswer, metadata: AnswerSection[], sectionCap: number): AnswerSection[] {
+  const prose = [...(answer.answerSections ?? [])];
+  if (!metadata.length || prose.length > sectionCap) return [...prose, ...metadata];
+  while (prose.length + metadata.length > sectionCap) {
+    const index = prose.findIndex((left, index) => {
+      const right = prose[index + 1];
+      if (!right || left.kind !== right.kind || left.supportLevel !== right.supportLevel) return false;
+      const ids = (section: AnswerSection) => [...new Set(section.citation_chunk_ids)].sort().join("\u0000");
+      return (
+        ids(left) === ids(right) &&
+        left.heading.length + left.body.length + right.heading.length + right.body.length + 5 <=
+          adaptiveAnswerLimits.body
+      );
+    });
+    if (index < 0) break;
+    const left = prose[index],
+      right = prose[index + 1];
+    prose.splice(index, 2, {
+      ...left,
+      body: left.heading + ": " + left.body + " " + right.heading + ": " + right.body,
+    });
+  }
+  const combined = [...prose, ...metadata];
+  // A failed consolidation must remain a visible contract rejection at the caller.
+  return answerWithinLimits({ ...answer, answerSections: combined }, adaptiveAnswerLimits, sectionCap)
+    ? combined
+    : [...(answer.answerSections ?? []), ...metadata];
+}
+
+/** Content-only facet recognition after claim verification; never grants clinical support. */
+function deliveredFacetPresent(facet: RagAskedPart, text: string) {
+  switch (facet) {
+    case "monitoring": {
+      const kind = factKindForSentence(text, "monitoring", "monitoring_schedule");
+      return !!kind && factSupportsAnswerIntent(kind, text, "monitoring", "monitoring_schedule");
+    }
+    case "dosing": {
+      const kind = factKindForSentence(text, "dose", "dose");
+      return !!kind && factSupportsAnswerIntent(kind, text, "dose", "dose");
+    }
+    case "risk":
+      return /\b(?:risks?|caution|adverse|side effects?|contraindicat\w*|toxicity|escalat\w*|avoid|must not|do not)\b/i.test(
+        text,
+      );
+    case "assessment":
+      return /\b(?:assess\w*|investigat\w*|examin\w*)\b/i.test(text);
+    case "differential":
+      return /\b(?:differential|diagnos\w*|consider\w*|exclude\w*)\b/i.test(text);
+    case "rationale":
+      return /\b(?:because|rationale|mechanism|therefore|due to|by inhibiting|by blocking)\b/i.test(text);
+    case "management":
+      return (
+        hasClinicalActionSignal(text) &&
+        /\b(?:manag\w*|treat\w*|therapy|provide|commence|start|administer|give|use|care)\b/i.test(text)
+      );
+    case "comparison":
+      return /\b(?:whereas|compared|unlike|versus|both|difference|similar)\b/i.test(text);
+    case "service_workflow":
+      return /\b(?:service|form|tool|refer\w*|pathway)\b/i.test(text);
+  }
+}
+
+function deliveredFrequencyPresent(text: string) {
+  // Normalize equivalent spelled-out intervals into the existing delivered schedule signal.
+  const interval = text
+    .replace(/\byearly\b/gi, "annually")
+    .replace(
+      /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(days?|weeks?|months?|years?|hours?)\b/gi,
+      (_, count: string, unit: string) =>
+        `${["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"].indexOf(count.toLowerCase()) + 1} ${unit}`,
+    );
+  return (
+    monitoringIntervalFigurePattern.test(interval.replace(/\bbaseline\b/gi, "")) ||
+    repeatDoseScheduleFigurePattern.test(text)
+  );
+}
+
+function deliveredFacetDetailPresent(facet: RagAskedPart, detail: RagRequestedFacetDetail, text: string) {
+  if (!deliveredFacetPresent(facet, text)) return false;
+  if (detail === "maximum") return hasMaximumDoseEvidence(text);
+  if (detail === "route") return medicationDoseEvidenceQueryIntent(text).asksRoute;
+  if (facet === "monitoring") return deliveredMonitoringFrequencyPresent(text);
+  return deliveredFrequencyPresent(text);
+}
+
+/** Downgrade source coverage when its requested part has no surviving verified prose. */
+function reconcileDeliveredParts(answer: RagAnswer, coverage: AnswerCoveragePlan, queryPlan?: RagQueryPlan) {
+  const required = coverage.subquestions.filter((part) => part.required);
+  const missingFacets = new Map<string, RagAskedPart[]>();
+  const missingDetails = new Map<string, Partial<Record<RagAskedPart, RagRequestedFacetDetail[]>>>();
+  const deliveredText = normalizeSectionText(
+    [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)].join(" "),
+  ).replaceAll("**", "");
+  const directClaims = (answer.supportedClaims ?? []).filter(
+    (claim) =>
+      claim.supportStatus === "direct" && deliveredText.includes(normalizeSectionText(claim.text).replaceAll("**", "")),
+  );
+  let changed = false;
+  const entries = coverage.coverage.map((entry) => {
+    const part = required.find((part) => part.id === entry.subquestionId);
+    if (!part) return entry;
+    const binding = queryPlan?.subquestions.find((binding) => binding.id === part.id);
+    const facets = binding?.requestedFacets;
+    if (entry.status === "absent" || entry.status === "conflicting") {
+      if (entry.status === "absent" && facets?.length) missingFacets.set(part.id, facets);
+      return entry;
+    }
+    const claims = directClaims.filter((claim) => claim.supportingChunkIds.some((id) => entry.chunkIds.includes(id)));
+    const prose = claims.map((claim) => claim.text).join(" ");
+    const relevance = deliveredProseRelevance(part.question, prose);
+    const intent = classifyAnswerIntent(part.question, classifyRagQuery(part.question).queryClass);
+    const explicit = medicationDoseEvidenceQueryIntent(part.question);
+    const attributesPresent =
+      (!explicit.asksRoute || medicationDoseEvidenceQueryIntent(prose).asksRoute) &&
+      (!explicit.asksFrequency || deliveredFrequencyPresent(prose));
+    const clinicalIntent = intent !== "general" && intent !== "unsupported" && intent !== "document_lookup";
+    const intentPresent =
+      clinicalIntent &&
+      claims.some((claim) => {
+        const kind = factKindForSentence(claim.text, part.question, intent);
+        return (
+          kind &&
+          factSupportsAnswerIntent(kind, claim.text, part.question, intent) &&
+          hasRelevantQueryOverlap(claim.text, part.question, intent)
+        );
+      });
+    const absentDetails: Partial<Record<RagAskedPart, RagRequestedFacetDetail[]>> = {};
+    const unmet = facets?.filter((facet) => {
+      if (!claims.some((claim) => deliveredFacetPresent(facet, claim.text))) return true;
+      const missing =
+        binding?.requestedFacetDetails?.[facet]?.filter(
+          (detail) => !claims.some((claim) => deliveredFacetDetailPresent(facet, detail, claim.text)),
+        ) ?? [];
+      if (missing.length) absentDetails[facet] = missing;
+      return missing.length > 0;
+    });
+    missingDetails.set(part.id, absentDetails);
+    if (unmet?.length) missingFacets.set(part.id, unmet);
+    // Canonical facet bindings supersede the repeated whole-query scaffold. Unbound
+    // consumer parts require their own complete content terms or content-only clinical intent.
+    const partPresent = facets?.length
+      ? !unmet?.length
+      : attributesPresent && (intentPresent || (relevance.coreTerms.length > 0 && relevance.missingTerms.length === 0));
+    if (claims.length && partPresent) return entry;
+    changed = true;
+    return {
+      ...entry,
+      status: "absent" as const,
+      chunkIds: [],
+      reasonCodes: ["insufficient_claim_support", ...entry.reasonCodes.filter((reason) => reason !== "not_in_corpus")],
+    };
+  });
+  const deliveredFacets = new Set<RagAskedPart>();
+  for (const entry of entries) {
+    if (entry.status !== "direct") continue;
+    const binding = queryPlan?.subquestions.find((part) => part.id === entry.subquestionId);
+    for (const facet of binding?.requestedFacets ?? []) {
+      if (
+        directClaims.some(
+          (claim) =>
+            claim.supportingChunkIds.some((id) => entry.chunkIds.includes(id)) &&
+            deliveredFacetPresent(facet, claim.text),
+        )
+      )
+        deliveredFacets.add(facet);
+    }
+  }
+  return {
+    missingFacets,
+    missingDetails,
+    deliveredFacets,
+    coverage: changed
+      ? {
+          ...coverage,
+          coverage: entries,
+          overall: coverage.conflicts.length ? ("conflicting" as const) : ("partial" as const),
+          insufficiencyReason: coverage.conflicts.length
+            ? ("source_conflict" as const)
+            : ("insufficient_claim_support" as const),
+        }
+      : coverage,
+  };
+}
+
+/** Verify generated prose once, then reconcile citations before rebuilding deterministic metadata. */
+export function retainVerifiedAnswerParts(
+  answer: RagAnswer,
+  context: {
+    query: string;
+    queryPlan?: RagQueryPlan;
+    queryClass: RagQueryClass;
+    contract: RagAnswerGenerationContract;
+    verificationSources?: SearchResult[];
+    resolveCoverage: (verified: RagAnswer) => AnswerCoveragePlan | null;
+    reconcileCoverage?: (verified: RagAnswer, coverage: AnswerCoveragePlan | null) => void;
+    reviewRequest?: SearchChunksArgs;
+    sectionCap?: (coverage: AnswerCoveragePlan) => number;
+  },
+) {
+  const proseSections = (answer.answerSections ?? []).filter(
+    (section) => section.kind !== "source_gap" && section.kind !== "source_conflict",
+  );
+  const verified = finalizeRagAnswerQuality(
+    { ...answer, answerSections: proseSections },
+    context.query,
+    context.queryClass,
+    context.verificationSources,
+    context.contract,
+  );
+  const finalSourceIds = new Set(verified.sources.map((row) => row.id));
+  verified.citations = verified.citations.filter((citation) => finalSourceIds.has(citation.chunk_id));
+  const resolvedCoverage = context.resolveCoverage(verified);
+  const delivered = resolvedCoverage ? reconcileDeliveredParts(verified, resolvedCoverage, context.queryPlan) : null;
+  let coverage = delivered?.coverage ?? null;
+  const citedIds = new Set(verified.citations.map((citation) => citation.chunk_id));
+  const finalRows = verified.sources.filter((row) => citedIds.has(row.id));
+  const canonicalSections = (coverage?.conflicts ?? []).flatMap((conflict) => {
+    const section = buildSourceConflictSection(conflict, finalRows, context.reviewRequest);
+    return section ? [{ conflict, section }] : [];
+  });
+  if (coverage && canonicalSections.length !== coverage.conflicts.length) {
+    const valid = new Set(canonicalSections.map(({ conflict }) => conflict.id));
+    const rejectedIds = new Set(
+      coverage.conflicts
+        .filter((conflict) => !valid.has(conflict.id))
+        .flatMap((conflict) => [...conflict.local.supportingChunkIds, ...conflict.australian.supportingChunkIds]),
+    );
+    coverage = {
+      ...coverage,
+      conflicts: canonicalSections.map(({ conflict }) => conflict),
+      overall: "partial",
+      insufficiencyReason: "insufficient_claim_support",
+      coverage: coverage.coverage.map((entry) =>
+        entry.chunkIds.some((id) => rejectedIds.has(id))
+          ? {
+              ...entry,
+              status: "partial",
+              reasonCodes: [...new Set([...entry.reasonCodes, "source_policy_not_evaluated"])],
+            }
+          : entry,
+      ),
+    };
+    verified.conflictsOrGaps = (verified.conflictsOrGaps ?? []).filter(
+      (flag) =>
+        flag.type !== "conflict" ||
+        !(flag.source_chunk_ids?.length && flag.source_chunk_ids.every((id) => rejectedIds.has(id))),
+    );
+    if (verified.fallbackReasonCode === "source_conflict") verified.fallbackReasonCode = "coverage_gap";
+  }
+  context.reconcileCoverage?.(verified, coverage);
+  const retainedSectionCount = verified.answerSections?.length ?? 0;
+  let gapAdded = false;
+  let conflictAdded = false;
+  if (coverage && verified.grounded && verified.confidence !== "unsupported" && verified.citations.length) {
+    const conflicts = canonicalSections.map(({ section }) => section);
+    const missing = coverage.subquestions.filter(
+      (part) =>
+        part.required &&
+        !coverage.coverage.some(
+          (entry) =>
+            entry.subquestionId === part.id &&
+            (entry.status === "direct" || entry.status === "conflicting") &&
+            entry.chunkIds.some((id) => citedIds.has(id)),
+        ),
+    );
+    const sections = [...conflicts];
+    conflictAdded = conflicts.length > 0;
+    if (missing.length) {
+      const gapsByReason = new Map<string, string[]>();
+      const partReasons: readonly RagInsufficiencyReason[] = [
+        "insufficient_claim_support",
+        "not_in_corpus",
+        "retrieval_miss",
+        "source_role_mismatch",
+        "governance_block",
+        "site_content_updating",
+        "site_content_stale",
+        "site_content_unavailable",
+        "timeout",
+        "provider_failure",
+      ];
+      const namedMissing = new Map<
+        string,
+        { part: (typeof missing)[number]; width: number; names: string[]; detailed: boolean }
+      >();
+      for (const part of missing) {
+        const binding = context.queryPlan?.subquestions.find((binding) => binding.id === part.id);
+        const facets = (delivered?.missingFacets.get(part.id) ?? binding?.requestedFacets)?.filter(
+          (facet) => !delivered?.deliveredFacets.has(facet),
+        );
+        const width = binding?.requestedFacets?.length ?? 1;
+        for (const name of facets ?? [part.question]) {
+          const details = facets ? delivered?.missingDetails.get(part.id)?.[name as RagAskedPart] : undefined;
+          const label = facets ? name.replaceAll("_", " ") : name;
+          const names = details?.length ? details.map((detail) => `${label} ${detail}`) : [label];
+          const detailed = !!details?.length;
+          const previous = namedMissing.get(name);
+          if (!previous || width < previous.width || (width === previous.width && detailed && !previous.detailed))
+            namedMissing.set(name, { part, width, names, detailed });
+        }
+      }
+      for (const { part, names } of namedMissing.values()) {
+        const missingName = names.join("; ");
+        const entry = coverage.coverage.find((entry) => entry.subquestionId === part.id);
+        // A whole-answer reviewed conflict says nothing about an unrelated missing part.
+        const explicitReason = partReasons.find((reason) => entry?.reasonCodes.includes(reason));
+        const reason =
+          explicitReason ??
+          (coverage.insufficiencyReason === "source_conflict"
+            ? "insufficient_claim_support"
+            : (coverage.insufficiencyReason ?? "insufficient_claim_support"));
+        const message =
+          reason === "not_in_corpus"
+            ? "not covered by the active sources."
+            : publicFallbackReason(classifyRagFallbackReason({ insufficiencyReason: reason }));
+        const name = missingName
+          .normalize("NFKC")
+          .replace(/[\u0000-\u001f\u007f<>\[\]\x60*_#\\]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        gapsByReason.set(message, [...(gapsByReason.get(message) ?? []), name]);
+      }
+      if (gapsByReason.size)
+        sections.push({
+          heading: "Source gap",
+          kind: "source_gap",
+          supportLevel: "unsupported",
+          citation_chunk_ids: [],
+          body: [...gapsByReason].map(([message, names]) => names.join("; ") + ": " + message).join(" "),
+        });
+      gapAdded = gapsByReason.size > 0;
+    }
+    verified.answerSections = reserveMetadataSlots(
+      verified,
+      sections,
+      context.sectionCap?.(coverage) ?? adaptiveAnswerLimits.sections,
+    );
+  }
+  return {
+    answer: verified,
+    retainedSectionCount,
+    droppedSectionCount: Math.max(0, proseSections.length - retainedSectionCount),
+    gapAdded,
+    conflictAdded,
+  };
+}
+
 // Public wrapper: runs quality finalization, then stamps provider/quality labels so the UI can
 // disclose source-only (lower-quality) answers and verify-against-sources guidance.
 /** Finalize rag answer quality. */
@@ -3937,9 +4397,10 @@ export function finalizeRagAnswerQuality(
   query: string,
   queryClass: RagQueryClass,
   verificationSources?: SearchResult[],
+  contract: RagAnswerGenerationContract = legacyAnswerGenerationContract,
 ): RagAnswer {
   const coherenceChecked = enforceLabelledNumericBandCoherence(answer, { query, verificationSources });
-  const qualityChecked = finalizeRagAnswerQualityCore(coherenceChecked, query, queryClass);
+  const qualityChecked = finalizeRagAnswerQualityCore(coherenceChecked, query, queryClass, contract);
   const verified = applyNumericVerification(
     assessAndEnforceClaimSupport(qualityChecked, verificationSources),
     verificationSources,
@@ -3955,7 +4416,12 @@ export function finalizeRagAnswerQuality(
  * @param queryClass - The classification of the user query
  * @returns The finalized RAG answer with validated content, sections, and confidence metadata
  */
-function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryClass: RagQueryClass): RagAnswer {
+function finalizeRagAnswerQualityCore(
+  answer: RagAnswer,
+  query: string,
+  queryClass: RagQueryClass,
+  contract: RagAnswerGenerationContract,
+): RagAnswer {
   // Deterministic, template-built answers (document-support lists, table/visual source
   // references) are well-formed by construction and carry no free-text clinical claims.
   // The clinical-prose sanitizer/quality gate below is designed for model prose and would
@@ -3976,7 +4442,7 @@ function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryCla
     const recovered = recoverFinalGateGapExtractively(answer, query, queryClass, gapReason);
     // Terminates: the recovered answer is routingMode "extractive", so the fast-gated
     // recovery cannot re-fire on this re-run.
-    if (recovered) return finalizeRagAnswerQualityCore(recovered, query, queryClass);
+    if (recovered) return finalizeRagAnswerQualityCore(recovered, query, queryClass, contract);
     const gapAnswer = finalQualityGapAnswer(query, queryClass);
     return {
       ...answer,
@@ -4028,7 +4494,10 @@ function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryCla
       const isDocumentListSection = section.kind === "documentation" || /\bdocument matches\b/i.test(section.heading);
       if (
         !isDocumentListSection &&
-        (bodyKey === answerKey || answerKey.includes(bodyKey) || bodyKey.includes(answerKey))
+        (bodyKey === answerKey ||
+          answerKey.includes(bodyKey) ||
+          (bodyKey.includes(answerKey) &&
+            (contract.promptVersion !== ragAdaptiveAnswerPromptVersion || !bodyKey.replaceAll(answerKey, "").trim())))
       ) {
         return null;
       }
@@ -4048,4 +4517,28 @@ function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryCla
     answer: boldHighYieldClinicalText(cleanedAnswer, query),
     answerSections,
   };
+}
+
+/** A rejected generated format is terminal, not evidence that the retained sources lack an answer. */
+export function rejectAdaptiveAnswerContract(answer: RagAnswer, query: string, queryClass: RagQueryClass): RagAnswer {
+  const rejected = finalQualityFailure(answer, query, queryClass, "adaptive_answer_contract_rejected");
+  return applyProviderLabels({
+    ...rejected,
+    answer:
+      "The requested answer could not be safely completed within the supported response format. Review the retained sources for the requested detail.",
+    answerContractVersion: undefined,
+    renderAdaptiveAnswer: undefined,
+    citations: [],
+    quoteCards: [],
+    supportedClaims: [],
+    evidenceAssessments: {},
+    unverifiedNumericTokens: [],
+    bestSource: null,
+    modelUsed: null,
+    answerQualityTier: "source_only",
+    routingReason: `${rejected.routingReason}; generation_fallback:adaptive_answer_contract_rejected`,
+    fallbackReasonCode: "citation_or_claim_gate",
+    fallbackReason: undefined,
+    degradedMode: undefined,
+  });
 }

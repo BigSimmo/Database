@@ -3,6 +3,7 @@ import {
   answerGenerationFingerprint,
   buildAnswerGenerationFingerprint,
   scopedAnswerCacheKey,
+  ragCacheFingerprint,
   type AnswerGenerationFingerprintInput,
 } from "../src/lib/rag/rag-cache";
 
@@ -59,8 +60,41 @@ describe("RAG answer generation fingerprints", () => {
   });
 
   it("is included in the scoped answer cache key", () => {
-    expect(scopedAnswerCacheKey({ query: "Clozapine monitoring", ownerId: "owner-a" })).toContain(
-      `generation:${answerGenerationFingerprint()}`,
-    );
+    const args = { query: "Clozapine monitoring", ownerId: "owner-a" };
+    expect(scopedAnswerCacheKey(args)).toContain(ragCacheFingerprint(args));
+  });
+});
+
+it("selects the real legacy/candidate-off/candidate-on generation tuple", async () => {
+  const { decideRagProgrammeRollout, answerContractForRollout } = await import("../src/lib/rag/rag-rollout");
+  const input = {
+    configuredMode: "canary" as const,
+    ownerId: "synthetic-owner",
+    canaryBasisPoints: 10000,
+    serverSalt: "synthetic-salt-01234567890123456789",
+    queryPlanVersion: "q",
+    sourcePolicyVersion: "p",
+    indexGeneration: "i",
+    publicSiteContentReleaseId: null,
+    publicSiteContentStaticManifestDigest: null,
+    publicSiteContentReleaseDigest: null,
+    publicSiteContentChangeEpoch: null,
+    publicSiteContentState: "unavailable" as const,
+    siteContentEnabled: false,
+    australianAugmentationEnabled: false,
+    adaptiveAnswerEnabled: false,
+    adaptiveRenderEnabled: false,
+  };
+  const legacy = decideRagProgrammeRollout({ ...input, configuredMode: "legacy", adaptiveAnswerEnabled: true });
+  const off = decideRagProgrammeRollout(input);
+  const on = decideRagProgrammeRollout({ ...input, adaptiveAnswerEnabled: true });
+  expect(answerGenerationFingerprint(legacy)).toBe(answerGenerationFingerprint());
+  expect(answerGenerationFingerprint(off)).toBe(answerGenerationFingerprint());
+  expect(answerGenerationFingerprint(on)).not.toBe(answerGenerationFingerprint());
+  expect(answerContractForRollout(legacy)).toEqual(answerContractForRollout(off));
+  expect(answerContractForRollout(on)).toEqual({
+    adaptive: true,
+    promptVersion: "clinical-rag-answer-v20",
+    schemaVersion: "clinical-rag-answer-schema-v5",
   });
 });

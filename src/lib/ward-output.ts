@@ -351,6 +351,7 @@ const sectionKindLabels: Record<AnswerSectionKind, string> = {
   comparison: "Comparison",
   documentation: "Documentation/forms",
   source_gap: "Source gap",
+  source_conflict: "Source conflict",
   visual_evidence: "Relevant visual evidence",
   quotes: "Exact quotes",
   verification: "Verify source",
@@ -934,7 +935,7 @@ export function formatWardNote(answer: AnswerPresentationInput, demoMode = false
   ]);
 }
 
-export function createQuoteFollowUp(quote: QuoteCard) {
+export function createQuoteFollowUp(quote: Pick<QuoteCard, "title" | "page_number" | "quote">) {
   return `Using the quoted source from ${quote.title}, page ${quote.page_number ?? "n/a"}, what is the practical clinical answer? Quote: "${normalizeText(quote.quote)}"`;
 }
 

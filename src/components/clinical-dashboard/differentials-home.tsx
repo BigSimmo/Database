@@ -52,7 +52,7 @@ import {
   type DifferentialSearchResultItem,
 } from "@/lib/differential-search-composition";
 import type { DifferentialRecord } from "@/lib/differential-snapshot";
-import type { DocumentMatch } from "@/lib/types";
+import type { ClientDocumentMatch } from "@/lib/answer-client-payload";
 import { sortResultItems } from "@/lib/result-sort";
 
 type DifferentialAction = {
@@ -757,7 +757,7 @@ function SearchResultsView({
 }: {
   query: string;
   loading: boolean;
-  documentMatches?: DocumentMatch[];
+  documentMatches?: ClientDocumentMatch[];
   evidenceQuery?: string | null;
   onRunSearch?: (query: string) => void;
 }) {
@@ -1277,7 +1277,7 @@ export function DifferentialsHome({
   query: string;
   loading: boolean;
   searchSubmitted?: boolean;
-  documentMatches?: DocumentMatch[];
+  documentMatches?: ClientDocumentMatch[];
   evidenceQuery?: string | null;
   realDataReady?: boolean;
   authUnavailable?: boolean;

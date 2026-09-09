@@ -1,5 +1,7 @@
 # Trusted Admin/Backend Document Ingestion — Implementation Plan
 
+**2026-09-07 binding amendment:** Read the package execution-order.md section “Answer-quality amendment — 2026-09-07” (editable owner: docs/superpowers/rag-upgrade/canonical/execution-order.md). It contains the single F01–F21/M01–M07 disposition map and M1–M3 acceptance policy. The task-local amendments below take precedence over superseded examples; unchanged accepted task evidence remains valid. Product implementation is paused pending separate authorization.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to execute this plan task-by-task. Ingestion, RAG, privacy, security, and Supabase migration tasks are sequential. Use one fresh implementer for one numeric task, then one task reviewer returning specification-compliance and code-quality verdicts. Do not use parallel implementers on shared schema, worker, upload, retrieval, or dashboard files.
 
 **Goal:** Make a trusted administrator/backend upload the clinical-admission event, then automatically activate the document for shared clinical answers only after local security, identifier, OCR/extraction, index-integrity, and lifecycle hard gates pass.
@@ -443,6 +445,8 @@ Expected: focused tests and the offline Docling contract gate pass. The full ben
 
 ### Task 4: Add technical hard gates and automatic digest-bound activation
 
+**Amended acceptance (2026-09-07):** F18: uploaded_local activation requires trusted admission plus exact extraction/security/index/currentness/generation hard-gate evidence. This technical automatic activation does not activate international supplementary publishers; retain their separate source-definition/licence/role/public-version workflow.
+
 **Files:**
 
 - Create: `src/lib/document-technical-eligibility.ts`
@@ -606,6 +610,8 @@ The journey stubs the administrator, quality-task, retry/reprocess, and document
 
 ### Task 6: Enforce active shared-corpus retrieval, evidence lineage, conflict, and withdrawal
 
+**Amended acceptance (2026-09-07):** F17–F18: supply active shared uploaded passage lineage to the existing retrieval/conflict owners. Load only reviewed version-bound material differences, and invalidate them on withdrawal, expiry, inaccessible evidence or changed generation. Reuse the Australian Task 3 review/persistence vocabulary; no model fabricates canonical records and no second clinical admission approval is introduced.
+
 **Files:**
 
 - Modify: `src/lib/owner-scope.ts`
@@ -720,6 +726,8 @@ Expected: offline contracts pass; real backup/PITR/Storage restore remains opera
 ---
 
 ### Task 8: Close evaluation, governance, and approval-gated rollout
+
+**Amended acceptance (2026-09-07):** F18–F19: prove target required parts have eligible usable passages, preserving upload activation versus international-policy separation. Fixture mixed-source usefulness is early local proof; real corpus/provider/admission/operational acceptance still requires distinct L01–L06 receipts and approvals.
 
 **Files:**
 

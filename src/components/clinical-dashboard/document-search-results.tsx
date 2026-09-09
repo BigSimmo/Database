@@ -104,7 +104,8 @@ import {
   writeResultFilterValue,
   writeResultFilterValues,
 } from "@/lib/result-filter-url";
-import type { ClinicalDocument, DocumentMatch, SearchScopeSummary } from "@/lib/types";
+import type { ClinicalDocument, SearchScopeSummary } from "@/lib/types";
+import type { ClientDocumentMatch } from "@/lib/answer-client-payload";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
 import { documentRelevancePercent } from "./relevance-score";
@@ -184,7 +185,7 @@ const searchRecordConfig: Record<
 // affordances: role="radio"+aria-checked for source type, aria-pressed for facets —
 // the shared component picks the renderer from each group's own `kind`.
 
-function documentPageLabel(document: DocumentMatch) {
+function documentPageLabel(document: ClientDocumentMatch) {
   const pages = document.bestPages.filter((page) => Number.isFinite(page));
   if (pages.length === 0) return "Page unavailable";
   if (pages.length === 1) return `Page ${pages[0]}`;
@@ -194,7 +195,7 @@ function documentPageLabel(document: DocumentMatch) {
   return `Page ${pages[0]} +${pages.length - 1}`;
 }
 
-function resultTypeTabs(matches: DocumentMatch[]) {
+function resultTypeTabs(matches: ClientDocumentMatch[]) {
   const tabs = [
     { key: "all" as const, label: "All", count: matches.length },
     { key: "tables" as const, label: "Tables", count: matches.filter((match) => match.tableCount > 0).length },
@@ -209,7 +210,7 @@ function resultTypeTabs(matches: DocumentMatch[]) {
   return tabs.filter((tab) => tab.key === "all" || tab.count > 0);
 }
 
-function filterMatchesByResultType(matches: DocumentMatch[], filter: ResultTypeFilter) {
+function filterMatchesByResultType(matches: ClientDocumentMatch[], filter: ResultTypeFilter) {
   if (filter === "tables") return matches.filter((match) => match.tableCount > 0);
   if (filter === "images") return matches.filter((match) => match.imageCount > 0);
   if (filter === "pdfs") return matches.filter((match) => match.file_name.toLowerCase().endsWith(".pdf"));
@@ -228,7 +229,7 @@ function loadedSourceCountLabel(count: number) {
   return count.toLocaleString();
 }
 
-function relevanceTone(document: DocumentMatch) {
+function relevanceTone(document: ClientDocumentMatch) {
   const verdict = document.relevance?.verdict as string | undefined;
   const percent = documentRelevancePercent(document);
   if (verdict === "direct") {
@@ -240,7 +241,7 @@ function relevanceTone(document: DocumentMatch) {
   return { label: "Related", short: "Related", detail: `${percent}% nearby` };
 }
 
-function documentOpenHref(document: DocumentMatch) {
+function documentOpenHref(document: ClientDocumentMatch) {
   const params = new URLSearchParams();
   params.set("page", String(document.bestPages[0] ?? 1));
   const chunkId = document.bestChunkIds[0];
@@ -251,7 +252,7 @@ function documentOpenHref(document: DocumentMatch) {
 const resultMenuItemClass =
   "flex min-h-12 w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
 
-function DocumentPagePreview({ document, href }: { document: DocumentMatch; href: string }) {
+function DocumentPagePreview({ document, href }: { document: ClientDocumentMatch; href: string }) {
   const pageNumber = document.bestPages[0] ?? 1;
   const lineWidths = [74, 88, 63, 79, 56];
   const coverEndpoint = document.coverImageId ? `/api/images/${document.coverImageId}/signed-url` : "";
@@ -324,7 +325,7 @@ function DocumentResultMoreMenu({
   openHref,
   onScopeDocument,
 }: {
-  document: DocumentMatch;
+  document: ClientDocumentMatch;
   openHref: string;
   onScopeDocument: () => void;
 }) {
@@ -812,7 +813,7 @@ function DocumentSearchResultsPanelImpl({
   showHome = false,
   desktopComposerSlotId,
 }: {
-  matches: DocumentMatch[];
+  matches: ClientDocumentMatch[];
   recordMatches?: SearchRecordMatch[];
   recordMode?: SearchRecordMode;
   recordStatus?: RegistryRequestStatus;

@@ -5,6 +5,7 @@ import {
   formatAnswerRenderCopyText,
 } from "../src/lib/answer-render-policy";
 import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
+import { answerStateForAnswer, buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import type {
   BestSourceRecommendation,
   Citation,
@@ -139,6 +140,22 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
 function clientAnswer(overrides: Partial<RagAnswer> = {}) {
   return toClientAnswerPayload(answer(overrides));
 }
+
+it.each(["model_synthesis", "source_only"] as const)(
+  "R3 keeps explicit %s provenance with extractive routing",
+  (answerQualityTier) => {
+    const payload = clientAnswer({ answerQualityTier, routingMode: "extractive", fallbackReasonCode: "coverage_gap" });
+    const model = buildAnswerRenderModel(payload);
+    const copied = buildAnswerClipboardText({ answer: payload, weakEvidence: false, renderCopyText: model.copyText });
+    if (answerQualityTier === "model_synthesis") {
+      expect(answerStateForAnswer({ answer: payload, weakEvidence: false }).kind).not.toBe("source_only");
+      expect(copied).toMatch(/^AI-generated from the cited sources\./);
+      expect(copied).not.toMatch(/without (?:AI|model) synthesis/i);
+    } else {
+      expect(copied).toMatch(/^Assembled directly from the cited sources without model synthesis\./);
+    }
+  },
+);
 
 describe("answer render policy", () => {
   it("caps trust and adds a warning from the bounded retrieval gate signal", () => {
@@ -441,6 +458,8 @@ describe("answer render policy", () => {
     const direct = source({ id: "chunk-2", document_id: "doc-2", title: "Direct threshold", file_name: "direct.pdf" });
     const model = buildAnswerRenderModel(
       clientAnswer({
+        answerQualityTier: "model_synthesis",
+        bestSource: undefined,
         sources: [source(), direct],
         supportedClaims: [
           {
@@ -454,6 +473,25 @@ describe("answer render policy", () => {
       }),
     );
     expect(model.bestSource?.chunk_id).toBe("chunk-2");
+  });
+
+  it("R3 retains an explicit best-source recommendation despite another direct supporting chunk", () => {
+    const model = buildAnswerRenderModel(
+      clientAnswer({
+        answerQualityTier: "model_synthesis",
+        sources: [source(), source({ id: "chunk-2", document_id: "doc-2" })],
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "Withhold clozapine.",
+            riskClass: "high_risk",
+            supportingChunkIds: ["chunk-2"],
+            supportStatus: "direct",
+          },
+        ],
+      }),
+    );
+    expect(model.bestSource?.chunk_id).toBe("chunk-1");
   });
 
   it("copies the displayed table values, units, and canonical provenance", () => {

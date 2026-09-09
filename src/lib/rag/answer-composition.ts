@@ -21,7 +21,7 @@
 // "long-term" and "determine" as definitions, so narrowness is governed by the prompt's
 // narrow-question rule (which the menu never overrides), not by this table.
 
-import type { AnswerSectionKind, ClinicalQueryIntent, RagQueryClass } from "@/lib/types";
+import type { AdaptiveAnswerPlan, AnswerSectionKind, ClinicalQueryIntent, RagQueryClass } from "@/lib/types";
 
 /** One related-information candidate: an answerSections kind plus the focus it should take here. */
 export type RelatedInformationItem = Readonly<{ kind: AnswerSectionKind; focus: string }>;
@@ -102,9 +102,12 @@ function menuKeyFor(queryClass: RagQueryClass, intent: ClinicalQueryIntent): Rel
 export function buildRelatedInformationMenu(
   queryClass: RagQueryClass,
   intent: ClinicalQueryIntent,
+  plan?: AdaptiveAnswerPlan,
 ): RelatedInformationMenu {
   const key = menuKeyFor(queryClass, intent);
-  return Object.freeze({ key, queryClass, intent, items: key === "none" ? noItems : menuItems[key] });
+  const candidates = key === "none" ? noItems : menuItems[key];
+  const items = plan ? candidates.filter((item) => plan.optionalSectionKinds.includes(item.kind)) : candidates;
+  return Object.freeze({ key, queryClass, intent, items });
 }
 
 const noMenuLine =
@@ -117,6 +120,10 @@ export function formatRelatedInformationMenuLine(menu: RelatedInformationMenu): 
 }
 
 /** Convenience for the prompt builder: one call, one line. */
-export function relatedInformationMenuLine(queryClass: RagQueryClass, intent: ClinicalQueryIntent): string {
-  return formatRelatedInformationMenuLine(buildRelatedInformationMenu(queryClass, intent));
+export function relatedInformationMenuLine(
+  queryClass: RagQueryClass,
+  intent: ClinicalQueryIntent,
+  plan?: AdaptiveAnswerPlan,
+): string {
+  return formatRelatedInformationMenuLine(buildRelatedInformationMenu(queryClass, intent, plan));
 }

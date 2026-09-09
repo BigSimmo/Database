@@ -1,4 +1,10 @@
-import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
+import { isAnswerRequestContextQuery, parseAnswerRequestContext } from "@/lib/answer-request-context";
+import {
+  projectClientAnswerPayload,
+  projectClientSearchResult,
+  type ClientRagAnswerPayload,
+  type ClientSearchResult,
+} from "@/lib/answer-client-payload";
 
 export const answerThreadStorageKey = "clinical-kb-answer-thread";
 export const guestAnswerThreadOwnerId = "guest-tab-session";
@@ -33,6 +39,7 @@ export function resolveAnswerThreadOwnerId({
 export type StoredAnswerTurn = {
   id: string;
   query: string;
+  resolvedQuery?: string;
   answer: ClientRagAnswerPayload;
   sources: ClientSearchResult[];
 };
@@ -62,45 +69,45 @@ export type AnswerThreadRestoreOptions = {
 
 const maxStorageBytes = 4_500_000;
 
-function isStoredAnswerTurn(value: unknown): value is StoredAnswerTurn {
-  if (!value || typeof value !== "object") return false;
-  const turn = value as StoredAnswerTurn;
-  return (
-    typeof turn.id === "string" &&
-    typeof turn.query === "string" &&
-    Boolean(turn.query.trim()) &&
-    Boolean(turn.answer) &&
-    typeof turn.answer === "object" &&
-    typeof turn.answer.answer === "string" &&
-    Array.isArray(turn.sources) &&
-    turn.sources.every(
-      (source) =>
-        Boolean(source) &&
-        typeof source === "object" &&
-        typeof source.id === "string" &&
-        typeof source.document_id === "string",
-    )
-  );
+function storedResolvedQuery(value: unknown): { resolvedQuery?: string } {
+  if (typeof value !== "string" || !value.trim() || value.length > 2000) return {};
+  if (isAnswerRequestContextQuery(value) && !parseAnswerRequestContext(value)) return {};
+  return { resolvedQuery: value };
+}
+
+function normalizeStoredAnswerTurn(value: unknown): StoredAnswerTurn | null {
+  if (!value || typeof value !== "object") return null;
+  const turn = value as Record<string, unknown>;
+  const answer = projectClientAnswerPayload(turn.answer);
+  const sources = Array.isArray(turn.sources)
+    ? turn.sources.map(projectClientSearchResult).filter((source): source is ClientSearchResult => Boolean(source))
+    : null;
+  if (typeof turn.id !== "string" || typeof turn.query !== "string" || !turn.query.trim() || !answer || !sources) {
+    return null;
+  }
+  return { id: turn.id, query: turn.query, ...storedResolvedQuery(turn.resolvedQuery), answer, sources };
 }
 
 function normalizeLatestTurn(value: unknown): Omit<StoredAnswerTurn, "id"> | null {
   if (!value || typeof value !== "object") return null;
-  const turn = value as Partial<Omit<StoredAnswerTurn, "id">>;
-  if (
-    typeof turn.query !== "string" ||
-    !turn.query.trim() ||
-    !turn.answer ||
-    typeof turn.answer !== "object" ||
-    typeof turn.answer.answer !== "string" ||
-    !Array.isArray(turn.sources)
-  ) {
+  const turn = value as Record<string, unknown>;
+  const answer = projectClientAnswerPayload(turn.answer);
+  const sources = Array.isArray(turn.sources)
+    ? turn.sources.map(projectClientSearchResult).filter((source): source is ClientSearchResult => Boolean(source))
+    : null;
+  if (typeof turn.query !== "string" || !turn.query.trim() || !answer || !sources) {
     return null;
   }
-  return { query: turn.query, answer: turn.answer, sources: turn.sources };
+  return { query: turn.query, ...storedResolvedQuery(turn.resolvedQuery), answer, sources };
 }
 
 function normalizeTurns(value: unknown) {
-  return Array.isArray(value) ? value.filter(isStoredAnswerTurn).slice(-(maxStoredAnswerTurns - 1)) : [];
+  return Array.isArray(value)
+    ? value
+        .map(normalizeStoredAnswerTurn)
+        .filter((turn): turn is StoredAnswerTurn => Boolean(turn))
+        .slice(-(maxStoredAnswerTurns - 1))
+    : [];
 }
 
 function normalizeCollapsedTurnIds(value: unknown, priorTurns: StoredAnswerTurn[]) {
@@ -113,7 +120,7 @@ function normalizeV2(value: Record<string, unknown>): PersistedAnswerThread | nu
   const now = Date.now();
   const priorTurns = normalizeTurns(value.priorTurns);
   const latestTurn = normalizeLatestTurn(value.latestTurn);
-  if (!priorTurns.length && !latestTurn) return null;
+  if ((value.latestTurn != null && !latestTurn) || (!priorTurns.length && !latestTurn)) return null;
   if (
     typeof value.latestSubmissionSignature !== "string" ||
     !value.latestSubmissionSignature ||
@@ -221,11 +228,17 @@ export function savePersistedAnswerThread(ownerId: string, thread: PersistedAnsw
       removeStoredThread(ownerId);
       return false;
     }
+    const priorTurns = normalizeTurns(thread.priorTurns);
+    const latestTurn = normalizeLatestTurn(thread.latestTurn);
+    if ((thread.latestTurn != null && !latestTurn) || (!priorTurns.length && !latestTurn)) {
+      removeStoredThread(ownerId);
+      return false;
+    }
     const payload: PersistedAnswerThread = {
       version: 2,
-      priorTurns: thread.priorTurns.slice(-(maxStoredAnswerTurns - 1)),
-      latestTurn: thread.latestTurn,
-      collapsedTurnIds: thread.collapsedTurnIds,
+      priorTurns,
+      latestTurn,
+      collapsedTurnIds: normalizeCollapsedTurnIds(thread.collapsedTurnIds, priorTurns),
       showEarlierTurns: thread.showEarlierTurns,
       latestSubmissionSignature: thread.latestSubmissionSignature,
       expiresAt: thread.expiresAt,

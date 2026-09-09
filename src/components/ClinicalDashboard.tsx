@@ -71,7 +71,7 @@ import { LibraryHealthStrip } from "@/components/clinical-dashboard/library-heal
 import { GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
 import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
-import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
+import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerProgressStepper,
@@ -226,7 +226,12 @@ import {
 } from "@/components/clinical-dashboard/use-persisted-answer-thread";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
-import type { ClientSearchResult } from "@/lib/answer-client-payload";
+import type {
+  ClientDocumentLabel,
+  ClientDocumentMatch,
+  ClientQuoteCard,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
 import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import {
   frontendSourceGovernanceWarnings,
@@ -241,8 +246,6 @@ import type {
   EvidenceRelevance,
   ImportBatch,
   IngestionJob,
-  QuoteCard,
-  AnswerSection,
   SearchResult,
   SearchScopeSummary,
   ClinicalQueryMode,
@@ -355,7 +358,7 @@ export function ClinicalDashboard({
   const latestAnswerTurnRef = useRef<Omit<AnswerTurn, "id"> | null>(null);
   const latestAnswerSnapshotMetadataRef = useRef<AnswerThreadSnapshotMetadata | null>(null);
   const answerTurnSeqRef = useRef(0);
-  const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
+  const [documentMatches, setDocumentMatches] = useState<ClientDocumentMatch[]>([]);
   const [searchRelevance, setSearchRelevance] = useState<EvidenceRelevance | null>(null);
   const [searchFacets, setSearchFacets] = useState<SearchFacets | null>(null);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>(initialSearchNavigationContext.queryMode);
@@ -1246,15 +1249,18 @@ export function ClinicalDashboard({
   }, []);
 
   const handleDocumentLabelPatched = useCallback((documentId: string, label: DocumentLabel) => {
-    function mergeLabel(labels: DocumentLabel[] | null | undefined) {
+    function mergeLabel<T extends ClientDocumentLabel>(labels: T[] | null | undefined): (T | DocumentLabel)[] {
       const current = labels ?? [];
       let replaced = false;
       const next = current.map((item) => {
-        if (item.id !== label.id) return item;
+        if (!("id" in item) || item.id !== label.id) return item;
         replaced = true;
         return label;
       });
-      return replaced ? next : [label, ...next];
+      // Public answer labels have no mutation identity. The normal full-array
+      // response reconciles them; this compatibility fallback must not append
+      // a renamed label alongside its unidentified previous value.
+      return replaced || current.some((item) => !("id" in item)) ? next : [label, ...next];
     }
 
     setDocuments((current) =>
@@ -1776,6 +1782,7 @@ export function ClinicalDashboard({
     const committedQuery = displayQuery ?? payload.query;
     latestAnswerTurnRef.current = {
       query: committedQuery,
+      resolvedQuery: payload.query,
       answer: answerData,
       sources: answerData.sources ?? [],
     };
@@ -1957,19 +1964,6 @@ export function ClinicalDashboard({
     // previous turn's question before retrieval. The raw text the user typed
     // is what the thread displays (via displayQuery below).
     if (isAnswerRequest) dispatchAnswerLifecycle({ type: "start", query: trimmedQuery });
-    const priorTurnQuery = isAnswerRequest && !replaceExistingAnswer ? latestAnswerTurnRef.current?.query : undefined;
-    const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
-    const requestQuery = isAnswerRequest ? buildAnswerFollowUpQuery(priorTurnQuery, trimmedQuery) : trimmedQuery;
-
-    const fallbackQuery = keywordQueryFromNaturalLanguage(requestQuery);
-    const queryPlan =
-      fallbackQuery && fallbackQuery !== requestQuery
-        ? [
-            { query: requestQuery, isKeyword: false },
-            { query: fallbackQuery, isKeyword: true },
-          ]
-        : [{ query: requestQuery, isKeyword: false }];
-
     // Bound this search with a stall watchdog on the shared abort controller so
     // a hung stream recovers instead of spinning forever. Answer streams reset
     // the inactivity window on every received chunk, so a slow-but-live
@@ -1982,6 +1976,22 @@ export function ClinicalDashboard({
     });
 
     try {
+      const priorTurnQuery =
+        isAnswerRequest && !replaceExistingAnswer
+          ? (latestAnswerTurnRef.current?.resolvedQuery ?? latestAnswerTurnRef.current?.query)
+          : undefined;
+      const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
+      const requestQuery = isAnswerRequest ? buildAnswerFollowUpQuery(priorTurnQuery, trimmedQuery) : trimmedQuery;
+
+      const fallbackQuery = isAnswerRequest ? "" : keywordQueryFromNaturalLanguage(requestQuery);
+      const queryPlan =
+        fallbackQuery && fallbackQuery !== requestQuery
+          ? [
+              { query: requestQuery, isKeyword: false },
+              { query: fallbackQuery, isKeyword: true },
+            ]
+          : [{ query: requestQuery, isKeyword: false }];
+
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
       // An empty source-library search is a RESULT, not a failure: the payload
@@ -2660,7 +2670,7 @@ export function ClinicalDashboard({
     focusComposerInput();
   }
 
-  function handleFollowUpQuote(quote: QuoteCard) {
+  function handleFollowUpQuote(quote: ClientQuoteCard) {
     stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
   }
 
@@ -2828,7 +2838,6 @@ export function ClinicalDashboard({
     answer.confidence !== "unsupported" &&
     isAnswerSourceBacked(answer) &&
     answerRenderModel?.trust !== "unsupported";
-  const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
   const answerPreformatted = isPreformattedGroundedAnswer(answer);
   const safeAnswerText = useMemo(
     () => sanitizeAnswerDisplayText(answer?.answer ?? "", { preformatted: answerPreformatted }),
@@ -2844,36 +2853,6 @@ export function ClinicalDashboard({
     if (showEarlierTurns || hiddenPriorTurnCount === 0) return priorAnswerTurns;
     return priorAnswerTurns.slice(-maxVisiblePriorTurns);
   }, [hiddenPriorTurnCount, priorAnswerTurns, showEarlierTurns]);
-  const safeAnswerSections = useMemo(() => {
-    return (answer?.answerSections ?? [])
-      .map((section) => {
-        const heading = sanitizeDisplayText(section.heading, { minLength: 1, minTokens: 1 });
-        const body = sanitizeAnswerDisplayText(section.body, {
-          minLength: 8,
-          minTokens: 2,
-          preformatted: answerPreformatted,
-        });
-        if (!heading || !body) return null;
-
-        const citationSources: ClientSearchResult[] = [];
-        const seenCitationIds = new Set<string>();
-        for (const id of section.citation_chunk_ids) {
-          if (seenCitationIds.has(id)) continue;
-          const source = sourceLookup.get(id);
-          if (!source) continue;
-          seenCitationIds.add(id);
-          citationSources.push(source);
-        }
-
-        return {
-          ...section,
-          heading,
-          body,
-          citationSources,
-        };
-      })
-      .filter((section): section is AnswerSection & { citationSources: ClientSearchResult[] } => section !== null);
-  }, [answer?.answerSections, answerPreformatted, sourceLookup]);
   const answerEvidenceMapRows = useMemo(() => {
     if (!answerRenderModel?.allowedBlocks.includes("evidenceMap")) return [];
     return evidenceMapRowsFromRenderModel(answerRenderModel).slice(0, answerRenderModel.trust === "high" ? 8 : 6);
@@ -3796,7 +3775,6 @@ export function ClinicalDashboard({
                         answerGrounded={answerGrounded}
                         sources={answerRenderModel.reviewSources}
                         demoMode={demoMode}
-                        safeAnswerSections={safeAnswerSections}
                         safetyFindings={safetyFindings}
                         copiedAnswer={copiedAction === "answer"}
                         pendingFeedback={pendingFeedback}

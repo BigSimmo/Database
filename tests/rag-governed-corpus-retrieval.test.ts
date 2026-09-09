@@ -127,6 +127,49 @@ function harness() {
 }
 
 describe("governed public corpus retrieval", () => {
+  it("P08C treats inferred domains as preferences but keeps explicit document/source filters restrictive", async () => {
+    const { supabase, calls } = harness();
+    const plan: RagQueryPlan = {
+      version: "rag-query-plan-v1",
+      kind: "single",
+      originalQuery: "lithium monitoring",
+      interpretation: "fixture",
+      subquestions: [{ id: "primary", question: "lithium monitoring", purpose: "primary", required: true }],
+      targetSiteDomains: ["medications"],
+      siteDomainDecision: "inferred",
+      reasonCodes: [],
+    };
+    await searchGovernedCorpora({
+      supabase,
+      queryVariants: [plan.originalQuery],
+      queryPlan: plan,
+      matchCount: 12,
+      snapshot: snapshot(),
+      components: { siteContent: true, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: plan.targetSiteDomains,
+      maxRpcCalls: 1,
+    });
+    expect(calls[0]?.args.site_content_domains).toBeNull();
+    const restricted = await searchGovernedCorpora({
+      supabase,
+      queryVariants: [plan.originalQuery],
+      queryPlan: { ...plan, siteDomainDecision: "explicit" },
+      matchCount: 12,
+      snapshot: snapshot(),
+      components: { siteContent: true, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: ["medications"],
+      documentFilters: ["uploaded_local-document"],
+      answerSourcePolicy: "only_this_source",
+      signal: new AbortController().signal,
+      maxRpcCalls: 3,
+    });
+    expect(restricted.map((row) => row.document_id)).toEqual(["uploaded_local-document"]);
+    expect(calls.at(-1)?.args.site_content_domains).toEqual(["medications"]);
+    expect(calls.every((call) => !(call.args.corpus_scopes as string[]).includes("international_supplementary"))).toBe(
+      true,
+    );
+  });
+
   it("builds ordered public-only primary and internally eligible supplementary phases", () => {
     expect(
       retrievalCorpusScopes({

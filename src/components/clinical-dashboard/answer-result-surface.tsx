@@ -10,6 +10,12 @@ import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answe
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { isPreformattedGroundedAnswer, NaturalLanguageAnswer } from "@/components/clinical-dashboard/answer-content";
 import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
+import { AnswerInlineSections } from "@/components/clinical-dashboard/answer-inline-sections";
+import {
+  answerUsesAdaptiveMainSurface,
+  projectAnswerForMainSurface,
+  type ProjectedAnswerSection,
+} from "@/components/clinical-dashboard/answer-section-projector";
 import {
   AnswerSupportSummaryCard,
   answerSupportPriority,
@@ -25,14 +31,21 @@ import {
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { CanonicalAnswerTables, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
 import { AnswerCard, AnswerCardQueryEcho, type AnswerSupportStrength } from "@/components/ui/answer-card";
-import { answerUsesDegradedMode } from "@/components/ui/answer-state";
+import { answerUsesDegradedMode, answerUsesSourceOnlyProvenance } from "@/components/ui/answer-state";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
-import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
+import { demoAnswerDisclosure } from "@/lib/answer-client-payload";
+import { publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
+import type {
+  ClientBestSourceRecommendation,
+  ClientQuoteCard,
+  ClientRagAnswerPayload,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
 import { type AppModeId } from "@/lib/app-modes";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
-import type { AnswerSection, BestSourceRecommendation, EvidenceSummary, QuoteCard } from "@/lib/types";
+import type { EvidenceSummary } from "@/lib/types";
 import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
 
 /**
@@ -53,7 +66,6 @@ function StagedAnswerResultSurfaceImpl({
   answerGrounded,
   sources,
   demoMode,
-  safeAnswerSections,
   safetyFindings,
   copiedAnswer,
   pendingFeedback,
@@ -68,7 +80,7 @@ function StagedAnswerResultSurfaceImpl({
 }: {
   answer: ClientRagAnswerPayload;
   query: string;
-  bestSource: BestSourceRecommendation | null;
+  bestSource: ClientBestSourceRecommendation | null;
   sourceSummary?: EvidenceSummary;
   renderModel: AnswerRenderModel;
   weakEvidence: boolean;
@@ -78,13 +90,14 @@ function StagedAnswerResultSurfaceImpl({
   answerGrounded: boolean;
   sources: ClientSearchResult[];
   demoMode: boolean;
-  safeAnswerSections: Array<AnswerSection & { citationSources: ClientSearchResult[] }>;
+  /** Kept as an optional compatibility prop for extracted surface callers. */
+  safeAnswerSections?: ProjectedAnswerSection[];
   safetyFindings: ReturnType<typeof extractSafetyFindings>;
   copiedAnswer: boolean;
   pendingFeedback: AnswerFeedbackType | null;
   onCopyAnswer: () => void;
   onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onFollowUpQuote?: (quote: ClientQuoteCard) => void;
   followUpSuggestions?: string[];
   onPickFollowUpSuggestion?: (suggestion: string) => void;
   followUpSuggestionsDisabled?: boolean;
@@ -92,24 +105,50 @@ function StagedAnswerResultSurfaceImpl({
   onCrossModeSearch?: (mode: AppModeId, query: string) => void;
 }) {
   const router = useRouter();
+  const isDemoAnswer = demoMode || answer.demoMode === true || answer.fallbackMode === "non_production_demo";
   const degradedAnswer = answerUsesDegradedMode({
     answerQualityTier: answer.answerQualityTier,
     fallbackReasonCode: answer.fallbackReasonCode,
     degradedMode: answer.degradedMode,
   });
-  const noteCount = clinicalNotesCount(answer);
+  const sourceOnlyAnswer = answerUsesSourceOnlyProvenance({
+    answerQualityTier: answer.answerQualityTier,
+    routingMode: answer.routingMode,
+  });
+  const preformatted = isPreformattedGroundedAnswer(answer);
+  const projectedAnswer = useMemo(
+    () =>
+      projectAnswerForMainSurface({
+        answer,
+        sources: answer.sources.length > 0 ? answer.sources : sources,
+        preformatted,
+      }),
+    [answer, preformatted, sources],
+  );
+  const renderAdaptiveAnswer = answerUsesAdaptiveMainSurface(answer);
+  const supportingPanelsAnswer = useMemo(
+    () => (renderAdaptiveAnswer ? { ...answer, answerSections: [] } : answer),
+    [answer, renderAdaptiveAnswer],
+  );
+  const noteCount = clinicalNotesCount(supportingPanelsAnswer);
   const showClinicalNotes = safetyFindings.length > 0 || noteCount > 0 || degradedAnswer || answerGrounded === false;
   const clinicalNoteDisplayCount = clinicalNotesDisplayCountForAnswer(
-    answer,
+    supportingPanelsAnswer,
     answerViewMode,
     noteCount || safetyFindings.length,
   );
-  const sourceCount =
+  const legacySourceCount =
     renderModel.primarySources.length ||
     sourceSummary?.total_sources ||
     sources.length ||
     answer.sources?.length ||
     answer.citations.length;
+  // Adaptive source rows already carry their exact final citation order. Let
+  // NaturalLanguageAnswer apply its existing four-row presentation cap to that
+  // complete set rather than feeding it a trust-capped/recommended subset first.
+  const leadSourceLinks = renderAdaptiveAnswer ? [] : renderModel.primarySources;
+  const leadBestSource = renderAdaptiveAnswer ? null : bestSource;
+  const leadSourceCount = renderAdaptiveAnswer ? projectedAnswer.leadCitationSources.length : legacySourceCount;
   const centralTables = renderModel.tables;
   // `trust` already distinguishes these; until now only a conditionally-rendered
   // side card ever showed the difference, so a "medium" answer - which includes
@@ -157,7 +196,7 @@ function StagedAnswerResultSurfaceImpl({
     setActiveReviewSheet(null);
     setEvidenceInitialTab(null);
   }
-  function handleQuoteFollowUp(quote: QuoteCard) {
+  function handleQuoteFollowUp(quote: ClientQuoteCard) {
     setActiveReviewSheet(null);
     setEvidenceInitialTab(null);
     onFollowUpQuote?.(quote);
@@ -199,11 +238,17 @@ function StagedAnswerResultSurfaceImpl({
     () => answerStateForAnswer({ answer, sources, weakEvidence }),
     [answer, sources, weakEvidence],
   );
-  const priority = answerSupportPriority(answer, safeAnswerSections, centralVisualEvidence, safetyFindings, {
-    grounded: answerGrounded,
-    weakEvidence,
-    answerState,
-  });
+  const priority = answerSupportPriority(
+    supportingPanelsAnswer,
+    renderAdaptiveAnswer ? [] : projectedAnswer.sections,
+    centralVisualEvidence,
+    safetyFindings,
+    {
+      grounded: answerGrounded,
+      weakEvidence,
+      answerState,
+    },
+  );
   // Built once so both arms of the `ready` / degraded split below stay identical.
   // The split exists only because `AnswerCardProps` discriminates on `state` to make
   // `onOpenSource` required for a degraded card (DECISIONS §Q1), and a union-typed
@@ -215,22 +260,25 @@ function StagedAnswerResultSurfaceImpl({
     // stale/partial/ungrounded outrank source_only, so keying on the kind announced
     // "AI-generated" directly above the Source-only disclosure saying no model wrote
     // it (#228).
-    attribution: (degradedAnswer ? "extractive" : "model") as "extractive" | "model",
-    sourceCount: "sourceCount" in answerState ? answerState.sourceCount : sourceCount,
+    attribution: (sourceOnlyAnswer ? "extractive" : "model") as "extractive" | "model",
+    sourceCount: "sourceCount" in answerState ? answerState.sourceCount : leadSourceCount,
   };
   const answerProse = (
-    <NaturalLanguageAnswer
-      text={answer.answer}
-      query={query}
-      preformatted={isPreformattedGroundedAnswer(answer)}
-      sourceCount={sourceCount}
-      sourceOnly={degradedAnswer}
-      bestSource={bestSource}
-      sources={sources}
-      sourceLinks={renderModel.primarySources}
-      copied={copiedAnswer}
-      onCopy={onCopyAnswer}
-    />
+    <>
+      <NaturalLanguageAnswer
+        text={projectedAnswer.leadText}
+        query={query}
+        preformatted={preformatted}
+        sourceCount={leadSourceCount}
+        sourceOnly={sourceOnlyAnswer}
+        bestSource={leadBestSource}
+        sources={projectedAnswer.leadCitationSources}
+        sourceLinks={leadSourceLinks}
+        copied={copiedAnswer}
+        onCopy={onCopyAnswer}
+      />
+      {renderAdaptiveAnswer ? <AnswerInlineSections sections={projectedAnswer.sections} /> : null}
+    </>
   );
   const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
   const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
@@ -277,6 +325,20 @@ function StagedAnswerResultSurfaceImpl({
                 `stale_evidence`/`partial_retrieval` — the two kinds that say
                 something the notice cannot (#227 over #207; see answer-card.tsx).
                 This surface no longer decides that. */}
+            {isDemoAnswer ? (
+              <p role="note" className="text-sm text-[color:var(--warning)]">
+                {demoAnswerDisclosure}
+              </p>
+            ) : null}
+            {degradedAnswer ? (
+              <p
+                role="note"
+                data-testid="current-answer-degradation"
+                className="text-sm text-[color:var(--text-muted)]"
+              >
+                {publicFallbackReason(answer.fallbackReasonCode ?? "unknown")}
+              </p>
+            ) : null}
             {answerState.kind === "ready" ? (
               <AnswerCard
                 state={answerState}
@@ -384,7 +446,7 @@ function StagedAnswerResultSurfaceImpl({
             returnFocusRef={clinicalNotesTriggerRef}
           >
             <ClinicalNotesChecklistPanel
-              answer={answer}
+              answer={supportingPanelsAnswer}
               visualEvidence={renderModel.visualEvidence}
               viewMode={answerViewMode}
               evidenceMapRows={answerEvidenceMapRows}
@@ -415,12 +477,12 @@ function StagedAnswerResultSurfaceImpl({
             returnFocusRef={evidenceTriggerRef}
           >
             <MobileEvidenceSheetContent
-              answer={answer}
+              answer={supportingPanelsAnswer}
               sources={sources}
               renderModel={renderModel}
               visualEvidence={renderModel.visualEvidence}
               answerEvidenceMapRows={answerEvidenceMapRows}
-              demoMode={demoMode}
+              demoMode={isDemoAnswer}
               initialTab={evidenceInitialTab}
               pendingFeedback={pendingFeedback}
               copiedQuotes={copiedQuotes}

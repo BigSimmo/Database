@@ -61,6 +61,27 @@ function createSharedCacheBuilder(payload: {
 }
 
 describe("shared RAG search cache", () => {
+  it("P09 shadow answer reads and writes cannot reuse or populate a legacy row", async () => {
+    const from = vi.fn(() => {
+      throw new Error("shadow must not access answer cache");
+    });
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from }) }));
+    const cache = await import("../src/lib/rag/rag-cache");
+    const args = { query: "What is clozapine?", ownerId, ragQueryPlanMode: "shadow" as const };
+    const answer = {
+      answer: "candidate poison",
+      grounded: false,
+      confidence: "unsupported" as const,
+      citations: [],
+      sources: [],
+    };
+    expect(cache.answerCoalescingAllowedForRequest(args)).toBe(false);
+    expect(cache.answerCacheLookupAllowedForRequest(args, false)).toBe(false);
+    expect(await cache.getCachedAnswer(args, Date.now())).toBeNull();
+    expect(await cache.getSharedCachedAnswer(args, Date.now())).toBeNull();
+    await cache.setCachedAnswer(args, answer);
+    expect(from).not.toHaveBeenCalled();
+  });
   it("sanitizes query-plan diagnostics before local and shared cache writes", async () => {
     vi.resetModules();
     const insertedRows: Array<{ payload?: unknown }> = [];

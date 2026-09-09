@@ -94,6 +94,45 @@ function mockEnv(overrides: Record<string, unknown> = {}) {
 }
 
 describe("/api/eval-cases", () => {
+  it("does not accept a feedback triage nomination as a captured reproducible question", async () => {
+    const { client, insert } = createInsertMock();
+    vi.doMock("@/lib/env", () => mockEnv());
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    const { POST } = await import("../src/app/api/eval-cases/route");
+    const response = await POST(
+      request({
+        interactionId: validChunkId,
+        category: "numeric_error",
+        requiresDeidentificationReview: true,
+        mayAutoPromote: false,
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("requires administrator authentication for the separate human capture path", async () => {
+    const { client, insert } = createInsertMock();
+    class AuthenticationError extends Error {}
+    const requireAuthenticatedUser = vi.fn(async () => {
+      throw new AuthenticationError();
+    });
+    vi.doMock("@/lib/env", () => mockEnv());
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError,
+      requireAuthenticatedUser,
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/eval-cases/route");
+    const response = await POST(
+      request({ query: "A reviewed, de-identified reproduction", feedbackType: "numeric_error" }),
+    );
+    expect(response.status).toBe(401);
+    expect(requireAuthenticatedUser).toHaveBeenCalledWith(expect.any(Request), client, { administrator: true });
+    expect(insert).not.toHaveBeenCalled();
+  });
+
   it("captures a good answer as a promoted eval case and filters malformed chunk ids", async () => {
     const { client, insert } = createInsertMock();
     vi.doMock("@/lib/env", () => mockEnv());

@@ -1,9 +1,213 @@
 import { describe, expect, it } from "vitest";
 
 import { analyzeClinicalQuery } from "@/lib/clinical-search";
+import { renderAnswerRequestContext, resolveAnswerRequestContext } from "@/lib/answer-request-context";
+import { queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { buildRagQueryPlan, detectClinicalAmbiguity } from "@/lib/rag/rag-query-plan";
 
 describe("bounded RAG query planning", () => {
+  function followUps(subject: string, ...requests: string[]) {
+    return requests.reduce(
+      (prior, latest) => renderAnswerRequestContext(resolveAnswerRequestContext(prior, latest)),
+      subject,
+    );
+  }
+
+  it.each([
+    ["omit monitoring but include the risks", ["dosing", "risk"]],
+    ["omit monitoring but give the dosing", ["dosing", "risk"]],
+    ["omit the monitoring and the risks", ["dosing"]],
+    ["do not give the dosing", ["monitoring", "risk"]],
+    ["do not include the risks", ["dosing", "monitoring"]],
+    ["omit the monitoring but do not give the dosing", ["risk"]],
+    ["omit monitoring but include risks", ["dosing", "risk"]],
+    ["do not give dosing", ["monitoring", "risk"]],
+  ])("P12A R2 applies command polarity before ordinary determiners: %s", (request, expected) => {
+    const query = followUps("Give lithium dosing, monitoring and risks", `For this, ${request}`);
+    expect(buildRagQueryPlan(query, analyzeClinicalQuery(query)).askedParts).toEqual(expected);
+  });
+
+  it.each([
+    "never use approved supplements",
+    "we should not use approved supplements",
+    "do not use approved supplements",
+    "don't use approved supplements",
+    "without approved supplements",
+    "could we use approved supplements?",
+  ])("P12A R1 does not widen source permission for %s", (restriction) => {
+    const query = followUps("Give lithium dosing using only this source", `For this, ${restriction}`);
+    expect(buildRagQueryPlan(query, analyzeClinicalQuery(query)).sourcePolicy).toBe("only_this_source");
+  });
+
+  it("P12A R1 allows an explicit affirmative supplement reset", () => {
+    const query = followUps("Give lithium dosing using only this source", "For this, allow approved supplements");
+    expect(buildRagQueryPlan(query, analyzeClinicalQuery(query)).sourcePolicy).toBe(
+      "primary_plus_approved_supplements",
+    );
+  });
+
+  it.each([
+    "omit monitoring and risks",
+    "omit monitoring or risks",
+    "exclude monitoring, risks",
+    "omit monitoring but include risks",
+    "omit monitoring and include risks",
+    "omit monitoring",
+  ])("P12A R1 respects coordinated facet scope: %s", (request) => {
+    const query = followUps("Give lithium dosing, monitoring and risks", `For this, ${request}`);
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.askedParts).toEqual(
+      request.includes("include risks") || request === "omit monitoring" ? ["dosing", "risk"] : ["dosing"],
+    );
+    expect(plan.materialSafetyDependencies).toEqual([]);
+  });
+
+  it("P12A R1 retains independent material safety despite excluding the optional risk facet", () => {
+    const query = followUps(
+      "Give lithium dosing, monitoring and risks with renal impairment",
+      "For this, omit monitoring and risks",
+    );
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.askedParts).toEqual(["dosing"]);
+    expect(plan.materialSafetyDependencies).toEqual(["risk"]);
+    expect(plan.subquestions.some((part) => part.required && part.purpose === "risk")).toBe(true);
+  });
+
+  it.each([
+    ["no supplements", "allow approved supplements", "only_this_source"],
+    ["allow approved supplements", "no supplements", "primary_plus_approved_supplements"],
+  ])("P12A R1 retains the last repeated policy reset through elaboration: %s", (first, second, expected) => {
+    const query = followUps(
+      "Give lithium dosing",
+      `For this, ${first}`,
+      `For this, ${second}`,
+      `For this, ${first}`,
+      "Elaborate",
+    );
+    expect(buildRagQueryPlan(query, analyzeClinicalQuery(query)).sourcePolicy).toBe(expected);
+  });
+
+  it.each(["And risks?", "And the risks?"])(
+    "P12A retains monitoring through two follow-ups and elaboration: %s",
+    (riskRequest) => {
+      const query = followUps("Give lithium dosing for adults", "What about monitoring?", riskRequest, "Elaborate");
+      const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+      expect(plan.askedParts).toEqual(["dosing", "monitoring", "risk"]);
+      expect(plan.requestedDepth).toBe("detailed");
+      expect(plan.subquestions.map((part) => part.purpose)).toEqual([
+        "primary",
+        "required_action",
+        "monitoring",
+        "risk",
+      ]);
+      expect(plan.subquestions.every((part) => part.required)).toBe(true);
+    },
+  );
+
+  it("P12A preserves requested parts while applying population and renal negation resets", () => {
+    const query = followUps(
+      "Give lithium dosing for adults with renal impairment",
+      "What about monitoring?",
+      "And for adolescents without renal impairment?",
+      "Keep this concise",
+    );
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.askedParts).toEqual(["dosing", "monitoring"]);
+    expect(plan.requestedDepth).toBe("concise");
+    expect(plan.materialSafetyDependencies).toEqual([]);
+    expect(plan.originalQuery).not.toMatch(/adults|with renal impairment/);
+    expect(plan.originalQuery).toContain("adolescents");
+  });
+
+  it("P12A drops prior parts and source restrictions on a new topic", () => {
+    const query = followUps(
+      "Give lithium dosing using only this source",
+      "What about monitoring?",
+      "New topic: briefly give the differential for catatonia",
+    );
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.askedParts).toEqual(["differential"]);
+    expect(plan.requestedDepth).toBe("concise");
+    expect(plan.sourcePolicy).toBe("primary_plus_approved_supplements");
+  });
+
+  it("P12A applies a latest facet exclusion without dropping retained dosing", () => {
+    const query = followUps("Give lithium dosing and monitoring", "For this, omit monitoring and elaborate on dosing");
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.askedParts).toEqual(["dosing"]);
+    expect(plan.subquestions.some((part) => part.purpose === "monitoring")).toBe(false);
+  });
+
+  it("P12A applies an explicit only-facet focus while retaining source restrictions", () => {
+    const query = followUps(
+      "Give lithium dosing and monitoring using only this source",
+      "For this, only explain dosing",
+    );
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.askedParts).toEqual(["rationale", "dosing"]);
+    expect(plan.sourcePolicy).toBe("only_this_source");
+  });
+
+  it("P12A preserves a restriction through elaboration and permits an explicit latest supplement reset", () => {
+    const restricted = followUps("Give lithium dosing using only this source", "What about monitoring?", "Elaborate");
+    expect(buildRagQueryPlan(restricted, analyzeClinicalQuery(restricted)).sourcePolicy).toBe("only_this_source");
+    const query = followUps(restricted, "For this, allow approved supplements");
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.sourcePolicy).toBe("primary_plus_approved_supplements");
+    expect(plan.askedParts).toEqual(["dosing", "monitoring"]);
+    const restrictedAgain = followUps(
+      "Give lithium dosing with approved supplements",
+      "For this, use only this source",
+    );
+    expect(buildRagQueryPlan(restrictedAgain, analyzeClinicalQuery(restrictedAgain)).sourcePolicy).toBe(
+      "only_this_source",
+    );
+  });
+
+  it("P12A does not confuse a negated clinical constraint with excluding an asked facet", () => {
+    const query = "Give lithium dosing without renal impairment";
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.askedParts).toEqual(["dosing"]);
+    expect(plan.materialSafetyDependencies).toEqual([]);
+  });
+
+  it("P12A never treats negated supplement permission as an authorization", () => {
+    const query = followUps(
+      "Give lithium dosing using only this source",
+      "For this, do not allow approved supplements",
+    );
+    expect(buildRagQueryPlan(query, analyzeClinicalQuery(query)).sourcePolicy).toBe("only_this_source");
+  });
+
+  it("P12A does not treat only-use-this-source wording as an only-facet reset", () => {
+    const query = followUps("Give lithium dosing and monitoring", "For this, only use this source for dosing");
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.askedParts).toEqual(["dosing", "monitoring"]);
+    expect(plan.sourcePolicy).toBe("only_this_source");
+  });
+
+  it("T8-R3 makes explicit medicine parts required coverage despite protected medication intent", () => {
+    const query = "Give lithium dosing, monitoring and risks";
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.askedParts).toEqual(["dosing", "monitoring", "risk"]);
+    expect(plan.subquestions.map((part) => part.purpose)).toEqual(["primary", "required_action", "monitoring", "risk"]);
+    expect(plan.subquestions.every((part) => part.required)).toBe(true);
+  });
+  it("P08C requires asked assessment, differential and rationale instead of a generic four-part template", () => {
+    const query = "Give a comprehensive assessment, differential and rationale for catatonia.";
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.askedParts).toEqual(["assessment", "differential", "rationale"]);
+    expect(plan.subquestions.some((part) => part.purpose === "monitoring" || part.purpose === "risk")).toBe(false);
+    expect(plan.requestedDepth).toBe("detailed");
+  });
+
+  it("P08C requires a material medicine safety dependency without adding a generic template", () => {
+    const query = "How should lithium dosing be managed in renal impairment?";
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.materialSafetyDependencies).toEqual(["risk"]);
+    expect(plan.subquestions.some((part) => part.required && part.purpose === "risk")).toBe(true);
+    expect(plan.subquestions.length).toBeLessThanOrEqual(4);
+  });
   it("keeps a simple threshold query single and always retains the original query", () => {
     const query = "What ANC means withhold clozapine?";
 
@@ -217,5 +421,39 @@ describe("bounded RAG query planning", () => {
     expect(result.kind).toBe("single");
     expect(result.targetSiteDomains).toEqual(["tools"]);
     expect(result.siteDomainDecision).toBe("explicit");
+  });
+});
+
+describe("P12A phase original request through clinical mode", () => {
+  it("uses resolved current depth and source policy while retaining the augmented retrieval query", () => {
+    const original = ["What about monitoring?", "For this, allow approved supplements", "Keep this concise"].reduce(
+      (prior, next) => renderAnswerRequestContext(resolveAnswerRequestContext(prior, next)),
+      "Give detailed lithium dosing using only this source",
+    );
+    const augmented = queryForClinicalMode(original, "monitoring_schedule");
+    const analysis = analyzeClinicalQuery(augmented);
+    expect(buildRagQueryPlan(augmented, analysis, original)).toMatchObject({
+      requestedDepth: "concise",
+      sourcePolicy: "primary_plus_approved_supplements",
+      originalQuery: augmented,
+    });
+    expect(buildRagQueryPlan(augmented, analysis)).toMatchObject({
+      requestedDepth: "detailed",
+      sourcePolicy: "only_this_source",
+    });
+    const restricted = renderAnswerRequestContext(
+      resolveAnswerRequestContext(original, "For this, no approved supplements"),
+    );
+    expect(
+      buildRagQueryPlan(queryForClinicalMode(restricted, "monitoring_schedule"), analysis, restricted).sourcePolicy,
+    ).toBe("only_this_source");
+  });
+  it("does not treat contraindications scaffolding as user toxicity or a safety dependency", () => {
+    const original = "Give lithium dosing";
+    const augmented = queryForClinicalMode(original, "contraindications_cautions");
+    expect(augmented).toContain("toxicity");
+    const plan = buildRagQueryPlan(augmented, analyzeClinicalQuery(augmented), original);
+    expect(plan.askedParts).toEqual(["dosing"]);
+    expect(plan.materialSafetyDependencies).toEqual([]);
   });
 });

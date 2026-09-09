@@ -1,16 +1,21 @@
 import { documentCitationHref, formatCitationLabel } from "@/lib/citations";
 import { queryCoreTerms } from "@/lib/evidence-relevance";
 import { sanitizeAnswerText } from "@/lib/rag/rag-answer-text";
-import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
+import type {
+  ClientCitation,
+  ClientRagAnswerPayload,
+  ClientSafetyWarning,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
 import {
   clinicalProseUsefulness,
   sourceTextForCompactDisplay,
   sourceTextForDisplay,
 } from "@/lib/source-text-sanitizer";
-import type { Citation, RagAnswer, SafetyWarning, SafetyWarningKind } from "@/lib/types";
+import type { RagAnswer, SafetyWarningKind, SearchResult } from "@/lib/types";
 
 export type SafetyFindingKind = SafetyWarningKind;
-export type SafetyFinding = SafetyWarning;
+export type SafetyFinding = ClientSafetyWarning;
 
 const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: RegExp }> = [
   {
@@ -67,7 +72,7 @@ function conciseSourceText(text: string) {
   return `${normalized.slice(0, 257).trim()}...`;
 }
 
-function citationFromSource(source: ClientSearchResult): Citation {
+function citationFromSource(source: ClientSearchResult): ClientCitation {
   return {
     chunk_id: source.id,
     document_id: source.document_id,
@@ -86,7 +91,8 @@ function hasQueryConceptOverlap(text: string, terms: string[]) {
   return terms.some((term) => haystack.includes(term.toLowerCase()));
 }
 
-type SafetyAnswerInput = ClientRagAnswerPayload & {
+type SafetyAnswerInput = Omit<ClientRagAnswerPayload, "sources"> & {
+  sources: Array<ClientSearchResult | SearchResult>;
   smartPanel?: Pick<NonNullable<RagAnswer["smartPanel"]>, "query">;
 };
 
@@ -127,7 +133,8 @@ export function extractSafetyFindings(answer: SafetyAnswerInput | null | undefin
     const text = sanitizeAnswerText(conciseSourceText(candidate.text)) || conciseSourceText(candidate.text);
     if (!text) continue;
     if (answer.relevance) {
-      const sourceBacked = candidate.source?.relevance?.isSourceBacked;
+      const sourceBacked =
+        candidate.source && "relevance" in candidate.source && candidate.source.relevance?.isSourceBacked;
       const moderateOrStrong = candidate.sourceStrength === "strong" || candidate.sourceStrength === "moderate";
       const overlapsQuery = hasQueryConceptOverlap(text, coreTerms);
       if (!sourceBacked && !(moderateOrStrong && overlapsQuery)) continue;

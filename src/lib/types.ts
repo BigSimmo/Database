@@ -273,10 +273,30 @@ export type RagSubquestion = {
   /** Request-local clinical question. Never persist this field in telemetry. */
   question: string;
   purpose: RagSubquestionPurpose;
+  /** Request-local delivery facets; never retrieval text or telemetry. */
+  requestedFacets?: RagAskedPart[];
+  requestedFacetDetails?: Partial<Record<RagAskedPart, RagRequestedFacetDetail[]>>;
   required: boolean;
 };
 
+export type RagRequestedFacetDetail = "frequency" | "route" | "maximum";
+
+export type RagAskedPart =
+  | "dosing"
+  | "assessment"
+  | "differential"
+  | "rationale"
+  | "management"
+  | "monitoring"
+  | "risk"
+  | "comparison"
+  | "service_workflow";
+
 export type RagQueryPlan = {
+  askedParts?: RagAskedPart[];
+  requestedDepth?: "concise" | "standard" | "detailed";
+  materialSafetyDependencies?: RagSubquestionPurpose[];
+  sourcePolicy?: "only_this_source" | "primary_plus_approved_supplements";
   version: "rag-query-plan-v1";
   kind: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
   /** Request-local original text. Never persist this field in telemetry. */
@@ -334,6 +354,43 @@ export type RagFallbackReasonCode =
   | "unknown";
 
 export type AdaptiveAnswerShape = "narrow" | "focused" | "comprehensive" | "comparison" | "partial";
+
+/** Required, request-local policy input; legacy query/answer plans need not carry it. */
+export type AdaptiveAnswerRequest = Required<
+  Pick<RagQueryPlan, "askedParts" | "requestedDepth" | "materialSafetyDependencies" | "sourcePolicy">
+> &
+  Pick<RagQueryPlan, "subquestions">;
+
+/** Internal composition policy, built only from the current request and packed coverage. */
+export type AdaptiveAnswerPlan = {
+  shape: AdaptiveAnswerShape;
+  requestedDepth: AdaptiveAnswerRequest["requestedDepth"];
+  requiredAskedParts: RagAskedPart[];
+  materialSafetyDependencies: RagSubquestionPurpose[];
+  sourcePolicy: AdaptiveAnswerRequest["sourcePolicy"];
+  requiredCoverage: Array<{
+    subquestionId: string;
+    question: string;
+    purpose: RagSubquestionPurpose | null;
+    /** Null is missing coverage, never manufactured supporting evidence. */
+    coverage: SubquestionCoverage | null;
+  }>;
+  supportedSubquestionIds: string[];
+  exactGapSubquestionIds: string[];
+  missingSafetyDependencies: RagSubquestionPurpose[];
+  optionalSectionKinds: AnswerSectionKind[];
+  requireExactGap: boolean;
+  requireConflictSection: boolean;
+  conflicts: SourcePolicyConflict[];
+  clarificationQuestion: string | null;
+  /** Finite policy tiers; the shared answer-contract limits owner supplies empirical ceilings. */
+  allocation: {
+    tier: "concise" | "standard" | "detailed";
+    requiredFirst: true;
+    optionalEnrichment: "remaining_budget_only";
+    padToMinimum: false;
+  };
+};
 
 export type RagInsufficiencyReason =
   | "not_in_corpus"
@@ -1106,6 +1163,7 @@ export type AnswerSectionKind =
   | "comparison"
   | "documentation"
   | "source_gap"
+  | "source_conflict"
   | "visual_evidence"
   | "quotes"
   | "verification";
@@ -1171,6 +1229,9 @@ export type SmartRagAnswerPlan = {
   sourcePolicy: "required_citations" | "nearby_sources_allowed" | "exact_source_links";
 };
 
+/** Adaptive generation only: enrich after actual packed coverage exists, behind its rollout gate. */
+export type AdaptiveSmartRagAnswerPlan = SmartRagAnswerPlan & { adaptiveAnswer: AdaptiveAnswerPlan };
+
 export type SmartRagApiPlan = {
   query: string;
   queryClass: RagQueryClass;
@@ -1233,6 +1294,13 @@ export type ComparisonMatrix = {
 };
 
 export type RagAnswer = {
+  /** Final server-selected adaptive contract; absent for legacy payloads. */
+  answerContractVersion?: "clinical-rag-answer-v20";
+  renderAdaptiveAnswer?: boolean;
+  /** Server-only allowlisted coverage accounting; no query/source/reviewer identifiers. */
+  ragDiagnostics?: import("@/lib/rag/rag-eval-diagnostics").ContentFreeRagDiagnostics;
+  /** Server-only programme diagnostics; excluded from the public answer DTO. */
+  generationDegradation?: import("@/lib/rag/rag-generation-degradation").RagGenerationDegradationRecord;
   interactionId?: string;
   feedbackToken?: string;
   answer: string;

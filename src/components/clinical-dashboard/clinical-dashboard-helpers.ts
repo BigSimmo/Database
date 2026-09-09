@@ -8,7 +8,7 @@ import type { SetupCheck } from "@/components/clinical-dashboard/DocumentManager
 import { navigationHashes } from "@/components/clinical-dashboard/dashboard-contracts";
 import { makeSearchError } from "@/components/clinical-dashboard/search-utils";
 import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
-import type { ClinicalDocument, ImportBatch, IngestionJob, RelatedDocument } from "@/lib/types";
+import type { ClinicalDocument, ImportBatch, IngestionJob } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import type { ClinicalQueryMode } from "@/lib/clinical-query-mode";
 
@@ -184,8 +184,6 @@ export function applyRenamedDocumentToAnswer(answer: ClientRagAnswerPayload | nu
   if (!answer || !answerReferencesDocument(answer, document.id)) return answer;
   const renameCitation = <T extends { document_id: string; title: string }>(item: T): T =>
     item.document_id === document.id ? { ...item, title: document.title } : item;
-  const renameRelated = (item: RelatedDocument): RelatedDocument =>
-    item.document_id === document.id ? { ...item, title: document.title } : item;
 
   return {
     ...answer,
@@ -194,7 +192,7 @@ export function applyRenamedDocumentToAnswer(answer: ClientRagAnswerPayload | nu
     sources: answer.sources.map(renameCitation),
     visualEvidence: answer.visualEvidence?.map(renameCitation),
     bestSource: answer.bestSource ? renameCitation(answer.bestSource) : answer.bestSource,
-    relatedDocuments: answer.relatedDocuments?.map(renameRelated),
+    relatedDocuments: answer.relatedDocuments?.map(renameCitation),
   } satisfies ClientRagAnswerPayload;
 }
 

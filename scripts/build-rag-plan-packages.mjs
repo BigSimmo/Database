@@ -3,6 +3,12 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  continuationArtifactErrors,
+  readContinuationArtifactEvidence,
+  readTrackedMigrationNames,
+} from "./lib/rag-continuation-artifact.mjs";
+import { validateLocalAgentPolicy } from "./lib/rag-local-agent-policy.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRoot = "docs/superpowers/rag-upgrade";
@@ -133,6 +139,13 @@ function validateCanonicalBodies() {
   const manifest = JSON.parse(
     readFileSync(absolute(sharedFiles.find(([, target]) => target === "programme-manifest.json")[0]), "utf8"),
   );
+  if (manifest.localAgentPolicy !== undefined) {
+    try {
+      validateLocalAgentPolicy(manifest);
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
   const residualGateIds = (manifest.requiredResidualGates ?? []).map((gate) => gate.id);
   if (residualGateIds.length === 0 || new Set(residualGateIds).size !== residualGateIds.length) {
     errors.push("programme-manifest.json: requiredResidualGates must contain unique stable IDs");
@@ -624,10 +637,54 @@ function validateCanonicalBodies() {
   } catch {
     // No other planned migrations, or no origin/main ref. Base reconciliation remains mandatory.
   }
-  const existingByVersion = new Map([...existingMigrations].map((name) => [name.slice(0, 14), name]));
+  try {
+    // A committed/staged duplicate remains a collision even if deleted only on disk.
+    for (const name of readTrackedMigrationNames(repositoryRoot)) existingMigrations.add(name);
+  } catch {
+    errors.push("tracked HEAD/index migration names could not be verified");
+  }
+  const existingByVersion = new Map();
+  for (const name of existingMigrations) {
+    const version = name.slice(0, 14);
+    const names = existingByVersion.get(version) ?? [];
+    names.push(name);
+    existingByVersion.set(version, names);
+  }
+  const createOwners = [];
+  for (const phase of manifest.phases) {
+    for (const task of phase.tasks ?? []) {
+      const body = taskBodiesByPlan.get(manifest.plans[phase.plan])?.get(task) ?? "";
+      const files = body.match(/\*\*Files:\*\*([\s\S]*?)(?=\n\*\*Interfaces:\*\*)/)?.[1] ?? "";
+      for (const match of files.matchAll(/^- Create: `(supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql)`/gm)) {
+        createOwners.push({ phase: phase.id, plan: phase.plan, task, path: match[1] });
+      }
+    }
+  }
+  const continuation = manifest.continuationArtifacts ?? [];
+  const provenArtifacts = new Set();
+  const declaredArtifacts = new Set();
+  if (!Array.isArray(continuation)) errors.push("continuationArtifacts must be an array");
+  for (const record of Array.isArray(continuation) ? continuation : []) {
+    const name = typeof record?.path === "string" ? record.path.split("/").at(-1) : "";
+    const version = name.slice(0, 14);
+    if (declaredArtifacts.has(record?.path)) errors.push("duplicate continuation artifact identity");
+    declaredArtifacts.add(record?.path);
+    if (plannedMigrations.get(version) !== name) errors.push("continuation identity does not name a planned migration");
+    const identityErrors = continuationArtifactErrors({
+      record,
+      programmeId: manifest.programmeId,
+      reconciledBase: manifest.reconciledBase,
+      plannedName: name,
+      existingNames: existingByVersion.get(version) ?? [],
+      createOwners,
+      evidence: readContinuationArtifactEvidence(repositoryRoot, record, manifest.reconciledBase),
+    });
+    errors.push(...identityErrors.map((error) => `continuation artifact ${name || "unknown"}: ${error}`));
+    if (identityErrors.length === 0) provenArtifacts.add(record.path);
+  }
   for (const [version, name] of plannedMigrations) {
-    if (existingByVersion.has(version)) {
-      errors.push(`planned migration ${name} collides with existing ${existingByVersion.get(version)}`);
+    if (existingByVersion.has(version) && !provenArtifacts.has(`supabase/migrations/${name}`)) {
+      errors.push(`planned migration ${name} collides with existing ${existingByVersion.get(version).join(", ")}`);
     }
     const otherPlanNames = [...(otherPlannedMigrations.get(version) ?? [])].filter((otherName) => otherName !== name);
     for (const otherPlanName of otherPlanNames) {

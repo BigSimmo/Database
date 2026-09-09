@@ -1,7 +1,13 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { toClientAnswerPayload, type ClientRagAnswerPayload } from "@/lib/answer-client-payload";
+import {
+  toClientAnswerPayload,
+  projectClientAnswerPayload,
+  type ClientRagAnswerPayload,
+  type ClientSearchResult,
+} from "@/lib/answer-client-payload";
 import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
+import { isAnswerPayload } from "@/components/clinical-dashboard/search-utils";
 import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { issueContextPackAdmissionReceipt } from "@/lib/rag/rag-context-admission";
@@ -54,6 +60,248 @@ function answerWith(sources: SearchResult[]): RagAnswer {
 }
 
 describe("toClientAnswerPayload", () => {
+  it("P12A R1 accepts exact source_conflict vocabulary while rejecting unknown section kinds", () => {
+    const section = {
+      heading: "Source conflict",
+      body: "Synthetic reviewed difference.",
+      citation_chunk_ids: ["chunk-1"],
+      kind: "source_conflict" as const,
+    };
+    const input = { ...answerWith([]), answerSections: [section] };
+    const payload = toClientAnswerPayload(input);
+    expect(payload.answerSections).toEqual([section]);
+    for (const strict of [false, true]) {
+      expect(projectClientAnswerPayload(payload, strict)?.answerSections).toEqual([section]);
+      expect(
+        projectClientAnswerPayload(
+          { ...payload, answerSections: [{ ...section, kind: "unreviewed_conflict" }] },
+          strict,
+        ),
+      ).toBeNull();
+    }
+  });
+  it("P08C omits server diagnostics from both strict and reconstructed public payloads", () => {
+    const input = {
+      ...answerWith([]),
+      ragDiagnostics: { query: "PRIVATE_CONTEXT_CANARY", required_part_count: 2, represented_part_count: 1 },
+    };
+    for (const strict of [true, false]) {
+      const projected = projectClientAnswerPayload(
+        JSON.parse(JSON.stringify(strict ? toClientAnswerPayload(input as unknown as RagAnswer) : input)),
+        strict,
+      );
+      expect(projected).not.toBeNull();
+      expect(projected).not.toHaveProperty("ragDiagnostics");
+      expect(JSON.stringify(projected)).not.toContain("PRIVATE_CONTEXT_CANARY");
+      expect(projectClientAnswerPayload(input, true)).toBeNull();
+    }
+  });
+  it.each(["retrievalGateBlocked", "authorityTrustCapRequired"])(
+    "FR4 rejects malformed optional safety boolean %s in both modes",
+    (field) => {
+      for (const strict of [false, true]) {
+        for (const invalid of ["true", {}, null]) {
+          expect(projectClientAnswerPayload({ ...answerWith([]), [field]: invalid }, strict)).toBeNull();
+        }
+        for (const valid of [true, false]) {
+          expect(projectClientAnswerPayload({ ...answerWith([]), [field]: valid }, strict)).toMatchObject({
+            [field]: valid,
+          });
+        }
+      }
+    },
+  );
+
+  it("R3 projects every nested citation carrier and rejects malformed public enums", () => {
+    const src = fullSource();
+    const citation = {
+      chunk_id: src.id,
+      document_id: src.document_id,
+      title: src.title,
+      file_name: src.file_name,
+      page_number: src.page_number,
+      chunk_index: src.chunk_index,
+      provenance: null,
+      source_metadata: {
+        document_status: null,
+        clinical_validation_status: null,
+        extraction_quality: null,
+        publisher: null,
+        owner_id: "private-owner",
+        evidence: { secret: true },
+      },
+    };
+    const answer = {
+      ...answerWith([{ ...src, source_strength: null, similarity_origin: null } as unknown as SearchResult]),
+      citations: [citation],
+      quoteCards: [{ ...citation, quote: "Review the source.", section_heading: null, source_strength: null }],
+      bestSource: {
+        ...citation,
+        source_strength: "strong",
+        score: 1,
+        snippet: "Review the source.",
+        quote: null,
+        section_heading: null,
+        image_count: 0,
+        viewer_href: "/documents/doc-1",
+      },
+      safetyWarnings: [
+        {
+          id: "warning-1",
+          kind: "monitoring",
+          label: "Monitoring",
+          text: "Review the source.",
+          href: "/documents/doc-1",
+          citation,
+        },
+      ],
+    } as unknown as RagAnswer;
+    const projected = toClientAnswerPayload(answer);
+    expect(projected.citations[0].source_metadata).toEqual({ publisher: null });
+    expect(projected.citations[0]).not.toHaveProperty("provenance");
+    expect(projected.sources[0]).not.toHaveProperty("source_strength");
+    expect(projected.bestSource).not.toHaveProperty("quote");
+    expect(JSON.stringify(projected)).not.toContain("private-owner");
+    expect(isAnswerPayload(JSON.parse(JSON.stringify(projected)))).toBe(true);
+    expect(isAnswerPayload({ ...projected, answerSections: { owner_id: "private" } })).toBe(false);
+    expect(isAnswerPayload({ ...projected, citations: [citation] })).toBe(false);
+  });
+
+  it("R3 derives server safety from source relevance before public projection", () => {
+    const relevance = {
+      verdict: "direct",
+      label: "Direct",
+      matchedTerms: ["unrelated"],
+      missingTerms: [],
+      directSourceCount: 1,
+      weakSourceCount: 0,
+      score: 1,
+      supportReason: "Direct",
+      isSourceBacked: true,
+    } as const;
+    const answer = {
+      ...answerWith([
+        fullSource({
+          content: "Contraindicated in severe disease.",
+          relevance: {
+            ...relevance,
+            matchedTerms: ["unrelated"],
+            missingTerms: [],
+            coverageScore: 1,
+            rankScore: 1,
+            titleMatchedTerms: [],
+            contentMatchedTerms: [],
+            metadataMatchedTerms: [],
+            chips: [],
+          },
+        }),
+      ]),
+      relevance: { ...relevance, matchedTerms: ["unrelated"], missingTerms: [] },
+    };
+    const payload = buildGovernedAnswerClientResponse(answer).payload;
+    expect(payload.safetyWarnings).toHaveLength(1);
+    expect(payload.sources[0]).not.toHaveProperty("relevance");
+    expect(extractSafetyFindings(payload)).toEqual(payload.safetyWarnings);
+  });
+
+  it("R3 projects related labels and structured fields without internal metadata", () => {
+    const answer = {
+      ...answerWith([fullSource()]),
+      relatedDocuments: [
+        {
+          document_id: "doc-1",
+          title: "Guideline",
+          file_name: "guide.pdf",
+          labels: [
+            {
+              label: "monitoring",
+              label_type: "topic",
+              source: "manual",
+              confidence: 1,
+              owner_id: "private-owner",
+              metadata: { secret: true },
+            },
+          ],
+          summary: null,
+          best_pages: [4],
+          best_chunk_ids: ["chunk-1"],
+          image_count: 0,
+          match_reason: "Direct support",
+          score: 1,
+        },
+      ],
+      answerSections: [
+        {
+          heading: "Monitoring",
+          body: "Review the source.",
+          citation_chunk_ids: ["chunk-1"],
+          owner_id: "private-owner",
+        },
+      ],
+    } as unknown as RagAnswer;
+    const projected = toClientAnswerPayload(answer);
+    expect(JSON.stringify(projected)).not.toContain("private-owner");
+    expect(projected.relatedDocuments?.[0].document_id).toBe("doc-1");
+    expect(projected.relatedDocuments?.[0].labels).toEqual([
+      { label: "monitoring", label_type: "topic", source: "manual", confidence: 1 },
+    ]);
+    expect(projectClientAnswerPayload(projected, true)).toEqual(projected);
+  });
+
+  it.each([
+    { answerSections: { owner_id: "private" } },
+    { answerSections: [{ heading: "Heading", body: "Body", citation_chunk_ids: [], kind: "invented" }] },
+    { routingMode: null },
+    { relatedDocuments: [{ labels: { owner_id: "private" } }] },
+    { sourceCoverage: { documents_used: -1, pages: [], strongest_similarity: 1, has_images: false } },
+  ])("R3 rejects malformed structured payload %j", (fields) => {
+    expect(projectClientAnswerPayload({ ...answerWith([]), ...fields }, true)).toBeNull();
+    expect(projectClientAnswerPayload({ ...answerWith([]), ...fields })).toBeNull();
+  });
+
+  it.each([true, false])("R3 preserves explicit best-source withdrawal with retained source=%s", (retained) => {
+    const answer: RagAnswer = {
+      ...answerWith(retained ? [fullSource()] : []),
+      bestSource: null,
+      answerQualityTier: "source_only",
+      routingMode: "extractive",
+      supportedClaims: [
+        {
+          claimId: "claim-1",
+          text: "Review source",
+          riskClass: "routine",
+          supportingChunkIds: ["chunk-1"],
+          supportStatus: "direct",
+        },
+      ],
+    };
+    expect(toClientAnswerPayload(answer).bestSource).toBeNull();
+  });
+
+  it("R3 derives a best source only for eligible generated answers with absence", () => {
+    const base: RagAnswer = {
+      ...answerWith([fullSource()]),
+      supportedClaims: [
+        {
+          claimId: "claim-1",
+          text: "Review source",
+          riskClass: "routine",
+          supportingChunkIds: ["chunk-1"],
+          supportStatus: "direct",
+        },
+      ],
+    };
+    expect(
+      toClientAnswerPayload({ ...base, answerQualityTier: "source_only", routingMode: "extractive" }).bestSource,
+    ).toBeUndefined();
+    expect(
+      toClientAnswerPayload({ ...base, answerQualityTier: "model_synthesis", routingMode: "strong" }).bestSource
+        ?.chunk_id,
+    ).toBe("chunk-1");
+    expect(
+      toClientAnswerPayload({ ...base, answerQualityTier: "model_synthesis", bestSource: null }).bestSource,
+    ).toBeNull();
+  });
   it("governs empty-source real and demo answers without requiring source fields", () => {
     const answer = {
       answer: "No source details.",
@@ -116,6 +364,91 @@ describe("toClientAnswerPayload", () => {
     expect(trimmed.similarity).toBe(0.82);
     expect(trimmed.source_metadata).toEqual({ document_status: "current" });
     expect(trimmed.page_number).toBe(4);
+  });
+
+  it("recursively allowlists source, citation, label, and safety metadata", () => {
+    // Deliberately malformed runtime metadata tests the server-boundary sanitizer.
+    // It is not a valid private/server metadata fixture.
+    const unsafeMetadata = {
+      source_kind: "registry_record",
+      registry_record_kind: "medication",
+      registry_record_subkind: "monograph",
+      registry_record_slug: "clozapine",
+      registry_record_id: "private-record-id",
+      source_title: "Clozapine monograph",
+      publisher: "Clinical KB",
+      jurisdiction: "Australia/WA",
+      review_date: "2026-08-01",
+      document_status: "current",
+      clinical_validation_status: "approved",
+      extraction_quality: "good",
+      uploaded_by: "private-uploader-id",
+      content_hash: "a".repeat(64),
+      clinical_validation_evidence: { reviewer_id: "private-reviewer-id" },
+      future_private_metadata: { owner_id: "private-owner-id" },
+    } as unknown as SearchResult["source_metadata"];
+    const result = buildGovernedAnswerClientResponse({
+      ...answerWith([
+        fullSource({
+          source_metadata: unsafeMetadata,
+          document_labels: [
+            {
+              id: "private-label-id",
+              document_id: "private-label-document-id",
+              owner_id: "private-label-owner-id",
+              label: "clozapine",
+              label_type: "medication",
+              source: "manual",
+              confidence: 0.9,
+              metadata: { reviewer_id: "private-label-reviewer-id" },
+            },
+          ],
+          score_explanation: { rankScore: 0.9, evidence: { owner_id: "private-score-owner" } } as never,
+          match_explanation: { reasons: ["private-match-reason"], evidence: "private-match-evidence" } as never,
+          indexing_quality: {
+            document_id: "private-index-document-id",
+            owner_id: "private-index-owner-id",
+            quality_score: 0.9,
+            extraction_quality: "good",
+            metrics: { reviewer_id: "private-index-reviewer-id" },
+            issues: [],
+          },
+        }),
+      ]),
+      citations: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Clozapine monitoring guideline",
+          file_name: "clozapine.pdf",
+          page_number: 4,
+          chunk_index: 7,
+          source_metadata: unsafeMetadata,
+        },
+      ],
+    });
+
+    expect(result.payload.sources[0]).toMatchObject({
+      source_metadata: {
+        source_kind: "registry_record",
+        registry_record_kind: "medication",
+        registry_record_subkind: "monograph",
+        registry_record_slug: "clozapine",
+        publisher: "Clinical KB",
+        jurisdiction: "Australia/WA",
+        document_status: "current",
+        clinical_validation_status: "approved",
+        extraction_quality: "good",
+      },
+      document_labels: [{ label: "clozapine", label_type: "medication", source: "manual", confidence: 0.9 }],
+    });
+    expect(result.payload.citations[0].source_metadata).toEqual(result.payload.sources[0].source_metadata);
+    expect(result.payload.sources[0]).not.toHaveProperty("score_explanation");
+    expect(result.payload.sources[0]).not.toHaveProperty("match_explanation");
+    expect(result.payload.sources[0]).not.toHaveProperty("indexing_quality");
+    expect(JSON.stringify(result.payload)).not.toMatch(
+      /private-record-id|private-uploader-id|content_hash|private-reviewer-id|private-owner-id|private-label-id|private-label-owner-id|private-score-owner|private-match-evidence|private-index-owner/,
+    );
   });
 
   it("derives safety warnings before replacing full source content with the rendered snippet", () => {
@@ -183,6 +516,8 @@ describe("toClientAnswerPayload", () => {
     expectTypeOf(payload).not.toHaveProperty("smartApiPlan");
 
     type ClientSource = ClientRagAnswerPayload["sources"][number];
+    type ClientMetadata = NonNullable<ClientSource["source_metadata"]>;
+    type ClientLabel = NonNullable<ClientSource["document_labels"]>[number];
     type ClientScope = NonNullable<ClientRagAnswerPayload["scope"]>;
     expectTypeOf<ClientSource>().not.toHaveProperty("adjacent_context");
     expectTypeOf<ClientSource>().not.toHaveProperty("context_pack_admission");
@@ -193,6 +528,20 @@ describe("toClientAnswerPayload", () => {
     expectTypeOf<ClientSource>().not.toHaveProperty("corpus_scope");
     expectTypeOf<ClientSource>().not.toHaveProperty("site_content_domain");
     expectTypeOf<ClientSource>().not.toHaveProperty("images");
+    expectTypeOf<ClientSource>().not.toHaveProperty("score_explanation");
+    expectTypeOf<ClientSource>().not.toHaveProperty("match_explanation");
+    expectTypeOf<ClientSource>().not.toHaveProperty("indexing_quality");
+    expectTypeOf<ClientSource>().not.toHaveProperty("memory_score");
+    expectTypeOf<ClientSource>().not.toHaveProperty("relevance");
+    expectTypeOf<ClientMetadata>().not.toHaveProperty("registry_record_id");
+    expectTypeOf<ClientMetadata>().not.toHaveProperty("uploaded_by");
+    expectTypeOf<ClientMetadata>().not.toHaveProperty("content_hash");
+    expectTypeOf<ClientMetadata>().not.toHaveProperty("clinical_validation_evidence");
+    expectTypeOf<ClientLabel>().not.toHaveProperty("id");
+    expectTypeOf<ClientLabel>().not.toHaveProperty("document_id");
+    expectTypeOf<ClientLabel>().not.toHaveProperty("owner_id");
+    expectTypeOf<ClientLabel>().not.toHaveProperty("metadata");
+    expectTypeOf<ClientSearchResult>().toEqualTypeOf<ClientSource>();
     expectTypeOf<ClientScope>().not.toHaveProperty("retrieval");
     expectTypeOf(payload.degradedMode).toEqualTypeOf<{ active: boolean; reason?: string | null } | undefined>();
   });
@@ -266,5 +615,53 @@ describe("toClientAnswerPayload", () => {
     const fullBytes = JSON.stringify(answer).length;
     const trimmedBytes = JSON.stringify(toClientAnswerPayload(answer)).length;
     expect(trimmedBytes).toBeLessThan(fullBytes * 0.8);
+  });
+});
+
+describe("P12A final adaptive discriminator and bounds", () => {
+  it.each([false, true])("preserves complete canonical prose with render permission %s", (renderAdaptiveAnswer) => {
+    const answer: RagAnswer = {
+      ...answerWith([]),
+      answerContractVersion: "clinical-rag-answer-v20",
+      renderAdaptiveAnswer,
+      answerSections: Array.from({ length: 8 }, (_, i) => ({
+        heading: `Part ${i}`,
+        body: `Required part ${i} retains its complete independently supported explanation.`,
+        kind: "required_actions",
+        supportLevel: "direct",
+        citation_chunk_ids: [],
+      })),
+    };
+    const client = toClientAnswerPayload(answer);
+    expect(client.answerSections).toEqual(answer.answerSections);
+    expect(client.answerContractVersion).toBe("clinical-rag-answer-v20");
+    expect(client.renderAdaptiveAnswer).toBe(renderAdaptiveAnswer);
+    expect(projectClientAnswerPayload(client, true)).toEqual(client);
+  });
+  it("rejects unknown/mismatched permissions and aggregate overflow", async () => {
+    const { adaptiveAnswerLimits: limits } = await import("@/lib/rag/rag-answer-contract-limits");
+    const base = toClientAnswerPayload(answerWith([]));
+    for (const extra of [
+      { renderAdaptiveAnswer: true },
+      { answerContractVersion: "clinical-rag-answer-v19", renderAdaptiveAnswer: true },
+      { answerContractVersion: "clinical-rag-answer-v20" },
+      { answerContractVersion: "clinical-rag-answer-v20", renderAdaptiveAnswer: "true" },
+    ])
+      expect(projectClientAnswerPayload({ ...base, ...extra })).toBeNull();
+    const section = { heading: "H", body: "b".repeat(limits.body), citation_chunk_ids: [] };
+    const legal = {
+      ...base,
+      answerContractVersion: "clinical-rag-answer-v20",
+      renderAdaptiveAnswer: false,
+      answer: "a".repeat(limits.lead),
+      answerSections: [section, { ...section, body: "c".repeat(limits.total - limits.lead - limits.body - 2) }],
+    };
+    expect(projectClientAnswerPayload(legal)).not.toBeNull();
+    expect(
+      projectClientAnswerPayload({
+        ...legal,
+        answerSections: [section, { ...legal.answerSections[1], body: legal.answerSections[1].body + "x" }],
+      }),
+    ).toBeNull();
   });
 });

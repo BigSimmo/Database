@@ -2,8 +2,17 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
+import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
+import { toClientAnswerPayload } from "@/lib/answer-client-payload";
 import { PriorAnswerTurnSurface, type AnswerTurn } from "@/components/clinical-dashboard/answer-thread-turn";
 import type { RagAnswer, SearchResult } from "@/lib/types";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 /**
  * PR 13 answer adoption, product side of `#208`.
@@ -29,18 +38,22 @@ const source: SearchResult = {
   images: [],
 };
 
+function serverAnswer(answer: Partial<RagAnswer> = {}): RagAnswer {
+  return {
+    answer: "Start at 12.5 mg at night.",
+    grounded: true,
+    confidence: "high",
+    citations: [],
+    sources: [source],
+    ...answer,
+  };
+}
+
 function turnFor(answer: Partial<RagAnswer>): AnswerTurn {
   return {
     id: "turn-1",
     query: "clozapine starting dose",
-    answer: {
-      answer: "Start at 12.5 mg at night.",
-      grounded: true,
-      confidence: "high",
-      citations: [],
-      sources: [source],
-      ...answer,
-    },
+    answer: serverAnswer(answer),
     sources: [source],
   };
 }
@@ -116,7 +129,7 @@ describe("product answer copy · goes through the #208 composer", () => {
     ["provider_offline", /answer generation is .*unavailable/i],
     ["provider_missing_key", /answer generation is not configured/i],
   ] as const)(
-    "surfaces tierless %s degradation in the rendered turn and copied record",
+    "surfaces tierless %s degradation without inventing extractive provenance",
     async (fallbackReasonCode, expectedReason) => {
       const copied = await copiedTextFor({
         fallbackReasonCode,
@@ -124,8 +137,133 @@ describe("product answer copy · goes through the #208 composer", () => {
       });
 
       expect(screen.getByTestId("prior-answer-source-review")).toBeInTheDocument();
-      expect(copied.startsWith("Assembled directly from the cited sources without model synthesis.")).toBe(true);
+      expect(copied.startsWith("AI-generated from the cited sources.")).toBe(true);
+      expect(copied).not.toMatch(/without (?:AI|model) synthesis/i);
       expect(copied).toMatch(expectedReason);
     },
   );
+
+  it("shows a model-synthesized coverage gap without claiming source-only provenance", async () => {
+    const copied = await copiedTextFor({
+      answerQualityTier: "model_synthesis",
+      routingMode: "strong",
+      fallbackReasonCode: "coverage_gap",
+      degradedMode: { active: true, reason: "The active sources support only part of this question." },
+    });
+
+    expect(screen.getByTestId("prior-answer-source-review")).toHaveTextContent(
+      "The active sources support only part of this question.",
+    );
+    expect(copied.startsWith("AI-generated from the cited sources.")).toBe(true);
+    expect(copied).toContain("Caveat:");
+    expect(copied).not.toMatch(/extractive|without (?:AI|model) synthesis/i);
+  });
+});
+
+it("R3 displays canonical degradation on the current staged synthesized answer", () => {
+  const answer = toClientAnswerPayload({
+    ...serverAnswer(),
+    answerQualityTier: "model_synthesis",
+    routingMode: "strong",
+    fallbackReasonCode: "coverage_gap",
+  });
+  const model = buildAnswerRenderModel(answer);
+  render(
+    <StagedAnswerResultSurface
+      answer={answer}
+      query="clozapine starting dose"
+      bestSource={null}
+      renderModel={model}
+      weakEvidence={false}
+      answerViewMode="standard"
+      answerEvidenceMapRows={[]}
+      onScopeDocument={() => {}}
+      answerGrounded
+      sources={answer.sources}
+      demoMode={false}
+      safeAnswerSections={[]}
+      safetyFindings={[]}
+      copiedAnswer={false}
+      pendingFeedback={null}
+      onCopyAnswer={() => {}}
+      onSubmitFeedback={() => {}}
+    />,
+  );
+  expect(screen.getAllByText("The active sources support only part of this question.")).toHaveLength(1);
+  expect(screen.queryByText(/without (?:AI|model) synthesis/i)).not.toBeInTheDocument();
+});
+
+it("R3 retains restored demo disclosure in prior answer and copy", async () => {
+  const copied = await copiedTextFor({
+    answer: "Synthetic example.",
+    ...{ demoMode: true, fallbackMode: "non_production_demo" as const },
+  });
+  expect(screen.getByText("Synthetic demo only: this is not clinical guidance.")).toBeInTheDocument();
+  expect(copied).toContain("Synthetic demo only: this is not clinical guidance.");
+});
+
+it("R3 retains restored demo disclosure on the current answer", () => {
+  const answer = {
+    ...toClientAnswerPayload(serverAnswer()),
+    demoMode: true,
+    fallbackMode: "non_production_demo" as const,
+  };
+  render(
+    <StagedAnswerResultSurface
+      answer={answer}
+      query="Example"
+      bestSource={null}
+      renderModel={buildAnswerRenderModel(answer)}
+      weakEvidence={false}
+      answerViewMode="standard"
+      answerEvidenceMapRows={[]}
+      onScopeDocument={() => {}}
+      answerGrounded
+      sources={answer.sources}
+      demoMode={false}
+      safeAnswerSections={[]}
+      safetyFindings={[]}
+      copiedAnswer={false}
+      pendingFeedback={null}
+      onCopyAnswer={() => {}}
+      onSubmitFeedback={() => {}}
+    />,
+  );
+  expect(screen.getByText("Synthetic demo only: this is not clinical guidance.")).toBeInTheDocument();
+});
+
+it.each([
+  ["provider_timeout", "source_only", "Answer generation timed out; the verified source-backed portion is shown."],
+  ["source_conflict", "model_synthesis", "Current sources contain a material difference that requires review."],
+] as const)("R3 displays the current precise %s disclosure", (fallbackReasonCode, answerQualityTier, phrase) => {
+  const answer = toClientAnswerPayload({
+    ...serverAnswer(),
+    answerQualityTier,
+    routingMode: answerQualityTier === "source_only" ? "extractive" : "strong",
+    fallbackReasonCode,
+  });
+  render(
+    <StagedAnswerResultSurface
+      answer={answer}
+      query="clozapine starting dose"
+      bestSource={null}
+      renderModel={buildAnswerRenderModel(answer)}
+      weakEvidence={false}
+      answerViewMode="standard"
+      answerEvidenceMapRows={[]}
+      onScopeDocument={() => {}}
+      answerGrounded
+      sources={answer.sources}
+      demoMode={false}
+      safeAnswerSections={[]}
+      safetyFindings={[]}
+      copiedAnswer={false}
+      pendingFeedback={null}
+      onCopyAnswer={() => {}}
+      onSubmitFeedback={() => {}}
+    />,
+  );
+  expect(screen.getAllByText(phrase)).toHaveLength(1);
+  if (answerQualityTier === "model_synthesis")
+    expect(screen.queryByText(/without (?:AI|model) synthesis/i)).not.toBeInTheDocument();
 });

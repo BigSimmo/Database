@@ -5,8 +5,7 @@ import { FileText, Filter, Search } from "lucide-react";
 import { cn, floatingControl, metadataPillDensity, primaryControl } from "@/components/ui-primitives";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import type { CrossModeLink } from "@/lib/cross-mode-links";
-import type { ClientSearchResult } from "@/lib/answer-client-payload";
-import type { Citation } from "@/lib/types";
+import type { ClientCitation, ClientSearchResult } from "@/lib/answer-client-payload";
 
 export function SourceActionRow({
   viewerHref,
@@ -73,7 +72,6 @@ export function sourceResultHref(source: ClientSearchResult) {
     kind: metadata.registry_record_kind as string | undefined,
     slug: metadata.registry_record_slug as string | undefined,
     subkind: metadata.registry_record_subkind as string | undefined,
-    recordId: metadata.registry_record_id as string | undefined,
   });
   if (registryHref) return registryHref;
   return `/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${source.id}`;
@@ -118,7 +116,6 @@ export function citedDocumentHref(
       kind: metadata.registry_record_kind as string | undefined,
       slug: metadata.registry_record_slug as string | undefined,
       subkind: metadata.registry_record_subkind as string | undefined,
-      recordId: metadata.registry_record_id as string | undefined,
     });
     if (registryHref) return registryHref;
     return chunkIsOnAdvertisedPage
@@ -178,7 +175,7 @@ export function logSourceOpen(query: string, source: SourceOpenTelemetry) {
   }).catch(() => undefined);
 }
 
-export function logCitationOpen(query: string, citation: Citation, sourceStrength?: string) {
+export function logCitationOpen(query: string, citation: ClientCitation, sourceStrength?: string) {
   if (!query.trim()) return;
   const metadata =
     citation.source_metadata && typeof citation.source_metadata === "object"

@@ -113,7 +113,7 @@ beforeEach(() => {
   answerQuestionWithScope.mockResolvedValue({
     answer: "stub",
     grounded: true,
-    confidence: "supported",
+    confidence: "high",
     citations: [],
     sources: [],
     latencyTimings: { total_latency_ms: 1 },

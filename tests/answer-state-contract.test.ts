@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { answerStateFromRetrieval, type AnswerStateInput, type AnswerStateSource } from "@/components/ui/answer-state";
+import {
+  answerStateFromRetrieval,
+  answerUsesDegradedMode,
+  answerUsesSourceOnlyProvenance,
+  type AnswerStateInput,
+  type AnswerStateSource,
+} from "@/components/ui/answer-state";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import type { RagAnswer } from "@/lib/types";
 
@@ -198,19 +204,19 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
     },
   );
 
-  it.each([
-    ["coverage_gap", "quality_gate"],
-    ["provider_offline", "generation_failed"],
-    ["provider_missing_key", "generation_failed"],
-  ] as const)("surfaces typed-only %s degradation without a source-only tier", (fallbackReasonCode, reason) => {
-    expect(
-      answerStateFromRetrieval({
+  it.each(["coverage_gap", "provider_offline", "provider_missing_key"] as const)(
+    "surfaces typed-only %s degradation without inferring source-only provenance",
+    (fallbackReasonCode) => {
+      const input = {
         sources: [],
         fallbackReasonCode,
         degradedMode: { active: true, reason: "A fixed public explanation." },
-      }),
-    ).toEqual({ kind: "source_only", reason });
-  });
+      };
+      expect(answerStateFromRetrieval(input)).toEqual({ kind: "ready", sourceCount: 0 });
+      expect(answerUsesDegradedMode(input)).toBe(true);
+      expect(answerUsesSourceOnlyProvenance(input)).toBe(false);
+    },
+  );
 
   it("gives the typed code precedence and parses legacy markers only when it is absent", () => {
     expect(

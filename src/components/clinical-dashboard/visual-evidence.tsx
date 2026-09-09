@@ -51,8 +51,8 @@ import { type AnswerRenderModel, type CanonicalAnswerTableRecord } from "@/lib/a
 import { formatCompactCitationLabel } from "@/lib/citations";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
-import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
-import type { QuoteCard, VisualEvidenceCard } from "@/lib/types";
+import type { ClientQuoteCard, ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
+import type { VisualEvidenceCard } from "@/lib/types";
 import { emptyStates } from "@/lib/ui-copy";
 import { type AnswerEvidenceMapRow } from "@/lib/ward-output";
 
@@ -487,7 +487,7 @@ export function MobileEvidenceSheetContent({
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
   onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onFollowUpQuote?: (quote: ClientQuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
   const order = evidenceTabOrder(answer, renderModel);
@@ -686,7 +686,7 @@ function MobileEvidenceTabPanel({
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onFollowUpQuote?: (quote: ClientQuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
   if (tab === "Claims") {

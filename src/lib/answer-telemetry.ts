@@ -1,3 +1,4 @@
+import { sanitizeRagEvalDiagnostics } from "@/lib/rag/rag-eval-diagnostics";
 import { env } from "@/lib/env";
 import {
   answerPrivacyMetadata,
@@ -43,6 +44,7 @@ const UUID_PATTERN = /^[0-9a-f-]{36}$/i;
 // builder is decoupled from the full RagAnswer surface and trivially testable.
 export type AnswerTelemetrySource = Pick<
   RagAnswer,
+  | "ragDiagnostics"
   | "grounded"
   | "confidence"
   | "sources"
@@ -103,6 +105,11 @@ export function buildAnswerLogRow(args: {
 
   const answerTelemetry = {
     log_source: "answer",
+    rag_diagnostics: sanitizeRagEvalDiagnostics({
+      ...args.programmeTelemetry,
+      ...answer.ragDiagnostics,
+      fallback_reason_code: fallbackReasonCode,
+    }),
     route: answer.routingMode ?? answer.retrievalDiagnostics?.routeMode ?? null,
     model: answer.modelUsed ?? null,
     provider_mode: answer.providerMode ?? null,
@@ -181,6 +188,11 @@ export function buildRagQueryLogRow(args: {
     model: observation?.model ?? args.answer.modelUsed ?? null,
     metadata: {
       ...(observation?.metadata ?? {}),
+      rag_diagnostics: sanitizeRagEvalDiagnostics({
+        ...args.programmeTelemetry,
+        ...args.answer.ragDiagnostics,
+        fallback_reason_code: fallbackReasonCode,
+      }),
       grounded: args.answer.grounded,
       confidence: args.answer.confidence,
       routing_mode: args.answer.routingMode ?? null,
@@ -234,7 +246,7 @@ export async function logAnswerDiagnostics(args: AnswerDiagnosticsArgs) {
     if (answerLogFailureCount <= 3 || answerLogFailureCount % 25 === 0) {
       console.warn("RAG answer telemetry insert failed", {
         failures: answerLogFailureCount,
-        message: error instanceof Error ? error.message : "unknown answer logging error",
+        message: "answer_logging_failed",
       });
     }
   }

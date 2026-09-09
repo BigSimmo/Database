@@ -135,9 +135,9 @@ describe("answerStateForAnswer · empty sources fallback", () => {
   });
 
   it.each([
-    ["coverage_gap", /did not pass the quality gate/i],
-    ["provider_offline", /answer generation was unavailable/i],
-    ["provider_missing_key", /answer generation was unavailable/i],
+    ["coverage_gap", /active sources support only part/i],
+    ["provider_offline", /Answer generation is temporarily unavailable; the verified source-backed portion is shown\./],
+    ["provider_missing_key", /Answer generation is not configured; the verified source-backed portion is shown\./],
   ] as const)("copies tierless %s degradation with the governed caveat", (fallbackReasonCode, caveat) => {
     const degradedAnswer: RagAnswer = {
       ...answerWith([]),
@@ -145,13 +145,14 @@ describe("answerStateForAnswer · empty sources fallback", () => {
       degradedMode: { active: true, reason: "A fixed public explanation." },
     };
 
-    expect(answerStateForAnswer({ answer: degradedAnswer })).toMatchObject({ kind: "source_only" });
-    expect(
-      buildAnswerClipboardText({
-        answer: degradedAnswer,
-        renderCopyText: "Clinical answer draft\n\nAnswer\nStart at 12.5 mg at night.",
-      }),
-    ).toMatch(caveat);
+    expect(answerStateForAnswer({ answer: degradedAnswer })).toMatchObject({ kind: "ready" });
+    const copied = buildAnswerClipboardText({
+      answer: degradedAnswer,
+      renderCopyText: "Clinical answer draft\n\nAnswer\nStart at 12.5 mg at night.",
+    });
+    expect(copied).toMatch(caveat);
+    expect(copied).toMatch(/^AI-generated from the cited sources\./);
+    expect(copied).not.toMatch(/without (?:AI|model) synthesis/i);
   });
 });
 
@@ -231,4 +232,112 @@ describe("answerTextForClipboard", () => {
     expect(composed).toContain(`Answer\n${expectedLead}\n\nSource status`);
     expect(composed).not.toContain("Source excerpt:");
   });
+
+  it.each([true, false])("copies every ordered v20 section when render permission is %s", (renderAdaptiveAnswer) => {
+    const answer: RagAnswer = {
+      ...answerWith([currentSource]),
+      answer: "Review the current plan.",
+      answerContractVersion: "clinical-rag-answer-v20",
+      renderAdaptiveAnswer,
+      answerSections: [
+        {
+          heading: "Monitoring",
+          body: "Review observations every three months.",
+          kind: "monitoring_timing",
+          supportLevel: "direct",
+          citation_chunk_ids: [currentSource.id],
+        },
+        {
+          heading: "Source gap",
+          body: "Route: not covered by the active sources.",
+          kind: "source_gap",
+          supportLevel: "unsupported",
+          citation_chunk_ids: [],
+        },
+      ],
+    };
+
+    expect(answerTextForClipboard(answer)).toBe(
+      "Review the current plan.\n\nMonitoring\n\nReview observations every three months.\n\nSource gap\n\nRoute: not covered by the active sources.",
+    );
+  });
+
+  it("keeps complete v20 content when the render-policy copy has no Answer marker", () => {
+    const answer: RagAnswer = {
+      ...answerWith([]),
+      answer: "Review the current plan.",
+      answerContractVersion: "clinical-rag-answer-v20",
+      renderAdaptiveAnswer: false,
+      answerSections: [
+        {
+          heading: "Monitoring",
+          body: "Review observations every three months.",
+          kind: "monitoring_timing",
+          supportLevel: "direct",
+          citation_chunk_ids: [],
+        },
+      ],
+    };
+    const copied = buildAnswerClipboardText({ answer, renderCopyText: "Clinical answer draft\n\nSource status\nHigh" });
+
+    expect(copied).toContain("Review the current plan.\n\nMonitoring\n\nReview observations every three months.");
+    expect(copied).toContain("Clinical answer draft");
+  });
+
+  it.each([true, false])(
+    "does not duplicate an already-complete markerless v20 canonical block when render permission is %s",
+    (renderAdaptiveAnswer) => {
+      const answer: RagAnswer = {
+        ...answerWith([currentSource]),
+        answer: "Review the current plan.",
+        answerContractVersion: "clinical-rag-answer-v20",
+        renderAdaptiveAnswer,
+        answerSections: [
+          {
+            heading: "Monitoring schedule",
+            body: "Review observations every three months.",
+            kind: "monitoring_timing",
+            supportLevel: "direct",
+            citation_chunk_ids: [currentSource.id],
+          },
+          {
+            heading: "Route uncertainty",
+            body: "The active sources support only part of the route question.",
+            kind: "source_gap",
+            supportLevel: "unsupported",
+            citation_chunk_ids: [],
+          },
+        ],
+      };
+      const canonical = answerTextForClipboard(answer);
+      const copied = buildAnswerClipboardText({
+        answer,
+        renderCopyText: `Clinical answer draft\n\n${canonical}\n\nSource status\nHigh`,
+      });
+
+      for (const part of [
+        "Review the current plan.",
+        "Monitoring schedule",
+        "Review observations every three months.",
+        "Route uncertainty",
+        "The active sources support only part of the route question.",
+      ]) {
+        expect(copied.split(part)).toHaveLength(2);
+      }
+      expect(copied).toContain("Clinical answer draft");
+      expect(copied).toContain("Source status\nHigh");
+    },
+  );
+});
+
+it("R3 preserves the precise source-only reason in clipboard text", () => {
+  const answer: RagAnswer = {
+    ...answerWith([currentSource]),
+    answerQualityTier: "source_only",
+    fallbackReasonCode: "provider_timeout",
+    routingMode: "extractive",
+  };
+  const copied = buildAnswerClipboardText({ answer, weakEvidence: false, renderCopyText: "Clinical answer draft" });
+  expect(copied).toContain("Answer generation timed out; the verified source-backed portion is shown.");
+  expect(copied).toContain("without model synthesis");
 });

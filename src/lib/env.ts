@@ -156,6 +156,27 @@ const envSchema = z.object({
   // - "offline": never call OpenAI at all (no embeddings, no generation); lexical retrieval
   //   + deterministic source-only answers only. Fails closed when evidence is weak.
   RAG_PROVIDER_MODE: z.enum(["auto", "openai", "offline"]).default("auto"),
+
+  RAG_PROGRAMME_MODE: z.enum(["legacy", "shadow", "canary"]).default("legacy"),
+  RAG_PROGRAMME_CANARY_BASIS_POINTS: z.coerce.number().int().min(0).max(10000).default(0),
+  RAG_PROGRAMME_ROLLOUT_SALT: z.preprocess(coerceBlankEnv, z.string().min(32).optional()),
+  RAG_SITE_CONTENT_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  RAG_AUSTRALIAN_AUGMENTATION_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  RAG_ADAPTIVE_ANSWER_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  RAG_ADAPTIVE_ANSWER_RENDER_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+
   // Optional JSON override for app-layer ranking weights (see src/lib/ranking-config.ts).
   // Lets tuning/eval experiments adjust the second-stage rerank weights, document-diversity
   // demotion, and freshness decay WITHOUT a code change. Omitted/malformed => current defaults.
@@ -292,7 +313,40 @@ const envSchema = z.object({
   DOCUMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(600),
 });
 
-const parsedEnv = envSchema.parse(process.env);
+/** Invalid rollout controls disable the whole programme; static readiness still rejects raw configuration. */
+function failClosedRolloutEnvironment(environment: NodeJS.ProcessEnv) {
+  const mode = environment.RAG_PROGRAMME_MODE ?? "legacy";
+  const percentage = environment.RAG_PROGRAMME_CANARY_BASIS_POINTS;
+  const flags = [
+    "RAG_SITE_CONTENT_ENABLED",
+    "RAG_AUSTRALIAN_AUGMENTATION_ENABLED",
+    "RAG_ADAPTIVE_ANSWER_ENABLED",
+    "RAG_ADAPTIVE_ANSWER_RENDER_ENABLED",
+  ] as const;
+  const salt = environment.RAG_PROGRAMME_ROLLOUT_SALT;
+  const invalid =
+    !["legacy", "shadow", "canary"].includes(mode) ||
+    (percentage !== undefined &&
+      (!percentage.trim() ||
+        !Number.isInteger(Number(percentage)) ||
+        Number(percentage) < 0 ||
+        Number(percentage) > 10000)) ||
+    flags.some((flag) => environment[flag] !== undefined && !["true", "false"].includes(environment[flag]!)) ||
+    (salt !== undefined && salt.trim() !== "" && salt.trim().length < 32);
+  if (!invalid) return environment;
+  return {
+    ...environment,
+    RAG_PROGRAMME_MODE: "legacy",
+    RAG_PROGRAMME_CANARY_BASIS_POINTS: "0",
+    RAG_PROGRAMME_ROLLOUT_SALT: undefined,
+    RAG_SITE_CONTENT_ENABLED: "false",
+    RAG_AUSTRALIAN_AUGMENTATION_ENABLED: "false",
+    RAG_ADAPTIVE_ANSWER_ENABLED: "false",
+    RAG_ADAPTIVE_ANSWER_RENDER_ENABLED: "false",
+  };
+}
+
+const parsedEnv = envSchema.parse(failClosedRolloutEnvironment(process.env));
 const nonProAnswerModelFallback = "gpt-5.6-terra";
 
 function isProAnswerModel(model: string) {

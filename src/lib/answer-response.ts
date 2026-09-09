@@ -1,14 +1,15 @@
-import { toClientAnswerPayload } from "@/lib/answer-client-payload";
+import { projectClientSafetyWarning, toClientAnswerPayload } from "@/lib/answer-client-payload";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import {
   hasDangerSourceGovernanceWarning,
   sourceGovernanceRefusalAnswer,
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
-import type { RagAnswer, SafetyWarning } from "@/lib/types";
+import type { RagAnswer } from "@/lib/types";
 import { carryRagProgrammeTelemetry } from "@/lib/rag/rag-programme-telemetry";
 import {
   classifyRagFallbackReason,
+  isStrongerGovernanceFallbackReasonCode,
   normalizeRagFallbackReasonCode,
   publicFallbackReason,
 } from "@/lib/rag/rag-fallback-reason";
@@ -31,28 +32,6 @@ function answerFallbackReasonCode(
   return code === "unknown" && !active && !answer.fallbackReason ? null : code;
 }
 
-function clientSafetyWarning(warning: SafetyWarning): SafetyWarning {
-  const citation = warning.citation;
-  return {
-    ...warning,
-    citation: {
-      chunk_id: citation.chunk_id,
-      document_id: citation.document_id,
-      title: citation.title,
-      file_name: citation.file_name,
-      page_number: citation.page_number,
-      chunk_index: citation.chunk_index,
-      ...(citation.similarity === undefined ? {} : { similarity: citation.similarity }),
-      ...(citation.provenance === undefined ? {} : { provenance: citation.provenance }),
-      // Issue 9: keep governance provenance on safety-finding citations. Regular
-      // source citations already retain it (answer-client-payload `source_metadata:
-      // "client"`); dropping it here left the safety panel unable to badge outdated /
-      // review-due / unverified provenance for its citations.
-      ...(citation.source_metadata === undefined ? {} : { source_metadata: citation.source_metadata }),
-    },
-  };
-}
-
 export function answerDegradedModeSignal(
   answer?: Pick<
     RagAnswer,
@@ -72,7 +51,9 @@ export function answerDegradedModeSignal(
 
 /** Apply the shared browser-boundary source-governance contract. */
 export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
-  const safetyWarnings = extractSafetyFindings(answer).map(clientSafetyWarning);
+  const safetyWarnings = extractSafetyFindings(answer)
+    .map(projectClientSafetyWarning)
+    .filter((warning): warning is NonNullable<typeof warning> => Boolean(warning));
   const warnings = sourceGovernanceWarnings({
     results: answer.sources ?? [],
     relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
@@ -122,14 +103,15 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
     };
   }
 
+  const fallbackReasonCode = answerFallbackReasonCode(answer);
   return {
     refused: false as const,
     warnings,
     telemetryAnswer: answer,
     payload: {
-      ...toClientAnswerPayload(answer),
-      fallbackReasonCode: answerFallbackReasonCode(answer),
-      degradedMode: answerDegradedModeSignal(answer),
+      ...toClientAnswerPayload({ ...answer, fallbackReasonCode }),
+      fallbackReasonCode,
+      degradedMode: answerDegradedModeSignal({ ...answer, fallbackReasonCode }),
       sourceGovernanceWarnings: warnings,
       safetyWarnings,
     },
@@ -143,14 +125,7 @@ export function buildGovernedDemoAnswerClientResponse(answer: RagAnswer, fallbac
     : answerFallbackReasonCode(answer);
   const governedResponse = buildGovernedAnswerClientResponse(answer);
   const governedCode = answerFallbackReasonCode(answer);
-  const preserveGovernanceCode =
-    governedResponse.refused ||
-    governedCode === "source_governance_block" ||
-    governedCode === "source_conflict" ||
-    governedCode === "source_role_mismatch" ||
-    governedCode === "site_content_updating" ||
-    governedCode === "site_content_stale" ||
-    governedCode === "site_content_unavailable";
+  const preserveGovernanceCode = governedResponse.refused || isStrongerGovernanceFallbackReasonCode(governedCode);
   const fallbackReasonCode = preserveGovernanceCode ? governedResponse.payload.fallbackReasonCode : demoFallbackCode;
   return {
     ...governedResponse.payload,

@@ -6,7 +6,9 @@ import {
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
 } from "../src/lib/answer-response";
-import { toClientSearchScopeSummary } from "../src/lib/answer-client-payload";
+import { projectClientAnswerPayload, toClientSearchScopeSummary } from "../src/lib/answer-client-payload";
+import { readAnswerStream } from "../src/components/clinical-dashboard/search-utils";
+import { answerUsesSourceOnlyProvenance } from "../src/components/ui/answer-state";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 function source(documentStatus: "current" | "outdated" = "current"): SearchResult {
@@ -61,6 +63,23 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
 }
 
 describe("governed answer response", () => {
+  it.each([
+    [
+      "generation_fallback:provider_timeout",
+      "provider_timeout",
+      "Answer generation timed out; the verified source-backed portion is shown.",
+    ],
+    ["coverage_gap", "coverage_gap", "The active sources support only part of this question."],
+  ])("FR1 normalizes legacy %s through JSON and final SSE", async (routingReason, code, reason) => {
+    const result = buildGovernedAnswerClientResponse(answer({ routingReason, answerQualityTier: "model_synthesis" }));
+    const json = JSON.parse(JSON.stringify(result.payload));
+    expect(json).toMatchObject({ fallbackReasonCode: code, degradedMode: { active: true, reason } });
+    expect(projectClientAnswerPayload(json, true)).toEqual(json);
+    const streamed = await readAnswerStream(new Response(`event: final\ndata: ${JSON.stringify(json)}\n\n`), () => {});
+    expect(streamed).toEqual(json);
+    expect(answerUsesSourceOnlyProvenance(streamed)).toBe(false);
+  });
+
   it("keeps a normal grounded answer and derives source-only degradation consistently", () => {
     const result = buildGovernedAnswerClientResponse(
       answer({
@@ -181,6 +200,24 @@ describe("governed answer response", () => {
       },
     });
   });
+
+  it.each(["citation_or_claim_gate", "source_role_mismatch", "source_conflict"] as const)(
+    "preserves stronger governed %s state when adding a demo fallback",
+    (fallbackReasonCode) => {
+      const result = buildGovernedDemoAnswerClientResponse(
+        answer({
+          answerQualityTier: "source_only",
+          fallbackReasonCode,
+          fallbackReason: fallbackReasonCode,
+          degradedMode: { active: true, reason: "private raw reason" },
+        }),
+        "supabase_api_key_configuration",
+      );
+
+      expect(result.fallbackReasonCode).toBe(fallbackReasonCode);
+      expect(result.degradedMode.reason).not.toContain("private raw reason");
+    },
+  );
 
   it("projects route scope through one bounded allowlist", () => {
     const projected = toClientSearchScopeSummary(

@@ -70,6 +70,48 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
     expect(isDeliverableVerifiedUnit(sectionUnit(), 1)).toBe(true);
   });
 
+  it.each([
+    ["source_conflict", "Current sources differ; review both."],
+    ["source_gap", "Monitoring frequency is not covered by the active sources."],
+  ] as const)("P12B Task4 accepts the canonical %s section kind", (kind, body) => {
+    expect(
+      isDeliverableVerifiedUnit(
+        {
+          ...sectionUnit(),
+          section: {
+            ...sectionUnit().section,
+            kind,
+            body,
+            supportLevel: kind === "source_gap" ? "unsupported" : "direct",
+          },
+          supportLevel: kind === "source_gap" ? "unsupported" : "direct",
+        },
+        1,
+      ),
+    ).toBe(true);
+  });
+
+  it("P12B Task4 applies strict canonical keys and shared adaptive section bounds", () => {
+    expect(
+      isDeliverableVerifiedUnit({
+        ...sectionUnit(),
+        section: { ...sectionUnit().section, body: "x".repeat(2401) },
+      }),
+    ).toBe(false);
+    expect(
+      isDeliverableVerifiedUnit({
+        ...sectionUnit(),
+        section: { ...sectionUnit().section, heading: "h".repeat(49) },
+      }),
+    ).toBe(false);
+    expect(
+      isDeliverableVerifiedUnit({
+        ...sectionUnit(),
+        section: { ...sectionUnit().section, privateEvidence: "must not cross the stream" },
+      }),
+    ).toBe(false);
+  });
+
   it("rejects unknown schema versions and kinds", () => {
     expect(isDeliverableVerifiedUnit({ ...previewUnit(), schemaVersion: 2 })).toBe(false);
     expect(isDeliverableVerifiedUnit({ ...previewUnit(), kind: "token" })).toBe(false);
@@ -127,7 +169,12 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
     expect(
       isDeliverableVerifiedUnit({
         ...previewUnit(),
-        sources: [trimSourceForClient(makeSource({ similarity_origin: "made_up_origin" as never }))],
+        sources: [
+          {
+            ...trimSourceForClient(makeSource()),
+            similarity_origin: "made_up_origin",
+          },
+        ],
       }),
     ).toBe(false);
   });
@@ -147,6 +194,58 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
     ).toBe(false);
   });
 
+  it("rejects nested source and citation fields outside the recursive client allowlist", () => {
+    const source = previewUnit().sources[0];
+    expect(
+      isDeliverableVerifiedUnit({
+        ...previewUnit(),
+        sources: [
+          {
+            ...source,
+            source_metadata: {
+              document_status: "current",
+              uploaded_by: "private-uploader-id",
+              clinical_validation_evidence: { reviewer_id: "private-reviewer-id" },
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isDeliverableVerifiedUnit(
+        {
+          ...sectionUnit(),
+          citations: [
+            {
+              ...sectionUnit().citations[0],
+              source_metadata: { document_status: "current", content_hash: "a".repeat(64) },
+            },
+          ],
+        },
+        1,
+      ),
+    ).toBe(false);
+    expect(
+      isDeliverableVerifiedUnit({
+        ...previewUnit(),
+        sources: [
+          {
+            ...source,
+            document_labels: [
+              {
+                label: "clozapine",
+                label_type: "medication",
+                source: "manual",
+                confidence: 0.9,
+                owner_id: "private-owner-id",
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
   it("rejects malformed answer sections, citations, and support levels", () => {
     const valid = sectionUnit();
     expect(isDeliverableVerifiedUnit({ ...valid, section: { heading: "Monitoring", content: "wrong field" } }, 1)).toBe(
@@ -162,15 +261,15 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
   it("rejects unbounded payloads", () => {
     const oversized = {
       ...previewUnit(),
-      sources: Array.from({ length: 12 }, (_, index) =>
-        trimSourceForClient(
+      sources: Array.from({ length: 12 }, (_, index) => ({
+        ...trimSourceForClient(
           makeSource({
             id: `chunk-${index}`,
             content: "x".repeat(900),
-            match_explanation: { reasons: ["y".repeat(5_000)] },
           }),
         ),
-      ),
+        section_path: Array.from({ length: 16 }, () => "y".repeat(400)),
+      })),
       selectedContextCount: 12,
     };
     expect(isDeliverableVerifiedUnit(oversized)).toBe(false);

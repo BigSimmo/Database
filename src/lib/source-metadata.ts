@@ -269,7 +269,9 @@ export function formatClinicalDate(value: string | null | undefined) {
   }).format(date);
 }
 
-export function sourceStatusLabel(metadata?: ClinicalSourceMetadata | null) {
+export function sourceStatusLabel(
+  metadata?: Partial<Pick<ClinicalSourceMetadata, "source_kind" | "document_status">> | null,
+) {
   const status = metadata?.document_status ?? "unknown";
   if (metadata?.source_kind === "registry_record") {
     if (status === "review_due") return "Registry summary · Review due";
@@ -282,7 +284,9 @@ export function sourceStatusLabel(metadata?: ClinicalSourceMetadata | null) {
   return "Review status unknown";
 }
 
-export function validationStatusLabel(metadata?: ClinicalSourceMetadata | null) {
+export function validationStatusLabel(
+  metadata?: Partial<Pick<ClinicalSourceMetadata, "clinical_validation_status">> | null,
+) {
   const status = metadata?.clinical_validation_status ?? "unverified";
   if (status === "approved") return "Approved";
   if (status === "locally_reviewed") return "Locally reviewed";
@@ -316,7 +320,7 @@ export function sourceProvenanceSummary(metadata?: ClinicalSourceMetadata | null
     .join(" · ");
 }
 
-export function clipboardProvenanceLine(metadata?: ClinicalSourceMetadata | null) {
+export function clipboardProvenanceLine(metadata?: Partial<ClinicalSourceMetadata> | null) {
   const source = metadata ?? normalizeSourceMetadata(null);
   // Copied provenance stays fully explicit (including "Unknown" values): the
   // clipboard line is an audit artifact, unlike the visible summary above
@@ -349,7 +353,7 @@ export function sourceDesignationDescription(metadata?: ClinicalSourceMetadata |
   return "Source authority is unknown, ambiguous, conflicting, or a registry summary. Treat as unclassified provenance.";
 }
 
-export function sourceDesignationSummary(metadata?: ClinicalSourceMetadata | null) {
+export function sourceDesignationSummary(metadata?: Partial<ClinicalSourceMetadata> | null) {
   const classification = classifySourceAuthority(metadata);
   return sourceDesignationLabel(classification.designation);
 }

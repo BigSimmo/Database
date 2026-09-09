@@ -1,9 +1,25 @@
+import {
+  buildAdaptiveAnswerPlan,
+  formatAdaptiveAnswerPlanLine,
+  adaptiveConflictSectionsAuthorized,
+} from "@/lib/rag/adaptive-answer-plan";
+import { adaptiveAnswerLimits, answerWithinLimits, adaptivePlanSectionCap } from "@/lib/rag/rag-answer-contract-limits";
+import {
+  answerJsonOutputSchemaForResults,
+  adaptiveAnswerJsonOutputSchemaForResults,
+  answerJsonSchema,
+  adaptiveAnswerJsonSchema,
+} from "@/lib/rag/rag-answer-schema";
+export { answerJsonOutputSchemaForResults } from "@/lib/rag/rag-answer-schema";
+import { withRagProgrammeRollout, answerContractForRollout, adaptiveAnswerRenderAllowed } from "@/lib/rag/rag-rollout";
+import { loadReviewedPolicyRequest } from "@/lib/rag/rag-reviewed-policy-input";
+import { createGenerationDegradationRecorder } from "@/lib/rag/rag-generation-degradation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
 import { answerLatencyMetadata, answerScopedEvidenceMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
-import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
+import { answerInstructions, adaptiveAnswerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
   callVersionedRetrievalRpc,
@@ -34,17 +50,19 @@ import {
   generateParsedTextResult,
   generateStructuredTextResult,
   openAISafetyIdentifier,
-  type OpenAITextResult,
 } from "@/lib/openai";
 import { embeddingTelemetryFields, prefetchEmbedding } from "@/lib/rag/rag-embedding-prefetch";
 import {
   SOURCE_ONLY_EMBEDDING_SKIP_REASON,
   allowsAutoDegrade,
+  createObservedAnswerGenerator,
+  generationIncompleteReason,
+  generationRetryReason,
   classifyProviderFailure,
   isSourceOnlyMode,
   sourceOnlyReason,
 } from "@/lib/rag/rag-provider";
-import { generationFallbackReasonCode } from "@/lib/rag/rag-fallback-reason";
+import { annotateAnswerWithDiagnostics, generationFallbackReasonCode } from "@/lib/rag/rag-fallback-reason";
 import {
   GenerationQualityError,
   generationQualityFailureDiagnostics,
@@ -81,6 +99,8 @@ import {
   extractiveAnswerCarriesIntentFigure,
   finalQualityGapAnswer,
   finalizeRagAnswerQuality,
+  retainVerifiedAnswerParts,
+  rejectAdaptiveAnswerContract,
   generatedAnswerQualityFailureReason,
   hasInvalidModelEvidenceIds,
   isAdmissionDischargeRequirementsComparisonQuery,
@@ -143,7 +163,6 @@ import {
   restoreRagAnswerQueryPlanArgs,
   withRagAnswerQueryPlanDiagnostics,
 } from "@/lib/rag/rag-cache";
-import { withRagRequestContext } from "@/lib/rag/rag-context-snapshot";
 export {
   invalidateRagCachesForDocumentMutation,
   invalidateRagCachesForOwner,
@@ -165,7 +184,7 @@ import {
   recordCoalescedAnswerWaiter,
 } from "@/lib/observability/answer-coalescing-metrics";
 import { buildRagSourceBlock, neutralizeIdentityField } from "@/lib/rag/rag-source-block";
-import { buildRagQueryPlan, ragQueryPlanVersion } from "@/lib/rag/rag-query-plan";
+import { buildRagQueryPlan } from "@/lib/rag/rag-query-plan";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag/rag-source-block";
 import {
   buildClinicalTextSearchQuery,
@@ -179,11 +198,7 @@ import {
   rankClinicalResults,
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
-import {
-  ragAnswerPromptVersion,
-  ragQueryClassifierPromptVersion,
-  ragSummaryPromptVersion,
-} from "@/lib/rag/rag-versioning";
+import { ragQueryClassifierPromptVersion, ragSummaryPromptVersion } from "@/lib/rag/rag-versioning";
 import {
   answerPrivacyMetadata,
   answerTextForStorage,
@@ -257,7 +272,14 @@ import {
 } from "@/lib/rag/rag-coverage";
 import type { CoverageEvidenceSelection } from "@/lib/rag/rag-coverage";
 export { evaluateEvidenceCoverageGate } from "@/lib/rag/rag-coverage-gate";
-import { createSearchTiming, finishSearch, measureSearchPhase, type SearchTiming } from "@/lib/rag/rag-search-timing";
+import {
+  closeShadowSearch,
+  startShadowSearch,
+  createSearchTiming,
+  finishSearch,
+  measureSearchPhase,
+  type SearchTiming,
+} from "@/lib/rag/rag-search-timing";
 import { planGovernedCandidateSearch, routeGovernedSearch } from "@/lib/rag/rag-governed-search";
 import { applySecondStageRerankIfNeeded, layerTopScore, recordRetrievalLayer } from "@/lib/rag/rag-second-stage";
 export { applySecondStageRerankIfNeeded } from "@/lib/rag/rag-second-stage";
@@ -324,166 +346,6 @@ import type {
   SearchResult,
   SmartRagApiPlan,
 } from "@/lib/types";
-
-const answerSectionKinds = [
-  "bottom_line",
-  "required_actions",
-  "monitoring_timing",
-  "medication_dose",
-  "thresholds",
-  "escalation_risk",
-  "contraindications_cautions",
-  "comparison",
-  "documentation",
-  "source_gap",
-  "visual_evidence",
-  "quotes",
-  "verification",
-] as const satisfies readonly AnswerSectionKind[];
-
-const answerSectionSupportLevels = [
-  "direct",
-  "partial",
-  "nearby",
-  "unsupported",
-] as const satisfies readonly AnswerSectionSupportLevel[];
-
-const answerJsonOutputSchema = {
-  type: "object",
-  description:
-    "A source-grounded clinical answer generated only from retrieved document excerpts, with claims tied to retrieved evidence IDs.",
-  additionalProperties: false,
-  properties: {
-    answer: {
-      type: "string",
-      description:
-        "The first-layer response: a complete, direct clinical answer that can stand alone before structured supporting sections. The first sentence must directly answer the question in full prose.",
-      maxLength: 1600,
-    },
-    grounded: {
-      type: "boolean",
-      description: "True only when the answer is directly supported by the retrieved excerpts.",
-    },
-    confidence: {
-      type: "string",
-      enum: ["high", "medium", "low", "unsupported"],
-      description: "Confidence based on source strength and citation support, not general model knowledge.",
-    },
-    answerSections: {
-      type: "array",
-      description:
-        "Second-layer structured support. Add only distinct source-backed modules that improve scanability, such as actions, monitoring, medication/dose, thresholds, comparison, cautions, documentation, or source gaps.",
-      maxItems: 6,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          heading: { type: "string", description: "Short section heading.", maxLength: 48 },
-          kind: {
-            type: "string",
-            enum: answerSectionKinds,
-            description:
-              "Clinical support module type. Use source_gap for unsupported areas; do not use provenance as content.",
-          },
-          supportLevel: {
-            type: "string",
-            enum: answerSectionSupportLevels,
-            description: "How directly the cited chunks support this section.",
-          },
-          body: {
-            type: "string",
-            description:
-              "Clinically useful section body grounded in the cited excerpts. Keep it concise, decision-oriented, and non-redundant with the answer. Do not include document codes, page labels, chunk IDs, or source metadata.",
-            maxLength: 600,
-          },
-          citation_chunk_ids: {
-            type: "array",
-            description:
-              "Required retrieved evidence IDs that directly support this section. Use only citation_chunk_id values supplied in the source block.",
-            items: { type: "string" },
-          },
-        },
-        required: ["heading", "kind", "supportLevel", "body", "citation_chunk_ids"],
-      },
-    },
-    citations: {
-      type: "array",
-      description:
-        "The strongest retrieved evidence IDs that directly support the answer. Use only citation_chunk_id values supplied in the source block.",
-      maxItems: 5,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          chunk_id: { type: "string", description: "A valid citation_chunk_id from the supplied source block." },
-        },
-        required: ["chunk_id"],
-      },
-    },
-    quoteCards: {
-      type: "array",
-      description: "Short exact quotes copied from supplied excerpts. Use an empty array if no exact quote is useful.",
-      maxItems: 3,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          chunk_id: { type: "string", description: "A valid citation_chunk_id from the supplied source block." },
-          quote: { type: "string", description: "A short exact quote from the cited source excerpt.", maxLength: 260 },
-          section_heading: { type: ["string", "null"], description: "Source section heading when visible." },
-        },
-        required: ["chunk_id", "quote", "section_heading"],
-      },
-    },
-    conflictsOrGaps: {
-      type: "array",
-      description: "Important gaps or conflicts found in the retrieved excerpts.",
-      maxItems: 3,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          type: {
-            type: "string",
-            enum: ["gap", "conflict"],
-            description: "Whether this is missing support or conflicting support.",
-          },
-          message: { type: "string", description: "Plain-language gap or conflict statement." },
-          source_chunk_ids: {
-            type: "array",
-            description: "Retrieved chunk IDs related to the gap or conflict.",
-            items: { type: "string" },
-          },
-        },
-        required: ["type", "message", "source_chunk_ids"],
-      },
-    },
-  },
-  required: ["answer", "grounded", "confidence", "answerSections", "citations", "quoteCards", "conflictsOrGaps"],
-};
-
-/** Answer json output schema for results. */
-export function answerJsonOutputSchemaForResults(results: SearchResult[]) {
-  const chunkIds = Array.from(new Set(results.map((result) => result.id).filter(Boolean)));
-  if (chunkIds.length === 0) return answerJsonOutputSchema;
-
-  const schema = structuredClone(answerJsonOutputSchema) as Record<string, unknown>;
-  const chunkIdSchema = { type: "string", enum: chunkIds };
-  const properties = safeRecord(schema.properties);
-  const answerSectionProperties = safeRecord(safeRecord(safeRecord(properties.answerSections).items).properties);
-  const citationProperties = safeRecord(safeRecord(safeRecord(properties.citations).items).properties);
-  const quoteCardProperties = safeRecord(safeRecord(safeRecord(properties.quoteCards).items).properties);
-  const gapProperties = safeRecord(safeRecord(safeRecord(properties.conflictsOrGaps).items).properties);
-  const answerSectionCitationIds = safeRecord(answerSectionProperties.citation_chunk_ids);
-  const gapSourceIds = safeRecord(gapProperties.source_chunk_ids);
-
-  if (Object.keys(answerSectionCitationIds).length > 0) answerSectionCitationIds.items = chunkIdSchema;
-  if (Object.keys(citationProperties).length > 0) citationProperties.chunk_id = chunkIdSchema;
-  if (Object.keys(quoteCardProperties).length > 0) quoteCardProperties.chunk_id = chunkIdSchema;
-  if (Object.keys(gapSourceIds).length > 0) gapSourceIds.items = chunkIdSchema;
-
-  return schema;
-}
 
 const confidenceOrder = {
   unsupported: 0,
@@ -623,53 +485,6 @@ export function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: 
     return count + (result.images ?? []).filter((image) => sourceImageIds.has(image.id)).length;
   }, 0);
 }
-
-const citationSchema = z.object({
-  chunk_id: z.string(),
-  document_id: z.string().optional(),
-  title: z.string().optional(),
-  file_name: z.string().optional(),
-  page_number: z.number().nullable().optional(),
-  chunk_index: z.number().optional(),
-});
-
-const answerJsonSchema = z.object({
-  answer: z.string().min(1).optional(),
-  grounded: z.boolean().optional(),
-  confidence: z.enum(["high", "medium", "low", "unsupported"]).optional(),
-  answerSections: z
-    .array(
-      z.object({
-        heading: z.string().min(1),
-        kind: z.enum(answerSectionKinds).optional(),
-        supportLevel: z.enum(answerSectionSupportLevels).optional(),
-        body: z.string().min(1),
-        citation_chunk_ids: z.array(z.string()).optional().default([]),
-      }),
-    )
-    .optional()
-    .default([]),
-  citations: z.array(citationSchema).optional().default([]),
-  quoteCards: z
-    .array(
-      citationSchema.extend({
-        quote: z.string().min(1),
-        section_heading: z.string().nullable().optional(),
-      }),
-    )
-    .optional()
-    .default([]),
-  conflictsOrGaps: z
-    .array(
-      z.object({
-        type: z.enum(["gap", "conflict"]).catch("gap"),
-        message: z.string().min(1),
-        source_chunk_ids: z.array(z.string()).optional(),
-      }),
-    )
-    .optional()
-    .default([]),
-});
 
 /** Build retrieval diagnostics. */
 function buildRetrievalDiagnostics(args: {
@@ -1498,15 +1313,23 @@ export async function searchChunksWithTelemetry(
   args: SearchChunksArgs,
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry }> {
   const searchTiming = createSearchTiming();
+  try {
+    return await searchChunksWithTiming(args, searchTiming);
+  } finally {
+    closeShadowSearch(searchTiming);
+  }
+}
+async function searchChunksWithTiming(
+  args: SearchChunksArgs,
+  searchTiming: SearchTiming,
+): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry }> {
   args = { ...args, accessScope: retrievalAccessScopeForArgs(args) };
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);
-  args = {
-    ...withRagRequestContext(args),
-    ragQueryPlanVersion,
-    ragQueryPlanMode: args.ragQueryPlanMode ?? "legacy",
-  };
+  args = withRagProgrammeRollout(args);
+  args = await loadReviewedPolicyRequest(args, undefined, searchTiming.startedAt);
   const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
+  const originalAdaptiveRequest = answerContractForRollout(args.ragProgrammeRollout).adaptive ? args.query : undefined;
   if (hasAdversarialManipulationIntent(retrievalQuery)) {
     // Refuse adversarial requests before provider, cache, or Supabase access.
     const telemetry = createSearchTelemetry(retrievalQuery, "unsupported_or_general");
@@ -1561,23 +1384,14 @@ export async function searchChunksWithTelemetry(
       signal: args.signal,
     }),
   );
-  const governedAnalysisPromise =
-    args.ragQueryPlanMode === "shadow"
-      ? analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery), {
-          corpusGrounding: {
-            supabase,
-            ownerFilter: ownerScopeForDocumentFilteredRetrieval(undefined, undefined, true) ?? null,
-          },
-          signal: args.signal,
-        })
-      : queryAnalysisPromise;
   const ragAliasesPromise = measureSearchPhase(searchTiming, "alias_load", () =>
     fetchEnabledRagAliases(supabase, args.ownerId, args.accessScope, args.signal),
   );
   const governedPlanningPromise = planGovernedCandidateSearch({
-    analysis: governedAnalysisPromise,
-    mode: args.ragQueryPlanMode ?? "legacy",
+    analysis: queryAnalysisPromise,
+    mode: args.ragQueryPlanMode === "shadow" ? "legacy" : (args.ragQueryPlanMode ?? "legacy"),
     query: retrievalQuery,
+    originalAdaptiveRequest,
     queryClass: modeQueryClass ?? undefined,
     signal: args.signal,
     supabase,
@@ -1586,11 +1400,11 @@ export async function searchChunksWithTelemetry(
     indexingVersionAtRetrievalStartPromise,
     queryAnalysisPromise,
     ragAliasesPromise,
-    governedPlanningPromise,
+    args.ragQueryPlanMode === "shadow" ? governedPlanningPromise.catch(() => null) : governedPlanningPromise,
   ]);
   throwIfAborted(args.signal);
   if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
-  const queryPlan = buildRagQueryPlan(retrievalQuery, queryAnalysis);
+  const queryPlan = buildRagQueryPlan(retrievalQuery, queryAnalysis, originalAdaptiveRequest);
   const servedRetrievalVariantPlan = buildRagRetrievalVariantPlan(
     retrievalQuery,
     queryAnalysis,
@@ -1602,8 +1416,11 @@ export async function searchChunksWithTelemetry(
   const retrievalVariantPlan = governedPlanning
     ? { ...governedPlanning.variantPlan, servedVariants: servedRetrievalVariantPlan.servedVariants }
     : servedRetrievalVariantPlan;
-  const governedQueryPlan = governedPlanning?.queryPlan ?? queryPlan;
-  args.captureRagQueryPlan?.(governedQueryPlan);
+  const governedQueryPlan =
+    args.ragQueryPlanMode === "shadow"
+      ? buildRagQueryPlan(retrievalQuery, analyzeClinicalQuery(retrievalQuery))
+      : (governedPlanning?.queryPlan ?? queryPlan);
+  args.captureRagQueryPlan?.(args.ragQueryPlanMode === "shadow" ? queryPlan : governedQueryPlan);
   searchTiming.shadowPlan = args.ragQueryPlanMode === "shadow" ? governedQueryPlan : undefined;
   const queryClassification = {
     queryClass: queryAnalysis.queryClass,
@@ -1612,7 +1429,8 @@ export async function searchChunksWithTelemetry(
   };
   const telemetry = createSearchTelemetry(retrievalQuery, queryClassification.queryClass);
   Object.assign(telemetry, retrievalVariantPlan.diagnostics);
-  const telemetryAnalysis = governedPlanning?.analysis ?? queryAnalysis;
+  const telemetryAnalysis =
+    args.ragQueryPlanMode === "shadow" ? queryAnalysis : (governedPlanning?.analysis ?? queryAnalysis);
   if (telemetryAnalysis.corpusGrounding) telemetry.corpus_grounding = telemetryAnalysis.corpusGrounding;
 
   let semanticRerankAttempted = false;
@@ -1641,13 +1459,16 @@ export async function searchChunksWithTelemetry(
   const queryVariants =
     args.ragQueryPlanMode === "canary" ? retrievalVariantPlan.candidateVariants : retrievalVariantPlan.servedVariants;
   telemetry.retrieval_query_variant_count = queryVariants.length;
-  const governedSearch = await routeGovernedSearch({
-    args,
-    supabase,
-    queryPlan: governedQueryPlan,
-    queryVariants: retrievalVariantPlan.candidateVariants,
-    telemetry,
-  });
+  const runGovernedSearch = (signal = args.signal) =>
+    routeGovernedSearch({
+      args: { ...args, signal },
+      supabase,
+      queryPlan: governedQueryPlan,
+      queryVariants: args.ragQueryPlanMode === "shadow" ? [retrievalQuery] : retrievalVariantPlan.candidateVariants,
+      telemetry: args.ragQueryPlanMode === "shadow" ? structuredClone(telemetry) : telemetry,
+    });
+  if (args.ragQueryPlanMode === "shadow") startShadowSearch(searchTiming, args.signal, runGovernedSearch);
+  const governedSearch = args.ragQueryPlanMode === "shadow" ? null : await runGovernedSearch();
   if (governedSearch?.served) {
     recordSearchScoreTelemetry(telemetry, governedSearch.results);
     return finishSearch(searchTiming, { results: governedSearch.results, telemetry });
@@ -2317,9 +2138,14 @@ export async function searchChunks(args: SearchChunksArgs) {
 }
 
 /** Parse answer json. */
-export function parseAnswerJson(raw: string, results: SearchResult[], query?: string): RagAnswer {
+export function parseAnswerJson(
+  raw: string,
+  results: SearchResult[],
+  query?: string,
+  contract = answerContractForRollout(),
+): RagAnswer {
   try {
-    const parsed = answerJsonSchema.parse(JSON.parse(raw));
+    const parsed = (contract.adaptive ? adaptiveAnswerJsonSchema : answerJsonSchema).parse(JSON.parse(raw));
     const { citations, modelCited, proposedCount, invalidCount } = sanitizeCitations(parsed.citations, results);
     const derivedConfidence = modelCited ? deriveConfidence(results, citations) : "unsupported";
     const confidence = modelCited ? clampConfidence(parsed.confidence, derivedConfidence) : "unsupported";
@@ -2368,34 +2194,14 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
   }
 }
 
-/** Annotate answer with diagnostics. */
-function annotateAnswerWithDiagnostics<T extends RagAnswer>(
-  answer: T,
-  diagnostics: RetrievalDiagnostics,
-  override?: { fallbackReason?: string | null },
-): T {
-  const fallbackReason = override?.fallbackReason ?? diagnostics.fallbackReason ?? null;
-  return {
-    ...answer,
-    retrievalDiagnostics: {
-      ...diagnostics,
-      fallbackReason,
-      retrievalReason: fallbackReason,
-    },
-  };
-}
-
 export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
 }
 export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs): Promise<RagAnswer> {
-  throwIfAborted(args.signal);
-  args = {
-    ...withRagRequestContext(args),
-    ragQueryPlanVersion,
-    ragQueryPlanMode: args.observationContext?.rolloutMode ?? args.ragQueryPlanMode ?? "legacy",
-  };
   const startedAt = Date.now();
+  throwIfAborted(args.signal);
+  args = withRagProgrammeRollout(args);
+  args = await loadReviewedPolicyRequest(args, undefined, startedAt);
   const coalescingEnabled = answerCoalescingAllowedForRequest(args);
   const inflightKey = coalescingEnabled ? scopedAnswerCacheKey(args) : null;
   let existing = inflightKey ? answerInflight.get(inflightKey) : undefined;
@@ -2448,6 +2254,7 @@ async function answerQuestionWithScopeUncoalesced(
   startedAt: number,
 ): Promise<RagAnswer> {
   throwIfAborted(args.signal);
+  const answerContract = answerContractForRollout(args.ragProgrammeRollout);
   const recordQuery = (answer: RagAnswer, row: RagQueryInsert) =>
     recordRagQueryForAnswer(args.observationContext, answer, row, logRagQuery);
   assertGlobalSearchAllowed({
@@ -2554,8 +2361,12 @@ async function answerQuestionWithScopeUncoalesced(
         ragRequestContext: args.ragRequestContext,
         ragQueryPlanVersion: args.ragQueryPlanVersion,
         ragQueryPlanMode: args.ragQueryPlanMode,
+        ragProgrammeRollout: args.ragProgrammeRollout,
+        answerSourcePolicy: args.answerSourcePolicy,
         governedCorpusComponents: args.governedCorpusComponents,
+        reviewedPolicyRequest: args.reviewedPolicyRequest,
         sourcePolicyConflicts: args.sourcePolicyConflicts,
+        captureSourcePolicyConflicts: (conflicts) => void (args.sourcePolicyConflicts = conflicts),
         captureRagQueryPlan: (plan) => void (requestQueryPlan = plan),
       }),
     );
@@ -2799,14 +2610,83 @@ async function answerQuestionWithScopeUncoalesced(
           citedChunkIds,
         })
       : null;
+  const adaptivePlanFor = (coverage: ReturnType<typeof coverageFor>) => {
+    if (
+      !answerContract.adaptive ||
+      !coverage ||
+      !requestQueryPlan?.askedParts ||
+      !requestQueryPlan.requestedDepth ||
+      !requestQueryPlan.materialSafetyDependencies ||
+      !requestQueryPlan.sourcePolicy
+    )
+      return null;
+    return buildAdaptiveAnswerPlan({
+      queryClass,
+      intent: queryAnalysis.intent,
+      simpleDirect: isSimpleDirectQuestion(args.query, queryClass),
+      requestPlan: {
+        ...requestQueryPlan,
+        askedParts: requestQueryPlan.askedParts,
+        requestedDepth: requestQueryPlan.requestedDepth,
+        materialSafetyDependencies: requestQueryPlan.materialSafetyDependencies,
+        sourcePolicy: requestQueryPlan.sourcePolicy,
+      },
+      coverage,
+    });
+  };
   const finalizeAnswer = (answer: RagAnswer, numericVerificationSources?: SearchResult[]) => {
     const verificationStartedAt = Date.now();
-    const finalized = finalizeRagAnswerQuality(answer, args.query, queryClass, numericVerificationSources);
-    const currentAnswerCoveragePlan = coverageFor(
-      finalized.sources ?? [],
-      finalized.citations.map((citation) => citation.chunk_id),
-    );
-    reconcileAnswerSourcePolicyConflicts(finalized, coverageSelections, currentAnswerCoveragePlan);
+    let currentAnswerCoveragePlan: ReturnType<typeof coverageFor> = null;
+    const resolveCoverage = (verified: RagAnswer) =>
+      coverageFor(
+        verified.sources ?? [],
+        verified.citations.map((citation) => citation.chunk_id),
+      );
+    const reconcileCoverage = (verified: RagAnswer, coverage: ReturnType<typeof coverageFor>) => {
+      currentAnswerCoveragePlan = coverage;
+      reconcileAnswerSourcePolicyConflicts(verified, coverageSelections, currentAnswerCoveragePlan);
+      return currentAnswerCoveragePlan;
+    };
+    let finalized: RagAnswer;
+    if (answerContract.adaptive) {
+      finalized = retainVerifiedAnswerParts(answer, {
+        queryPlan: requestQueryPlan ?? undefined,
+        query: args.query,
+        queryClass,
+        verificationSources: numericVerificationSources,
+        contract: answerContract,
+        resolveCoverage,
+        reconcileCoverage,
+        reviewRequest: args,
+        sectionCap: (coverage) => {
+          const plan = adaptivePlanFor(coverage);
+          return plan ? adaptivePlanSectionCap(plan) : 0;
+        },
+      }).answer;
+    } else {
+      finalized = finalizeRagAnswerQuality(answer, args.query, queryClass, numericVerificationSources, answerContract);
+      reconcileCoverage(finalized, resolveCoverage(finalized));
+    }
+    if (answerContract.adaptive) {
+      const plan = adaptivePlanFor(currentAnswerCoveragePlan);
+      if (
+        plan &&
+        answerWithinLimits(finalized, adaptiveAnswerLimits, adaptivePlanSectionCap(plan)) &&
+        adaptiveConflictSectionsAuthorized(plan, finalized.answerSections ?? [])
+      ) {
+        finalized.answerContractVersion = answerContract.promptVersion;
+        finalized.renderAdaptiveAnswer = adaptiveAnswerRenderAllowed(
+          args.ragProgrammeRollout!,
+          answerContract.promptVersion,
+        );
+      } else {
+        finalized = rejectAdaptiveAnswerContract(finalized, args.query, queryClass);
+        // Recompute delivered coverage with no surviving clinical citations. The
+        // original sources/retrieval diagnostics still describe evidence availability.
+        reconcileAnswerSourcePolicyConflicts(finalized, coverageSelections, coverageFor(finalized.sources ?? [], []));
+      }
+    }
+
     finalized.latencyTimings = {
       ...answer.latencyTimings,
       ...finalized.latencyTimings,
@@ -2830,6 +2710,8 @@ async function answerQuestionWithScopeUncoalesced(
         modelUsed: null,
         routingMode: route.mode,
         routingReason: route.reason,
+        fallbackReasonCode:
+          fallbackReasonFromRouting(route.reason) ?? (answerInputResults.length ? "unsupported" : "no_candidates"),
         queryClass,
         queryAnalysis,
         responseMode: smartApiPlan.displayMode,
@@ -3160,9 +3042,15 @@ async function answerQuestionWithScopeUncoalesced(
       ", ",
     );
     const answerCoveragePlan = coverageFor(contextResults);
-    const internalSmartAnswerPlan = answerCoveragePlan
+    const adaptiveAnswerPlan = adaptivePlanFor(answerCoveragePlan);
+    if (answerContract.adaptive && !adaptiveAnswerPlan)
+      throw new Error("Adaptive answer requires issued request plan and packed coverage");
+    const coverageSmartAnswerPlan = answerCoveragePlan
       ? adaptSmartAnswerPlanForCoverage(contextSmartApiPlan.answerPlan, answerCoveragePlan)
       : contextSmartApiPlan.answerPlan;
+    const internalSmartAnswerPlan = adaptiveAnswerPlan
+      ? { ...coverageSmartAnswerPlan, adaptiveAnswer: adaptiveAnswerPlan }
+      : coverageSmartAnswerPlan;
     const interpretedTask = [
       `intent: ${contextSmartApiPlan.intent}`,
       `query_class: ${queryClass}`,
@@ -3172,7 +3060,8 @@ async function answerQuestionWithScopeUncoalesced(
           ? "simple direct question: answer only the definition or direct fact requested; do not broaden into management unless asked"
           : "use the question wording to decide the necessary clinical scope"
       }`,
-      relatedInformationMenuLine(queryClass, queryAnalysis.intent),
+      relatedInformationMenuLine(queryClass, queryAnalysis.intent, adaptiveAnswerPlan ?? undefined),
+      ...(adaptiveAnswerPlan ? [`adaptive_answer: ${formatAdaptiveAnswerPlanLine(adaptiveAnswerPlan)}`] : []),
       `display_mode: ${contextSmartApiPlan.displayMode}`,
       `route: ${route.mode} (${route.reason})`,
       `answer_plan.intent: ${internalSmartAnswerPlan.intent}`,
@@ -3236,58 +3125,39 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
           ),
       });
 
-  async function generateWithModel(
-    model: string,
-    contextResults: SearchResult[],
-    options?: { strong?: boolean; qualityRetryInstruction?: string; maxOutputTokensOverride?: number },
-  ): Promise<OpenAITextResult> {
-    const qualityRetryInstruction = options?.qualityRetryInstruction;
-    const useStrongReasoning = options?.strong ?? false;
-    const input = qualityRetryInstruction
-      ? `${buildAnswerInput(contextResults)}
-
-Quality retry instruction:
-${qualityRetryInstruction}`
-      : buildAnswerInput(contextResults);
-    const generationStartedAt = Date.now();
-    try {
-      const result = await routeDeadline.race(
-        generateStructuredTextResult(input, answerJsonOutputSchemaForResults(contextResults), {
-          model,
-          maxOutputTokens: options?.maxOutputTokensOverride ?? env.OPENAI_MAX_OUTPUT_TOKENS,
-          operation: "answer",
-          schemaName: "clinical_rag_answer",
-          instructions: answerInstructions,
-          promptCacheKey: ragAnswerPromptVersion,
-          timeoutMs: routeDeadline.generationRequestTimeoutMs(env.OPENAI_ANSWER_TIMEOUT_MS),
-          maxRetries: 0,
-          reasoningEffort: useStrongReasoning
-            ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
-            : env.OPENAI_FAST_REASONING_EFFORT,
-          signal: routeDeadline.signal,
-          safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(args.ownerId) : undefined,
-        }),
-      );
+  const generationDegradation = createGenerationDegradationRecorder({
+    enabled: args.ragQueryPlanMode === "shadow" || args.ragQueryPlanMode === "canary",
+    routeBudgetMs: routeDeadline.budgetMs,
+    contract: answerContract,
+  });
+  const generateWithModel = createObservedAnswerGenerator({
+    generate: generateStructuredTextResult,
+    buildInput: buildAnswerInput,
+    schemaFor: answerContract.adaptive ? adaptiveAnswerJsonOutputSchemaForResults : answerJsonOutputSchemaForResults,
+    deadline: routeDeadline,
+    callerSignal: args.signal,
+    recorder: generationDegradation,
+    contextObservation: (contextResults) => ({
+      retrievalHealthy: retrievalDiagnostics.gateStatus === "passed",
+      coverage: coverageFor(contextResults)?.overall ?? "unavailable",
+      contextCount: contextResults.length,
+    }),
+    instructions: answerContract.adaptive ? adaptiveAnswerInstructions : answerInstructions,
+    promptCacheKey: answerContract.promptVersion,
+    safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(args.ownerId) : undefined,
+    fastReasoningEffort: env.OPENAI_FAST_REASONING_EFFORT,
+    strongReasoningEffort: strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT),
+    onResult(result) {
       openAIUsage = addOpenAIUsage(openAIUsage, result.usage);
       if (result.requestId) openAIRequestIds.push(result.requestId);
       if (result.truncated) providerGenerationTruncated = true;
-      return result;
-    } finally {
-      generationLatencyMs += Date.now() - generationStartedAt;
-    }
-  }
-
-  // A truncated first attempt gets a larger bounded retry budget.
+    },
+    onLatency: (latencyMs) => {
+      generationLatencyMs += latencyMs;
+    },
+  });
+  // Preserve the existing single bounded truncation self-heal cap.
   const strongRetryMaxOutputTokens = Math.max(env.OPENAI_MAX_OUTPUT_TOKENS * 2, 24000);
-  function generationIncompleteReason(result: OpenAITextResult) {
-    return result.incompleteReason ?? (result.status === "incomplete" ? "incomplete" : "unknown");
-  }
-
-  function generationRetryReason(prefix: string, result: OpenAITextResult) {
-    const reason = generationIncompleteReason(result);
-    return reason === "max_output_tokens" ? `${prefix}_max_output_tokens` : `${prefix}_incomplete_${reason}`;
-  }
-
   function shouldRecoverFastFailureExtractively(retryReason: string) {
     const sourceBackedRecoveryRetryReasons = new Set([
       "fast_source_gap_retry_strong",
@@ -3478,10 +3348,12 @@ ${qualityRetryInstruction}`
     // when the tiers share a model. Budget-gated: a retry into a nearly-spent budget is a
     // guaranteed-discard — skip it and let the existing source-backed recovery deliver.
     if (generated.truncated && !retriedWithStrong && !deadlineAllowsGenerationRetry(routeDeadline)) {
+      generationDegradation.retry(null, "denied_budget", routeDeadline.remainingMs(), true);
       answerRetryReasons.push(
         `truncation_retry_skipped_budget_reserve:${generationRetryReason(route.mode === "fast" ? "fast" : "strong", generated)}`,
       );
     } else if (generated.truncated && !retriedWithStrong) {
+      generationDegradation.retry(null, "admitted", routeDeadline.remainingMs(), true);
       const retryPrefix = route.mode === "fast" ? "fast" : "strong";
       const retryReason = `${generationRetryReason(retryPrefix, generated)}_retry_strong`;
       answerRetryCount += 1;
@@ -3518,7 +3390,7 @@ ${qualityRetryInstruction}`
       throw new Error(`OpenAI generation incomplete: ${generationIncompleteReason(generated)}`);
     }
     let answer = annotateAnswerWithDiagnostics(
-      parseAnswerJson(generated.text, packedContextResults, args.query),
+      generationDegradation.parsed(parseAnswerJson(generated.text, packedContextResults, args.query, answerContract)),
       retrievalDiagnostics,
     );
     const fastAnswerHadInvalidEvidenceIds = route.mode === "fast" && hasInvalidModelEvidenceIds(answer);
@@ -3561,14 +3433,17 @@ ${qualityRetryInstruction}`
                   ? "fast_overexpanded_simple_retry_strong"
                   : "fast_quality_retry_strong";
       if (shouldRecoverFastFailureExtractively(retryReason)) {
+        generationDegradation.retry(retryReason, "recovery_selected", routeDeadline.remainingMs());
         answerRetryCount += 1;
         answerRetryReasons.push(`fast_source_backed_extractive_recovery:${retryReason}`);
         throw new Error(`source_backed_extractive_recovery:${retryReason}`);
       }
       if (!deadlineAllowsGenerationRetry(routeDeadline)) {
+        generationDegradation.retry(retryReason, "denied_budget", routeDeadline.remainingMs());
         answerRetryReasons.push(`fast_quality_retry_skipped_budget_reserve:${retryReason}`);
         throw new Error(`source_backed_extractive_recovery:${retryReason}`);
       }
+      generationDegradation.retry(retryReason, "admitted", routeDeadline.remainingMs());
       answerRetryCount += 1;
       answerRetryReasons.push(retryReason);
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;
@@ -3610,21 +3485,24 @@ ${qualityRetryInstruction}`
         throw new Error(`OpenAI generation incomplete: ${generationIncompleteReason(generated)}`);
       }
       answer = annotateAnswerWithDiagnostics(
-        parseAnswerJson(generated.text, packedContextResults, args.query),
+        generationDegradation.parsed(parseAnswerJson(generated.text, packedContextResults, args.query, answerContract)),
         retrievalDiagnostics,
       );
     }
-    if (hasCitedProviderSourceGap(answer))
+    if (hasCitedProviderSourceGap(answer)) {
+      generationDegradation.retry("provider_source_gap", "exhausted", routeDeadline.remainingMs());
       throw new GenerationQualityError(
         "cited_refusal",
         "provider_source_gap",
         summarizeGenerationQualityAnswerShape(answer),
       );
+    }
     const usedStrongModel = route.mode === "strong" || retriedWithStrong;
     const strongQualityFailureReason = usedStrongModel
       ? generatedAnswerQualityFailureReason(answer, args.query, queryClass)
       : null;
     if (route.mode === "strong" && queryClass === "comparison" && strongQualityFailureReason) {
+      generationDegradation.retry(strongQualityFailureReason, "exhausted", routeDeadline.remainingMs());
       throw new GenerationQualityError(
         "strong_gate",
         strongQualityFailureReason,
@@ -3639,6 +3517,7 @@ ${qualityRetryInstruction}`
         answerShape: summarizeGenerationQualityAnswerShape(answer),
       };
       if (!deadlineAllowsGenerationRetry(routeDeadline)) {
+        generationDegradation.retry(strongQualityFailureReason, "denied_budget", routeDeadline.remainingMs());
         answerRetryReasons.push(`strong_quality_repair_skipped_budget_reserve:${strongQualityFailureReason}`);
         throw new GenerationQualityError(
           "strong_gate",
@@ -3646,6 +3525,7 @@ ${qualityRetryInstruction}`
           initialGenerationQualityFailure.answerShape,
         );
       }
+      generationDegradation.retry(strongQualityFailureReason, "admitted", routeDeadline.remainingMs());
       routingReason = `${routingReason}; strong_quality_retry`;
       answerRetryCount += 1;
       answerRetryReasons.push("strong_quality_retry");
@@ -3669,7 +3549,7 @@ ${qualityRetryInstruction}`
         throw new Error(`OpenAI generation incomplete: ${generationIncompleteReason(generated)}`);
       }
       answer = annotateAnswerWithDiagnostics(
-        parseAnswerJson(generated.text, packedContextResults, args.query),
+        generationDegradation.parsed(parseAnswerJson(generated.text, packedContextResults, args.query, answerContract)),
         retrievalDiagnostics,
       );
     }
@@ -3773,7 +3653,9 @@ ${qualityRetryInstruction}`
       ...retrievalDiagnostics,
       routeMode: answer.routingMode ?? retrievalDiagnostics.routeMode,
     });
+    const generatedWasGrounded = answer.grounded;
     answer = finalizeAnswer(answer, numericVerificationSources);
+    if (generatedWasGrounded && !answer.grounded) generationDegradation.verificationFailed();
 
     // Recover a schema-valid answer that fails deterministic provenance through the same final gates.
     const sourceSafeFallbackReason = answer.routingReason?.includes("claim_support_high_risk_gap")
@@ -3786,6 +3668,7 @@ ${qualityRetryInstruction}`
             ? "numeric_faithfulness_gap"
             : null;
     if (sourceSafeFallbackReason) {
+      generationDegradation.verificationFailed();
       throw new GenerationQualityError(
         "post_finalize",
         sourceSafeFallbackReason,
@@ -3793,6 +3676,7 @@ ${qualityRetryInstruction}`
       );
     }
 
+    answer.generationDegradation = generationDegradation.finish(answer, false);
     if (args.logQuery !== false)
       await recordQuery(answer, {
         owner_id: args.ownerId ?? null,
@@ -4104,7 +3988,11 @@ ${qualityRetryInstruction}`
             } satisfies RagAnswer;
           })()
         : (extractiveFallbackAnswer ?? baseFallbackAnswer);
-    let fallbackAnswer = finalizeAnswer(annotateAnswerWithDiagnostics(generationFallbackAnswer, retrievalDiagnostics));
+    let fallbackAnswer = finalizeAnswer(
+      annotateAnswerWithDiagnostics(generationFallbackAnswer, retrievalDiagnostics, {
+        fallbackReasonCode: baseFallbackAnswer.fallbackReasonCode,
+      }),
+    );
     const finalizedFallbackNeedsReview =
       fallbackAnswer.responseMode === "evidence_gap" &&
       /(?:claim_support_high_risk_gap|material_source_governance_gap)/.test(fallbackAnswer.routingReason ?? "") &&
@@ -4138,6 +4026,7 @@ ${qualityRetryInstruction}`
         ),
       );
     }
+    fallbackAnswer.generationDegradation = generationDegradation.finish(fallbackAnswer, true);
     const servedSummary = summarizeAustralianSourceSelection(answerInputResults, fallbackAnswer.sources);
     await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
     if (args.logQuery !== false)

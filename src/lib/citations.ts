@@ -27,7 +27,7 @@ export function citationFromResult(result: SearchResult, provenance: CitationPro
   };
 }
 
-export function formatCitationLabel(citation: Citation) {
+export function formatCitationLabel(citation: Pick<Citation, "title" | "file_name" | "page_number">) {
   const page = citation.page_number ? `p. ${citation.page_number}` : "source";
   const title = cleanCitationTitle(citation.title || citation.file_name || "Source") || "Source";
   return `${title}, ${page}`;
@@ -77,21 +77,28 @@ export function formatCompactCitationLabel(citation: Pick<Citation, "title" | "f
   return `${shortTitle} ${page}`;
 }
 
-function registryCitationHref(citation: Citation) {
-  const metadata = citation.source_metadata;
+type CitationNavigationInput = Pick<Citation, "chunk_id" | "document_id" | "page_number"> & {
+  source_metadata?: unknown;
+};
+
+function registryCitationHref(citation: CitationNavigationInput) {
+  const metadata =
+    citation.source_metadata && typeof citation.source_metadata === "object" && !Array.isArray(citation.source_metadata)
+      ? (citation.source_metadata as Record<string, unknown>)
+      : null;
   if (metadata?.source_kind !== "registry_record") return null;
 
-  const slug = metadata.registry_record_slug;
+  const slug = typeof metadata.registry_record_slug === "string" ? metadata.registry_record_slug : null;
   if (!slug) return null;
 
   return registryCorpusDetailHref({
-    kind: metadata.registry_record_kind ?? undefined,
+    kind: typeof metadata.registry_record_kind === "string" ? metadata.registry_record_kind : undefined,
     slug: encodeURIComponent(slug),
-    subkind: metadata.registry_record_subkind ?? undefined,
+    subkind: typeof metadata.registry_record_subkind === "string" ? metadata.registry_record_subkind : undefined,
   });
 }
 
-export function documentCitationHref(citation: Citation) {
+export function documentCitationHref(citation: CitationNavigationInput) {
   const registryHref = registryCitationHref(citation);
   if (registryHref) return registryHref;
 

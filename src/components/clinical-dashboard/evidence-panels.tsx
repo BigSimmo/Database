@@ -75,14 +75,13 @@ import {
 } from "@/lib/clinical-safety";
 import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import { normalizeExtractedGlyphs, sourceTextForVerbatimQuote } from "@/lib/source-text-sanitizer";
-import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
 import type {
-  AnswerSection,
-  BestSourceRecommendation,
-  EvidenceSummary,
-  QuoteCard,
-  VisualEvidenceCard,
-} from "@/lib/types";
+  ClientBestSourceRecommendation,
+  ClientQuoteCard,
+  ClientRagAnswerPayload,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
+import type { AnswerSection, EvidenceSummary, VisualEvidenceCard } from "@/lib/types";
 import { emptyStates } from "@/lib/ui-copy";
 import {
   type AnswerEvidenceMapRow,
@@ -333,7 +332,7 @@ type ClinicalNotesRow = {
 function clinicalNoteHref(
   sourceIndex: number,
   sourceLinks: SourceLink[],
-  bestSource: BestSourceRecommendation | null,
+  bestSource: ClientBestSourceRecommendation | null,
 ): string | undefined {
   return sourceLinks[sourceIndex - 1]?.href ?? sourceLinks[0]?.href ?? bestSource?.viewer_href ?? undefined;
 }
@@ -527,7 +526,7 @@ function clinicalNotesRowsForTab(
   sections: ClinicalDetailSection[],
   tab: ClinicalNotesTabId,
   sourceLinks: SourceLink[] = [],
-  bestSource: BestSourceRecommendation | null = null,
+  bestSource: ClientBestSourceRecommendation | null = null,
 ) {
   const meta = clinicalNotesTabMeta[tab];
   const rows: ClinicalNotesRow[] = [];
@@ -674,7 +673,7 @@ export function ClinicalNotesChecklistPanel({
   viewMode: AnswerViewMode;
   evidenceMapRows: AnswerEvidenceMapRow[];
   sourceLinks?: SourceLink[];
-  bestSource: BestSourceRecommendation | null;
+  bestSource: ClientBestSourceRecommendation | null;
   copied: boolean;
   onCopy: () => void;
   onOpenTables?: () => void;
@@ -1346,10 +1345,10 @@ export function QuoteCards({
   onScopeDocument,
   query,
 }: {
-  quotes: QuoteCard[];
+  quotes: ClientQuoteCard[];
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
-  onFollowUp?: (quote: QuoteCard) => void;
+  onFollowUp?: (quote: ClientQuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
   query?: string;
 }) {
@@ -1425,7 +1424,7 @@ export function QuoteCards({
   );
 }
 
-export function formatQuoteCardsForClipboard(quotes: QuoteCard[]) {
+export function formatQuoteCardsForClipboard(quotes: ClientQuoteCard[]) {
   return quotes
     .map((quote, index) =>
       [

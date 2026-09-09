@@ -97,3 +97,19 @@ describe("provider failure classification", () => {
     expect(missing.providerFallbackReasonCode()).toBe("provider_missing_key");
   });
 });
+
+describe("generation attempt failure provenance", () => {
+  it("separates caller abort from provider timeout without changing public taxonomy", async () => {
+    const p = await loadProvider({ mode: "auto", key: "sk-test" });
+    const caller = new AbortController();
+    const reason = new Error("caller supplied private reason");
+    caller.abort(reason);
+    expect(p.classifyGenerationAttemptFailure(reason, caller.signal)).toBe("caller_aborted");
+    expect(p.classifyGenerationAttemptFailure(new DOMException("cancelled", "AbortError"))).toBe("caller_aborted");
+    expect(p.classifyGenerationAttemptFailure(new DOMException("deadline", "AbortError"), undefined, true)).toBe(
+      "timeout",
+    );
+    expect(p.classifyGenerationAttemptFailure(new Error("OpenAI timed out"))).toBe("timeout");
+    expect(p.providerFallbackReasonCode(new Error("OpenAI timed out"))).toBe("provider_timeout");
+  });
+});

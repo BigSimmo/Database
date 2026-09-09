@@ -19,7 +19,8 @@ describe("primaryAnswerDisplayText", () => {
   });
 
   it("still strips the synthetic-demo notice from the finalized lead", () => {
-    const answer = "Review the documented plan before treatment.\nSynthetic demo only: do not use for clinical decisions.";
+    const answer =
+      "Review the documented plan before treatment.\nSynthetic demo only: do not use for clinical decisions.";
 
     expect(primaryAnswerDisplayText(answer)).toBe("Review the documented plan before treatment.");
   });

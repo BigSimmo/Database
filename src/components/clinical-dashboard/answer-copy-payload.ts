@@ -1,3 +1,4 @@
+import { demoAnswerDisclosure } from "@/lib/answer-client-payload";
 // Building the clipboard payload for an answer, in one place.
 //
 // Three surfaces copy an answer — the live one in `ClinicalDashboard`, a prior
@@ -14,12 +15,19 @@
 // takes a structural shape so the design-system bundle never pulls the
 // retrieval layer in, and `RagAnswer` is the retrieval layer.
 
-import { answerStateFromRetrieval, answerUsesDegradedMode, type AnswerState } from "@/components/ui/answer-state";
+import {
+  answerStateFromRetrieval,
+  answerUsesDegradedMode,
+  answerUsesSourceOnlyProvenance,
+  type AnswerState,
+} from "@/components/ui/answer-state";
 import { isPreformattedGroundedAnswer, primaryAnswerDisplayText } from "@/components/clinical-dashboard/answer-content";
+import { projectAnswerForMainSurface } from "@/components/clinical-dashboard/answer-section-projector";
 import { composeAnswerClipboardText } from "@/lib/answer-clipboard";
 import { publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
 import type { AnswerPayload } from "@/components/clinical-dashboard/search-utils";
 import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
+import { ragAdaptiveAnswerPromptVersion } from "@/lib/rag/rag-versioning";
 
 export type AnswerCopyInput = {
   answer: AnswerPayload;
@@ -38,9 +46,15 @@ export type AnswerCopyInput = {
  * primary screen surface. This deliberately avoids copying rendered DOM.
  */
 export function answerTextForClipboard(answer: ClientRagAnswerPayload): string {
-  return primaryAnswerDisplayText(answer.answer, {
-    preformatted: isPreformattedGroundedAnswer(answer),
-  });
+  const preformatted = isPreformattedGroundedAnswer(answer);
+  const lead = primaryAnswerDisplayText(answer.answer, { preformatted });
+  if (answer.answerContractVersion !== ragAdaptiveAnswerPromptVersion) return lead;
+
+  const projection = projectAnswerForMainSurface({ answer, sources: answer.sources, preformatted });
+  return [projection.leadText, ...projection.sections.flatMap((section) => [section.heading, section.body])]
+    .filter(Boolean)
+    .join("\n\n")
+    .replace(/\*\*/g, "");
 }
 
 function renderCopyTextWithCanonicalAnswer(renderCopyText: string, answer: ClientRagAnswerPayload): string {
@@ -48,20 +62,42 @@ function renderCopyTextWithCanonicalAnswer(renderCopyText: string, answer: Clien
   const canonicalAnswerText = answerTextForClipboard(answer);
   const answerMarker = "Answer\n";
   const answerStart = renderCopyText.indexOf(answerMarker);
-  const rawAnswerStart = answerStart + answerMarker.length;
+  const rawAnswerStart = answerStart === -1 ? -1 : answerStart + answerMarker.length;
+  const hasDelimitedCanonicalBlock = (() => {
+    if (answer.answerContractVersion !== ragAdaptiveAnswerPromptVersion || !canonicalAnswerText) return false;
+    let index = renderCopyText.indexOf(canonicalAnswerText);
+    while (index >= 0) {
+      const end = index + canonicalAnswerText.length;
+      const startsAtBlockBoundary = index === 0 || renderCopyText.slice(index - 2, index) === "\n\n";
+      const endsAtBlockBoundary = end === renderCopyText.length || renderCopyText.slice(end, end + 2) === "\n\n";
+      if (startsAtBlockBoundary && endsAtBlockBoundary) return true;
+      index = renderCopyText.indexOf(canonicalAnswerText, index + 1);
+    }
+    return false;
+  })();
 
   if (
-    answerStart === -1 ||
-    !rawAnswerText ||
-    rawAnswerText === canonicalAnswerText ||
-    renderCopyText.indexOf(rawAnswerText, rawAnswerStart) !== rawAnswerStart
+    !canonicalAnswerText ||
+    hasDelimitedCanonicalBlock ||
+    (rawAnswerStart >= 0 && renderCopyText.startsWith(canonicalAnswerText, rawAnswerStart))
   ) {
     return renderCopyText;
   }
+  if (rawAnswerText) {
+    const exactAnswerIndex =
+      rawAnswerStart >= 0 && renderCopyText.indexOf(rawAnswerText, rawAnswerStart) === rawAnswerStart
+        ? rawAnswerStart
+        : renderCopyText.indexOf(rawAnswerText);
+    if (exactAnswerIndex >= 0) {
+      return `${renderCopyText.slice(0, exactAnswerIndex)}${canonicalAnswerText}${renderCopyText.slice(
+        exactAnswerIndex + rawAnswerText.length,
+      )}`;
+    }
+  }
 
-  return `${renderCopyText.slice(0, rawAnswerStart)}${canonicalAnswerText}${renderCopyText.slice(
-    rawAnswerStart + rawAnswerText.length,
-  )}`;
+  return answer.answerContractVersion === ragAdaptiveAnswerPromptVersion
+    ? [canonicalAnswerText, renderCopyText].filter(Boolean).join("\n\n")
+    : renderCopyText;
 }
 
 /**
@@ -85,6 +121,7 @@ export function answerStateForAnswer({ answer, sources, weakEvidence }: AnswerCo
     sources: resolveAnswerSources(answer.sources, sources),
     citations: answer.citations,
     answerQualityTier: answer.answerQualityTier,
+    routingMode: answer.routingMode,
     fallbackReasonCode: answer.fallbackReasonCode,
     degradedMode: answer.degradedMode,
     grounded: answer.grounded,
@@ -161,24 +198,30 @@ export function buildAnswerClipboardText({
 }: AnswerCopyInput & { renderCopyText: string }): string {
   const resolvedSources = resolveAnswerSources(answer.sources, sources);
   const state = answerStateForAnswer({ answer, sources, weakEvidence });
-  const sourceOnly = answerUsesDegradedMode({
+  const degraded = answerUsesDegradedMode({
     answerQualityTier: answer.answerQualityTier,
     fallbackReasonCode: answer.fallbackReasonCode,
     degradedMode: answer.degradedMode,
   });
-  return composeAnswerClipboardText({
+  const sourceOnly = answerUsesSourceOnlyProvenance({
+    answerQualityTier: answer.answerQualityTier,
+    routingMode: answer.routingMode,
+  });
+  const copied = composeAnswerClipboardText({
     renderCopyText: renderCopyTextWithCanonicalAnswer(renderCopyText, answer),
     sourceOnly,
     state,
-    degradedReason:
-      sourceOnly && state.kind !== "source_only"
-        ? answer.fallbackReasonCode
-          ? publicFallbackReason(answer.fallbackReasonCode)
-          : (answer.degradedMode?.reason ?? null)
-        : null,
+    degradedReason: degraded
+      ? answer.fallbackReasonCode
+        ? publicFallbackReason(answer.fallbackReasonCode)
+        : (answer.degradedMode?.reason ?? null)
+      : null,
     // Cited set, not every candidate: an uncited candidate from another document
     // would otherwise make a one-document answer look like two and suppress the
     // provenance audit line entirely.
     metadata: singleDocumentClipboardMetadata(citedSourcesOnly(resolvedSources, answer.citations)),
   });
+  return answer.demoMode === true || answer.fallbackMode === "non_production_demo"
+    ? `${demoAnswerDisclosure}\n\n${copied}`
+    : copied;
 }
