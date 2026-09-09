@@ -1,4 +1,4 @@
-# Clinical KB design system — SPEC
+# PsychSift design system — SPEC
 
 **The complete design system: roles, rules, rationale. Never values.** Token values live in
 `src/app/ckb-v2-tokens.css` (branch copy) and `src/app/globals.css` (live layer) only — a value
@@ -75,7 +75,7 @@ answer's treatment, and a partial answer must never render as a whole one._ Thes
 
 Full reasoning in DECISIONS §C5. The resolution:
 
-**Three semantically-named identity families cover the thirteen modes**, because the system has
+**Three semantically-named identity families cover the seventeen modes**, because the system has
 **three separate colour channels** that must never borrow from each other:
 
 | Channel             | Job                                                                                      | Tokens                                                      |
@@ -85,18 +85,16 @@ Full reasoning in DECISIONS §C5. The resolution:
 | **Clinical state**  | Source currency and safety — the reserved channel of §2.1                                | status/danger/warning/success roles                         |
 
 The claim that mode identity needed more than three families conflated the first two channels.
-**[verified:** the four hue tones label _categories inside_ modes, not modes — Services home
-uses all four for ATSI / Youth / Telehealth / Free pathway pills
-(`src/components/services/services-home-page.tsx:47-83`), and `specifier-ui.tsx` reuses three
-of the same four for specifier categories. No mode carries a hue as its identity.**]**
+**[verified:** the four hue tones label _categories inside_ modes, not modes — `specifier-ui.tsx`
+reuses three of the same four for specifier categories. No mode carries a hue as its identity.**]**
 
 **Mode → kind mapping** (assumed per mode, cheap to veto — DECISIONS §C5 lists the reasoning):
 
-| Kind               | Modes                                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------------------- |
-| `--kind-source`    | documents · factsheets · dsm · specifiers · formulation · prescribing · therapy-compass · differentials |
-| `--kind-answer`    | answer (any surface whose `resultsSurface` is `"answer"` in `src/lib/app-modes.ts`)                     |
-| `--kind-workspace` | services · forms · favourites · tools                                                                   |
+| Kind               | Modes                                                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `--kind-source`    | documents · factsheets · dictionary · dsm · specifiers · formulation · prescribing · therapy-compass · differentials |
+| `--kind-answer`    | answer · calculators (generated or calculated output)                                                                |
+| `--kind-workspace` | services · forms · favourites · tools                                                                                |
 
 Rules:
 
@@ -104,8 +102,8 @@ Rules:
   none matches its nearest `--type-*`, so delete-and-alias would silently change four dark
   colours. New category colour needs a role name, not a thirteenth tone.
 - Category colour may not borrow clinical-state colour, with **one sanctioned exception**: a
-  category that itself denotes urgency (the Services "Crisis" pathway pill wears the danger
-  tone — **[verified:** `services-home-page.tsx:50`**]**). This mirrors the `ClinicalCallout`
+  category that itself denotes urgency (the Services "Crisis" pathway used the danger
+  tone on the retired tile home). This mirrors the `ClinicalCallout`
   rule: only contraindication and urgent escalation may use red/amber.
 - Kind identity never varies by clinical state; a stale source is still `--kind-source`.
 
@@ -216,8 +214,11 @@ to `MarkText`. One wrong token, two defects. (PR 3; gate planned.)
 
 ### 4.5 Type
 
-Seven steps, each with its own line-height **and** tracking (gated — contract test
-`:194-204`). Negative tracking only from `--text-body` up; 12px floor. Step roles:
+Seven **size** steps; xs–xl are size-only; shared leading is `--leading-prose`. Hero
+keeps `--text-hero--line-height` and `--text-hero-tr` only. Do not reintroduce per-step
+`-lh` / `-tr` / `--text-{step}--line-height` orphans (gated — contract test `pins shared
+leading and hero companions, not per-step orphans`). Negative tracking only from
+`--text-body` up; 12px floor. Step roles:
 `--text-xs` eyebrows/chips/captions · `--text-sm` metadata/dense cells/hints · `--text-body`
 UI body/row titles · `--text-md` **answer prose** · `--text-lg` card and panel titles ·
 `--text-xl` page titles · `--text-hero` hero counts.
@@ -611,11 +612,28 @@ identifier or drug name.
 **Errors, three parts:** what happened · what that means · what action is available. _"Search
 could not be completed. No result count is available. Retry or browse indexed sources."_
 
-**Missing values — four phrases, never a bare dash:** `Not recorded` · `Not applicable` ·
-`Unknown` · `Unable to extract`. A dash cannot distinguish them, and in clinical data reads
-as a negative result. **[assumed:** "Withheld" is excluded — single-user product with no
-redaction pipeline; add it as a fifth phrase only when a redaction path exists.**]**
-Owned by `MissingValue` (COMPONENTS §3).
+**Missing values — six phrases, never a bare dash:** `Not recorded` · `Not applicable` ·
+`Unknown` · `Unable to extract` · `Not yet calculated` · `Withheld until complete`. A dash
+cannot distinguish them, and in clinical data reads as a negative result. Owned by
+`MissingValue` (COMPONENTS §3).
+
+The first four describe a **record**. The last two describe a value that is absent only for
+now, and they were added (owner decision, 29 Aug 2026) because both situations occur in this
+codebase and forcing either into one of the first four asserts something false:
+
+- `Not yet calculated` — the value is derived and the user has not finished supplying what it
+  is derived from, so it does not exist yet. It makes no claim about the record, and is an
+  instruction as much as a statement. **Never** where the input is complete: an absent value
+  after complete input is one of the first four.
+- `Withheld until complete` — the surface **can** produce a value from what has been entered
+  and is deliberately not publishing it, because a partial reading would be clinically
+  misleading (the worked case is a half-ticked checkbox-only screen that must never read
+  "negative"). The release condition is inside the phrase deliberately: a clinician told only
+  that a value is "withheld" goes hunting for it, so the phrase must say how to get it.
+
+**[assumed:** "Withheld" as a general redaction phrase is still excluded — single-user product
+with no redaction pipeline. `Withheld until complete` is suppression pending completion, which
+is a different thing; add a redaction phrase only when a redaction path exists.**]**
 
 **Truncation.** Acceptable for secondary metadata in dense rows. **Not** for page titles,
 dialog titles, drug names, source review warnings, or a current breadcrumb with no other
@@ -667,20 +685,21 @@ and adoption.** Status keys as in the header; "done" entries cite their commit.
 
 ### Phase 2 — values, split three ways
 
-| PR                                | Contents                                                                                                      | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PR 5a · Token values, no geometry | Colour, elevation, ink roles                                                                                  | **done** — `59e4c3dfc` landed the `--shadow-well` rename, the spine and status-mark families, and the dark `--clinical-chat-document` fix; the remaining ink-role deltas landed with PR 3 (`--text-placeholder`, eyebrows and placeholders off the decoration tier, the disabled encoding). The v2 light and dark blocks now declare the same colour roles, and the only raw colour literals left in `src/` are the two `#0f766e` accent defaults, which are **not** design tokens — see the note below |
-| PR 5b · Tap 44→48 in `@theme`     | The 426-site tap-call-site migration; contract-test pin update; visual QA pass; `--tap-min` becomes the alias | **done** — `--spacing-tap: 3rem` in `@theme`; `--tap-min` reduced to `var(--spacing-tap)`; 426 `*-tap` call sites moved; three pins flipped in the same commit; the phone composer keeps a written 44px exception below 431px (§4.10)                                                                                                                                                                                                                                                                   |
-| PR 5c · Radius step               | Every `rounded-md` moves; its own visual diff                                                                 | **done** — live `@theme --radius-md` 8px → 10px, matching the v2 control rung and moving 243 `rounded-md` call sites; the 4px-grid pin now names both half-steps and asserts the two layers agree; 14 arbitrary radius literals absorbed onto the ladder (§4.6)                                                                                                                                                                                                                                         |
+| PR                                | Contents                                                                                                      | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR 5a · Token values, no geometry | Colour, elevation, ink roles                                                                                  | **done** — `59e4c3dfc` landed the `--shadow-well` rename, the spine and status-mark families, and the dark `--clinical-chat-document` fix; the remaining ink-role deltas landed with PR 3 (`--text-placeholder`, eyebrows and placeholders off the decoration tier, the disabled encoding). The v2 light and dark blocks now declare the same colour roles. The two `#0f766e` accent defaults are scoped `RAW_COLOR_EXEMPTIONS`, so `rawColorLiterals` is **0** — they are data, not design tokens; see the note below |
+| PR 5b · Tap 44→48 in `@theme`     | The 426-site tap-call-site migration; contract-test pin update; visual QA pass; `--tap-min` becomes the alias | **done** — `--spacing-tap: 3rem` in `@theme`; `--tap-min` reduced to `var(--spacing-tap)`; 426 `*-tap` call sites moved; three pins flipped in the same commit; the phone composer keeps a written 44px exception below 431px (§4.10)                                                                                                                                                                                                                                                                                  |
+| PR 5c · Radius step               | Every `rounded-md` moves; its own visual diff                                                                 | **done** — live `@theme --radius-md` 8px → 10px, matching the v2 control rung and moving 243 `rounded-md` call sites; the 4px-grid pin now names both half-steps and asserts the two layers agree; 14 arbitrary radius literals absorbed onto the ladder (§4.6)                                                                                                                                                                                                                                                        |
 
-**`#0f766e` is data, not a token.** The two remaining raw colour literals
+**`#0f766e` is data, not a token.** The two `#0f766e` accent defaults
 (`src/lib/medications.ts`, `src/lib/medication-records.ts`) restate a Postgres column
 default (`accent text not null default '#0f766e'`) for a per-record, user-chosen accent
 colour. Changing the application default without migrating the database default would
-diverge the two, so both stay. The raw-colour ratchet in
-`scripts/design-system-contract-baseline.json` is a **ceiling, not a target**: it exists to
-stop new literals appearing, and a value that is persisted data rather than design intent
-is outside the token system entirely.
+diverge the two, so both stay. They are a **scoped** `RAW_COLOR_EXEMPTIONS` entry, not
+remaining debt: `scripts/design-system-contract-baseline.json` pins `rawColorLiterals`
+at **0**. The ratchet is a **ceiling, not a target**: it exists to stop new literals
+appearing, and a value that is persisted data rather than design intent is outside the
+token system entirely.
 
 ### Phase 3 — safety structure
 

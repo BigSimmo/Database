@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2f6d84c1-9b03-4a17-8e52-c14d7f0b6ea9",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "50 of the 51 committed WA MHA form PDFs cannot be opened without a password, so no text-extraction or OCR path can reach their content \u2014 measured, not inferred",
+    "detail": "Measured 2026-09-02 with PyMuPDF 1.28.0 (MuPDF 1.29.0), the same library worker/python/extract_pdf_assets.py uses, against the committed bytes in public/forms-pdf/. RESULT: fitz.open() reports needs_pass=1 and is_encrypted=True for 50 of 51 files; page_count is 0, doc.authenticate('') returns 0 (the empty user password is REJECTED), and loading page 0 raises ValueError('document closed or encrypted'). MuPDF additionally logs 'corrupt object stream' because the streams stay encrypted. form-12a.pdf is the sole exception: it opens, has no /Encrypt, and yields 3274 characters of first-page text. The encryption dictionary on a representative locked file (form-10a.pdf) reads /Filter/Standard /V 4 /R 4 /Length 128 /P -1084 with a non-empty /U string. WHY THIS IS RECORDED: a concurrent review comment on PR #2544 asserted the opposite \u2014 that 'PyMuPDF does not enforce /P permission bits' and '-1084 restricts permissions without requiring a user password to open', so 'these files open normally and yield their text layer'. That is false for these specific files, and the measurement above is the disproof. The distinction matters because /P alone would indeed not block opening; these files also carry a non-empty user password, which does. CONSEQUENCE: any ingestion of these assets fails at the open call, before should_ocr_page() is ever consulted, so the OCR fallback cannot rescue them; whether the JavaScript fallback in src/lib/extractors/document.ts behaves differently was NOT measured. It also confirms the passwordProtected badge is correct for those 50 and was wrong only for form-12a.pdf, which is exactly what PR #2531 fixed. NEXT STEP: decide whether these forms are ever intended to be indexed. If yes, they need an unlocked source from the WA Chief Psychiatrist rather than a code change, because no extractor setting can defeat a user password. If no, record that decision so a future ingestion attempt is not planned against them.",
+    "source": "Direct measurement of public/forms-pdf/*.pdf with PyMuPDF, 2026-09-02; disputes a review comment on PR #2544",
+    "issueUlid": "01M1J4R7VD8KFQ3XN6B2YC5WPT"
+  }
+}

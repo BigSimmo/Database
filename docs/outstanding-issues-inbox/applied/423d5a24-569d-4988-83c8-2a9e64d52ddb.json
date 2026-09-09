@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "423d5a24-569d-4988-83c8-2a9e64d52ddb",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The extractive review fallback flips grounded false to true, which is the shared root cause behind the three tracked adversarial divergences",
+    "detail": "rag.ts:3107-3122 enters the branch BECAUSE the answer failed its quality gate (!finalizedAnswer.grounded) and then sets grounded: true with confidence re-derived from retrieval similarity alone. Claim support force-classifies every claim on this route as routine, so the authority gate passes vacuously and trust resolves to high, unlocking quote cards and suppressing the source-gap warning. The prose restates the clinician's own query as though the corpus confirmed it. This is the mechanism behind #NTAV3D, #C2D9JF and #VXB8XA; none of those rows names it. FIX: keep grounded false and confidence unsupported, retaining citations as review-only provenance (that reason string already exists in answer-render-policy). Protected RAG surface: own PR, RAG impact line, canary pair; flips the three divergence pins together.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96Q6PZK460WYAXJMACT2E"
+  }
+}

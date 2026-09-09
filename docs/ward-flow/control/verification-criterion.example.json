@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "kind": "ward-flow-verification-criterion",
+  "criterionId": "WF-VERIFY-EXAMPLE-001",
+  "targetSha": "0000000000000000000000000000000000000000",
+  "acceptanceCriterion": "Replace this with the exact claim being decided, in one sentence a verdict can be returned against.",
+  "falsifier": "Replace this with the observation that would make the answer no. A criterion with no falsifier is a wish.",
+  "focusedCheck": "Replace this with the smallest local command or inspection that can settle it.",
+  "notes": "Optional. Anything the Verifier needs that is not the criterion itself — traps, non-vacuity conditions, what to treat as out of scope."
+}

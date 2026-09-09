@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fb8c94f3-a08a-4ab1-916e-ffa0d9c94255",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#VTEW3W",
+    "outcome": "Implemented InteractiveRow design token primitive in src/components/ui/interactive-row.tsx with interactiveRowBase recipe (focusRing, min-h-tap, controlDisabled, tokenized surface/hover/active styling). Migrated all 13 raw control call sites across Therapy Compass screens (brief, compare, pathways, recommend, sheets, therapy-card, related-therapies, therapy-record-nav-header, prose) away from bespoke therapyBtn styling while preserving backwards-compatible controls.ts token recipe. Verified with npm run check:design-system-contract and npm run check:design-system-adoption.",
+    "baseRowFingerprint": "ace0b53322933ae68a307c513236884a357b873fa93e5286b94b63ad3adf7fe9"
+  }
+}

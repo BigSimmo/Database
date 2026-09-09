@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "39f1842e-9780-4c73-8082-28cf9f271104",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "The developer hub's pending-requests panel reads empty during local dev, because no lifecycle regenerates the snapshot for the dev server",
+    "detail": "Raised by Codex review on PR #2530 (scripts/generate-outstanding-issues-snapshot.mjs) and verified rather than accepted on trust. THE FINDING IS CORRECT: npm run dev and npm run ensure invoke no prebuild, so ledger-snapshot.ts imports the committed JSON and the ledger page's 'requests not yet applied' count and list render empty while requests exist in docs/outstanding-issues-inbox/. That is the #338 class of failure the developer hub exists to prevent - a panel silently under-reporting. IT IS NOT A REGRESSION FROM PR #2530, and this matters for how it gets fixed: measured on main at 45a3dcacb before that branch existed, the committed snapshot already carried counts.pending 0 while 8 inbox requests were tracked in the same commit. The panel was already blank in dev. PR #2530 changed it from accidentally blank to blank by design, and added a gate that keeps it that way, so the fix now has to be deliberate. THE OBVIOUS FIX IS WRONG: adding a predev that generates the pending-inclusive form would write a populated pending into the tracked working tree on every dev-server start, which is precisely the churn #Y090R5 records and PR #2530 removed - and check:outstanding-issues-snapshot now fails on a committed non-empty pending, so a developer would be left with a permanently dirty tracked file that the gate refuses. Two shapes are worth weighing instead. (a) A development-only reader: the ledger page merges docs/outstanding-issues-inbox/*.json from disk when NODE_ENV is not production, leaving the committed artefact untouched. Cheap, but it adds an environment-conditional code path to a module whose docstring records that reading docs/ live was deliberately rejected because the production image never copies docs/ - the divergence would be benign here (production gets the true list from prebuild) but the reasoning must be written down rather than quietly reversed. (b) Generate the pending-inclusive form to a SEPARATE gitignored sidecar that the page reads when present, so nothing tracked is ever dirtied; costs a second artefact and a tolerant reader. Neither is urgent: the panel is administrator-gated, 404s for non-admins in production, and is correct in the deployed image because prebuild regenerates it there.",
+    "source": "Codex review on PR #2530, 2026-09-02",
+    "issueUlid": "01M1GC7018707F0970T8GT50SM"
+  }
+}

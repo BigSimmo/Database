@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the Docling lab fixture corpus from fixtures/manifest.v1.json.
+"""Render the Docling lab fixture corpus from fixtures/manifest.v2.json.
 
 The committed manifest is the ground truth; this generator renders every fixture
 PDF *from* the manifest's own body text, table cells and assertion values, then
@@ -324,7 +324,7 @@ def self_check(manifest: dict, rendered: dict[str, bytes]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", default=str(Path(__file__).with_name("manifest.v1.json")))
+    parser.add_argument("--manifest", default=str(Path(__file__).with_name("manifest.v2.json")))
     parser.add_argument("--out", required=True, help="output directory (never a committed path)")
     args = parser.parse_args()
 

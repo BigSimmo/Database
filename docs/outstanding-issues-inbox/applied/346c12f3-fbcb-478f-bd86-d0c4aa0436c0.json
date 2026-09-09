@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "346c12f3-fbcb-478f-bd86-d0c4aa0436c0",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#RZQQBT",
+    "outcome": "Answered negative and made truthful on 2026-08-23. Two real Claude Code v2.1.237 auto-compactions correlate with the hook log. .git/worktrees/caring-contacts-phase-2a-11b-a37803/claude-precompact.log records 2026-08-22T11:37:51Z before ~/.claude/projects/<worktree-slug>/d66f9a55-0d9c-4ede-b7f9-ec3d31f57219.jsonl line 1902 at the 2026-08-22T11:39:38.041Z compact boundary. .git/worktrees/ward-flow-phase-3-49f201/claude-precompact.log records 2026-08-22T18:33:10Z before ~/.claude/projects/<worktree-slug>/d5328978-6de3-4fee-9e3c-4b869c9bace2.jsonl line 2492 at the 2026-08-22T18:34:57.371Z boundary. Both compact_boundary records explicitly carry version 2.1.237, and the exact reminder is absent from both complete transcripts and their immediate post-compaction model turns. Independently, the current official Claude Code Hooks reference (https://code.claude.com/docs/en/hooks), checked 2026-08-23, states that successful exit-0 plain stdout is model context only for SessionStart, UserPromptSubmit, and UserPromptExpansion; other events are debug-log-only. PreCompact's documented contract provides blocking but no supported additionalContext path and discards systemMessage/continue. The later local claude --version result 2.1.238 was not the correlated runtime and is not used as provenance. The hook is now deliberately silent and log-only, retains bounded trigger evidence, always exits 0, and leaves .claude/hooks/issues-surface.sh as the post-compaction SessionStart backstop. The recent Codex compaction was not a Claude Code PreCompact event; .git/worktrees/Database36/claude-precompact.log was absent when checked at 2026-08-23T06:41:54.9955991Z and is not claimed as proof. Focused hook contract: tests/session-start-hook.test.ts, 12/12 passed.",
+    "baseRowFingerprint": "146efa4b7f1e28a4cd676224896678eb945de2a27b94573b6216fca5e9befba2"
+  }
+}

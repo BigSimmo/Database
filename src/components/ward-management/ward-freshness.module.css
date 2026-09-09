@@ -1,0 +1,17 @@
+/*
+ * Task 4. The shared freshness stamp, mounted on Tasks 5, 6 and 7's boards. Following the same
+ * self-contained-token convention `ward-role-switcher.module.css` documents: every local token
+ * this file needs is declared here, on its own root class, never borrowed from a wrapping
+ * component's `--ward-*` scope, so this module works regardless of where it is placed.
+ */
+.stamp {
+  --wf-muted: var(--text-muted);
+  --wf-space-4: 0.25rem;
+  --wf-leading-body: 1.35;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wf-space-4);
+  color: var(--wf-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--wf-leading-body);
+}

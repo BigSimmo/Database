@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "421ff6e8-4cb3-4456-b918-d71218b973d5",
+  "createdOn": "2026-08-24",
+  "action": "cancel",
+  "payload": {
+    "requestId": "e7909949-2a75-44fc-92b0-b978f08546c6",
+    "reason": "Mitigated by PR #2327: the clinical-decision hold now runs before routing with no override, so these surfaces cannot receive unattended Codex repair."
+  }
+}

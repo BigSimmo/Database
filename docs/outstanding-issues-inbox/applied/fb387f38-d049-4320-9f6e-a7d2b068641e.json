@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fb387f38-d049-4320-9f6e-a7d2b068641e",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#308",
+    "outcome": "Resolved: Reserved settled height at the composer adoption boundary in GlobalSearchShell/MasterSearchHeader for desktop /documents/search under the one-composer contract, eliminating the 0.118 CLS layout shift.",
+    "baseRowFingerprint": "0a72c497b31144c86a6ad3b2d4189577b4a8ab1d59e715f468f1029809d8be15"
+  }
+}

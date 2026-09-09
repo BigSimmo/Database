@@ -48,7 +48,7 @@ import {
  * the app neither stores it nor sends it to a server. Copy and print are
  * explicit user-directed exports. Plans start blank; "Load example" can demo
  * the layout with sample content that stays non-shareable until edited.
- * Australian English + AU crisis resources throughout, per the Clinical KB
+ * Australian English + AU crisis resources throughout, per the PsychSift
  * (en-AU) voice. All chrome is token-driven so light/dark, reduced-motion and
  * forced-colors follow the shared design system.
  */
@@ -647,7 +647,7 @@ export function PatientSafetyPlan() {
                 <ShieldCheck className="size-icon-lg" aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <p className={eyebrowText}>Clinical KB · Clinical tool</p>
+                <p className={eyebrowText}>PsychSift · Clinical tool</p>
                 <h1 className="mt-0.5 text-2xl-minus font-extrabold leading-tight text-[color:var(--text-heading)]">
                   Safety plan generator
                 </h1>
@@ -773,8 +773,8 @@ export function PatientSafetyPlan() {
                 </h2>
                 <p className="mt-1 text-2xs font-medium leading-5 text-[color:var(--text-muted)]">
                   Do not enter the patient&apos;s name, date of birth, or record number. Enter only the minimum plan
-                  details and support contacts needed. Working content is kept only in this browser tab; Clinical KB
-                  does not save it or send it to a server.
+                  details and support contacts needed. Working content is kept only in this browser tab; PsychSift does
+                  not save it or send it to a server.
                 </p>
               </div>
             </div>
@@ -901,7 +901,7 @@ export function PatientSafetyPlan() {
             data-print-hide
             className="mb-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-2xs font-semibold leading-5 text-[color:var(--text-muted)]"
           >
-            Copying, printing, or saving a PDF moves the plan outside Clinical KB. Add any patient identifier only after
+            Copying, printing, or saving a PDF moves the plan outside PsychSift. Add any patient identifier only after
             export, using your organisation&apos;s approved clinical record and handling process.
           </p>
 

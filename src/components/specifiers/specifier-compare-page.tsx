@@ -1,17 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, GitCompareArrows, HelpCircle, Repeat2, Tags } from "lucide-react";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, HelpCircle, Tags, Waypoints } from "lucide-react";
 
+import {
+  CompareIdsChrome,
+  pairCompareHref,
+  type CompareCatalogItem,
+  type CompareStarterChip,
+} from "@/components/compare";
 import {
   SpecifierFamilyBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
-import { cn, eyebrowText } from "@/components/ui-primitives";
-import { findSpecifier, specifierRecords } from "@/lib/specifiers";
+import { cn, eyebrowText, primaryControl } from "@/components/ui-primitives";
+import { PageHeader } from "@/components/ui/page-header";
+import { findSpecifier, specifierRecords, type SpecifierRecord } from "@/lib/specifiers";
+
+const COMPARE_PATH = "/specifiers/compare";
 
 const comparisonRows = [
   { label: "Clinical focus", key: "focus" as const },
@@ -20,208 +29,209 @@ const comparisonRows = [
   { label: "Do not overcall from", key: "caution" as const },
 ];
 
-function fallbackPair(leftSlug?: string, rightSlug?: string) {
-  const left = findSpecifier(leftSlug ?? "") ?? specifierRecords[0];
-  const requestedRight = findSpecifier(rightSlug ?? "");
-  const right =
-    requestedRight && requestedRight.slug !== left.slug
-      ? requestedRight
-      : specifierRecords.find((item) => item.slug !== left.slug)!;
-  return { left, right };
-}
+const catalogItems: CompareCatalogItem[] = specifierRecords.map((record) => ({
+  id: record.slug,
+  title: record.shortName,
+  snippet: record.summary,
+  tag: record.familyLabel,
+}));
 
-function Selector({
-  label,
-  value,
-  otherValue,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  otherValue: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="grid min-w-0 gap-1.5">
-      <span className={eyebrowText}>{label}</span>
-      <span className="relative">
-        <Tags
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--clinical-accent)]"
-          aria-hidden
-        />
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="min-h-12 w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] pl-10 pr-9 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-        >
-          {specifierRecords.map((record) => (
-            <option key={record.slug} value={record.slug} disabled={record.slug === otherValue}>
-              {record.shortName}
-            </option>
-          ))}
-        </select>
-      </span>
-    </label>
-  );
+const starterChips: CompareStarterChip[] = [
+  {
+    id: "anxious-mixed",
+    label: "Anxious distress vs mixed features",
+    href: pairCompareHref(COMPARE_PATH, "with-anxious-distress", "with-mixed-features"),
+  },
+  {
+    id: "melancholic-atypical",
+    label: "Melancholic vs atypical features",
+    href: pairCompareHref(COMPARE_PATH, "with-melancholic-features", "with-atypical-features"),
+  },
+];
+
+const starterPairKeys = new Set([
+  "with-anxious-distress__with-mixed-features",
+  "with-atypical-features__with-melancholic-features",
+]);
+
+function focusedDistinctionGuide(left: SpecifierRecord, right: SpecifierRecord) {
+  const pairKey = [left.slug, right.slug].sort().join("__");
+  if (!starterPairKeys.has(pairKey)) return null;
+  return {
+    mostUsefulDistinction: `${left.shortName} centres on ${left.comparison.focus.toLowerCase()}, whereas ${right.shortName} centres on ${right.comparison.focus.toLowerCase()}.`,
+    commonConfusion: `${left.comparison.caution}. ${right.comparison.caution}.`,
+    treatmentDifference: `${left.treatmentLens} ${right.treatmentLens}`,
+  };
 }
 
 export function SpecifierComparePage({ initialLeft, initialRight }: { initialLeft?: string; initialRight?: string }) {
-  const initial = fallbackPair(initialLeft, initialRight);
-  const [leftSlug, setLeftSlug] = useState(initial.left.slug);
-  const [rightSlug, setRightSlug] = useState(initial.right.slug);
-  const left = findSpecifier(leftSlug) ?? initial.left;
-  const right = findSpecifier(rightSlug) ?? initial.right;
-
-  function chooseLeft(nextSlug: string) {
-    setLeftSlug(nextSlug);
-    if (nextSlug === rightSlug) {
-      setRightSlug(specifierRecords.find((item) => item.slug !== nextSlug)?.slug ?? rightSlug);
-    }
-  }
-
-  function chooseRight(nextSlug: string) {
-    setRightSlug(nextSlug);
-    if (nextSlug === leftSlug) {
-      setLeftSlug(specifierRecords.find((item) => item.slug !== nextSlug)?.slug ?? leftSlug);
-    }
-  }
-
-  function swap() {
-    setLeftSlug(right.slug);
-    setRightSlug(left.slug);
-  }
+  const router = useRouter();
+  const left = initialLeft ? (findSpecifier(initialLeft) ?? null) : null;
+  const right = initialRight && initialRight !== left?.slug ? (findSpecifier(initialRight) ?? null) : null;
+  const ready = Boolean(left && right);
+  const guide = left && right ? focusedDistinctionGuide(left, right) : null;
 
   return (
     <SpecifierPageShell>
-      <header className="grid gap-1.5 border-b border-[color:var(--border)] pb-4 sm:pb-5">
-        <h1 className="text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-          Compare two specifiers
-        </h1>
-        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Find the deciding clinical difference.
-        </p>
-      </header>
+      <PageHeader
+        className="border-b border-[color:var(--border)] pb-4 sm:pb-5"
+        eyebrow="Side-by-side review"
+        title="Compare two specifiers"
+        description="Find the deciding clinical difference."
+      />
 
-      <section
-        className={cn(
-          specifierCard,
-          "grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)] sm:items-end sm:p-5",
-        )}
-      >
-        <Selector label="A" value={left.slug} otherValue={right.slug} onChange={chooseLeft} />
-        <button
-          type="button"
-          onClick={swap}
-          aria-label="Swap compared specifiers"
-          className="grid h-tap w-tap place-items-center justify-self-center rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-        >
-          <Repeat2 className="h-4 w-4" aria-hidden />
-        </button>
-        <Selector label="B" value={right.slug} otherValue={left.slug} onChange={chooseRight} />
-      </section>
+      <CompareIdsChrome
+        selectedIds={[left?.slug, right?.slug]}
+        maxCount={2}
+        items={catalogItems}
+        starters={starterChips}
+        emptyTitle="Choose two specifiers"
+        emptyDescription="Search the specifier catalogue, or start from a common pair."
+        actionLabel="Choose specifiers"
+        searchPlaceholder="Search specifier"
+        pickerTitle="Choose two specifiers"
+        pickerDescription="Assign a specifier to A or B. Duplicates are blocked."
+        pickerId="specifier-compare-picker"
+        pickerTestId="specifier-compare-picker"
+        changeLabel="Change specifiers"
+        slotPlaceholder="Choose specifier"
+        swapLabel="Swap compared specifiers"
+        icon={Tags}
+        onCommit={(ids) => router.push(pairCompareHref(COMPARE_PATH, ids[0], ids[1]))}
+      />
 
-      <section className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-4 text-center sm:px-6">
-        <div className="mx-auto flex max-w-4xl items-start justify-center gap-2.5">
-          <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-          <div>
-            <p className={cn(eyebrowText, "!text-[color:var(--clinical-accent)]")}>Ask this</p>
-            <p className="mt-1 text-base font-extrabold leading-6 text-[color:var(--text-heading)]">
-              Is the central pattern “{left.comparison.focus.toLowerCase()}” or “{right.comparison.focus.toLowerCase()}
-              ”?
-            </p>
+      {ready && left && right ? (
+        <>
+          <section className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-4 text-center sm:px-6">
+            <div className="mx-auto flex max-w-4xl items-start justify-center gap-2.5">
+              <HelpCircle className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+              <div>
+                <p className={cn(eyebrowText, "!text-[color:var(--clinical-accent)]")}>Ask this</p>
+                <p className="mt-1 text-base font-extrabold leading-6 text-[color:var(--text-heading)]">
+                  Is the central pattern “{left.comparison.focus.toLowerCase()}” or “
+                  {right.comparison.focus.toLowerCase()}”?
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {guide ? (
+            <section
+              className={cn(specifierCard, "grid overflow-hidden md:grid-cols-3")}
+              aria-label="Focused distinction"
+            >
+              {[
+                ["Most useful distinction", guide.mostUsefulDistinction],
+                ["Common confusion", guide.commonConfusion],
+                ["Treatment difference", guide.treatmentDifference],
+              ].map(([label, body], index) => (
+                <div
+                  key={label}
+                  className={cn(
+                    "p-4 sm:p-5",
+                    index > 0 && "border-t border-[color:var(--border)] md:border-l md:border-t-0",
+                  )}
+                >
+                  <p className={eyebrowText}>{label}</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">{body}</p>
+                </div>
+              ))}
+            </section>
+          ) : null}
+
+          <section
+            className={cn(specifierCard, "overflow-hidden")}
+            aria-label={`${left.shortName} compared with ${right.shortName}`}
+          >
+            <div className="grid sm:grid-cols-2">
+              {[left, right].map((record, index) => (
+                <div
+                  key={record.slug}
+                  className={cn(
+                    "grid gap-3 px-4 py-4 sm:px-5",
+                    index === 1 && "border-t border-[color:var(--border)] sm:border-l sm:border-t-0",
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-extrabold text-[color:var(--clinical-accent-contrast)]">
+                      {index === 0 ? "A" : "B"}
+                    </span>
+                    <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{record.shortName}</h2>
+                  </div>
+                  <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">{record.summary}</p>
+                  <SpecifierFamilyBadge record={record} />
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-[color:var(--border)]">
+              {comparisonRows.map((row) => (
+                <div
+                  key={row.key}
+                  className="grid border-b border-[color:var(--border)] last:border-b-0 sm:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)]"
+                >
+                  <div className="bg-[color:var(--surface-subtle)] px-4 py-3 text-xs font-extrabold text-[color:var(--text-heading)] sm:flex sm:items-center">
+                    {row.label}
+                  </div>
+                  <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2 px-4 py-3 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                    <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-xs font-extrabold text-[color:var(--clinical-accent)]">
+                      A
+                    </span>
+                    <span>{left.comparison[row.key]}</span>
+                  </div>
+                  <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2 border-t border-[color:var(--border)] px-4 py-3 text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:border-l sm:border-t-0">
+                    <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-xs font-extrabold text-[color:var(--clinical-accent)]">
+                      B
+                    </span>
+                    <span>{right.comparison[row.key]}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] sm:grid-cols-2">
+              {[left, right].map((record, index) => (
+                <div
+                  key={record.slug}
+                  className={cn(
+                    "p-4 sm:p-5",
+                    index === 1 && "border-t border-[color:var(--border)] sm:border-l sm:border-t-0",
+                  )}
+                >
+                  <p className={eyebrowText}>Example wording</p>
+                  <p className="mt-1.5 text-sm font-bold leading-6 text-[color:var(--text-heading)]">
+                    {record.wording}
+                  </p>
+                  <Link
+                    href={`/specifiers/${record.slug}`}
+                    className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-md px-1 text-sm font-bold text-[color:var(--clinical-accent)] hover:underline motion-reduce:transition-none"
+                  >
+                    Open full guide
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link
+              href="/specifiers/map"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] motion-reduce:transition-none"
+            >
+              <Waypoints className="h-4 w-4" aria-hidden />
+              Browse the map
+            </Link>
+            <Link
+              href={`/specifiers/builder?specifier=${left.slug}&specifier=${right.slug}`}
+              className={cn(primaryControl)}
+            >
+              Build diagnostic wording
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
           </div>
-        </div>
-      </section>
-
-      <section
-        className={cn(specifierCard, "overflow-hidden")}
-        aria-label={`${left.shortName} compared with ${right.shortName}`}
-      >
-        <div className="grid sm:grid-cols-2">
-          {[left, right].map((record, index) => (
-            <div
-              key={record.slug}
-              className={cn(
-                "grid gap-3 px-4 py-4 sm:px-5",
-                index === 1 && "border-t border-[color:var(--border)] sm:border-l sm:border-t-0",
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-extrabold text-[color:var(--clinical-accent-contrast)]">
-                  {index === 0 ? "A" : "B"}
-                </span>
-                <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{record.shortName}</h2>
-              </div>
-              <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">{record.summary}</p>
-              <SpecifierFamilyBadge record={record} />
-            </div>
-          ))}
-        </div>
-
-        <div className="border-t border-[color:var(--border)]">
-          {comparisonRows.map((row) => (
-            <div
-              key={row.key}
-              className="grid border-b border-[color:var(--border)] last:border-b-0 sm:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)]"
-            >
-              <div className="bg-[color:var(--surface-subtle)] px-4 py-3 text-xs font-extrabold text-[color:var(--text-heading)] sm:flex sm:items-center">
-                {row.label}
-              </div>
-              <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2 px-4 py-3 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-xs font-extrabold text-[color:var(--clinical-accent)]">
-                  A
-                </span>
-                <span>{left.comparison[row.key]}</span>
-              </div>
-              <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2 border-t border-[color:var(--border)] px-4 py-3 text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:border-l sm:border-t-0">
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-xs font-extrabold text-[color:var(--clinical-accent)]">
-                  B
-                </span>
-                <span>{right.comparison[row.key]}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] sm:grid-cols-2">
-          {[left, right].map((record, index) => (
-            <div
-              key={record.slug}
-              className={cn(
-                "p-4 sm:p-5",
-                index === 1 && "border-t border-[color:var(--border)] sm:border-l sm:border-t-0",
-              )}
-            >
-              <p className={eyebrowText}>Example wording</p>
-              <p className="mt-1.5 text-sm font-bold leading-6 text-[color:var(--text-heading)]">{record.wording}</p>
-              <Link
-                href={`/specifiers/${record.slug}`}
-                className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-md px-1 text-sm font-bold text-[color:var(--clinical-accent)] hover:underline"
-              >
-                Open full guide
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </Link>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="flex flex-wrap justify-end gap-2">
-        <Link
-          href="/specifiers/map"
-          className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)]"
-        >
-          <GitCompareArrows className="h-4 w-4" aria-hidden />
-          Browse the map
-        </Link>
-        <Link
-          href={`/specifiers/builder?specifier=${left.slug}&specifier=${right.slug}`}
-          className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
-        >
-          Build diagnostic wording
-          <ArrowRight className="h-4 w-4" aria-hidden />
-        </Link>
-      </div>
+        </>
+      ) : null}
 
       <SpecifierSafetyNote />
     </SpecifierPageShell>

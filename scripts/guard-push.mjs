@@ -166,10 +166,21 @@ function mainMergeBase(range, cwd = PROJECT_ROOT) {
   return tryGit(["merge-base", MAIN_REMOTE_REF, range.localSha], cwd);
 }
 
-/** Exported for tests: a fast-forward push compares from its remote tip; a new
- * branch, or one whose history was rewritten, compares from the PR merge base so
- * newer main-only commits are out of scope for transaction guards that accept
- * explicit base/head commits.
+/** Return the merge base with main when this fast-forward newly integrates
+ * commits from origin/main. Comparing from the old feature tip would otherwise
+ * treat main-only ledger transactions as changes introduced by the feature push. */
+function newlyIntegratedMainMergeBase(range, cwd = PROJECT_ROOT) {
+  if (!range.remoteSha || range.remoteSha === ZERO_SHA) return undefined;
+  if (!isAncestor(range.remoteSha, range.localSha, cwd)) return undefined;
+  const mergeBase = mainMergeBase(range, cwd);
+  if (!mergeBase) return undefined;
+  return isAncestor(mergeBase, range.remoteSha, cwd) ? undefined : mergeBase;
+}
+
+/** Exported for tests: a fast-forward push normally compares from its remote
+ * tip. When it freshly integrates main commits, compare from that merge base so
+ * main-only changes are out of scope. A new branch, or one whose history was
+ * rewritten, compares from the PR merge base for the same reason.
  *
  * The rewritten-history case matters: after a force-push the old remote tip is an
  * abandoned line, so every request it carried reads as deleted and the ledger
@@ -177,7 +188,9 @@ function mainMergeBase(range, cwd = PROJECT_ROOT) {
  * back to the merge base asks the question CI asks instead of an unanswerable one. */
 export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
   if (range.remoteSha && range.remoteSha !== ZERO_SHA) {
-    if (isAncestor(range.remoteSha, range.localSha, cwd)) return range.remoteSha;
+    if (isAncestor(range.remoteSha, range.localSha, cwd)) {
+      return newlyIntegratedMainMergeBase(range, cwd) ?? range.remoteSha;
+    }
     return mainMergeBase(range, cwd);
   }
   return mainMergeBase(range, cwd);
@@ -189,12 +202,15 @@ export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
   // actually introduces relative to main.
   const existingRemote =
     range.remoteSha && range.remoteSha !== ZERO_SHA && isAncestor(range.remoteSha, range.localSha, cwd);
+  const integratedMain = existingRemote ? newlyIntegratedMainMergeBase(range, cwd) : undefined;
   const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd);
-  const spec = existingRemote
-    ? `${range.remoteSha}..${range.localSha}`
-    : hasOriginMain
-      ? `${MAIN_REMOTE_REF}...${range.localSha}`
-      : undefined;
+  const spec = integratedMain
+    ? `${integratedMain}..${range.localSha}`
+    : existingRemote
+      ? `${range.remoteSha}..${range.localSha}`
+      : hasOriginMain
+        ? `${MAIN_REMOTE_REF}...${range.localSha}`
+        : undefined;
   let out = spec
     ? tryGit(["diff", "--name-only", spec], cwd)
     : tryGit(["show", "--name-only", "--pretty=format:", range.localSha], cwd);
@@ -1059,6 +1075,28 @@ export function isCoordinatorBusyResult(error) {
  * exclusive/shared leases as `npm run lint` / `npm run typecheck:source`.
  * Short wait + busy → fail-open (CI still enforces both).
  */
+/**
+ * ⚠️ "IT FAILED" AND "IT NEVER STARTED" ARE DIFFERENT FACTS, AND THIS GUARD REPORTED THEM IN
+ * IDENTICAL WORDS UNTIL 2026-09-03.
+ *
+ * A push of a 992-commit branch was refused with `lint failed`, and eslint had never been spawned:
+ * the changed-file list built a 56,570-byte argument vector against Windows' 32,767-byte limit, so
+ * the process was refused and the only output was the sentence "The command line is too long."
+ * Nothing in the message distinguished that from a real lint error, and both natural readings are
+ * wrong — assume the code is broken, or assume the guard is noise and override it.
+ *
+ * A check that never launched has found NOTHING. It is not evidence of a defect and it is not
+ * evidence of cleanliness. Saying exactly that is the whole fix.
+ */
+const NEVER_LAUNCHED_CODES = new Set(["ENAMETOOLONG", "E2BIG", "ENOENT", "EACCES", "ENOMEM"]);
+
+export function isNeverLaunchedFailure(error, output) {
+  if (error && NEVER_LAUNCHED_CODES.has(error.code)) return true;
+  const text = `${output ?? ""}
+${error?.message ?? ""}`;
+  return /command line is too long/i.test(text) || /argument list too long/i.test(text);
+}
+
 function runStaticCheck(root, script, forwarded, label) {
   try {
     execFileSync(
@@ -1080,7 +1118,7 @@ function runStaticCheck(root, script, forwarded, label) {
     if (isCoordinatorBusyResult(error) || isCoordinatorBusyOutput(output) || isCoordinatorBusyOutput(error?.message)) {
       return { ok: true, busy: true, output: output || String(error?.message ?? error) };
     }
-    return { ok: false, label, output };
+    return { ok: false, label, output, neverLaunched: isNeverLaunchedFailure(error, output) };
   }
 }
 
@@ -1224,7 +1262,23 @@ export function staticGuard(changedFiles, options = {}) {
     ok: false,
     message:
       failures
-        .map((f) => `${f.label} failed (CI's "Static PR checks"/"Build" would fail too):\n\n${f.output}\n`)
+        .map((f) =>
+          f.neverLaunched
+            ? `${f.label} COULD NOT RUN — the command was never launched, so NOTHING WAS CHECKED:
+
+` +
+              `${f.output || "(no output at all: the process never started)"}
+
+` +
+              `  This is not a ${f.label} failure. This guard does not know whether your code is clean.
+` +
+              `  Run \`npm run ${f.label}\` directly to find out before deciding what to do.
+`
+            : `${f.label} failed (CI's "Static PR checks"/"Build" would fail too):
+
+${f.output}
+`,
+        )
         .join("\n") +
       dirtyNote +
       `\n  Fix, commit, then push again.\n` +

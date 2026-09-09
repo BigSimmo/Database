@@ -1,0 +1,25 @@
+{
+  "acceptanceCriterion": "If this machine's repository were lost, Ward Flow could be brought back from a self-contained bundle - proven by restoring it into a newly created empty repository rather than by asserting a backup exists.",
+  "decisiveEvidence": "git bundle verify: 'is okay ... The bundle records a complete history.' Cloned into a newly created empty repository at C:/Users/joshs/Backups/restore-tests path; restored HEAD read back as 0cb1a2231e283de470d8513b4c76952f3248739a; git cat-file -e confirmed both 0cb1a2231 (source) and 5db2f02fc (integration base) present in the restore; its git dir is its own '.git', not a worktree of this repository. Independent copy hashes f331d332beb2bee9fcf8b8013a5fd8c04fbf0d3f45de50115de57cc6882e2ac9, identical to the committed bytes.",
+  "falsifier": "The committed bundle fails git bundle verify; its independent copy differs by a byte; it does not advertise the source SHA at its named ref; the restore lands on a different HEAD; the restore shares an object database with this repository; or either required commit object is absent from the restore.",
+  "gateEvidence": {
+    "bundleHashVerified": true,
+    "bundlePath": "docs/ward-flow/control/evidence/bundles/recovery-f331d332beb2bee9fcf8b8013a5fd8c04fbf0d3f45de50115de57cc6882e2ac9.bundle",
+    "bundleRef": "refs/heads/ward-flow-recovery-0cb1a2231",
+    "bundleSha256": "f331d332beb2bee9fcf8b8013a5fd8c04fbf0d3f45de50115de57cc6882e2ac9",
+    "independentBundlePath": "C:/Users/joshs/Backups/claude-work/ward-flow-recovery-bundles/recovery-f331d332beb2bee9fcf8b8013a5fd8c04fbf0d3f45de50115de57cc6882e2ac9.bundle",
+    "requiredObjects": [
+      "0cb1a2231e283de470d8513b4c76952f3248739a",
+      "5db2f02fc6f0d04eed3425bc74b0adad438b7ea7"
+    ],
+    "requiredObjectsVerified": true,
+    "restoreCheckout": "C:/Users/joshs/Backups/claude-work/restore-tests/ward-flow-recovery-0cb1a2231",
+    "restoreHead": "0cb1a2231e283de470d8513b4c76952f3248739a",
+    "restoreResult": "passed"
+  },
+  "id": "recovery-bundle",
+  "kind": "ward-flow-transition-receipt",
+  "outcome": "passed",
+  "schemaVersion": 1,
+  "sourceSha": "0cb1a2231e283de470d8513b4c76952f3248739a"
+}

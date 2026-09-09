@@ -1,0 +1,26 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-screen-fd23-leaks.dom.test.tsx (2 tests | 1 failed) 141ms
+     × never names the unit that accepted, when telling a ward its referral was withdrawn 44ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-screen-fd23-leaks.dom.test.tsx > FD-23 on the ward page > never names the unit that accepted, when telling a ward its referral was withdrawn
+AssertionError: the withdrawal code is being rendered instead of its label: expected 'another_unit_accepted' not to be 'another_unit_accepted' // Object.is equality
+ ❯ tests/ward-screen-fd23-leaks.dom.test.tsx:133:85
+    131|     // The raw union member must never reach the screen — the "simplif…
+    132|     // regression, and now the only way this line can go wrong from he…
+    133|     expect(shown, "the withdrawal code is being rendered instead of it…
+       |                                                                                     ^
+    134|     expect(shown).not.toMatch(/_/);
+    135|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  00:59:55
+   Duration  1.75s (transform 460ms, setup 202ms, import 603ms, tests 141ms, environment 657ms)
+

@@ -1,5 +1,4 @@
 import {
-  Activity,
   BookMarked,
   BookOpenCheck,
   BookOpenText,
@@ -12,8 +11,11 @@ import {
   FileSignature,
   FileText,
   Heart,
+  HeartHandshake,
+  LibraryBig,
   MessagesSquare,
   Network,
+  PhoneCall,
   Pill,
   Route,
   ScrollText,
@@ -39,12 +41,12 @@ import type { CategoryIconKey } from "@/lib/category-identity";
  * that binds them to components. `factsheets-icons.ts` established the pattern.
  */
 const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
-  activity: Activity,
   sparkles: Sparkles,
   fileText: FileText,
   route: Route,
   fileSignature: FileSignature,
   heart: Heart,
+  heartHandshake: HeartHandshake,
   brainCircuit: BrainCircuit,
   bookOpenCheck: BookOpenCheck,
   tags: Tags,
@@ -55,6 +57,7 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   compass: Compass,
   bookOpenText: BookOpenText,
   bookMarked: BookMarked,
+  libraryBig: LibraryBig,
   search: Search,
   scrollText: ScrollText,
   shieldCheck: ShieldCheck,
@@ -65,6 +68,7 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   waves: Waves,
   star: Star,
   chat: MessagesSquare,
+  phoneCall: PhoneCall,
 };
 
 /** Component form, for the call sites that still take a `LucideIcon` prop. */

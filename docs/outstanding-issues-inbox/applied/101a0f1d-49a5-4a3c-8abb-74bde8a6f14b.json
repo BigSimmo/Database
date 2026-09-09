@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "101a0f1d-49a5-4a3c-8abb-74bde8a6f14b",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Package 15's CSRF Origin check has unit coverage only and its browser suite is red",
+    "detail": "PR #2627 adds src/lib/api-csrf.ts, which rejects a state-changing API request whose Origin does not match the addressed host. No browser or Playwright journey exercised it; Production UI (3) is red on that PR and CI triage classifies it not baselined, so the main comparison says nothing either way. A same-origin flow arriving with an Origin that neither Host nor X-Forwarded-Host reflects - a rewriting proxy in front of Railway - would now be refused where it previously passed. Must not merge until that browser suite is green or the failure is shown not to belong to the change. Recorded 2026-09-04.",
+    "issueUlid": "01M1PWA36A72282VTNAENPKZGN"
+  }
+}

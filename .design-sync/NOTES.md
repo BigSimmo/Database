@@ -1,4 +1,4 @@
-# design-sync notes — Clinical KB
+# design-sync notes — PsychSift
 
 **Day-to-day:** run `node scripts/design-sync.mjs` from the repo root. That installs the
 gitignored `.ds-sync` toolchain and compiles CSS into `.design-sync/.cache/compiled.css`.
@@ -125,6 +125,9 @@ absence of both before calling it a defect.
   `--name\s*:`, not bare `var(--name)`, or referenced-but-undefined vars read
   as defined) and the bundle's export list on every re-sync. A helper lives at
   `.design-sync/.cache/validate-conventions.mjs` (gitignored, cheap to rewrite).
+- The "Opt-in v2 token layer" paragraph was aligned to TOKENS / html mount
+  (`ckb-v2` on `<html>`, shared `--leading-prose`, hero companions only). The
+  next remote sync must not restore per-step `-lh`/`-tr`.
 - The driver reports the token port as `changed: []` with `sourceKeys`
   unchanged: `sourceKeys` track the authored preview + preview-affecting config,
   NOT component source. A component-source or token change surfaces instead as

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { SpecifierMapPage } from "@/components/specifiers/specifier-map-page";
 
 export const metadata: Metadata = {
-  title: "Psychiatric specifier map - Clinical KB",
+  title: "Psychiatric specifier map - PsychSift",
   description:
     "Browse psychiatric specifiers by diagnostic architecture: episode features, course and onset, severity and remission.",
 };

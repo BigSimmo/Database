@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { env, isDemoMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, publicErrorResponse } from "@/lib/http";
 import { ingestionJobRetryRejectionReason } from "@/lib/ingestion";
 import { ingestionRollbackFenceStamp } from "@/lib/ingestion-mutation-safety";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -22,12 +23,26 @@ const ingestionRetryResultSchema = z.discriminatedUnion("outcome", [
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (isDemoMode()) return NextResponse.json({ error: "Retry is unavailable in demo mode." }, { status: 400 });
+    if (isDemoMode())
+      return publicErrorResponse("Retry is unavailable in demo mode.", 400, { code: "demo_mode_unavailable" });
 
     const { id: rawId } = await params;
     const { id } = parseRouteParams({ id: rawId }, ingestionRetryRouteParamsSchema, "Invalid ingestion job id.");
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
+
+    // This is the only unlimited MUTATING admin ingestion endpoint before this
+    // fix — it re-enqueues a job. Same sibling gap as /api/ingestion/quality
+    // and /api/ingestion/jobs (#L43).
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "ingestion_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many ingestion administration requests. Retry shortly.", rateLimit);
+    }
 
     const staleThreshold = new Date(Date.now() - env.WORKER_STALE_AFTER_MINUTES * 60_000).toISOString();
     const resetNextRunAt = ingestionRollbackFenceStamp();
@@ -44,17 +59,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const parsed = ingestionRetryResultSchema.safeParse(data);
     if (!parsed.success) throw new Error("retry_ingestion_job_if_idle returned an invalid result.");
     if (parsed.data.outcome === "not_found") {
-      return NextResponse.json({ error: "Ingestion job not found." }, { status: 404 });
+      return publicErrorResponse("Ingestion job not found.", 404, { code: "ingestion_job_not_found" });
     }
     if (parsed.data.outcome === "completed") {
-      return NextResponse.json({ error: ingestionJobRetryRejectionReason("completed") }, { status: 409 });
+      return publicErrorResponse(
+        ingestionJobRetryRejectionReason("completed") ?? "Completed ingestion jobs cannot be retried.",
+        409,
+        { code: "ingestion_job_completed" },
+      );
     }
     if (parsed.data.outcome === "active_worker") {
-      return NextResponse.json(
-        {
-          error: "This job is still being processed by a worker. Wait for it to finish or go stale before retrying.",
-        },
-        { status: 409 },
+      return publicErrorResponse(
+        "This job is still being processed by a worker. Wait for it to finish or go stale before retrying.",
+        409,
+        { code: "ingestion_job_active" },
       );
     }
 

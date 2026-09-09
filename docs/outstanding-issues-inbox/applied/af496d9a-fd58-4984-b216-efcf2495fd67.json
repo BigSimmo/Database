@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "af496d9a-fd58-4984-b216-efcf2495fd67",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#WG24JB",
+    "outcome": "Wired confirmed-today and predicted-today headline cards in CapacityView to /mockups/ward-flow/discharges with tests.",
+    "baseRowFingerprint": "903eb9a8bb6f9b4260bb30cd316ee92c0bba163691bc18f5b5ab6df373cac650"
+  }
+}

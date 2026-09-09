@@ -1,0 +1,423 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-network-referral-clocks.dom.test.tsx (3 tests | 2 failed) 361ms
+     × stops the referral clock at triage, and says so in different words 176ms
+     × never words the department clock as arrival, because the field is triage 96ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-network-referral-clocks.dom.test.tsx > the referral clocks on the network diagram > stops the referral clock at triage, and says so in different words
+TestingLibraryElementError: Unable to find an element by: [data-testid="ward-network-referral-RF-003"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"_networkPage_2b606f"[39m
+      [33mdata-shortlist[39m=[32m"open"[39m
+      [33mdata-testid[39m=[32m"ward-network-view"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"Movement pipeline"[39m
+        [33mclass[39m=[32m"_pipeline_2b606f"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-placement_requested"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m1[0m
+            [0m [0m
+            [0mPlacement requested[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m14[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-destination_review"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m2[0m
+            [0m [0m
+            [0mDestination review[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m9[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-accepted_awaiting_bed"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m3[0m
+            [0m [0m
+            [0mAccepted, awaiting bed[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m5[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-bed_held"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m4[0m
+            [0m [0m
+            [0mBed held[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m7[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-handover_ready"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m5[0m
+            [0m [0m
+            [0mHandover ready[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m2[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-moving"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m6[0m
+            [0m [0m
+            [0mMoving[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m6[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"_pipelineLeftPathway_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-left-pathway"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0mLeft the pathway[0m
+          [36m</span>[39m
+          [36m<strong>[39m
+            [0m7[0m
+          [36m</strong>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineSplit_2b606f"[39m
+          [36m>[39m
+            [0m6[0m
+            [0m arrived · [0m
+            [0m1[0m
+            [0m did not proceed[0m
+          [36m</span>[39m
+        [36m</span>[39m
+      [36m</section>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_networkGrid_2b606f"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"_queueColumn_2b606f"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33maria-label[39m=[32m"Priority queue"[39m
+            [33mclass[39m=[32m"_queuePanel_2b606f"[39m
+          [36m>[39m
+            [36m<header[39m
+              [33mclass[39m=[32m"_panelHeader_2b606f"[39m
+            [36m>[39m
+              [36m<h2>[39m
+                [0mPriority queue[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"_count_2b606f"[39m
+                [33mdata-testid[39m=[32m"ward-network-open-total"[39m
+              [36m>[39m
+                [0m43[0m
+              [36m</span>[39m
+            [36m</header>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"_queueList_2b606f"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-pressed[39m=[32m"true"[39m
+                [33mclass[39m=[32m"_queueRow_2b606f"[39m
+                [33mdata-testid[39m=[32m"ward-network-queue-WF-001"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"_queueTop_2b606f"[...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:109:15
+ ❯ tests/ward-network-referral-clocks.dom.test.tsx:56:25
+     54|     );
+     55|
+     56|     const rows = screen.getAllByTestId(`ward-network-referral-${referr…
+       |                         ^
+     57|     const shown = rows[0].textContent ?? "";
+     58|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |jsdom| tests/ward-network-referral-clocks.dom.test.tsx > the referral clocks on the network diagram > never words the department clock as arrival, because the field is triage
+TestingLibraryElementError: Unable to find an element by: [data-testid="ward-network-placement-clocks"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"_networkPage_2b606f"[39m
+      [33mdata-shortlist[39m=[32m"open"[39m
+      [33mdata-testid[39m=[32m"ward-network-view"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"Movement pipeline"[39m
+        [33mclass[39m=[32m"_pipeline_2b606f"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-placement_requested"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m1[0m
+            [0m [0m
+            [0mPlacement requested[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m14[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-destination_review"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m2[0m
+            [0m [0m
+            [0mDestination review[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m9[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-accepted_awaiting_bed"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m3[0m
+            [0m [0m
+            [0mAccepted, awaiting bed[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m5[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-bed_held"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m4[0m
+            [0m [0m
+            [0mBed held[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m7[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-handover_ready"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m5[0m
+            [0m [0m
+            [0mHandover ready[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m2[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-pressed[39m=[32m"false"[39m
+          [33mclass[39m=[32m"_pipelineStage_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-waiting-moving"[39m
+          [33mdata-waiting-stage[39m=[32m"true"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0m6[0m
+            [0m [0m
+            [0mMoving[0m
+          [36m</span>[39m
+          [36m<strong[39m
+            [33mdata-testid[39m=[32m"ward-pipeline-count"[39m
+          [36m>[39m
+            [0m6[0m
+          [36m</strong>[39m
+        [36m</button>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"_pipelineLeftPathway_2b606f"[39m
+          [33mdata-testid[39m=[32m"ward-pipeline-left-pathway"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineLabel_2b606f"[39m
+          [36m>[39m
+            [0mLeft the pathway[0m
+          [36m</span>[39m
+          [36m<strong>[39m
+            [0m7[0m
+          [36m</strong>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_pipelineSplit_2b606f"[39m
+          [36m>[39m
+            [0m6[0m
+            [0m arrived · [0m
+            [0m1[0m
+            [0m did not proceed[0m
+          [36m</span>[39m
+        [36m</span>[39m
+      [36m</section>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_networkGrid_2b606f"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"_queueColumn_2b606f"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33maria-label[39m=[32m"Priority queue"[39m
+            [33mclass[39m=[32m"_queuePanel_2b606f"[39m
+          [36m>[39m
+            [36m<header[39m
+              [33mclass[39m=[32m"_panelHeader_2b606f"[39m
+            [36m>[39m
+              [36m<h2>[39m
+                [0mPriority queue[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"_count_2b606f"[39m
+                [33mdata-testid[39m=[32m"ward-network-open-total"[39m
+              [36m>[39m
+                [0m43[0m
+              [36m</span>[39m
+            [36m</header>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"_queueList_2b606f"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-pressed[39m=[32m"true"[39m
+                [33mclass[39m=[32m"_queueRow_2b606f"[39m
+                [33mdata-testid[39m=[32m"ward-network-queue-WF-001"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"_queueTop_2b606f"[...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:109:15
+ ❯ tests/ward-network-referral-clocks.dom.test.tsx:118:31
+    116|     );
+    117|
+    118|     const clockLines = screen.getAllByTestId("ward-network-placement-c…
+       |                               ^
+    119|     for (const line of clockLines) {
+    120|       expect(line.textContent ?? "", "the department clock is worded a…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  01:06:21
+   Duration  1.81s (transform 307ms, setup 193ms, import 413ms, tests 361ms, environment 680ms)
+

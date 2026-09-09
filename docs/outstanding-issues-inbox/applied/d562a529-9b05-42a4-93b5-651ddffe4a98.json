@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "d562a529-9b05-42a4-93b5-651ddffe4a98",
+  "createdOn": "2026-09-04",
+  "action": "cancel",
+  "payload": {
+    "requestId": "c0a4e200-1363-47c3-8d8b-41ec25165ba3",
+    "reason": "authoring error: unescaped backticks in --detail triggered bash command substitution, embedding stray shell output into the payload; re-filed cleanly"
+  }
+}

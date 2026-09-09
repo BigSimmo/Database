@@ -77,9 +77,10 @@ export function buildDocumentSectionIndex(input: DocumentSectionIndexInput): Doc
   if (!input.hasDocument) return [];
 
   // Match DocumentViewer DOM / scroll order: main column (overview → PDF →
-  // evidence → text) then the aside rail (summary → visuals → indexing). Putting
-  // summary earlier makes the phone/tablet position track jump backward when the
-  // reader reaches the PDF after Overview.
+  // evidence → clinical summary card → text) then the aside rail (visuals →
+  // indexing). The rail's source-summary is max-sm:hidden, so phones spy the
+  // in-flow card. Putting summary after text makes the phone position track
+  // jump backward when the reader reaches indexed text after the card.
   const present: Array<Omit<DocumentSection, "weight">> = [
     {
       id: documentOverviewSectionId,
@@ -102,16 +103,6 @@ export function buildDocumentSectionIndex(input: DocumentSectionIndexInput): Doc
       detail: input.pinnedPage ? `Page ${input.pinnedPage}` : "No passage pinned",
       collapsible: false,
     },
-    {
-      id: "source-text",
-      label: "Indexed source text",
-      icon: FileSearch,
-      detail: input.loading ? "Indexing" : plural(input.chunkCount, "chunk"),
-      // Condensed view renders IndexedTextPanel as a disclosure; full view keeps
-      // it open, while the same navigation row remains valid in both states.
-      collapsible: true,
-      pending: input.loading,
-    },
   ];
 
   if (input.hasStoredSummary) {
@@ -123,6 +114,17 @@ export function buildDocumentSectionIndex(input: DocumentSectionIndexInput): Doc
       collapsible: true,
     });
   }
+
+  present.push({
+    id: "source-text",
+    label: "Indexed source text",
+    icon: FileSearch,
+    detail: input.loading ? "Indexing" : plural(input.chunkCount, "chunk"),
+    // Condensed view renders IndexedTextPanel as a disclosure; full view keeps
+    // it open, while the same navigation row remains valid in both states.
+    collapsible: true,
+    pending: input.loading,
+  });
 
   // Omitted entirely when the document has no indexed visuals: there is nothing
   // to navigate to, and a disabled row would claim otherwise.

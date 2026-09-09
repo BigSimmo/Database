@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// DocumentViewer resolves a four-way shell state (loading / ready / auth-required
-// / error) that decides whether a source document is shown at all. The
+// DocumentViewer resolves a five-way shell state (loading / ready / auth-required
+// / offline / error) that decides whether a source document is shown at all. The
 // auth-required branch is the private-document gate: an unauthenticated reader
 // must get the sign-in shell, never document content. The state is prop-drivable
 // via initialDetail / initialError, so these tests pin it without a network.
@@ -64,6 +64,7 @@ vi.mock("@/components/document-viewer/pdf-canvas-viewer", () => ({
 
 import { DocumentViewer } from "@/components/DocumentViewer";
 import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
+import { clearSignedUrlCache, setCachedSignedUrl } from "@/lib/signed-url-cache";
 
 function detailPayload(): DocumentDetailPayload {
   return {
@@ -116,6 +117,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  clearSignedUrlCache();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
@@ -129,6 +131,9 @@ describe("DocumentViewer — shell states", () => {
 
     expect(await screen.findByText("Sign in required")).toBeVisible();
     expect(screen.getByText("Sign in to open private source documents.")).toBeVisible();
+    expect(screen.getByTestId("document-viewer-state")).toHaveAttribute("data-viewer-state", "auth-required");
+    expect(screen.queryByTestId("document-viewer-content")).toBeNull();
+    expect(screen.queryByTestId("pdf-preview")).toBeNull();
     // The private-access gate must resolve to its own shell, not the generic
     // failure shell (which would read as "broken" rather than "sign in").
     expect(screen.queryByText("Source unavailable")).toBeNull();
@@ -139,6 +144,14 @@ describe("DocumentViewer — shell states", () => {
 
     expect(await screen.findByText("Source unavailable")).toBeVisible();
     expect(screen.getByText("Document could not be loaded.")).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByTestId("document-viewer-state")).toHaveAttribute("data-viewer-state", "error"),
+    );
+    expect(document.getElementById("document-viewer-main")).toHaveAttribute("data-route-recovery", "true");
+    expect(screen.queryByTestId("document-viewer-content")).toBeNull();
+    expect(screen.queryByText("Indexed source text")).toBeNull();
+    expect(screen.queryByText("Tables and diagrams")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Answer from this" })).toBeNull();
     expect(screen.queryByText("Sign in required")).toBeNull();
   });
 
@@ -168,6 +181,19 @@ describe("DocumentViewer — shell states", () => {
     // A supplied payload must resolve to the ready shell — neither failure shell.
     expect(screen.queryByText("Source unavailable")).toBeNull();
     expect(screen.queryByText("Sign in required")).toBeNull();
+
+    const overview = document.getElementById("document-overview");
+    const preview = document.getElementById("pdf-preview-section");
+    const sourceSummary = document.getElementById("source-summary-card");
+    const indexedText = document.getElementById("source-text");
+    expect(overview).not.toBeNull();
+    expect(preview).not.toBeNull();
+    expect(sourceSummary).not.toBeNull();
+    expect(indexedText).not.toBeNull();
+    expect(overview!.compareDocumentPosition(preview!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(preview!.compareDocumentPosition(sourceSummary!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(sourceSummary!.compareDocumentPosition(indexedText!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(document.getElementById("document-viewer-main")).not.toHaveAttribute("data-route-recovery");
   });
 
   // Search/answer opens always attach ?chunk=…. Citation landing used to
@@ -252,6 +278,8 @@ describe("DocumentViewer — shell states", () => {
     pendingSearches[1]?.resolve(
       Response.json({
         query: "second query",
+        pageHits: [2],
+        hitCount: 1,
         results: [
           {
             id: "second-hit",
@@ -272,6 +300,8 @@ describe("DocumentViewer — shell states", () => {
     pendingSearches[0]?.resolve(
       Response.json({
         query: "first query",
+        pageHits: [1],
+        hitCount: 1,
         results: [
           {
             id: "first-hit",
@@ -302,6 +332,8 @@ describe("DocumentViewer — shell states", () => {
     pendingSearches[2]?.resolve(
       Response.json({
         query: "closing query",
+        pageHits: [3],
+        hitCount: 1,
         results: [
           {
             id: "closed-hit",
@@ -324,6 +356,56 @@ describe("DocumentViewer — shell states", () => {
     fireEvent.keyDown(reopenedSearch, { key: "Escape" });
     expect(screen.queryByRole("textbox", { name: "Search within this document" })).toBeNull();
     await waitFor(() => expect(searchTrigger).toHaveFocus());
+  });
+
+  it("fails closed when document search returns a malformed success payload", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes("/search?")) {
+          return Response.json({ query: "clozapine", results: {}, pageHits: [], hitCount: 0 });
+        }
+        return Response.json({ error: "Unexpected request" }, { status: 404 });
+      }),
+    );
+
+    render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detailPayload()} />);
+    const searchTriggers = await screen.findAllByRole("button", { name: "Search document" });
+    fireEvent.click(searchTriggers[1]!);
+    fireEvent.change(await screen.findByRole("textbox", { name: "Search within this document" }), {
+      target: { value: "clozapine" },
+    });
+
+    expect(await screen.findByText("Document search returned an invalid response.")).toBeVisible();
+  });
+
+  it("fails closed when document detail returns a malformed success payload", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes("/signed-url")) {
+          return Response.json(
+            { error: "Preview unavailable", message: "Preview unavailable", code: "preview" },
+            { status: 503 },
+          );
+        }
+        return Response.json({ document: { id: "doc-1", title: "Incomplete" } });
+      }),
+    );
+
+    render(<DocumentViewer documentId="doc-1" initialPage={1} />);
+
+    await waitFor(() =>
+      expect(screen.getByText("This document could not be opened because its details were incomplete.")).toBeVisible(),
+    );
+    expect(screen.queryByRole("heading", { level: 1, name: "Incomplete" })).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByTestId("document-viewer-state")).toHaveAttribute("data-viewer-state", "error"),
+    );
+    expect(screen.queryByTestId("document-viewer-content")).toBeNull();
+    expect(screen.queryByTestId("pdf-preview")).toBeNull();
+    expect(screen.queryByText("Indexed source text")).toBeNull();
+    expect(screen.queryByText("Tables and diagrams")).toBeNull();
   });
 
   // A private document's signed URL is a bearer link. The viewer holds the
@@ -359,6 +441,27 @@ describe("DocumentViewer — shell states", () => {
     rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={{ ...detail, demoMode: false }} />);
 
     expect(window.document.querySelector(`a[href="${userAUrl}"]`)).toBeNull();
+  });
+
+  // A full reload fetches preview in parallel with detail and used to apply a
+  // module-LRU hit even when detail failed. That put a prior session's bearer
+  // URL onto the sign-in recovery surface as "Open source file".
+  it("does not offer a cached signed source URL on the sign-in recovery surface", async () => {
+    const cachedUrl = "https://example.supabase.co/storage/v1/object/sign/doc-1.pdf?token=prior-session";
+    setCachedSignedUrl("/api/documents/doc-1/signed-url", {
+      url: cachedUrl,
+      // Stay well above SIGNED_URL_EXPIRY_SKEW_MS (60s) so getCachedSignedUrl
+      // actually returns this entry instead of evicting it on the boundary.
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    });
+
+    render(
+      <DocumentViewer documentId="doc-1" initialPage={1} initialError="Sign in to open private source documents." />,
+    );
+
+    expect(await screen.findByTestId("document-viewer-state")).toHaveAttribute("data-viewer-state", "auth-required");
+    await waitFor(() => expect(window.document.querySelector(`a[href="${cachedUrl}"]`)).toBeNull());
+    expect(screen.queryByRole("link", { name: "Open source file" })).toBeNull();
   });
 
   // The signed URLs are not the only identity-bound state the viewer holds. An

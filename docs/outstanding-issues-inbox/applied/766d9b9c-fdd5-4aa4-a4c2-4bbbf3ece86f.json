@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "766d9b9c-fdd5-4aa4-a4c2-4bbbf3ece86f",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "pg_cron is created by migration 20260901033250 but never declared in supabase/schema.sql, so the mirror understates the live extension set",
+    "detail": "Found by the first real CI run of the new chain/mirror parity gate (PR #2550, Migration replay run 33599464239). The gate now promotes chain-only extensions to unexpected_live findings and prints '### Divergence (1) - [extensions] unexpected_live pg_cron'. pg_cron is deliberately NOT allowlisted in supabase/chain-mirror-allowlist.json because it is a genuine mirror gap, not the emulator-image asymmetry that pg_net is. Fixing it means adding the extension declaration to supabase/schema.sql and regenerating supabase/drift-manifest.json, whose embedded sha256 the edit invalidates; regeneration needs Docker, so this is owner/migration-batch work rather than something an offline session can do. Until it lands, the parity gate reports one known divergence on every database-touching PR.",
+    "source": "PR #2550 (claude/drift-semantics); Codex review finding on the chain/mirror parity gate",
+    "issueUlid": "01M1GRVVPJXGKJ8DGR8A605SFS"
+  }
+}

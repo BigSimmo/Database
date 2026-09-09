@@ -14,6 +14,34 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 
 **Provider-backed boundary:** `test:live`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, and other OpenAI/Supabase/hosted workflows need **explicit user approval** before agents run them (see root `AGENTS.md`). Prefer offline gates (`verify:cheap`, `verify:pr-local`, `eval:rag:offline`) unless that approval is in the task.
 
+### Windows process-spawn diagnostic (#VV83VA)
+
+Before investigating a slow `git push`, `gh`, or pre-push guard on a Windows workstation, measure an unrelated local process spawn.
+
+In PowerShell:
+
+```powershell
+Measure-Command { node --version }
+# or evaluating inline execution:
+Measure-Command { node -e "console.log(process.version)" }
+```
+
+From `cmd.exe`, invoke the same measurement without relying on shell aliases:
+
+```cmd
+powershell -NoProfile -Command "Measure-Command { node --version }"
+powershell -NoProfile -Command "Measure-Command { node -e 'console.log(process.version)' }"
+```
+
+In Bash / WSL:
+
+```bash
+time node --version
+time node -e "console.log(process.version)"
+```
+
+Subsecond completion (<0.2s) is healthy; if this simple command takes multiple seconds (measured up to 17s on process-starved hosts vs 0.08s after reboot), treat it as host process-spawn starvation rather than a repository or GitHub CLI fault. Close stale Codex, Node, and terminal sessions, then retry; reboot the workstation if the condition persists. Do not change Windows Defender, add security exclusions, or otherwise alter Windows security settings as part of this diagnosis.
+
 ## Risk-based selection
 
 Start with the cheapest check that can fail for the changed behavior. Add another check only when it covers a distinct plausible regression that the existing evidence does not. Documentation and policy changes normally need formatting, documentation, syntax, or focused contract checks; localized behavior needs its directly affected test; cross-cutting or uncertain executable changes escalate to the relevant domain or broad gate. Do not routinely stack focused tests, the full unit suite, lint, typecheck, build, and browser checks, and do not rerun an unchanged passing gate.
@@ -44,6 +72,35 @@ export PLAYWRIGHT_KEEP_BUILD_ROOT=true
 ```
 
 `verify:phone-chrome` sets a session keep-root automatically when it runs two or more browser stages, then cleans that root on exit. Its dry-run wording deliberately says **webpack cache reuse**, not build skipping.
+
+**Clean-tree selection behavior (`#5MMK5R`).** `npm run verify:phone-chrome` evaluates working-tree diffs relative to the branch merge-base to identify affected browser contracts and journeys. When run against a clean working tree with no diff relative to base, it selects zero browser stages by design. To test specific browser stages against a clean tree, supply explicit comma-separated paths via `npm run verify:phone-chrome -- --files <paths>` or force all stages via `npm run verify:phone-chrome -- --full=always`.
+
+### Dev Drive trusted package cache verification (#6SMMB4)
+
+On Windows workstations hosting worktrees on a Dev Drive (`D:`, ReFS) where `npm config get cache` resolves to `D:\.npm-cache`, register the npm package cache as a trusted Dev Drive cache to prevent Microsoft Defender real-time scanning overhead during `npm ci` extractions across worktrees.
+
+**Elevated registration command (run once in an Administrator PowerShell or CMD):**
+
+```powershell
+fsutil devdrv trust D:\.npm-cache
+```
+
+**Diagnostics & verification:**
+
+1. **Elevated Dev Drive query:**
+   ```powershell
+   fsutil devdrv query D:
+   ```
+   Inspect the output for `Developer volume is trusted: Yes` and check that filesystem filters are attached in performance mode. (Note: Non-elevated prompts return `Error 5: Access is denied`).
+2. **Fallback registry probe (non-elevated PowerShell diagnostic):**
+   ```powershell
+   Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "DevDrive*" -ErrorAction SilentlyContinue
+   ```
+   Or verify volume file system properties (`(Get-Volume -DriveLetter D).FileSystemType -eq 'ReFS'`). Trusting the volume or cache enables Defender asynchronous performance mode without disabling Defender real-time protection on untrusted files.
+
+### PreCompact hook contract and logging (#RZQQBT)
+
+`.claude/hooks/precompact-issues-capture.sh` is log-only and write-isolated. It appends firing receipts to `claude-precompact.log` under the directory from `git rev-parse --git-dir` (the worktree git dir for linked worktrees, not a hardcoded `.git/` path) and stays silent on stdout and stderr. Claude Code surfaces hook stdout to model context for `SessionStart` and `UserPromptSubmit`; `SessionStart` is the post-compaction backstop. The PreCompact hook is a silent audit log, guaranteed never to throw an unhandled error or break an automatic or manual context compaction.
 
 **Refuted levers (do not revive):** persistent Actions cache for the Next webpack tree (~804 MB, evicts browser cache); transporting the critical job's 1.09 GB webpack cache to three shard runners (CI 31285952061 spent 19–67s downloading it and the slowest runner was slower than a cold build); splitting `ui-phone-scroll*` to rebalance `--shard` (siblings still co-land); renaming specs to game alphabetical shard order; Playwright `workers > 1` or blocking retries; dropping Production UI from ordinary UI PRs; Firefox/WebKit on every PR (main/weekly matrix only).
 
@@ -142,6 +199,47 @@ Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports
 
 Phone-chrome work uses `npm run verify:phone-chrome`. Inspect its classification with `-- --dry-run` or provide an explicit changed set with `-- --files pathA,pathB`. The default `--full=auto` escalates shared shell/header/footer, scroll-coordinator, reserve, or global-style changes to `verify:ui` only after focused ownership and journey checks pass. Page-local owners and test-helper changes remain focused; use `--full=always` for deliberate extra confidence or `--full=never` only when the dry run records why the recommended broad gate is unavailable. Physical Safari and cold-launch PWA paint still follow [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
+### Playwright project cadence, and why the two iPhone projects stay release-only
+
+`playwright.config.ts` defines seven projects. This is where each one actually runs, so a project
+can never again be defined without a reader being able to see its cadence (pinned by
+`tests/playwright-project-cadence.test.ts`, which fails closed on any project named by no script
+and recorded in no line here).
+
+| Project                           | Runs on                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| `chromium`                        | Blocking PR gate (sharded production journeys) and the release matrix     |
+| `chromium-mockups`                | Advisory PR invocation and the release matrix                             |
+| `chromium-caring-contacts-seeded` | Blocking PR gate, against the seeded server                               |
+| `firefox`, `webkit`               | Release matrix only (`main`, release branches, dispatch, Sunday schedule) |
+| `mobile-webkit`                   | Release matrix **full-suite path only** — see the decision below          |
+| `mobile-pwa-standalone`           | Release matrix **full-suite path only** — see the decision below          |
+
+**Decision (2026-09-04, L68): the two iPhone-14 projects stay release-only.** They execute when the
+release matrix runs the whole suite — that is, when UI did not change or in-run Chromium proof is
+missing — and not on the matrix's ordinary UI-change path, which names Chromium mockups plus
+Firefox and WebKit.
+
+The reason is runtime against the evidence in this repository. Each of these projects replays the
+**entire** production journey suite on an emulated iPhone 14, the same shape as the Firefox and
+WebKit suites. The last recorded complete matrix (run 4012) took **38 minutes** for three such
+suites, the job carries a **70-minute** timeout, and a ~70-minute matrix run holding
+`CI-refs/heads/main` is the incident recorded in [ci-operations.md](ci-operations.md). Two more
+full suites is roughly another 25 minutes on a job already sized to its ceiling — and on the
+blocking PR gate, which today runs sharded Chromium only, it would be the difference between a
+UI PR waiting minutes and waiting most of an hour. That cost is not repaid, because the phone
+behaviour these projects would prove already has a **focused** blocking owner:
+`npm run verify:phone-chrome` selects the affected phone owners and journeys on every phone-chrome
+change and escalates to `verify:ui` when a shared shell, header, footer, scroll-coordinator,
+reserve, or global-style file is touched.
+
+What is genuinely not covered is **cross-engine** phone rendering — the focused gate runs Chromium.
+That is the residual risk being accepted here, and it is bounded: WebKit itself is proven every
+release matrix on the desktop projects, so what goes unproven between full-suite runs is
+iPhone-viewport WebKit specifically. Revisit if a phone-only WebKit regression ever reaches
+`main`; the change would be to name the two projects in the matrix's ordinary-path project list in
+`.github/workflows/ci.yml`, not to add them to the blocking PR gate.
+
 ### Phone sticky-header settle timing (screenshots and DOM measurements)
 
 The phone header stack (`.phone-sticky-header-stack`) uses `position: fixed` in browser tabs and `position: absolute` within the phone viewport frame in installed standalone mode, and mounts collapsed. The top content reserve `max-sm:pt-[var(--phone-overlay-chrome-h)]` resolves to the full measured stack height only after mount via `usePhoneOverlayChromeReserve` across an 80ms quiet window (`phoneOverlayReserveGeometryQuietWindowMs`). Standalone tests must assert the absolute-positioning contract.
@@ -232,6 +330,22 @@ failure is a `toHaveScreenshot` pixel mismatch: drift creates a workflow warning
 downloadable expected/actual/diff artifact instead of a failed check. Missing baselines, setup,
 runtime/assertion, and artifact-publication failures remain visible as job failures because those
 runs produced no trustworthy comparison evidence.
+
+**Adopting Linux container visual baselines (`scripts/adopt-visual-baselines.mjs`).**
+When document viewer layout changes (e.g. on-demand search, closed composer clearance changes), shell, or
+therapy compass views update, visual baseline changes must be adopted directly from the Linux container CI
+artifact (`visual-baseline-<run_id>`) rather than generated locally on Windows/macOS. Run:
+
+```bash
+node scripts/adopt-visual-baselines.mjs \
+  --from <extracted-artifact-dir> \
+  --run-id <id> \
+  --head <40-char-sha> \
+  --reviewed-by "<display name>" \
+  --write
+```
+
+This updates the authoritative Linux baselines under `tests/__screenshots__/linux/` and regenerates `tests/__screenshots__/linux/provenance.json` with SHA-256 hashes, pixel dimensions, capture commit, and human reviewer attestation.
 
 ## Performance budget
 
@@ -338,15 +452,29 @@ soft-fails only the classified pixel-drift step. It uploads evidence on every ru
 artifact supplies the platform baseline to review. Promote it to required by adding it to
 `pr-required` and removing the drift soft-fail in the same edit.
 
+### Multi-Engine Browser Compliance & Irrelevant-at-10 Review Disposition
+
+Ledger `#023`.
+
+The scheduled `release-browser-matrix` workflow provides cross-engine regression protection across Chromium, Firefox, and WebKit without bundling brittle network-dependent audit checks into browser execution paths:
+
+1. **Engine Matrix Coverage**:
+   - **Chromium**: Production journey shards and mockups.
+   - **Firefox & WebKit**: Full journey suites executed against the isolated production build artifact.
+   - Dependency audit steps remain segregated to dedicated jobs so transient upstream registry/audit failures cannot mask Firefox or WebKit regressions.
+2. **Irrelevant-at-10 Test Set Disposition**:
+   - The 33 grade-zero rows out of 338 evaluated top rows in the retrieval evaluation set were audited and confirmed to represent intentional negative controls and query divergence boundaries.
+   - Review decisions and relevance grading (`relevanceGrade`, `matchedDeclaredSignals`) are permanently ratified with zero per-case MRR or recall degradation across engines.
+
 ## Contribution checklist (UI changes)
 
 Before opening a UI PR, confirm:
 
 - **Reuse first.** Check `src/components/ui-primitives.tsx` (class recipes plus `IconButton`, `AsyncButton`, `InlineNotice`, `EmptyState`, `LoadingPanel`, `ToggleSwitch`) and `src/components/ui/sheet.tsx` (the only overlay primitive) before hand-rolling. Icon-only buttons use `IconButton` (its `label` is a required prop).
-- **Tokens only.** No raw hex or Tailwind palette classes, no literal shadows, no `text-[Npx]` — see [`docs/design-system.md`](./design-system.md) §1–§5. `check:design-system-contract`, `check:type-scale`, and `check:icon-scale` enforce this.
+- **Tokens only.** No raw hex or Tailwind palette classes, no literal shadows, no `text-[Npx]` — see [`docs/design-system/README.md`](./design-system/README.md). `check:design-system-contract`, `check:type-scale`, and `check:icon-scale` enforce this.
 - **States.** Handle loading / empty / error / disabled where they apply; async surfaces expose a retry, not a dead end.
-- **Accessibility** ([design-system §7](./design-system.md)): keyboard operable, visible focus, accessible names on icon controls, live regions for async status, and reduced motion honoured — scripted `scrollTo`/`scrollIntoView` go through `resolveScrollBehavior` (`src/lib/scroll-behavior.ts`), never a hard-coded `behavior: "smooth"`.
+- **Accessibility** ([design-system](./design-system/README.md)): keyboard operable, visible focus, accessible names on icon controls, live regions for async status, and reduced motion honoured — scripted `scrollTo`/`scrollIntoView` go through `resolveScrollBehavior` (`src/lib/scroll-behavior.ts`), never a hard-coded `behavior: "smooth"`.
 - **Tests.** Add a `.dom.test.tsx` for changed component behaviour (see "Component tests" above) and update the E2E journeys for changed flows.
 - **Unlayered CSS.** If the change adds a class rule outside `@layer` that sets a border, background, colour, shadow or outline, `tests/style-contract-registry.test.ts` will fail until it is registered. Add a rendered-effect contract rather than an exemption where the rule matters visually — see "Visual regression and style contracts".
-- **Verify** ([design-system §9](./design-system.md)): follow the risk tiers in root `AGENTS.md`. Prove changed component behaviour with the focused DOM test first; run `npm run ensure` before browser work and use the narrowest affected journey. Select one appropriate broad handoff gate when the diff crosses owners, cannot be bounded, or applicable PR/handoff policy requires it; do not routinely stack `verify:cheap`, `verify:pr-local`, and `verify:ui`. Add a manual dark-mode + forced-colors spot check when those rendered states can plausibly change.
+- **Verify** ([design-system](./design-system/README.md) and GATES): follow the risk tiers in root `AGENTS.md`. Prove changed component behaviour with the focused DOM test first; run `npm run ensure` before browser work and use the narrowest affected journey. Select one appropriate broad handoff gate when the diff crosses owners, cannot be bounded, or applicable PR/handoff policy requires it; do not routinely stack `verify:cheap`, `verify:pr-local`, and `verify:ui`. Add a manual dark-mode + forced-colors spot check when those rendered states can plausibly change.
 - Architecture and state-ownership conventions: [`docs/frontend-architecture.md`](./frontend-architecture.md).

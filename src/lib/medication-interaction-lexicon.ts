@@ -28,6 +28,8 @@ export type LexiconTerm = {
   select?: CatalogueSelector;
   /** Source records that can mention this term without declaring a matching counterparty. */
   sourceDenySlugs?: string[];
+  /** Clinical rationales for why source records are excluded from declaring this term as a counterparty. */
+  sourceDenyRationales?: Record<string, string>;
   note?: string;
 };
 
@@ -53,6 +55,10 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     // Loperamide's own P-gp row describes possible opioid sedation, but does
     // not declare every opioid as a counterparty.
     sourceDenySlugs: ["loperamide"],
+    sourceDenyRationales: {
+      loperamide:
+        "Peripheral opioid agonist with CNS restriction via P-gp; does not declare broad drug-drug interaction against all opioids.",
+    },
   },
   { id: "ssris", surfaces: ["ssris", "ssri"], kind: "catalogue", select: { subclassIncludes: ["SSRI"] } },
   { id: "snris", surfaces: ["snris", "snri"], kind: "catalogue", select: { subclassIncludes: ["SNRI"] } },
@@ -166,6 +172,18 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     surfaces: ["statins", "statin"],
     kind: "catalogue",
     select: { subclassIncludes: ["Statin", "HMG"] },
+    // Simvastatin's and atorvastatin's own gemfibrozil rows ("blocks statin
+    // glucuronidation/uptake") use "statin" to describe their OWN drug class's
+    // mechanism, not to name a second interacting drug family — resolving it
+    // added every other statin as a false counterparty for a HIGH,
+    // gemfibrozil-specific alert they have nothing to do with.
+    sourceDenySlugs: ["simvastatin", "atorvastatin"],
+    sourceDenyRationales: {
+      simvastatin:
+        "Own-class mechanism notes ('blocks statin glucuronidation/uptake') rather than cross-drug interactions with other statins.",
+      atorvastatin:
+        "Own-class mechanism notes ('blocks statin glucuronidation/uptake') rather than cross-drug interactions with other statins.",
+    },
   },
   {
     id: "gabapentinoids",
@@ -297,6 +315,20 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     surfaces: ["fibrates", "fibrate"],
     kind: "catalogue",
     select: { subclassIncludes: ["Fibrate"] },
+    // Simvastatin's and atorvastatin's gemfibrozil rows write "Gemfibrozil
+    // (Fibrate)" — a specific, uncatalogued drug's name with its class in
+    // parentheses, not a general fibrate-class warning. Fenofibrate is this
+    // catalogue's only other fibrate member and the corpus's own fenofibrate
+    // row rates a statin combination "extreme caution", not the Contraindicated
+    // severity gemfibrozil's row carries — so resolving "Fibrate" here would
+    // misattribute that severity to the wrong drug. Denied at the source rather
+    // than narrowing the surface, since the term is correct wherever a row
+    // names the class generically.
+    sourceDenySlugs: ["simvastatin", "atorvastatin"],
+    sourceDenyRationales: {
+      simvastatin: "Refers specifically to uncatalogued gemfibrozil rather than general fibrates (fenofibrate).",
+      atorvastatin: "Refers specifically to uncatalogued gemfibrozil rather than general fibrates (fenofibrate).",
+    },
   },
   {
     id: "immunosuppressants",

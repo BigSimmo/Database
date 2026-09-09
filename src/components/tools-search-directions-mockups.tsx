@@ -279,7 +279,7 @@ function FrameComposer({ query, device }: { query: FrameQuery; device: FrameDevi
     <div>
       <div
         className={cn(
-          "flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
+          "flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)]",
           device === "phone" ? "px-2 py-1.5" : "px-2.5 py-2",
         )}
       >
@@ -720,7 +720,7 @@ function DeviceFrame({ direction, query, device }: { direction: DirectionId; que
       data-device={device}
       className={cn("m-0 shrink-0", device === "phone" ? "w-[390px]" : "w-[1280px]")}
     >
-      <div className="overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+      <div className="overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
         <FrameTopBar device={device} />
         <Render query={query} device={device} />
       </div>

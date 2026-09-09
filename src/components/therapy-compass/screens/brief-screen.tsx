@@ -7,16 +7,21 @@ import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
+import { missingValuePhrase } from "@/components/ui/missing-value";
 import { Tabs } from "@/components/ui/tabs";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { cn } from "@/components/ui-primitives";
-import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
+import { therapyRecordHref, type TherapyBriefDuration } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
-import { therapyBtn } from "../controls";
+import { InteractiveRow } from "@/components/ui/interactive-row";
 import { parseSteps, summarise } from "../data/select";
+import type { Therapy } from "../data/types";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
+import { TherapyCompareAction } from "../record/compare-action";
+import { TherapySaveNotice } from "../record/save-notice";
+import { useTherapyFavourite } from "../use-therapy-favourite";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
 
 const CHECKLIST = [
@@ -25,6 +30,20 @@ const CHECKLIST = [
   "Review contraindications",
   "Confirm patient-facing language",
 ];
+
+const BRIEF_DURATION: Record<TherapyBriefDuration, { label: string; text: (therapy: Therapy) => string | null }> = {
+  "5min": { label: "5-minute", text: (therapy) => therapy.briefVersion },
+  "15min": {
+    label: "15-minute",
+    text: (therapy) => therapy.fifteenMinuteVersion || therapy.fullSessionVersion || therapy.briefVersion,
+  },
+  ground: {
+    label: "Grounding",
+    text: (therapy) =>
+      therapy.clinicianScripts.find((script) => /ground|relax|distress/i.test(`${script.scriptType} ${script.title}`))
+        ?.body || therapy.briefVersion,
+  },
+};
 
 export function BriefScreen() {
   const b = useTcBindings();
@@ -41,17 +60,19 @@ export function BriefScreen() {
     [b.therapies, filter],
   );
 
+  const { notice, saved, toggleFavourite } = useTherapyFavourite(t?.slug ?? null);
   if (b.loading || !t) return <LoadingState label="Loading brief interventions…" />;
 
-  const durationLabel = b.briefTab === "15min" ? "15-minute" : b.briefTab === "ground" ? "Grounding" : "5-minute";
-  const durationText =
-    b.briefTab === "15min"
-      ? t.fifteenMinuteVersion || t.fullSessionVersion || t.briefVersion
-      : b.briefTab === "ground"
-        ? t.clinicianScripts.find((c) => /ground|relax|distress/i.test(`${c.scriptType} ${c.title}`))?.body ||
-          t.briefVersion
-        : t.briefVersion;
+  const duration = BRIEF_DURATION[b.briefTab as TherapyBriefDuration] ?? BRIEF_DURATION["5min"];
+  const durationLabel = duration.label;
+  const durationText = duration.text(t);
   const steps = parseSteps(durationText, 6);
+  // `briefVersion` is a copy of `deliverySteps` on every catalogue record, so the
+  // duration tabs can present the record's full delivery protocol as though it
+  // were a version cut down to the time available. Say so rather than imply it.
+  const duplicatesFullProtocol = Boolean(
+    durationText && t.deliverySteps && durationText.trim() === t.deliverySteps.trim(),
+  );
   const interventionText = [
     `${t.name} — ${durationLabel} intervention`,
     "",
@@ -70,13 +91,17 @@ export function BriefScreen() {
   return (
     <>
       <TherapyRecordNavHeader
-        title={`${t.name} brief intervention`}
+        therapy={t}
+        active="brief"
         backHref={b.workspaceHref(therapyRecordHref(t.slug))}
         backLabel={t.name}
         testIdPrefix="therapy-brief"
+        saved={saved}
+        onToggleSave={() => void toggleFavourite()}
       />
       <InformationPageShell testId="therapy-brief-page" gap={false}>
         <section data-screen-label="Brief">
+          <TherapySaveNotice notice={notice} />
           <PageHeader
             className="mb-5"
             title="Brief Intervention"
@@ -103,6 +128,10 @@ export function BriefScreen() {
             }
           />
 
+          <div className="mb-5">
+            <TherapyCompareAction therapy={t} />
+          </div>
+
           <Tabs
             label="Brief intervention duration"
             value={b.briefTab}
@@ -123,9 +152,8 @@ export function BriefScreen() {
                 <label className="relative flex items-center mb-3">
                   <Search
                     aria-hidden="true"
-                    size={16}
                     strokeWidth={1.8}
-                    className="absolute left-[12px] text-[color:var(--decoration-soft)]"
+                    className="absolute left-[12px] size-icon-md text-[color:var(--decoration-soft)]"
                   />
                   <input
                     value={filter}
@@ -139,16 +167,7 @@ export function BriefScreen() {
                   {briefTherapies.map((x) => {
                     const active = x.slug === t.slug;
                     return (
-                      <button
-                        key={x.slug}
-                        type="button"
-                        className={cn(
-                          therapyBtn,
-                          "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:border-l-[3px] aria-[current=true]:border-l-[color:var(--clinical-accent)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]",
-                        )}
-                        onClick={() => b.select(x.slug)}
-                        aria-current={active ? "true" : undefined}
-                      >
+                      <InteractiveRow key={x.slug} variant="card" active={active} onClick={() => b.select(x.slug)}>
                         <span className="flex-1 min-w-0">
                           <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
                             {x.name}
@@ -159,15 +178,14 @@ export function BriefScreen() {
                         </span>
                         <TriangleAlert
                           aria-hidden="true"
-                          size={15}
                           strokeWidth={1.8}
                           className={
                             x.reviewStatus === "reviewed"
-                              ? "flex-none text-[color:var(--success-text)]"
-                              : "flex-none text-[color:var(--warning-text)]"
+                              ? "size-icon-sm flex-none text-[color:var(--success-text)]"
+                              : "size-icon-sm flex-none text-[color:var(--warning-text)]"
                           }
                         />
-                      </button>
+                      </InteractiveRow>
                     );
                   })}
                 </div>
@@ -181,14 +199,14 @@ export function BriefScreen() {
                 className="flex flex-col gap-4 min-w-0"
                 provenance={`Source: ${t.name} Therapy record · ${durationLabel} intervention · Review status: ${t.reviewStatus === "reviewed" ? "reviewed" : "source review required"}`}
               >
-                <div className={cn(cardSurface, "py-[22px] px-6")}>
-                  <div className="flex items-center justify-between gap-3 mb-[18px] flex-wrap">
+                <div className={cn(cardSurface, "py-5.5 px-6")}>
+                  <div className="flex items-center justify-between gap-3 mb-4.5 flex-wrap">
                     <div className="flex items-center gap-3 flex-wrap">
                       <h2 className="m-0 text-lg font-semibold text-[color:var(--text-heading)]">{t.name}</h2>
-                      <span className="text-2xs font-semibold py-[3px] px-2.5 rounded-sm bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)] border border-[color:var(--clinical-accent-border)]">
+                      <span className="text-2xs font-semibold py-0.5 px-2.5 rounded-sm bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)] border border-[color:var(--clinical-accent-border)]">
                         {durationLabel} mode
                       </span>
-                      <span className="text-2xs font-semibold py-[3px] px-2.5 rounded-sm bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] border border-[color:var(--warning-border)]">
+                      <span className="text-2xs font-semibold py-0.5 px-2.5 rounded-sm bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] border border-[color:var(--warning-border)]">
                         {t.reviewStatus === "reviewed" ? "Reviewed" : "Clinician review required"}
                       </span>
                     </div>
@@ -204,26 +222,41 @@ export function BriefScreen() {
                       </Button>
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-[1px] bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
-                    <MetaCell eyebrow="GOAL" text={t.bestUsedFor || t.indications || "—"} />
-                    <MetaCell eyebrow="FIRST STEP" text={steps[0] || summarise(durationText, 1) || "—"} />
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
+                    {/* Neither field of either pair is populated on this record, so the phrase
+                        describes the record rather than one field of it. `MetaCell.text` is a
+                        string, hence the primitive's string form (SPEC §11). */}
                     <MetaCell
-                      eyebrow="CAUTIONS"
+                      eyebrow="Goal"
+                      text={t.bestUsedFor || t.indications || missingValuePhrase("not_recorded")}
+                    />
+                    <MetaCell
+                      eyebrow="First step"
+                      text={steps[0] || summarise(durationText, 1) || missingValuePhrase("not_recorded")}
+                    />
+                    <MetaCell
+                      eyebrow="Cautions"
                       tone="warning"
                       text={summarise(t.contraindicationsOrCautions, 1) || "Review cautions before use."}
                     />
                     <MetaCell
-                      eyebrow="SOURCE"
+                      eyebrow="Source"
                       text={t.reviewStatus === "reviewed" ? "Reviewed record" : "Review required"}
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-[1.6fr_1fr] gap-4 items-start">
-                  <div className={cn(cardSurface, "py-5 px-[22px] min-w-0")}>
+                  <div className={cn(cardSurface, "py-5 px-5.5 min-w-0")}>
                     <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-4">
                       {durationLabel} delivery
                     </div>
+                    {duplicatesFullProtocol ? (
+                      <p className="mt-0 mb-4 text-2xs leading-normal text-[color:var(--warning-text)]">
+                        This record carries no separate {durationLabel.toLowerCase()} protocol. The steps below are its
+                        full delivery protocol, so judge what fits the time you have.
+                      </p>
+                    ) : null}
                     {steps.length ? (
                       <div className="flex flex-col gap-3.5">
                         {steps.map((step, i) => (
@@ -263,13 +296,13 @@ export function BriefScreen() {
 
                     {t.clinicianScripts.length ? (
                       <div className="mt-5 pt-4 border-t border-[color:var(--border)]">
-                        <div className="text-xs font-bold tracking-eyebrow text-[color:var(--text-muted)] mb-2.5">
-                          CLINICIAN SCRIPT
+                        <div className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)] mb-2.5">
+                          Clinician script
                         </div>
                         {t.clinicianScripts.slice(0, 2).map((c, i) => (
                           <div key={i} className="mb-3">
                             {c.scriptType ? (
-                              <div className="text-xs font-semibold text-[color:var(--text-heading)] mb-[3px]">
+                              <div className="text-xs font-semibold text-[color:var(--text-heading)] mb-0.5">
                                 {c.scriptType}
                               </div>
                             ) : null}
@@ -280,27 +313,24 @@ export function BriefScreen() {
                     ) : null}
                   </div>
 
-                  <div className={cn(cardSurface, "py-5 px-[22px]")}>
+                  <div className={cn(cardSurface, "py-5 px-5.5")}>
                     <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-3.5">
                       Before use
                     </div>
-                    <div className="flex flex-col gap-[13px] mb-4">
+                    <div className="flex flex-col gap-3.5 mb-4">
                       {CHECKLIST.map((item) => (
-                        <span
-                          key={item}
-                          className="flex items-center gap-[11px] text-sm-minus text-[color:var(--text)]"
-                        >
+                        <span key={item} className="flex items-center gap-3 text-sm-minus text-[color:var(--text)]">
                           <span className="w-[19px] h-[19px] border-[1.5px] border-[color:var(--border-strong)] rounded-xs flex-none" />
                           {item}
                         </span>
                       ))}
                     </div>
-                    <div className="flex items-start gap-[9px] py-[13px] px-3.5 bg-[color:var(--warning-bg)] border border-[color:var(--warning-border)] rounded-lg">
+                    <div className="flex items-start gap-2.5 py-3.5 px-3.5 bg-[color:var(--warning-bg)] border border-[color:var(--warning-border)] rounded-lg">
                       <TriangleAlert
                         aria-hidden="true"
                         size={17}
                         strokeWidth={1.8}
-                        className="text-[color:var(--warning-text)] flex-none mt-[1px]"
+                        className="text-[color:var(--warning-text)] flex-none mt-px"
                       />
                       <span className="text-xs font-semibold leading-normal text-[color:var(--warning-text)]">
                         Clinical review is required before saving or sharing.
@@ -348,7 +378,7 @@ function MetaCell({ eyebrow, text, tone }: { eyebrow: string; text: string; tone
     <div
       className={`rounded-lg p-3 ${tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : "bg-[color:var(--surface-inset)]"}`}
     >
-      <div className="text-2xs font-bold tracking-eyebrow">{eyebrow}</div>
+      <div className="text-2xs font-bold uppercase tracking-eyebrow">{eyebrow}</div>
       <p>{text}</p>
     </div>
   );

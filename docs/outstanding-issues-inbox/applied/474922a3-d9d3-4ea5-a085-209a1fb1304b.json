@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "474922a3-d9d3-4ea5-a085-209a1fb1304b",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#TBW7BR",
+    "outcome": "FIXED, and half of it was already done. AGENTS.md no longer carries the stale claim: PR #2404 had already reworded it to state that run-playwright.mjs exits 75 with a DATABASE_HEAVY_RUN_ADMISSION_BUSY marker on admission contention, a distinct non-zero code from an ordinary test failure. Verified by reading AGENTS.md, not assumed. The remaining half - nothing pinned the exit codes, so the guidance had been free to drift from the code and could drift back - is now closed by tests/playwright-exit-code-contract.test.ts. It asserts the 75 constant, the marker, that Playwright's own status is propagated, that no process.exit(0) exists on the run path, and that AGENTS.md, the speed playbook and the Phase 5 handover do not ASSERT the stale claim while still permitting them to quote it in order to refute it. It also asserts the guidance still says the right thing, so deleting the sentence cannot satisfy the gate. Mutation-tested both ways: swallowing the exit code turns it red, and re-adding the unrefuted claim to a document turns it red.",
+    "baseRowFingerprint": "36853c85634c1210e3eb2f8c8dad21573b1bdf7665a452f6efb4b887fd0d28eb"
+  }
+}

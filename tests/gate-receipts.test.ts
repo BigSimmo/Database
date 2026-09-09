@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -155,17 +155,29 @@ describe("gate receipts — file modes (Codex review, PR #2216)", () => {
 
   it("changes the signature when only the WORKING-TREE mode changes", () => {
     const { root } = gitFixture({ "hook.sh": "#!/bin/bash\necho hi\n" });
+    const hookPath = path.join(root, "hook.sh");
+    chmodSync(hookPath, 0o755);
+    if ((statSync(hookPath).mode & 0o111) === 0) {
+      // Primary workstation is Windows / Dev Drive with core.fileMode=false where chmod is a no-op on disk.
+      return;
+    }
     const before = computeInputSignature(root, null)?.hash;
-    chmodSync(path.join(root, "hook.sh"), 0o755);
+    chmodSync(hookPath, 0o644);
     expect(computeInputSignature(root, null)?.hash).not.toBe(before);
   });
 
   it("keeps both modes, so one cannot cancel the other", () => {
     const { root, git } = gitFixture({ "hook.sh": "#!/bin/bash\necho hi\n" });
+    const hookPath = path.join(root, "hook.sh");
+    chmodSync(hookPath, 0o755);
+    if ((statSync(hookPath).mode & 0o111) === 0) {
+      // Primary workstation is Windows / Dev Drive with core.fileMode=false where chmod is a no-op on disk.
+      return;
+    }
     const plain = computeInputSignature(root, null)?.hash;
     git("update-index", "--chmod=+x", "hook.sh");
     const indexOnly = computeInputSignature(root, null)?.hash;
-    chmodSync(path.join(root, "hook.sh"), 0o755);
+    chmodSync(hookPath, 0o644);
     const both = computeInputSignature(root, null)?.hash;
     expect(new Set([plain, indexOnly, both]).size).toBe(3);
   });
@@ -254,7 +266,7 @@ describe("gate receipts — keying", () => {
   it("includes the install stamp, so a reinstall invalidates every receipt", () => {
     const { root } = gitFixture({ "a.ts": "1\n" });
     const before = environmentSignature(root);
-    execFileSync("mkdir", ["-p", path.join(root, "node_modules")]);
+    mkdirSync(path.join(root, "node_modules"), { recursive: true });
     writeFileSync(path.join(root, "node_modules", ".package-lock.json"), JSON.stringify({ packages: {} }));
     expect(environmentSignature(root)).not.toBe(before);
   });

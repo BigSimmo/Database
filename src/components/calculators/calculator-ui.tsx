@@ -61,6 +61,7 @@ type CalculatorState = {
   /** Checkbox-style items currently ticked. */
   checkedCount: number;
   checkboxItemCount: number;
+  checkboxAnsweredCount: number;
   complete: boolean;
   started: boolean;
   band: ScoreBand | undefined;
@@ -85,8 +86,7 @@ function mdqResult(answers: AnswerMap, symptomScore: number): CalculatorResult {
     return {
       label: "Positive screen",
       tone: "danger",
-      guidance:
-        "All three criteria met — proceed to a structured bipolar-disorder assessment before treatment changes.",
+      guidance: "All three screening criteria are met; interpret this completed screen in clinical context.",
     };
   }
   if (symptomsMet) {
@@ -102,7 +102,7 @@ function mdqResult(answers: AnswerMap, symptomScore: number): CalculatorResult {
   return {
     label: "Negative screen",
     tone: "success",
-    guidance: "Below the 7-symptom threshold. Rescreen if the history changes.",
+    guidance: "Below the symptom-count threshold; interpret this completed screen in clinical context.",
   };
 }
 
@@ -116,31 +116,28 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
   const answeredCount = optionItems.filter((item) => answers[item.id] !== undefined).length;
   const checkedCount = checkboxItems.filter((item) => answers[item.id] === 1).length;
   const checkboxAnsweredCount = checkboxItems.filter((item) => answers[item.id] !== undefined).length;
-  // Checkbox-only scales complete once every yes/no item has an explicit value
-  // (seeded to 0 on open). Mixed scales (MDQ) complete on answered options;
-  // an unticked symptom checkbox is a valid "not endorsed", not a gap.
-  const complete =
-    answeredCount === optionItems.length && (optionItems.length > 0 || checkboxAnsweredCount === checkboxItems.length);
+  // A missing response is never an implicit negative. This applies equally to
+  // checkbox and options items, including the 13 MDQ symptoms, co-occurrence
+  // and impairment criteria.
+  const complete = calc.items.every((item) => answers[item.id] !== undefined);
   const started = Object.values(answers).some((value) => value !== undefined);
-  // Only publish a severity band when the reading is trustworthy. Options scales
-  // with a zero floor (PHQ-9/GAD-7) may show a provisional band as they fill in,
-  // but checkbox-only screens (CAGE/SAD PERSONS) must wait for completion — a
-  // half-ticked screen still has undefined items and must never read "negative" —
-  // and non-zero-minimum scales (K10: 10–50) must not publish below their floor
-  // (nine "None of the time" answers sum to 9).
-  const showBand = isCheckboxOnly(calc) ? complete : calc.minScore === 0 || complete;
-  const band = showBand ? bandForScore(calc, score) : undefined;
+  const band = complete ? bandForScore(calc, score) : undefined;
   const flags = calc.items
     .filter((item) => item.flag && itemScore(item, answers[item.id]) > 0)
     .map((item) => item.flag as string);
 
-  const result: CalculatorResult =
-    calc.id === "mdq"
+  const result: CalculatorResult = !complete
+    ? {
+        label: "Incomplete",
+        tone: "info",
+        guidance: "Answer every item before interpreting this result.",
+      }
+    : calc.id === "mdq"
       ? mdqResult(answers, score)
       : {
-          label: band?.label ?? "—",
+          label: band?.label ?? "Unavailable",
           tone: band?.tone ?? "info",
-          guidance: band?.guidance ?? "",
+          guidance: band?.interpretation ?? "",
         };
 
   return {
@@ -149,6 +146,7 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
     optionItemCount: optionItems.length,
     checkedCount,
     checkboxItemCount: checkboxItems.length,
+    checkboxAnsweredCount,
     complete,
     started,
     band,
@@ -456,7 +454,7 @@ export function ResetButton({ onReset, disabled }: { onReset: () => void; disabl
       onClick={onReset}
       disabled={disabled}
       className={cn(
-        "inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
+        "inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
         focusRing,
       )}
     >
@@ -467,8 +465,9 @@ export function ResetButton({ onReset, disabled }: { onReset: () => void; disabl
 }
 
 export function progressLabel(state: DerivedCalculator): string {
-  if (state.optionItemCount === 0) return `${state.checkedCount} of ${state.checkboxItemCount} endorsed`;
-  const answered = `${state.answeredCount} of ${state.optionItemCount} answered`;
+  const answeredCount = state.answeredCount + state.checkboxAnsweredCount;
+  const itemCount = state.optionItemCount + state.checkboxItemCount;
+  const answered = `${answeredCount} of ${itemCount} answered`;
   return state.checkboxItemCount > 0 ? `${answered} · ${state.checkedCount} endorsed` : answered;
 }
 
@@ -510,9 +509,9 @@ export function CopyResultButton({
     <button
       type="button"
       onClick={copy}
-      disabled={!state.started}
+      disabled={!state.complete}
       className={cn(
-        "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
+        "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
         focusRing,
         className,
       )}
@@ -527,11 +526,20 @@ export function CopyResultButton({
   );
 }
 
-/** One-line result summary used by every copy-to-clipboard affordance. */
+/**
+ * Result summary used by every copy-to-clipboard affordance.
+ *
+ * The score line carries a scope caveat because this text LEAVES THE APP: pasted
+ * into a note or a letter, a bare "PHQ-9 18/27 — Moderately severe" reads as an
+ * assessment result the software stands behind, with no instrument attribution and
+ * none of the surrounding interface's framing. Same reasoning as the differential
+ * summary in `src/lib/differential-detail.ts`, which carried the same defect.
+ */
 export function formatResultSummary(calc: CalculatorFixture, state: DerivedCalculator): string {
-  return `${calc.abbrev} ${state.score}/${calc.maxScore} — ${state.result.label}${
+  const score = `${calc.abbrev} ${state.score}/${calc.maxScore} — ${state.result.label}${
     state.complete ? "" : ` (${progressLabel(state)})`
   }`;
+  return `${score}\nClinical reference — not validated decision support. Confirm scoring and interpretation against the source instrument.`;
 }
 
 /**
@@ -642,7 +650,7 @@ export function CalculatorItems({
           type="button"
           onClick={() => onAnswersChange(seedCheckboxDefaults(calc, answers))}
           className={cn(
-            "mt-1 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--text)]",
+            "mt-1 inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--text)]",
             focusRing,
           )}
         >

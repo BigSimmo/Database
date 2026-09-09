@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { logger } from "@/lib/logger";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import { uploadSizeLimitMessage } from "@/lib/upload-limits";
+import { apiErrorPayloadSchema } from "@/lib/api-error-payload";
 
 export class PublicApiError extends Error {
   constructor(
@@ -64,14 +65,30 @@ export function jsonError(error: unknown, status = 500, options?: { log?: boolea
   // Expected client-auth failures (e.g. an unauthenticated request) can opt out of the
   // error-level log so a routine 401 does not read as a server fault in the logs.
   if (options?.log ?? true) logSafeError(error, responseStatus);
-  return NextResponse.json(
-    {
-      error: message,
-      message,
-      code,
-      ...(requestId ? { requestId } : {}),
-    },
-    { status: responseStatus, headers: { "Cache-Control": "private, no-store" } },
+  const payload = apiErrorPayloadSchema.parse({
+    error: message,
+    message,
+    code,
+    ...(requestId ? { requestId } : {}),
+  });
+  return NextResponse.json(payload, {
+    status: responseStatus,
+    headers: { "Cache-Control": "private, no-store" },
+  });
+}
+
+export function publicErrorResponse(
+  message: string,
+  status = 400,
+  options?: { code?: string; requestId?: string | null; log?: boolean },
+) {
+  return jsonError(
+    new PublicApiError(message, status, {
+      code: options?.code,
+      requestId: options?.requestId,
+    }),
+    status,
+    { log: options?.log ?? false },
   );
 }
 

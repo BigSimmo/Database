@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a5dd669d-8d52-4b67-b249-51b0757a3b9f",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#45V4Y7",
+    "outcome": "Removed verified dead exports answerQuestion in src/lib/rag/rag.ts, embedText in src/lib/openai.ts, and clinicalRankScore in src/lib/clinical-search.ts. Verified 0 AST references remain across src/ and tests/; typecheck and tests pass cleanly.",
+    "baseRowFingerprint": "75831bf7612fc2ccb17a76414769d9ac0f81d29954a8703f34da878419ba4ea9"
+  }
+}

@@ -10,12 +10,17 @@ Future patient-content work **extends the existing Factsheets reading model** (E
 
 | Piece                       | Location / behaviour                                                             |
 | --------------------------- | -------------------------------------------------------------------------------- |
-| Mode home / search / detail | `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                        |
+| Mode home / search / detail | `/factsheets`, `/factsheets/search`, `/factsheets/topics`, `/factsheets/[slug]`  |
+| ModeNav order               | Search, then Topics — Dictionary’s Terms then Topics pattern                     |
+| Topics browse               | Stacked topic directory, one topic open at a time, first 8 rows then Show all    |
+| Phone study                 | `/mockups/factsheets-topics-phone` — directory / all-open / hundred-item stress  |
 | Reading levels              | `easy` \| `standard` toggle on med-rich detail (`factsheet-detail-page.tsx`)     |
 | Content fields              | `whatEasy` / `whatStandard` (and related section bodies) in `factsheets-data.ts` |
 | Presentation contracts      | Existing accessibility, print/PDF, and theme tokens on the Factsheets surface    |
 
 The Easy Read / Standard control is already a first-class reading-level switch, not a separate product mode.
+
+Topics is a browse page, not a second search. The shell composer stays the only search field. ModeNav is Search then Topics. The four categories are a stacked directory — tap a topic to open its sheets, with the others closed — so a phone does not get a horizontal chip rail or a dump list. `?topic=` opens that topic on load; unknown values leave every topic closed. An open topic paints the first eight rows, then a wired Show all control, so a later catalogue of hundreds of sheets does not dump one list. Extra topics become extra directory rows. Phone alternatives live at `/mockups/factsheets-topics-phone` and stay design scratch.
 
 ## Why not a second mode
 

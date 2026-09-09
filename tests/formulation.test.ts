@@ -44,7 +44,9 @@ describe("clinical formulation content", () => {
   });
 
   it("matches patient language and clinical clues to mechanisms", () => {
-    expect(searchFormulationMechanisms("I keep going over it")[0]?.mechanism.id).toBe("rumination");
+    expect(
+      searchFormulationMechanisms("I keep going over it", { interpretNaturalLanguage: true })[0]?.mechanism.id,
+    ).toBe("rumination");
     expect(searchFormulationMechanisms("What if something goes wrong")[0]?.mechanism.id).toBe("worry");
     expect(searchFormulationMechanisms("It goes from zero to one hundred")[0]?.mechanism.id).toBe(
       "emotional-dysregulation",

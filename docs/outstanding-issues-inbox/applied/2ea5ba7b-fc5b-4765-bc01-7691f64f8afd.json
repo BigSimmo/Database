@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2ea5ba7b-fc5b-4765-bc01-7691f64f8afd",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#S19JRT",
+    "outcome": "Ratified JSONB object structural constraints and Zod runtime validation for documents.metadata.",
+    "baseRowFingerprint": "92186d9d05a2d32ef1b7699413f709a7a7ba1fee0e5048ba252d13a9e9189465"
+  }
+}

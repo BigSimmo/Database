@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "cd767916-0034-4e5a-b2db-276609d0deec",
+  "createdOn": "2026-08-31",
+  "action": "cancel",
+  "payload": {
+    "requestId": "c862828e-276c-4d90-829b-2c2b35e04274",
+    "reason": "Target issue is no longer in Open items on current main; cancel stale PR-bundled done request so check:docs-links can dry-apply the pending inbox."
+  }
+}

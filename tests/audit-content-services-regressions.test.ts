@@ -15,7 +15,6 @@ vi.mock("@/components/services/service-detail-client", () => ({ ServiceDetailCli
 
 const formDetailSource = readFileSync(new URL("../src/components/forms/form-detail-page.tsx", import.meta.url), "utf8");
 const normalizedFormDetailSource = formDetailSource.replace(/\s+/g, " ");
-const formsHomeSource = readFileSync(new URL("../src/components/forms/forms-home-page.tsx", import.meta.url), "utf8");
 const formsSearchSource = readFileSync(
   new URL("../src/components/forms/forms-search-results-page.tsx", import.meta.url),
   "utf8",
@@ -154,17 +153,9 @@ describe("content and services audit regressions", () => {
     expect(formsSearchSource).toContain("View all forms");
     expect(formsSearchSource).toContain('appModeHomeHref("forms", { query, focus: true, run: true })');
     expect(formsSearchSource).not.toContain('href="/forms"');
-    expect(formsHomeSource).not.toMatch(/Source verified|Open account setup/);
-    expect(formsHomeSource).not.toMatch(
-      /Number, pathway, clock|Maker, clock, copies|Browse pathways|Before, current, parallel, after|starter set of MHA 2014 forms|follow a pathway/,
-    );
-    expect(formsHomeSource).toContain("local confirmation");
-    // The "Source catalogue reviewed · Official-source MHA 2014 forms · verify
-    // before use" line went with every other mode-home caveat footer. The
-    // enforceable version of that rule lives in tests/mode-home-no-caveat-footer.test.ts,
-    // which pins the footer's call sites structurally; a bare string check here
-    // would pass against a reworded or differently-named replacement.
-    expect(formsHomeSource).not.toContain("Source catalogue reviewed");
+    // The retired detailed Forms home (and its caveat footer) is gone; the
+    // structural footer contract lives in tests/mode-home-no-caveat-footer.test.ts.
+    expect(formsSearchSource).not.toContain("Source catalogue reviewed");
   });
 
   it("does not render negative or text-only source statuses as verified", () => {
@@ -196,25 +187,25 @@ describe("content and services audit regressions", () => {
     ]);
 
     expect(firstFormMetadata).toEqual({
-      title: `${firstForm.title} - Forms - Clinical KB`,
+      title: `${firstForm.title} - Forms - PsychSift`,
       description: firstForm.subtitle,
     });
     expect(secondFormMetadata).toEqual({
-      title: `${secondForm.title} - Forms - Clinical KB`,
+      title: `${secondForm.title} - Forms - PsychSift`,
       description: secondForm.subtitle,
     });
     expect(firstServiceMetadata).toEqual({
-      title: `${firstService.title} - Services - Clinical KB`,
+      title: `${firstService.title} - Services - PsychSift`,
       description: firstService.subtitle,
     });
     expect(secondServiceMetadata).toEqual({
-      title: `${secondService.title} - Services - Clinical KB`,
+      title: `${secondService.title} - Services - PsychSift`,
       description: secondService.subtitle,
     });
     expect(firstFormMetadata.title).not.toEqual(secondFormMetadata.title);
     expect(firstServiceMetadata.title).not.toEqual(secondServiceMetadata.title);
-    expect(registryOnlyFormMetadata.title).toBe("Form record - Forms - Clinical KB");
-    expect(registryOnlyServiceMetadata.title).toBe("Service record - Services - Clinical KB");
+    expect(registryOnlyFormMetadata.title).toBe("Form record - Forms - PsychSift");
+    expect(registryOnlyServiceMetadata.title).toBe("Service record - Services - PsychSift");
   });
 
   it("claims and renders a form source link only when the record has a URL", () => {

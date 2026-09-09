@@ -1,4 +1,6 @@
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
+import { rankServiceUrgentRoutes } from "@/lib/service-urgent-routing";
 
 export type ServiceChipTone = "danger" | "info" | "warning" | "success" | "neutral";
 export type ServiceCriterionTone = "meet" | "caution" | "reject";
@@ -36,6 +38,12 @@ export type ServiceVerification = {
   locallyVerified?: boolean | null;
   confidence?: "High" | "Medium" | "Low" | "Unknown" | null;
   notes?: string[] | null;
+  availabilityStatus?: string | null;
+  lastVerifiedAt?: string | null;
+  nextReviewAt?: string | null;
+  reviewer?: string | null;
+  riskLevel?: string | null;
+  unresolvedIssues?: string[] | null;
 };
 
 export type ServiceSource = {
@@ -45,6 +53,7 @@ export type ServiceSource = {
   published?: string | null;
   reviewed?: string | null;
   notes?: string[] | null;
+  allUrls?: string[] | null;
 };
 
 export type ServiceRecord = {
@@ -113,6 +122,7 @@ function serviceRecordSearchParts(service: ServiceRecord) {
     ...(service.referralInfo ?? []).flatMap((row) => [row.label, row.value]),
     ...(service.criteria ?? []).flatMap((criterion) => [criterion.label, criterion.tone]),
     ...(service.verification?.notes ?? []),
+    ...(service.verification?.unresolvedIssues ?? []),
     ...(service.source?.notes ?? []),
     "service",
     "services",
@@ -131,8 +141,14 @@ export function rankServiceRecords(
   limit = records.length,
   // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) for the expanded lane.
   expansions: string[] = [],
+  interpretNaturalLanguage = false,
 ): ServiceSearchMatch[] {
-  return rankCatalogRecords(records, query, {
+  const interpretedExpansions = [
+    ...expansions,
+    ...(interpretNaturalLanguage ? smartSearchExpansions("services", query) : []),
+  ];
+
+  const ranked = rankCatalogRecords(records, query, {
     fields: [
       { id: "title", weight: 6, text: (service) => normalizeSearchText(`${service.title} ${service.slug}`) },
       { id: "contact", weight: 5, text: (service) => normalizeSearchText(service.primaryContact?.value ?? "") },
@@ -148,8 +164,8 @@ export function rankServiceRecords(
     phraseBonus: 4,
     broadTerms: ["service", "services", "pathway", "pathways"],
     broadBonus: 1,
-    expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
-    limit,
+    expandTokens: interpretedExpansions.length ? (terms) => [...terms, ...interpretedExpansions] : undefined,
+    limit: Math.max(limit, records.length),
     tieBreak: (left, right) => left.title.localeCompare(right.title),
   }).map(({ record, score, signals }) => ({
     service: record,
@@ -162,4 +178,10 @@ export function rankServiceRecords(
       signals.broad ? "services catalogue" : "",
     ].filter(Boolean),
   }));
+
+  const urgent = rankServiceUrgentRoutes(records, query);
+  if (urgent.length === 0) return ranked.slice(0, limit);
+
+  const pinned = new Set(urgent.map(({ service }) => service.slug));
+  return [...urgent, ...ranked.filter(({ service }) => !pinned.has(service.slug))].slice(0, limit);
 }

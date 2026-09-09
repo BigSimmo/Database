@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
+import { BRAND_INSTALL_TAGLINE, BRAND_NAME } from "@/lib/brand";
 import { createBrowserStore } from "@/lib/client-store-factory";
 
 const SERVICE_WORKER_URL = "/sw.js";
@@ -137,7 +138,7 @@ function NoticeIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: "accent" | "
       className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] ${toneClassName}`}
       aria-hidden="true"
     >
-      <Icon className="h-5 w-5" />
+      <Icon aria-hidden="true" className="h-5 w-5" />
     </span>
   );
 }
@@ -167,7 +168,7 @@ function InstallHeader({
   return (
     <div className="pwa-install-header">
       <div className="flex min-w-0 items-center gap-2.5">
-        <BrandMark className="pwa-install-mark h-9 w-9" />
+        <BrandMark tone="emphasis" className="pwa-install-mark h-9 w-9" />
         <p id={titleId} className="min-w-0 text-sm font-bold leading-5 text-[color:var(--text-heading)]">
           {title}
         </p>
@@ -201,7 +202,7 @@ function InstallBenefits() {
 
 function InstallManualSteps() {
   return (
-    <ol className="pwa-install-steps" aria-label="Add Clinical KB to your Home Screen">
+    <ol className="pwa-install-steps" aria-label={`Add ${BRAND_NAME} to your Home Screen`}>
       <li>
         <span>1. Tap Share</span>
         <Share className="h-icon-md w-icon-md" aria-hidden="true" />
@@ -510,7 +511,7 @@ export function PwaLifecycle() {
         registrationCleanups.add(() => registration.removeEventListener("updatefound", handleUpdateFound));
         lastUpdateCheckRef.current = Date.now();
       } catch (error) {
-        if (process.env.NODE_ENV === "development") console.warn("Clinical KB PWA registration failed", error);
+        if (process.env.NODE_ENV === "development") console.warn("PsychSift PWA registration failed", error);
       }
     };
 
@@ -622,12 +623,7 @@ export function PwaLifecycle() {
   return (
     <div className="pwa-notice-stack">
       {showOffline ? (
-        <section
-          className={`${cardClassName} pwa-lifecycle-card`}
-          role="region"
-          aria-labelledby="pwa-offline-title"
-          aria-live="polite"
-        >
+        <section className={`${cardClassName} pwa-lifecycle-card`} role="region" aria-labelledby="pwa-offline-title">
           <button
             type="button"
             className={dismissIconButtonClassName}
@@ -667,12 +663,7 @@ export function PwaLifecycle() {
       ) : null}
 
       {showUpdate ? (
-        <section
-          className={`${cardClassName} pwa-lifecycle-card`}
-          role="region"
-          aria-labelledby="pwa-update-title"
-          aria-live="polite"
-        >
+        <section className={`${cardClassName} pwa-lifecycle-card`} role="region" aria-labelledby="pwa-update-title">
           <button
             type="button"
             className={dismissIconButtonClassName}
@@ -705,21 +696,16 @@ export function PwaLifecycle() {
       ) : null}
 
       {showIosInstallHint ? (
-        <section
-          className={`${cardClassName} pwa-install-sheet`}
-          role="region"
-          aria-labelledby="pwa-ios-install-title"
-          aria-live="polite"
-        >
+        <section className={`${cardClassName} pwa-install-sheet`} role="region" aria-labelledby="pwa-ios-install-title">
           <InstallSheetGrip />
           <InstallHeader
-            title="Install Clinical KB"
+            title={`Install ${BRAND_NAME}`}
             titleId="pwa-ios-install-title"
             dismissLabel="Dismiss install hint"
             onDismiss={dismissIosHint}
           />
           <div className="pwa-install-body">
-            <p className="pwa-install-tagline">Clinical guidelines on your home screen.</p>
+            <p className="pwa-install-tagline">{BRAND_INSTALL_TAGLINE}</p>
             <p className="pwa-install-copy">In Safari, tap Share, then Add to Home Screen.</p>
             <InstallManualSteps />
             <p className="pwa-install-support">Private clinical features still require a connection.</p>
@@ -737,18 +723,17 @@ export function PwaLifecycle() {
           className={`${cardClassName} pwa-install-sheet pwa-install-native-sheet`}
           role="region"
           aria-labelledby="pwa-install-title"
-          aria-live="polite"
         >
           <InstallSheetGrip />
           <InstallHeader
-            title="Install Clinical KB"
+            title={`Install ${BRAND_NAME}`}
             titleId="pwa-install-title"
             dismissLabel="Dismiss install prompt"
             onDismiss={dismissInstall}
           />
           <div className="pwa-install-body">
             <p className="pwa-install-compact-copy">Quick access · No app store</p>
-            <p className="pwa-install-tagline">Clinical guidelines on your home screen.</p>
+            <p className="pwa-install-tagline">{BRAND_INSTALL_TAGLINE}</p>
             <p className="pwa-install-copy">
               Open it from your device like an app. Private clinical features still require a connection.
             </p>

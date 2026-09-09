@@ -7,7 +7,6 @@ import { DifferentialsHome } from "@/components/clinical-dashboard/differentials
 import { ModeHomeMain } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialsSearchRequestBody } from "@/lib/differentials-search-request";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext } from "@/lib/search-navigation-context";
 import type { DocumentMatch } from "@/lib/types";
 
@@ -96,22 +95,19 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
     [router, routedSearchContext.queryMode, routedSearchContext.scopeFilters],
   );
 
-  // `autoRunSearch` is true on /differentials?q=…&run=1 — that mounts the tall
-  // SearchResultsView. Empty homes stay centred; results must top-align or the
-  // Best Answer / query band are clipped above the phone scrollport.
-  const showingResults = autoRunSearch;
-
+  // Submitted searches mount the tall SearchResultsView. Results must top-align
+  // or the Best Answer / query band are clipped above the phone scrollport.
+  // Empty unsubmitted visits 307 to the shared home, so this shell no longer
+  // has a centred idle state.
   return (
-    <ModeHomeMain contentAlign={showingResults ? "start" : "center"}>
+    <ModeHomeMain contentAlign="start">
       <DifferentialsHome
         query={query}
         loading={loading}
         searchSubmitted={autoRunSearch}
         documentMatches={documentMatches}
         evidenceQuery={evidenceQuery}
-        desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         onRunSearch={navigateToSearch}
-        onSuggestedSearch={navigateToSearch}
       />
     </ModeHomeMain>
   );

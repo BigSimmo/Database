@@ -35,7 +35,14 @@ describe("document-derived text must route through a formatter", () => {
   const visualEvidence = componentSource("clinical-dashboard/visual-evidence.tsx");
   const documentResults = componentSource("clinical-dashboard/document-results.tsx");
   const answerResultSurface = componentSource("clinical-dashboard/answer-result-surface.tsx");
-  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${evidenceMapModel}\n${outputPanel}\n${visualEvidence}\n${documentResults}\n${answerResultSurface}`;
+  // The source rail and drawer are where cited titles, passages and snippets are
+  // rendered now — the capsule preview they replaced was scanned here, so they
+  // inherit the same raw-render guards rather than escaping them by moving.
+  const answerSourceRail = componentSource("clinical-dashboard/answer-source-rail.tsx");
+  const answerSourceDrawer = componentSource("clinical-dashboard/answer-source-drawer.tsx");
+  const answerSourceRows = componentSource("clinical-dashboard/answer-source-rows.ts");
+  const answerEvidencePreview = componentSource("clinical-dashboard/answer-evidence-preview.tsx");
+  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${evidenceMapModel}\n${outputPanel}\n${visualEvidence}\n${documentResults}\n${answerResultSurface}\n${answerSourceRail}\n${answerSourceDrawer}\n${answerSourceRows}\n${answerEvidencePreview}`;
 
   it("renders exact quotes through the verbatim cleaner, never raw", () => {
     // Allow `${quote.quote}` inside template literals (React keys, clipboard text);
@@ -55,8 +62,20 @@ describe("document-derived text must route through a formatter", () => {
   });
 
   it("renders source-card snippets through compactSourceSnippet with the card title deduped", () => {
+    // The raw-render half is unconditional and is the actual regression guard.
     expect(dashboardSurfaces).not.toMatch(/(?<!\$)\{source\.snippet\}/);
-    expect(dashboardSurfaces).toContain('compactSourceSnippet(source.snippet ?? "", { dropTitle: source.title })');
+    expect(dashboardSurfaces).not.toMatch(/(?<!\$)\{source\.content\}/);
+
+    // The routing half is conditional because these surfaces no longer print a
+    // snippet at all: the evidence preview was rewritten from a card grid with
+    // snippets into a rail of title + page + review status, and the arrived
+    // answer carries its quote in the drawer. `compactSourceSnippet` is kept as
+    // the contract any reintroduced snippet must go through — the moment one of
+    // these surfaces touches `source.content` again, this fails unless it is
+    // formatted and the card title is deduped out of it.
+    if (dashboardSurfaces.includes("source.content")) {
+      expect(dashboardSurfaces).toContain("compactSourceSnippet(source.content, { dropTitle: title })");
+    }
   });
 
   it("renders evidence-map row details through the compact formatter, never raw", () => {

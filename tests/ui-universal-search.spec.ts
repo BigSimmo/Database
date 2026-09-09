@@ -330,14 +330,32 @@ test.describe("universal search typeahead", () => {
 
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
   });
-  test("keeps compact cross-mode matches visible after submission", async ({ page }) => {
+  test("keeps submitted cross-mode matches collapsed on desktop until the header is clicked", async ({ page }) => {
     await mockUniversalSearch(page);
     const universalRequest = page.waitForRequest(/\/api\/search\/universal(?:\?.*)?$/);
     await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
-    await expect(page.getByText("Also matches in other modes")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
+    const alsoMatches = page.getByTestId("universal-also-matches");
+    await expect(alsoMatches).toBeVisible();
+    const trigger = alsoMatches.getByRole("button", { name: /Also matches in other modes/ });
+    await expect(trigger).toBeVisible();
+
+    // The tray is a real disclosure at every width now, matching the sibling
+    // "Also in your library" line. It must NOT open itself on desktop: that put
+    // a grid of cross-mode suggestions between the composer and the results the
+    // search asked for. The mode links stay in the DOM while shut, so assert on
+    // visibility and aria-expanded, not on presence.
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeHidden();
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
+    const accents = await alsoMatches
+      .locator("div[data-category-accent]")
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-category-accent")));
+    expect(accents.every(Boolean)).toBe(true);
+    expect(new Set(accents).size).toBeGreaterThan(1);
     expect(new URL((await universalRequest).url()).searchParams.get("domains")?.split(",")).not.toContain("services");
   });
 
@@ -484,7 +502,13 @@ test.describe("universal search smart affordances", () => {
     await input.fill("acamprosat");
     await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
-    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
+    // Answer mode carries its cross-mode matches on the answer surface's own
+    // library line, not the mode-level `universal-also-matches` panel. Both used
+    // to render, one directly under the other, asking the same question — the
+    // duplication the owner photographed on 2026-08-26. The mode-level panel is
+    // still asserted on the other result kinds in this file.
+    await expect(page.getByTestId("cross-mode-links")).toBeVisible();
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
   });
 
   test("hides Answer-mode also-matches while drafting and shows them after the final answer", async ({ page }) => {
@@ -540,13 +564,18 @@ test.describe("universal search smart affordances", () => {
     await input.fill("acamprosat");
     await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
-    const progress = page.getByTestId("answer-progress-stepper");
+    const progress = page.getByTestId("answer-progress");
     await expect(progress).toBeVisible();
-    await expect(progress).toContainText("Drafting a cited answer from the selected passages.");
-    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+    await expect(progress).toContainText("Writing the answer");
+    // The contract under test is unchanged — no cross-mode matches while the
+    // answer is still drafting, and matches once it is final. On answer mode the
+    // element carrying it is now the surface's own library line; the mode-level
+    // panel no longer renders here at all.
+    await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
 
-    await expect(page.getByTestId("universal-also-matches")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Also matches in other modes")).toBeVisible();
+    await expect(page.getByTestId("cross-mode-links")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("cross-mode-links-line-trigger")).toBeVisible();
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
   });
 
   test("keeps a saved exact match first in Favourites", async ({ page }) => {

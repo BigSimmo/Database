@@ -1,4 +1,4 @@
-/* Clinical KB PWA retirement worker (docs/pwa.md rule 6).
+/* PsychSift PWA retirement worker (docs/pwa.md rule 6).
  *
  * This file is NOT registered during normal operation. To retire the PWA, ship
  * this file's CONTENT as /sw.js (replace public/sw.js with it) in a single

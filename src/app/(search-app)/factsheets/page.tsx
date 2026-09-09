@@ -10,9 +10,6 @@ import { consolidatedModeHomeTargetForSearchParams } from "@/lib/consolidated-mo
  * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). This route stays so
  * bookmarks and external deep links to `/factsheets` keep working, and forwards to
  * that shared home rather than rendering a second one.
- *
- * The previous detailed page is preserved, off the live routes, at
- * `/mockups/factsheets-home-detailed`.
  */
 type FactsheetsHomeRouteProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;

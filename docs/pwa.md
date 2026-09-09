@@ -1,6 +1,6 @@
 # Progressive Web App architecture
 
-Clinical KB is an installable, production-first PWA with a deliberately limited offline surface. The service worker
+PsychSift is an installable, production-first PWA with a deliberately limited offline surface. The service worker
 improves launch, static-asset reuse, update handling, and failure messaging without turning private clinical data into
 durable browser storage.
 
@@ -55,7 +55,7 @@ install/Add to Home Screen flow.
 The install card is not shown in standalone mode. It stays non-blocking and lower-right on wide screens; on phones it
 becomes a compact sheet positioned clear of the current composer owner (above a bottom dock or below an in-flow home
 composer) and the safe area. The benefit list is deliberately limited to quick access, app-like launch, and the
-familiar Clinical KB workspace. It does not imply offline clinical access.
+familiar PsychSift workspace. It does not imply offline clinical access.
 Choosing **Not now**, using **Dismiss**, or dismissing the browser prompt suppresses the custom prompt for 30 days
 using `clinical-kb-pwa-install-dismissed-at` in localStorage. `appinstalled` clears that value. Storage failures are
 treated as non-fatal progressive-enhancement failures.
@@ -80,6 +80,12 @@ The worker caches a request only when its class and every listed condition match
 | `/icon.svg` and `/manifest.webmanifest`                         | Best-effort during installation                                                                                        | Precached; a failure does not block installation        | Shell                       |
 | `/_next/static/*`                                               | Same-origin `GET`; no query string, `Authorization`, or `Range`; destination is `font`, `script`, `style`, or `worker` | Cache first, then network and store                     | Static, maximum 128 entries |
 | `/manifest.webmanifest`, `/icon.svg`, `/apple-icon`, `/icons/*` | Same-origin `GET`; no query string, `Authorization`, or `Range`                                                        | Stale while revalidate                                  | Shell, maximum 16 entries   |
+
+`/apple-icon` is allowlisted but is, in practice, network-only: Next's metadata-image loader emits the generated
+Apple icon as `<link rel="apple-touch-icon" href="/apple-icon?<contenthash>">`, and the query string fails the
+"no query string" condition above before the allow-list is consulted. Only a bare `GET /apple-icon` (which the
+browser never issues for the rendered link) would be cached. This is deliberate: less is cached, and the entry
+stays so that a future bare reference is treated like the other icons rather than falling through to the denylist.
 
 Every allowlisted runtime and precache fetch uses `credentials: "omit"`. Before storage, the response must be an exact,
 non-redirected, successful same-origin/basic response and must not carry private/no-store caching, attachment,
@@ -333,7 +339,7 @@ These omissions are deliberate and must not be added as generic PWA enhancements
 | Push notifications                         | Deferred. It requires a permission and subscription UX, backend key/subscription lifecycle, revocation, and a clinical privacy policy for lock-screen content. No safe notification payload or product need is currently defined.                                                                  |
 | Background Sync / Periodic Background Sync | Deferred. Queuing or replaying clinical queries, uploads, answers, or mutations risks sensitive local persistence, duplicate writes, stale auth, and actions occurring after the user's context changed. Browser support is also not a correctness guarantee.                                      |
 | Web Share Target / inbound sharing         | Deferred. Accepting text, URLs, or documents from another app needs an explicit consent, validation, auth, provenance, malware/file-safety, and retention flow. The manifest intentionally has no `share_target`.                                                                                  |
-| File handlers                              | Deferred. Associating Clinical KB with clinical document types could import sensitive files without the existing upload review and validation context. The manifest intentionally has no `file_handlers`.                                                                                          |
+| File handlers                              | Deferred. Associating PsychSift with clinical document types could import sensitive files without the existing upload review and validation context. The manifest intentionally has no `file_handlers`.                                                                                            |
 | Offline clinical data, search, or answers  | Prohibited by the current privacy model. Cached clinical guidance can become stale, lose revocation/auth guarantees, separate answers from source provenance, and expose private content to durable same-origin storage. Only the generic offline shell and public application assets are allowed. |
 
 Any proposal to enable one of these capabilities needs a product decision, threat model, privacy review, data lifecycle,

@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+
+ Test Files  6 passed (6)
+      Tests  73 passed (73)
+   Start at  23:14:17
+   Duration  8.18s (transform 905ms, setup 843ms, import 1.72s, tests 8.54s, environment 3.65s)
+

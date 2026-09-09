@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3a2cac06-0076-4e83-81fa-f98be7285444",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#2TAQDC",
+    "outcome": "Resolved by the 2026-08-23 current-main performance remediation. The streaming-hydration gap is documented beside the search-chrome invariant; every current :has(#main-content ...) selector is bounded by explicit post-hydration PWA allowlist markers; and a whitespace-tolerant, mutation-tested whole-file contract rejects any future unclassified occurrence while retaining the valid selectors. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/pwa-lifecycle.dom.test.tsx.",
+    "baseRowFingerprint": "9c61791208c1ddf253a95792ce786f96fc36bba859778731c13de2339d99ea91"
+  }
+}

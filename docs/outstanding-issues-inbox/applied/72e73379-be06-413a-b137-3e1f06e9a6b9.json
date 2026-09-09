@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "72e73379-be06-413a-b137-3e1f06e9a6b9",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#2DQXD8",
+    "outcome": "Repointed contract tests to active components and safely deleted dead VerificationWorkspace and TherapyListItem.",
+    "baseRowFingerprint": "9b77bd3b8bd413cac586c1c0aacb04466d1272fe8cd0fa25ee2e732df74a582c"
+  }
+}

@@ -29,10 +29,14 @@ describe("isInformationPage", () => {
     expect(isInformationPage("/specifiers/builder")).toBe(false);
     expect(isInformationPage("/formulation/compare")).toBe(false);
     expect(isInformationPage("/factsheets/search")).toBe(false);
+    expect(isInformationPage("/factsheets/topics")).toBe(false);
     expect(isInformationPage("/dictionary/search")).toBe(false);
     expect(isInformationPage("/dictionary/topics")).toBe(false);
     expect(isInformationPage("/documents/search")).toBe(false);
     expect(isInformationPage("/therapy-compass/search")).toBe(false);
+    expect(isInformationPage("/therapy-compass/recommend")).toBe(false);
+    expect(isInformationPage("/services/search")).toBe(false);
+    expect(isInformationPage("/forms/search")).toBe(false);
   });
 });
 
@@ -49,6 +53,16 @@ describe("InformationPageShell", () => {
     expect(screen.getByText("Body")).toBeInTheDocument();
   });
 
+  it("uses the shared reading-width container for narrow information pages", () => {
+    render(
+      <InformationPageShell testId="narrow-info-shell" width="narrow">
+        <p>Reading body</p>
+      </InformationPageShell>,
+    );
+
+    expect(screen.getByTestId("narrow-info-shell").querySelector(".max-w-reading")).not.toBeNull();
+  });
+
   it("exposes shared breadcrumbs as a link back to the mode home", () => {
     render(
       <InformationPageBreadcrumbs
@@ -60,6 +74,20 @@ describe("InformationPageShell", () => {
     const home = screen.getByRole("link", { name: /Forms/i });
     expect(home).toHaveAttribute("href", "/forms?focus=1");
     expect(screen.getByText("Transport")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("renders a text-only home crumb when homeIcon is false", () => {
+    render(
+      <InformationPageBreadcrumbs
+        home={{ label: "DSM-5 Diagnosis home", href: "/dsm" }}
+        homeIcon={false}
+        current="Compare"
+      />,
+    );
+
+    const home = screen.getByRole("link", { name: "DSM-5 Diagnosis home" });
+    expect(home).toHaveAttribute("href", "/dsm");
+    expect(home.querySelector("svg")).toBeNull();
   });
 
   it("keeps a linked intermediate crumb a link after the fold onto Breadcrumb", () => {

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3c6acc27-1802-4b8e-9298-0e2fe668e529",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Two ward docs send a session onto branches without saying whether those branches are still live",
+    "detail": "docs/ward-flow-coordination-rules.md and docs/ward-flow-fold-manifest-2026-08-31.md instruct a session onto claude/Wardquestions and claude/Ward-design with no status marker, flagged by tests/stale-resume-instructions.test.ts. Both branches are currently UNMERGED (merge-base --is-ancestor exit 1), so the correct marker says they are live, not merged. claude/Wardquestions holds the orchestrator handover and ten ward documents that exist on no other branch, so marking it merged would be worse than the present silence. Measured at fb17db7b1.",
+    "source": "Ward Builder One closing sweep 2026-09-02",
+    "issueUlid": "01M1G4PZGPX9ZHETGN3Q9JXZAX"
+  }
+}

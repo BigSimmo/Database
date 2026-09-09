@@ -1,4 +1,4 @@
-# Clinical KB Codex Plugin
+# PsychSift Codex Plugin
 
 This plugin follows the repo-local structure used by `openai/plugins`:
 

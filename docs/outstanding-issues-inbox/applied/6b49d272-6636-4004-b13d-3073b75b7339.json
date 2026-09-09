@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6b49d272-6636-4004-b13d-3073b75b7339",
+  "createdOn": "2026-08-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Ward Flow demo clock mockup test flakes in Advisory UI: passed and failed on consecutive heads of the same unrelated PR",
+    "detail": "tests/ui-ward-roles.spec.ts :: '@mockup Ward screen > the demo clock control advances a held bed toward expiry, and reads as demo scaffolding' failed the Advisory UI job on PR #2437 head 9855e706 (run 33096941258, classifier said 'needs investigation'), having PASSED on the immediately preceding head 8bab0c9d of the same branch. The intervening commits touched only tests/ui-smoke.spec.ts and an unrelated medication merge; PR #2437 changed no ward file. It also passed locally on that branch head (chromium-mockups, 1 passed, 5.5s). It is a timing-sensitive demo countdown (see PR #2392 'pin demo countdown clock'), so the pinned clock likely still has a real-time-dependent path. Not in tests/flake-ledger.json. Advisory UI is not among the twelve jobs the pr-required aggregate depends on (.github/workflows/ci.yml, pr-required needs: changes, static-pr, safety, coverage, ingestion-sast, build, container-images, ui-critical-fast, ui-critical, lighthouse-budget, db-reset-verify, caring-contacts-db) and never runs on main pushes -- it is gated on advisory_ui_changed -- so this only ever surfaces on PRs that touch a mockup surface, which is why it can rot unnoticed. Next action: reproduce by running the spec repeatedly on one SHA; if it reproduces three times per docs/testing.md flake policy, quarantine via tests/flake-ledger.json, otherwise harden the clock pin. Do not weaken the assertion to silence it.",
+    "source": "Session unblocking PR #2437, 2026-08-27: observed in CI run 33096941258 and reproduced-clean locally.",
+    "issueUlid": "01M123XQC41BHXEFADQX52YNYA"
+  }
+}

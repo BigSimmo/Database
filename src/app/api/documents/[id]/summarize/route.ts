@@ -9,7 +9,7 @@ import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
 import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
 import { persistAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
-import { jsonError } from "@/lib/http";
+import { jsonError, publicErrorResponse } from "@/lib/http";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { setAgentConversationId } from "@/lib/observability/agent-monitoring";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -28,7 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = parseRouteParams({ id: rawId }, summarizeRouteParamsSchema, "Invalid document id.");
     if (isDemoMode()) {
       if (!getDemoDocument(id)) {
-        return NextResponse.json({ error: "Demo document not found." }, { status: 404 });
+        return publicErrorResponse("Demo document not found.", 404, { code: "document_not_found" });
       }
       return NextResponse.json({
         ...buildGovernedDemoAnswerClientResponse(demoSummary(id)),
@@ -64,7 +64,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return unauthorizedResponse();
     }
     if (error instanceof Error && error.message === "Document not found.") {
-      return NextResponse.json({ error: "Document not found." }, { status: 404 });
+      return publicErrorResponse("Document not found.", 404, { code: "document_not_found" });
     }
     return jsonError(error);
   }

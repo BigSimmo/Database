@@ -68,7 +68,7 @@ function publicDifferentialPayload(kind: DifferentialRecordKind, q: string | und
       governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
     };
   }
-  const ranked = q ? rankDifferentialRecords(differentialRecords, q, limit) : null;
+  const ranked = q ? rankDifferentialRecords(differentialRecords, q, limit, [], true) : null;
   const records = ranked ? ranked.map((match) => match.record) : differentialRecords;
   return {
     records,

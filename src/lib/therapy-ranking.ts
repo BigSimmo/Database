@@ -16,6 +16,11 @@ const normalize = (value: string | null | undefined) =>
     .replace(/\s+/g, " ")
     .trim();
 
+/** True only when the scorer can derive at least one searchable token. */
+export function hasSearchableTherapyQuery(query: string | null | undefined): boolean {
+  return Boolean(normalize(query));
+}
+
 /**
  * The single Therapy ranking contract used by both the dedicated catalogue and
  * universal discovery. Keeping one scorer prevents a search handoff from
@@ -66,12 +71,18 @@ export function scoreTherapyCandidate(record: TherapyRankable, query: string): n
 export function rankTherapyCandidates<T extends TherapyRankable>(
   records: readonly T[],
   query: string,
+  expansions: readonly string[] = [],
 ): Array<{ record: T; score: number }> {
   return records
-    .map((record) => ({
-      record,
-      score: scoreTherapyCandidate(record, query),
-    }))
+    .map((record) => {
+      const primaryScore = scoreTherapyCandidate(record, query);
+      const expansionScore = Math.max(0, ...expansions.map((expansion) => scoreTherapyCandidate(record, expansion)));
+      return {
+        record,
+        // Expanded terms broaden recall without outranking a direct query match.
+        score: primaryScore + expansionScore * 0.25,
+      };
+    })
     .filter((match) => match.score > 0)
     .sort((left, right) => right.score - left.score || left.record.name.localeCompare(right.record.name));
 }

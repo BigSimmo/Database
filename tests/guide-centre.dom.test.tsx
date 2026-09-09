@@ -6,8 +6,17 @@ import { GuideDialog } from "@/components/clinical-dashboard/guide-dialog";
 import { guideTopics } from "@/components/clinical-dashboard/guide-content";
 import { guideProgressStorageKey } from "@/components/clinical-dashboard/guide-progress";
 
+const routerPush = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: routerPush, replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 beforeEach(() => {
   window.localStorage.clear();
+  routerPush.mockReset();
 });
 
 afterEach(async () => {
@@ -20,10 +29,10 @@ afterEach(async () => {
 function renderGuide() {
   const onClose = vi.fn();
   render(<GuideDialog open onClose={onClose} />);
-  return { dialog: screen.getByRole("dialog", { name: "Clinical KB guide" }), onClose };
+  return { dialog: screen.getByRole("dialog", { name: "PsychSift guide" }), onClose };
 }
 
-describe("Clinical KB Guide Centre", () => {
+describe("PsychSift Guide Centre", () => {
   /**
    * The guide carries NO composer. The bottom dock is the guided-tour action and
    * nothing else, so a text input reappearing anywhere in this dialog means the
@@ -158,7 +167,7 @@ describe("Clinical KB Guide Centre", () => {
     expect(within(dialog).getByRole("heading", { name: "All guide topics" })).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: /Sources & citations/ }));
     expect(within(dialog).getByRole("heading", { name: "Work with sources and citations" })).toBeVisible();
-    expect(screen.getByRole("dialog", { name: "Clinical KB guide" })).toBeVisible();
+    expect(screen.getByRole("dialog", { name: "PsychSift guide" })).toBeVisible();
   });
 
   it("opens every item in the guide contents", async () => {
@@ -169,6 +178,50 @@ describe("Clinical KB Guide Centre", () => {
       await user.click(within(dialog).getAllByRole("button", { name: topic.navLabel })[0]);
       expect(within(dialog).getByRole("heading", { name: topic.title })).toBeVisible();
     }
+  });
+
+  it("surfaces the colour coding guide from home and renders the tone key", async () => {
+    const user = userEvent.setup();
+    const { dialog } = renderGuide();
+
+    await user.click(within(dialog).getByRole("button", { name: "Open colour coding guide" }));
+    expect(within(dialog).getByRole("heading", { name: "Colour coding & badges" })).toBeVisible();
+    expect(within(dialog).getByRole("heading", { name: "Tone key" })).toBeVisible();
+    expect(within(dialog).getByText("Contraindicated")).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "Open full reference" })).toBeVisible();
+  });
+
+  /**
+   * The Source rating topic is the published catalogue method, rendered from the
+   * SAME component `/sources/method` uses. Asserting its four sections here is
+   * what stops the guide quietly drifting into a second, hand-written account of
+   * how sources are scored.
+   */
+  it("renders the published rating method as its own guide page", async () => {
+    const user = userEvent.setup();
+    const { dialog, onClose } = renderGuide();
+
+    await user.click(within(dialog).getByRole("button", { name: "All topics" }));
+    await user.click(within(dialog).getByRole("button", { name: /Source rating/ }));
+
+    expect(within(dialog).getByRole("heading", { name: "How sources are rated" })).toBeVisible();
+    for (const section of [
+      "Rating dimensions",
+      "Quality bands",
+      "Boundaries and missing data",
+      "Catalogue status definitions",
+    ]) {
+      expect(within(dialog).getByRole("region", { name: section })).toBeVisible();
+    }
+
+    // The real weights and thresholds, not a paraphrase of them.
+    expect(within(dialog).getByText("Accuracy assurance")).toBeVisible();
+    expect(within(dialog).getByText("85–100")).toBeVisible();
+    expect(within(dialog).getByText(/not RAG relevance or patient-specific guidance/i)).toBeVisible();
+
+    await user.click(within(dialog).getByRole("button", { name: "Open the full method page" }));
+    expect(onClose).toHaveBeenCalled();
+    expect(routerPush).toHaveBeenCalledWith("/sources/method");
   });
 
   it("wires the docked tour controls, including Previous on phones", async () => {

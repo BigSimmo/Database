@@ -243,6 +243,20 @@ export const syntheticCmhtContacts = [
  * The only non-fictional contact details in the prototype. Verified against the
  * public sources below on 20 August 2026. If a number or an availability window
  * has changed since, correct it here rather than anywhere it is displayed.
+ *
+ * VERIFICATION RECORD: `docs/care-plan/crisis-lines-verification.md`. It holds, per
+ * number, the source used to check it, the `verifiedOn` date below, every other place
+ * in this file the same number is printed, and the six-monthly re-verification cadence
+ * and procedure. Nothing in this repository ages `verifiedOn`, so that document is the
+ * only thing that says when these are next due to be checked -- update it in the same
+ * change as any correction here.
+ * Each `sourceUrl` below is the page used for that check: three cite East
+ * Metropolitan Health Service pages and `000` cites Triple Zero. Re-verify each
+ * number and its availability window against its own `sourceUrl`, then move the
+ * `verifiedOn` date only for the entries actually re-checked. These strings render
+ * on the printed Personal Safety Plan and Patient Plan, which is the one place the
+ * prototype's "everything is synthetic" framing does not protect the reader - a dead
+ * or redirected crisis number would print as guidance.
  */
 export const publicCrisisContacts = [
   {
@@ -754,6 +768,11 @@ export const syntheticPersonalSafetyPlanVersions = [
     confirmedAt: atPerthTime(addIsoDays(ROWAN_SAFETY_CREATED_AT, 1), "09:45"),
     reviewDueAt: reviewDueFrom(ROWAN_SAFETY_CREATED_AT),
     patientConfirmation: "confirmed",
+    // The second of the two sessions, on the afternoon the plan was written.
+    // Deliberately none of the other two moments on this record: the version
+    // was written that morning and went live the next, and Rowan's part
+    // belongs to neither of those.
+    participationRecordedAt: atPerthTime(ROWAN_SAFETY_CREATED_AT, "15:40"),
     collaborationNote: "Written with Rowan over two sessions. Rowan chose the wording and asked for a printed copy.",
     content: {
       warningSigns: [
@@ -793,6 +812,11 @@ export const syntheticPersonalSafetyPlanVersions = [
     confirmedAt: null,
     reviewDueAt: reviewDueFrom(monthsAgo(5, "11:20")),
     patientConfirmation: "discussed_not_confirmed",
+    // Genuinely absent, and kept that way. This is the shape a record made
+    // before the moment was captured separately has: it holds what Mira's part
+    // was and not when it was taken. History has to say that in words, so the
+    // path that does has to stay reachable in the seeded data.
+    participationRecordedAt: null,
     collaborationNote:
       "Discussed with Mira at the ward review. She wanted to think about it and has not yet confirmed the wording; ask her again at the next contact.",
     content: {
@@ -819,6 +843,9 @@ export const syntheticPersonalSafetyPlanVersions = [
     confirmedAt: null,
     reviewDueAt: null,
     patientConfirmation: "unavailable",
+    // Jordan left before anyone could ask him, so nothing about his part was
+    // recorded and this draft claims no moment for it.
+    participationRecordedAt: null,
     collaborationNote:
       "Started in ED while Jordan was waiting for transport home. He left before it could be finished, so this stays a draft and is not his plan yet.",
     content: {
@@ -845,6 +872,9 @@ export const syntheticPersonalSafetyPlanVersions = [
     confirmedAt: null,
     reviewDueAt: reviewDueFrom(monthsAgo(2, "15:05")),
     patientConfirmation: "declined",
+    // Her decision was taken down in the same sitting, shortly after the
+    // version itself was written.
+    participationRecordedAt: monthsAgo(2, "15:30"),
     collaborationNote:
       "Evie declined to write a safety plan and asked that the crisis numbers alone be kept on file. That is what this version holds, and it is recorded as her decision rather than as a gap.",
     content: {

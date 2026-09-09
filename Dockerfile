@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Clinical KB app tier (Next.js). See docs/deployment-architecture.md.
+# PsychSift app tier (Next.js). See docs/deployment-architecture.md.
 #
 # The repo is engine-strict (Node 24.x / npm 11.x via .npmrc + preinstall
 # guard), so every stage pins the same Node 24 base image. The build stage
@@ -87,7 +87,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
-COPY public ./public
+# From the build stage, not the build context: `stamp-service-worker.mjs` rewrites
+# public/sw.js during the build so the file's bytes differ per release, and a plain
+# `COPY public` would take the unstamped original straight from the context and silently
+# undo it. The runtime image must carry the artifact the build actually produced.
+COPY --from=build /app/public ./public
 COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts
 COPY --from=build /app/src/lib/observability/sentry-release.ts ./src/lib/observability/sentry-release.ts
 COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts
@@ -96,8 +100,8 @@ COPY package.json next.config.ts ./
 USER node
 EXPOSE 3000
 LABEL org.opencontainers.image.source="https://github.com/BigSimmo/Database"
-LABEL org.opencontainers.image.title="Clinical KB app tier"
-LABEL org.opencontainers.image.description="Next.js 16 app tier for the Clinical KB medical guideline RAG knowledge base"
+LABEL org.opencontainers.image.title="PsychSift app tier"
+LABEL org.opencontainers.image.description="Next.js 16 app tier for the PsychSift medical guideline RAG knowledge base"
 LABEL org.opencontainers.image.licenses="UNLICENSED"
 STOPSIGNAL SIGTERM
 # /api/health is the app's own ops health route.

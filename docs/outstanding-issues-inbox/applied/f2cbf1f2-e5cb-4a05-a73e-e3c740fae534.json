@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "f2cbf1f2-e5cb-4a05-a73e-e3c740fae534",
+  "createdOn": "2026-08-24",
+  "action": "cancel",
+  "payload": {
+    "requestId": "4e1ffb03-9151-4c88-a414-659a804b6a42",
+    "reason": "Superseded by f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1, the replacement #K9XD5N done request queued on this branch. Both close the same DegradedNotice CLS row against the same baseRowFingerprint."
+  }
+}

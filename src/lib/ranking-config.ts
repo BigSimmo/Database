@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { RagQueryClass } from "./types";
 
 // Central, tunable ranking configuration for the app-layer retrieval rerank (W6).
@@ -146,28 +148,97 @@ export const defaultRankingConfig: RankingConfig = {
   },
 };
 
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
+// Ranking scores are deliberately small in the evaluated defaults (generally << 1).
+// A ceiling of 10 remains broad enough for experiments while preventing an accidental
+// extreme value from overwhelming every other retrieval signal. Threshold-like values
+// use their natural [0, 1] domain, while freshness penalties may only demote.
+const rankingMagnitudeSchema = z.number().finite().min(0).max(10);
+const unitIntervalSchema = z.number().finite().min(0).max(1);
+const freshnessYearsSchema = z.number().finite().min(0).max(100);
+const freshnessRampYearsSchema = z.number().finite().gt(0).max(100);
+const freshnessPenaltySchema = z.number().finite().min(-1).max(0);
 
-function num(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
+const secondStageOverrideSchema = z
+  .object({
+    positionBase: rankingMagnitudeSchema.optional(),
+    positionStep: rankingMagnitudeSchema.optional(),
+    memorySummaryBoost: rankingMagnitudeSchema.optional(),
+    documentLookupTitleBoost: rankingMagnitudeSchema.optional(),
+    tableThresholdEvidenceBoost: rankingMagnitudeSchema.optional(),
+    doseAmountBoost: rankingMagnitudeSchema.optional(),
+    tableVisualBoost: rankingMagnitudeSchema.optional(),
+    visualBoost: rankingMagnitudeSchema.optional(),
+    visualIntelligenceMax: rankingMagnitudeSchema.optional(),
+    visualIntelligencePivot: unitIntervalSchema.optional(),
+    visualIntelligenceSlope: rankingMagnitudeSchema.optional(),
+    outdatedPenalty: rankingMagnitudeSchema.optional(),
+    unknownCurrentnessPenalty: rankingMagnitudeSchema.optional(),
+    poorExtractionPenalty: rankingMagnitudeSchema.optional(),
+    lowIndexQualityPenalty: rankingMagnitudeSchema.optional(),
+    lowIndexQualityThreshold: unitIntervalSchema.optional(),
+  })
+  .strict();
 
-function nonNegativeNum(value: unknown, fallback: number): number {
-  return Math.max(0, num(value, fallback));
-}
+const featureWeightsOverrideSchema = z
+  .object({
+    hybridRelevance: rankingMagnitudeSchema.optional(),
+    lexicalCoverage: rankingMagnitudeSchema.optional(),
+    reciprocalRankFusion: rankingMagnitudeSchema.optional(),
+    titleSectionRelevance: rankingMagnitudeSchema.optional(),
+    metadataRelevance: rankingMagnitudeSchema.optional(),
+    clinicalEvidence: rankingMagnitudeSchema.optional(),
+  })
+  .strict();
 
-function resolveFeatureWeights(value: unknown, fallback: RankingFeatureWeights): RankingFeatureWeights {
-  const raw = asRecord(value);
-  return {
-    hybridRelevance: nonNegativeNum(raw.hybridRelevance, fallback.hybridRelevance),
-    lexicalCoverage: nonNegativeNum(raw.lexicalCoverage, fallback.lexicalCoverage),
-    reciprocalRankFusion: nonNegativeNum(raw.reciprocalRankFusion, fallback.reciprocalRankFusion),
-    titleSectionRelevance: nonNegativeNum(raw.titleSectionRelevance, fallback.titleSectionRelevance),
-    metadataRelevance: nonNegativeNum(raw.metadataRelevance, fallback.metadataRelevance),
-    clinicalEvidence: nonNegativeNum(raw.clinicalEvidence, fallback.clinicalEvidence),
-  };
+const featureFusionOverrideSchema = z
+  .object({
+    document_lookup: featureWeightsOverrideSchema.optional(),
+    table_threshold: featureWeightsOverrideSchema.optional(),
+    medication_dose_risk: featureWeightsOverrideSchema.optional(),
+    comparison: featureWeightsOverrideSchema.optional(),
+    broad_summary: featureWeightsOverrideSchema.optional(),
+    unsupported_or_general: featureWeightsOverrideSchema.optional(),
+  })
+  .strict();
+
+const freshnessOverrideSchema = z
+  .object({
+    mode: z.enum(["step", "linear"]).optional(),
+    publicationCliffYears: freshnessYearsSchema.optional(),
+    publicationPenalty: freshnessPenaltySchema.optional(),
+    reviewCliffYears: freshnessYearsSchema.optional(),
+    reviewPenalty: freshnessPenaltySchema.optional(),
+    linearRampYears: freshnessRampYearsSchema.optional(),
+  })
+  .strict();
+
+const rankingConfigOverrideSchema = z
+  .object({
+    secondStage: secondStageOverrideSchema.optional(),
+    featureFusion: featureFusionOverrideSchema.optional(),
+    documentDiversityPenalty: rankingMagnitudeSchema.optional(),
+    documentDiversityPenaltyCap: rankingMagnitudeSchema.optional(),
+    freshness: freshnessOverrideSchema.optional(),
+  })
+  .strict();
+
+type RankingConfigOverride = z.infer<typeof rankingConfigOverrideSchema>;
+
+function parseRankingConfigOverride(raw: string): RankingConfigOverride {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Invalid RAG_RANKING_CONFIG: malformed JSON.");
+  }
+
+  const result = rankingConfigOverrideSchema.safeParse(parsed);
+  if (result.success) return result.data;
+
+  const details = result.error.issues
+    .map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "<root>"}: ${issue.message}`)
+    .join("; ");
+  throw new Error(`Invalid RAG_RANKING_CONFIG: ${details}`);
 }
 
 function round4(value: number): number {
@@ -175,64 +246,68 @@ function round4(value: number): number {
 }
 
 /**
- * Build a RankingConfig by deep-merging an optional JSON override (partial) over the
- * defaults. Unknown keys are ignored and non-numeric values fall back to the default, so a
- * malformed override can only ever degrade to current behavior — never crash retrieval.
- * Exported for unit testing.
+ * Build a RankingConfig by deep-merging an optional validated JSON override over the
+ * evaluated defaults. A non-empty override is fail-closed: malformed JSON, unknown keys,
+ * invalid types, out-of-domain values, and linear freshness ramps longer than either
+ * cliff throw a configuration error rather than silently changing or reverting retrieval
+ * behaviour. Exported for unit testing.
  */
 export function resolveRankingConfig(raw?: string | null): RankingConfig {
-  let parsed: Record<string, unknown> = {};
-  if (raw && raw.trim()) {
-    try {
-      parsed = asRecord(JSON.parse(raw));
-    } catch {
-      parsed = {};
-    }
-  }
+  const parsed: RankingConfigOverride = raw?.trim() ? parseRankingConfigOverride(raw) : {};
   const d = defaultRankingConfig;
-  const ss = asRecord(parsed.secondStage);
-  const fr = asRecord(parsed.freshness);
-  const fusion = asRecord(parsed.featureFusion);
+  const ss = parsed.secondStage ?? {};
+  const fr = parsed.freshness ?? {};
+  const fusion = parsed.featureFusion ?? {};
+  const freshness: FreshnessConfig = {
+    mode: fr.mode ?? d.freshness.mode,
+    publicationCliffYears: fr.publicationCliffYears ?? d.freshness.publicationCliffYears,
+    publicationPenalty: fr.publicationPenalty ?? d.freshness.publicationPenalty,
+    reviewCliffYears: fr.reviewCliffYears ?? d.freshness.reviewCliffYears,
+    reviewPenalty: fr.reviewPenalty ?? d.freshness.reviewPenalty,
+    linearRampYears: fr.linearRampYears ?? d.freshness.linearRampYears,
+  };
+
+  if (
+    freshness.mode === "linear" &&
+    (freshness.linearRampYears > freshness.publicationCliffYears ||
+      freshness.linearRampYears > freshness.reviewCliffYears)
+  ) {
+    throw new Error(
+      "Invalid RAG_RANKING_CONFIG: linearRampYears must not exceed publicationCliffYears or reviewCliffYears.",
+    );
+  }
+
   return {
     secondStage: {
-      positionBase: num(ss.positionBase, d.secondStage.positionBase),
-      positionStep: num(ss.positionStep, d.secondStage.positionStep),
-      memorySummaryBoost: num(ss.memorySummaryBoost, d.secondStage.memorySummaryBoost),
-      documentLookupTitleBoost: num(ss.documentLookupTitleBoost, d.secondStage.documentLookupTitleBoost),
-      tableThresholdEvidenceBoost: num(ss.tableThresholdEvidenceBoost, d.secondStage.tableThresholdEvidenceBoost),
-      doseAmountBoost: num(ss.doseAmountBoost, d.secondStage.doseAmountBoost),
-      tableVisualBoost: num(ss.tableVisualBoost, d.secondStage.tableVisualBoost),
-      visualBoost: num(ss.visualBoost, d.secondStage.visualBoost),
-      visualIntelligenceMax: num(ss.visualIntelligenceMax, d.secondStage.visualIntelligenceMax),
-      visualIntelligencePivot: num(ss.visualIntelligencePivot, d.secondStage.visualIntelligencePivot),
-      visualIntelligenceSlope: num(ss.visualIntelligenceSlope, d.secondStage.visualIntelligenceSlope),
-      outdatedPenalty: num(ss.outdatedPenalty, d.secondStage.outdatedPenalty),
-      unknownCurrentnessPenalty: Math.max(
-        0,
-        num(ss.unknownCurrentnessPenalty, d.secondStage.unknownCurrentnessPenalty),
-      ),
-      poorExtractionPenalty: num(ss.poorExtractionPenalty, d.secondStage.poorExtractionPenalty),
-      lowIndexQualityPenalty: num(ss.lowIndexQualityPenalty, d.secondStage.lowIndexQualityPenalty),
-      lowIndexQualityThreshold: num(ss.lowIndexQualityThreshold, d.secondStage.lowIndexQualityThreshold),
+      positionBase: ss.positionBase ?? d.secondStage.positionBase,
+      positionStep: ss.positionStep ?? d.secondStage.positionStep,
+      memorySummaryBoost: ss.memorySummaryBoost ?? d.secondStage.memorySummaryBoost,
+      documentLookupTitleBoost: ss.documentLookupTitleBoost ?? d.secondStage.documentLookupTitleBoost,
+      tableThresholdEvidenceBoost: ss.tableThresholdEvidenceBoost ?? d.secondStage.tableThresholdEvidenceBoost,
+      doseAmountBoost: ss.doseAmountBoost ?? d.secondStage.doseAmountBoost,
+      tableVisualBoost: ss.tableVisualBoost ?? d.secondStage.tableVisualBoost,
+      visualBoost: ss.visualBoost ?? d.secondStage.visualBoost,
+      visualIntelligenceMax: ss.visualIntelligenceMax ?? d.secondStage.visualIntelligenceMax,
+      visualIntelligencePivot: ss.visualIntelligencePivot ?? d.secondStage.visualIntelligencePivot,
+      visualIntelligenceSlope: ss.visualIntelligenceSlope ?? d.secondStage.visualIntelligenceSlope,
+      outdatedPenalty: ss.outdatedPenalty ?? d.secondStage.outdatedPenalty,
+      unknownCurrentnessPenalty: ss.unknownCurrentnessPenalty ?? d.secondStage.unknownCurrentnessPenalty,
+      poorExtractionPenalty: ss.poorExtractionPenalty ?? d.secondStage.poorExtractionPenalty,
+      lowIndexQualityPenalty: ss.lowIndexQualityPenalty ?? d.secondStage.lowIndexQualityPenalty,
+      lowIndexQualityThreshold: ss.lowIndexQualityThreshold ?? d.secondStage.lowIndexQualityThreshold,
     },
     featureFusion: Object.fromEntries(
       ragQueryClasses.map((queryClass) => [
         queryClass,
-        resolveFeatureWeights(fusion[queryClass], d.featureFusion[queryClass]),
+        {
+          ...d.featureFusion[queryClass],
+          ...(fusion[queryClass] ?? {}),
+        },
       ]),
     ) as Record<RagQueryClass, RankingFeatureWeights>,
-    documentDiversityPenalty: Math.max(0, num(parsed.documentDiversityPenalty, d.documentDiversityPenalty)),
-    documentDiversityPenaltyCap: Math.max(0, num(parsed.documentDiversityPenaltyCap, d.documentDiversityPenaltyCap)),
-    freshness: {
-      // Honor a valid explicit override; otherwise fall back to the default mode (not a hardcoded
-      // "step") so the eval-gated default actually takes effect at runtime.
-      mode: fr.mode === "linear" || fr.mode === "step" ? fr.mode : d.freshness.mode,
-      publicationCliffYears: num(fr.publicationCliffYears, d.freshness.publicationCliffYears),
-      publicationPenalty: num(fr.publicationPenalty, d.freshness.publicationPenalty),
-      reviewCliffYears: num(fr.reviewCliffYears, d.freshness.reviewCliffYears),
-      reviewPenalty: num(fr.reviewPenalty, d.freshness.reviewPenalty),
-      linearRampYears: Math.max(0.0001, num(fr.linearRampYears, d.freshness.linearRampYears)),
-    },
+    documentDiversityPenalty: parsed.documentDiversityPenalty ?? d.documentDiversityPenalty,
+    documentDiversityPenaltyCap: parsed.documentDiversityPenaltyCap ?? d.documentDiversityPenaltyCap,
+    freshness,
   };
 }
 

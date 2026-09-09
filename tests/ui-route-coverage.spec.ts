@@ -89,7 +89,7 @@ async function installOfflineApiFixtures(page: Page, problems: string[]) {
     if (pathname === "/api/local-project-id") {
       await route.fulfill({
         json: {
-          appName: "Clinical KB",
+          appName: "PsychSift",
           projectId: "route-coverage-fixture",
           identityPath: "/api/local-project-id",
           localServer: { safeLocalOrigin: true },
@@ -174,7 +174,7 @@ async function installOfflineApiFixtures(page: Page, problems: string[]) {
 async function installTherapyFixtures(page: Page) {
   await page.route("**/therapy-compass-data/*.json", async (route) => {
     const filename = new URL(route.request().url()).pathname.split("/").at(-1) ?? "";
-    if (!/^(?:therapies(?:-(?:home|index))?\.[a-f0-9]{16}|pathways|reference)\.json$/.test(filename)) {
+    if (!/^(?:therapies(?:-index)?\.[a-f0-9]{16}|pathways|reference)\.json$/.test(filename)) {
       await route.abort("blockedbyclient");
       return;
     }
@@ -277,7 +277,7 @@ test.describe("previously uncovered production routes", () => {
       "/therapy-compass",
       async (currentPage) => {
         // `/therapy-compass` redirects onto the shared home, whose per-mode title
-        // is a level-2 heading under the page's sr-only "Clinical Guide" h1.
+        // is a level-2 heading under the page's sr-only "PsychSift" h1.
         await expect(currentPage.getByRole("main")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Therapy", level: 2, exact: true })).toBeVisible({
           timeout: 30_000,
@@ -327,6 +327,9 @@ test.describe("previously uncovered production routes", () => {
 
     const card = page.locator("[data-therapy-result-card]").first();
     await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card).toHaveAttribute("data-therapy-result-featured", "");
+    await expect(card.getByText("Best match", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-therapy-result-highlight]")).toHaveCount(1);
 
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
@@ -334,10 +337,11 @@ test.describe("previously uncovered production routes", () => {
 
       const layout = await card.evaluate((element) => {
         const bounds = element.getBoundingClientRect();
+        const borderLeft = Number.parseFloat(getComputedStyle(element).borderLeftWidth);
         const copy = element.querySelector<HTMLElement>("[data-therapy-result-copy]")!.getBoundingClientRect();
         const evidence = element.querySelector<HTMLElement>("[data-therapy-result-evidence]")!.getBoundingClientRect();
         const actions = element.querySelector<HTMLElement>("[data-therapy-result-actions]")!;
-        const buttons = [...actions.querySelectorAll<HTMLButtonElement>("button")].map((button) => {
+        const buttons = [...actions.querySelectorAll<HTMLElement>("button, a")].map((button) => {
           const buttonBounds = button.getBoundingClientRect();
           return {
             left: buttonBounds.left,
@@ -349,6 +353,7 @@ test.describe("previously uncovered production routes", () => {
         });
         return {
           card: { left: bounds.left, right: bounds.right },
+          borderLeft,
           copyLeft: copy.left,
           evidence: { left: evidence.left, right: evidence.right },
           buttons,
@@ -356,9 +361,12 @@ test.describe("previously uncovered production routes", () => {
       });
 
       if (width < 640) {
-        expect(Math.abs(layout.evidence.left - layout.card.left), `${width}px evidence left edge`).toBeLessThanOrEqual(
-          1,
-        );
+        // Featured cards carry the intentional 3px best-match accent edge.
+        // The evidence panel remains full-bleed inside that border.
+        expect(
+          Math.abs(layout.evidence.left - (layout.card.left + layout.borderLeft)),
+          `${width}px evidence left edge`,
+        ).toBeLessThanOrEqual(1);
         expect(
           Math.abs(layout.card.right - layout.evidence.right),
           `${width}px evidence right edge`,
@@ -378,8 +386,8 @@ test.describe("previously uncovered production routes", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    const compare = card.locator("[data-therapy-result-actions] button").nth(1);
-    await expect(compare).toHaveAccessibleName("Compare");
+    const compare = card.locator("[data-therapy-result-actions] > a, [data-therapy-result-actions] > button").nth(1);
+    await expect(compare).toHaveAccessibleName("Add to compare");
     await compare.focus();
     const focusStyle = await compare.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -394,15 +402,27 @@ test.describe("previously uncovered production routes", () => {
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await expectNoHorizontalOverflow(page);
-    await expect(card.locator("[data-therapy-result-actions] button")).toHaveCount(3);
+    await expect(card.locator("[data-therapy-result-actions] button, [data-therapy-result-actions] a")).toHaveCount(3);
 
+    // Adding deliberately keeps the reader where they are. The set moves into
+    // the URL (so it is still shareable and survives a reload) and into the tray
+    // above the composer; the page does not change.
     await compare.focus();
     await page.keyboard.press("Space");
-    await expect(page).toHaveURL(/\/therapy-compass\/compare(?:\?.*)?$/);
-    const comparisonUrl = new URL(page.url());
-    expect(comparisonUrl.searchParams.get("q")).toBe("CBT");
-    expect(comparisonUrl.searchParams.get("ids")).toBeTruthy();
-    await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toBeVisible();
+    await expect(compare).toHaveAccessibleName("In compare tray");
+    await expect(page).toHaveURL(/\/therapy-compass\/search/);
+    // The set commits to component state first and reaches the URL through a
+    // `router.replace` soft navigation, so the accessible name flips before
+    // `page.url()` carries `ids`. Reading the URL straight after that name
+    // assertion is a race — it lost once under full-suite load on 2026-09-01
+    // (`ids` read as null) and passes in isolation. Wait for the parameter
+    // itself rather than for the route it was already on.
+    await expect(page).toHaveURL(/[?&]ids=/);
+    const stayedPut = new URL(page.url());
+    expect(stayedPut.searchParams.get("q")).toBe("CBT");
+    expect(stayedPut.searchParams.get("ids")).toBeTruthy();
+    await expect(page.getByTestId("therapy-compare-tray")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Therapy Comparison", level: 1 })).toHaveCount(0);
   });
 
   // `/dsm` redirects onto the shared home, so the route this proves is the shared
@@ -426,8 +446,8 @@ test.describe("previously uncovered production routes", () => {
           .getByRole("link", { name: "Compare", exact: true });
         await expect(compare).toBeVisible();
         await compare.click();
-        await expect(currentPage).toHaveURL(/\/dsm\/compare$/);
-        await expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();
+        await expect(currentPage).toHaveURL(/\/dsm\/compare/);
+        await expect(currentPage.getByRole("heading", { name: "Compare diagnoses", level: 1 })).toBeVisible();
       },
     );
   });
@@ -438,35 +458,31 @@ test.describe("previously uncovered production routes", () => {
       "/dsm/compare?ids=major-depressive-disorder,bipolar-ii-disorder",
       async (currentPage) => {
         await expect(visibleByTestId(currentPage, "dsm-comparison-page")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Compare DSM diagnoses", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Compare diagnoses", level: 1 })).toBeVisible();
       },
       async (currentPage) => {
         // Scope to the visible comparison owner (#093): under Production UI load,
-        // Next streaming can leave a hidden duplicate root, and same-route
-        // search-param soft-nav has been observed to click without updating the
-        // URL. Pin the visible tree and wait for navigation with the click
-        // (DsmCompareRemoveLink uses location.assign for this hop).
+        // Next streaming can leave a hidden duplicate root. Removal lives on the
+        // shared compare slot strip (`Remove ${title}`), not the old
+        // `DsmCompareRemoveLink` row.
         const pageRoot = visibleByTestId(currentPage, "dsm-comparison-page");
-        const remove = pageRoot.getByRole("link", {
-          name: "Remove Major depressive disorder from comparison",
+        const remove = pageRoot.getByRole("button", {
+          name: "Remove Major depressive disorder",
         });
         await expect(remove).toBeEnabled();
-        // `DsmCompareRemoveLink` is a `<Link>` whose `onClick` calls
-        // `preventDefault()` and then `window.location.assign(href)`. Before
-        // hydration the anchor is a bare `<a href>`, so a click there races two
-        // different navigations — the browser's native one, or React capturing
-        // the discrete event for replay once the root hydrates — and neither is
-        // guaranteed to leave the URL where this step asserts it. Waiting for
-        // the handler makes the assign hop the only path the click can take.
         await waitForReactEventHandler(remove);
+        // Slot clear commits through `router.push` with compacted ids. Wait for
+        // the URL only — same-route `?ids=` soft-nav may not fire a document load.
         await Promise.all([
           currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, {
             timeout: 30_000,
-            waitUntil: "domcontentloaded",
           }),
           remove.click(),
         ]);
-        await expect(currentPage.getByRole("heading", { name: "Choose at least two diagnoses" })).toBeVisible();
+        // Empty dashed panel is suppressed in favour of the compact slot rail
+        // and inline starter chips when fewer than two diagnoses remain.
+        await expect(currentPage.getByTestId("compare-slot-tile-compact").first()).toBeVisible();
+        await expect(currentPage.getByTestId("dsm-compare-starters").getByRole("link").first()).toBeVisible();
       },
     );
   });
@@ -496,19 +512,15 @@ test.describe("previously uncovered production routes", () => {
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Compare two specifiers", level: 1 })).toBeVisible();
-        await expect(currentPage.getByText("Find the deciding clinical difference.", { exact: true })).toBeVisible();
+        await expect(currentPage.getByText("Side-by-side review", { exact: true })).toBeVisible();
         await expect(currentPage.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
       },
       async (currentPage) => {
-        const selects = currentPage.locator("select");
-        const before = await selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value));
         const swap = currentPage.getByRole("button", { name: "Swap compared specifiers" });
         await expect(swap).toBeEnabled();
         await waitForReactEventHandler(swap);
         await swap.click();
-        await expect
-          .poll(() => selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value)))
-          .toEqual([before[1], before[0]]);
+        await expect(currentPage).toHaveURL(/\/specifiers\/compare\?a=with-anxious-distress&b=with-mixed-features$/);
       },
     );
   });
@@ -671,7 +683,7 @@ test.describe("previously uncovered production routes", () => {
       "/reference/colour-coding",
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Colour coding reference", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Colour coding & badges", level: 1 })).toBeVisible();
       },
       async (currentPage) => {
         const skipLink = currentPage.getByRole("link", { name: "Skip to main content" });
@@ -698,14 +710,21 @@ test.describe("previously uncovered production routes", () => {
     await expect(page.getByRole("heading", { name: "Tools", level: 1 })).toBeVisible();
   });
 
-  test("Medications index serves the Medication mode home", async ({ page }) => {
-    // Previously a 307 to `/?mode=prescribing`. `/` is now the shared home for
-    // every mode, so Medication owns a real home here instead of aliasing to it.
+  test("Medications index redirects to the shared home with prescribing preselected", async ({ page }) => {
+    // Consolidated like most other modes (2026-09): `/medications` no longer
+    // renders its own idle-view content (the retired Dose/Safety/Monitoring/Access
+    // shortcut pills), it forwards to the shared home. This test previously
+    // asserted the opposite — that `/medications` stayed on `/medications` and
+    // rendered its own body — with a comment reading "Previously a 307 to
+    // /?mode=prescribing", proving this exact reversal happened once before with
+    // no reason recorded in this repo's (squash-merged) git history. Reversing it
+    // again is a deliberate, approved product decision, not a rediscovery of the
+    // same mistake.
     await gotoApp(page, "/medications");
-    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/medications");
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/");
     const destination = new URL(page.url());
-    expect(destination.pathname).toBe("/medications");
-    expect(destination.searchParams.toString()).toBe("");
+    expect(destination.pathname).toBe("/");
+    expect(destination.searchParams.get("mode")).toBe("prescribing");
     await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
   });
 

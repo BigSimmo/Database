@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "42f4db5a-d945-435a-b40f-c2666ac685e8",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "check:repo-awareness-snapshot needs git, and nobody has established what it does without it",
+    "detail": "The gate shells out to git ls-files and git log through the generator, and it now sits in verify:cheap, verify:pr-local and CI. What it does in a git-less checkout - a git archive export, which is the very technique the Phase 2 spec section 8.2 names as a required proof - has never been tested. The generator itself is proven to fail loudly there, which is correct under ruling R5 because it only ever runs from docs:update. The gate is different: it runs in three gate chains, so a git-less environment turns a safety check into an unexplained failure. Establish the behaviour and document it, or make the gate skip explicitly with a stated reason rather than erroring.",
+    "source": "Phase 2 whole-branch review, PR #2359",
+    "issueUlid": "01M0V9N4MYJFRCZ45TKSZC48W5"
+  }
+}

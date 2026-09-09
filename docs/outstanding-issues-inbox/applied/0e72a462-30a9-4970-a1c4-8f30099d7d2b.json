@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "0e72a462-30a9-4970-a1c4-8f30099d7d2b",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Retrieval RPC still treats a null document owner as public, so the owner_id republication hole is only half closed",
+    "detail": "documents.owner_id is ON DELETE SET NULL while a null owner independently means 'public corpus', so deleting an auth user silently republishes that user's private documents. The application read paths were closed in the audit fix branch by requiring metadata.public_corpus (the marker publish_approved_documents always stamps, and it is the only writer of a null documents.owner_id). The retrieval RPC still maps the public sentinel to row_owner_id is null in SQL. NEXT: in an approved production window, either change documents.owner_id to ON DELETE RESTRICT or add an explicit visibility column, and align the RPC predicate. Merging a migration here auto-deploys to the live project, so this must not ride an ordinary PR. Offline proof available now: assert in tests/supabase-schema.test.ts that no table whose null owner means public declares ON DELETE SET NULL.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96Q1AZBAC9D65X54156CM"
+  }
+}

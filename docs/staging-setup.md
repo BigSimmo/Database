@@ -7,27 +7,14 @@ prod branch) and `docs/audit/capacity-review.md` §4 (the soak test that validat
 Staging is two independent tiers: a **staging Supabase project** (data) and a
 **staging app host** (compute). Do the data tier first — the app needs it.
 
-> **Current state (verified 2026-07-27):** Supabase project `ikoiolksxqxfxgiyqpnu`
-> and the Railway staging app already exist and are healthy. The app is in offline-provider mode,
-> the staging corpus is empty, and `search_schema_health()` passes. Do not create replacements.
-> **Revalidated 2026-07-30:** the staging project and app are still healthy, correctly identify as
-> staging, run with `RAG_PROVIDER_MODE=offline`, and have no OpenAI key. Linked migration history
-> had **24** local-only versions on 2026-07-30, remeasured to **26** on 2026-08-17 as `main`
-> advanced. **Resolved 2026-08-18 (Phase 2, ledger `#056`):** the gap measured **28** at the start
-> of the approved staging window (ten history holes plus eighteen versions after `20260719055623`)
-> and the full chain was replayed to parity — staging now holds **194** rows in
-> `supabase_migrations.schema_migrations`, latest `20260814151000`, zero `statements IS NULL`, and a
-> two-way diff against `supabase/migrations/` is empty. Each replayed row was verified byte-identical
-> to its repository file by md5. Evidence and the six replay findings:
-> [`docs/audit/live-drift-forensics-2026-08.md`](audit/live-drift-forensics-2026-08.md) § Phase 2.
-> The chain still grows every time `main` advances, so re-measure rather than trusting any fixed
-> number here. `supabase db push --linked --include-all --dry-run` prints the exact current chain.
-> Do not run a normal or partial push. Note that a plain `--include-all` push is **not** sufficient
-> on its own: four migrations exist as duplicate earlier/later version pairs, and pushing the earlier
-> copies re-applies older `create or replace function` bodies over newer ones — the later four must
-> be re-executed afterwards (Phase 2 finding 2). The chain includes the separately governed BMJ
-> attestation migration `20260727010000`. Reconcile the entire reviewed chain only in an approved
-> scope, then repeat the identity, indexing, health, and empty-data-boundary proof.
+> **Current data-tier state (read-only verification 2026-08-23):** the dedicated
+> staging project `ikoiolksxqxfxgiyqpnu` and production each report 211 migration
+> versions through `20260820120000`; ledger item `#056` is closed. This is a
+> point-in-time provider fact, not permission to apply future migrations.
+> **Compute-tier facts were last provider-verified 2026-07-30:** the Railway staging
+> app existed, was healthy, used `RAG_PROVIDER_MODE=offline`, and had no OpenAI key.
+> Revalidate those facts and the deployed SHA before release evidence. Do not create
+> a replacement environment merely because that dated verification needs renewal.
 
 The identity guard is already staging-aware (`src/lib/supabase/project.ts`): it
 accepts a second project **only** when you explicitly declare it via
@@ -49,18 +36,14 @@ those vars are unset.
 
    ```bash
    supabase link --project-ref <staging-ref>
-   # Unavailable until the divergent history is reconciled in an approved window:
-   # do not run a normal `supabase db push`. Preview the full reviewed chain first:
+   supabase migration list --linked
    supabase db push --linked --include-all --dry-run
-   # Only after explicit approval for the complete chain the dry-run just printed
-   # (26 versions as at 2026-08-17, and growing — never hardcode the count):
-   # supabase db push --linked --include-all
    ```
 
-   Preserve the repository migration versions exactly. Do not run a normal or partial push against
-   the current divergent history, and do not replay the missing chain through a helper that records
-   new timestamps. If the staging database credential is unavailable, stop and retain the migration
-   gap as operator debt instead of substituting a different apply mechanism.
+   Expect no pending versions on the verified baseline. If a reviewed migration is
+   intentionally pending, apply it only through the normal linked-project procedure
+   in an approved window, then repeat migration-history and drift checks. Stop on any
+   unexpected entry. Never substitute raw SQL, repair timestamps, or an untracked helper.
 
    Then confirm health: `npm run check:indexing` (runs `search_schema_health()`
    over the hybrid RPCs) should report ok.
@@ -134,17 +117,23 @@ Reuse the app image; only the environment variables differ.
 2. Tenancy isolation: configure the dedicated A/B test accounts and standalone
    workflow described in
    [`staging-tenancy-release-evidence.md`](staging-tenancy-release-evidence.md).
-   The harness requires an app deployment with `RAG_PROVIDER_MODE=offline` and is
-   hard-guarded against the production project.
-3. Load check — the soak test is hard-guarded against production:
+   Dispatch that workflow from a Git ref that resolves to the candidate SHA —
+   checkout SHA (`github.sha`) is compared to the deployed `/api/health` SHA
+   before any client or fixture work. The harness requires an app deployment
+   with `RAG_PROVIDER_MODE=offline` and is hard-guarded against the production
+   project.
+3. For the load profile only, redeploy the **same exact candidate image** with a
+   staging-only OpenAI key and `RAG_PROVIDER_MODE=auto`; verify `/api/health`
+   still reports the candidate SHA. Then run the authenticated soak:
 
    ```bash
-   npx tsx scripts/soak-test.ts --target https://<staging-host> \
+   SOAK_BEARER_TOKEN="$STAGING_ACCESS_TOKEN" npx tsx scripts/soak-test.ts --target https://<staging-host> \
      --confirm-staging --users 30 --duration-s 600 --ramp-s 120
    ```
 
    Success targets are in `docs/audit/capacity-review.md` §4 (search p95 ≤ 3 s,
-   answer p95 ≤ 25 s, non-429 error rate < 1 %).
+   answer p95 ≤ 25 s, non-429 error rate < 1 %, 429 rate ≤ 5 %, zero auth failures).
+   Afterwards restore the offline tenancy profile if the nightly workflow shares this service.
 
 ## What is operator-only (cannot be scripted here)
 

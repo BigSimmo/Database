@@ -122,9 +122,9 @@ export const sourceAuthorityRegistry = [
   }),
   authority({
     key: "wa-chief-psychiatrist",
-    codes: ["OCPWA"],
+    codes: ["OCPWA", "OCP WA"],
     publisher: "Office of the Chief Psychiatrist WA",
-    publisherAliases: ["Office of the Chief Psychiatrist", "Chief Psychiatrist of Western Australia"],
+    publisherAliases: ["Office of the Chief Psychiatrist", "Chief Psychiatrist of Western Australia", "Office of Chief Psychiatrist WA"],
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",

@@ -1,0 +1,50 @@
+The owner ruled on the parallel-referral badge, so it stops being marked undecided
+
+2026-08-31: a ward is NOT told that a patient is also referred elsewhere — not even the
+bare fact with nowhere named. The badge stays gone, and the code and test stop saying
+the question is open, because it is not.
+
+WHY THIS IS A COMMIT RATHER THAN A NOTE. The previous commit deliberately recorded this
+as provisional, listing every place an answer would land. That was right for an hour and
+became wrong the moment he answered. A marker announcing an open decision that has closed
+is the provisional-values rule failing in reverse — the next reader finds a live question
+and treats a settled answer as a placeholder. Same failure as a stale prohibition, aimed
+the other way.
+
+THE COST IS ACCEPTED, NOT RETIRED, AND THAT IS THE RULING RATHER THAN A FOOTNOTE.
+
+Twice it was argued that `withdrawnReferrals` already pays for hiding this, so strict was
+"free". It does not. `ACCEPT_IN_PRINCIPLE` is that field's only writer — measured, and now
+pinned by a test on Ward Core's side — so nothing reaches a ward until somebody accepts,
+and the deliberation window, the one window where a ward's decision is still open, is
+unprotected by construction. A ward may hold a bed for a patient who is going elsewhere.
+
+He was given that trade in plain terms — a bed possibly held empty, against a patient
+possibly deprioritised by every ward offered — and chose this side. That is a clinical
+price knowingly paid, and it is written down as one, because "free" and "worth it" decay
+differently: the first invites a future reader to undo the rule on discovering the cost.
+
+THE LOSING ARGUMENTS ARE KEPT, NOT DELETED, and this is the part I would defend hardest.
+The case FOR the badge is strong — the owner's own stated reason for the rule is "so a
+ward does not spend its time on a patient who is being placed elsewhere", which argues for
+telling the ward. A reader who rediscovers that with no record of it having been weighed
+would reasonably conclude nobody had thought about it. A decision survives on its
+argument; the argument it defeated is what stops it being relitigated from scratch.
+
+HOW THE QUESTION REACHED HIM AT ALL, since it nearly did not. One session ruled it strict
+on the ground that the cost was retired; the session that owns the rule retracted that
+premise, then restored it an hour later without withdrawing the retraction — because a
+ruling had landed in between and made its supporting arguments feel re-validated. Nothing
+in the code had changed, only the conclusion's popularity. It has since confirmed the
+measurement independently and agreed the restatement was wrong.
+
+That failure is worth more than this commit: it is not a wrong instrument giving a
+confident answer, which is the shape we have been cataloguing all night. It is a CORRECT
+instrument, already fired, whose result was discarded because the verdict went the way the
+reader would have voted.
+
+Verified: the guard runs green after the wording change, 1 file handed in, 1 ran, 2 passed,
+exit 0; prettier clean. Both assertions were mutation-proven in the previous commit and
+neither changed behaviour here — only what they say when they fail.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

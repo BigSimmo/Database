@@ -9,8 +9,14 @@ import restrictSuppressHydrationWarning from "./eslint-rules/restrict-suppress-h
 import noHardcodedHex from "./eslint-rules/no-hardcoded-hex.mjs";
 
 // Shared `local` plugin object. ESLint flat config requires every config block
-// that references a plugin namespace to point at the *same* object, so the two
-// local rules below — which want different mockup-ignore scopes — share this one.
+// that references a plugin namespace to point at the *same* object, and the five
+// local rules below are spread across four blocks with different `files`/`ignores`
+// combinations, so they all point at this one.
+//
+// The mockup-ignore scopes are no longer what separates them: every rule that
+// exempts mockups now uses the shared MOCKUP_IGNORES globs below. Until 2026-09-02
+// require-lucide-icon-aria carried its own broader `**/*mockup*` substring, which
+// is the exact over-match the MOCKUP_IGNORES comment warns about.
 const localRulesPlugin = {
   rules: {
     "require-lucide-icon-aria": requireLucideIconAria,
@@ -52,7 +58,7 @@ const eslintConfig = defineConfig([
   // can't silently reach the a11y tree. Mockups are design-scratch and exempt.
   {
     files: ["**/*.{jsx,tsx}"],
-    ignores: ["**/*mockup*", "**/mockups/**"],
+    ignores: MOCKUP_IGNORES,
     plugins: { local: localRulesPlugin },
     rules: {
       "local/require-lucide-icon-aria": "error",

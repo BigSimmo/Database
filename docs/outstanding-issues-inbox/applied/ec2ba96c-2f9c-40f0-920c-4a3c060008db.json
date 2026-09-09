@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ec2ba96c-2f9c-40f0-920c-4a3c060008db",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#0JGJTK",
+    "detail": "RECONSTRUCTED AND CONFIRMED 2026-09-06. src/components/calculator-mockups/calculator-pathways.ts still carries directive clinical instructions of the three kinds PR #2491 removed from the production calculators on clinical-safety grounds. Present today: line 65 'Screen for bipolarity before prescribing' with detail 'Run the MDQ below'; line 70 'Assess psychotic features and ECT indications'; line 240 'Consider admission or intensive community follow-up'; line 244 'Admission usually indicated - ensure immediate safety'. Production and mockup calculators are separate trees (src/components/calculators and src/components/calculator-mockups), which is how the removal reached one and not the other.\n\nWHY IT MATTERS: the mockup routes are developer-gated rather than unreachable, and the text is indistinguishable in tone from the production copy that was judged unsafe. A reader who lands on the mockup gets guidance the repository has already decided not to give. NEXT ACTION: apply the same removal to calculator-pathways.ts that #2491 applied to production, or, if these pathways are wanted as design fixtures, replace the directive wording with plainly non-clinical placeholder text. A gate that keeps the two trees aligned on this specific class of copy would stop it recurring.",
+    "baseRowFingerprint": "d3bcbc23d5f7a71f21927dd9a6bde923eb5f3e9636dbf12de15ddd5c86c974bf"
+  }
+}

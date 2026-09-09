@@ -36,7 +36,7 @@ const focusRing =
 const OBLIGATION = "Do not enter patient-identifiable information.";
 const PRIVACY_LINK = "Privacy and data processing";
 const SCOPE = "Searches indexed clinical sources";
-const LIBRARY = "Clinical Guide library";
+const LIBRARY = "PsychSift library";
 // The new fourth statement. Matches the voice already used elsewhere in the app
 // ("Clinical decision support only. Review before use.", "Confirm against
 // source") rather than inventing a new register.

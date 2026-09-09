@@ -18,7 +18,7 @@ export async function generateMetadata({ searchParams }: CompareRouteProps): Pro
   const names = [left?.shortName, right?.shortName].filter(Boolean);
 
   return {
-    title: `${names.length ? `Compare ${names.join(" and ")}` : "Compare psychiatric specifiers"} - Clinical KB`,
+    title: `${names.length ? `Compare ${names.join(" and ")}` : "Compare psychiatric specifiers"} - PsychSift`,
     description:
       left && right
         ? `Compare ${left.name} and ${right.name} side by side, including clinical signals, timing, and cautions.`
@@ -28,5 +28,13 @@ export async function generateMetadata({ searchParams }: CompareRouteProps): Pro
 
 export default async function SpecifierCompareRoute({ searchParams }: CompareRouteProps) {
   const params = searchParams ? await searchParams : {};
-  return <SpecifierComparePage initialLeft={first(params.a)} initialRight={first(params.b)} />;
+  const initialLeft = first(params.a);
+  const initialRight = first(params.b);
+  return (
+    <SpecifierComparePage
+      key={`${initialLeft ?? ""}:${initialRight ?? ""}`}
+      initialLeft={initialLeft}
+      initialRight={initialRight}
+    />
+  );
 }

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "fe8fcfbf-8d4b-4bc0-9606-afe09ae7736c",
+  "createdOn": "2026-08-24",
+  "action": "cancel",
+  "payload": {
+    "requestId": "6d5512aa-1337-470c-98ab-4116a4143393",
+    "reason": "Superseded by fb387f38-d049-4320-9f6e-a7d2b068641e, the replacement #308 done request queued on this branch. Both close the same documents/search composer-reserve CLS row against the same baseRowFingerprint."
+  }
+}

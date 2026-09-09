@@ -155,7 +155,7 @@ export async function POST(request: Request) {
       observationContext,
       signal: request.signal,
     });
-    const governedResponse = buildGovernedAnswerClientResponse(observeRagAnswer(answer, observationContext));
+    const governedResponse = buildGovernedAnswerClientResponse(answer);
     await persistAnswerDiagnostics({
       supabase,
       query: answerBody.query,

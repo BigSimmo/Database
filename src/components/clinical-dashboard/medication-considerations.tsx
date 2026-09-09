@@ -14,7 +14,12 @@ import {
 import Link from "next/link";
 import { useMemo } from "react";
 
-import { BadgeCluster, ClinicalBadge, type ClinicalBadgeItem } from "@/components/clinical-dashboard/clinical-badge";
+import {
+  BadgeCluster,
+  ClinicalBadge,
+  clinicalBadgeToneClass,
+  type ClinicalBadgeItem,
+} from "@/components/clinical-dashboard/clinical-badge";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import {
   evaluateMedicationInteractions,
@@ -126,6 +131,53 @@ export function verdictSummaryBadge(verdict: MedicationVerdict): ClinicalBadgeIt
     tone: "success",
     icon: verdictIcon("success"),
   };
+}
+
+const PATIENT_VERDICT_COPY: Record<SemanticTone, { label: string; context: string }> = {
+  danger: { label: "Danger", context: "For this patient" },
+  warning: { label: "Caution", context: "For this patient" },
+  neutral: { label: "Manual review", context: "Patient check incomplete" },
+  success: { label: "No alert found", context: "From entered details" },
+  clinical: { label: "Clinical action", context: "For this patient" },
+  info: { label: "Patient information", context: "Review for this patient" },
+};
+
+/**
+ * Dedicated patient-specific verdict band for search results.
+ *
+ * Match quality and catalogue metadata remain ordinary badges. This band owns
+ * the safety hierarchy, states the severity in words, and keeps the result
+ * scoped to the entered patient details so colour is never the only signal and
+ * a non-firing check is never presented as a general guarantee.
+ */
+export function PatientVerdictSignal({ verdict, className }: { verdict: MedicationVerdict; className?: string }) {
+  const summary = verdictSummaryBadge(verdict);
+  const copy = PATIENT_VERDICT_COPY[verdict.tone];
+  // Indexing the stable map keeps the rendered component static for React lint.
+  const Icon = VERDICT_ICONS[verdict.tone];
+
+  return (
+    <div
+      role="group"
+      aria-label={`${copy.label}. ${copy.context}. ${summary.label}.`}
+      data-patient-verdict-signal="true"
+      data-tone={verdict.tone}
+      className={cn(
+        "flex min-w-0 items-center gap-2 rounded-md border border-l-[3px] px-2 py-1.5 shadow-[var(--shadow-inset)]",
+        clinicalBadgeToneClass(verdict.tone),
+        className,
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span className="min-w-0 leading-tight">
+        <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+          <span className="text-2xs font-extrabold uppercase tracking-eyebrow">{copy.label}</span>
+          <span className="text-2xs font-semibold opacity-80">{copy.context}</span>
+        </span>
+        <span className="mt-0.5 block break-words text-xs font-semibold">{summary.label}</span>
+      </span>
+    </div>
+  );
 }
 
 /**
@@ -312,13 +364,34 @@ function considerationBadges(consideration: MedicationConsideration): ClinicalBa
 }
 
 /**
+ * Serial list for contraindication and advisory missing input lists: "eGFR",
+ * "eGFR and QTc", "eGFR, QTc and hepatic status". The sentence continues into a
+ * relative clause immediately after the list, so a bare comma join ("use eGFR,
+ * QTc, which this profile does not include") reads as one run-on and hides where
+ * the list ends. Formatted with serial "and" / Oxford conjunction.
+ */
+export function formatInputList(items: readonly string[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/**
  * Detail-page block: evaluates the entered profile against a single medication
  * and renders the applicable considerations, an all-clear when none apply, and a
- * hint for any contraindication gate the profile did not supply.
+ * hint for any gate the profile did not supply — split into the contraindication
+ * tier and the dosing/monitoring tier, which carry different consequences.
+ *
+ * The all-clear is conditional, exactly as the interactions block below is: an
+ * empty list with an unread gate is "we could not check", not "we checked and
+ * found nothing", so the notice drops to neutral and points at the gap. A green
+ * banner with "Enter eGFR" underneath it is the failure this guards against.
  */
 export function MedicationConsiderations({ record, className }: { record: MedicationRecord; className?: string }) {
   const { profile, isEmpty } = usePatientProfile();
   const result = useMemo(() => evaluatePatientAlerts(record, profile), [record, profile]);
+  // Either tier is enough to disqualify the all-clear: both mean a criterion on
+  // this medication was never evaluated.
+  const hasUnassessedGates = result.unassessed.length > 0 || result.unassessedAdvisory.length > 0;
 
   return (
     <section aria-label="Patient considerations" className={cn("space-y-2", className)}>
@@ -340,8 +413,15 @@ export function MedicationConsiderations({ record, className }: { record: Medica
           medication.
         </div>
       ) : result.considerations.length === 0 ? (
-        <InlineNotice tone="success">
-          No matching considerations for the entered patient profile. Always confirm against source.
+        <InlineNotice tone={hasUnassessedGates ? "neutral" : "success"}>
+          {hasUnassessedGates ? (
+            <>
+              No considerations matched the details entered. Some checks could not be run — see below. Always confirm
+              against source.
+            </>
+          ) : (
+            <>No matching considerations for the entered patient profile. Always confirm against source.</>
+          )}
         </InlineNotice>
       ) : (
         <div className="space-y-2">
@@ -358,9 +438,32 @@ export function MedicationConsiderations({ record, className }: { record: Medica
         </div>
       )}
 
+      {/* Two tiers, two sentences. The contraindication tier keeps the accented
+          `info` treatment it already had; the advisory tier sits below it in
+          neutral, so the visual order matches the clinical order without either
+          gap being folded into the other — or into the all-clear above. */}
       {!isEmpty && result.unassessed.length > 0 ? (
         <InlineNotice tone="info">
-          Enter {result.unassessed.join(", ")} to fully assess this medication&rsquo;s contraindications.
+          Not assessed. Contraindication checks for this medication use {formatInputList(result.unassessed)}, which this
+          profile does not include. Enter {result.unassessed.length === 1 ? "it" : "them"}, or check the source, before
+          treating this panel as complete.
+        </InlineNotice>
+      ) : null}
+
+      {/* The closing clause states what is missing, never whether the entry
+          applies. Gates are now collected from rows that FIRED as well, so an
+          advisory row can be rendered above as a live alert while one of its
+          other criteria is still unread — "enter it to see whether it applies"
+          would then invite deferring an alert that already applies. What the
+          system can stand behind is narrower and always true: the input is
+          absent, and entering it completes the check. */}
+      {!isEmpty && result.unassessedAdvisory.length > 0 ? (
+        <InlineNotice tone="neutral">
+          Not assessed. {result.unassessedAdvisoryCount} dosing and monitoring{" "}
+          {result.unassessedAdvisoryCount === 1 ? "entry uses" : "entries use"}{" "}
+          {formatInputList(result.unassessedAdvisory)}, which this profile does not include. Enter{" "}
+          {result.unassessedAdvisory.length === 1 ? "it" : "them"} to complete{" "}
+          {result.unassessedAdvisoryCount === 1 ? "that check" : "those checks"}.
         </InlineNotice>
       ) : null}
 

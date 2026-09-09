@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "49f30608-6d21-402d-82fb-c12fcca2f3d4",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#KN2KP2",
+    "outcome": "Derived Sources sub-route exclusions from navigation registry",
+    "baseRowFingerprint": "d057ae0990ef754f0111153b0682908839777c9993b989edb1e0b41cc50bcc5e"
+  }
+}

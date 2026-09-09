@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { sourceSegment } from "./helpers/source-contract";
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 import {
   agentFailureDecision,
   completionGateFromRow,
   deferralDecision,
+  isAllowedAgentMethod,
   metadataNumber,
   missingArtifactPlan,
+  parseAgentClaimLimit,
   parseJobStatusRpcResult,
+  runClaimedJobBatch,
   shouldRunVisualArtifacts,
   type CompletionGateRow,
 } from "../supabase/functions/indexing-v3-agent/behavior";
@@ -210,6 +213,47 @@ describe("indexing-v3-agent behavior", () => {
     }
   });
 
+  // #W98GR7 claimed the agent deletes an artifact family BEFORE calling OpenAI, so a
+  // provider outage leaves the family permanently empty. It does the opposite, and the
+  // assertion above does not prove it: that one pins delete-before-insert INSIDE the
+  // transaction, and would stay green if the embedding call were moved inside `sql.begin`,
+  // which is exactly the arrangement the issue describes.
+  //
+  // This pins the ordering the refutation actually rests on. The `await embeddingBatch(...)`
+  // completes before `sql.begin` is entered, so an outage throws before any delete happens,
+  // and the delete and insert then share one transaction, so a failed insert rolls the
+  // delete back. Static source assertion like its neighbour, because index.ts is
+  // Deno-runtime code Vitest cannot execute — worth saying plainly rather than implying
+  // behavioural coverage that does not exist.
+  it("calls OpenAI before it deletes anything, so an outage cannot empty a family", async () => {
+    const edgeSource = String(
+      await import("node:fs/promises").then((fs) =>
+        fs.readFile(new URL("../supabase/functions/indexing-v3-agent/index.ts", import.meta.url), "utf8"),
+      ),
+    );
+    const functionBody = (name: string, nextName: string) =>
+      sourceSegment(edgeSource, `async function ${name}`, `async function ${nextName}`, {
+        label: `indexing-v3-agent function ${name}`,
+      });
+
+    for (const [name, nextName] of [
+      ["upsertMemoryCardsFromSections", "upsertSectionIndexUnits"],
+      ["upsertSectionIndexUnits", "upsertVisualArtifacts"],
+      ["upsertVisualArtifacts", "upsertCoreEmbeddingFields"],
+      ["upsertCoreEmbeddingFields", "updateQuality"],
+    ]) {
+      const body = functionBody(name, nextName);
+      const embedding = body.indexOf("await embeddingBatch(");
+      const transaction = body.indexOf("await sql.begin(async (tx) =>");
+      expect(embedding, `${name} must call embeddingBatch`).toBeGreaterThanOrEqual(0);
+      expect(transaction, `${name} must open a transaction`).toBeGreaterThanOrEqual(0);
+      expect(embedding, `${name} must await OpenAI before opening the transaction`).toBeLessThan(transaction);
+      // And no second embedding call inside the transaction, which would reintroduce the
+      // reported failure mode for the part of the family written after it.
+      expect(body.slice(transaction)).not.toContain("await embeddingBatch(");
+    }
+  });
+
   it("normalizes metadata counters for repeated idempotent runs", () => {
     expect(metadataNumber({ indexing_v3_agent_deferral_count: "4" }, "indexing_v3_agent_deferral_count")).toBe(4);
     expect(metadataNumber({ indexing_v3_agent_deferral_count: "bad" }, "indexing_v3_agent_deferral_count")).toBe(0);
@@ -275,5 +319,92 @@ describe("indexing-v3-agent behavior", () => {
       status: "completed",
       missing: [],
     });
+  });
+});
+
+describe("indexing-v3-agent claimed-batch request loop (L13)", () => {
+  type Job = { id: string };
+
+  it("does not strand the rest of the claimed batch when recording one job's failure throws", async () => {
+    const processed: string[] = [];
+    const failureAttempts: string[] = [];
+
+    const outcome = await runClaimedJobBatch<Job>([{ id: "a" }, { id: "b" }, { id: "c" }], {
+      processJob: async (job) => {
+        if (job.id === "a") throw new Error("stage 3 blew up");
+        processed.push(job.id);
+        return { status: "completed", missing: [] };
+      },
+      markJobFailure: async (job) => {
+        failureAttempts.push(job.id);
+        // update_indexing_v3_agent_job_status returned ok:false, or the DB was
+        // unreachable while recording the first failure of the batch.
+        throw new Error("update_indexing_v3_agent_job_status returned ok:false");
+      },
+    });
+
+    // The whole point: siblings b and c must still be processed rather than
+    // left `processing` under a lock until the 45-minute stale reclaim.
+    expect(processed).toEqual(["b", "c"]);
+    expect(failureAttempts).toEqual(["a"]);
+    expect(outcome.processed).toBe(2);
+    expect(outcome.failed).toBe(1);
+    expect(outcome.failures).toHaveLength(1);
+    expect(outcome.failures[0]?.job).toEqual({ id: "a" });
+    expect(outcome.failures[0]?.error).toBe("stage 3 blew up");
+    expect(outcome.failures[0]?.failure_record_error).toBe("update_indexing_v3_agent_job_status returned ok:false");
+  });
+
+  it("counts completions, deferrals and failures across the batch", async () => {
+    const outcome = await runClaimedJobBatch<Job>([{ id: "a" }, { id: "b" }, { id: "c" }], {
+      processJob: async (job) => {
+        if (job.id === "b") return { status: "deferred", missing: ["generated_labels"] };
+        if (job.id === "c") throw new Error("boom");
+        return { status: "completed", missing: [] };
+      },
+      markJobFailure: async () => undefined,
+    });
+
+    expect(outcome).toEqual({
+      processed: 1,
+      deferred: 1,
+      failed: 1,
+      deferrals: [{ job: { id: "b" }, missing: ["generated_labels"] }],
+      failures: [{ job: { id: "c" }, error: "boom", failure_record_error: null }],
+    });
+  });
+
+  it("rejects a NaN limit instead of casting it into the claim RPC", () => {
+    expect(parseAgentClaimLimit("abc")).toBe(8);
+    expect(parseAgentClaimLimit("")).toBe(8);
+    expect(parseAgentClaimLimit(null)).toBe(8);
+    expect(parseAgentClaimLimit("Infinity")).toBe(8);
+    expect(parseAgentClaimLimit("0")).toBe(1);
+    expect(parseAgentClaimLimit("-5")).toBe(1);
+    expect(parseAgentClaimLimit("12.7")).toBe(12);
+    expect(parseAgentClaimLimit("999")).toBe(50);
+    expect(parseAgentClaimLimit("8")).toBe(8);
+  });
+
+  it("accepts only POST on the mutating claim endpoint", async () => {
+    expect(isAllowedAgentMethod("POST")).toBe(true);
+    expect(isAllowedAgentMethod("GET")).toBe(false);
+    expect(isAllowedAgentMethod("HEAD")).toBe(false);
+    expect(isAllowedAgentMethod("DELETE")).toBe(false);
+
+    const edgeSource = String(
+      await import("node:fs/promises").then((fs) =>
+        fs.readFile(new URL("../supabase/functions/indexing-v3-agent/index.ts", import.meta.url), "utf8"),
+      ),
+    );
+    const handler = sourceFrom(edgeSource, "Deno.serve({ port:", {
+      label: "indexing-v3-agent request handler",
+    });
+    expect(handler).toContain("isAllowedAgentMethod(req.method)");
+    expect(handler).toContain("parseAgentClaimLimit(");
+    expect(handler).toContain("runClaimedJobBatch(");
+    // The unguarded `await markJobFailure(job, msg)` in the catch is what
+    // stranded the batch; it must not come back.
+    expect(handler).not.toContain("await markJobFailure(job, msg)");
   });
 });

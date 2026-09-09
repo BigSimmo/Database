@@ -208,10 +208,18 @@ describe("shared header hide/reveal wiring", () => {
     expect(shellSource).toContain("usePhoneOverlayChromeReserve()");
     expect(shellSource).toContain("max-sm:pt-[var(--phone-overlay-chrome-h)]");
     // Both hosts overlay their phone chrome, so both publish and consume the
-    // reserve. The dashboard's answer mode keeps its own glass-bar reserve on
-    // <main>, so its clearance is scoped to the other modes.
+    // reserve. Answer *results* keep the glass-bar pad on <main>. Answer *home*
+    // on phones uses the same overlay token as every other overlay home so the
+    // idle cluster is not double-padded against a second 4rem+safe-area floor.
     expect(dashboardCoordinatorSource).toContain("usePhoneOverlayChromeReserve()");
-    expect(dashboardSource).toContain('searchMode !== "answer" && "max-sm:pt-[var(--phone-overlay-chrome-h)]"');
+    expect(dashboardSource).toContain('searchMode === "answer" && compactMobileModeHome');
+    expect(dashboardSource).toContain(
+      '"max-sm:pt-[var(--phone-overlay-chrome-h)] sm:pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] sm:[scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"',
+    );
+    expect(dashboardSource).toContain(
+      '"pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"',
+    );
+    expect(dashboardSource).toContain(': "max-sm:pt-[var(--phone-overlay-chrome-h)]"');
     expect(reserveHookSource).toContain('const reserveProperty = "--phone-overlay-chrome-h"');
     // The property must be seeded in CSS and refined before paint. A passive
     // effect or a `,0px` fallback paints content under the out-of-flow header
@@ -277,7 +285,7 @@ describe("shared header hide/reveal wiring", () => {
     expect(shellSource).toContain('data-testid="desktop-page-search-composer-slot"');
     expect(shellSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
     expect(shellSource).toContain(
-      'className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"',
+      'className="desktop-page-composer-slot hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"',
     );
     // Dashboard result slot lives in a budget-extracted helper so ClinicalDashboard
     // stays under the maintainability no-growth ceiling.
@@ -285,7 +293,7 @@ describe("shared header hide/reveal wiring", () => {
     expect(dashboardResultComposerSlotSource).toContain('data-testid="desktop-page-search-composer-slot"');
     expect(dashboardResultComposerSlotSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
     expect(dashboardResultComposerSlotSource).toContain(
-      'className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"',
+      'className="desktop-page-composer-slot hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"',
     );
     expect(behaviourDocSource).toContain("Tablet and desktop search are page-owned");
   });
@@ -378,7 +386,12 @@ describe("shared header hide/reveal wiring", () => {
     // let it escape to whichever ancestor happens to be positioned. `sm:sticky`
     // stays scoped to `sm+` because below that the portal hands the subtree to
     // the universal collapse row, which owns the motion.
-    expect(inPageNavHeaderSource).toContain("relative z-30 border-b");
+    // z-20, not z-30: this bar is a DOM sibling of MasterSearchHeader (it
+    // renders inside <main>, after the header), not nested inside its stacking
+    // context, so an equal z-30 would win same-index DOM-order ties on desktop
+    // and paint over (and swallow clicks meant for) the open Mode menu.
+    expect(inPageNavHeaderSource).toContain("relative z-20 border-b");
+    expect(inPageNavHeaderSource).toContain("inpage-nav-header");
     expect(inPageNavHeaderSource).toContain("sm:sticky sm:top-0");
     expect(inPageNavHeaderSource).not.toContain("max-sm:static sm:sticky sm:top-0");
     // One collapse owner: the shared header must never grow a scroll listener of
@@ -413,9 +426,16 @@ describe("shared header hide/reveal wiring", () => {
 
     // The labelled strip is the `sm+` affordance only; phones navigate from the
     // header disclosure and its sheet, so there is no strip to clip at 320px.
-    expect(differentialDetailSource).toContain(
-      'className="hidden border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)] sm:flex"',
+    //
+    // Asserted as breakpoint behaviour rather than as the strip's exact class
+    // string: this contract is about there being no second phone affordance,
+    // and pinning the visual treatment made a restyle of the rail read as a
+    // chrome-ownership regression.
+    const tabRail = differentialDetailSource.slice(
+      differentialDetailSource.indexOf('role="tablist"'),
+      differentialDetailSource.indexOf('aria-label="Diagnosis sections"'),
     );
+    expect(tabRail).toMatch(/className="hidden [^"]*\bsm:flex\b/);
 
     // The page must not grow a second scroll-hide owner for this chrome.
     expect(differentialDetailSource).not.toContain("useHideOnScroll");
@@ -542,8 +562,10 @@ describe("shared header hide/reveal wiring", () => {
   it("rebases the reporter when a host swaps its scroll geometry", () => {
     // ClinicalDashboard toggling answer mode adds/removes <main>'s header
     // reserve; a carried-over offset spends the first post-switch scroll on a
-    // spurious hide or reveal.
-    expect(hookSource).toContain("}, [allowAllBreakpoints, resetKey]);");
+    // spurious hide or reveal. Visibility is also bound to the key that
+    // produced it so stale hidden chrome cannot paint before the effect runs.
+    expect(hookSource).toContain("Object.is(visibility.resetKey, resetKey) ? visibility.hidden : false");
+    expect(hookSource).toContain("}, [allowAllBreakpoints, commitHidden, resetKey]);");
   });
 
   it("holds transition anchoring through the final CSS frame", () => {

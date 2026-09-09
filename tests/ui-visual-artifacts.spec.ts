@@ -20,7 +20,7 @@ async function attachViewportScreenshot(
   });
 }
 
-test.describe("Clinical KB visual QA artifacts", () => {
+test.describe("PsychSift visual QA artifacts", () => {
   test("captures dashboard and document viewer screenshots", async ({ page }, testInfo) => {
     test.setTimeout(60_000);
     await attachViewportScreenshot(page, testInfo, "dashboard-mobile", { width: 390, height: 820 }, "/");

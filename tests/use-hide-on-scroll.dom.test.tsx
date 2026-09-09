@@ -1,7 +1,30 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { useDocumentScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import {
+  useDocumentScrollHideReporter,
+  useScrollHideReporter,
+} from "@/components/clinical-dashboard/use-hide-on-scroll";
+
+describe("useScrollHideReporter route resets", () => {
+  it("reveals chrome during the first render for a new route key", () => {
+    const { result, rerender } = renderHook(({ resetKey }) => useScrollHideReporter(false, true, resetKey), {
+      initialProps: { resetKey: "/documents/search" },
+    });
+
+    act(() => {
+      result.current.reportScroll({ offset: 80, maxOffset: 2_000 });
+      result.current.reportScroll({ offset: 104, maxOffset: 2_000 });
+    });
+    expect(result.current.hidden).toBe(true);
+
+    // The route render itself must reveal the header. Waiting for an effect or
+    // animation frame allows the previous route's translated overlay to paint
+    // while its constant top reserve remains as an empty band.
+    rerender({ resetKey: "/documents/11111111-1111-4111-8111-111111111111" });
+    expect(result.current.hidden).toBe(false);
+  });
+});
 
 describe("useDocumentScrollHideReporter composer focus", () => {
   afterEach(() => {

@@ -1,0 +1,286 @@
+// tests/ward-patient-search.test.ts
+import { referralState } from "../src/components/ward-management/ward-referrals";
+import { describe, expect, it } from "vitest";
+
+import { isOpen, searchMovements, searchPatients } from "../src/components/ward-management/ward-derivations";
+import { seedWardFlowState } from "../src/components/ward-management/ward-flow-reducer";
+import { findPatients } from "../src/components/ward-management/ward-patients";
+import type { Movement } from "../src/components/ward-management/ward-model";
+
+const { movements, units, referrals, patients } = seedWardFlowState();
+const openIds = movements
+  .filter(isOpen)
+  .map((movement) => movement.id)
+  .sort();
+
+describe("searchMovements", () => {
+  it("returns every open movement for an empty query, and nothing closed", () => {
+    const result = searchMovements(movements, units, { text: "" });
+    expect(result.map((movement) => movement.id).sort()).toEqual(openIds);
+  });
+
+  it("returns every open movement for a whitespace-only query", () => {
+    const result = searchMovements(movements, units, { text: "   " });
+    expect(result.map((movement) => movement.id).sort()).toEqual(openIds);
+  });
+
+  // Measured directly against the real fixture at NOW_ANCHOR (2026-08-25): WF-003 is the only
+  // 3-digit movement id containing "wf-003" as a substring, so this is exact by construction, not
+  // by luck. Uppercase-vs-lowercase both sides proves the match is case-insensitive.
+  it("matches on movement id, case-insensitively", () => {
+    const result = searchMovements(movements, units, { text: "wf-003" });
+    expect(result.map((movement) => movement.id)).toEqual(["WF-003"]);
+  });
+
+  // Measured: exactly four OPEN movements carry originEdId "arm-ed" — WF-001, WF-011, WF-315,
+  // WF-323 (a fifth, WF-307, also has "arm-ed" but is closed and must be excluded — see the
+  // dedicated "never returns a closed movement" test below for that exclusion asserted directly).
+  it("matches on originEdId, case-insensitively", () => {
+    const result = searchMovements(movements, units, { text: "ARM-ED" });
+    expect(result.map((movement) => movement.id).sort()).toEqual(["WF-001", "WF-011", "WF-315", "WF-323"]);
+  });
+
+  // Measured: WF-003 and WF-014 are the only OPEN movements whose resolved destination unit is
+  // "rph-adult-secure" (RPH Adult Secure). The query text here is the hyphenated unit ID, which
+  // does not appear anywhere in the unit's own display name ("RPH Adult Secure" uses spaces, not
+  // hyphens) — so a match here can only have come from `destinationUnit(...).id`, not `.name`.
+  it("matches on the resolved destination unit's id", () => {
+    const result = searchMovements(movements, units, { text: "rph-adult-secure" });
+    expect(result.map((movement) => movement.id).sort()).toEqual(["WF-003", "WF-014"]);
+  });
+
+  // Same two movements, but the query text here is the space-separated display name. That string
+  // does not appear anywhere in the unit's own hyphenated id ("rph-adult-secure" has no spaces),
+  // and it does not appear in either movement's originEdId, stage label, or owner either — so a
+  // match here can only have come from `destinationUnit(...).name`, not `.id`.
+  it("matches on the resolved destination unit's name", () => {
+    const result = searchMovements(movements, units, { text: "RPH Adult Secure" });
+    expect(result.map((movement) => movement.id).sort()).toEqual(["WF-003", "WF-014"]);
+  });
+
+  // Measured: exactly seven OPEN movements sit in "pulled" — WF-004, WF-011, WF-016, WF-304,
+  // WF-311, WF-318, WF-325. The query text is the human-readable stage LABEL ("Bed pulled"), not the
+  // raw enum value — searching the raw enum "pulled" (with the underscore) matches nothing,
+  // proving the match is against `stageCopy[...].label` (what the results table actually shows),
+  // not the internal MovementStage string.
+  it("matches on the stage's display label, not the raw enum value", () => {
+    const byLabel = searchMovements(movements, units, { text: "Bed pulled" });
+    expect(byLabel.map((movement) => movement.id).sort()).toEqual([
+      "WF-004",
+      "WF-011",
+      "WF-016",
+      "WF-304",
+      "WF-311",
+      "WF-318",
+      "WF-325",
+    ]);
+
+    /*
+     * ⚠️ THE PROBE MOVED WHEN `bed_held` BECAME `pulled`, AND THE REASON IS WORTH KEEPING.
+     * This searched the raw enum "pulled" and expected nothing, because the old enum `bed_held`
+     * carried an underscore that its label "Bed held" did not. **The new enum `pulled` is a plain
+     * SUBSTRING of its own label "Bed pulled", so no search can distinguish them** - the assertion
+     * became unsatisfiable rather than wrong.
+     *
+     * `accepted_awaiting_bed` still carries underscores no label contains, so it tests the same
+     * property: search matches what a person READS, never the value stored underneath.
+     */
+    const byRawEnum = searchMovements(movements, units, { text: "accepted_awaiting_bed" });
+    expect(byRawEnum).toEqual([]);
+  });
+
+  // Measured: WF-015 is the only OPEN movement whose owner is "Ward nurse in charge". Mixed case
+  // proves case-insensitivity on this field too.
+  it("matches on owner, case-insensitively", () => {
+    const result = searchMovements(movements, units, { text: "ward NURSE in charge" });
+    expect(result.map((movement) => movement.id)).toEqual(["WF-015"]);
+  });
+
+  it("the stage filter is an exact match, not a substring match", () => {
+    const result = searchMovements(movements, units, { text: "", stage: "pulled" });
+    expect(result.map((movement) => movement.id).sort()).toEqual([
+      "WF-004",
+      "WF-011",
+      "WF-016",
+      "WF-304",
+      "WF-311",
+      "WF-318",
+      "WF-325",
+    ]);
+    expect(result.every((movement) => movement.stage === "pulled")).toBe(true);
+  });
+
+  it("the department (edId) filter is an exact match", () => {
+    const result = searchMovements(movements, units, { text: "", edId: "arm-ed" });
+    expect(result.map((movement) => movement.id).sort()).toEqual(["WF-001", "WF-011", "WF-315", "WF-323"]);
+    expect(result.every((movement) => movement.originEdId === "arm-ed")).toBe(true);
+  });
+
+  // stage, edId and text all narrow the same result set together (AND, not OR). WF-011 is the one
+  // OPEN movement at "arm-ed" that also sits in "pulled" — measured against the two filters
+  // above, whose sets intersect at exactly this one id.
+  it("stage, department and text filters combine (AND), not replace one another", () => {
+    const result = searchMovements(movements, units, { text: "", stage: "pulled", edId: "arm-ed" });
+    expect(result.map((movement) => movement.id)).toEqual(["WF-011"]);
+  });
+
+  // THE ABSOLUTE RULE. WF-007 is closed (`closure.outcome: "arrived"`, `stage: "arrived"`) and
+  // WF-008 is closed via `closure` alone while still recording `stage: "accepted_awaiting_bed"` —
+  // the exact case `isOpen`'s own doc comment calls out, where `closure` and `stage === "arrived"`
+  // must be checked independently. Both are asserted directly: searching each one's own id,
+  // verbatim, must return nothing, proving a closed movement can never surface in search results
+  // even when every other field of the query would otherwise match it perfectly.
+  it("never returns a closed movement, even when the query is the closed movement's own id", () => {
+    const closedArrived = movements.find((movement) => movement.id === "WF-007");
+    const closedViaClosureOnly = movements.find((movement) => movement.id === "WF-008");
+    if (!closedArrived || !closedViaClosureOnly) {
+      throw new Error("fixture no longer carries WF-007/WF-008 — update this test's closed-movement cases");
+    }
+    expect(isOpen(closedArrived)).toBe(false);
+    expect(isOpen(closedViaClosureOnly)).toBe(false);
+
+    expect(searchMovements(movements, units, { text: "wf-007" })).toEqual([]);
+    expect(searchMovements(movements, units, { text: "wf-008" })).toEqual([]);
+
+    // And neither appears in the unfiltered (empty-query) result set either.
+    const all = searchMovements(movements, units, { text: "" });
+    expect(all.map((movement) => movement.id)).not.toContain("WF-007");
+    expect(all.map((movement) => movement.id)).not.toContain("WF-008");
+  });
+
+  // Same absolute rule, constructed rather than relying on a fixture id staying closed forever:
+  // an otherwise-fully-matching open movement, cloned and closed, must drop out of a query that
+  // still matches every one of its other fields exactly.
+  it("never returns a closed movement — constructed case, every non-closure field still matches", () => {
+    const base = movements.find((movement) => movement.id === "WF-011");
+    if (!base) throw new Error("fixture no longer carries WF-011 to build the closed clone from");
+    expect(isOpen(base)).toBe(true);
+
+    const closedClone: Movement = {
+      ...base,
+      id: "WF-TEST-CLOSED-CLONE",
+      closure: { at: base.openedAt, outcome: "arrived" as const, reason: "Test fixture: arrived" },
+    };
+    expect(isOpen(closedClone)).toBe(false);
+
+    const withClone = [...movements, closedClone];
+    const byId = searchMovements(withClone, units, { text: "WF-TEST-CLOSED-CLONE" });
+    expect(byId).toEqual([]);
+
+    const byStageAndEd = searchMovements(withClone, units, { text: "", stage: "pulled", edId: "arm-ed" });
+    expect(byStageAndEd.map((movement) => movement.id)).not.toContain("WF-TEST-CLOSED-CLONE");
+  });
+});
+
+describe("searchPatients — the owner's requirement that a referred patient shows up", () => {
+  /*
+   * > "when I search that patient, there should be some way of the ED psych to see the patient
+   * > show up."   — owner, 2026-08-30
+   *
+   * `searchMovements` above cannot satisfy that and its NAME is why nobody noticed: it promises a
+   * patient search and searches movements, a record that begins when somebody is already being
+   * moved. A person referred and not yet accepted has no movement, so the search returns nothing —
+   * and nothing is indistinguishable from a search for somebody who does not exist.
+   */
+
+  const queued = referrals.filter((referral) => referralState(referral) === "queued");
+
+  it("the fixture holds a queued referral, or everything below is vacuous", () => {
+    // First, because every assertion after it searches for referrals, and a search that finds none
+    // passes just as quietly when the function is broken as when the fixture is empty.
+    expect(queued.length, "no seeded referral is queued").toBeGreaterThan(0);
+  });
+
+  it("finds a queued referral by its id, which searchMovements cannot do at all", () => {
+    const target = queued[0];
+
+    const viaMovements = searchMovements(movements, units, { text: target.id });
+    expect(viaMovements, "a movement search should never find a referral").toEqual([]);
+
+    const viaPatients = searchPatients(movements, referrals, units, { text: target.id });
+    expect(viaPatients.map((result) => result.kind)).toContain("referral");
+    expect(
+      viaPatients.some((result) => result.kind === "referral" && result.referral.id === target.id),
+      `the queued referral ${target.id} did not show up`,
+    ).toBe(true);
+  });
+
+  it("returns waiting referrals BEFORE movements", () => {
+    // Somebody still waiting for a decision is the one an ED psychiatrist can act on.
+    const results = searchPatients(movements, referrals, units, { text: "" });
+    const firstMovement = results.findIndex((result) => result.kind === "movement");
+    const lastReferral = results.map((result) => result.kind).lastIndexOf("referral");
+
+    expect(firstMovement, "no movement in an empty-text search").toBeGreaterThan(-1);
+    expect(lastReferral, "no referral in an empty-text search").toBeGreaterThan(-1);
+    expect(lastReferral).toBeLessThan(firstMovement);
+  });
+
+  it("never returns a referral that is not queued, so nobody appears twice or after leaving", () => {
+    /*
+     * An ACCEPTED referral has a movement, so returning it here would put the same person on the
+     * screen twice under two kinds — which a reader sees as two patients. A DECLINED one is a
+     * closed request, and surfacing it is the same untruth `isOpen` prevents on the movement side.
+     */
+    const results = searchPatients(movements, referrals, units, { text: "" });
+    const returned = results.filter((result) => result.kind === "referral").map((result) => result.referral);
+
+    for (const referral of returned) {
+      expect(referralState(referral), `${referral.id} was returned but is ${referralState(referral)}`).toBe("queued");
+    }
+  });
+
+  it("drops referrals entirely when a movement-shaped filter is set", () => {
+    /*
+     * `stage` and `edId` are questions only a movement can answer. Returning referrals anyway
+     * would be answering a different question from the one asked — the failure mode is a
+     * coordinator filtering to one stage and being handed records that have no stage at all.
+     */
+    const withStage = searchPatients(movements, referrals, units, { text: "", stage: "pulled" });
+    expect(withStage.every((result) => result.kind === "movement")).toBe(true);
+
+    const withEd = searchPatients(movements, referrals, units, { text: "", edId: "arm-ed" });
+    expect(withEd.every((result) => result.kind === "movement")).toBe(true);
+  });
+
+  it("leaves searchMovements answering exactly the question it always did", () => {
+    // The regression that would be invisible: widening search in place would have re-pointed
+    // twenty movement assertions at a function answering a different question. This asserts the
+    // movement half of the new function is the old function, unchanged, result for result.
+    const query = { text: "" };
+    const direct = searchMovements(movements, units, query);
+    const viaPatients = searchPatients(movements, referrals, units, query)
+      .filter((result) => result.kind === "movement")
+      .map((result) => result.movement);
+
+    expect(viaPatients).toEqual(direct);
+  });
+});
+
+describe("findPatients — FIX 2, a partial record number must find its person", () => {
+  // Fixture fact (`ward-patients-seed.ts`): PT-001 is Talia Halloway, umrn "UM100001". Before this
+  // fix, `findPatients` matched `umrn` with `===`, so a clinician typing only the digits they
+  // actually remember — "100001" — found nobody, while the full "UM100001" found her. That is
+  // backwards, and inconsistent with the name fields two lines below it, which already match by
+  // substring.
+  it("finds a patient by a bare, partial record number — no leading 'UM', no full match required", () => {
+    const found = findPatients(patients, "100001");
+    expect(
+      found.map((patient) => patient.id),
+      "a partial record number must find its person the same way a partial name does",
+    ).toContain("PT-001");
+  });
+
+  it("still finds the same patient by the FULL record number, so the fix does not narrow the exact case", () => {
+    const found = findPatients(patients, "UM100001");
+    expect(found.map((patient) => patient.id)).toContain("PT-001");
+  });
+
+  it("is case-insensitive on the partial record number too, matching the name fields' own behaviour", () => {
+    const found = findPatients(patients, "um1000");
+    // "um1000" is a substring of every "UM1000xx" record in the fixture, not just PT-001 — this
+    // asserts the property (case-insensitive substring match), not a single accidental id.
+    expect(found.length).toBeGreaterThan(1);
+    expect(found.map((patient) => patient.id)).toContain("PT-001");
+  });
+});

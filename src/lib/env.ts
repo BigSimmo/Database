@@ -10,6 +10,29 @@ function coerceBlankEnv(value: unknown): unknown {
   return typeof value === "string" && value.trim() === "" ? undefined : value;
 }
 
+const clinicalAskDisabledModeIds = new Set([
+  "services",
+  "forms",
+  "differentials",
+  "formulation",
+  "dsm",
+  "specifiers",
+  "therapy-compass",
+]);
+
+export function parseClinicalAskDisabledModes(value: unknown): string[] {
+  if (value === undefined || value === null || value === "") return [];
+  if (typeof value !== "string") throw new Error("CLINICAL_ASK_DISABLED_MODES must be comma-separated mode IDs.");
+  const modes = value
+    .split(",")
+    .map((mode) => mode.trim())
+    .filter(Boolean);
+  if (new Set(modes).size !== modes.length || modes.some((mode) => !clinicalAskDisabledModeIds.has(mode))) {
+    throw new Error("CLINICAL_ASK_DISABLED_MODES contains an unknown or duplicate mode ID.");
+  }
+  return modes;
+}
+
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
@@ -63,6 +86,16 @@ const envSchema = z.object({
   SENTRY_PROJECT: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  OPENAI_TRANSCRIPTION_MODEL: z.string().default("gpt-4o-mini-transcribe"),
+  CLINICAL_ASK_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  CLINICAL_ASK_DISABLED_MODES: z.preprocess(parseClinicalAskDisabledModes, z.array(z.string())),
   SENTRY_DSN: z.preprocess(coerceBlankEnv, z.string().url().optional()),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
@@ -206,12 +239,20 @@ const envSchema = z.object({
     .default("false")
     .transform((value) => value === "true"),
   // #100 Phase 1: emit a governed, client-trimmed evidence preview as a verified unit on
-  // the answer stream once retrieval + ranking complete. Default OFF: server emission is
-  // enabled deliberately after the offline contract proof; rendering is a separate client
-  // flag per docs/verified-answer-incremental-delivery-design.md.
+  // the answer stream once retrieval + ranking complete. Default ON since 2026-08-27 by owner
+  // decision, after the offline contract proof and the browser journey in
+  // tests/answer-progress-ui-smoke.spec.ts proved the render path.
+  //
+  // The preview is built from the already-selected context, passes the same danger-level
+  // source-governance refusal as the final answer, and is trimmed by the same
+  // trimSourceForClient policy — retrieval, ranking, selection and the final payload are
+  // unchanged by it. Setting this to `false` is the FIRST rollback step; the client
+  // rendering gate (NEXT_PUBLIC_RAG_INCREMENTAL_EVIDENCE_PREVIEW_RENDER) is the second, per
+  // docs/verified-answer-incremental-delivery-design.md. Phase 2 answer-section units remain
+  // unbuilt and provider-gated.
   RAG_INCREMENTAL_EVIDENCE_PREVIEW: z
     .enum(["true", "false"])
-    .default("false")
+    .default("true")
     .transform((value) => value === "true"),
   RAG_REGISTRY_CORPUS_EMBEDDING: z
     .enum(["true", "false"])
@@ -444,6 +485,29 @@ export function requireQueryHashSecret() {
       "Missing RAG_QUERY_HASH_SECRET. It is required in production so logged clinical-query hashes are keyed HMAC-SHA256 pseudonyms, not offline-reversible SHA-256. Set a random secret (min 16 chars). See docs/privacy-impact-assessment.md (PIA-2).",
     );
   }
+}
+
+let answerFeedbackWarningEmitted = false;
+
+// Same secret, second job: it signs the answer-feedback token (answer-feedback-token.ts).
+// Outside production it is optional, and when it is absent createAnswerFeedbackToken()
+// returns undefined, the answer payload carries no `feedbackToken`, and the reader is told
+// the answer "predates traceable feedback. Run the question again." — an instruction that
+// can never succeed on that deployment. Nothing said why (2026-09-02 audit, L44).
+//
+// Warning only, once per process, and never in production: there
+// requireQueryHashSecret() above already refuses to start without the secret.
+export function warnAnswerFeedbackDisabled() {
+  if (answerFeedbackWarningEmitted) return;
+  if (env.RAG_QUERY_HASH_SECRET) return;
+  if (process.env.NODE_ENV === "production") return;
+  answerFeedbackWarningEmitted = true;
+  console.warn(
+    "[env] RAG_QUERY_HASH_SECRET is not set. Answer feedback is disabled on this deployment: " +
+      "answers carry no feedback token, so every rating is refused and the UI asks the reader to " +
+      "run the question again, which cannot help. Set a random secret (min 16 chars) to enable it. " +
+      "Logged clinical-query hashes also fall back to unsalted SHA-256 until it is set.",
+  );
 }
 
 export function isDemoMode() {

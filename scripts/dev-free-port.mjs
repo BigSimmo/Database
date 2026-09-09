@@ -13,7 +13,7 @@ import {
 } from "../src/lib/local-server-utils.mjs";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
-  console.error(`Clinical KB local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
+  console.error(`PsychSift local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
   process.exit(1);
 }
 

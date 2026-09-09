@@ -95,7 +95,7 @@ export function assertSafeLocalProjectRequest(request: Request) {
 export function unsafeLocalProjectResponse(payload: LocalProjectIdentityPayload) {
   return NextResponse.json(
     {
-      error: "Use the ensured Clinical KB local URL before calling this API.",
+      error: "Use the ensured PsychSift local URL before calling this API.",
       run: "npm run ensure",
       identity: payload,
     },

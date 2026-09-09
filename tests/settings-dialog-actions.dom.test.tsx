@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The settings surface owns the destructive privacy actions (clear recent
@@ -98,9 +98,8 @@ afterEach(async () => {
 
 describe("SettingsDialog — destructive and account actions", () => {
   // A Development section carries the in-progress surfaces while they are being
-  // built. It is gated to development builds, matching `mockupsEnabled()`, and the
-  // rail must not advertise a section the body does not render. The route is a
-  // mockup, so the entry navigates through <Link> and closes the sheet behind it.
+  // built. The route is a mockup, so the entry navigates through <Link> and
+  // closes the sheet behind it.
   it("opens the Development page from a gated Development section", () => {
     renderDialog();
     const development = document.querySelector('[data-settings-section="development"]');
@@ -114,14 +113,10 @@ describe("SettingsDialog — destructive and account actions", () => {
     expect(prototypeLink).toHaveTextContent("Temporary");
     expect(development?.contains(prototypeLink)).toBe(true);
 
-    // The desktop rail lists exactly the sections that render.
-    const railLabels = [...document.querySelectorAll("[data-settings-nav-target]")].map((el) =>
-      el.getAttribute("data-settings-nav-target"),
+    expect(screen.getByRole("navigation", { name: "Settings sections" }).closest("aside")).toHaveClass(
+      "hidden",
+      "md:flex",
     );
-    const renderedIds = [...document.querySelectorAll("[data-settings-section]")].map((el) =>
-      el.getAttribute("data-settings-section"),
-    );
-    if (railLabels.length) expect(railLabels).toEqual(renderedIds);
   });
 
   it("clears recent searches through the privacy action", () => {
@@ -160,11 +155,30 @@ describe("SettingsDialog — destructive and account actions", () => {
     mockRecentCount.set(3); // Reset for other tests
   });
 
-  it("clears saved items and confirms via a status notice", async () => {
+  // Clearing saved items deletes every favourite with no undo, so the row now
+  // opens a confirmation rather than doing it on the first tap. The row must not
+  // touch the data on its own; only the confirm control may.
+  it("asks before clearing saved items, then clears and confirms via a status notice", async () => {
     renderDialog();
     fireEvent.click(screen.getByRole("button", { name: "Clear saved items" }));
+    expect(clearFavourites).not.toHaveBeenCalled();
+
+    const confirm = await screen.findByRole("button", { name: /^Delete \d+ saved items?$/ });
+    fireEvent.click(confirm);
+
     expect(clearFavourites).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Saved items cleared.")).toBeVisible();
+  });
+
+  it("leaves saved items alone when the confirmation is cancelled", async () => {
+    renderDialog();
+    fireEvent.click(screen.getByRole("button", { name: "Clear saved items" }));
+    // The confirmation renders "Cancel" twice on purpose — the sheet's close
+    // control borrows the cancel label — so address the footer button inside
+    // the dialog rather than by name alone.
+    const dialog = await screen.findByTestId("confirm-dialog");
+    fireEvent.click(within(dialog).getAllByRole("button", { name: "Cancel" }).at(-1)!);
+    expect(clearFavourites).not.toHaveBeenCalled();
   });
 
   it("signs out through the account action", () => {

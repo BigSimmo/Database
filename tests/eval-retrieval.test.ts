@@ -3,6 +3,8 @@ import {
   capturedRagCaseToGoldenCase,
   evaluateGoldenRetrievalCase,
   loadGoldenRetrievalCases,
+  parseArgs,
+  resolveEvaluationCases,
   retrievalLimitForGoldenCase,
   summarizeGoldenRetrievalResults,
   textContainsClinicalTerm,
@@ -645,5 +647,71 @@ describe("textContainsClinicalTerm word-boundary matching", () => {
     expect(textContainsClinicalTerm("managed over time with support", "ed")).toBe(false);
     expect(textContainsClinicalTerm("prescription of lithium", "script")).toBe(false);
     expect(textContainsClinicalTerm("intramuscularly administered", "im")).toBe(false);
+  });
+});
+
+describe("parseArgs --allow-partial", () => {
+  it("defaults allowPartial to false", () => {
+    const args = parseArgs(["--mode", "quality"]);
+    expect(args.allowPartial).toBe(false);
+  });
+
+  it("sets allowPartial to true when flag is present", () => {
+    const args = parseArgs(["--allow-partial"]);
+    expect(args.allowPartial).toBe(true);
+  });
+});
+
+describe("resolveEvaluationCases", () => {
+  const dummyCases = [
+    {
+      id: "case-1",
+      query: "Clozapine ANC monitoring",
+      expectedQueryClass: "table_threshold",
+      expectedDocumentSubstrings: ["Clozapine"],
+      expectedContentTerms: ["anc"],
+      topK: 8,
+      expectTableEvidence: false,
+    },
+    {
+      id: "case-2",
+      query: "Lithium level check",
+      expectedQueryClass: "table_threshold",
+      expectedDocumentSubstrings: ["Lithium"],
+      expectedContentTerms: ["level"],
+      topK: 8,
+      expectTableEvidence: false,
+    },
+  ];
+
+  it("returns all cases when selection is full", () => {
+    const resolved = resolveEvaluationCases({ allCases: dummyCases });
+    expect(resolved).toHaveLength(2);
+  });
+
+  it("throws when selection is empty", () => {
+    expect(() => resolveEvaluationCases({ allCases: dummyCases, query: "non-existent query" })).toThrow(
+      /No retrieval eval cases matched/,
+    );
+    expect(() => resolveEvaluationCases({ allCases: [] })).toThrow(/No retrieval eval cases matched/);
+  });
+
+  it("throws when cases are dropped by limit or query without --allow-partial", () => {
+    expect(() => resolveEvaluationCases({ allCases: dummyCases, limit: 1, allowPartial: false })).toThrow(
+      /without --allow-partial/,
+    );
+    expect(() => resolveEvaluationCases({ allCases: dummyCases, query: "Clozapine", allowPartial: false })).toThrow(
+      /without --allow-partial/,
+    );
+  });
+
+  it("permits running partial cases when allowPartial is true", () => {
+    const limited = resolveEvaluationCases({ allCases: dummyCases, limit: 1, allowPartial: true });
+    expect(limited).toHaveLength(1);
+    expect(limited[0].id).toBe("case-1");
+
+    const queried = resolveEvaluationCases({ allCases: dummyCases, query: "Lithium", allowPartial: true });
+    expect(queried).toHaveLength(1);
+    expect(queried[0].id).toBe("case-2");
   });
 });

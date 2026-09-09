@@ -1,5 +1,6 @@
 import dsmClinicalContent from "@/data/dsm-clinical-content.json";
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 export type DsmLabeledText = {
   label: string;
@@ -201,8 +202,60 @@ export function getDsmDiagnosis(slug: string) {
   return diagnosisBySlug.get(slug.toLowerCase());
 }
 
+export function resolveDsmCompareIds(slugs: readonly (string | null | undefined)[]): {
+  diagnoses: DsmDiagnosis[];
+  selectedIds: Array<string | null>;
+} {
+  const diagnoses: DsmDiagnosis[] = [];
+  const seenSlugs = new Set<string>();
+  const selectedIds = slugs.map((slug) => {
+    if (!slug) return null;
+    const diagnosis = getDsmDiagnosis(slug);
+    if (!diagnosis || seenSlugs.has(diagnosis.slug)) return null;
+    seenSlugs.add(diagnosis.slug);
+    diagnoses.push(diagnosis);
+    return diagnosis.slug;
+  });
+  return { diagnoses, selectedIds };
+}
+
 export function dsmCriteria(diagnosis: DsmDiagnosis) {
   return diagnosis.criteria_display.length > 0 ? diagnosis.criteria_display : diagnosis.key_features;
+}
+
+/**
+ * A specifier row that is really a statement that the disorder HAS no
+ * specifiers, e.g. "No DSM-5-TR specifiers for this disorder".
+ *
+ * Ten records carry one of these, and on all ten it is the ONLY row in
+ * `specifiers` — the upstream export uses the array as a slot for the sentence
+ * rather than leaving it empty. Counting it made every one of those records
+ * report "1 specifier" in the at-a-glance strip and the record summary when the
+ * true answer is none, which is a factual error about the diagnostic standard
+ * and not a rendering nicety.
+ *
+ * The rows are still worth rendering: six of the ten carry a real description
+ * (ARFID's sensory/fear-of-consequences/low-interest subtypes, pica's context
+ * examples), so `dsmSpecifierSplit` separates them rather than dropping them.
+ */
+function isDsmAbsentSpecifierNote(specifier: DsmSpecifier) {
+  return /^no\b/i.test(specifier.name.trim()) && /specifier/i.test(specifier.name);
+}
+
+export type DsmSpecifierSplit = {
+  /** Rows that name an actual specifier. This length is the count to display. */
+  specifiers: DsmSpecifier[];
+  /** Rows stating the disorder has none. Rendered as prose, never counted. */
+  absentNotes: DsmSpecifier[];
+};
+
+export function dsmSpecifierSplit(diagnosis: DsmDiagnosis): DsmSpecifierSplit {
+  const specifiers: DsmSpecifier[] = [];
+  const absentNotes: DsmSpecifier[] = [];
+  for (const specifier of diagnosis.specifiers) {
+    (isDsmAbsentSpecifierNote(specifier) ? absentNotes : specifiers).push(specifier);
+  }
+  return { specifiers, absentNotes };
 }
 
 export function dsmDiagnosisSummary(diagnosis: DsmDiagnosis): DsmDiagnosisSummary {
@@ -215,7 +268,7 @@ export function dsmDiagnosisSummary(diagnosis: DsmDiagnosis): DsmDiagnosisSummar
     summary: criteria[0]?.text ?? diagnosis.key_features[0]?.text ?? "Review the complete diagnostic record.",
     criteriaCount: criteria.length,
     differentialCount: diagnosis.differentials.length,
-    specifierCount: diagnosis.specifiers.length,
+    specifierCount: dsmSpecifierSplit(diagnosis).specifiers.length,
   };
 }
 
@@ -239,8 +292,11 @@ export function rankDsmDiagnoses(
   query: string,
   limit = dsmDiagnoses.length,
   expansions: string[] = [],
+  interpretNaturalLanguage = false,
 ): DsmSearchMatch[] {
-  const normalizedExpansions = expansions.map(normalizeSearchText).filter(Boolean);
+  const normalizedExpansions = [...expansions, ...(interpretNaturalLanguage ? smartSearchExpansions("dsm", query) : [])]
+    .map(normalizeSearchText)
+    .filter(Boolean);
   return rankCatalogRecords(dsmDiagnoses, query, {
     fields: [
       {
@@ -298,11 +354,59 @@ export function rankDsmDiagnoses(
 export function listDsmDiagnosisSummaries(options: { query?: string; category?: string } = {}) {
   const query = options.query?.trim() ?? "";
   const records = query
-    ? rankDsmDiagnoses(query).map((match) => match.diagnosis)
+    ? rankDsmDiagnoses(query, dsmDiagnoses.length, [], true).map((match) => match.diagnosis)
     : [...dsmDiagnoses].sort((left, right) => left.title.localeCompare(right.title));
   return records
     .filter((diagnosis) => !options.category || diagnosis.category.key === options.category)
     .map(dsmDiagnosisSummary);
+}
+
+export type DsmDifferentialParts = {
+  /** The diagnosis name, with any trailing parenthetical removed. */
+  name: string;
+  /** The authored discriminator from that parenthetical, or "" when there is none. */
+  discriminator: string;
+};
+
+/**
+ * Split a differential entry into its name and the discriminator the record
+ * already carries for it.
+ *
+ * 534 of the 688 differential rows the sidebar shows (78%) end in a parenthetical
+ * that is the clinical reason the differential is being raised — "Social anxiety
+ * disorder (expected attacks in social situations)", "Bipolar I disorder (full
+ * manic episode present - reclassify)". Rendering the whole string on one line
+ * buried that behind the name, so the sidebar read as a list of labels rather
+ * than something that helps separate two candidates.
+ *
+ * DELIBERATELY NOT sourced from `cross-mode-differentials-index.json`, which was
+ * the obvious candidate and is wrong for this. Its `clinicalHinge` is per
+ * PRESENTATION GROUP, not per differential: 201 entries share just 31 distinct
+ * hinge strings, so `social-anxiety-disorder` carries "Abrupt peak over minutes,
+ * recurrent unexpected attacks, anticipatory anxiety or avoidance" — which
+ * describes panic disorder, the presentation, not social anxiety. Rendering that
+ * under a differential's name would state something clinically false about that
+ * diagnosis. The parenthetical here is authored on the record itself, against
+ * that exact differential, so it cannot be mismatched.
+ *
+ * Only a trailing parenthetical counts. An inline one is part of the name
+ * ("Premenstrual dysphoric disorder (PMDD)" is a name, not a discriminator) —
+ * those resolve to a diagnosis and are left whole by the guard below.
+ */
+export function dsmDifferentialParts(value: string): DsmDifferentialParts {
+  const trimmed = value.trim();
+  const match = /^(.*?)\s*\(([^()]*)\)$/.exec(trimmed);
+  if (!match) return { name: trimmed, discriminator: "" };
+
+  const [, name, inside] = match;
+  const discriminator = inside.trim();
+
+  // An abbreviation or alternate label is part of the name, not a reason. Both
+  // are short and word-like; a discriminator is a clause.
+  const looksLikeLabel = !/\s/.test(discriminator) || /^[A-Z0-9\-/]+$/.test(discriminator);
+  if (!name || looksLikeLabel) return { name: trimmed, discriminator: "" };
+
+  return { name, discriminator };
 }
 
 export function resolveDsmDifferential(value: string) {

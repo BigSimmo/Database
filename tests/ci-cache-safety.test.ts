@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { selectedScripts } from "../scripts/verify-pr-local.mjs";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 const nodeSetup = readFileSync(new URL("../.github/actions/setup-node-cached/action.yml", import.meta.url), "utf8");
@@ -70,6 +71,11 @@ describe("CI cache safety", () => {
     expect(workflow).not.toContain("Restore isolated Next.js build cache");
   });
 
+  it("checks out full history on Safety so privacy reviewedCommit is in the object graph", () => {
+    const safety = sourceSegment(workflow, "name: Safety and config checks", "name: Unit coverage");
+    expect(safety).toContain("fetch-depth: 0");
+  });
+
   it("installs Playwright system dependencies when browser caches hit", () => {
     expect(uiSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
     expect(lighthouseChromiumSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
@@ -114,9 +120,85 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("run: npm run check:verification-plan");
   });
 
+  it("isolates Caring Contacts database tests from the Supabase migration emulator", () => {
+    const caringContactsJob = /\n  caring-contacts-db:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    const migrationReplayJob = /\n  db-reset-verify:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    const requiredNeeds = /\n  pr-required:\n[\s\S]*?needs:\s*\n?\s*\[([\s\S]*?)\]/.exec(workflow)?.[1] ?? "";
+
+    expect(caringContactsJob, "caring-contacts-db job not found in ci.yml").not.toBe("");
+    expect(caringContactsJob).toContain("needs: changes");
+    expect(caringContactsJob).toContain("needs.changes.outputs.db_changed == 'true'");
+    expect(caringContactsJob).toContain("needs.changes.outputs.static_heavy_changed == 'true'");
+    expect(caringContactsJob).toContain("services:\n      postgres:");
+    expect(caringContactsJob).toContain("POSTGRES_HOST_AUTH_METHOD: trust");
+    expect(caringContactsJob).not.toContain("POSTGRES_PASSWORD");
+    expect(caringContactsJob).toContain('--health-cmd "pg_isready -U postgres -d postgres"');
+    expect(caringContactsJob).toContain("CARING_CONTACTS_DATABASE_URL: postgres://postgres@127.0.0.1:54329/postgres");
+    expect(caringContactsJob).toContain("run: npm run caring-contacts:db:test");
+    expect(migrationReplayJob).not.toContain("npm run caring-contacts:db:test");
+    expect(requiredNeeds).toContain("caring-contacts-db");
+    expect(workflow).toContain("CARING_CONTACTS_DB_RESULT: ${{ needs.caring-contacts-db.result }}");
+    expect(workflow).toContain('require_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"');
+  });
+
+  /**
+   * `verify:pr-local` is documented as the risk-routed PR mirror, yet until audit M24
+   * its heavy plan selected only lint/typecheck/test: the migration-role,
+   * function-grant and owner-scope guards — the three built to stop the incident
+   * shapes that reach the live clinical database on merge — ran only in CI after
+   * push. Pin the mirror the other way round from `check:gate-manifest` (which
+   * holds CI to the local verify:cheap chain): every static-pr step gated on
+   * `static_heavy_changed` must also be in the local heavy plan.
+   */
+  it("mirrors every static-heavy static-pr step in the verify:pr-local heavy plan (M24)", () => {
+    const staticPr = /\n  static-pr:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(staticPr, "static-pr job not found in ci.yml").not.toBe("");
+    const heavySteps: string[] = [];
+    for (const step of staticPr.split(/\n\s+- name: /).slice(1)) {
+      const condition = /\n\s+if: ([^\n]+)/.exec(step)?.[1] ?? "";
+      const script = /\n\s+run: npm run ([\w:.-]+)\s*$/m.exec(step)?.[1];
+      if (script && condition.includes("static_heavy_changed == 'true'")) heavySteps.push(script);
+    }
+    expect(heavySteps).toEqual(
+      expect.arrayContaining(["check:migration-role", "check:function-grants", "check:owner-scope"]),
+    );
+
+    const heavyPlan = selectedScripts({ static_heavy_changed: true }, false) as string[];
+    const missing = heavySteps.filter((script) => !heavyPlan.includes(script));
+    expect(
+      missing,
+      `static-pr runs these for static_heavy scope but verify:pr-local does not: ${missing.join(", ")}`,
+    ).toEqual([]);
+
+    // Docs-only scope stays focused: the tenancy/database guards are heavy-scope steps.
+    const docsPlan = selectedScripts({ docs_changed: true }, false) as string[];
+    for (const guard of ["check:migration-role", "check:function-grants", "check:owner-scope"]) {
+      expect(docsPlan, `${guard} leaked into the docs-only plan`).not.toContain(guard);
+    }
+  });
+
   it("runs the generated medication lexicon freshness check through static-heavy scope", () => {
     expect(workflow).toMatch(
       /name: Medication lexicon report freshness\n\s+if: needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:medication-lexicon-report/,
+    );
+  });
+
+  // The interaction index is the artefact the UI reads to decide whether a drug can be
+  // shown as clear. Its freshness gate was local-only until audit M30, so a snapshot-only
+  // merge through the bare-PR route shipped a stale index with every check green.
+  it("runs the medication interaction index drift check through static-heavy scope (M30)", () => {
+    expect(workflow).toMatch(
+      /name: Medication interaction index drift\n\s+if: needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:medication-interactions/,
+    );
+  });
+
+  // The hazard register validator ran only in the provider-backed governance:release chain
+  // until audit M33; it needs the full-history checkout for its reviewedCommit checks.
+  it("runs the clinical hazard-controls register check in static-pr with full history (M33)", () => {
+    const staticPr = /\n  static-pr:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(staticPr).toContain("fetch-depth: 0");
+    expect(staticPr).toMatch(
+      /name: Clinical hazard-controls register\n\s+if: needs\.changes\.outputs\.docs_changed == 'true' \|\| needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:clinical-hazard-controls/,
     );
   });
 
@@ -202,8 +284,21 @@ describe("CI cache safety", () => {
     });
     expect(releaseJob).not.toContain("path: .next/cache");
     expect(releaseJob).not.toContain("run: npm run build");
-    expect(releaseJob).toContain("npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit");
     expect(releaseJob).toContain("npm run test:e2e");
+
+    // Until 2026-09-07 this pinned the single-job command
+    // `npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit`.
+    // That job stopped finishing — 70m23s and 70m20s on two consecutive main
+    // runs, both exactly on the old 70-minute cap — so the engines now run as
+    // sibling matrix jobs and the flags are assembled per engine in the step.
+    // The property this case still owns is the one it always owned: the primary
+    // path does not re-run production Chromium that ui-critical already proved.
+    // Full engine/project coverage is proven in
+    // tests/ci-browser-matrix-coverage.test.ts, which fails closed when a
+    // playwright.config.ts project is not assigned to an engine.
+    expect(releaseJob).toContain('chromium) PROJECTS="--project=chromium-mockups"');
+    expect(releaseJob).toContain('firefox)  PROJECTS="--project=firefox"');
+    expect(releaseJob).toContain('webkit)   PROJECTS="--project=webkit"');
   });
 
   it("scopes the main-branch release backstop to UI, performance, or lockfile risk", () => {
@@ -340,6 +435,35 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     UI_RESULT: "skipped",
     LIGHTHOUSE_RESULT: "skipped",
     DB_RESULT: "skipped",
+    CARING_CONTACTS_DB_RESULT: "success",
+    /*
+     * 🔴 **ADDED 2026-09-06, AND ITS ABSENCE TURNED ALL TWELVE OF THIS BLOCK'S CASES RED.** The
+     * `ui-ward-journeys` job and its two aggregate variables were added to `ci.yml` without this
+     * fixture gaining the matching entry, so `WARD_JOURNEYS_RESULT` reached the extracted script
+     * as an EMPTY STRING. `record()` treats anything that is not `success`, `skipped` or
+     * `cancelled` as a failure, so every case — including "passes when every in-scope job
+     * succeeded" — recorded `ward-flow-journeys result was ` and exited 1.
+     *
+     * ⚠️ **AND NOTHING LOCAL COULD HAVE CAUGHT IT: this whole `describe` is `skipIf(win32)`.** It
+     * runs on Linux only, so on this project's development machine it reports as SKIPPED rather
+     * than as failing, and the first execution it ever gets is in CI. A fixture that must be
+     * edited alongside a workflow, guarded by a block that cannot run where the workflow is
+     * edited, is the shape to watch for here.
+     *
+     * `"skipped"` is what GitHub actually sets for a job whose `if:` is false, which is the state
+     * on every pull request until `WARD_JOURNEYS_BLOCKING` is turned on in repository settings —
+     * so this fixture now describes the real default rather than an omission.
+     *
+     * ⚠️ **BOTH VARIABLES ARE NEEDED AND THE BLOCKING FLAG FAILS FIRST.** The script runs under
+     * `set -u`, so the unbound `WARD_JOURNEYS_BLOCKING` aborts it at that line before
+     * `WARD_JOURNEYS_RESULT` is ever read — which is why every case in the block died, not only
+     * the ward one. In the real workflow `env:` binds it to `${{ vars.WARD_JOURNEYS_BLOCKING }}`,
+     * which is the EMPTY STRING when the variable is unset: bound, and not `"true"`. The empty
+     * string here is therefore the faithful default, not a placeholder — writing `"false"` would
+     * test a state the repository never actually produces.
+     */
+    WARD_JOURNEYS_BLOCKING: "",
+    WARD_JOURNEYS_RESULT: "skipped",
   };
 
   function runAggregate(overrides: Record<string, string> = {}) {
@@ -405,6 +529,17 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
       0,
     );
     expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", PR_DRAFT: "false", SAFETY_RESULT: "success" }).status).toBe(0);
+  });
+
+  it("requires the isolated Caring Contacts database job for database and static-heavy scopes", () => {
+    expect(
+      runAggregate({ DB_CHANGED: "true", DB_RESULT: "success", CARING_CONTACTS_DB_RESULT: "skipped" }).status,
+    ).not.toBe(0);
+    expect(
+      runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "success", CARING_CONTACTS_DB_RESULT: "skipped" })
+        .status,
+    ).not.toBe(0);
+    expect(runAggregate({ CARING_CONTACTS_DB_RESULT: "skipped" }).status).toBe(0);
   });
 
   it("requires ingestion SAST only for its path-scoped surface", () => {
@@ -616,6 +751,23 @@ describe("Lighthouse budget routing", () => {
     expect(lighthouseJob).toContain("github.event.inputs.refresh_lighthouse_baseline != 'true'");
     expect(refreshJob).toContain("github.event.inputs.refresh_lighthouse_baseline == 'true'");
     expect(workflow).toMatch(/workflow_dispatch:\n\s+inputs:\n\s+refresh_lighthouse_baseline:/);
+  });
+
+  it("does not interpolate the lighthouse refresh dispatch input into a run script", () => {
+    // github.event.inputs is untrusted in `run:` (shell injection). Bind it through
+    // env and quote the variable. Job-level `if:` expressions may still read the
+    // input context directly — those are not a shell.
+    const classifyStep = sourceSegment(workflow, "name: Classify changed files", "sync-pr-policy-body:", {
+      label: "CI change-scope classify step",
+    });
+    const runScript = classifyStep.split(/\n\s+run:\s*\|\n/)[1] ?? "";
+    expect(runScript, "could not read the classify step run script").not.toBe("");
+    expect(classifyStep).toMatch(
+      /REFRESH_LIGHTHOUSE_BASELINE:\s*\$\{\{\s*github\.event\.inputs\.refresh_lighthouse_baseline\s*\}\}/,
+    );
+    expect(runScript).toContain('"$REFRESH_LIGHTHOUSE_BASELINE"');
+    expect(runScript).not.toContain("github.event.inputs.refresh_lighthouse_baseline");
+    expect(runScript).not.toMatch(/\$\{\{[\s\S]*?\}\}/);
   });
 
   it("pairs promotion to pr-required with merge_group coverage", () => {

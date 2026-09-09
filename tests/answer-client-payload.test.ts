@@ -60,6 +60,31 @@ function answerWith(sources: SearchResult[]): RagAnswer {
 }
 
 describe("toClientAnswerPayload", () => {
+  it("projects only displayed, retained-source claim marks and a content-free currency warning", () => {
+    const input: RagAnswer = {
+      ...answerWith([fullSource()]),
+      answer: "Use the cited source.",
+      supportedClaims: [
+        { claimId: "visible", text: "Use the cited source.", riskClass: "routine", supportStatus: "direct", supportingChunkIds: ["chunk-1"] },
+        { claimId: "private", text: "PRIVATE_UNDISPLAYED_CLAIM", riskClass: "routine", supportStatus: "direct", supportingChunkIds: ["chunk-1"] },
+        { claimId: "foreign", text: "Use the cited source.", riskClass: "routine", supportStatus: "direct", supportingChunkIds: ["private-chunk"] },
+      ],
+      evidenceAssessments: {
+        "chunk-1": { relevance: "direct", claimSupport: "direct", authority: "approved", currency: "review_due", extractionQuality: "good" },
+      },
+    };
+    const payload = toClientAnswerPayload(input);
+    expect(payload.claimMarks).toEqual([{ claimId: "visible", text: "Use the cited source.", supportStatus: "direct", supportingChunkIds: ["chunk-1"] }]);
+    expect(payload.sourceCurrencyWarning).toBe("supporting");
+    expect(payload).not.toHaveProperty("supportedClaims");
+    expect(payload).not.toHaveProperty("evidenceAssessments");
+    expect(JSON.stringify(payload)).not.toMatch(/PRIVATE_UNDISPLAYED_CLAIM|private-chunk|riskClass/);
+    expect(projectClientAnswerPayload(JSON.parse(JSON.stringify(payload)), true)).toEqual(payload);
+    const poisoned = { ...payload, claimMarks: [{ ...payload.claimMarks![0], supportingChunkIds: ["private-chunk"] }] };
+    expect(projectClientAnswerPayload(poisoned, true)).toBeNull();
+    expect(projectClientAnswerPayload(poisoned)?.claimMarks).toEqual([]);
+    expect(projectClientAnswerPayload({ ...payload, claimMarks: [{ ...payload.claimMarks![0], privateOwner: "secret" }] }, true)).toBeNull();
+  });
   it("P12A R1 accepts exact source_conflict vocabulary while rejecting unknown section kinds", () => {
     const section = {
       heading: "Source conflict",

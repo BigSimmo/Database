@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { env } from "@/lib/env";
 import { expandClinicalVocabularyText } from "@/lib/clinical-vocabulary";
 import {
@@ -5,7 +6,7 @@ import {
   buildIndexingCoverageProfile,
   selectCoverageAwarePromptChunks,
 } from "@/lib/indexing-coverage";
-import { generateStructuredTextResult } from "@/lib/openai";
+import { generateParsedTextResult } from "@/lib/openai";
 import { cleanClinicalSummaryText, fenceSourceEvidence, sourceTextForModelEvidence } from "@/lib/source-text-sanitizer";
 
 export const modelIndexExtractionVersion = "model-heavy-index-v1" as const;
@@ -62,75 +63,58 @@ export type ModelIndexProfile = {
   version: typeof modelIndexExtractionVersion;
 };
 
-const itemSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    title: { type: "string" },
-    content: { type: "string" },
-    source_chunk_ids: { type: "array", items: { type: "string" } },
-    source_image_ids: { type: "array", items: { type: "string" } },
-    confidence: { type: "number" },
-  },
-  required: ["title", "content", "source_chunk_ids", "source_image_ids", "confidence"],
-};
+const itemSchema = z
+  .object({
+    title: z.string(),
+    content: z.string(),
+    source_chunk_ids: z.array(z.string()),
+    source_image_ids: z.array(z.string()),
+    confidence: z.number(),
+  })
+  .strict();
 
-const schema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    sections: { type: "array", maxItems: 16, items: itemSchema },
-    askable_questions: { type: "array", maxItems: 15, items: itemSchema },
-    clinical_facts: { type: "array", maxItems: 36, items: itemSchema },
-    table_facts: {
-      type: "array",
-      maxItems: 32,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          ...itemSchema.properties,
-          table_title: { type: ["string", "null"] },
-          clinical_parameter: { type: ["string", "null"] },
-          threshold_value: { type: ["string", "null"] },
-          action: { type: ["string", "null"] },
-        },
-        required: [
-          "title",
-          "content",
-          "source_chunk_ids",
-          "source_image_ids",
-          "confidence",
-          "table_title",
-          "clinical_parameter",
-          "threshold_value",
-          "action",
-        ],
-      },
-    },
-    aliases: {
-      type: "array",
-      maxItems: 28,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          alias: { type: "string" },
-          canonical: { type: "string" },
-          alias_type: {
-            type: "string",
-            enum: ["medication", "document_title", "acronym", "service", "workflow", "typo", "clinical_term", "custom"],
-          },
-          source_chunk_ids: { type: "array", items: { type: "string" } },
-          confidence: { type: "number" },
-        },
-        required: ["alias", "canonical", "alias_type", "source_chunk_ids", "confidence"],
-      },
-    },
-    quality_issues: { type: "array", maxItems: 12, items: { type: "string" } },
-  },
-  required: ["sections", "askable_questions", "clinical_facts", "table_facts", "aliases", "quality_issues"],
-};
+const modelIndexProfileSchema = z
+  .object({
+    sections: z.array(itemSchema).max(16),
+    askable_questions: z.array(itemSchema).max(15),
+    clinical_facts: z.array(itemSchema).max(36),
+    table_facts: z
+      .array(
+        itemSchema
+          .extend({
+            table_title: z.string().nullable(),
+            clinical_parameter: z.string().nullable(),
+            threshold_value: z.string().nullable(),
+            action: z.string().nullable(),
+          })
+          .strict(),
+      )
+      .max(32),
+    aliases: z
+      .array(
+        z
+          .object({
+            alias: z.string(),
+            canonical: z.string(),
+            alias_type: z.enum([
+              "medication",
+              "document_title",
+              "acronym",
+              "service",
+              "workflow",
+              "typo",
+              "clinical_term",
+              "custom",
+            ]),
+            source_chunk_ids: z.array(z.string()),
+            confidence: z.number(),
+          })
+          .strict(),
+      )
+      .max(28),
+    quality_issues: z.array(z.string()).max(12),
+  })
+  .strict();
 
 function compact(value: unknown, limit = 900) {
   const clean = sourceTextForModelEvidence(String(value ?? ""))
@@ -237,10 +221,14 @@ function emptyProfile(model: string | null = null): ModelIndexProfile {
   };
 }
 
-function parseProfile(raw: string, chunks: ModelIndexChunk[], images: ModelIndexImage[], model: string | null) {
+function parseProfile(
+  parsed: Record<string, unknown>,
+  chunks: ModelIndexChunk[],
+  images: ModelIndexImage[],
+  model: string | null,
+) {
   const validChunkIds = new Set(chunks.map((chunk) => chunk.id));
   const validImageIds = new Set(images.map((image) => image.id));
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
   return {
     sections: uniqueItems(
       (Array.isArray(parsed.sections) ? parsed.sections : [])
@@ -368,27 +356,41 @@ export async function generateModelIndexProfile(args: {
 }) {
   if (args.chunks.length === 0) return emptyProfile();
   const model = env.OPENAI_INDEXING_MODEL;
-  const result = await generateStructuredTextResult(buildPrompt({ ...args, images: args.images ?? [] }), schema, {
-    model,
-    // Answer-size budget; responseBody() floors the effective cap by reasoning effort so
-    // medium-effort reasoning cannot starve the model-index JSON (reasoningHeadroomFloor).
-    maxOutputTokens: 3200,
-    operation: "summary",
-    schemaName: "clinical_model_index_profile",
-    promptCacheKey: "clinical-model-index-profile-v1",
-    reasoningEffort: "medium",
-    textVerbosity: "medium",
+  const documentIdentity = args.document.file_name || args.document.title;
+  const result = await generateParsedTextResult(
+    buildPrompt({ ...args, images: args.images ?? [] }),
+    modelIndexProfileSchema,
+    {
+      model,
+      // Answer-size budget; responseBody() floors the effective cap by reasoning effort so
+      // medium-effort reasoning cannot starve the model-index JSON (reasoningHeadroomFloor).
+      maxOutputTokens: 3200,
+      operation: "summary",
+      schemaName: "clinical_model_index_profile",
+      promptCacheKey: "clinical-model-index-profile-v1",
+      reasoningEffort: "medium",
+      textVerbosity: "medium",
+    },
+  ).catch((error: unknown) => {
+    // The shared parser fails closed when a truncated/model-invalid response has no
+    // schema-valid parsed payload. Preserve document identity in the ingestion log,
+    // then rethrow so the job cannot silently lose index coverage.
+    console.error("model-index extraction rejected", {
+      document: documentIdentity,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+    throw error;
   });
-  // Ingestion runs unattended over the whole corpus; a truncated extraction silently drops
-  // model-index coverage for the document. Warn loudly (greppable, with document identity)
-  // instead of failing silent; parsing still proceeds on the partial text.
+  // A provider may rarely report an incomplete status while still returning a
+  // schema-valid parsed payload. That payload remains safe to normalise, but the
+  // event is visible for coverage review.
   if (result.truncated) {
     console.warn("model-index extraction truncated", {
-      document: args.document.file_name ?? args.document.title,
+      document: documentIdentity,
       reason: result.incompleteReason ?? result.status ?? "unknown",
     });
   }
-  return parseProfile(result.text, args.chunks, args.images ?? [], model);
+  return parseProfile(result.parsed, args.chunks, args.images ?? [], model);
 }
 
 export function fallbackModelIndexProfile() {

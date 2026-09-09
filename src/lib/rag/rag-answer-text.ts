@@ -48,10 +48,22 @@ const genericMedicationCasePatterns: Array<[RegExp, string]> = [
   [/\bBaclofen\b/g, "baclofen"],
 ];
 
+/**
+ * Normalizes whitespace in text by trimming and collapsing consecutive spaces into single space.
+ *
+ * @param value - Raw text string
+ * @returns Clean single-line trimmed string
+ */
 export function normalizeSectionText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
+/**
+ * Tokenizes text into lowercase alphanumeric words.
+ *
+ * @param text - Input string to tokenize
+ * @returns Array of lowercase alphanumeric tokens
+ */
 export function splitBalancedWords(text: string) {
   return text
     .toLowerCase()
@@ -61,6 +73,12 @@ export function splitBalancedWords(text: string) {
     .filter(Boolean);
 }
 
+/**
+ * Checks whether text appears to be leaked JSON syntax, schema artifacts, or punctuation noise.
+ *
+ * @param value - String to evaluate
+ * @returns `true` if the string resembles leaked JSON structure
+ */
 export function looksLikeJsonArtifact(value: string) {
   const normalized = normalizeSectionText(value);
   if (!normalized) return true;
@@ -119,6 +137,13 @@ export function looksLikeJsonArtifact(value: string) {
   return false;
 }
 
+/**
+ * Sanitizes structured answer text by stripping JSON artifacts, noisy headings, and catalog fragments.
+ *
+ * @param value - Raw answer or section text
+ * @param options - Length/token thresholds and prefix handling options
+ * @returns Clean sanitized text or empty string if unusable
+ */
 export function sanitizeStructuredText(
   value: string,
   options: { minLength?: number; minTokens?: number; keepLeading?: boolean } = {},
@@ -276,11 +301,23 @@ export function polishClinicalAnswerProse(value: string, options: { preserveBold
   return options.preserveBold ? restoreBoldSpans(polished, boldSpans) : polished;
 }
 
+/**
+ * Strips artifacts, normalizes punctuation and brand fragments, and polishes answer prose.
+ *
+ * @param value - Raw answer string
+ * @returns Cleaned and polished prose string
+ */
 export function sanitizeAnswerText(value: string) {
   const cleaned = sanitizeStructuredText(value, { minLength: 8, minTokens: 2, keepLeading: true });
   return cleaned ? polishClinicalAnswerProse(cleaned) : "";
 }
 
+/**
+ * Evaluates whether text contains clinical answer quality issues like unreferenced digits, fragments, or catalog noise.
+ *
+ * @param value - Answer string to evaluate
+ * @returns `true` if a quality defect is detected
+ */
 export function hasClinicalAnswerQualityIssue(value: string) {
   const normalized = normalizeSectionText(value);
   if (!normalized) return true;
@@ -308,14 +345,34 @@ export function hasClinicalAnswerQualityIssue(value: string) {
   );
 }
 
+/**
+ * Checks whether section text passes minimum usable token and length requirements after sanitization.
+ *
+ * @param value - Raw section text
+ * @param options - Minimum token and length constraints
+ * @returns `true` if the section text is usable
+ */
 export function isUsableAnswerSectionText(value: string, options: { minTokens?: number; minLength?: number } = {}) {
   return Boolean(sanitizeStructuredText(value, options));
 }
 
+/**
+ * Safely casts an unknown value to a non-array record map or empty object.
+ *
+ * @param value - Input value
+ * @returns Record map
+ */
 export function safeRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+/**
+ * Safely extracts a non-empty string value from a metadata record by key.
+ *
+ * @param metadata - Metadata record map
+ * @param key - Field key to look up
+ * @returns Trimmed string value or null
+ */
 export function metadataText(metadata: Record<string, unknown>, key: string) {
   const value = metadata[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;

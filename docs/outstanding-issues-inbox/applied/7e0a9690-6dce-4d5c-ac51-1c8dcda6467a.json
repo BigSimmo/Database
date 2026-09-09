@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7e0a9690-6dce-4d5c-ac51-1c8dcda6467a",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Four no-DDL migrations sit outside every history guard, and the drift allowlist was never reconciled against a live read",
+    "detail": "Sixteen migration files contain no executable DDL. tests/migration-history-placeholders.test.ts tracks only six of the ten select-1 files; untracked are 20260629100000, 20260702170000, 20260708160000 and 20260709150000. 20260702170000 is the sharpest: supabase/drift-allowlist.json allowlists every neighbour in its window (100000 through 180000) but not it, and every allowlisted neighbour carries real DDL while 20260702170000_fix_match_chunks_text_n1.sql is bare select 1. The allowlist header states it was seeded by name from the repo, NOT by a live read. NEXT (operator, read-only): select (public.schema_drift_snapshot() -> 'migration_history'); and check statement counts for those versions. Any zero-statement row without an allowlist entry needs a 20260804110240-pattern validation guard.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96S1XDW3XK826ZVBC0302"
+  }
+}

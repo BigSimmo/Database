@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "13ea8c93-7134-4e18-9f7c-6c0f9a624726",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#TF6TPJ",
+    "outcome": "Resolved and verified. scripts/guard-push.mjs enforces Guard 2 (inFlightCiGuard) across all PR push workflows, and scripts/sync-pr-branches.mjs checks hasRequiredCiInFlight() to prevent main-merges while CI is in-flight. Verified via unit and contract tests in tests/ci-cache-safety.test.ts and tests/guard-push.test.ts. Merging main into open PR branches no longer triggers cancel-in-progress on active required CI or produces false-red PR required states with zero failing jobs.",
+    "baseRowFingerprint": "374dcd64d1860eb3a7cca36be6669cf42e02424ce957cf2c4be75e58c11432af"
+  }
+}

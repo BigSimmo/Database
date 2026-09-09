@@ -18,6 +18,8 @@ import {
   panelSubtle,
   primaryControl,
 } from "@/components/ui-primitives";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
+import { MissingValue } from "@/components/ui/missing-value";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import {
   favouriteItems,
@@ -179,6 +181,9 @@ export function FavouritesHub({
   return (
     <div data-testid="favourites-hub" className="mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5">
       <div className="mx-auto grid w-full max-w-5xl justify-items-center gap-3 pt-3 text-center sm:gap-4 sm:pt-5">
+        {/* Owner decision 2026-08-23: retain the compact dashboard hero here.
+            The standalone /favourites command library deliberately starts at
+            its workspace heading so the saved-item controls remain above fold. */}
         <ModeHomeHero
           testId="favourites-home"
           title={sharedHomePresentation.favourites.title}
@@ -206,16 +211,20 @@ export function FavouritesHub({
         ) : null}
 
         <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">
+          {/* SPEC §11: an untrusted count is `Unknown`, never a dash. The registry either has not
+              answered yet or failed, so the number exists and we cannot read it — which is exactly
+              "unknown", not "not recorded" and not "not applicable". A dash in a numeric tile reads
+              as zero, i.e. "your library is empty", which is the one thing we must not assert. */}
           {[
             {
               label: "Items",
-              value: libraryCountsTrusted ? String(itemCount) : "—",
+              value: libraryCountsTrusted ? String(itemCount) : <MissingValue reason="unknown" />,
               icon: Heart,
               countBearing: true,
             },
             {
               label: "Sets",
-              value: libraryCountsTrusted ? String(setCount) : "—",
+              value: libraryCountsTrusted ? String(setCount) : <MissingValue reason="unknown" />,
               icon: Folder,
               countBearing: true,
             },
@@ -228,7 +237,7 @@ export function FavouritesHub({
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)]"
               >
                 <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-                  <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
+                  <Icon aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   <span className="truncate">{stat.label}</span>
                 </div>
                 <p
@@ -262,7 +271,7 @@ export function FavouritesHub({
               aria-label="Choose favourite type"
             >
               <span className="grid h-7 w-7 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                <SelectedTabIcon className="h-3.5 w-3.5" />
+                <SelectedTabIcon aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
               <span className="grid min-w-0 gap-0.5">
                 <span className="text-2xs font-bold uppercase leading-none tracking-eyebrow text-[color:var(--text-muted)]">
@@ -324,7 +333,7 @@ export function FavouritesHub({
                           selected ? "bg-[color:var(--surface)]" : "bg-transparent",
                         )}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon aria-hidden="true" className="h-4 w-4" />
                       </span>
                       <span className="font-bold">{tab.label}</span>
                       {libraryCountsTrusted ? (
@@ -376,7 +385,7 @@ export function FavouritesHub({
             aria-describedby="favourites-sort-unavailable"
             className={cn(
               floatingControl,
-              "min-h-tap cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)] sm:min-h-9 sm:px-2.5",
+              "min-h-tap cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)] sm:px-2.5",
             )}
           >
             <ArrowUpDown aria-hidden="true" className="h-4 w-4" />
@@ -392,7 +401,7 @@ export function FavouritesHub({
             aria-describedby="favourites-add-unavailable"
             className={cn(
               primaryControl,
-              "min-h-tap cursor-not-allowed justify-center px-3 text-xs opacity-60 hover:bg-[color:var(--command)] hover:shadow-[var(--e1)] active:translate-y-0 sm:min-h-9 sm:px-2.5",
+              "min-h-tap cursor-not-allowed justify-center px-3 text-xs opacity-60 hover:bg-[color:var(--command)] hover:shadow-[var(--e1)] active:translate-y-0 sm:px-2.5",
             )}
           >
             <Plus aria-hidden="true" className="h-4 w-4" />
@@ -555,7 +564,7 @@ export function FavouritesHub({
               aria-describedby="favourites-new-set-unavailable"
               className={cn(
                 floatingControl,
-                "mt-3 min-h-9 w-full cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)]",
+                "mt-3 w-full cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)]",
               )}
             >
               <Plus aria-hidden="true" className="h-4 w-4" />
@@ -574,9 +583,9 @@ export function FavouritesHub({
 function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrowseSets: () => void }) {
   const Icon = item.icon;
   return (
-    <article className="grid min-h-[4.25rem] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] py-2.5 last:border-b-0">
+    <article className="relative grid min-h-[4.25rem] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] py-2.5 last:border-b-0">
       <span className={iconTilePremium}>
-        <Icon className="h-4 w-4" />
+        <Icon aria-hidden="true" className="h-4 w-4" />
       </span>
       <div className="min-w-0">
         <p className="truncate font-bold text-[color:var(--text-heading)]">{item.title}</p>
@@ -589,17 +598,20 @@ function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrows
         </div>
       </div>
       <div className="hidden items-center gap-1.5 sm:flex">
-        <Link href={item.href} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
+        <Link href={item.href} className={cn(floatingControl, "px-2.5 text-xs", stretchedRowLinkClass)}>
           {item.primaryAction}
         </Link>
-        <button type="button" onClick={onBrowseSets} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
+        <button type="button" onClick={onBrowseSets} className={cn(floatingControl, "relative z-10 px-2.5 text-xs")}>
           <Folder aria-hidden="true" className="h-3.5 w-3.5" />
           Browse sets
         </button>
       </div>
       <Link
         href={item.href}
-        className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden"
+        className={cn(
+          "grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden",
+          stretchedRowLinkClass,
+        )}
         aria-label={`Open ${item.title}`}
       >
         <ChevronDown aria-hidden="true" className="-rotate-90 h-4 w-4" />

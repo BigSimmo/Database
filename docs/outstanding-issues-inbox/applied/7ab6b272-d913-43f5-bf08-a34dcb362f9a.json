@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "7ab6b272-d913-43f5-bf08-a34dcb362f9a",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Caring Contacts: carry the retention clearance instant on Episode so a screen stops inferring clearance from a blank patient name",
+    "detail": "Raised by the Task 6b implementer on 2026-08-25 and confirmed by review. The patient overview decides 'a retention clearance removed this reason' from `episode.patientName === \"\"`. That inference is sound TODAY but the guarantee behind it lives in a Zod schema at the API edge (`plans/route.ts`, `patientName: z.string().min(1)`), not as a domain invariant: the repository's own `createPlan` does not validate it and the Postgres column is `not null`, which permits the empty string. Task 6b made a SECOND statement depend on that inference, which is why it is worth closing rather than leaving. The failure mode is a wrong sentence on an already de-identified record, not a leak, so it is not urgent. The durable fix is cheap and already half-built: `caring_contacts.retention_state.cleared_at` exists in `0001_caring_contacts_foundation.sql` with `retention_state_cleared_after_terminal` pinning it, so the work is to surface it on `Episode` and have the screen read the instant instead of guessing from a blank field. Crosses both stores.",
+    "issueUlid": "01M0V3H4YAJ7PZQPSPTCVEEJDY"
+  }
+}

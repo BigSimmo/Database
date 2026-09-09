@@ -49,7 +49,7 @@ describe("source authority metadata tooling", () => {
     ] as const) {
       const entry = australianSourceByKey(key);
       expect(entry).not.toBeNull();
-      expect(authorityIdentityForCatalogueEntry(entry!)).toMatchObject({ codes: [publisherCode] });
+      expect(authorityIdentityForCatalogueEntry(entry!)?.codes).toContain(publisherCode);
       expect(
         classifySourceAuthority(
           activeAustralianMetadata({
@@ -231,6 +231,26 @@ describe("source authority metadata tooling", () => {
     });
   });
 
+  it("requires governed catalogue metadata before trusting the OCP WA alias", () => {
+    expect(
+      classifySourceAuthority({
+        publisher_code: "OCP WA",
+        publisher: "Office of the Chief Psychiatrist WA",
+        jurisdiction: "Australia/WA",
+        document_status: "current",
+        clinical_validation_status: "locally_reviewed",
+        extraction_quality: "good",
+      }),
+    ).toMatchObject({
+      authorityKey: null,
+      authority: null,
+      designation: "unclassified",
+      cataloguePolicyResolved: false,
+      australianAugmentationEligible: false,
+      conflict: false,
+    });
+  });
+
   it("prefers the document identity over parent health-service path segments", () => {
     expect(
       inferSourceAuthorityFromIdentity(
@@ -302,7 +322,7 @@ describe("source authority metadata tooling", () => {
         source_kind: "registry_record",
         corpus_scope: "clinical_kb_site",
         source_role: "service_directory",
-        publisher: "Clinical KB registry",
+        publisher: "PsychSift registry",
         jurisdiction: "WA/local clinical workspace",
       },
     });

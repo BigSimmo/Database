@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
-import { jsonError, PublicApiError } from "@/lib/http";
+import { jsonError, publicErrorResponse, PublicApiError } from "@/lib/http";
 import {
   checkIngestionMutationSafety,
   ingestionMutationSafetyPayload,
@@ -28,7 +28,8 @@ const reindexRequestResultSchema = z.discriminatedUnion("outcome", [
 
 export async function POST(request: Request) {
   try {
-    if (isDemoMode()) return NextResponse.json({ error: "Bulk reindex is unavailable in demo mode." }, { status: 400 });
+    if (isDemoMode())
+      return publicErrorResponse("Bulk reindex is unavailable in demo mode.", 400, { code: "demo_mode_unavailable" });
 
     const parsed = await parseJsonBody(request, bulkReindexSchema, "Bulk reindex payload is invalid.");
 
@@ -46,7 +47,8 @@ export async function POST(request: Request) {
       .eq("owner_id", user.id)
       .in("id", documentIds);
     if (documentError) throw new Error(documentError.message);
-    if (!documents?.length) return NextResponse.json({ error: "No selected documents were found." }, { status: 404 });
+    if (!documents?.length)
+      return publicErrorResponse("No selected documents were found.", 404, { code: "documents_not_found" });
 
     const safety = await checkIngestionMutationSafety({
       supabase,

@@ -394,7 +394,7 @@ function EvidencePanel() {
 
 function DesktopFrame() {
   return (
-    <div className="flex h-[26rem] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="flex h-[26rem] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <UniversalTopBar device="desktop" />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <DocumentHeaderRow device="desktop" />
@@ -415,7 +415,7 @@ function DesktopFrame() {
 
 function TabletFrame() {
   return (
-    <div className="mx-auto flex h-[26rem] w-full max-w-[768px] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="mx-auto flex h-[26rem] w-full max-w-[768px] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <UniversalTopBar device="tablet" />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <DocumentHeaderRow device="tablet" />
@@ -450,7 +450,7 @@ function PhoneFrame({ state }: { state: PhoneState }) {
   const scrolled = state === "scrolled";
 
   return (
-    <div className="relative flex h-[26rem] w-[330px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="relative flex h-[26rem] w-[330px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       {scrolled ? null : (
         <>
           <UniversalTopBar device="phone" />

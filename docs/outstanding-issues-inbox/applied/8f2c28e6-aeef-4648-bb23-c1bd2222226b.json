@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8f2c28e6-aeef-4648-bb23-c1bd2222226b",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#5DYBQQ",
+    "outcome": "Resolved 2026-08-23 at exact HEAD d5e7fe271189618de9f46d2ad19f18084aa620b1 with no Forms source or test change. npm run ensure reported http://localhost:4427; GET /api/local-project-id returned appName Clinical KB, projectId clinical-kb:8955bc2fbdf3, and safeLocalOrigin true. The repository wrapper npm run test:e2e -- tests/ui-forms-section-nav.spec.ts --project=chromium --grep \"expands information previews into one continuous answer\" --repeat-each=2 completed its isolated production build and typecheck, then passed the target in 2 of 2 Chromium repetitions with no retries. src/components/forms/form-detail-page.tsx, src/components/ui/disclosure.tsx, tests/ui-forms-section-nav.spec.ts, and tests/forms-information-disclosure.dom.test.tsx are byte-identical in the worktree, exact HEAD, and origin/main. The earlier missing-pg attempt was dependency/environment restoration only and is excluded from product evidence; no flake-ledger entry, quarantine, weakened assertion, or Forms code change was needed.",
+    "baseRowFingerprint": "42221f7d7bf4bcc63b7e845b376f48c26636614f4fbbc5c5aefb56ef518c828f"
+  }
+}

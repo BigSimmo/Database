@@ -18,7 +18,10 @@ export function RouteNotFoundPanel({
   returnLabel: string;
 }) {
   return (
-    <div className="flex h-[400px] items-center justify-center px-4">
+    <div
+      data-route-recovery="true"
+      className="flex min-h-[min(30rem,62dvh)] items-start justify-center px-4 py-5 sm:items-center sm:py-8"
+    >
       <div
         role="status"
         className="w-full max-w-md rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5"

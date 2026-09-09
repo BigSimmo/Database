@@ -1,9 +1,11 @@
 /** @vitest-environment jsdom */
 
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { factsheetsTopicsHref } from "@/lib/app-modes";
 import { installMatchMediaStub } from "./setup/jsdom.setup";
 
 const router = vi.hoisted(() => ({
@@ -74,6 +76,105 @@ describe("MasterSearchHeader DOM", () => {
     vi.clearAllMocks();
   });
 
+  it("disables the query input when private answer search is not ready", () => {
+    render(<MasterSearchHeader {...defaultHeaderProps()} realDataReady={false} />);
+    const input = screen.getByTestId("global-search-input");
+    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute("title", "Search setup not ready");
+  });
+
+  it("disables the query input for documents search when live data is not ready", () => {
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="documents" realDataReady={false} />);
+    const input = screen.getByTestId("global-search-input");
+    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute("title", "Search setup not ready");
+  });
+
+  it("keeps the query input enabled for local forms search when live data is not ready", () => {
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="forms" realDataReady={false} />);
+    expect(screen.getByTestId("global-search-input")).toBeEnabled();
+  });
+
+  it("keeps ordinary Search as the only composer action for former Clinical Ask modes", () => {
+    const props = defaultHeaderProps();
+    props.query = "synthetic question";
+    const modes = [
+      "services",
+      "forms",
+      "differentials",
+      "formulation",
+      "dsm",
+      "specifiers",
+      "therapy-compass",
+    ] as const;
+    const { rerender } = render(<MasterSearchHeader {...props} searchMode={modes[0]} />);
+
+    for (const searchMode of modes) {
+      rerender(<MasterSearchHeader {...props} searchMode={searchMode} />);
+      expect(screen.queryByRole("button", { name: /^Ask / })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Dictate question|Stop recording/ })).not.toBeInTheDocument();
+      expect(document.querySelector("[data-clinical-ask-actions]")).toBeNull();
+    }
+
+    fireEvent.submit(screen.getByRole("search"));
+    expect(props.onAsk).toHaveBeenCalledOnce();
+  });
+
+  it("ignores form and keyboard submission while the composer is loading", () => {
+    const props = { ...defaultHeaderProps(), query: "bipolar", loading: true };
+    render(<MasterSearchHeader {...props} searchMode="dsm" />);
+
+    fireEvent.submit(screen.getByRole("search"));
+    fireEvent.keyDown(screen.getByTestId("global-search-input"), { key: "Enter", ctrlKey: true });
+
+    expect(props.onAsk).not.toHaveBeenCalled();
+  });
+
+  it("shows provider-free Smart search while preserving the ordinary search action", () => {
+    const props = {
+      ...defaultHeaderProps(),
+      query: "Which service is best for ongoing support after discharge?",
+      searchMode: "services" as const,
+    };
+    const { rerender } = render(<MasterSearchHeader {...props} />);
+
+    expect(screen.getByTestId("smart-search-intent-cue")).toHaveTextContent("Smart search");
+    expect(screen.getByRole("button", { name: "Search services" })).toBeInTheDocument();
+    expect(screen.getByText("Smart search selected for Services.")).toBeInTheDocument();
+    expect(screen.queryByText(/Smart answer/i)).not.toBeInTheDocument();
+
+    rerender(<MasterSearchHeader {...props} query="13YARN" />);
+    expect(screen.queryByTestId("smart-search-intent-cue")).not.toBeInTheDocument();
+    // A literal query outside the mode-home hero shows no Smart wording at all.
+    expect(screen.queryByTestId("search-example-ticker")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Smart search/)).not.toBeInTheDocument();
+  });
+
+  it("renders the compact pill alone outside the mode-home hero (no ticker, prompts, or privacy line)", () => {
+    installMatchMediaStub(false);
+    for (const searchMode of ["forms", "documents", "services", "dsm"] as const) {
+      const { unmount } = render(<MasterSearchHeader {...defaultHeaderProps()} searchMode={searchMode} />);
+      expect(screen.getByTestId("global-search-input")).toBeInTheDocument();
+      expect(screen.queryByTestId("smart-search-prompt-row")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("search-example-ticker")).not.toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Search privacy notice" })).toBeNull();
+      unmount();
+    }
+    // The answer dock is its own composer type and keeps the APP-5 line.
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="answer" />);
+    expect(screen.getByRole("group", { name: "Search privacy notice" })).toBeInTheDocument();
+  });
+
+  it("routes Factsheets Browse all sheets to the Topics page", async () => {
+    const user = userEvent.setup();
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="factsheets" />);
+
+    await user.click(screen.getByRole("button", { name: "Open factsheets options" }));
+    await user.click(screen.getByRole("button", { name: "Browse all sheets" }));
+
+    expect(router.push).toHaveBeenCalledWith(factsheetsTopicsHref);
+  });
+
   describe("#WJDQ0X - privacy notice landmark / role=group wrapping", () => {
     it("wraps the composer privacy notice in role='group' with aria-label='Search privacy notice'", () => {
       render(<MasterSearchHeader {...defaultHeaderProps()} />);
@@ -90,18 +191,21 @@ describe("MasterSearchHeader DOM", () => {
   });
 
   describe("#D8JBCV - mobile /tools home privacy notice in footer placement", () => {
-    it("shows the privacy notice on desktop layout regardless of mobileHomeComposerPlacement", () => {
+    it("keeps the desktop result composer free of the notice regardless of mobileHomeComposerPlacement", () => {
       installMatchMediaStub(false);
 
+      // Without a home slot the desktop composer is a result composer, which
+      // renders the compact pill alone; the phone-only placement flag must not
+      // reintroduce the notice there.
       const { rerender } = render(
         <MasterSearchHeader {...defaultHeaderProps()} searchMode="tools" mobileHomeComposerPlacement="hero" />,
       );
-      expect(screen.getByRole("group", { name: "Search privacy notice" })).toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Search privacy notice" })).toBeNull();
 
       rerender(
         <MasterSearchHeader {...defaultHeaderProps()} searchMode="tools" mobileHomeComposerPlacement="footer" />,
       );
-      expect(screen.getByRole("group", { name: "Search privacy notice" })).toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Search privacy notice" })).toBeNull();
     });
 
     it("omits the privacy notice on a footer-configured /tools result dock with no home slot", () => {

@@ -27,6 +27,26 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByRole("status")).toHaveTextContent("12 services");
   });
 
+  it("can omit the empty-query fallback so browse is count plus Filter only", () => {
+    render(
+      <SearchResultsHeaderBand
+        modeId="dictionary"
+        query=""
+        matchCount={96}
+        resultNoun="terms"
+        hideEmptyQuery
+        emptyQueryLabel="Dictionary catalogue"
+        mobileControls={<span data-testid="band-filter">Filter</span>}
+        mobileControlsPlacement="inline"
+      />,
+    );
+
+    expect(screen.getByRole("region", { name: "Dictionary catalogue" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "All" })).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("96 terms");
+    expect(screen.getByTestId("band-filter")).toBeVisible();
+  });
+
   it("can provide the primary heading on standalone search routes", () => {
     render(<SearchResultsHeaderBand modeId="specifiers" query="seasonal pattern" matchCount={2} headingLevel={1} />);
 

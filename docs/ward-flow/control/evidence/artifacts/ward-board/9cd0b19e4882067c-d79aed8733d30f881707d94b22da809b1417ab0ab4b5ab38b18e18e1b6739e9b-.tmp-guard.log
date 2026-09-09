@@ -1,0 +1,60 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |node| tests/ward-admission-model.test.ts (37 tests | 2 failed) 18ms
+     × declares exactly the permitted field set at runtime 6ms
+     × holds no name, date of birth, record number, address, free text, or diagnosis beyond the one authorised block 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |node| tests/ward-admission-model.test.ts > Admission privacy — structural > declares exactly the permitted field set at runtime
+AssertionError: expected [ 'arrivedAt', …(18) ] to deeply equal [ 'arrivedAt', 'blockReason', …(16) ]
+
+- Expected
++ Received
+
+@@ -1,7 +1,8 @@
+  [
+    "arrivedAt",
++   "awayAtEmergencyDepartmentSince",
+    "blockReason",
+    "dischargeConfirmedAt",
+    "dischargeConfirmedBy",
+    "dischargeDateMoves",
+    "dischargeDateSetAt",
+
+ ❯ tests/ward-admission-model.test.ts:494:42
+    492|
+    493|   it("declares exactly the permitted field set at runtime", () => {
+    494|     expect([...ADMISSION_FIELDS].sort()).toEqual(ALLOWED_ADMISSION_FIE…
+       |                                          ^
+    495|   });
+    496|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |node| tests/ward-admission-model.test.ts > Admission privacy — structural > holds no name, date of birth, record number, address, free text, or diagnosis beyond the one authorised block
+AssertionError: expected [ 'id', 'unitId', 'referralId', …(16) ] to have a length of 18 but got 19
+
+- Expected
++ Received
+
+- 18
++ 19
+
+ ❯ tests/ward-admission-model.test.ts:615:27
+    613|
+    614|     // Non-vacuity: the two sets are really populated, so the loops ab…
+    615|     expect(runtimeFields).toHaveLength(ALLOWED_ADMISSION_FIELDS.length…
+       |                           ^
+    616|     expect(builtFields).toHaveLength(ALLOWED_ADMISSION_FIELDS.length);
+    617|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 35 passed (37)
+   Start at  03:24:09
+   Duration  246ms (transform 67ms, setup 0ms, import 87ms, tests 18ms, environment 0ms)
+

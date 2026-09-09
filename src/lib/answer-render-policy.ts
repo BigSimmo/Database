@@ -1,3 +1,5 @@
+import { sourceCurrencyWarningForAnswer } from "@/lib/answer-client-payload";
+import type { RagAnswer } from "@/lib/types";
 import { citationIdentity, documentCitationHref, formatCitationLabel } from "@/lib/citations";
 import { normalizeAccessibleTable } from "@/lib/accessible-table-normalization";
 import type {
@@ -389,7 +391,24 @@ function dedupeRelatedDocuments(documents: ClientRelatedDocument[], primarySourc
   return output;
 }
 
-function buildWarnings(answer: ClientRagAnswerPayload, trust: AnswerRenderTrust) {
+/**
+ * The two warnings that report a source's CURRENCY rather than a gap in the
+ * evidence. They are exported because the answer surface has to be able to tell
+ * them apart from the rest: a source being due for review is not a missing
+ * piece of evidence, and a summary that counts it as one both overstates the
+ * gaps and — since the same fact also drives the stale-evidence state — says the
+ * one thing twice while naming it wrongly.
+ */
+export const currencyReviewWarnings = {
+  supporting: "A supporting source is due for review.",
+  retrieved: "A retrieved source is due for review.",
+} as const;
+
+export function isCurrencyReviewWarning(warning: string): boolean {
+  return Object.values(currencyReviewWarnings).some((message) => message === warning);
+}
+
+function buildWarnings(answer: ClientRagAnswerPayload | RagAnswer, trust: AnswerRenderTrust) {
   const warnings: string[] = [];
   if (trust === "unsupported")
     warnings.push("This is a source-gap answer; recommendation-style evidence extras are hidden.");
@@ -404,18 +423,12 @@ function buildWarnings(answer: ClientRagAnswerPayload, trust: AnswerRenderTrust)
   for (const warning of answer.sourceGovernanceWarnings ?? []) {
     if (warning.message) warnings.push(warning.message);
   }
-  const supportingChunkIds = new Set([
-    ...answer.citations.map((citation) => citation.chunk_id),
-    ...(answer.answerSections ?? []).flatMap((section) => section.citation_chunk_ids ?? []),
-    ...(answer.quoteCards ?? []).map((quote) => quote.chunk_id),
-  ]);
-  const reviewDueSources = answer.sources.filter(
-    (source) => normalizeSourceMetadata(source.source_metadata).document_status === "review_due",
-  );
-  if (reviewDueSources.some((source) => supportingChunkIds.has(source.id))) {
-    warnings.push("A supporting source is due for review.");
-  } else if (reviewDueSources.length > 0) {
-    warnings.push("A retrieved source is due for review.");
+  const currencyWarning = "sourceCurrencyWarning" in answer ? answer.sourceCurrencyWarning
+    : "evidenceAssessments" in answer ? sourceCurrencyWarningForAnswer(answer) : undefined;
+  if (currencyWarning === "supporting") {
+    warnings.push(currencyReviewWarnings.supporting);
+  } else if (currencyWarning === "retrieved") {
+    warnings.push(currencyReviewWarnings.retrieved);
   }
   for (const gap of answer.conflictsOrGaps ?? []) {
     if (gap.message) warnings.push(gap.message);

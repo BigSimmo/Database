@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 
 import { InlineNotice } from "@/components/ui-primitives";
 
@@ -21,6 +21,7 @@ import {
   StatusMark,
   SyntheticMarker,
   formatPerthDate,
+  safetyPlanStatusLine,
 } from "./prototype-ui";
 import { carePlanRoute } from "./routes";
 import type {
@@ -48,8 +49,19 @@ export type PatientWorkspaceProps = {
   activeSection: PatientSectionKey | null;
   reviewsHref: string;
   onRecordContactIntent: (contact: CmhtContact, channel: "email" | "call") => void;
+  contactActionBlockedReason: string | null;
   /** Home renders the workspace beside the directory and offers the full record. */
   showFullRecordLink?: boolean;
+  /**
+   * The manual route into Identification Review, passed in rather than rendered
+   * here because it reads the prototype state and this component is deliberately
+   * a pure function of its props — it is rendered in tests without a provider.
+   *
+   * It sits last on the workspace on purpose. Reading comes first, and a
+   * referral is the least urgent thing on a page whose reason for existing is
+   * the first-minute guidance above it.
+   */
+  identificationReferral?: ReactNode;
   /**
    * The workspace region is a focus target. Selecting a patient from the
    * directory changes no address, so the shell's route-heading focus never
@@ -76,7 +88,9 @@ export function PatientWorkspace({
   activeSection,
   reviewsHref,
   onRecordContactIntent,
+  contactActionBlockedReason,
   showFullRecordLink = false,
+  identificationReferral,
   ref,
 }: PatientWorkspaceProps) {
   const {
@@ -90,10 +104,7 @@ export function PatientWorkspace({
     presentationActivity,
   } = snapshot;
 
-  const safetyPlanStatus =
-    currentSafetyPlanVersion === null
-      ? "No current version"
-      : `Current version ${currentSafetyPlanVersion.version}, confirmed ${formatPerthDate(currentSafetyPlanVersion.confirmedAt)}`;
+  const safetyPlanStatus = safetyPlanStatusLine(currentSafetyPlanVersion);
 
   const planCurrency =
     currentManagementVersion !== null
@@ -225,8 +236,11 @@ export function PatientWorkspace({
               scenario={scenario}
               reviewsHref={reviewsHref}
               onIntent={(channel) => onRecordContactIntent(cmht, channel)}
+              blockedReason={contactActionBlockedReason}
             />
           )}
+
+          {identificationReferral}
         </>
       )}
     </section>

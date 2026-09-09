@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "854ca9ba-ba3b-442b-be6d-6f5873ed60ed",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Caring Contacts: connection-unavailable and permission-unavailable have no runtime caller",
+    "detail": "Both are keys in the total blockReason lookup in src/components/caring-contacts/workspace/overlays/overlay-host.tsx (lines 159-160) with a definition at definitions.ts:361, but nothing in the workspace yet produces either reason, so neither wording has ever been rendered from a real code path. Phase 2B should either wire them or record that they are reserved.",
+    "source": "docs/caring-contacts/phase-2a-build-record.md deferred list; verified in source 2026-08-24",
+    "issueUlid": "01M0SA6TXVF5EYAJNH4TMJT374"
+  }
+}

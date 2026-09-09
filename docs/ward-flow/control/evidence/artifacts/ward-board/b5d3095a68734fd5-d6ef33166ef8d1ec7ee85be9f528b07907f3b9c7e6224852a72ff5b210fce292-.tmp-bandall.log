@@ -1,0 +1,195 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+Not implemented: navigation to another Document
+ ❯ |jsdom| tests/ward-capacity-view.dom.test.tsx (7 tests | 1 failed) 1333ms
+     × shows the excluded count once a release falls beyond tonight, and not before 314ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-capacity-view.dom.test.tsx > ward capacity headline (Task 7) > shows the excluded count once a release falls beyond tonight, and not before
+TestingLibraryElementError: Unable to find an element by: [data-testid="ward-capacity-excluded-beyond-today"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"_modeShell_49812c"[39m
+      [33mdata-role[39m=[32m"flow"[39m
+      [33mdata-testid[39m=[32m"ward-mode-capacity"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_phoneBar_d20c9a"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"_phoneBrand_d20c9a"[39m
+          [33mhref[39m=[32m"/mockups/ward-flow"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _brandGlyph_d20c9a"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_phoneBrandName_d20c9a"[39m
+          [36m>[39m
+            [0mWard Flow[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Open Ward Flow menu"[39m
+          [33mclass[39m=[32m"_menuButton_d20c9a"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-menu"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 5h16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 12h16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 19h16"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<aside[39m
+        [33maria-label[39m=[32m"Ward Flow"[39m
+        [33mclass[39m=[32m"_clinicalRail_10f60f"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-label[39m=[32m"Ward Flow home"[39m
+          [33mclass[39m=[32m"_railBrand_10f60f"[39m
+          [33mhref[39m=[32m"/mockups/ward-flow"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _brandGlyph_10f60f"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Expand sidebar"[39m
+          [33mclass[39m=[32m"_railExpand_10f60f"[39m
+          [33mtitle[39m=[32m"Expand sidebar"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _railExpandBrand_10f60f"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-panel-left-open _railExpandIcon_10f60f"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ward-capacity-view.dom.test.tsx:283:19
+    281|     fireEvent.click(screen.getByTestId("test-flag-predicted-release"));
+    282|
+    283|     expect(screen.getByTestId("ward-capacity-excluded-beyond-today")).…
+       |                   ^
+    284|   });
+    285| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 80 passed (81)
+      Tests  1 failed | 1211 passed (1212)
+   Start at  04:22:54
+   Duration  33.64s (transform 4.79s, setup 8.23s, import 15.07s, tests 60.88s, environment 34.92s)
+

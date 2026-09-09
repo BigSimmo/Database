@@ -27,22 +27,29 @@ export function PrivacyAtAGlance({ onOpenSection }: { onOpenSection: (id: Privac
         </h2>
         <p className="text-3xs font-medium text-[color:var(--text-muted)]">Select a fact for the detail</p>
       </div>
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <ul
+        data-testid="privacy-at-a-glance-grid"
+        className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--border)] shadow-[var(--shadow-inset)] sm:grid-cols-2 lg:grid-cols-3"
+      >
         {PRIVACY_AT_A_GLANCE.map((fact) => (
-          <li key={fact.label} className="min-w-0">
+          <li
+            key={fact.label}
+            className="min-w-0 bg-[color:var(--surface-raised)] sm:last:col-span-2 lg:last:col-span-3"
+          >
             <button
               type="button"
               onClick={() => onOpenSection(fact.sectionId)}
               data-print-keep
               className={cn(
-                "group relative flex min-h-tap w-full min-w-0 items-start gap-2.5 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2.5 text-left shadow-[var(--shadow-inset)]",
-                "transition duration-[var(--duration-fast)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
+                "group relative flex min-h-tap h-full w-full min-w-0 items-start gap-2.5 overflow-hidden bg-[color:var(--surface-raised)] px-3 py-3 text-left",
+                "transition duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] sm:px-4 sm:py-3.5",
                 searchFocusRing,
+                "focus-ring-contained",
               )}
             >
               <span
                 aria-hidden="true"
-                className={cn("absolute inset-y-2 left-0 w-0.5 rounded-r-full", privacyToneEdge[fact.tone])}
+                className={cn("absolute inset-y-2.5 left-0 w-0.5 rounded-r-full", privacyToneEdge[fact.tone])}
               />
               <span className="min-w-0 flex-1">
                 <span className="block text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">

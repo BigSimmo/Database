@@ -1,5 +1,13 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { renderDigest, resolveHealthUrl } from "../scripts/ops-digest.mjs";
+import {
+  normalizeOpsStatus,
+  renderDigest,
+  resolveHealthUrl,
+  serializeGitHubOutputs,
+  updateHybridRpcHourlyEvidence,
+} from "../scripts/ops-digest.mjs";
+import { evaluateOperationalAlerts, summarizeOperationalAlerts } from "../scripts/lib/operational-alerts.mjs";
 
 describe("resolveHealthUrl", () => {
   it("appends the deep health path to a bare base URL", () => {
@@ -17,11 +25,135 @@ describe("resolveHealthUrl", () => {
   });
 });
 
+describe("ops digest workflow contract", () => {
+  it("publishes alerting, highest severity, and the compact machine-readable summary", () => {
+    const workflow = readFileSync(new URL("../.github/workflows/ops-digest.yml", import.meta.url), "utf8");
+    const script = readFileSync(new URL("../scripts/ops-digest.mjs", import.meta.url), "utf8");
+    expect(script).toContain("alerting=${safeSummary.alerting}");
+    expect(script).toContain("severity=${singleLine(safeSeverity)}");
+    expect(script).toContain("alert_summary=${singleLine(JSON.stringify(safeSummary))}");
+    expect(workflow).toContain("steps.digest.outputs.severity");
+    expect(workflow).toContain("steps.digest.outputs.alert_summary");
+    expect(workflow).toContain("OPS_DIGEST_STATUS: ${{ steps.digest.outputs.status }}");
+    expect(workflow).toContain("JSON.parse(process.env.OPS_DIGEST_ALERT_SUMMARY");
+    expect(workflow).toContain("publish_alert_comment");
+    expect(workflow).toContain("publishAttentionComment");
+    expect(workflow).toContain("ops-digest-rpc-history");
+    expect(workflow).not.toContain('const status = "${{ steps.digest.outputs.status }}"');
+    expect(workflow).not.toContain("const alertSummary = '${{ steps.digest.outputs.alert_summary }}'");
+  });
+
+  it("allow-lists workflow values and prevents output-command injection", () => {
+    expect(normalizeOpsStatus("ok\nowned=true")).toBe("unknown");
+    const output = serializeGitHubOutputs("ok\nowned=true", {
+      alerting: true,
+      severity: "page\nowned=true",
+      count: 1,
+      codes: ["OPS_SAFE", "OPS_BAD\nowned=true"],
+    });
+    expect(output).toBe(
+      'status=unknown\nalerting=true\nseverity=unknown\nalert_summary={"alerting":true,"severity":"unknown","count":1,"codes":["OPS_SAFE"]}\n',
+    );
+    expect(output).not.toContain("\nowned=true");
+  });
+});
+
+describe("hybrid RPC hourly evidence", () => {
+  it("requires three contiguous identity-complete hourly windows for the same RPC", () => {
+    let history: unknown;
+    for (const observedAt of ["2026-08-23T01:20:00Z", "2026-08-23T02:20:00Z", "2026-08-23T03:20:00Z"]) {
+      const result = updateHybridRpcHourlyEvidence(
+        history,
+        {
+          slo: {
+            hybridRpcIdentityEvidenceComplete: true,
+            hybridRpcErrorCounts: { hybrid_search: 1, keyword_search: observedAt.endsWith("02:20:00Z") ? 1 : 0 },
+          },
+        },
+        new Date(observedAt),
+      );
+      history = result.history;
+      if (observedAt.endsWith("03:20:00Z")) expect(result.repeatedRpcNames).toEqual(["hybrid_search"]);
+    }
+  });
+
+  it("breaks the paging sequence when an hourly identity snapshot is incomplete", () => {
+    const result = updateHybridRpcHourlyEvidence(
+      {
+        version: 1,
+        windows: [
+          { hour: "2026-08-23T01:00:00.000Z", rpcNames: ["hybrid_search"] },
+          { hour: "2026-08-23T02:00:00.000Z", rpcNames: ["hybrid_search"] },
+        ],
+      },
+      { slo: { hybridRpcIdentityEvidenceComplete: false, hybridRpcErrorCounts: { hybrid_search: 1 } } },
+      new Date("2026-08-23T03:20:00Z"),
+    );
+    expect(result.repeatedRpcNames).toEqual([]);
+  });
+});
+
 describe("renderDigest", () => {
+  it("distinguishes an empty hourly window without clearing its unknown-quality alert", () => {
+    const health = {
+      status: "ok",
+      slo: {
+        windowMinutes: 60,
+        totalQueries: 0,
+        hybridRpcErrorRate: 0,
+        degradedRate: 0,
+        truncationFallbackRate: 0,
+        timeoutFallbackRate: 0,
+      },
+    };
+    const md = renderDigest(health);
+    expect(md).toContain("**Service readiness:** 🟢 ok");
+    expect(md).toContain("No answered queries observed—answer quality not assessed.");
+    for (const label of ["hybrid RPC errors", "degraded/source-only", "truncation fallbacks", "timeout fallbacks"]) {
+      expect(md).toContain(`${label}: 0 (N/A)`);
+    }
+    expect(md).not.toContain("0.0%");
+    expect(md).toContain("**Alert state:** unknown (1)");
+    const summary = summarizeOperationalAlerts(evaluateOperationalAlerts(health));
+    expect(summary).toEqual({
+      alerting: true,
+      severity: "unknown",
+      count: 1,
+      codes: ["OPS_ANSWER_SLO_UNKNOWN"],
+    });
+    expect(serializeGitHubOutputs(health.status, summary)).toContain("alerting=true\nseverity=unknown\n");
+  });
+
+  it.each([undefined, {}, { windowMinutes: 60 }, { windowMinutes: 30, totalQueries: 0 }])(
+    "does not describe missing or invalid hourly telemetry as no answer activity: %j",
+    (slo) => {
+      const md = renderDigest({ status: "ok", slo });
+      expect(md).not.toContain("No answered queries observed—answer quality not assessed.");
+      expect(md).toContain("**Alert state:** unknown (1)");
+      expect(md).toContain("OPS_ANSWER_SLO_UNKNOWN");
+    },
+  );
+
+  it.each([
+    [0.3, "warning", "OPS_DEGRADED_ANSWER_RATE_WARNING"],
+    [0.6, "page", "OPS_DEGRADED_ANSWER_RATE_PAGE"],
+  ] as const)("preserves measured degradation at rate %s", (degradedRate, severity, code) => {
+    const md = renderDigest({
+      status: "ok",
+      slo: { windowMinutes: 60, totalQueries: 10, hybridRpcErrorRate: 0, degradedRate },
+    });
+    expect(md).not.toContain("No answered queries observed—answer quality not assessed.");
+    expect(md).not.toContain("N/A");
+    expect(md).toContain(`(${(degradedRate * 100).toFixed(1)}%)`);
+    expect(md).toContain(`**Alert state:** ${severity} (1)`);
+    expect(md).toContain(code);
+  });
+
   it("renders an unreachable digest when the probe failed", () => {
     const md = renderDigest(null, { error: "timeout after 20000ms" });
     expect(md).toContain("unreachable");
     expect(md).toContain("timeout after 20000ms");
+    expect(md).toContain("OPS_ANSWER_SLO_UNKNOWN");
   });
 
   it("renders SLO, cache, and spend sections from a healthy payload", () => {
@@ -62,6 +194,7 @@ describe("renderDigest", () => {
     expect(md).toContain("$1.23");
     expect(md).toContain("projected/day: $29.52");
     expect(md).toContain("fast $0.40");
+    expect(md).toContain("Alert state:** none (0)");
   });
 
   it("flags an over-threshold spend and a truncated sample", () => {
@@ -80,5 +213,6 @@ describe("renderDigest", () => {
     });
     expect(md).toContain("OVER THRESHOLD");
     expect(md).toContain("sample truncated");
+    expect(md).toContain("OPS_PROJECTED_DAILY_SPEND_WARNING");
   });
 });

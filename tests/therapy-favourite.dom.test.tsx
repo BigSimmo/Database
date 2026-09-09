@@ -22,8 +22,11 @@ vi.mock("@/components/therapy-compass/bindings", () => ({
     search: { query: "CBT", tags: [] },
     isInCompare: () => false,
     open: vi.fn(),
+    workspaceHref: (href: string) => href,
     openSheet: vi.fn(),
-    toggleCompare: vi.fn(),
+    compareSlugs: [],
+    addCompare: vi.fn(),
+    removeCompare: vi.fn(),
   }),
 }));
 

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fa126adf-ade8-4027-a029-d59b4bef8967",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Caring Contacts: the same-team write serialisation is accidental and still unpinned",
+    "detail": "ensureTeam's insert ... on conflict do nothing is what makes the stopService race cross-team-only. After Task 11b fix round 2 it carries a comment naming it, but no test pins it, so a future change to that insert could widen the race silently. Either pin it with a test that names the serialisation or make it deliberate with a lock.",
+    "source": "docs/caring-contacts/phase-2a-build-record.md deferred list item 4",
+    "issueUlid": "01M0SA6SQ6XEGPCD8KR25KSSTR"
+  }
+}

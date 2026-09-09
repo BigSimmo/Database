@@ -30,7 +30,7 @@ derivation; `eval/docling/report/build-report.mjs` stamps it automatically).
 | Field                 | This run            | Where it comes from                                        |
 | --------------------- | ------------------- | ---------------------------------------------------------- |
 | `commit_sha`          | `pending_owner_run` | `git rev-parse HEAD` of the benchmarked tree               |
-| `dataset_version`     | `pending_owner_run` | `eval/docling/fixtures/manifest.v1.json` `datasetVersion`  |
+| `dataset_version`     | `pending_owner_run` | `eval/docling/fixtures/manifest.v2.json` `datasetVersion`  |
 | `eval_config_version` | `pending_owner_run` | `eval/docling/report/lab-config.json`                      |
 | `model_version`       | `pending_owner_run` | Answer-model defaults (programme-wide comparability field) |
 | `embedding_version`   | `pending_owner_run` | `OPENAI_EMBEDDING_MODEL` + dimensions                      |

@@ -16,6 +16,7 @@ import {
   getOpenSafetyPlanDraft,
 } from "./domain";
 import { PROTOTYPE_NOW, publicCrisisContacts } from "./fixtures";
+import { PatientNavigation } from "./patient-navigation";
 import { useCarePlanPrototype } from "./prototype-provider";
 import { getPrototypeMutationBlockReason } from "./prototype-state";
 import {
@@ -35,6 +36,7 @@ import {
   StatusMark,
   SyntheticMarker,
   formatPerthDate,
+  safetyPlanConfirmationRow,
 } from "./prototype-ui";
 import { carePlanRoute } from "./routes";
 import type {
@@ -180,12 +182,18 @@ function ConfirmationState({ version }: { version: PersonalSafetyPlanVersion }) 
   );
 }
 
+/**
+ * Used by the reading surface only. The printed copy builds its own head, so
+ * the section navigation below never reaches paper — it is `data-print-hide`
+ * either way, but a document handed to a person should not depend on that.
+ */
 function SafetyIdentityBand({ patient }: { patient: Patient }) {
   return (
     <div data-testid="care-plan-safety-identity" className={styles.identityBand}>
       <SyntheticMarker />
       <h2 className={styles.patientName}>{patient.fullName}</h2>
       <p className={styles.sectionDescription}>{`${patient.mrn} — born ${formatPerthDate(patient.dateOfBirth)}`}</p>
+      <PatientNavigation patientId={patient.id} activeSection="safetyPlan" />
     </div>
   );
 }
@@ -289,6 +297,11 @@ export function SafetyPlanSurface({ patientId, scenario }: { patientId: string |
     );
   }
 
+  const confirmationRow = safetyPlanConfirmationRow(currentSafetyPlanVersion, {
+    withDate: "Confirmed with this person on",
+    withoutDate: "Confirmed with this person",
+  });
+
   return (
     <section
       aria-label={`${patient.fullName} Personal Safety Plan`}
@@ -309,7 +322,14 @@ export function SafetyPlanSurface({ patientId, scenario }: { patientId: string |
           />
         </div>
         <dl className={styles.definitionGrid}>
-          <DefinitionRow term="Last confirmed">{formatPerthDate(currentSafetyPlanVersion.confirmedAt)}</DefinitionRow>
+          {/*
+            Present only when this person confirmed and the record holds when.
+            `ConfirmationState` below states the participation state in words in
+            every case, so a missing row here is never the only account of it.
+          */}
+          {confirmationRow === null ? null : (
+            <DefinitionRow term={confirmationRow.term}>{confirmationRow.detail}</DefinitionRow>
+          )}
           <DefinitionRow term="Next review due">{formatPerthDate(currentSafetyPlanVersion.reviewDueAt)}</DefinitionRow>
           <DefinitionRow term="Written with this person by">
             {displayName(state.users, currentSafetyPlanVersion.authorId)}
@@ -463,6 +483,11 @@ export function SafetyPlanPrintSurface({
   // person declined, or nobody has been able to ask them — and the sheet must
   // not claim to be in their words when it is not.
   const ownWords = hasOwnWords(version.content);
+  // Second person, because this sheet is addressed to the person themselves.
+  const paperConfirmationRow = safetyPlanConfirmationRow(version, {
+    withDate: "Confirmed with you on",
+    withoutDate: "Confirmed with you",
+  });
 
   return (
     <section
@@ -550,14 +575,16 @@ export function SafetyPlanPrintSurface({
             <DefinitionRow term="Record number">{patient.mrn}</DefinitionRow>
             <DefinitionRow term="Version">{String(version.version)}</DefinitionRow>
             {/*
-              Omitted rather than shown as `Not recorded` when there is no date.
-              A row reading "Last confirmed — Not recorded" on a sheet addressed
-              to the person tells them nothing they can use and reads as a mark
-              against them; the three states with no date are exactly the states
-              where nothing was confirmed, and saying so twice adds nothing.
+              Omitted entirely when this person did not confirm. A row reading
+              `Not recorded` on a sheet addressed to the person tells them
+              nothing they can use and reads as a mark against them, and the
+              states with no confirmation are exactly the states where nothing
+              was confirmed — saying so twice adds nothing. When they did
+              confirm but the record does not hold when, the row says that in
+              words rather than borrowing the day the version went live.
             */}
-            {version.confirmedAt === null ? null : (
-              <DefinitionRow term="Last confirmed">{formatPerthDate(version.confirmedAt)}</DefinitionRow>
+            {paperConfirmationRow === null ? null : (
+              <DefinitionRow term={paperConfirmationRow.term}>{paperConfirmationRow.detail}</DefinitionRow>
             )}
           </dl>
           <p data-testid="care-plan-safety-paper-intro" className={styles.safetyPaperIntro}>

@@ -27,19 +27,19 @@ export async function generateMetadata({ params }: SpecifierDetailRouteProps): P
   const resolved = publicSpecifierRecordBySlug(slug);
   if (resolved?.source === "curated") {
     return {
-      title: `${resolved.record.name} - Psychiatric specifier - Clinical KB`,
+      title: `${resolved.record.name} - Psychiatric specifier - PsychSift`,
       description: resolved.record.summary,
     };
   }
 
   if (resolved?.source === "catalogue") {
     return {
-      title: `${resolved.item.label} - ${resolved.item.disorderName} specifier - Clinical KB`,
+      title: `${resolved.item.label} - ${resolved.item.disorderName} specifier - PsychSift`,
       description: `${resolved.item.label} — ${resolved.item.disorderName} specifier (${resolved.item.categoryName}).`,
     };
   }
 
-  return { title: "Specifier not found - Clinical KB" };
+  return { title: "Specifier not found - PsychSift" };
 }
 
 export default async function SpecifierDetailRoute({ params }: SpecifierDetailRouteProps) {

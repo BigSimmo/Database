@@ -1,0 +1,769 @@
+# Review package: ab16d11a9..2245e0ecf
+
+## Commits
+2245e0ecf feat(ward-flow): the statistics hub finds its own sections, and one disclaimer replaces two
+
+## Files changed
+ .../statistics/statistics-disclaimers.tsx          |  79 ++++++++++++
+ .../statistics/statistics-screen.tsx               |  88 ++++++++++++--
+ .../statistics/statistics-section-frame.tsx        |  59 ++++-----
+ .../statistics/statistics.module.css               |  91 ++++++++++++++
+ tests/ward-statistics-sections.dom.test.tsx        |  21 +++-
+ tests/ward-statistics.dom.test.tsx                 | 132 +++++++++++++++++++--
+ 6 files changed, 405 insertions(+), 65 deletions(-)
+
+## Diff
+diff --git a/src/components/ward-management/statistics/statistics-disclaimers.tsx b/src/components/ward-management/statistics/statistics-disclaimers.tsx
+new file mode 100644
+index 000000000..1595cbfa1
+--- /dev/null
++++ b/src/components/ward-management/statistics/statistics-disclaimers.tsx
+@@ -0,0 +1,79 @@
++"use client";
++
++/**
++ * THE TWO SENTENCES EVERY STATISTICS PAGE SAYS BEFORE IT SAYS ANYTHING ELSE, WRITTEN ONCE.
++ *
++ * ⚠️ **WHY THIS MODULE EXISTS AT ALL.** The statistics home page and the four section pages each
++ * state two things before showing anything: that every figure in this prototype is invented, and
++ * that the coordinator framing is an intention rather than an access control. A reader can land on
++ * any of the five directly, so all five must carry both. Until 2026-09-01 there were two
++ * hand-written copies — one in `statistics-screen.tsx`, one in `statistics-section-frame.tsx` — and
++ * they had ALREADY diverged in both sentences within a day of being written. No test in this
++ * repository can see the difference between a disclaimer that was reworded and one that was
++ * weakened, so a second copy is not a maintenance cost, it is a safety hole.
++ *
++ * ⚠️ **THE FOLD CHANGED THE WORDING, DELIBERATELY, AND HERE IS THE RECORD OF WHY.** Neither
++ * original was true of both kinds of page, so deleting either copy would have put a false clause
++ * somewhere. The differences and their resolutions:
++ *
++ *   - **Banner.** The home page said every instant *"they are computed from"* is invented; the
++ *     section frame said every instant *"this prototype holds"* is invented. The home page's
++ *     phrasing is anchored to figures it actually computes, and the section pages compute nothing —
++ *     on a page with no figures, "the instants they are computed from" refers to figures that are
++ *     not there. **The frame's phrasing is kept**, because it is the broader of the two: everything
++ *     the prototype holds includes the instants the home page's figures are computed from, so the
++ *     home page loses no force. This is a widening, not a softening.
++ *
++ *   - **Access.** The home page said anyone can reach the page *"and read every figure on it"*; the
++ *     frame stopped at *"can reach this page"*, because there is no figure on it to read. **Neither
++ *     is kept: the clause now reads "and read everything on it".** The point of the clause is that
++ *     access extends to what the page shows and not merely to the address, and "everything on it"
++ *     is true of a page of figures and of a page of prose alike — on the home page it INCLUDES
++ *     every figure, so nothing is dropped there; on the four section pages it is finally true,
++ *     where naming figures specifically was vacuous. Restoring the word "figure" here would make
++ *     this sentence false on four of the five pages that render it.
++ *
++ * ⚠️ **THESE ARE TEXT, NOT MARKUP OR STYLING, AND THAT SPLIT IS THE POINT.** Each page keeps its
++ * own banner element, its own `data-testid` and its own CSS module — every one of the eighteen ward
++ * modules declares `.governanceBanner`, `.prototypeBadge` and `.notice` on its own root, and two of
++ * them borrowing a nineteenth module's styling would be the only exception in the directory. What
++ * drifts is the wording, so the wording is what is shared. The call sites keep their testids as
++ * literals, where a grep for them still finds them.
++ *
++ * ⚠️ **BOTH SENTENCES ARE PINNED WHOLE, NEVER BY SUBSTRING**, in
++ * `tests/ward-statistics.dom.test.tsx` and `tests/ward-statistics-sections.dom.test.tsx`. Fix round
++ * 1 found the section assertions matched only `"not real figures"` and `"There is no role check on
++ * this route."` — the alarming half of each sentence, with the qualifying half unguarded. A fold
++ * that quietly dropped a clause would have passed both suites green, which is exactly the failure
++ * this module was written to end rather than to inherit.
++ */
++
++/**
++ * The synthetic-data disclaimer. Goes inside the page's own governance banner, beside its own
++ * "Synthetic prototype" badge — the badge is one word and has never drifted, so it stays at the
++ * call site with the element it labels.
++ */
++export function SyntheticFiguresDisclaimer() {
++  return (
++    <>
++      These are <strong>not real figures</strong>. Every patient, bed, referral and instant this prototype holds is
++      invented, and nothing here has been measured against a real service.
++    </>
++  );
++}
++
++/**
++ * The access claim and the fact that nothing enforces it, said together — because an unenforced
++ * claim stated honestly is safe and the same claim stated as though it were enforced is not. There
++ * is no route-level role gate anywhere in these mockups; every statistics page is reachable by
++ * anybody who can reach the Ward Flow mockups at all.
++ */
++export function CoordinatorAccessDisclaimer() {
++  return (
++    <>
++      <strong>This is meant to be the coordinator&apos;s view — and nothing in this prototype enforces that.</strong>{" "}
++      There is no role check on this route. Anyone who can reach the Ward Flow mockups can reach this page and read
++      everything on it. Treat the coordinator framing as a statement of intent, not as access control.
++    </>
++  );
++}
+diff --git a/src/components/ward-management/statistics/statistics-screen.tsx b/src/components/ward-management/statistics/statistics-screen.tsx
+index 3b91b8bdf..f1b63f247 100644
+--- a/src/components/ward-management/statistics/statistics-screen.tsx
++++ b/src/components/ward-management/statistics/statistics-screen.tsx
+@@ -1,29 +1,42 @@
+ "use client";
+ 
++import Link from "next/link";
++
+ import {
+   bedsBeingPrepared,
+   pullToArrival,
+   referralToBedJoin,
+ } from "@/components/ward-management/statistics/statistics-derivations";
++import {
++  CoordinatorAccessDisclaimer,
++  SyntheticFiguresDisclaimer,
++} from "@/components/ward-management/statistics/statistics-disclaimers";
++import { STATISTICS_SECTIONS } from "@/components/ward-management/statistics/statistics-sections";
+ import type { Admission } from "@/components/ward-management/ward-admissions";
+ import { splitDuration } from "@/components/ward-management/ward-clock";
+ import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+ import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
+ import type { BedRelease, Referral } from "@/components/ward-management/ward-model";
+ 
+ import styles from "./statistics.module.css";
+ 
+ /**
+  * THE COORDINATOR STATISTICS SCREEN — how the system is performing, and what is happening to
+  * patients, kept apart because they are two different questions asked by two different people.
+  *
++ * ⚠️ **THIS PAGE IS ALSO THE HUB.** Above the figures it indexes the statistics sections, reading
++ * every label, description and href from `statistics-sections.ts` and typing none of them here.
++ * Before that index existed the section pages were reachable only by knowing their addresses. The
++ * index adds navigation and nothing else: no count, no badge, no number of any kind — see the block
++ * comment on it below for why a self-counting index would be unsafe on this particular page.
++ *
+  * ⚠️ **THIS IS THE SURFACE WHERE A WRONG NUMBER WOULD BE BELIEVED HARDEST AND QUESTIONED LEAST.**
+  * Everywhere else in this prototype a figure sits beside the record it came from, and a reader who
+  * doubts it can look. Here the figures ARE the page. A number that is merely plausible is worse
+  * than a blank, because nobody re-checks a number that renders. So:
+  *
+  *   1. **Every figure on this page is computed from provider state on every render**, by
+  *      `statistics-derivations.ts`. Nothing is stored, cached, seeded as a display value, or
+  *      carried in this file's own state.
+  *   2. **A count of zero renders AS A ZERO.** "No bed is being prepared" and "bed preparation
+  *      cannot be timed" are completely different statements and this page never blurs them: a
+@@ -91,45 +104,96 @@ export function StatisticsScreen({
+   const join = referralToBedJoin(sourceAdmissions, sourceReferrals);
+   const preparingCount = bedsBeingPrepared(sourceBedReleases);
+ 
+   return (
+     <div className={styles.screen} data-testid="ward-statistics-screen">
+       <ClinicalRail />
+       <main id="main-content" className={styles.main}>
+         <div className={styles.governanceBanner} data-testid="ward-statistics-governance">
+           <span className={styles.prototypeBadge}>Synthetic prototype</span>
+           <p>
+-            These are <strong>not real figures</strong>. Every patient, bed, referral and instant they are computed from
+-            is invented, and nothing here has been measured against a real service.
++            <SyntheticFiguresDisclaimer />
+           </p>
+         </div>
+ 
+         <header className={styles.pageHeader}>
+           <h1 className={styles.pageTitle}>Statistics</h1>
+           <p className={styles.pageSubtitle}>
+             What this prototype can and cannot count about the flow of people through beds.
+           </p>
+         </header>
+ 
+-        {/*
+-         * The access claim, and the fact that nothing enforces it. Stated together and at the top,
+-         * because an unenforced claim said honestly is safe and the same claim stated as though it
+-         * were enforced is not. There is no route-level role gate anywhere in these mockups.
+-         */}
++        {/* The access claim and the fact that nothing enforces it, at the top and before any figure.
++            The sentence is shared with the four section pages; the reason it reads the way it does —
++            including why it no longer names figures specifically — is in `statistics-disclaimers.tsx`. */}
+         <p className={styles.notice} data-testid="ward-statistics-access">
+-          <strong>
+-            This is meant to be the coordinator&apos;s view — and nothing in this prototype enforces that.
+-          </strong>{" "}
+-          There is no role check on this route. Anyone who can reach the Ward Flow mockups can reach this page and read
+-          every figure on it. Treat the coordinator framing as a statement of intent, not as access control.
++          <CoordinatorAccessDisclaimer />
+         </p>
+ 
++        {/*
++         * ── THE HUB INDEX ───────────────────────────────────────────────────────────────────
++         *
++         * ⚠️ **EVERY WORD OF EVERY ENTRY COMES FROM `STATISTICS_SECTIONS`, AND NONE OF IT IS TYPED
++         * HERE.** A section name written into this file is a second copy of a fact the section list
++         * already holds, and the failure it produces is silent: the hub promises "Across all
++         * services" and the page it opens is headed something else, with nothing red anywhere.
++         * `tests/ward-statistics.dom.test.tsx` compares the rendered entries against the module as
++         * whole lists, so a section added to the module and not to this page fails here rather than
++         * being quietly missed.
++         *
++         * ⚠️ **NO COUNT, NO BADGE, NO NUMBER OF ANY KIND.** Not "3 sections", not a per-section item
++         * count. This page's whole safety property is that it withholds figures it cannot support
++         * and says so; an index that counted itself would invite a reader to take every number on
++         * the page as measured. The index is navigation and nothing else.
++         *
++         * ⚠️ **THE HREF IS RENDERED EXACTLY AS THE MODULE GIVES IT, FRAGMENT AND ALL.** One of the
++         * three sections is served by two dynamic per-unit routes and so has no page of its own; the
++         * module points it at the unit chooser on the comparisons page via a fragment. Dropping that
++         * fragment lands the reader at the top of a page that opens with two sections about why no
++         * comparison exists, with the list they wanted below the fold — a defect fix round 1 found in
++         * four other places. Nothing here rewrites, trims or rebuilds an href.
++         *
++         * ⚠️ **THE FIGURES BELOW DO NOT MOVE.** The index sits above them; it does not replace them
++         * and no figure is migrated into a section page. That is a content migration and it is out
++         * of scope by a recorded ruling.
++         */}
++        <nav
++          className={styles.index}
++          aria-labelledby="ward-statistics-index-heading"
++          data-testid="ward-statistics-index"
++        >
++          <h2 id="ward-statistics-index-heading" className={styles.indexHeading}>
++            Where to look
++          </h2>
++          {/* Written so it stays true whatever the section list becomes: it names no section, no
++              position and no destination, and says only what an entry does. A sentence naming "the
++              third one" would be wrong the day a fourth is added, and nothing would fail. */}
++          <p className={styles.indexIntro}>
++            Each entry opens that section. Where a section has no page of its own, its entry opens the chooser the
++            section is reached from instead — nothing here is a link to a page that does not exist.
++          </p>
++          <ul className={styles.indexList}>
++            {STATISTICS_SECTIONS.map((section) => (
++              <li key={section.id} className={styles.indexItem}>
++                <Link
++                  href={section.href}
++                  className={styles.indexLink}
++                  data-testid={`ward-statistics-index-entry-${section.id}`}
++                >
++                  <span className={styles.indexLabel}>{section.label}</span>
++                  <span className={styles.indexDescription}>{section.description}</span>
++                </Link>
++              </li>
++            ))}
++          </ul>
++        </nav>
++
+         {/* ── Audience 1 ─────────────────────────────────────────────────────────────────── */}
+         <section className={styles.section} data-testid="ward-statistics-system">
+           <header className={styles.sectionHeader}>
+             <h2 className={styles.sectionHeading}>How the system is performing</h2>
+             <p className={styles.sectionAudience} data-testid="ward-statistics-system-audience">
+               The question a policy maker, a state government or a ward coordinator asks. These figures are about the
+               network and about wards. None of them is about a person.
+             </p>
+           </header>
+ 
+diff --git a/src/components/ward-management/statistics/statistics-section-frame.tsx b/src/components/ward-management/statistics/statistics-section-frame.tsx
+index 129f88986..aff16d7aa 100644
+--- a/src/components/ward-management/statistics/statistics-section-frame.tsx
++++ b/src/components/ward-management/statistics/statistics-section-frame.tsx
+@@ -1,59 +1,49 @@
+ "use client";
+ 
+ import Link from "next/link";
+ import type { ReactNode } from "react";
+ 
++import {
++  CoordinatorAccessDisclaimer,
++  SyntheticFiguresDisclaimer,
++} from "@/components/ward-management/statistics/statistics-disclaimers";
+ import type { StatisticsSection } from "@/components/ward-management/statistics/statistics-sections";
+ import { STATISTICS_HOME_HREF } from "@/components/ward-management/statistics/statistics-sections";
+ import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
+ 
+ import styles from "./statistics-sections.module.css";
+ 
+ /**
+  * THE CHROME EVERY STATISTICS SECTION PAGE CARRIES, WRITTEN ONCE.
+  *
+  * ⚠️ **The reason this is a component and not four copies: a reader can land on any one of these
+  * pages directly.** The statistics home page states two things before it shows a figure — that
+  * every figure in this prototype is invented, and that the coordinator framing is an intention
+  * rather than an access control. A reader who follows a link straight to a section page never saw
+  * either. Four hand-written copies of those two sentences would be four chances for one of them to
+  * be edited, softened or dropped, and no test in this repository can see the difference between a
+  * disclaimer that was reworded and one that was weakened.
+  *
+- * ⚠️ **The sentences below are DUPLICATED from `statistics-screen.tsx` rather than shared with it,
+- * and that is a known cost paid deliberately.** Task 1 may not edit that file — another
+- * implementer holds it — so the alternative was to leave the sub-pages without a disclaimer at all
+- * until Task 2. An undisclaimed page is a worse defect than a duplicated sentence, and the
+- * duplication is recoverable: when the home screen is next opened it can render this frame too,
+- * and the two copies become one. Until then, an editor changing one of them must change both.
++ * ⚠️ **THE SENTENCES THEMSELVES NOW LIVE IN `statistics-disclaimers.tsx` AND ARE NOT WRITTEN HERE.**
++ * They were duplicated from `statistics-screen.tsx` when this frame was built, because Task 1 could
++ * not edit that file, and within a day the two copies had diverged in both sentences. The fold was
++ * not a delete-one-copy job — neither wording was true of both a page with figures and a page
++ * without — so the shared module carries a third wording, true of both, and the reasoning for each
++ * clause is recorded there rather than here. What stays here is the MARKUP and the STYLING: this
++ * frame's own banner element, its own `data-testid`s, and its own CSS module, exactly as the other
++ * seventeen ward modules keep theirs.
+  *
+- * ⚠️ **AND THE TWO COPIES HAVE ALREADY DIVERGED, IN BOTH SENTENCES, ON PURPOSE — READ THIS BEFORE
+- * FOLDING THEM.** The differences are not drift, and picking either wording wholesale would put a
+- * false clause on one of the two kinds of page:
+- *
+- *   - Banner. The home page says every instant *"they are computed from"* is invented; this frame
+- *     says every instant *"this prototype holds"* is invented. The home page's phrasing is anchored
+- *     to figures it actually computes, and these pages compute nothing — a page with no figures
+- *     saying "the instants they are computed from" refers to figures that are not there.
+- *   - Access. The home page says anyone can reach the page *"and read every figure on it"*; this
+- *     frame stops at *"can reach this page"*, because there is no figure on it to read.
+- *
+- * **So the fold is not a delete-one-copy job.** Whoever does it needs wording true of a page with
+- * figures AND of a page without — or a frame that takes the clause as a prop. Choosing by keeping
+- * whichever file was opened last silently puts a wrong clause on four pages or drops a true one
+- * from the home page.
+- *
+- * ⚠️ **`tests/ward-statistics-sections.dom.test.tsx` pins BOTH of these sentences whole**, not by
+- * substring. Fix round 1 found the assertions matched only `"not real figures"` and `"There is no
+- * role check on this route."`, so a fold that quietly dropped the rest of either sentence would
+- * have stayed green — the exact failure the duplication note above was written to prevent.
++ * ⚠️ **`tests/ward-statistics-sections.dom.test.tsx` pins BOTH sentences whole**, not by substring.
++ * Fix round 1 found the assertions matched only `"not real figures"` and `"There is no role check on
++ * this route."`, so a fold that quietly dropped the rest of either sentence would have stayed green —
++ * the exact failure the duplication note this replaces was written to prevent.
+  *
+  * ⚠️ **NO CONTROLS.** The only interactive element here is the link back to the hub, which
+  * navigates. There is no filter, no date picker, no export and no refresh — a control that looks
+  * like it would change the figures, on a page with no figures, would be a promise the page cannot
+  * keep. `<Link>`, never a raw anchor, for internal navigation.
+  */
+ export function StatisticsSectionFrame({
+   section,
+   title,
+   subtitle,
+@@ -70,46 +60,37 @@ export function StatisticsSectionFrame({
+   testId: string;
+   children: ReactNode;
+ }) {
+   return (
+     <div className={styles.screen} data-testid={testId}>
+       <ClinicalRail />
+       <main id="main-content" className={styles.main}>
+         <div className={styles.governanceBanner} data-testid="ward-statistics-section-governance">
+           <span className={styles.prototypeBadge}>Synthetic prototype</span>
+           <p>
+-            These are <strong>not real figures</strong>. Every patient, bed, referral and instant this prototype holds
+-            is invented, and nothing here has been measured against a real service.
++            <SyntheticFiguresDisclaimer />
+           </p>
+         </div>
+ 
+         <Link href={STATISTICS_HOME_HREF} className={styles.backLink} data-testid="ward-statistics-section-back">
+           Back to statistics
+         </Link>
+ 
+         <header className={styles.pageHeader}>
+           <p className={styles.eyebrow} data-testid="ward-statistics-section-eyebrow">
+             {section.label}
+           </p>
+           <h1 className={styles.pageTitle}>{title ?? section.label}</h1>
+           <p className={styles.pageSubtitle}>{subtitle}</p>
+         </header>
+ 
+-        {/*
+-         * The access claim, and the fact that nothing enforces it — stated together, because an
+-         * unenforced claim said honestly is safe and the same claim stated as though it were
+-         * enforced is not. There is no route-level role gate anywhere in these mockups, and a
+-         * section page is reachable by anybody who can reach the hub.
+-         */}
++        {/* The access claim and the fact that nothing enforces it. The sentence is shared with the
++            statistics home page; the reason it reads the way it does is in `statistics-disclaimers.tsx`. */}
+         <p className={styles.notice} data-testid="ward-statistics-section-access">
+-          <strong>
+-            This is meant to be the coordinator&apos;s view — and nothing in this prototype enforces that.
+-          </strong>{" "}
+-          There is no role check on this route. Anyone who can reach the Ward Flow mockups can reach this page. Treat
+-          the coordinator framing as a statement of intent, not as access control.
++          <CoordinatorAccessDisclaimer />
+         </p>
+ 
+         {children}
+       </main>
+     </div>
+   );
+ }
+diff --git a/src/components/ward-management/statistics/statistics.module.css b/src/components/ward-management/statistics/statistics.module.css
+index 48a4b8e50..a11faf417 100644
+--- a/src/components/ward-management/statistics/statistics.module.css
++++ b/src/components/ward-management/statistics/statistics.module.css
+@@ -108,20 +108,111 @@
+   margin: 0;
+   border: 0.0625rem solid var(--warning-border);
+   border-radius: var(--radius-lg);
+   background: var(--warning-bg);
+   padding: var(--st-space-10) var(--st-space-12);
+   color: var(--warning-text);
+   font-size: var(--text-xs);
+   line-height: var(--st-leading-body);
+ }
+ 
++/*
++ * THE HUB INDEX — navigation, and it must not read as a figure.
++ *
++ * ⚠️ NO CARD ON THIS PAGE MAY LOOK LIKE A MEASUREMENT. The `.figure` treatment below is a raised
++ * surface inside a bordered section; an index entry deliberately does NOT reuse it, because a row
++ * of raised cards above a page of figures reads as a row of tiles whose numbers have not loaded
++ * yet — the same "skeleton looks like a pending figure" trap `statistics-sections.module.css`
++ * refuses. An entry is a link with a name and a line of prose, and it never carries a numeral.
++ *
++ * ⚠️ THE ENTRY IS ONE TAP TARGET, NOT TWO. The whole entry is the link — label and description
++ * inside it — so a phone reader cannot miss between the name and the sentence under it.
++ */
++.index {
++  display: grid;
++  gap: var(--st-space-8);
++  border: 0.0625rem solid var(--border);
++  border-radius: var(--radius-lg);
++  background: var(--surface-subtle);
++  padding: var(--st-space-12) var(--st-space-14);
++}
++
++.indexHeading {
++  margin: 0;
++  color: var(--text-heading);
++  font-size: var(--text-sm, 0.875rem);
++  font-weight: 700;
++}
++
++.indexIntro {
++  margin: 0;
++  color: var(--text-muted);
++  font-size: var(--text-xs);
++  line-height: var(--st-leading-body);
++}
++
++/* `auto-fill`, never `auto-fit`, for the reason `ward-index.module.css` records: `auto-fit`
++   collapses empty tracks and stretches a lone entry across the full width, so a list with one
++   section left in it would render as emphasis nobody intended. */
++.indexList {
++  display: grid;
++  gap: var(--st-space-8);
++  margin: 0;
++  padding: 0;
++  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
++  list-style: none;
++}
++
++.indexItem {
++  display: flex;
++  min-width: 0;
++}
++
++.indexLink {
++  display: flex;
++  min-width: 0;
++  min-height: var(--st-tap);
++  flex: 1 1 auto;
++  flex-direction: column;
++  justify-content: center;
++  gap: var(--st-space-4);
++  border: 0.0625rem solid var(--border);
++  border-radius: var(--radius-md);
++  background: var(--surface-raised);
++  padding: var(--st-space-10) var(--st-space-12);
++  color: var(--text);
++  text-decoration: none;
++}
++
++.indexLink:hover {
++  border-color: var(--clinical-accent-border);
++  background: var(--surface-highlight);
++}
++
++.indexLink:focus-visible {
++  outline: 0.125rem solid var(--focus);
++  outline-offset: 0.125rem;
++}
++
++.indexLabel {
++  color: var(--text-heading);
++  font-size: var(--text-sm, 0.875rem);
++  font-weight: 700;
++  overflow-wrap: anywhere;
++}
++
++.indexDescription {
++  color: var(--text-muted);
++  font-size: var(--text-3xs);
++  line-height: var(--st-leading-body);
++}
++
+ .section {
+   display: grid;
+   gap: var(--st-space-12);
+   border: 0.0625rem solid var(--border);
+   border-radius: var(--radius-lg);
+   background: var(--surface-subtle);
+   padding: var(--st-space-12) var(--st-space-14);
+ }
+ 
+ .sectionHeader {
+diff --git a/tests/ward-statistics-sections.dom.test.tsx b/tests/ward-statistics-sections.dom.test.tsx
+index e7cbcca00..828da5b4d 100644
+--- a/tests/ward-statistics-sections.dom.test.tsx
++++ b/tests/ward-statistics-sections.dom.test.tsx
+@@ -116,33 +116,42 @@ describe("every statistics section page carries the disclaimer", () => {
+ 
+     const governance = screen.getByTestId("ward-statistics-section-governance");
+     expect(governance.textContent).toContain("Synthetic prototype");
+ 
+     const access = screen.getByTestId("ward-statistics-section-access");
+ 
+     /*
+      * ⚠️ **WHOLE SENTENCES, NOT SUBSTRINGS, AND FIX ROUND 1 IS WHY.** These assertions read
+      * `toContain("not real figures")` and `toContain("There is no role check on this route.")`,
+      * which pin the alarming half of each sentence and leave the qualifying half unguarded — the
+-     * half that says WHICH things are invented, and that anyone can reach the page. A fold of these
+-     * two sentences with `statistics-screen.tsx` (Task 2's job) that dropped a clause would have
+-     * stayed green, which is precisely the failure the duplication note in the frame warns about.
+-     * Equality on the normalised text is what makes a softened disclaimer fail.
++     * half that says WHICH things are invented, and that anyone can reach the page. The fold of
++     * these two sentences with `statistics-screen.tsx` landed on 2026-09-01; a fold that dropped a
++     * clause would have stayed green under the old assertions, which is precisely the failure the
++     * duplication note in the frame warned about. Equality on the normalised text is what makes a
++     * softened disclaimer fail.
++     *
++     * ⚠️ **THE ACCESS CLAUSE READS "and read everything on it" AND THAT IS THE FOLDED WORDING, not
++     * a leftover from the home page.** Neither original was true of both kinds of page: the home
++     * page said "and read every figure on it", which is vacuous here where there is no figure, and
++     * this frame stopped at "can reach this page", which dropped the point of the clause on a page
++     * full of figures. `statistics-disclaimers.tsx` carries the reasoning. The identical string is
++     * pinned in `tests/ward-statistics.dom.test.tsx`, so a page-specific edit fails on one side and
++     * a shared edit fails on both.
+      */
+     expect(normalise(governance.querySelector("p")?.textContent)).toBe(
+       "These are not real figures. Every patient, bed, referral and instant this prototype holds is invented, and " +
+         "nothing here has been measured against a real service.",
+     );
+     expect(normalise(access.textContent)).toBe(
+       "This is meant to be the coordinator's view — and nothing in this prototype enforces that. There is no " +
+-        "role check on this route. Anyone who can reach the Ward Flow mockups can reach this page. Treat the " +
+-        "coordinator framing as a statement of intent, not as access control.",
++        "role check on this route. Anyone who can reach the Ward Flow mockups can reach this page and read " +
++        "everything on it. Treat the coordinator framing as a statement of intent, not as access control.",
+     );
+ 
+     // Both sit inside the page's own main region, so a page that rendered them into the rail — or
+     // outside the scroll container — would not satisfy this.
+     expect(mainOf(testId).contains(governance)).toBe(true);
+     expect(mainOf(testId).contains(access)).toBe(true);
+   });
+ 
+   it.each(pages)("$name offers a way back to the statistics hub", ({ node }) => {
+     renderInProvider(node);
+diff --git a/tests/ward-statistics.dom.test.tsx b/tests/ward-statistics.dom.test.tsx
+index b2c86aa0b..0748b47bd 100644
+--- a/tests/ward-statistics.dom.test.tsx
++++ b/tests/ward-statistics.dom.test.tsx
+@@ -5,20 +5,21 @@ import { describe, expect, it, vi } from "vitest";
+ // Same reason as every sibling dom suite: `ClinicalRail` renders next/link anchors, and jsdom
+ // cannot provide an App Router context.
+ vi.mock("next/link", () => ({
+   default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (
+     <a href={href} {...rest}>
+       {children}
+     </a>
+   ),
+ }));
+ 
++import { STATISTICS_SECTIONS } from "@/components/ward-management/statistics/statistics-sections";
+ import { StatisticsScreen } from "@/components/ward-management/statistics/statistics-screen";
+ import type { Admission } from "@/components/ward-management/ward-admissions";
+ import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
+ import type { BedRelease, Referral } from "@/components/ward-management/ward-model";
+ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+ 
+ /**
+  * THE COORDINATOR STATISTICS SCREEN, ON THE SCREEN.
+  *
+  * ⚠️ **WHAT ONLY A RENDERED PAGE CAN PROVE, and therefore what this file is for.**
+@@ -36,20 +37,25 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+  *   3. **An empty state that says only that data is absent.** The test asserts each absence names
+  *      the mechanism — the field, what the record actually holds, and where a fix would have to be
+  *      made — rather than merely reading "not yet collected".
+  *
+  * ⚠️ **EVERY EXPECTED FIGURE IS A LITERAL.** The fixtures below are built from instants chosen so
+  * the answer is obvious by inspection (`0` to `120` is two hours), and the assertion types out the
+  * rendered string. Nothing here recomputes an expectation with the screen's own derivation, which
+  * is the specific defect that made an earlier test in this project unable to fail.
+  */
+ 
++/** Collapses the whitespace JSX introduces at line breaks, so a sentence can be pinned whole. */
++function normalise(text: string | null | undefined): string {
++  return (text ?? "").replace(/\s+/g, " ").trim();
++}
++
+ function admission(overrides: Partial<Admission>): Admission {
+   return {
+     id: "AD-TEST-01",
+     unitId: "unit-under-test",
+     referralId: null,
+     sex: "Female",
+     homeRegion: "Perth Metropolitan",
+     tentativeDiagnosis: null,
+     state: "occupied",
+     pulledAt: null,
+@@ -134,42 +140,152 @@ describe("the statistics screen — two audiences, kept apart", () => {
+     expect(PLACEMENT.length).toBe(4);
+ 
+     for (const { figure, belongsIn, notIn } of PLACEMENT) {
+       const home = screen.getByTestId(`ward-statistics-${belongsIn}`);
+       const other = screen.getByTestId(`ward-statistics-${notIn}`);
+       expect(within(home).queryByTestId(figure)).not.toBeNull();
+       expect(within(other).queryByTestId(figure)).toBeNull();
+     }
+   });
+ 
++  /**
++   * ⚠️ **THE WHOLE SENTENCE, NOT ITS ALARMING HALF — AND THE FOLD OF 2026-09-01 IS WHY.** This
++   * assertion read `toContain("coordinator")`, `toContain("nothing in this prototype enforces
++   * that")` and `toContain("no role check")`, all three of which survive an edit that deletes the
++   * clause saying WHAT a reader who reaches the page can then see. That clause is the one the fold
++   * had to change: the home page said "and read every figure on it", the section frame said only
++   * "can reach this page", and neither was true of both kinds of page. The folded wording is "and
++   * read everything on it" — broader than the first, and it restores to the section pages the point
++   * the second had dropped. `statistics-disclaimers.tsx` carries the reasoning; the identical string
++   * is pinned in `tests/ward-statistics-sections.dom.test.tsx`, so a shared edit fails on both sides
++   * and a page-specific one fails on this side alone.
++   */
+   it("says it is the coordinator's view and that nothing enforces it", () => {
+     renderScreen({ admissions: [], referrals: [], bedReleases: [] });
+ 
+-    const access = screen.getByTestId("ward-statistics-access").textContent ?? "";
+-    expect(access).toContain("coordinator");
+-    // The half that makes the claim safe rather than false.
+-    expect(access).toContain("nothing in this prototype enforces that");
+-    expect(access).toContain("no role check");
++    expect(normalise(screen.getByTestId("ward-statistics-access").textContent)).toBe(
++      "This is meant to be the coordinator's view — and nothing in this prototype enforces that. There is no " +
++        "role check on this route. Anyone who can reach the Ward Flow mockups can reach this page and read " +
++        "everything on it. Treat the coordinator framing as a statement of intent, not as access control.",
++    );
+   });
+ 
+   /**
+    * The banner nothing asserted until 2026-09-01, and the sentence that must survive every layout
+    * change: below 40rem it was sitting under the rail's fixed phone bar. jsdom cannot see that —
+    * the CSS reserve is the fix and it is untestable here — but the banner's PRESENCE and its words
+    * are testable, so at least a deletion or a rewording cannot pass silently.
++   *
++   * ⚠️ **Pinned whole for the same reason as the access claim above.** `toContain("not real
++   * figures")` guards the alarm and leaves unguarded the half that says which things are invented —
++   * exactly the clause the fold rewrote.
+    */
+   it("says on itself that the figures are not real", () => {
+     renderScreen({ admissions: [], referrals: [], bedReleases: [] });
+ 
+-    const banner = screen.getByTestId("ward-statistics-governance").textContent ?? "";
+-    expect(banner).toContain("not real figures");
+-    expect(banner).toContain("Synthetic prototype");
++    const banner = screen.getByTestId("ward-statistics-governance");
++    expect(banner.textContent).toContain("Synthetic prototype");
++    expect(normalise(banner.querySelector("p")?.textContent)).toBe(
++      "These are not real figures. Every patient, bed, referral and instant this prototype holds is invented, and " +
++        "nothing here has been measured against a real service.",
++    );
++  });
++});
++
++/**
++ * THE HUB INDEX — the part of this page that is navigation rather than measurement.
++ *
++ * ⚠️ **THE ASSERTIONS BELOW ARE DRIVEN BY `STATISTICS_SECTIONS`, NEVER BY A LIST TYPED HERE.** A
++ * hand-written expectation is a second copy of the section list, and a second copy is exactly what
++ * the module exists to prevent: a section added to the module and forgotten on the page would agree
++ * with a hand-written test and disagree with nothing. Comparing whole arrays rather than checking
++ * membership per section is deliberate — an equality on the full sequence fails on a missing entry,
++ * a duplicated entry, an entry out of order and an entry pointing at the wrong href, where a
++ * per-section `toContain` would pass through the first three.
++ */
++describe("the hub index, driven by the section list", () => {
++  /** Every entry the index rendered, in document order. */
++  function renderedEntries(): HTMLAnchorElement[] {
++    renderScreen({ admissions: [], referrals: [], bedReleases: [] });
++    return Array.from(screen.getByTestId("ward-statistics-index").querySelectorAll("a"));
++  }
++
++  it("renders exactly one entry per section, in the module's order", () => {
++    // The vacuity guard: an empty module would make every assertion below compare two empty arrays
++    // and pass while the index rendered nothing at all.
++    expect(STATISTICS_SECTIONS.length).toBeGreaterThan(0);
++
++    const entries = renderedEntries();
++    expect(entries.length).toBe(STATISTICS_SECTIONS.length);
++    expect(entries.map((entry) => entry.getAttribute("data-testid"))).toEqual(
++      STATISTICS_SECTIONS.map((section) => `ward-statistics-index-entry-${section.id}`),
++    );
++  });
++
++  it("takes every label and description from the module rather than restating them", () => {
++    // Each entry's own elements, compared as a pair: an entry that rendered the label twice, or
++    // dropped the description, differs here where a check on the entry's whole text might not.
++    const rendered = renderedEntries().map((entry) =>
++      Array.from(entry.querySelectorAll("span")).map((part) => normalise(part.textContent)),
++    );
++
++    expect(rendered).toEqual(STATISTICS_SECTIONS.map((section) => [section.label, section.description]));
++  });
++
++  /**
++   * ⚠️ **THE HREF IS COMPARED WHOLE, FRAGMENT INCLUDED.** One section has no page of its own and is
++   * reached through the unit chooser on the comparisons page, which the module addresses with a
++   * fragment. An assertion that compared only the path would bless an index that dropped it, and a
++   * reader who clicked would land at the top of a page opening with two sections about why no
++   * comparison exists, with the list they wanted below the fold. Fix round 1 found precisely that
++   * defect in four other places.
++   */
++  it("renders each href exactly as the module gives it, fragment and all", () => {
++    expect(renderedEntries().map((entry) => entry.getAttribute("href"))).toEqual(
++      STATISTICS_SECTIONS.map((section) => section.href),
++    );
++  });
++
++  /**
++   * ⚠️ **NO NUMERAL ANYWHERE IN THE INDEX.** Not a section count, not a per-section item count, not
++   * a badge. This page's safety property is that it withholds figures it cannot support and says
++   * so; an index that counted itself would invite a reader to take every number further down the
++   * page as measured. The check is over the whole index region rather than over the entries alone,
++   * so a count added to the heading or the introduction fails here too.
++   */
++  it("puts no numeral anywhere in the index", () => {
++    renderScreen({ admissions: [], referrals: [], bedReleases: [] });
++
++    const index = screen.getByTestId("ward-statistics-index");
++    // Not vacuous: an index that rendered nothing would also contain no numeral.
++    expect(index.textContent?.length ?? 0).toBeGreaterThan(200);
++    expect(index.textContent).not.toMatch(/[0-9]/);
++  });
++
++  /**
++   * The index is navigation and the figures are the page; the ruling on this task was that no
++   * figure moves off it. A figure rendered inside the index would be both a content migration and a
++   * number in a place that must hold none.
++   */
++  it("keeps every figure out of the index and on the page where it already was", () => {
++    renderScreen({ admissions: [], referrals: [], bedReleases: [] });
++
++    const index = screen.getByTestId("ward-statistics-index");
++    for (const figure of [
++      "ward-statistics-bed-readiness",
++      "ward-statistics-declines",
++      "ward-statistics-pull-to-arrival",
++      "ward-statistics-referral-to-bed",
++    ]) {
++      expect(within(index).queryByTestId(figure)).toBeNull();
++      expect(screen.queryByTestId(figure)).not.toBeNull();
++    }
+   });
+ });
+ 
+ describe("the withheld statistic says so on the page", () => {
+   /**
+    * ⚠️ **THE ASYMMETRY THIS TEST EXISTS TO CLOSE.** `Movement.declines` is seeded non-empty, so a
+    * coordinator who knows this prototype records declines and finds no decline figure cannot tell
+    * "withheld pending a ruling" from "not recorded" from "nobody declined". A JSDoc block does not
+    * reach that reader. The block must be on the page, in the SYSTEM section (it is a system
+    * question), and it must name both records so the ruling is legible.

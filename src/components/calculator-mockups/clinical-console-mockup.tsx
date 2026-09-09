@@ -196,7 +196,7 @@ export function CalculatorsClinicalConsoleMockup() {
           {/* Sticky live-score ticker */}
           <section
             aria-label="Live result"
-            className="sticky top-2 z-10 grid gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] p-3 shadow-[var(--shadow-soft)] backdrop-blur-md"
+            className="sticky top-2 z-10 grid gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] p-3 shadow-[var(--e2)] backdrop-blur-md"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-baseline gap-2">

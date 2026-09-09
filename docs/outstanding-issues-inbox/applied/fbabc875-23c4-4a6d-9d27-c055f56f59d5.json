@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fbabc875-23c4-4a6d-9d27-c055f56f59d5",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Two verify:cheap gates fail on a shallow clone with a message that reads like a governance breach",
+    "detail": "Have tests/rag-plan-package-parity.test.ts and tests/clinical-hazard-controls.test.ts detect a shallow clone and skip with an explicit reason, or deepen the clone in the cloud session-start hook. Why: both resolve commits that a shallow clone does not contain, and fail with 'reviewedCommit does not exist <sha>' and 'manifest reconciledBase is unavailable locally' - which reads as a real hazard-control or plan-package violation rather than a missing object. Context: observed in a Claude Code cloud session on 2026-09-02; verify:cheap reported 4 failing files, two of which were this. Both passed unchanged after git fetch --deepen=500, confirming the diff was never at fault. Cloud sessions clone shallow by default, so this costs a diagnosis every time. Confidence: high, reproduced and then cleared by deepening. Owner: repo tooling.",
+    "source": "session 2026-09-02, Sources mode-home PR (claude/sources-mode-dropdown-home-mzw4f5)",
+    "issueUlid": "01M1H3GJQNFP62K4YGAFT7706X"
+  }
+}

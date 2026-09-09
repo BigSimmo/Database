@@ -72,13 +72,13 @@ const SECTIONS: Section[] = [
     heading: "What this tool is",
     short: "Tool",
     gist: "Clinical reference KB — not a patient-record system",
-    body: "Clinical KB is a knowledge base over clinical reference material. It is not a patient-record system and its provider-backed features do not ask for patient identifiers. The Safety Plan Generator accepts sensitive working content and support contacts but deliberately omits a patient-identifier field.",
+    body: "PsychSift is a knowledge base over clinical reference material. It is not a patient-record system and its provider-backed features do not ask for patient identifiers. The Safety Plan Generator accepts sensitive working content and support contacts but deliberately omits a patient-identifier field.",
   },
   {
     heading: "What is collected",
     short: "Collected",
     gist: "Questions, docs, telemetry — safety-plan work stays in-tab",
-    body: "Questions, generated answers, account identifiers, administrator-provided documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and source material can contain sensitive information. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by Clinical KB.",
+    body: "Questions, generated answers, account identifiers, administrator-provided documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and source material can contain sensitive information. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by PsychSift.",
   },
   {
     heading: "How questions are handled",
@@ -102,7 +102,7 @@ const SECTIONS: Section[] = [
     heading: "Retention",
     short: "Retention",
     gist: "30-day queries · 90-day logs · hourly cache purge",
-    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Administrator-provided documents remain until removed under the applicable process. Safety-plan working content has no Clinical KB retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
+    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows. The operator verified the four expected schedules on production and staging and approved that evidence on 1 September 2026. Administrator-provided documents remain until removed under the applicable process. Safety-plan working content has no PsychSift retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
   },
   {
     heading: "Your responsibilities",
@@ -309,7 +309,7 @@ function StickySignalChrome({
             aria-expanded={noticeOpen}
             aria-controls={noticePanelId}
             className={cn(
-              "inline-flex min-h-10 shrink-0 items-center gap-1 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-2.5 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-bg)]",
+              "inline-flex min-h-tap shrink-0 items-center gap-1 self-start rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--surface-raised)] px-2.5 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--warning-text)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-bg)]",
               focusRing,
             )}
           >
@@ -347,7 +347,7 @@ function StickySignalChrome({
                   type="button"
                   onClick={() => onSelectSection(section.heading)}
                   className={cn(
-                    "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-2xs font-semibold transition",
+                    "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full border px-3 text-2xs font-semibold transition",
                     focusRing,
                     active
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -571,7 +571,7 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
                   if (expandAll) setOpenId(SECTIONS[0]?.heading ?? "");
                 }}
                 className={cn(
-                  "rounded-md px-1.5 py-1 text-3xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+                  "inline-flex min-h-tap items-center rounded-md px-1.5 py-1 text-3xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
                   focusRing,
                 )}
               >

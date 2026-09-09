@@ -2,9 +2,12 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import PDFDocument from "pdfkit";
 import { describe, expect, it } from "vitest";
 
 import formsActSectionCues from "../data/forms-act-section-cues.json";
+import formsPdfManifest from "../data/forms-pdf-manifest.json";
+import { buildManifest, derivePdfPasswordProtection } from "../scripts/build-forms-pdf-manifest.mjs";
 
 import { formDetailsClipboardText } from "@/components/forms/form-detail-page";
 import { formCatalogDetails } from "@/lib/form-catalog";
@@ -73,20 +76,28 @@ describe("psychiatry form records", () => {
     // Source status remains on the rail / overview, not in the priority-fact grid.
     expect(form?.source?.status).toBe("Source checked");
     // Draft section summaries and supplemental form mappings remain staged for
-    // clinical review; they cannot replace the conservative Source status card.
-    expect(getFormRecord("form-1b")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
-    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
-    expect(formCatalogDetails(getFormRecord("transfer-order")!)?.actSections).toBeUndefined();
+    // Every other form reaches the same card from its own section cue, or from the
+    // supplemental map for the seven the archive never indexed.
+    expect(getFormRecord("form-1b")?.summaryCards?.some((card) => card.id === "source")).toBe(false);
+    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(false);
+    const form4c = formCatalogDetails(getFormRecord("transfer-order")!);
+    expect(form4c?.actSections?.map((entry) => entry.section)).toEqual(["66", "91"]);
+    expect(form4c?.actSections?.every((entry) => entry.summary?.trim())).toBe(true);
   });
 
-  it("keeps every unreviewed form on the Source status card", () => {
+  it("gives every one of the 54 forms an Act-sections card", () => {
     expect(formRecords).toHaveLength(54);
-    for (const form of formRecords.filter((entry) => entry.slug !== "form-1a")) {
+    for (const form of formRecords) {
       expect(
-        form.summaryCards?.some((card) => card.id === "source"),
+        form.summaryCards?.map((card) => card.id),
+        form.slug,
+      ).toEqual(["clock", "authority", "criteria", "act-sections"]);
+      const sections = formCatalogDetails(form)?.actSections;
+      expect(sections?.length, form.slug).toBeGreaterThan(0);
+      expect(
+        sections?.every((entry) => entry.summary?.trim()),
         form.slug,
       ).toBe(true);
-      expect(formCatalogDetails(form)?.actSections, form.slug).toBeUndefined();
     }
   });
 
@@ -102,7 +113,9 @@ describe("psychiatry form records", () => {
 
     const merged = mergeRegistryRecordsWithDefaults("form", [seeded as never]);
     const record = merged.find((entry) => entry.slug === "form-1b");
-    expect(formCatalogDetails(record!)?.actSections).toBeUndefined();
+    const summaries = formCatalogDetails(record!)?.actSections?.map((entry) => entry.summary);
+    expect(summaries).not.toContain("SUPERSEDED SUMMARY");
+    expect(summaries).toEqual(formCatalogDetails(getFormRecord("form-1b")!)?.actSections?.map((s) => s.summary));
   });
 
   it("covers the seven unindexed forms from the supplemental cue map", () => {
@@ -115,8 +128,14 @@ describe("psychiatry form records", () => {
       expect(record, entry.code).toBeTruthy();
       const details = formCatalogDetails(record!);
       expect(details?.sourceFacts?.sectionCue, entry.code).toBeFalsy();
-      expect(details?.actSections, entry.code).toBeUndefined();
-      expect(entry.status, entry.code).toBe("drafted");
+      expect(
+        details?.actSections?.map((section) => section.section),
+        entry.code,
+      ).toEqual(entry.sections);
+      expect(
+        details?.actSections?.every((section) => section.summary?.trim()),
+        entry.code,
+      ).toBe(true);
       expect(entry.basis.trim().length, entry.code).toBeGreaterThan(40);
     }
   });
@@ -140,6 +159,21 @@ describe("psychiatry form records", () => {
   });
 
   it("ships a stored PDF for every downloadable form", () => {
+    const manifestAssets = (formsPdfManifest as { assets: Array<{ code: unknown; passwordProtected: unknown }> })
+      .assets;
+    for (const asset of manifestAssets) {
+      // A malformed manifest entry (missing `code`, or a non-boolean `passwordProtected`)
+      // must fail loudly here rather than silently comparing `undefined === undefined`
+      // below once both sides of the manifest lookup resolve to nothing.
+      expect(typeof asset.code, JSON.stringify(asset)).toBe("string");
+      expect(typeof asset.passwordProtected, JSON.stringify(asset)).toBe("boolean");
+    }
+    const manifestMap = new Map(
+      (manifestAssets as Array<{ code: string; passwordProtected: boolean }>).map((asset) => [
+        asset.code.toUpperCase(),
+        asset.passwordProtected,
+      ]),
+    );
     const downloadable = formRecords.map(formCatalogDetails).filter((entry) => entry?.availability === "downloadable");
     for (const details of downloadable) {
       expect(details?.localPdfPath, details?.form).toBeTruthy();
@@ -151,8 +185,136 @@ describe("psychiatry form records", () => {
         details?.localPdfSha256,
       );
       expect(details?.localPdfBytes, details?.form).toBeGreaterThan(10_000);
-      expect(details?.officialPdfPasswordProtected, details?.form).toBe(true);
+      expect(details?.officialPdfPasswordProtected, details?.form).toBe(manifestMap.get(details!.form.toUpperCase()));
     }
+
+    const form12a = getFormRecord("form-12a");
+    expect(form12a).toBeTruthy();
+    expect(formCatalogDetails(form12a!)?.officialPdfPasswordProtected).toBe(false);
+  });
+
+  // The manifest flag is what the Forms detail page turns into a badge a psychiatrist
+  // reads before relying on the file at the bedside. The assertions above only compare
+  // the manifest against the catalogue that reads it, so a wrong flag would agree with
+  // itself. This pins every flag to the generated contract: the committed bytes.
+  it("derives every manifest passwordProtected flag from the committed PDF bytes", async () => {
+    const assets = (
+      formsPdfManifest as { assets: Array<{ code: string; localPath: string; passwordProtected: boolean }> }
+    ).assets;
+    expect(assets).toHaveLength(51);
+    for (const asset of assets) {
+      const bytes = readFileSync(join(process.cwd(), "public", asset.localPath.replace(/^\//, "")));
+      // "Requires a user password to open", not "carries an /Encrypt dictionary": a PDF
+      // with an owner password and an empty user password is encrypted yet opens freely,
+      // and badging that file as protected teaches clinicians to ignore the warning on
+      // the files where it is true.
+      const derived = await derivePdfPasswordProtection(bytes, `Form ${asset.code}`);
+      expect(derived.failure, asset.code).toBeNull();
+      expect(derived.passwordProtected, asset.code).toBe(asset.passwordProtected);
+    }
+    // Form 12A is the one readable form on the register, and other assertions in this
+    // file extract its text. Keep that asymmetry visible rather than implied by a loop.
+    expect(assets.filter((asset) => !asset.passwordProtected).map((asset) => asset.code)).toEqual(["12A"]);
+  });
+
+  it("fails closed to password protected when a form PDF cannot be classified", async () => {
+    // `false` asserts the clinician can open the file, so under-warning is the unsafe
+    // direction: planning a Form 10A and finding at the bedside that it will not open is
+    // a workflow failure at a time-critical statutory step. Every unclassifiable input
+    // must therefore report `true` AND surface a failure the generator turns into a hard
+    // exit — never a silent `false`.
+    const readable = readFileSync(join(process.cwd(), "public", "forms-pdf", "form-12a.pdf"));
+    expect(await derivePdfPasswordProtection(readable, "Form 12A")).toEqual({
+      passwordProtected: false,
+      failure: null,
+    });
+
+    for (const [label, corrupt] of [
+      ["truncated", readable.subarray(0, 2048)],
+      ["not a pdf", Buffer.from("%PDF-1.7 this is not a document")],
+      ["empty", Buffer.alloc(0)],
+    ] as Array<[string, Buffer | Uint8Array]>) {
+      const derived = await derivePdfPasswordProtection(corrupt, `corrupt fixture (${label})`);
+      expect(derived.passwordProtected, label).toBe(true);
+      expect(derived.failure, label).toContain("could not be opened or classified");
+    }
+  });
+
+  it("reports a PDF that carries /Encrypt but opens with an empty user password as not password protected", async () => {
+    // The whole reason this flag is derived by ATTEMPTING to open the file, rather than by
+    // looking for an /Encrypt marker, is that the two answers can differ: a PDF encrypted
+    // with an owner password but no user password carries /Encrypt and still opens freely.
+    //
+    // Every committed form happens to agree under both rules — 50 carry /Encrypt and refuse
+    // an empty user password, and form-12a.pdf carries neither — so nothing in this corpus
+    // would catch a future "simplification" of the deriver into a grep for /Encrypt. This
+    // synthetic fixture is the discriminating case, and it is the only test that fails if
+    // that shortcut is ever taken.
+    const ownerPasswordOnly = await new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({ ownerPassword: "owner-only-secret", permissions: { printing: "highResolution" } });
+      const chunks: Buffer[] = [];
+      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+      doc.text("Owner password only; the user password is empty.");
+      doc.end();
+    });
+
+    // Precondition: the fixture really is the confusing shape, not merely an unencrypted file.
+    expect(ownerPasswordOnly.includes("/Encrypt")).toBe(true);
+
+    expect(await derivePdfPasswordProtection(ownerPasswordOnly, "owner-password-only fixture")).toEqual({
+      passwordProtected: false,
+      failure: null,
+    });
+  });
+
+  it("preserves manifest fields it does not derive when regenerating", async () => {
+    // The generator computes exactly three fields — sha256, bytes and passwordProtected.
+    // Everything else is provenance it cannot recompute: `officialPdfUrl` is the link a
+    // reader follows to check the committed bytes against the publisher, and this script
+    // is offline by contract, so a dropped URL could never be restored from the PDFs.
+    //
+    // Enumerating known keys when rebuilding an asset would drop any other field silently,
+    // and the failure mode is quiet then destructive: `--check` reports drift, and the
+    // regeneration it instructs the operator to run erases the field permanently. Adding a
+    // field to this manifest is a live prospect (an `editingRestricted` fact is already a
+    // queued follow-up), so this pins preservation before that lands rather than after.
+    const existing = JSON.parse(readFileSync(join(process.cwd(), "data", "forms-pdf-manifest.json"), "utf8")) as {
+      assets: Array<Record<string, unknown>>;
+    };
+    const probe = { ...existing.assets[0], reviewedAt: "2026-09-02", editingRestricted: true };
+    const { manifest } = await buildManifest({ ...existing, assets: [probe, ...existing.assets.slice(1)] });
+    const rebuilt = manifest.assets[0] as Record<string, unknown>;
+
+    expect(rebuilt.reviewedAt).toBe("2026-09-02");
+    expect(rebuilt.editingRestricted).toBe(true);
+    // The derived fields are still authoritative — preservation must not shadow them.
+    expect(rebuilt.officialPdfUrl).toBe(existing.assets[0].officialPdfUrl);
+    expect(rebuilt.sha256).toBe(existing.assets[0].sha256);
+    expect(rebuilt.bytes).toBe(existing.assets[0].bytes);
+    expect(rebuilt.passwordProtected).toBe(existing.assets[0].passwordProtected);
+  });
+
+  it("populates Form 12A statutory Authority and Criteria priority facts from readable approved PDF", () => {
+    const form12a = getFormRecord("form-12a");
+    expect(form12a).toBeTruthy();
+    const details = formCatalogDetails(form12a!);
+    expect(details?.priorityFacts?.clock?.title).toBe("Valid until revoked or resigned");
+    expect(details?.priorityFacts?.clock?.detail).toContain("Revocable at any time");
+    expect(details?.priorityFacts?.authority?.title).toBe("Person understanding effect (any age, incl. child)");
+    expect(details?.priorityFacts?.authority?.detail).toContain("nominee adult 18+");
+    expect(details?.priorityFacts?.authority?.body).toMatch(/s273.*s274.*s275/);
+    expect(details?.priorityFacts?.criteria?.title).toBe("Person understands effect of nomination (s273)");
+    expect(details?.priorityFacts?.criteria?.detail).toMatch(/Max 1 nominee/);
+    expect(details?.priorityFacts?.criteria?.body).toMatch(/s273.*s276.*s263.*s266/);
+    expect(details?.maker).toContain("s273");
+    expect(details?.maker).toContain("s275");
+    expect(details?.threshold).toContain("s273");
+    expect(details?.threshold).toContain("s276");
+    expect(details?.authorises).toMatch(/s266.*s263/);
+    expect(details?.doesNotAuthorise).toContain("consent to or refuse treatment");
+    expect(form12a?.summaryCards?.map((card) => card.id)).toEqual(["clock", "authority", "criteria", "act-sections"]);
   });
 
   it("retains the enriched form payload in database seed rows", () => {

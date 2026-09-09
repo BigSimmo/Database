@@ -5,6 +5,8 @@ import {
   crossTenantFixtureMarker,
   crossTenantStagingFetch,
   readCrossTenantStagingConfig,
+  requestCrossTenantAppJson,
+  verifyCrossTenantDeploymentIdentity,
 } from "../scripts/test-cross-tenant-staging";
 import { analyzeClinicalQuery } from "../src/lib/clinical-search";
 import { shouldApplyUnsupportedSearchShortCircuit } from "../src/lib/rag/rag-retrieval-variants";
@@ -19,6 +21,7 @@ const validConfig = {
   CROSS_TENANT_USER_A_PASSWORD: "staging-a-password",
   CROSS_TENANT_USER_B_EMAIL: "tenancy-b@tests.invalid",
   CROSS_TENANT_USER_B_PASSWORD: "staging-b-password",
+  CROSS_TENANT_CHECKOUT_COMMIT_SHA: "0123456789abcdef0123456789abcdef01234567",
 } as const;
 
 function stubConfig(overrides: Partial<Record<keyof typeof validConfig, string>> = {}) {
@@ -52,9 +55,26 @@ describe("cross-tenant staging configuration safety", () => {
 
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://staging.tests.invalid/rest/v1/documents",
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({ redirect: "error", signal: expect.any(AbortSignal) }),
     );
     fetchSpy.mockRestore();
+  });
+
+  it("refuses redirects for authenticated app requests", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } }),
+      );
+
+    await requestCrossTenantAppJson("https://staging.tests.invalid", "/api/documents", {
+      redirect: "follow",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://staging.tests.invalid/api/documents",
+      expect.objectContaining({ redirect: "error", signal: expect.any(AbortSignal) }),
+    );
   });
 
   it("accepts a dedicated, internally consistent staging configuration", () => {
@@ -71,6 +91,48 @@ describe("cross-tenant staging configuration safety", () => {
       CROSS_TENANT_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
     });
     expect(() => readCrossTenantStagingConfig()).toThrow(/Refusing.*production Supabase project/);
+  });
+
+  it("rejects the production application host and its subdomains", () => {
+    stubConfig({ CROSS_TENANT_STAGING_APP_URL: "https://psychiatry.tools" });
+    expect(() => readCrossTenantStagingConfig()).toThrow(/production application host/);
+
+    stubConfig({ CROSS_TENANT_STAGING_APP_URL: "https://preview.psychiatry.tools" });
+    expect(() => readCrossTenantStagingConfig()).toThrow(/production application host/);
+  });
+
+  it("requires a full checkout commit SHA", () => {
+    stubConfig({ CROSS_TENANT_CHECKOUT_COMMIT_SHA: "0123456" });
+    expect(() => readCrossTenantStagingConfig()).toThrow(/full 40-character Git commit SHA/);
+  });
+
+  it("requires the staging deployment health SHA to exactly match the checkout", async () => {
+    stubConfig();
+    const config = readCrossTenantStagingConfig();
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ deploymentCommitSha: validConfig.CROSS_TENANT_CHECKOUT_COMMIT_SHA }), {
+        status: 200,
+      }),
+    );
+    await expect(verifyCrossTenantDeploymentIdentity(config)).resolves.toBe(
+      validConfig.CROSS_TENANT_CHECKOUT_COMMIT_SHA,
+    );
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ deploymentCommitSha: "abcdefabcdefabcdefabcdefabcdefabcdefabcd" }), {
+        status: 200,
+      }),
+    );
+    await expect(verifyCrossTenantDeploymentIdentity(config)).rejects.toThrow(/does not match checkout SHA/);
+  });
+
+  it("rejects missing or malformed deployment identity metadata", async () => {
+    stubConfig();
+    const config = readCrossTenantStagingConfig();
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ status: "ok" }), { status: 200 }),
+    );
+    await expect(verifyCrossTenantDeploymentIdentity(config)).rejects.toThrow(/full deploymentCommitSha/);
   });
 
   it("rejects a URL/ref mismatch, placeholders, and duplicate users", () => {

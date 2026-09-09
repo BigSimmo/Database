@@ -1,0 +1,30 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |node| tests/ward-release-band-day-boundary.test.ts (5 tests | 1 failed) 10ms
+     × bands the SAME clock times the same way on day one 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |node| tests/ward-release-band-day-boundary.test.ts > releaseBand across a day boundary > bands the SAME clock times the same way on day one
+AssertionError: expected 'beyond-today' to be 'by-midday' // Object.is equality
+
+Expected: "by-midday"
+Received: "beyond-today"
+
+ ❯ tests/ward-release-band-day-boundary.test.ts:58:66
+     56|      */
+     57|     const now = MINUTES_PER_DAY + 8 * 60;
+     58|     expect(releaseBand(aRelease(MINUTES_PER_DAY + 9 * 60), now)).toBe(…
+       |                                                                  ^
+     59|     expect(releaseBand(aRelease(MINUTES_PER_DAY + 15 * 60), now)).toBe…
+     60|     expect(releaseBand(aRelease(MINUTES_PER_DAY + 20 * 60), now)).toBe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  04:25:01
+   Duration  212ms (transform 43ms, setup 0ms, import 58ms, tests 10ms, environment 0ms)
+

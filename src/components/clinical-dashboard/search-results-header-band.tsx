@@ -147,6 +147,8 @@ export function SearchResultsHeaderBand({
   filterLabel = "Filter search results",
   headingLevel = 2,
   resultNoun: resultNounOverride,
+  hideEmptyQuery = false,
+  emptyQueryLabel,
   className,
 }: {
   modeId: AppModeId;
@@ -208,6 +210,14 @@ export function SearchResultsHeaderBand({
   /** Use level 1 when the ribbon is the route's primary page heading. */
   headingLevel?: 1 | 2;
   /**
+   * Hide the query subject when `query` is empty instead of falling back to
+   * "All". Dictionary browse keeps this band as count + Filter with no
+   * invented query chip.
+   */
+  hideEmptyQuery?: boolean;
+  /** Accessible region name used when `hideEmptyQuery` omits the subject. */
+  emptyQueryLabel?: string;
+  /**
    * What this count counted, when the mode registry's noun is not specific
    * enough to be true.
    *
@@ -222,7 +232,10 @@ export function SearchResultsHeaderBand({
   resultNoun?: string;
   className?: string;
 }) {
-  const displayQuery = query.trim() || "All";
+  const trimmedQuery = query.trim();
+  const displayQuery = trimmedQuery || "All";
+  const showQuerySubject = Boolean(trimmedQuery) || !hideEmptyQuery;
+  const regionLabel = showQuerySubject ? `Search results for ${displayQuery}` : (emptyQueryLabel ?? "Catalogue");
   // `status` wins when both are passed; `loading` is the deprecated shim.
   const resolvedStatus: SearchResultsBandStatus = status ?? (loading ? "loading" : "ready");
   // The clinical invariant, expressed once: a search that failed has no count to
@@ -297,7 +310,7 @@ export function SearchResultsHeaderBand({
 
   return (
     <section
-      aria-label={`Search results for ${displayQuery}`}
+      aria-label={regionLabel}
       aria-busy={busy}
       data-status={resolvedStatus}
       data-testid="search-query-ribbon"
@@ -437,15 +450,21 @@ export function SearchResultsHeaderBand({
               always rendered rather than appearing on scroll — conditional chrome
               is what this band spent its last redesign removing — and it is the
               part that truncates when the line runs out, never the number. */}
-          <span className="search-band-rule mx-0.5 h-[1.125rem] w-px shrink-0" aria-hidden />
-          <QueryHeading
-            // `min-w-[2rem]` keeps a non-empty box at 320px, so the heading stays
-            // findable and visible when a wide page control squeezes the line.
-            className="search-band-subject min-w-[2rem] truncate text-[color:var(--text-muted)] lg:max-w-[24rem]"
-            title={displayQuery}
-          >
-            {displayQuery}
-          </QueryHeading>
+          {showQuerySubject ? (
+            <>
+              <span className="search-band-rule mx-0.5 h-[1.125rem] w-px shrink-0" aria-hidden />
+              <QueryHeading
+                // `min-w-[2rem]` keeps a non-empty box at 320px, so the heading stays
+                // findable and visible when a wide page control squeezes the line.
+                className="search-band-subject min-w-[2rem] truncate text-[color:var(--text-muted)] lg:max-w-[24rem]"
+                title={displayQuery}
+              >
+                {displayQuery}
+              </QueryHeading>
+            </>
+          ) : (
+            <span className="min-w-0 flex-1" aria-hidden="true" />
+          )}
         </div>
 
         {hasUtilities ? (
@@ -508,7 +527,7 @@ export function SearchResultsHeaderBand({
               {utilityControls}
               {onViewChange ? (
                 <div
-                  className="inline-flex min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] sm:min-h-10"
+                  className="inline-flex min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] sm:min-h-compact-meta"
                   role="group"
                   aria-label="Results view"
                 >
@@ -517,7 +536,7 @@ export function SearchResultsHeaderBand({
                     aria-pressed={view === "table"}
                     onClick={() => onViewChange("table")}
                     className={cn(
-                      "grid min-h-tap min-w-tap place-items-center sm:min-h-10 sm:min-w-10",
+                      "grid min-h-tap min-w-tap place-items-center sm:min-h-compact-meta sm:min-w-compact-meta",
                       focusRing,
                       view === "table"
                         ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -532,7 +551,7 @@ export function SearchResultsHeaderBand({
                     aria-pressed={view === "list"}
                     onClick={() => onViewChange("list")}
                     className={cn(
-                      "grid min-h-tap min-w-tap place-items-center border-l border-[color:var(--border)] sm:min-h-10 sm:min-w-10",
+                      "grid min-h-tap min-w-tap place-items-center border-l border-[color:var(--border)] sm:min-h-compact-meta sm:min-w-compact-meta",
                       focusRing,
                       view === "list"
                         ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -549,7 +568,7 @@ export function SearchResultsHeaderBand({
                   type="button"
                   onClick={onSaveSearch}
                   className={cn(
-                    "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-[color:var(--text-muted)] search-band-ghost hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                    "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-[color:var(--text-muted)] search-band-ghost hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-compact-meta",
                     focusRing,
                   )}
                 >
@@ -567,7 +586,7 @@ export function SearchResultsHeaderBand({
                 busyLabel="Retrying…"
                 onClick={retry}
                 className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 text-[color:var(--warning)] search-band-ghost hover:border-[color:var(--warning)] sm:min-h-10",
+                  "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 text-[color:var(--warning)] search-band-ghost hover:border-[color:var(--warning)] sm:min-h-compact-meta",
                   focusRing,
                 )}
               >
@@ -667,7 +686,7 @@ export function SearchResultsHeaderBand({
                   // Hover deepens the chip's own accent rather than swapping to the
                   // neutral border the surface controls use — an accent-soft chip
                   // going grey on hover reads as losing its active state.
-                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-[7px] border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-[7px] border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-compact-meta",
                   focusRing,
                 )}
               >
@@ -694,7 +713,7 @@ export function SearchResultsHeaderBand({
                 // and an underline instead. 48px, not the 44px a generic tap rule
                 // would suggest: `min-h-11` reintroduces a fixed `ui-smoke`
                 // sub-pixel flake, and `--spacing-tap` is this repo's floor.
-                "search-band-ghost inline-flex min-h-tap shrink-0 items-center rounded-md px-2 text-[color:var(--text-muted)] underline decoration-[color:var(--border-strong)] underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current sm:min-h-10",
+                "search-band-ghost inline-flex min-h-tap shrink-0 items-center rounded-md px-2 text-[color:var(--text-muted)] underline decoration-[color:var(--border-strong)] underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current sm:min-h-compact-meta",
                 focusRing,
               )}
             >
@@ -728,7 +747,7 @@ export function SearchResultsHeaderBand({
                   busyLabel="Retrying…"
                   onClick={retry}
                   className={cn(
-                    "inline-flex min-h-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--text-muted)] search-band-ghost hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                    "inline-flex min-h-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--text-muted)] search-band-ghost hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-compact-meta",
                     focusRing,
                   )}
                 >
@@ -774,7 +793,7 @@ export function ResultSortControl({
       role="group"
       aria-label="Sort results"
       className={cn(
-        "hidden min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:inline-flex sm:min-h-10",
+        "hidden min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:inline-flex sm:min-h-compact-meta",
         className,
       )}
     >
@@ -793,7 +812,7 @@ export function ResultSortControl({
               // overflow and the mask faded out its own last option. The 8px this
               // returns is what clears 393/402/430/440. Height is untouched —
               // `min-h-tap` is the tap floor, and it is the floor that matters.
-              "search-band-sort-option min-h-tap whitespace-nowrap px-2.5 sm:min-h-10 sm:px-3",
+              "search-band-sort-option min-h-tap whitespace-nowrap px-2.5 sm:min-h-compact-meta sm:px-3",
               index > 0 && "border-l border-[color:var(--border)]",
               focusRing,
               selected
@@ -818,11 +837,11 @@ export function ResultSortControl({
  * escape, and on therapy-compass `Clear search` is the only one for a query-only
  * zero result. Shipping the escape hatch below the floor the same change raised
  * the facets, the find field and the disclosure headings to would contradict the
- * rule this component's own redesign argues for. It keeps the 40px pointer
- * floor from `sm`, exactly like the filter controls.
+ * rule this component's own redesign argues for. It keeps `min-h-compact-meta`
+ * (40px) from `sm`, exactly like the filter controls. Not a primary CTA.
  */
 const emptyStateAction =
-  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-semibold text-[color:var(--text-muted)] hover:text-[color:var(--text)] sm:min-h-10";
+  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-semibold text-[color:var(--text-muted)] hover:text-[color:var(--text)] sm:min-h-compact-meta";
 
 export function SearchResultsEmptyState({
   modeId,
@@ -1062,11 +1081,10 @@ export function SearchResultsEmptyState({
               onClick={lastFilter.onRemove}
               data-testid="search-results-empty-remove-filter"
               className={cn(
-                // `sm:min-h-10`, not `sm:min-h-9`: the desktop floor in this file
-                // is 40px — `emptyStateAction` above and every shelf control use
-                // it — and this is the control the filtered path leads with. The
-                // phone floor was already correct.
-                "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] sm:min-h-10",
+                // `sm:min-h-compact-meta`, not `sm:min-h-9`: the desktop floor in
+                // this file is 40px compact-meta — `emptyStateAction` and every
+                // shelf control use it. Never min-h-11. The phone floor stays tap.
+                "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] sm:min-h-compact-meta",
                 focusRing,
               )}
             >

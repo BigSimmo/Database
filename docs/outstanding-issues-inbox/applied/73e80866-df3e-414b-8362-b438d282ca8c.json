@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "73e80866-df3e-414b-8362-b438d282ca8c",
+  "createdOn": "2026-08-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "/calculators/search keeps a 2px residual scroll range at 1280x1200 after the dead-scroll sweep",
+    "detail": "Found 2026-08-27 while verifying PR #2419 (dead scroll on pages that fit the window) across 39 routes x 5 viewports in Chromium. That sweep replaced every 'calc(100dvh - <chrome estimate>)' page-fill floor with flex growth, and afterwards every page that fits reported a scroll range of exactly 0 - except /calculators/search, which retained 2px at 1280x1200. It was deliberately left out of scope because it is NOT the chrome-estimate class the PR fixed: the residual traces to real content in the page, so removing it is a layout question for that route rather than another floor to delete. Impact is cosmetic (a scrollbar and one wheel notch on a page with nothing below the fold). Next: re-measure at 1280x1200 to confirm the axis and identify the overflowing element, then either trim the offending 2px or record the route as a documented exception under invariant 24 in docs/search-chrome-behaviour.md so the next sweep does not re-flag it. Stop: do not reintroduce a viewport-estimate floor to hide it, and do not clip the route's overflow to make the number zero.",
+    "source": "PR #2419 verification sweep, 2026-08-27; docs/search-chrome-behaviour.md invariant 24",
+    "issueUlid": "01M11M2Z7J6KR6BRB89QW4MDG7"
+  }
+}

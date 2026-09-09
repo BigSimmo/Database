@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "4751f8ff-d012-4cbb-afce-2c458b272515",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "7dc2d09a-b05c-4d10-b198-263af3c0f45e",
+    "reason": "Superseded by done request c4b1de28-7e91-46d6-9129-aa8b4d58f685 resolving #RSD9EJ on feature branch."
+  }
+}

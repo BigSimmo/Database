@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "4cc4b95c-8dcb-4772-a157-b7ae2980c033",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Shared-shell testid duplicates under Playwright strict mode: service-actions-trigger (PR #2536) and sources-topics-main (PR #2591) both resolve to 2 elements, one nested inside GlobalSearchShell's mobile-composer-reserve-pad wrapper and one outside it",
+    "detail": "Recurring, reproducible 'Production UI critical' failure, not a random flake: strict-mode violation on getByTestId resolving to 2 elements — one aka mobile-composer-reserve-pad.getByTestId(x), one aka getByTestId(x).nth(1). Seen on tests/ui-tools.spec.ts (service-actions-trigger, PR #2536 precedent) and tests/ui-sources.spec.ts:88 (sources-topics-main, PR #2591, run 33868983554). Confirmed unrelated to either PR's own diff (files touched by those PRs don't include global-search-shell.tsx, sources-browse-client.tsx, or mode-home-template.tsx). Root cause not yet isolated — likely a hydration-timing or route-transition double-render inside the GlobalSearchShell/PageSecondaryNavigation tree. GlobalSearchShell is a 'one owner' contract component (AGENTS.md Search chrome behaviour) — a fix needs docs/search-chrome-behaviour.md read first and its own focused PR + npm run verify:phone-chrome, not a rushed patch riding an unrelated PR.",
+    "issueUlid": "01M1P472CHJAEKM4CFC2PR8C20"
+  }
+}

@@ -7,10 +7,17 @@ import {
   dsmStaticParams,
   getDsmDiagnosis,
   rankDsmDiagnoses,
+  resolveDsmCompareIds,
   resolveDsmDifferential,
 } from "@/lib/dsm";
 
 describe("DSM clinical catalogue", () => {
+  it("interprets natural-language symptom phrases as diagnosis catalogue search", () => {
+    expect(rankDsmDiagnoses("Which diagnoses involve elevated mood?", 3, [], true)[0]?.diagnosis.slug).toBe(
+      "bipolar-i-disorder",
+    );
+  });
+
   it("loads every supplied diagnosis and keeps slugs unique", () => {
     expect(dsmDiagnoses).toHaveLength(146);
     expect(new Set(dsmDiagnoses.map((diagnosis) => diagnosis.slug)).size).toBe(146);
@@ -72,5 +79,24 @@ describe("DSM clinical catalogue", () => {
 
   it("ranks US DSM spellings to the matching catalogue diagnoses", () => {
     expect(rankDsmDiagnoses("generalized anxiety disorder", 1)[0]?.diagnosis.slug).toBe("generalised-anxiety-disorder");
+  });
+
+  it("deduplicates compare ids after canonical slug resolution", () => {
+    const result = resolveDsmCompareIds([
+      "Major-Depressive-Disorder",
+      "major-depressive-disorder",
+      "bipolar-ii-disorder",
+    ]);
+    expect(result.diagnoses.map((diagnosis) => diagnosis.slug)).toEqual([
+      "major-depressive-disorder",
+      "bipolar-ii-disorder",
+    ]);
+    expect(result.selectedIds).toEqual(["major-depressive-disorder", null, "bipolar-ii-disorder"]);
+  });
+
+  it("keeps compare-id holes and drops unknown slugs", () => {
+    const result = resolveDsmCompareIds([null, "not-a-diagnosis", "bipolar-ii-disorder"]);
+    expect(result.diagnoses.map((diagnosis) => diagnosis.slug)).toEqual(["bipolar-ii-disorder"]);
+    expect(result.selectedIds).toEqual([null, null, "bipolar-ii-disorder"]);
   });
 });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, publicErrorResponse } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { postChatNotification, type ChatSeverity } from "@/lib/webhooks/chat-notify";
 import { verifyWebhookSecret } from "@/lib/webhooks/secret-auth";
@@ -57,19 +57,18 @@ export async function POST(request: Request) {
     const auth = verifyWebhookSecret(request, env.RAILWAY_WEBHOOK_SECRET, { allowQueryToken: true });
     if (!auth.ok) {
       if (auth.reason === "misconfigured") {
-        return NextResponse.json(
-          { error: "Railway webhook receiver is not configured.", code: "webhook_not_configured" },
-          { status: 503 },
-        );
+        return publicErrorResponse("Railway webhook receiver is not configured.", 503, {
+          code: "webhook_not_configured",
+        });
       }
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+      return publicErrorResponse("Unauthorized.", 401);
     }
 
     let rawBody: unknown;
     try {
       rawBody = await request.json();
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+      return publicErrorResponse("Invalid JSON body.", 400, { code: "invalid_json" });
     }
 
     const parsed = railwayWebhookSchema.safeParse(rawBody);

@@ -11,11 +11,15 @@ import { cn, pageContainer } from "@/components/ui-primitives";
 import { isInformationPage } from "@/lib/information-pages";
 
 import { TcProvider, useTcBindings } from "./bindings";
+import { TherapyCompareTray } from "./therapy-compare-tray";
 
 function TherapyCompassFooter() {
   return (
-    <div data-therapy-no-print className={cn(pageContainer, "mt-[30px] border-t border-[color:var(--border)] pt-5")}>
-      <ModeHomeVerificationFooter label="Decision support" body="Source-grounded — review status before clinical use" />
+    <div data-therapy-no-print className={cn(pageContainer, "mt-7.5 border-t border-[color:var(--border)] pt-5")}>
+      <ModeHomeVerificationFooter
+        label="Source-grounded therapy reference"
+        body="Source-grounded — review status before clinical use"
+      />
     </div>
   );
 }
@@ -93,10 +97,7 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
 
   return (
     <TcProvider>
-      <div
-        data-therapy-root
-        className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))]"
-      >
+      <div data-therapy-root className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:grow">
         {informationPage ? (
           <TherapyCompassInformationRoute>{children}</TherapyCompassInformationRoute>
         ) : (
@@ -105,6 +106,10 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
           </TherapyCompassMain>
         )}
       </div>
+      {/* Mounted once for the whole mode. The tray decides for itself whether a
+          dock slot exists to portal into, so record routes (which have no phone
+          composer) simply get nothing. */}
+      <TherapyCompareTray />
     </TcProvider>
   );
 }

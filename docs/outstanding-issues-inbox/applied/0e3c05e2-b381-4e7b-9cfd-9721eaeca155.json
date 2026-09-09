@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0e3c05e2-b381-4e7b-9cfd-9721eaeca155",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#CM7DG9",
+    "outcome": "Updated .claude/hooks/push-format-guard.sh to resolve core.hooksPath against both worktree and common git directory (git rev-parse --git-common-dir), ensuring linked worktrees are recognized as wired without triggering whole-repo Prettier checks.",
+    "baseRowFingerprint": "1ae32a8a29618617a7f4b1a069ab9f1550f4c79ade5164a3a7c4d2d0e3f705be"
+  }
+}

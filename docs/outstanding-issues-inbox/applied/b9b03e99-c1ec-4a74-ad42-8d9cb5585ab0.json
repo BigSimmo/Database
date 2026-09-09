@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b9b03e99-c1ec-4a74-ad42-8d9cb5585ab0",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#NEBJAM",
+    "outcome": "Standardized Therapy Compass UI kit components in src/components/therapy-compass/ui.tsx on shared design-system primitives: Tag and TagRow compose shared Chip from @/components/ui/chip; StatusBadge standardizes on shared Chip with status appearance (kind: 'status', tone: meta.tone) and clinical iconography (ShieldCheck, TriangleAlert); IconTile adheres to design system token palette and size-tap sizing; LoadingState adopts shared LoadingPanel; EmptyState adopts shared SharedEmptyState with clinical centered treatment; Eyebrow uses tokenized tracking and colors; Meter provides full accessibility with named completeness bands. Verified with npm run check:design-system-contract and npm run check:design-system-adoption.",
+    "baseRowFingerprint": "37f546a08b820e0856975232c12bf97d9d31d8cf6e6ade604a5abb9f4514363a"
+  }
+}

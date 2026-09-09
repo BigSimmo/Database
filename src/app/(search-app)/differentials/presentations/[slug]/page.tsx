@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
-import { getPresentationWorkflow, presentationStaticParams } from "@/lib/differentials";
+import { presentationStaticParams } from "@/lib/differentials";
+import { readPresentationPageRecord } from "@/lib/site-content/differential-page-records";
 
 type DifferentialPresentationRouteProps = {
   params: Promise<{ slug: string }>;
@@ -19,10 +20,10 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: DifferentialPresentationRouteProps): Promise<Metadata> {
   const { slug } = await params;
-  const workflow = getPresentationWorkflow(slug);
-  if (!workflow) return { title: "Differential presentation not found - Clinical KB" };
+  const workflow = await readPresentationPageRecord(slug);
+  if (!workflow) return { title: "Differential presentation not found - PsychSift" };
   return {
-    title: `${workflow.title} - Differential presentation - Clinical KB`,
+    title: `${workflow.title} - Differential presentation - PsychSift`,
     description: workflow.subtitle,
   };
 }
@@ -32,7 +33,8 @@ export default async function DifferentialPresentationRoute({
   searchParams,
 }: DifferentialPresentationRouteProps) {
   const { slug } = await params;
-  if (!getPresentationWorkflow(slug)) notFound();
+  const workflow = await readPresentationPageRecord(slug);
+  if (!workflow) notFound();
 
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const query = firstSearchParam(resolvedSearchParams.query ?? resolvedSearchParams.q)?.trim() ?? "";
@@ -41,5 +43,5 @@ export default async function DifferentialPresentationRoute({
     .map((value) => value.trim())
     .filter(Boolean);
 
-  return <DifferentialPresentationWorkflowPage query={query} presentationSlug={slug} selectedIds={selectedIds} />;
+  return <DifferentialPresentationWorkflowPage query={query} presentationSlug={slug} selectedIds={selectedIds} workflow={workflow} />;
 }

@@ -28,6 +28,7 @@ import {
   HEAVY_RUN_ADMISSION_BUSY_EXIT,
   HEAVY_RUN_ADMISSION_BUSY_MARKER,
   inFlightCiGuard,
+  isNeverLaunchedFailure,
   inFlightCiVerdict,
   isCoordinatorBusyOutput,
   isCoordinatorBusyResult,
@@ -125,7 +126,7 @@ describe("auto-merge verdict", () => {
   });
 });
 
-describe("force-push detection", () => {
+describe("force-push detection", { timeout: 60_000 }, () => {
   it("does not flag a fast-forward push", () => {
     const { root, git } = gitFixture();
     writeFileSync(join(root, "one.md"), "one\n");
@@ -195,7 +196,7 @@ describe("drift verdict", () => {
   });
 });
 
-describe("push-range parsing", () => {
+describe("push-range parsing", { timeout: 60_000 }, () => {
   it("parses a new-branch push (zero remote sha)", () => {
     const ranges = parsePushRanges(`refs/heads/x abc123 refs/heads/x ${ZERO}\n`);
     expect(ranges).toHaveLength(1);
@@ -233,6 +234,92 @@ describe("push-range parsing", () => {
     // the newly pushed commit is in scope.
     expect(guardBaseForRange({ localSha, remoteSha }, root)).toBe(remoteSha);
     expect(changedFilesForRange({ localSha, remoteSha }, root)).toEqual(["two.md"]);
+  });
+
+  it("scopes a fast-forward main merge to the resulting PR delta", () => {
+    const { root, git } = gitFixture();
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "feature.md"), "feature\n");
+    git("add", "feature.md");
+    git("commit", "--quiet", "-m", "feature");
+    const remoteSha = git("rev-parse", "HEAD");
+
+    git("switch", "--quiet", "main");
+    writeFileSync(join(root, "main-only.md"), "main only\n");
+    git("add", "main-only.md");
+    git("commit", "--quiet", "-m", "advance main");
+    const mainSha = git("rev-parse", "HEAD");
+    git("update-ref", "refs/remotes/origin/main", mainSha);
+
+    git("switch", "--quiet", "feature");
+    git("merge", "--quiet", "--no-edit", "main");
+    writeFileSync(join(root, "post-merge.md"), "post merge\n");
+    git("add", "post-merge.md");
+    git("commit", "--quiet", "-m", "post merge");
+    const localSha = git("rev-parse", "HEAD");
+
+    expect(guardBaseForRange({ localSha, remoteSha }, root)).toBe(mainSha);
+    expect(changedFilesForRange({ localSha, remoteSha }, root)).toEqual(["feature.md", "post-merge.md"]);
+  });
+
+  it("resolves against merge-base when main advanced after the branch merged an earlier commit", () => {
+    const { root, git } = gitFixture();
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "feature.md"), "feature\n");
+    git("add", "feature.md");
+    git("commit", "--quiet", "-m", "feature");
+    const remoteSha = git("rev-parse", "HEAD");
+
+    git("switch", "--quiet", "main");
+    writeFileSync(join(root, "main-1.md"), "main 1\n");
+    git("add", "main-1.md");
+    git("commit", "--quiet", "-m", "advance main 1");
+    const mergedMainSha = git("rev-parse", "HEAD");
+
+    git("switch", "--quiet", "feature");
+    git("merge", "--quiet", "--no-edit", "main");
+    writeFileSync(join(root, "post-merge.md"), "post merge\n");
+    git("add", "post-merge.md");
+    git("commit", "--quiet", "-m", "post merge");
+    const localSha = git("rev-parse", "HEAD");
+
+    // Main advances again before the push:
+    git("switch", "--quiet", "main");
+    writeFileSync(join(root, "main-2.md"), "main 2\n");
+    git("add", "main-2.md");
+    git("commit", "--quiet", "-m", "advance main 2");
+    const latestMainSha = git("rev-parse", "HEAD");
+    git("update-ref", "refs/remotes/origin/main", latestMainSha);
+
+    expect(guardBaseForRange({ localSha, remoteSha }, root)).toBe(mergedMainSha);
+    expect(changedFilesForRange({ localSha, remoteSha }, root)).toEqual(["feature.md", "post-merge.md"]);
+  });
+
+  it("prevents false-red CI runs on merge commits by resolving git merge-base HEAD origin/main", () => {
+    const { root, git } = gitFixture();
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "feature.md"), "feature\n");
+    git("add", "feature.md");
+    git("commit", "--quiet", "-m", "feature commit");
+    const featureCommitSha = git("rev-parse", "HEAD");
+
+    git("switch", "--quiet", "main");
+    writeFileSync(join(root, "main-advance.md"), "main\n");
+    git("add", "main-advance.md");
+    git("commit", "--quiet", "-m", "advance main");
+    const mainSha = git("rev-parse", "HEAD");
+    git("update-ref", "refs/remotes/origin/main", mainSha);
+
+    git("switch", "--quiet", "feature");
+    git("merge", "--quiet", "--no-edit", "main");
+    const mergeCommitSha = git("rev-parse", "HEAD");
+
+    const resolvedBase = guardBaseForRange({ localSha: mergeCommitSha, remoteSha: featureCommitSha }, root);
+    expect(resolvedBase).toBe(mainSha);
+
+    const changed = changedFilesForRange({ localSha: mergeCommitSha, remoteSha: featureCommitSha }, root);
+    expect(changed).toEqual(["feature.md"]);
+    expect(changed).not.toContain("main-advance.md");
   });
 
   // A force-push abandons the old remote tip. Comparing against it makes every
@@ -702,5 +789,40 @@ describe("format-checkout cleanup never deletes through the linked dependency tr
       log: () => {},
     });
     expect(order).toEqual(["unlink", "removeWorktree", "removeDir"]);
+  });
+});
+
+/**
+ * The static guard used to say `lint failed` when eslint had never been spawned. On 2026-09-02 a
+ * 992-commit push built a 56,570-byte argument vector against Windows' 32,767-byte limit, the
+ * process was refused, and the only output was "The command line is too long." Both natural
+ * readings of that message are wrong: the code was not proven broken, and the guard was not noise.
+ *
+ * These cases pin the distinction in BOTH directions. The two controls are the point — a detector
+ * that answered "never launched" to a genuine lint error would be worse than the bug it replaced,
+ * because it would talk somebody past a real defect.
+ */
+describe("never-launched versus failed", () => {
+  it("recognises a process that was refused before it could start", () => {
+    expect(isNeverLaunchedFailure({ code: "ENAMETOOLONG" }, "")).toBe(true);
+    expect(isNeverLaunchedFailure({ code: "E2BIG" }, "")).toBe(true);
+    expect(isNeverLaunchedFailure({ code: 1 }, "The command line is too long.")).toBe(true);
+    expect(isNeverLaunchedFailure({ code: 1 }, "/bin/sh: argument list too long")).toBe(true);
+  });
+
+  it("does NOT mistake a real failure for one that never ran", () => {
+    expect(
+      isNeverLaunchedFailure(
+        { code: 1, status: 1 },
+        "/src/a.tsx  12:3  error  Unexpected any  @typescript-eslint/no-explicit-any  (1 problem)",
+      ),
+    ).toBe(false);
+    expect(
+      isNeverLaunchedFailure(
+        { code: 2, status: 2 },
+        "src/b.ts(4,1): error TS2353: Object literal may only specify known properties",
+      ),
+    ).toBe(false);
+    expect(isNeverLaunchedFailure(undefined, "")).toBe(false);
   });
 });

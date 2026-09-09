@@ -1,7 +1,9 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import { PATIENT_PROFILE_STORAGE_KEY } from "../src/lib/patient-profile-storage";
 import { readPrimaryScrollGeometry } from "./playwright-scroll";
 
 const longTitle =
@@ -166,7 +168,7 @@ async function mockStressData(page: Page) {
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
-        appName: "Clinical KB",
+        appName: "PsychSift",
         projectId: "test-clinical-kb",
         identityPath: "/api/local-project-id",
         localServer: {
@@ -274,15 +276,6 @@ async function mockMedicationStressData(page: Page) {
   });
 }
 
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
-}
-
 async function openDailyActions(page: Page) {
   const trigger = page.getByRole("button", { name: /^Open .+ options$/ });
   const menu = page.getByTestId("daily-actions-menu");
@@ -333,14 +326,14 @@ async function openScopeControl(page: Page) {
     // No force-click: the mobile "+" menu is a bottom sheet that slides up, so wait
     // for the row to settle rather than clicking mid-animation (which lands on the
     // adjacent row).
-    await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click();
+    await dailyActions.getByRole("button", { name: /^Scope\b/ }).click();
     await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 20_000 });
 }
 
 test.beforeEach(stubZeroTouchPoints);
 
-test.describe("Clinical KB long-content stress coverage", () => {
+test.describe("PsychSift long-content stress coverage", () => {
   for (const viewport of [
     { name: "mobile", width: 320, height: 740 },
     // Scope opens in a sheet below lg; 1000px keeps the stress path stable on desktop.
@@ -354,7 +347,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       if (viewport.name === "mobile") {
         const dailyActions = await openDailyActions(page);
-        await expect(dailyActions.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+        await expect(dailyActions.getByRole("button", { name: /Add document|Upload PDF/ })).toHaveCount(0);
         await expect(page.locator('input[type="file"]')).toHaveCount(0);
         await page.keyboard.press("Escape");
         await expect(dailyActions).toBeHidden();
@@ -418,14 +411,21 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
       await expect(page.getByTestId("evidence-rail")).toHaveCount(0);
       await expect(page.getByTestId("evidence-summary-card")).toHaveCount(0);
-      const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
-      await expect(evidenceDrawer).toBeVisible();
-      await evidenceDrawer.click();
-      const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-      await expect(evidenceSheet).toBeVisible();
-      await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
-      await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
-      await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
+      // The evidence sheet gave way to the source rail and its per-source drawer;
+      // under long titles and narrow viewports neither may overflow.
+      await expect(page.locator("#answer-evidence-drawer-mobile-trigger")).toHaveCount(0);
+      const sourceRail = page.getByTestId("answer-source-rail");
+      await expect(sourceRail).toBeVisible();
+      await sourceRail.getByTestId("answer-source-rail-row").first().click();
+      const sourceDrawer = page.getByTestId("answer-source-drawer");
+      await expect(sourceDrawer).toBeVisible();
+      // Opened from a rail card, so no support sentence: the passage is the
+      // panel's first content at every one of these widths.
+      await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toHaveCount(0);
+      await expect(sourceDrawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+      await page.keyboard.press("Escape");
+      await expect(sourceDrawer).toHaveCount(0);
       await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     });
@@ -436,6 +436,19 @@ test.describe("Medication responsive stress coverage", () => {
   test("phone and tablet cards remain inset and safe across breakpoint boundaries", async ({ page }) => {
     test.setTimeout(90_000);
     await mockMedicationStressData(page);
+    await page.addInitScript(
+      ({ storageKey }) => {
+        window.sessionStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            scr: 140,
+            scrUnit: "umol/L",
+            medications: [],
+          }),
+        );
+      },
+      { storageKey: PATIENT_PROFILE_STORAGE_KEY },
+    );
     await page.setViewportSize({ width: 320, height: 720 });
     await page.goto("/?mode=prescribing&q=acamprosate%20renal%20dose&run=1", { waitUntil: "domcontentloaded" });
 
@@ -443,7 +456,26 @@ test.describe("Medication responsive stress coverage", () => {
     const desktopResult = page.getByTestId("medication-result-acamprosate-desktop");
     await expect(phoneResult).toBeVisible({ timeout: 30_000 });
     await expect(phoneResult).toHaveAttribute("data-selected", "true");
-    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+    await expect(phoneResult).toHaveAttribute("data-verdict", "danger");
+    await expect(phoneResult.getByRole("group", { name: /^Danger\. For this patient\./ })).toBeVisible();
+    // Prescribing used to suppress the cross-mode panel outright, because it once
+    // sat ABOVE the medication results and displaced the count, patient strip and
+    // primary matches on a phone. The mount has since moved below the result list,
+    // so the panel is present here again — collapsed, after the results, and never
+    // between the reader and a dosing verdict.
+    const prescribingAlsoMatches = page.getByTestId("universal-also-matches");
+    await expect(prescribingAlsoMatches).toHaveCount(1);
+    await expect(prescribingAlsoMatches.getByRole("button", { name: /Also matches in other modes/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(
+      await prescribingAlsoMatches.evaluate((node) => {
+        const resultNode = document.querySelector('[data-testid="medication-result-acamprosate-phone"]');
+        return Boolean((resultNode?.compareDocumentPosition(node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING);
+      }),
+      "the cross-mode panel must stay below the medication results on a phone",
+    ).toBe(true);
 
     const viewports = [
       { width: 320, height: 720 },
@@ -565,5 +597,11 @@ test.describe("Medication responsive stress coverage", () => {
     expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight + 40);
     expect(chromeGeometry.overflowY).toBe("visible");
     expect(chromeGeometry.keyboardHeight === "" || chromeGeometry.keyboardHeight === "0px").toBe(true);
+
+    await phoneResult.focus();
+    await expect(phoneResult).toBeFocused();
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await expect(phoneResult.getByRole("group", { name: /^Danger\. For this patient\./ })).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
   });
 });

@@ -32,12 +32,14 @@ export {
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from "@/components/ui/button";
 export {
   Chip,
+  ChoiceChip,
   type ChipAppearance,
   type ChipCategoryTone,
   type ChipInformationTone,
   type ChipProps,
   type ChipSize,
   type ChipStatusTone,
+  type ChoiceChipProps,
 } from "@/components/ui/chip";
 export {
   Checkbox,

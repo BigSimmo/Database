@@ -11,9 +11,18 @@ import { cn } from "@/components/ui-primitives";
  * wording belongs to the primitive rather than to each caller, so two printed
  * documents from this repository cannot make two different promises about how
  * the paper should be handled.
+ *
+ * The user chose this wording on 25 August 2026, replacing "Handle it, keep it,
+ * and dispose of it according to local health service policy." Two of the three
+ * sheets carrying this footer are handed to a patient, and on those the old line
+ * both contradicted the page and asked for something its reader cannot do: four
+ * lines after telling the person to keep the sheet somewhere they can find it
+ * quickly, it told them to dispose of it according to a policy they do not hold
+ * and cannot consult. This line states the document's status and points handling
+ * at local policy without instructing the reader to act on one — which stays
+ * exactly right on the clinician's print, where the reader can.
  */
-export const CONFIDENTIAL_DOCUMENT_FOOTER =
-  "Confidential clinical document. Handle it, keep it, and dispose of it according to local health service policy.";
+export const CONFIDENTIAL_DOCUMENT_FOOTER = "Confidential clinical document. Handle according to local policy.";
 
 export function BrowserPrintButton({
   label = "Print",

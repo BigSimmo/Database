@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ad833519-1b0b-4f02-b965-a7be0667cac4",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#97VQK5",
+    "outcome": "Added accessible H1 to Documents mode home (src/app/(search-app)/documents/documents-home-client.tsx), unified placeholder punctuation across all app modes to ASCII ... in src/lib/app-modes.ts, and synchronized docs/site-map.md (npm run sitemap:check passed).",
+    "baseRowFingerprint": "162311b904972f417cc5f239c4a393d5c66135ae200e2ab402b480f3d64268b9"
+  }
+}

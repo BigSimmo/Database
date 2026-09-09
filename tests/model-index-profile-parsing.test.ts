@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  generateStructuredTextResult: vi.fn(),
+  generateParsedTextResult: vi.fn(),
 }));
 
 vi.mock("@/lib/env", () => ({
@@ -11,7 +11,7 @@ vi.mock("@/lib/env", () => ({
 }));
 
 vi.mock("@/lib/openai", () => ({
-  generateStructuredTextResult: mocks.generateStructuredTextResult,
+  generateParsedTextResult: mocks.generateParsedTextResult,
 }));
 
 import {
@@ -40,8 +40,8 @@ const chunks = [
 const images = [{ id: "image-1", page_number: 2, caption: "Lithium monitoring table", source_kind: "table_crop" }];
 
 function modelResult(profile: Record<string, unknown>, overrides: Record<string, unknown> = {}) {
-  mocks.generateStructuredTextResult.mockResolvedValueOnce({
-    text: JSON.stringify(profile),
+  mocks.generateParsedTextResult.mockResolvedValueOnce({
+    parsed: profile,
     truncated: false,
     status: "completed",
     incompleteReason: undefined,
@@ -80,7 +80,7 @@ describe("model index profile parsing", () => {
       chunks: [],
     });
 
-    expect(mocks.generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(mocks.generateParsedTextResult).not.toHaveBeenCalled();
     expect(profile).toEqual({ ...fallbackModelIndexProfile(), version: modelIndexExtractionVersion });
     expect(profile.model).toBeNull();
   });
@@ -236,5 +236,22 @@ describe("model index profile parsing", () => {
       reason: "max_output_tokens",
     });
     expect(profile.sections).toHaveLength(1);
+  });
+
+  it("fails closed and logs document identity when schema parsing rejects the response", async () => {
+    const failure = new Error("OpenAI returned no parsed structured output.");
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.generateParsedTextResult.mockRejectedValueOnce(failure);
+
+    await expect(
+      generateModelIndexProfile({
+        document: { title: "Lithium Protocol", file_name: "lithium.pdf" },
+        chunks,
+      }),
+    ).rejects.toBe(failure);
+    expect(log).toHaveBeenCalledWith("model-index extraction rejected", {
+      document: "lithium.pdf",
+      reason: failure.message,
+    });
   });
 });

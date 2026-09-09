@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "9b9b8f4f-7f0a-4f91-944e-c11837e69994",
+  "createdOn": "2026-08-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "b60f9982-f48c-4a70-ae92-99d88313cab3",
+    "reason": "The summary and detail both state a test count that this branch's own next commit falsified, and one of them double-counts. Filed while the caring-contacts database suite was 193 tests; moving the PLAN_COLUMNS guard to the offline project made it 192, so the record was true when written and false before it could be reconciled. The summary also reads 'its 193 tests and the PLAN_COLUMNS narrowing guard', which double-counts the guard that was already inside the 193. Superseded by a replacement that states the invariant instead of a tally, per Ruling 94. The underlying issue is real and unchanged."
+  }
+}

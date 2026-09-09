@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4e1ffb03-9151-4c88-a414-659a804b6a42",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#K9XD5N",
+    "outcome": "Resolved by the 2026-08-23 current-main performance remediation. An always-mounted DegradedNoticeFrame reserves the exact 62px collapsed maximum while healthy state exposes no empty alert/live region. Before the fix, offline, reconnecting, and local-identity-unavailable each shifted the root by about 0.043-0.080 CLS; after the fix every degraded phase is below 0.01 and the main displacement is absent across mobile plus four desktop profiles. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/dashboard-degraded-notice.dom.test.tsx.",
+    "baseRowFingerprint": "0016d4d2beae87e8eb7f464be86accea54b38adee968bc3b4c11c2b22861af23"
+  }
+}

@@ -1,6 +1,6 @@
 # Branch Cleanup Guide
 
-Last reviewed: 2026-07-04
+Last reviewed: 2026-08-23
 
 This guide defines the safe branch cleanup path for this repository. It is written for branch hygiene only: do not use it to discard source work, resolve merge conflicts, merge product changes, or rewrite history.
 
@@ -119,11 +119,19 @@ credentials.
 3. For each remaining candidate branch, confirm patch-unique commits and file diffs against `main`.
 4. Port, commit, or explicitly reject useful patch content before deleting any branch ref.
 5. Record completed cleanup reviews with `npm run ledger:append -- --ref <branch> --head <full-sha> --scope branch-cleanup --outcome <o> --checks <c>`. The scope cell must be exactly `branch-cleanup` for a later sweep to treat it as complete; `branch-cleanup-deletion-pending` deliberately does not count.
-6. Remove detached worktrees only when clean, unneeded, and absent from active `git worktree list` output.
+6. Record worktree state with the report-only commands below. A report is evidence, not removal authority.
 
-## Dev Drive Stale Worktree Pruning (Inbox `ec356a7d`, `#6SMMB4`)
+## Report-only Worktree Fleet Inspection (`#XCAX01`, `#6GW95D`)
 
-Worktrees accumulate across active multi-agent development fleets (e.g. on Dev Drive `D:` or secondary disks, where dozens of worktrees can hold ~19+ GB of duplicated `node_modules` at ~0.89 GB and ~50,000 files each). Stale worktrees compete for disk capacity, cause dependency drift, and contend on the cross-worktree test run coordinator lock (`scripts/run-heavy.mjs` / `scripts/test-run-lock.mjs`).
+The repository's fleet-sweep surfaces are permanently report-only as of 2026-08-23. Neither
+`scripts/clean-worktree.mjs` nor `scripts/worktree-inventory.mjs` exposes a filesystem, ref, object,
+registration, prune, or removal path. This boundary is deliberately narrow: it does not alter
+`scripts/guard-push.mjs` and its separate exact-commit temporary-worktree lifecycle.
+
+The 2026-08-22 inventory remains useful historical evidence: it separated registered worktrees,
+standalone clones, and empty leftover directories, and confirmed that capacity was not an emergency.
+The owner deferred exact-path cleanup indefinitely. This hardening pass removed zero files, refs,
+objects, registrations, worktrees, or directories and does not resume that deferred cleanup.
 
 ### Dev Drive Trusted Package Cache (#6SMMB4)
 
@@ -136,51 +144,53 @@ fsutil devdrv query D:
 fsutil devdrv trust D:\.npm-cache
 ```
 
-### Safety Rules for Worktree Pruning
+### Registered-worktree report
 
-- **Never pass `--force` to `git worktree remove`.** If git refuses removal due to untracked files, submodules, or uncommitted changes, that refusal is a critical safety signal, not an obstacle to override.
-- **Never remove a worktree that is ahead of `origin/main` or has uncommitted work.** `git status --porcelain` in the candidate directory must be clean (`""`).
-- **Never prune blind while agent sessions (Codex/Gemini/Claude) are active.** Sessions may have created new commits, modified files, or acquired test locks since the initial scan.
-- **Ignore `C:` session worktrees entirely.** These paths belong to active Codex and Antigravity chat sessions.
+Run the registered-worktree report only when fleet evidence is actually needed:
 
-### Step-by-Step Worktree Pruning Workflow
+```powershell
+npm run worktrees:report -- --merged --squashed
+```
 
-1. **Confirm fleet quiescence:**
-   Ensure no background test runner, dev server, or agent session is active or holding an execution lease.
+The report uses only cached refs and an exact read-only Git allowlist. It never fetches. Its sole prune
+operation is `git worktree prune --dry-run -v`, which is preview-only. The historical
+`npm run clean:worktree` command is retained only as a compatibility alias for this report. Ordinary
+`verify:preflight` runs the report's pure self-test instead of inspecting the whole worktree fleet.
 
-2. **Scan landed candidates (list-only preflight):**
-   Run `clean-worktree.mjs` with `--merged` and `--squashed` to identify worktrees whose branch has landed on `origin/main` (either by direct ancestry or squash-merge patch-id equivalence):
+`--remove` and `--apply` are rejected before any CLI or programmatic inspection adapter can run,
+regardless of their value. No environment variable or confirmation loop unlocks mutation. `--dry-run`
+is a compatibility no-op because every invocation is already report-only.
 
-   ```bash
-   node scripts/clean-worktree.mjs --merged --squashed
-   ```
+Liveness is tri-state. Positive process or authoritative owner evidence can prove `active`; only an
+explicit authoritative signal with its source and observation time can prove `inactive`. No matching
+process, a zero count, a missing path, or unavailable evidence remains `unknown` and is never converted
+to inactivity.
 
-   _(Note: `--merged` and `--squashed` are strictly list-only by default; they will never delete anything without `--remove`.)_
+### Explicit-root multi-fleet inventory
 
-3. **Evaluate confidence ratings on each candidate:**
-   - `proven`: Every commit on the branch is reachable from `origin/main` (`git merge-base --is-ancestor`).
-   - `inferred from patch-id, corroborated`: The branch's full diff matches a squashed commit on `origin/main`, and all changed files are byte-identical to `origin/main`.
-   - `inferred from patch-id, NOT fully corroborated`: The branch diff matched a squashed commit, but some changed files differ from `origin/main` (frequently normal base churn on append-only docs like `docs/outstanding-issues.md`). Review differences with `git diff origin/main...<branch>` before removing. Skip any candidate where you cannot confirm all unique work is landed.
+Inventory roots are mandatory and repeatable; there is no implicit home or drive scan:
 
-4. **Execute bounded safe removal:**
-   After verifying candidate confidence and confirming that trees are clean and not ahead of `origin/main`:
+```powershell
+npm run worktrees:inventory -- --root <explicit-fleet-root> --root <second-explicit-root>
+```
 
-   ```bash
-   # Bounded batch removal
-   node scripts/clean-worktree.mjs --merged --squashed --remove --batch-size 5
-   ```
+Filesystem roots, home directories, and ancestors of the home directory are refused. Traversal uses
+lexical paths, `lstat`, and batched Windows `FileAttributes` checks at every boundary; paths are sent
+as JSON data to a fixed read-only probe and never interpolated into shell source. The scanner never
+follows symbolic links, junctions, or other reparse points. Depth limits, reparse boundaries, bounded directory exclusions,
+unreadable paths, and repository-inspection failures make the relevant root and overall report
+incomplete; the CLI exits non-zero rather than returning a complete verdict.
 
-   Or remove an individual verified worktree directly:
+The output keeps registered worktrees, unregistered linked checkouts, standalone clones, other
+repositories, unknown repositories, and empty directories separated and deterministically ordered.
+Every checkout and empty-directory record carries tri-state liveness. Every report ends with the
+immutable mutation counts `cleaned=0 pruned=0 removed=0 deregistered=0`.
 
-   ```bash
-   git worktree remove <path>
-   ```
+### Deferred cleanup boundary
 
-5. **Prune disconnected or orphaned metadata:**
-
-   ```bash
-   npm run clean:worktree
-   ```
+No inventory or report result authorizes deletion. Exact-path cleanup remains deferred indefinitely
+and requires a fresh owner instruction naming the paths and a separately designed, reviewed procedure;
+the fleet tooling documented here cannot perform it.
 
 ## Merge-Loss Audit Verification (#311, #324)
 

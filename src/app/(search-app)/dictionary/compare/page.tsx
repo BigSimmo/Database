@@ -4,7 +4,7 @@ import { DictionaryComparePage } from "@/components/dictionary/dictionary-compar
 import { findDictionaryEntry } from "@/lib/dictionary";
 
 export const metadata: Metadata = {
-  title: "Compare clinical terms | Clinical KB",
+  title: "Compare clinical terms | PsychSift",
   description: "Align two source-governed dictionary entries field by field.",
 };
 

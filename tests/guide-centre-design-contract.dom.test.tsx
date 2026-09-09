@@ -3,6 +3,12 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { GuideDialog } from "@/components/clinical-dashboard/guide-dialog";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 afterEach(async () => {
   cleanup();
   await new Promise<void>((resolve) => {
@@ -13,7 +19,7 @@ afterEach(async () => {
 it("keeps Guide chrome on approved elevation and scoped compact transitions", () => {
   render(<GuideDialog open onClose={vi.fn()} />);
 
-  const dialog = screen.getByRole("dialog", { name: "Clinical KB guide" });
+  const dialog = screen.getByRole("dialog", { name: "PsychSift guide" });
   const header = dialog.querySelector<HTMLElement>(".guide-centre-header");
   const footer = dialog.querySelector<HTMLElement>("[data-guide-mobile-footer]")?.parentElement;
 
@@ -39,7 +45,7 @@ it("keeps Guide chrome on approved elevation and scoped compact transitions", ()
 it("gives the Guide footer the shared phone dock chrome at the compact scrim height", () => {
   render(<GuideDialog open onClose={vi.fn()} />);
 
-  const dialog = screen.getByRole("dialog", { name: "Clinical KB guide" });
+  const dialog = screen.getByRole("dialog", { name: "PsychSift guide" });
   const footer = dialog.querySelector<HTMLElement>("[data-guide-mobile-footer]")?.parentElement;
 
   expect(footer).not.toBeNull();
@@ -74,7 +80,7 @@ it("gives the Guide footer the shared phone dock chrome at the compact scrim hei
 it("renders the Guide tour action as the dock's single filled primary pill", () => {
   render(<GuideDialog open onClose={vi.fn()} />);
 
-  const dialog = screen.getByRole("dialog", { name: "Clinical KB guide" });
+  const dialog = screen.getByRole("dialog", { name: "PsychSift guide" });
   const row = dialog.querySelector<HTMLElement>("[data-guide-tour-action-row]");
   expect(row).not.toBeNull();
 

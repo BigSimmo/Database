@@ -22,6 +22,7 @@ const MODE_HOME_LOADING_ROUTES = [
   "documents",
   "calculators",
   "dictionary",
+  "sources",
 ] as const;
 
 describe("mode-home loading contract", () => {
@@ -51,7 +52,7 @@ describe("mode-home loading contract", () => {
     // Children stay under SearchCommandProvider; pending mode navigation may
     // temporarily swap in ModeHomeRouteLoading instead of blanking the provider.
     expect(shellSource).toMatch(
-      /<SearchCommandProvider value=\{searchCommandContextValue\}>[\s\S]*?\{pendingModeNavigation \? \([\s\S]*?<ModeHomeRouteLoading \/>[\s\S]*?\) : \(\s*children\s*\)\}/,
+      /<SearchCommandProvider value=\{searchCommandContextValue\}>[\s\S]*?pendingModeNavigation \? \([\s\S]*?<ModeHomeRouteLoading \/>[\s\S]*?\) : \(\s*children\s*\)\}/,
     );
   });
 
@@ -73,7 +74,7 @@ describe("mode-home loading contract", () => {
       /function GlobalStandaloneSearchShellClient[\s\S]*?<Suspense fallback=\{null\}>[\s\S]*?ShellSearchParamsBridge/,
     );
     expect(shellSource).toMatch(
-      /function GlobalStandaloneSearchShellBody[\s\S]*?<SearchCommandProvider value=\{searchCommandContextValue\}>[\s\S]*?\{pendingModeNavigation \? \([\s\S]*?<ModeHomeRouteLoading \/>[\s\S]*?\) : \(\s*children\s*\)\}/,
+      /function GlobalStandaloneSearchShellBody[\s\S]*?<SearchCommandProvider value=\{searchCommandContextValue\}>[\s\S]*?pendingModeNavigation \? \([\s\S]*?<ModeHomeRouteLoading \/>[\s\S]*?\) : \(\s*children\s*\)\}/,
     );
     expect(shellSource).not.toMatch(/function GlobalStandaloneSearchShellBody[\s\S]*?useSearchParams\(\)/);
     // Secondary nav is mounted inside the standalone body; it must consume the
@@ -106,20 +107,21 @@ describe("mode-home loading contract", () => {
     expect(source).toContain("pathname === THERAPY_HOME");
   });
 
-  it("routes Factsheets' mode home body through the shared ModeHomeTemplate composer host", () => {
-    // A hand-rolled composer slot (as Factsheets briefly had) omits the SSR
-    // data-composer-reserve/min-h reserve that ModeHomeTemplate provides, which
-    // regresses the shared "one composer host" contract — see
-    // docs/search-chrome-behaviour.md Invariant 15.
-    const factsheetsSource = readFileSync(
-      join(process.cwd(), "src/components/factsheets/factsheets-home-page.tsx"),
+  it("routes the shared mode home body through the shared ModeHomeTemplate composer host", () => {
+    // A hand-rolled composer slot omits the SSR data-composer-reserve/min-h
+    // reserve that ModeHomeTemplate provides, which regresses the shared
+    // "one composer host" contract — see docs/search-chrome-behaviour.md
+    // Invariant 15. Factsheets (and every other consolidated mode) now land
+    // on this same SharedHomeEmptyState surface.
+    const sharedHomeSource = readFileSync(
+      join(process.cwd(), "src/components/clinical-dashboard/answer-status.tsx"),
       "utf8",
     );
-    expect(factsheetsSource).toMatch(
+    expect(sharedHomeSource).toMatch(
       /import\s*\{[^}]*ModeHomeTemplate[^}]*\}\s*from\s*"@\/components\/mode-home-template"/,
     );
-    expect(factsheetsSource).toMatch(/<ModeHomeTemplate\b/);
-    expect(factsheetsSource).not.toMatch(/DesktopComposerPortalSlot/);
+    expect(sharedHomeSource).toMatch(/<ModeHomeTemplate\b/);
+    expect(sharedHomeSource).not.toMatch(/DesktopComposerPortalSlot/);
   });
 
   it("keeps mode-home route loading top-aligned on phones", () => {

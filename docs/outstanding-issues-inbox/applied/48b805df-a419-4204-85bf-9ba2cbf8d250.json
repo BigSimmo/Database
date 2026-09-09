@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "48b805df-a419-4204-85bf-9ba2cbf8d250",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#4XBMMR",
+    "outcome": "Resolved by retaining the non-sensitive public design comps while making their indexing policy truthful and enforceable: next.config.ts now serves X-Robots-Tag: noindex, nofollow for exact /mockups/:path* assets, and mockups/README.md now distinguishes public retrieval from indexing and access control. tests/mockup-crawler-policy.test.ts imports the effective Next config, validates the route grammar, proves nested mockup assets match, and proves unrelated assets do not. Focused combined policy verification passed 3 files/26 tests; npm run test -- tests/proxy.test.ts -t ",
+    "baseRowFingerprint": "4a990f632d3088d231b1f4dfbd517aef3c898f54609592daed827bed72bcb71e"
+  }
+}

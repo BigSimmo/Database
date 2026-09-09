@@ -92,13 +92,14 @@ export const sharedHomePresentation = {
   },
   calculators: {
     title: "Clinical Calculators",
-    subtitle: "Validated psychiatry scores with the indication, items, and next actions in one place.",
+    subtitle:
+      "Psychiatry assessment and monitoring tools with scoring guidance, limitations, safety prompts, and source-linked clinical considerations.",
     suggestions: ["depression severity", "anxiety screening", "alcohol use"],
   },
   "therapy-compass": {
     // "Therapy", not "Therapy Compass": the mode's own copy rule, pinned by
-    // tests/therapy-compass-mode-wiring.test.ts, which the retired detailed home
-    // followed. This title became user-visible when that home was consolidated here.
+    // tests/therapy-compass-mode-wiring.test.ts. This title is user-visible on
+    // the shared lightweight home.
     title: "Therapy",
     subtitle: "Source-grounded therapy records.",
     suggestions: ["trauma-focused CBT", "behavioural activation", "insomnia"],
@@ -113,11 +114,21 @@ export const sharedHomePresentation = {
     subtitle: "Source-governed psychiatric terms, abbreviations, and distinctions.",
     suggestions: ["mental state examination", "auditory hallucination", "ACT"],
   },
+  sources: {
+    title: "Sources",
+    subtitle: "Clinical source catalogue.",
+    suggestions: ["Australian guidelines", "RANZCP", "review required"],
+  },
+  "on-call": {
+    title: "On Call",
+    subtitle: "Your service's numbers, escalation, orientation and teaching.",
+    suggestions: ["after-hours registrar", "acute behavioural disturbance", "ward 4B number"],
+  },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
 /** Browser/assistive-technology title for the mode selected on the shared home. */
 export function sharedHomeDocumentTitle(modeId: AppModeId) {
-  return `${sharedHomePresentation[modeId].title} | Clinical KB`;
+  return `${sharedHomePresentation[modeId].title} | PsychSift`;
 }
 
 export const sharedHomeEmptyState = {
@@ -256,7 +267,7 @@ export const emptyStates = {
 // components/privacy-input-notice.tsx.
 export const privacyCopy = {
   pageEyebrow: "Privacy",
-  pageTitle: "How Clinical KB handles your data",
+  pageTitle: "How PsychSift handles your data",
 } as const;
 
 // User-visible error / status messages.

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "1ec9957a-532d-4425-8352-6851e64ef54f",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#47M1XD",
+    "outcome": "Closed 2026-08-23 from the two read-only production observation windows already recorded in the row and docs/audit/live-drift-forensics-2026-08.md Phase 5. The restored trigram indexes retained the same OIDs and stayed at idx_scan=0 and idx_tup_read=0 while serving GIN/HNSW indexes advanced under live traffic; database-wide stats_reset remained null. The proposed before/after ANALYZE experiment is non-discriminating because the four relevant tables were already analyzed with n_mod_since_analyze=0. Operational attribution is therefore corrected: check planner statistics first during a recurrence, do not attribute the 2026-08-14 recovery to the unused trigram pair, and do not drop the repo-defined indexes. No new production query or mutation was run for this closure.",
+    "baseRowFingerprint": "d3793fe942d21fd7b944dd410f5cd284d54a6f843370b8b77f586eb00cebbed4"
+  }
+}

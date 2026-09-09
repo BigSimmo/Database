@@ -51,6 +51,19 @@ describe("citations", () => {
     ).toBe("Inflammation escalation p.7");
   });
 
+  it("separates a bracket jammed against the preceding word", () => {
+    // Real title from an uploaded guideline. The extractor produced it without
+    // the space, and every citation surface — the safety card, the rail cards,
+    // the drawer, print — rendered it that way.
+    expect(formatCitationLabel(citation({ title: "Lithium Clinical Guideline(EMHS)", page_number: 3 }))).toBe(
+      "Lithium Clinical Guideline (EMHS), p. 3",
+    );
+    // A title that already has the space is left exactly as it is.
+    expect(formatCitationLabel(citation({ title: "Lithium Clinical Guideline (EMHS)", page_number: 3 }))).toBe(
+      "Lithium Clinical Guideline (EMHS), p. 3",
+    );
+  });
+
   it("creates compact mobile labels from the actual title (no keyword shortcuts)", () => {
     expect(
       formatCompactCitationLabel({
@@ -115,7 +128,7 @@ describe("citations", () => {
             registry_record_kind: "service",
             registry_record_slug: "crisis-service",
             source_title: "Crisis service",
-            publisher: "Clinical KB registry",
+            publisher: "PsychSift registry",
             jurisdiction: "WA/local clinical workspace",
             version: null,
             publication_date: null,
@@ -140,7 +153,7 @@ describe("citations", () => {
             registry_record_subkind: "presentation",
             registry_record_slug: "first-episode-psychosis",
             source_title: "First episode psychosis",
-            publisher: "Clinical KB registry",
+            publisher: "PsychSift registry",
             jurisdiction: "WA/local clinical workspace",
             version: null,
             publication_date: null,

@@ -93,6 +93,8 @@ export const CLINICAL_TWMERGE_THEME = {
   // `tap` would reduce one. Re-measure before introducing a same-variant pair:
   // order decides the outcome, and tap-then-numeric is the forbidden direction.
   spacing: [
+    "compact-meta",
+    "disclosure-icon",
     "hero-medallion",
     "icon-xs",
     "icon-sm",
@@ -101,6 +103,7 @@ export const CLINICAL_TWMERGE_THEME = {
     "icon-xl",
     "mode-home-composer-phone",
     "mode-home-composer-wide",
+    "phone-frame",
     "safe",
     "safe-2",
     "search-band-badge",
@@ -108,6 +111,7 @@ export const CLINICAL_TWMERGE_THEME = {
     "specifier-map-jump",
     "specifier-map-step-number",
     "tap",
+    "ward-phone-bar",
   ],
 
   // globals.css @theme --ease-*.
@@ -123,8 +127,7 @@ export const CLINICAL_TWMERGE_THEME = {
     "dialog-rise",
     "action-tray-in",
     "shimmer",
-    "answer-ecg",
-    "answer-ecg-compact",
+    "answer-progress-breath",
   ],
 } as const;
 

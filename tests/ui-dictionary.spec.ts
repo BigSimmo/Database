@@ -4,9 +4,7 @@ import { expect, test, type Locator, type Page, type TestInfo } from "playwright
 /*
  * `/dictionary` is deliberately absent: it has no home of its own any more. The
  * bare path redirects to the shared lightweight home at `/?mode=dictionary`,
- * which is covered by the shared-home suites rather than here. The retired
- * detailed home lives at `/mockups/dictionary-home-detailed`, which 404s in
- * production and is out of scope for a production-route sweep.
+ * which is covered by the shared-home suites rather than here.
  */
 const routes = [
   { path: "/dictionary/search?q=MSE", testId: "dictionary-catalogue-main" },
@@ -22,7 +20,6 @@ const routes = [
     path: "/dictionary/compare?a=mental-state-examination&b=mini-mental-state-examination",
     testId: "dictionary-compare-main",
   },
-  { path: "/dictionary/sources", testId: "dictionary-sources-main" },
 ] as const;
 
 async function blockExternalRequests(page: Page) {
@@ -125,11 +122,11 @@ test("keeps mixed result filters truthful, URL-owned, and phone-operable", async
 /**
  * The merged catalogue's phone header.
  *
- * Dictionary had two destinations over one catalogue — `/dictionary/search` and
- * `/dictionary/browse` listed the same entries as the same rows from the same
- * data — and the Browse control row was `layout="equal"` and `w-full` below
- * `sm`, so a scope holding 11 of 107 entries took half the phone width. This
- * pins the shape that replaced it, measured rather than asserted by class name.
+ * Filter lives in the original results band on browse and search. Compact Terms
+ * / Abbreviations and A–Z sit under that band. The in-page "Clinical terms"
+ * title is gone. Phones keep the usual compact bottom dock; the in-page
+ * composer slot is desktop-only.
+ * This pins the geometry rather than asserting class names.
  */
 test("merges search and browse into one catalogue with a measured phone header", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -141,33 +138,92 @@ test("merges search and browse into one catalogue with a measured phone header",
   });
   await expect(page).toHaveURL(/\/dictionary\/search\?view=abbreviations/);
 
-  await gotoDictionary(page, "/dictionary/search", "dictionary-catalogue-main");
   // The phone chrome stack is position:fixed and mounts collapsed, so every
   // offset below it is wrong until it settles (#XPY409, docs/testing.md).
   await page.waitForTimeout(1200);
 
-  // Browsing: one row of controls, no summary line, and the scope toggle sized
-  // to its own full labels rather than to the viewport.
+  await expect(page.getByRole("heading", { name: "Clinical terms" })).toHaveCount(0);
+  await expect(page.getByText("Clinical dictionary", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Dictionary catalogue", level: 1 })).toHaveCount(1);
+  const dock = page.locator("form.answer-footer-search-dock");
+  await expect(dock).toBeVisible();
+  await expect(dock.getByTestId("global-search-input")).toBeVisible();
+  await expect(page.getByTestId("dictionary-catalogue-composer")).toBeHidden();
+  await expect(page.locator("#main-content [data-testid='global-search-input']")).toHaveCount(0);
+
+  const ribbon = page.getByTestId("search-query-ribbon");
   const toggle = page.getByTestId("dictionary-scope-toggle");
+  await expect(ribbon).toBeVisible();
   await expect(toggle).toBeVisible();
-  await expect(toggle.getByRole("button", { name: /Abbreviations/ })).toBeVisible();
+  await expect(toggle.getByRole("radio", { name: /Abbreviations/ })).toBeVisible();
   const toggleBox = await toggle.boundingBox();
+  // The joined toggle remains compact in width but keeps the shared 48px tap target.
   expect(toggleBox?.height ?? 0).toBeGreaterThanOrEqual(48);
-  // The complete labels remain intrinsic rather than stretching to fill the row.
+  expect(toggleBox?.height ?? 0).toBeLessThanOrEqual(52);
   expect(toggleBox?.width ?? 0).toBeLessThan(260);
   await expect(page.getByTestId("dictionary-letter-chip")).toBeVisible();
-  await expect(page.getByTestId("dictionary-filter-trigger-phone").getByText("Filter", { exact: true })).toBeVisible();
-  await expect(page.getByTestId("search-query-ribbon")).toHaveCount(0);
-  // Every control on one line: same top edge, no wrap at 390px.
-  const rowTops = await page.evaluate(() => {
-    const ids = ["dictionary-scope-toggle", "dictionary-letter-chip", "dictionary-filter-trigger-phone"];
-    return ids.map((id) => document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect().top ?? -1);
+  await expect(
+    ribbon.getByTestId("dictionary-filter-trigger-phone").getByText("Filter", { exact: true }),
+  ).toBeVisible();
+  expect(
+    (await ribbon.getByTestId("dictionary-filter-trigger-phone").boundingBox())?.height ?? 0,
+  ).toBeGreaterThanOrEqual(48);
+  // Browse band has no invented "All" query chip.
+  await expect(ribbon.locator(".search-band-subject")).toHaveCount(0);
+  // Toggle and A–Z share the row under the band. The usual phone dock sits
+  // below the results, not above the Filter band.
+  const browseGeometry = await page.evaluate(() => {
+    const box = (selector: string) => document.querySelector(selector)?.getBoundingClientRect() ?? null;
+    const ribbon = document.querySelector<HTMLElement>('[data-testid="search-query-ribbon"]');
+    const ribbonParent = ribbon?.parentElement?.getBoundingClientRect() ?? null;
+    const toggle = document.querySelector<HTMLElement>('[data-testid="dictionary-scope-toggle"]');
+    const letter = document.querySelector<HTMLElement>('[data-testid="dictionary-letter-chip"]');
+    const controlRow = toggle?.parentElement?.getBoundingClientRect() ?? null;
+    const toggleBox = toggle?.getBoundingClientRect() ?? null;
+    const letterBox = letter?.getBoundingClientRect() ?? null;
+    const controlsLeft = Math.min(toggleBox?.left ?? 0, letterBox?.left ?? 0);
+    const controlsRight = Math.max(toggleBox?.right ?? 0, letterBox?.right ?? 0);
+    return {
+      dockTop: box("form.answer-footer-search-dock")?.top ?? -1,
+      ribbonTop: box('[data-testid="search-query-ribbon"]')?.top ?? -1,
+      ribbonBottom: box('[data-testid="search-query-ribbon"]')?.bottom ?? -1,
+      filterTop: box('[data-testid="dictionary-filter-trigger-phone"]')?.top ?? -1,
+      toggleTop: box('[data-testid="dictionary-scope-toggle"]')?.top ?? -1,
+      letterTop: box('[data-testid="dictionary-letter-chip"]')?.top ?? -1,
+      ribbonTopInset: ribbon && ribbonParent ? ribbon.getBoundingClientRect().top - ribbonParent.top : -1,
+      controlsLeftInset: controlRow ? controlsLeft - controlRow.left : -1,
+      controlsRightInset: controlRow ? controlRow.right - controlsRight : -1,
+    };
   });
-  expect(rowTops.every((top) => top > 0)).toBe(true);
-  expect(Math.max(...rowTops) - Math.min(...rowTops)).toBeLessThanOrEqual(2);
+  expect(browseGeometry.ribbonTop).toBeGreaterThan(0);
+  expect(browseGeometry.ribbonBottom).toBeGreaterThan(0);
+  expect(browseGeometry.ribbonTopInset).toBeGreaterThanOrEqual(12);
+  expect(browseGeometry.toggleTop).toBeGreaterThanOrEqual(browseGeometry.ribbonBottom);
+  expect(Math.abs(browseGeometry.toggleTop - browseGeometry.letterTop)).toBeLessThanOrEqual(2);
+  expect(Math.abs(browseGeometry.controlsLeftInset - browseGeometry.controlsRightInset)).toBeLessThanOrEqual(2);
+  expect(browseGeometry.filterTop).toBeLessThan(browseGeometry.toggleTop);
+  expect(browseGeometry.dockTop).toBeGreaterThan(browseGeometry.toggleTop);
 
-  // At 320px the same controls want more than the track has, and the contract
-  // is that the row WRAPS rather than clipping a count out of view.
+  const scopeSegments = await toggle
+    .getByRole("radio")
+    .evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().width));
+  expect(scopeSegments).toHaveLength(2);
+  expect(Math.abs(scopeSegments[0] - scopeSegments[1])).toBeLessThanOrEqual(1);
+  const abbreviationsRadio = toggle.getByRole("radio", { name: /Abbreviations/ });
+  const expectAbbreviationsLabelToFit = async () => {
+    const dimensions = await abbreviationsRadio.getByText("Abbreviations", { exact: true }).evaluate((label) => ({
+      clientWidth: label.clientWidth,
+      scrollWidth: label.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  };
+  await expectAbbreviationsLabelToFit();
+  await expect(abbreviationsRadio).toBeChecked();
+  await abbreviationsRadio.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(toggle.getByRole("radio", { name: /Terms/ })).toBeChecked();
+  await expect(page).not.toHaveURL(/view=abbreviations/);
+
   await page.setViewportSize({ width: 320, height: 760 });
   await page.waitForTimeout(400);
   const narrowRow = await page.evaluate(() => {
@@ -175,26 +231,35 @@ test("merges search and browse into one catalogue with a measured phone header",
     return {
       toggleWidth: box("dictionary-scope-toggle")?.width ?? 0,
       toggleTop: box("dictionary-scope-toggle")?.top ?? 0,
-      filterTop: box("dictionary-filter-trigger-phone")?.top ?? 0,
+      ribbonBottom: box("search-query-ribbon")?.bottom ?? 0,
       overflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
     };
   });
-  expect(narrowRow.filterTop).toBeGreaterThan(narrowRow.toggleTop);
-  // Same intrinsic width as at 390px — it wrapped, it did not shrink.
-  expect(narrowRow.toggleWidth).toBeGreaterThan(160);
+  expect(narrowRow.toggleTop).toBeGreaterThanOrEqual(narrowRow.ribbonBottom);
+  expect(narrowRow.toggleWidth).toBeGreaterThan(120);
   expect(narrowRow.overflow).toBeLessThanOrEqual(2);
+
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.waitForTimeout(400);
+  await expectAbbreviationsLabelToFit();
   await page.setViewportSize({ width: 390, height: 844 });
 
-  // Searching: the query gets a line of its own and the alphabet stands down.
   await gotoDictionary(page, "/dictionary/search?q=tardive+dyskinesia", "dictionary-catalogue-main");
   await page.waitForTimeout(1200);
-  const ribbon = page.getByTestId("search-query-ribbon");
+  await expect(dock).toBeVisible();
+  await expect(dock.getByTestId("global-search-input")).toBeVisible();
+  await expect(page.getByTestId("dictionary-catalogue-composer")).toBeHidden();
   await expect(ribbon).toBeVisible();
   await expect(ribbon.getByTestId("dictionary-clear-query")).toBeVisible();
   await expect(
     ribbon.getByTestId("dictionary-filter-trigger-phone").getByText("Filter", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByTestId("dictionary-letter-chip")).toHaveCount(0);
+  await expect(page.getByTestId("dictionary-letter-chip")).toBeVisible();
+
+  for (const scopeButton of await page.getByTestId("dictionary-scope-toggle").getByRole("radio").all()) {
+    expect((await scopeButton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
+  }
+  expect((await page.getByTestId("dictionary-letter-chip").boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
 
   const resultControls = await page.evaluate(() => {
     const ribbon = document.querySelector('[data-testid="search-query-ribbon"]');
@@ -206,32 +271,29 @@ test("merges search and browse into one catalogue with a measured phone header",
   });
   expect(Math.abs(resultControls.clearTop - resultControls.filterTop)).toBeLessThanOrEqual(2);
 
-  // Its own line: the band sits entirely above the control row.
   const geometry = await page.evaluate(() => {
     const box = (selector: string) => document.querySelector(selector)?.getBoundingClientRect() ?? null;
     const subject = document.querySelector<HTMLElement>('[data-testid="search-query-ribbon"] .search-band-subject');
     return {
       ribbonBottom: box('[data-testid="search-query-ribbon"]')?.bottom ?? -1,
       toggleTop: box('[data-testid="dictionary-scope-toggle"]')?.top ?? -1,
+      letterTop: box('[data-testid="dictionary-letter-chip"]')?.top ?? -1,
       subjectText: subject?.textContent ?? "",
-      // Truncation is `scrollWidth > clientWidth`, not a guess from the string.
       subjectClipped: subject ? subject.scrollWidth - subject.clientWidth > 1 : true,
     };
   });
   expect(geometry.ribbonBottom).toBeGreaterThan(0);
   expect(geometry.toggleTop).toBeGreaterThanOrEqual(geometry.ribbonBottom);
-  // The whole two-word term, not "tardive dyski…".
+  expect(Math.abs(geometry.toggleTop - geometry.letterTop)).toBeLessThanOrEqual(2);
   expect(geometry.subjectText).toBe("tardive dyskinesia");
   expect(geometry.subjectClipped).toBe(false);
 
-  // Singular at one, and the noun names the scope the reader chose rather than
-  // the mode's generic "dictionary results".
   await gotoDictionary(page, "/dictionary/search?q=MMSE&view=abbreviations", "dictionary-catalogue-main");
   await expect(ribbon.getByRole("status")).toHaveText(/^1 abbreviation$/);
 
-  // Clearing returns the whole catalogue.
   await clickUntil(page.getByTestId("dictionary-clear-query"), page.getByTestId("dictionary-letter-chip"));
   await expect(page).not.toHaveURL(/[?&]q=/);
+  await expect(page.getByTestId("search-query-ribbon")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 
@@ -294,4 +356,45 @@ test("preserves contrast modes, reduced motion, axe, and print content", async (
   await page.emulateMedia({ media: "print" });
   await expect(page.getByText("A · MSE", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("B · MMSE", { exact: true }).first()).toBeVisible();
+});
+
+// The catalogue is a result view, so from sm up it must carry the same compact
+// pill every other results page carries: no rotating "Try ..." ticker, no
+// Prompts rail, no APP-5 privacy line. It regressed because the page was wired
+// to the mode-home composer slot, and slot id is what selects the placement the
+// home helpers are gated on (PR #2639).
+test("carries the compact result pill alone from sm up, like every other catalogue", async ({ page }) => {
+  for (const width of [820, 1280] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await gotoDictionary(page, "/dictionary/search", "dictionary-catalogue-main");
+    const slot = page.getByTestId("dictionary-catalogue-composer");
+    await expect(slot).toBeVisible();
+    await expect(slot.getByTestId("global-search-input")).toBeVisible();
+
+    // Exactly one composer on the page, and the page-owned slot is the only
+    // element carrying that id — the shell must not emit a second one.
+    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
+    expect(await page.locator("#desktop-page-search-composer-slot").count()).toBe(1);
+    await expect(page.locator("#mode-home-desktop-composer-slot")).toHaveCount(0);
+
+    // The home-only helpers stay off a results page.
+    await expect(page.getByTestId("search-example-ticker")).toHaveCount(0);
+    await expect(page.getByTestId("smart-search-prompt-row")).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Search privacy notice" })).toHaveCount(0);
+
+    // 80px settled: the compact pill's exact height, from the page slot's own
+    // 5rem reserve override rather than the taller mode-home token.
+    const height = (await slot.boundingBox())?.height ?? 0;
+    expect(height).toBeGreaterThan(64);
+    expect(height).toBeLessThanOrEqual(96);
+
+    // Still under the mode nav and above the Filter band, which is the only
+    // reason this slot is page-owned at all.
+    const nav = await page.getByRole("link", { name: "Topics" }).first().boundingBox();
+    const ribbon = await page.getByTestId("search-query-ribbon").boundingBox();
+    const slotBox = await slot.boundingBox();
+    const navBottom = (nav?.y ?? 0) + (nav?.height ?? 0);
+    expect(slotBox?.y ?? 0).toBeGreaterThanOrEqual(navBottom);
+    expect(slotBox?.y ?? 0).toBeLessThan(ribbon?.y ?? 0);
+  }
 });

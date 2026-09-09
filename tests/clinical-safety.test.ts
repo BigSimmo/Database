@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { extractSafetyFindings, sortSafetyFindingsBySeverity, type SafetyFinding } from "../src/lib/clinical-safety";
+import {
+  collapseDuplicateSafetyFindings,
+  extractSafetyFindings,
+  groupSafetyFindingsByKind,
+  safetyFindingTone,
+  sortSafetyFindingsBySeverity,
+  type SafetyFinding,
+  type SafetyFindingKind,
+} from "../src/lib/clinical-safety";
 import type { RagAnswer } from "../src/lib/types";
 
 const answer: RagAnswer = {
@@ -127,6 +135,125 @@ describe("clinical safety findings", () => {
     expect(findings[0].text).not.toMatch(/Source mentions|PAE-PRO-0338|Page 5 of 5|Chunk index/i);
   });
 
+  // Audit M9: the document-code scrub carried the `i` flag, so
+  // `[A-Z]{2,}(?:-[A-Z0-9]+)+` matched any lowercase hyphenated word after
+  // protocol/policy/procedure and deleted the subject of the sentence.
+  it("keeps ordinary hyphenated phrases after protocol, policy or procedure (M9)", () => {
+    const findings = extractSafetyFindings({
+      ...answer,
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          quote: "Follow the clozapine protocol re-challenge only after haematology review.",
+        },
+        {
+          chunk_id: "chunk-2",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 2,
+          chunk_index: 1,
+          section_heading: null,
+          quote: "Per local policy co-prescribing of two antipsychotics requires senior review first.",
+        },
+        {
+          chunk_id: "chunk-3",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 3,
+          chunk_index: 2,
+          section_heading: null,
+          quote: "Procedure post-operative delirium monitoring: repeat FBC daily.",
+        },
+      ],
+      sources: [],
+    });
+
+    const texts = findings.map((finding) => finding.text).join(" | ");
+    expect(texts).toContain("protocol re-challenge");
+    expect(texts).toContain("policy co-prescribing");
+    expect(texts).toContain("post-operative delirium monitoring");
+  });
+
+  // Audit L111: the chip text was cut at a fixed 257 characters with no word or
+  // number boundary, so "ANC 1500" straddling the cut rendered as "ANC 1" — a
+  // partial number that reads as a complete threshold.
+  it("never cuts a safety finding inside a numeric token (L111)", () => {
+    const prefix = "Monitor renal function weekly. ".repeat(8);
+    const findings = extractSafetyFindings({
+      ...answer,
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          quote: `${prefix}and ANC 1500 requires urgent review and escalation to the on-call haematology team today.`,
+        },
+      ],
+      sources: [],
+    });
+
+    const text = findings[0].text;
+    expect(text.length).toBeLessThanOrEqual(261);
+    // The full threshold did not fit; showing part of it is worse than showing
+    // none of it.
+    expect(text).not.toMatch(/ANC\s+1\b/);
+    // The cut lands on a word boundary, so no token — least of all a number —
+    // is shown in part.
+    expect(text.replace(/\.+$/, "")).toMatch(/\bweekly$/);
+  });
+
+  // Audit L111, second boundary case (Codex review on PR #2610): when a numeric
+  // threshold ends EXACTLY at the cut, the slice already holds the complete token,
+  // but backing up to the previous space deleted the whole value — "ANC below 1500"
+  // rendered as "ANC below", which still reads as a finished instruction with the
+  // threshold silently removed.
+  it("keeps a threshold that ends exactly at the cut (L111)", () => {
+    const tail = "ANC below 1500";
+    const lead = "Monitor renal function weekly. ";
+    let prefix = "";
+    while (prefix.length < 257 - tail.length) prefix += lead;
+    prefix = prefix.slice(0, 257 - tail.length);
+    const quote = `${prefix}${tail} and escalate to haematology the same day.`;
+    // The final "0" is the last sliced character and the cut lands on the space.
+    expect(quote[256]).toBe("0");
+    expect(quote[257]).toBe(" ");
+
+    const findings = extractSafetyFindings({
+      ...answer,
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Risk source",
+          file_name: "risk.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: null,
+          quote,
+        },
+      ],
+      sources: [],
+    });
+
+    const text = findings[0].text;
+    expect(text.length).toBeLessThanOrEqual(261);
+    expect(text).toContain("ANC below 1500");
+    // and never the value-stripped form that reads as a complete instruction
+    expect(text).not.toMatch(/ANC below\s*\.*$/);
+  });
+
   it("sorts safety findings by clinical severity", () => {
     const findings: SafetyFinding[] = [
       {
@@ -209,5 +336,235 @@ describe("clinical safety findings", () => {
     expect(findings[0].kind).toBe("contraindication");
     expect(findings[0].label).toBe("Contraindication");
     expect(findings[0].text).toContain("contraindicated in pregnancy");
+  });
+});
+
+describe("safety findings are counted once per passage", () => {
+  // The live clozapine answer reported "3 safety notes" over two passages: the
+  // quote card and its own parent chunk both matched, so one passage was listed
+  // twice — once as "Red flag" (the longer text reaches that pattern) and once
+  // as "Monitoring" (the extract does not). The count is the whole point of the
+  // chip that opens this list, so an inflated one is not cosmetic.
+  const passage =
+    "clozapine safety checkpoints: FBC/ANC monitoring, myocarditis symptom screening, metabolic monitoring, constipation prevention, and shared-care communication.";
+  const fullerPassage = `${passage} Urgent review triggers include fever, chest pain, dyspnoea, tachycardia, marked sedation, seizures.`;
+
+  const duplicatedAnswer: RagAnswer = {
+    answer: "Clozapine monitoring covers FBC/ANC and myocarditis screening.",
+    grounded: true,
+    confidence: "medium",
+    citations: [],
+    quoteCards: [
+      {
+        chunk_id: "chunk-a",
+        document_id: "doc-a",
+        title: "Clozapine monitoring protocol",
+        file_name: "clozapine.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        similarity: 0.82,
+        quote: passage,
+      },
+    ] as RagAnswer["quoteCards"],
+    sources: [
+      {
+        id: "chunk-a",
+        document_id: "doc-a",
+        title: "Clozapine monitoring protocol",
+        file_name: "clozapine.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        section_heading: "Monitoring",
+        content: fullerPassage,
+        image_ids: [],
+        similarity: 0.82,
+        images: [],
+      },
+      {
+        id: "chunk-b",
+        document_id: "doc-a",
+        title: "Clozapine monitoring protocol",
+        file_name: "clozapine.pdf",
+        page_number: 2,
+        chunk_index: 1,
+        section_heading: "Escalation",
+        content: "Escalate for urgent review when red flag features are present.",
+        image_ids: [],
+        similarity: 0.8,
+        images: [],
+      },
+    ],
+  };
+
+  it("collapses a quote card into its own parent chunk", () => {
+    const findings = extractSafetyFindings(duplicatedAnswer);
+    const page1 = findings.filter((finding) => finding.citation.page_number === 1);
+
+    expect(page1).toHaveLength(1);
+    // The fuller text survives, and with it the more severe of the two labels.
+    expect(page1[0].text).toContain("Urgent review triggers");
+    expect(page1[0].label).toBe("Red flag");
+    // A genuinely separate passage on another page is untouched.
+    expect(findings.filter((finding) => finding.citation.page_number === 2)).toHaveLength(1);
+  });
+
+  it("collapses warnings that arrive already computed, not only freshly extracted ones", () => {
+    // The server computes these and the client re-reads them, so the guarantee
+    // has to hold on the way in as well as at extraction.
+    const precomputed = extractSafetyFindings({ ...duplicatedAnswer });
+    const doubled = [...precomputed, ...precomputed];
+
+    expect(extractSafetyFindings({ ...duplicatedAnswer, safetyWarnings: doubled })).toHaveLength(precomputed.length);
+  });
+
+  it("collapses a short quote against its own parent chunk, under the length floor", () => {
+    // The floor exists for the cross-chunk case. A quote card carries its parent
+    // chunk's id, so containment there is proof of one passage however short the
+    // extract — and applying the floor to it let a short quote double-count
+    // against the very chunk it was cut from.
+    const fromChunk = (id: string, chunkId: string, text: string, kind: SafetyFinding["kind"]): SafetyFinding => ({
+      id,
+      kind,
+      label: kind === "red_flag" ? "Red flag" : "Monitoring",
+      text,
+      citation: {
+        chunk_id: chunkId,
+        document_id: "doc-a",
+        title: "Protocol",
+        file_name: "p.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        similarity: 0.8,
+      },
+      href: "/documents/doc-a?page=1",
+    });
+
+    const findings = collapseDuplicateSafetyFindings([
+      fromChunk("monitoring:chunk-a", "chunk-a", "Monitor ANC weekly.", "monitoring"),
+      fromChunk("red_flag:chunk-a", "chunk-a", "Monitor ANC weekly. Urgent review if fever develops.", "red_flag"),
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0].text).toContain("Urgent review");
+    expect(findings[0].label).toBe("Red flag");
+    // The id encodes the kind, so a merge that takes one finding's text and the
+    // other's severity has to rebuild it.
+    expect(findings[0].id).toBe("red_flag:chunk-a");
+  });
+
+  it("reaches a fixed point, so the server and client counts cannot disagree", () => {
+    // One pass merges into the FIRST passage-key match, so a finding containing
+    // two already-kept ones lands on the first and leaves the second nested
+    // inside it. This function runs server-side into the payload and again on
+    // the client; a pass short of a fixed point would render "2" then "1".
+    const at = (id: string, text: string): SafetyFinding => ({
+      id,
+      kind: "monitoring",
+      label: "Monitoring",
+      text,
+      citation: {
+        chunk_id: id,
+        document_id: "doc-a",
+        title: "Protocol",
+        file_name: "p.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        similarity: 0.8,
+      },
+      href: "/documents/doc-a?page=1",
+    });
+
+    const first = "Monitor full blood count and absolute neutrophil count every week for the first eighteen weeks.";
+    const second =
+      "Review metabolic parameters at baseline, three months, and then annually thereafter for this patient.";
+    const both = `${second} ${first}`;
+
+    const once = collapseDuplicateSafetyFindings([at("a", first), at("b", second), at("c", both)]);
+    expect(once).toHaveLength(1);
+    // Idempotent: collapsing the output again changes nothing.
+    expect(collapseDuplicateSafetyFindings(once)).toEqual(once);
+  });
+
+  it("does not merge two short findings that merely share words", () => {
+    const short = (id: string, page: number, text: string): SafetyFinding => ({
+      id,
+      kind: "monitoring",
+      label: "Monitoring",
+      text,
+      citation: {
+        chunk_id: id,
+        document_id: "doc-a",
+        title: "Protocol",
+        file_name: "p.pdf",
+        page_number: page,
+        chunk_index: 0,
+        similarity: 0.8,
+      },
+      href: `/documents/doc-a?page=${page}`,
+    });
+
+    // Same page, one text a substring of the other, but far too short to be
+    // treated as the same passage.
+    const findings = collapseDuplicateSafetyFindings([
+      short("a", 1, "Monitor FBC."),
+      short("b", 1, "Monitor FBC. Repeat weekly."),
+    ]);
+
+    expect(findings).toHaveLength(2);
+  });
+});
+
+describe("clinical point tones", () => {
+  function finding(id: string, kind: SafetyFindingKind, label: string): SafetyFinding {
+    return {
+      id,
+      kind,
+      label,
+      text: `${label} text`,
+      citation: {
+        chunk_id: `chunk-${id}`,
+        document_id: "doc-a",
+        title: "Protocol",
+        file_name: "p.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        similarity: 0.8,
+      },
+      href: "/documents/doc-a?page=1",
+    };
+  }
+
+  it("reserves the danger tone for the two kinds that stop a prescription", () => {
+    expect(safetyFindingTone("contraindication")).toBe("stop");
+    expect(safetyFindingTone("red_flag")).toBe("stop");
+    expect(safetyFindingTone("escalation")).toBe("act");
+    expect(safetyFindingTone("dose_limit")).toBe("act");
+  });
+
+  it("keeps routine practice guidance out of the warning tones", () => {
+    // The point of the third tier. TOKENS.md reserves the clinical status
+    // colours for sanctioned urgency, and an answer where routine monitoring is
+    // painted amber is one where the amber has stopped meaning anything.
+    expect(safetyFindingTone("monitoring")).toBe("know");
+    expect(safetyFindingTone("exclusion")).toBe("know");
+    expect(safetyFindingTone("caveat")).toBe("know");
+  });
+
+  it("collapses repeated kinds into one counted pill, in severity order", () => {
+    const groups = groupSafetyFindingsByKind([
+      finding("a", "monitoring", "Monitoring"),
+      finding("b", "contraindication", "Contraindication"),
+      finding("c", "monitoring", "Monitoring"),
+      finding("d", "dose_limit", "Dose limit"),
+    ]);
+
+    expect(groups.map((group) => group.kind)).toEqual(["contraindication", "dose_limit", "monitoring"]);
+    expect(groups.map((group) => group.count)).toEqual([1, 1, 2]);
+    expect(groups.map((group) => group.tone)).toEqual(["stop", "act", "know"]);
+  });
+
+  it("returns nothing to render when an answer carries no findings", () => {
+    // The rail is hidden entirely rather than rendering an empty heading.
+    expect(groupSafetyFindingsByKind([])).toEqual([]);
   });
 });

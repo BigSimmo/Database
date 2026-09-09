@@ -268,7 +268,7 @@ function PriorityPageLink({
         event.preventDefault();
         onNavigate(page);
       }}
-      className="inline-flex min-h-tap items-center gap-1 px-1 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:text-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9"
+      className="inline-flex min-h-tap items-center gap-1 px-1 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:text-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-compact-meta"
     >
       <span className="nums">View p.{page}</span>
       <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />

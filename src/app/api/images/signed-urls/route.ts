@@ -4,12 +4,11 @@ import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { getDemoImage } from "@/lib/demo-data";
 import { env } from "@/lib/env";
 import { isDemoMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, PublicApiError } from "@/lib/http";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
-import { isPublicDocument } from "@/lib/documents/is-public-document";
 import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
@@ -92,53 +91,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ urls: {} });
     }
 
-    // Split valid images into public corpus images (skip signing) and private images (sign).
-    const publicImages = validImages.filter((img) => {
-      const doc = documentMap.get(img.document_id) ?? null;
-      return isPublicDocument(doc as Parameters<typeof isPublicDocument>[0]);
-    });
-    const privateImages = validImages.filter((img) => {
-      const doc = documentMap.get(img.document_id) ?? null;
-      return !isPublicDocument(doc as Parameters<typeof isPublicDocument>[0]);
-    });
-
+    // Sign all valid images uniformly. The single-image route (/api/images/[id]/signed-url)
+    // always signs regardless of corpus visibility; doing the same here avoids a silent
+    // breakage if the image bucket policy is ever tightened from public to private.
     const urls: Record<string, { url: string; mimeType: string | null; caption: string | null; expiresAt: string }> =
       {};
 
-    // Public corpus images: use a public (unsigned) URL — no signed-URL overhead.
-    for (const img of publicImages) {
-      const { data } = supabase.storage.from(env.SUPABASE_IMAGE_BUCKET).getPublicUrl(img.storage_path);
-      if (data?.publicUrl) {
+    const storagePaths = validImages.map((img) => img.storage_path);
+    const signed = await supabase.storage
+      .from(env.SUPABASE_IMAGE_BUCKET)
+      .createSignedUrls(storagePaths, signedUrlTtlSeconds);
+
+    if (signed.error) throw new Error(signed.error.message);
+    if (!signed.data) {
+      throw new Error("Failed to generate signed URLs for images.");
+    }
+
+    const itemWithError = signed.data.find((res) => res.error);
+    if (itemWithError) {
+      throw new PublicApiError(`Failed to generate signed URL for image: ${itemWithError.error}`, 500);
+    }
+
+    const signedUrlMap = new Map(signed.data.map((res) => [res.path, res.signedUrl]));
+
+    for (const img of validImages) {
+      const signedUrl = signedUrlMap.get(img.storage_path);
+      if (signedUrl) {
         urls[img.id] = {
-          url: data.publicUrl,
+          url: signedUrl,
           mimeType: img.mime_type,
           caption: img.caption,
           expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
         };
-      }
-    }
-
-    // Private images: create signed URLs in a single batch call.
-    if (privateImages.length > 0) {
-      const storagePaths = privateImages.map((img) => img.storage_path);
-      const signed = await supabase.storage
-        .from(env.SUPABASE_IMAGE_BUCKET)
-        .createSignedUrls(storagePaths, signedUrlTtlSeconds);
-
-      if (signed.error) throw new Error(signed.error.message);
-
-      const signedUrlMap = new Map(signed.data.map((res) => [res.path, res.signedUrl]));
-
-      for (const img of privateImages) {
-        const signedUrl = signedUrlMap.get(img.storage_path);
-        if (signedUrl) {
-          urls[img.id] = {
-            url: signedUrl,
-            mimeType: img.mime_type,
-            caption: img.caption,
-            expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
-          };
-        }
       }
     }
 

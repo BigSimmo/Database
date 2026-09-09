@@ -1,6 +1,6 @@
 # Clinical Governance Workstream
 
-Clinical KB is currently a source-backed clinical reference prototype. Before production clinical use, complete and record the following governance decisions.
+PsychSift is currently a source-backed clinical reference prototype. Before production clinical use, complete and record the following governance decisions.
 
 ## Deployment Classification
 
@@ -20,6 +20,14 @@ Clinical KB is currently a source-backed clinical reference prototype. Before pr
 - Do not upload patient-identifiable documents unless local governance and privacy approvals explicitly allow it.
 - Confirm OpenAI and Supabase data-processing arrangements are acceptable for the intended clinical setting.
 - Define audit requirements for uploads, document access, user queries, generated answers, copied drafts, and source opening.
+
+The status authority is [`governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json),
+with the current evidence summary in
+[`governance/privacy-closeout-2026-09-01.md`](governance/privacy-closeout-2026-09-01.md). As of
+2026-09-01, OpenAI API sharing and call logging are disabled and optional hosted tools are disabled;
+OpenAI has acknowledged the ZDR request, but ZDR, DPA, APP 8, APP 1/5 notice, and clinical
+PHI-minimisation approvals remain release blockers. Do not infer approval from request submission or
+from the public `/privacy` transparency page.
 
 ## Clinical Use Rules
 
@@ -57,3 +65,41 @@ Source provenance is an issuer-identity signal only. It is independent from curr
 - **Unclassified**: unknown authority, ambiguous identity, conflicting metadata, publisher aliases without compatible jurisdiction, or registry summaries. Registry summaries retain their separate identity and never inherit Official or Trusted provenance from linked or nearby authorities.
 
 Authority must come from registered publisher codes or compatible canonical publisher/jurisdiction metadata. Arbitrary title, body, or extracted text claims do not establish source authority.
+
+## Mode-aware Clinical Ask governance
+
+Clinical Ask remains dormant by default and is separate from Smart mode search. The shared mode composer never
+routes a natural-language query to Clinical Ask: Services, Forms, Differentials, Formulation, DSM-5 Diagnosis,
+Specifiers, Therapy, Medication, Tools, Calculators, Factsheets, and Dictionary interpret natural language locally
+and show their ordinary deterministic catalogue results. Medication Smart search is retrieval-only: it does not infer
+suitability, dose, or treatment. In the Medication, Tools, Calculators, Factsheets, and Dictionary Smart states,
+universal-search, Document, and Answer requests are suppressed; literal searches retain their existing behaviour.
+`CLINICAL_ASK_ENABLED` governs only the dormant answer workflow; it does not enable, disable, or alter Smart search.
+There is no microphone control or separate Ask rail. If Clinical Ask is exposed through a dedicated governed-answer
+surface in future, every request must use the same deterministic Evidence Ladder: local
+Catalogue first, authorised owner-scoped Indexed evidence second, and an allowlisted External Authority only when
+there is a deterministic evidence gap, unresolved conflict, stale material, or a `needs_review` source. An unsupported
+conclusion is rendered as an Evidence Gap; source conflict and review state remain visible, and clinically material
+suggestions require Clinician Confirmation.
+
+The authority registry is the only external-domain approval owner. A change requires a reviewed registry edit naming
+the canonical HTTPS origin, publisher, jurisdiction, modes, and permitted path prefixes; focused redirect, private-IP,
+subdomain, attribution, and exact-extract tests; clinical/source-governance approval; and an updated approval artefact.
+Do not add a domain from request text, provider output, redirects, or retrieved page content. `reviewed` means the
+catalogue/indexed record passed its repository review process; `needs_review` remains usable only with a visible
+caution and can trigger external gap resolution; `unknown` never silently becomes reviewed.
+
+Provider output is untrusted draft data at the synthesis boundary. Deterministic response governance validates mode
+shape, claim-to-evidence support, citations, prohibited outcomes, and clinical confirmation before anything is shown.
+External extracts remain server-only and request-scoped: attributable citations and retrieval dates may reach the
+answer, but external pages are not durably imported into the catalogue, index, transcript, Case Context, logs, or
+telemetry. Roll back generation with `CLINICAL_ASK_ENABLED=false`; disable only external fallback with
+`CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED=false`; use `CLINICAL_ASK_DISABLED_MODES` only as the emergency per-mode
+denylist. None of these flags removes the separately required hosted migration, provider, clinical-evaluation,
+protected-staging canary, contractual, or physical-device evidence.
+
+An `answered` stream payload fails closed unless it contains governed evidence and every visible lead, section, and
+conflict claim references evidence present in that payload. An Evidence Gap may still carry zero or partial evidence.
+Clinical Ask production activation remains separately gated by named human clinical and contractual/privacy approval
+plus physical iPhone Safari and installed-PWA acceptance. These answer-workflow gates do not block provider-free Smart
+catalogue search.

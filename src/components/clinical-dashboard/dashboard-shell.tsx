@@ -113,7 +113,7 @@ export function UtilityDrawer({
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className={iconTilePremium}>
-            <Icon className="h-4 w-4" />
+            <Icon aria-hidden="true" className="h-4 w-4" />
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-[color:var(--text)]">{title}</span>
@@ -141,7 +141,7 @@ export function UtilityDrawer({
         <summary className={triggerClassName}>
           <span className="flex min-w-0 items-center gap-3">
             <span className={iconTilePremium}>
-              <Icon className="h-4 w-4" />
+              <Icon aria-hidden="true" className="h-4 w-4" />
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-[color:var(--text)]">{title}</span>

@@ -64,7 +64,7 @@ export function AnswerSuggestionChips({
             type="button"
             disabled={disabled}
             onClick={() => onPick(suggestion)}
-            className={cn("answer-suggestion-chip", focusRing, disabled && "opacity-60")}
+            className={cn("answer-suggestion-chip", focusRing)}
           >
             {Icon ? (
               <>

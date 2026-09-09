@@ -181,7 +181,7 @@ describe("RouteAnnouncer", () => {
   }
 
   it("stays silent on first render — arrival is not a navigation", () => {
-    document.title = "Answer · Clinical KB";
+    document.title = "Answer · PsychSift";
     render(
       <>
         <LiveAnnouncer />
@@ -195,7 +195,7 @@ describe("RouteAnnouncer", () => {
   });
 
   it("moves focus to the new h1 and announces the page title on navigation", async () => {
-    document.title = "Answer · Clinical KB";
+    document.title = "Answer · PsychSift";
     const { rerender } = render(
       <>
         <LiveAnnouncer />
@@ -204,7 +204,7 @@ describe("RouteAnnouncer", () => {
       </>,
     );
 
-    document.title = "Documents · Clinical KB";
+    document.title = "Documents · PsychSift";
     pathname.current = "/documents";
     rerender(
       <>
@@ -217,9 +217,7 @@ describe("RouteAnnouncer", () => {
     const heading = screen.getByRole("heading", { level: 1 });
     expect(heading).toHaveAttribute("tabindex", "-1");
     expect(heading).toHaveFocus();
-    await waitFor(() =>
-      expect(screen.getByTestId("live-announcer-polite")).toHaveTextContent("Documents · Clinical KB"),
-    );
+    await waitFor(() => expect(screen.getByTestId("live-announcer-polite")).toHaveTextContent("Documents · PsychSift"));
   });
 
   it("leaves focus alone when the navigation happened inside a dialog", () => {

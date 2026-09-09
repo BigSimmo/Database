@@ -57,7 +57,7 @@ const consolidatedRedirectTargets = Object.fromEntries(
 );
 
 /*
- * The four `<mode>/search` routes with no browse view. Conditional, not absolute:
+ * The `<mode>/search` routes with no browse view. Conditional, not absolute:
  * they forward only when the query is empty, and render results otherwise — so
  * they are described rather than listed as plain redirects.
  */
@@ -80,12 +80,43 @@ const documentedRedirectTargets: Record<string, string> = {
   // Pinned because the page forwards the incoming query string, so its
   // `redirect()` argument is a template literal the regex above cannot read.
   "/dictionary/browse": "/dictionary/search",
+  "/dictionary/sources": "/sources/search?usedBy=dictionary",
+  "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
+  // Medication is consolidated like the modes in `consolidatedRedirectTargets`
+  // above, but deliberately kept out of that shared map — there is no
+  // `/medications/search` route, so its own bespoke redirect (medications/page.tsx,
+  // mirrored in src/proxy.ts) handles both branches instead. Pinned here by hand
+  // for the same reason as the entries above it: the target is computed, not a
+  // string literal the `redirect("…")` regex can read.
+  "/medications": "/?mode=prescribing",
 };
 
 const routeDescriptions: Record<string, string> = {
-  "/": "Main Clinical KB shell.",
+  "/": "Main PsychSift shell.",
   "/applications": "Legacy application launcher redirect to Tools.",
+  "/caring-contacts":
+    "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
+  "/caring-contacts/patients":
+    "The team's caring-contact caseload: one row per plan. Only the plan state travels in the URL; the search box matches patient names and synthetic identifiers inside the browser and is never put into an address, because a patient's name must not reach browser history or a request log. A row carries the patient's name and a synthetic identifier and no other identifying detail.",
+  "/caring-contacts/patients/[patientId]":
+    "One patient's caring-contact episode: who they are, the plan that is running, and every message in its twelve-month schedule. Reached from a caseload row; scoped to one plan, which `?plan=` names when the patient holds more than one.",
+  "/caring-contacts/plans/new":
+    "Putting a discharged patient onto a caring-contact plan: agreement, pathway, personalisation, then review and activation. Started for one accepted referral, which `?referral=` names; opened without one, it states what it needs.",
+  "/caring-contacts/schedule":
+    "What this team's caring-contact plans put on one AWST day: the three approved sending windows, the contacts at no approved send time, and the named exceptions. The day travels in `?day=`; without it, today.",
+  "/caring-contacts/templates":
+    "The governed pathway versions a team holds: lifecycle state, the recorded facts of publication and retirement, and who approved each one — qualified by the record's own provenance, so a synthetic approval never reads as a real one. A governance record viewer; the list itself shows no message wording, and each row states which of the three messages its record holds text for and links to the record that shows it.",
+  "/caring-contacts/templates/[pathwayId]":
+    "One governed pathway version in full: its lifecycle, both approval seats and the qualification its own record carries, the wording that record holds, and whether a new plan may be started on it. Reached from a row of the templates library; a well-formed identifier this team does not hold is stated as a governance fact rather than an error.",
+  "/caring-contacts/team":
+    "Where this team's caring-contact work is sitting: what each coordinator is carrying, which of their plans their own state is holding, who is covering for whom, and what nobody has claimed against the 60-minute escalation. Operational only, and it never ranks a clinician — rows are in identifier order and no figure is a measure of a person. It holds no staff name and no role, because nothing in this system records either, so each coordinator appears as the identifier their work is filed under; and it carries no patient, plan or contact identifier at all.",
+  "/caring-contacts/guidance":
+    "How the caring-contact programme is run: the one-way boundary and what a patient is actually told about replies, what the service does when a system it depends on is unavailable, and the language rules — including that a delivery receipt is a transport fact and never a statement about a person. Fixed text; it holds no record about anybody.",
+  "/caring-contacts/reports":
+    "Aggregate operational measures for one team — contacts still to send and already sent, plans held, and the dispatch attempts where the carrier reported something other than what was expected. Also carries the programme-reach section, which states that Aboriginal and Torres Strait Islander status is not recorded rather than rendering an empty breakdown of it. No measure names or identifies a patient, and no clinician is ranked.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
+  "/calculators/search":
+    "Browsable calculator catalogue and scored results. An empty query lists every calculator; a submitted query narrows the same list.",
   "/dictionary": "Clinical dictionary home with term search and category navigation.",
   "/dictionary/[slug]": "Source-governed clinical term definition, distinction, and reference detail.",
   "/dictionary/browse":
@@ -93,7 +124,8 @@ const routeDescriptions: Record<string, string> = {
   "/dictionary/compare": "Side-by-side clinical term definition and nuance comparison.",
   "/dictionary/search":
     "The clinical term and abbreviation catalogue: an empty query lists everything, a typed query narrows the same list.",
-  "/dictionary/sources": "Clinical dictionary governance, references, and source catalogue.",
+  "/dictionary/sources":
+    "Query-preserving compatibility redirect to `/sources/search?usedBy=dictionary`; incoming catalogue filters are retained and application usage is set to Dictionary.",
   "/dictionary/topics": "Clinical dictionary topic category index.",
   "/dictionary/topics/[slug]": "Clinical dictionary topic category term list.",
   "/differentials": "Differentials home and search surface.",
@@ -113,30 +145,45 @@ const routeDescriptions: Record<string, string> = {
   "/dsm/diagnoses/[slug]": "DSM diagnosis criteria and information.",
   "/dsm/diagnoses/[slug]/differentials": "DSM diagnosis differential considerations.",
   "/dsm/search": "DSM diagnosis search and catalogue browser.",
-  "/factsheets": "Patient information factsheets home and topic browser.",
+  "/factsheets": "Compatibility redirect to the shared Factsheets home.",
   "/factsheets/[slug]": "Plain-language patient factsheet reading and printable handout view.",
   "/factsheets/search": "Patient information factsheet search command centre.",
+  "/factsheets/topics": "Patient information factsheets organised by topic.",
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
+  "/forms/search":
+    "Forms results surface: searches the WA MHA 2014 forms register by code, title and clinical purpose.",
   "/formulation": "Clinical formulation home and local mechanism search surface.",
   "/formulation/[slug]": "Formulation mechanism decision-support guide.",
   "/formulation/builder": "Structured clinical formulation builder.",
   "/formulation/compare": "Side-by-side mechanism comparison.",
   "/formulation/map": "Formulation mechanism domain map.",
-  "/medications": "Medication mode home.",
+  "/formulation/search":
+    "Formulation results surface: searches mechanisms by pattern, clinical clue and hypothesis, and browses the full catalogue on an empty query.",
+  "/medications": "Compatibility redirect to the shared Medication (prescribing) home.",
   "/medications/[slug]": "Medication detail.",
-  "/privacy": "Privacy and data-processing governance draft.",
+  "/privacy": "Public privacy and data-processing transparency notice; governance approval pending.",
   "/reference/colour-coding": "Clinical domain and category colour-coding palette reference.",
   "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
+  "/services/search":
+    "Services results surface: searches the private services registry by need, catchment, eligibility and referral route.",
+  "/sources/[sourceId]": "Clinical source traceability record: identity, rating, canonical locations and usage.",
+  "/sources/method": "How the catalogue rates, reviews and traces a source, and its stated limitations.",
+  "/sources/publishers": "Publishing bodies grouped by jurisdiction scope.",
+  "/sources/search":
+    "The ranked clinical source catalogue: filter and sort by quality band, jurisdiction, source type, publisher, topic, lifecycle and application usage.",
+  "/sources/topics": "Clinical topics derived from registered source metadata.",
   "/specifiers": "Psychiatric specifier home and local search surface.",
   "/specifiers/[slug]": "Psychiatric specifier decision-support guide.",
   "/specifiers/builder": "Structured diagnostic wording builder.",
   "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
   "/specifiers/map": "Psychiatric specifier family map.",
-  "/therapy-compass": "Therapy home (source-grounded therapy decision support).",
+  "/specifiers/search":
+    "Specifiers results surface: searches diagnostic specifiers by presentation, episode pattern, course and severity, and browses the full catalogue on an empty query.",
+  "/therapy-compass": "Therapy home (source-grounded therapy reference).",
   "/therapy-compass/[slug]": "Therapy record detail.",
   "/therapy-compass/[slug]/brief": "Therapy brief-intervention view.",
   "/therapy-compass/[slug]/sheet": "Therapy patient-sheet builder.",
@@ -146,16 +193,11 @@ const routeDescriptions: Record<string, string> = {
   "/therapy-compass/review": "Therapy records awaiting qualified-clinician source review.",
   "/therapy-compass/search": "Therapy library search surface.",
   "/tools": "Clinical tools and applications launcher directory.",
-  "/ward-management": "Statewide psychiatry ward demand, bed capacity, and patient flow console.",
-  "/ward-management/capacity": "Ward bed availability, unit occupancy, and staffing capacity.",
-  "/ward-management/constellation": "Statewide psychiatric hospital network constellation view.",
-  "/ward-management/exceptions": "Patient flow exceptions, delays, and escalation alerts.",
-  "/ward-management/governance": "Ward coordination governance, compliance, and audit log.",
-  "/ward-management/movements": "Scheduled and completed patient transfers and bed movements.",
-  "/ward-management/network": "Psychiatric bed network status and regional catchment map.",
-  "/ward-management/patients/[patientId]": "Synthetic patient placement and transfer trajectory detail.",
-  "/ward-management/queue": "Priority referral queue and triage waiting list.",
-  "/ward-management/transport": "Patient inter-hospital transfer and transport logistics.",
+  // Ward Flow's routes moved under /mockups/ward-flow/** in the sandbox move (see
+  // src/lib/developer-area/headers.ts). Mockup routes deliberately carry no curated
+  // description here — Care Plan and Caring Contacts, the two other developer-gated
+  // prototypes, have none either — so they render with the generic "Route discovered
+  // from app directory" fallback in the Mockup/prototype routes section below.
 };
 
 const publicRouteHandlerDescriptions: Record<string, string> = {
@@ -183,7 +225,6 @@ const apiDescriptions: Record<string, string> = {
   "/api/documents/[id]/table-facts": "Document table facts.",
   "/api/documents/bulk": "Bulk document operations.",
   "/api/documents/bulk/reindex": "Bulk reindex operation.",
-  "/api/documents/signed-urls": "Bulk private document signed URLs.",
   "/api/eval-cases": "Evaluation case data.",
   "/api/health": "Health check.",
   "/api/health/ready": "Readiness health check.",
@@ -230,10 +271,18 @@ const routeOwnershipRows = [
   ["Therapy Compass", "src/app/(search-app)/therapy-compass, src/lib/therapies.ts"],
   ["Factsheets", "src/app/(search-app)/factsheets, src/components/factsheets"],
   ["Dictionary", "src/app/(search-app)/dictionary, src/lib/dictionary.ts"],
-  ["Ward Management", "src/app/ward-management, src/components/ward-management"],
   ["Safety Plan", "src/app/safety-plan, src/components/patient-safety-plan.tsx"],
   ["Privacy", "src/app/privacy"],
-  ["Tools", "src/components/applications-launcher-page.tsx"],
+  [
+    "Tools",
+    "src/app/(search-app)/tools, src/components/tools/tools-search-results-page.tsx, src/components/applications-launcher-page.tsx (the retained `/?mode=tools` alias)",
+  ],
+  ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
+  ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
+  [
+    "Caring Contacts workspace",
+    "src/app/caring-contacts, src/components/caring-contacts/workspace, src/lib/caring-contacts-routes.ts",
+  ],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -385,6 +434,8 @@ function renderModeRoutes() {
     "therapy-compass": appModeHomeHref("therapy-compass", { query: "behavioural activation", focus: true, run: true }),
     factsheets: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
     dictionary: appModeHomeHref("dictionary", { query: "mental state examination", focus: true, run: true }),
+    sources: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
+    "on-call": appModeHomeHref("on-call", { query: "after-hours registrar", focus: true, run: true }),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -487,35 +538,43 @@ function renderModePageIndex() {
       mode: "Calculators",
       home: appModeHomeHref("calculators"),
       search: appModeHomeHref("calculators", { query: "PHQ-9", focus: true, run: true }),
-      detail: "`/calculators/search` scored results; an empty query forwards back to the shared home.",
+      detail:
+        "`/calculators/search` is the browsable calculator catalogue and scored-results surface; an empty query lists every calculator.",
     },
     {
       mode: "Factsheets",
       home: appModeHomeHref("factsheets"),
       search: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
       detail:
-        "`/factsheets/search` is also a query-free browse surface linked from the mode nav; `/factsheets/[slug]` records.",
+        "`/factsheets/search` is the query-and-filter surface; `/factsheets/topics` organises the library by category; `/factsheets/[slug]` records.",
     },
     {
       mode: "Dictionary",
       home: appModeHomeHref("dictionary"),
       search: appModeHomeHref("dictionary", { query: "MSE", focus: true, run: true }),
       detail:
-        "`/dictionary/search` is one catalogue for both searching and browsing; `/dictionary/browse` redirects to it. Also `/topics`, `/topics/[slug]`, `/compare`, `/sources` and `/dictionary/[slug]` records.",
+        "`/dictionary/search` is one catalogue for both searching and browsing; `/dictionary/browse` redirects to it. Also `/topics`, `/topics/[slug]`, `/compare` and `/dictionary/[slug]` records; `/dictionary/sources` redirects to Sources.",
+    },
+    {
+      mode: "Sources",
+      home: appModeHomeHref("sources"),
+      search: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
+      detail:
+        "`/sources` redirects to the shared home, which carries a `Browse catalogue` chip; `/sources/search` is the filterable catalogue, and a submitted or filter-carrying deep link to `/sources` forwards there. Also `/sources/topics`, `/sources/publishers`, `/sources/method`, and `/sources/[sourceId]` traceability records.",
     },
     {
       mode: "Therapy Compass",
       home: appModeHomeHref("therapy-compass"),
       search: appModeHomeHref("therapy-compass", { query: "CBT", focus: true, run: true }),
       detail:
-        "Keeps a home of its own at `/therapy-compass`; `/search` (query-free browse), `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
+        "`/therapy-compass` redirects to the shared home; `/search` is a query-free browse. Also `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
     },
   ]);
 }
 
 function renderDocumentFlowIndex() {
   return [
-    bullet(DOCUMENTS_MODE_HOME_ROUTE, "Documents mode home. Stays as the no-query home surface for document mode."),
+    bullet(DOCUMENTS_MODE_HOME_ROUTE, "Redirects to the shared home with Documents preselected (consolidated mode)."),
     bullet(
       documentsSearchHref({ query: "clozapine monitoring table", focus: true, run: true }),
       "Documents search command centre used after submitting a search in Documents mode.",
@@ -555,7 +614,6 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/dictionary/[slug]",
         "/dictionary/topics/[slug]",
         "/factsheets/[slug]",
-        "/ward-management/patients/[patientId]",
       ].includes(route.route),
   );
   const mockupRoutes = data.pageRoutes.filter((route) => route.route.startsWith("/mockups"));
@@ -564,7 +622,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
   );
 
   const lines = [
-    "# Clinical KB Site Map",
+    "# PsychSift Site Map",
     "",
     "This file is generated by `npm run docs:update` (or `npm run sitemap:update` directly). Run `npm run sitemap:check` to verify it is current.",
     "",
@@ -649,12 +707,6 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "Document viewer/detail page. Individual document IDs are intentionally not enumerated in this sitemap.",
       ),
     ]),
-    ...section("Ward management patient route", [
-      bullet(
-        "/ward-management/patients/[patientId]",
-        "Synthetic patient placement and transfer trajectory detail. Synthetic patient IDs are generated runtime data and intentionally not enumerated in this sitemap.",
-      ),
-    ]),
     ...section("Mockup/prototype routes", [
       ...mockupRoutes.map((route) => routeLine(route, routeDescriptions)),
       ...(data.nonRoutedMockupArtifacts.length
@@ -685,8 +737,8 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         : ["- No page-level redirects discovered."],
     ),
     ...section("Known caveats and stale-path flags", [
-      "- `/mockups/*` prototype routes are development-only; production returns 404 and `robots.txt` disallows indexing.",
-      "- `/mockups/favourites-hub` is a legacy compatibility route and should redirect to `/favourites`.",
+      "- `/mockups/*` prototype routes are development-only: production returns 404 for every path except the four developer-gated subtrees (`/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan`, `/mockups/ward-flow`), which carry their own signed-in administrator gate. `robots.txt` deliberately allows crawling; responses under `/mockups/:path*` carry `X-Robots-Tag: noindex, nofollow` instead, so per-response indexing policy can be observed.",
+      "- `/mockups/favourites-hub` (to `/favourites`) and `/mockups/medication-prescribing` (to `/medications/acamprosate`) are legacy compatibility routes whose page-level redirects work in development only; in production the proxy's mockup block returns 404 before either page renders. `/mockups/document-search-command` is the one mockup path that still redirects in production, via `staticRouteRedirects` in `src/proxy.ts`.",
       "- Registry-backed service and form pages may show sign-in, load-error, or in-app not-found states for missing per-user records.",
       "- Live user registries may contain additional service or form slugs beyond the seeded/demo slugs listed here.",
       "- `/documents/[id]` is intentionally summarized as a route family; individual document IDs are private runtime data.",

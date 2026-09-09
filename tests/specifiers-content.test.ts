@@ -50,6 +50,24 @@ describe("specifiers content catalog", () => {
     expect(specifierIndexItems.every((item) => catalogSlugs.has(item.slug))).toBe(true);
   });
 
+  it("preserves exact field parity between catalog items and search index items", () => {
+    const items = specifierCatalogItems();
+    expect(specifierIndexItems.length).toBe(items.length);
+    for (let i = 0; i < items.length; i++) {
+      const catalog = items[i];
+      const indexed = specifierIndexItems[i];
+      expect(indexed.slug).toBe(catalog.slug);
+      expect(indexed.label).toBe(catalog.label);
+      expect(indexed.disorder).toBe(catalog.disorderName);
+      expect(indexed.categoryId).toBe(catalog.categoryId);
+      expect(indexed.category).toBe(catalog.categoryName);
+      expect(indexed.group).toBe(catalog.groupLabel);
+      expect(indexed.src).toBe(catalog.review.sourceVerificationStatus);
+      expect(indexed.def).toBe(catalog.definitionStatus);
+      expect(indexed.meaning).toBe("");
+    }
+  });
+
   it("never invents a definition for self-explanatory items", () => {
     for (const item of specifierCatalogItems()) {
       if (item.definitionStatus === "obvious-no-definition") {
@@ -196,6 +214,12 @@ describe("specifiers content catalog", () => {
 });
 
 describe("searchSpecifierCatalog", () => {
+  it("interprets natural-language specifier descriptions inside the catalogue", () => {
+    expect(searchSpecifierCatalog("Which specifier describes anxiety symptoms?", {}, true)[0]?.item.label).toContain(
+      "anxious distress",
+    );
+  });
+
   it("finds a known specifier by label", () => {
     const results = searchSpecifierCatalog("anxious distress");
     expect(results.length).toBeGreaterThan(0);

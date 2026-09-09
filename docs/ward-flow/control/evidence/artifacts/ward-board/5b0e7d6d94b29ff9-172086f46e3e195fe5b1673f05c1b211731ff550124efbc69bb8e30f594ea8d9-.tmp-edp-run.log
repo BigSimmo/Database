@@ -1,0 +1,17 @@
+Handed in: 10 file(s). Running…
+JSON report written to C:/Users/joshs/AppData/Local/Temp/ward-tests-q3O6ij/report.json
+
+  files handed in : 10
+  files that ran  : 8
+  tests collected : 136
+  passed          : 136
+  failed          : 0
+  vitest exit     : 0
+
+REFUSED — 2 of 10 file(s) produced no result:
+  tests/ui-ward-coordinator.spec.ts
+  tests/ui-ward-roles.spec.ts
+
+This is the P1-05 failure: vitest can print a pass line that agrees with itself and not
+with its input, and exit 0. A dropped file is an UNKNOWN result, never a passing one.
+Re-run; if it recurs, the worker is dying (look for VirtualAlloc/OOM above).

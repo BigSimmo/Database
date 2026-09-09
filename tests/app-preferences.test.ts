@@ -31,6 +31,7 @@ describe("app preference normalisation", () => {
       showRecentOnHome: false,
       showProtocolsOnHome: false,
       compactCitations: true,
+      saveRecentSearches: false,
       notifyGuidelineUpdates: false,
       notifyProductNews: true,
       notifySavedChanges: false,
@@ -57,6 +58,15 @@ describe("app preference normalisation", () => {
     expect(result.landing).toBe(DEFAULT_PREFERENCES.landing);
     expect(result.showRecentOnHome).toBe(DEFAULT_PREFERENCES.showRecentOnHome);
     expect(result.compactCitations).toBe(DEFAULT_PREFERENCES.compactCitations);
+  });
+
+  it("defaults recent-search recording on and coerces a non-boolean back to it", () => {
+    // The privacy control is opt-OUT: a browser that has never been told
+    // otherwise keeps remembering recent questions, so an unreadable stored
+    // value must not silently turn recording off (or on) by accident.
+    expect(DEFAULT_PREFERENCES.saveRecentSearches).toBe(true);
+    expect(normalizePreferences({ saveRecentSearches: false }).saveRecentSearches).toBe(false);
+    expect(normalizePreferences({ saveRecentSearches: "no" }).saveRecentSearches).toBe(true);
   });
 
   it("accepts all three motion values and defaults to following the OS", () => {

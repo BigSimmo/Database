@@ -6,7 +6,9 @@ import { documentPageHref } from "@/lib/document-viewer-navigation";
 
 /**
  * Keeps the document viewer page/chunk route in sync with the URL without
- * remounting the viewer (page flips use history.pushState + local state).
+ * remounting the viewer (page flips replace the current history entry + local state).
+ * Keeping PDF pagination out of the browser-history stack ensures the page-level
+ * Back control returns to the route visited before this document.
  */
 export function useDocumentViewerRoute({
   documentId,
@@ -38,7 +40,7 @@ export function useDocumentViewerRoute({
     (page: number) => {
       const nextPage = Math.max(1, Math.trunc(page));
       if (nextPage === activePage) return;
-      window.history.pushState(null, "", documentPageHref(documentId, nextPage));
+      window.history.replaceState(null, "", documentPageHref(documentId, nextPage));
       setActiveRoute({ page: nextPage, chunkId: undefined });
     },
     [activePage, documentId],

@@ -78,7 +78,7 @@ describe("ModeNav band planning", () => {
 describe("ModeNav density contract", () => {
   it("chooses density by container width in rem, never px", () => {
     const thresholds = [...modeNavCss.matchAll(/@container mode-nav \(min-width: ([^)]+)\)/g)].map((m) => m[1].trim());
-    expect(thresholds).toEqual(["16rem", "17rem", "20rem", "22rem", "23rem", "31rem", "33rem", "42rem"]);
+    expect(thresholds).toEqual(["16rem", "17rem", "20rem", "22rem", "23rem", "28rem", "31rem", "33rem", "42rem"]);
 
     // The unit is the mechanism: raising the browser or OS text size grows the
     // root font, so a phone crosses a threshold exactly when its labels would
@@ -188,12 +188,13 @@ describe("ModeNav item contract", () => {
     expect(modeNavSource).not.toMatch(/onClick\?:/);
   });
 
-  it("gives Therapy the four shared workspace destinations in declared order", () => {
+  it("gives Therapy the five shared workspace destinations in declared order", () => {
     expect(modeSecondaryNavigationEntries("therapy-compass").map((entry) => entry.id)).toEqual([
       "search",
       "recommend",
       "compare",
       "pathways",
+      "review",
     ]);
   });
 
@@ -246,7 +247,7 @@ describe("ModeNav overflow slot", () => {
     for (const [profile, threshold] of [
       ["compact-four", "23rem"],
       ["balanced-four", "31rem"],
-      ["extended", "33rem"],
+      ["extended", "23rem"],
     ] as const) {
       const block = sourceSegment(modeNavCss, `@container mode-nav (min-width: ${threshold})`, "@container mode-nav", {
         label: `mode-nav threshold ${threshold} block`,
@@ -254,11 +255,41 @@ describe("ModeNav overflow slot", () => {
       expect(block).toContain(`data-density-profile="${profile}"`);
       expect(block).toContain('.mode-nav__more[data-active-from="4"] .mode-nav__rule');
     }
-    const at42 = sourceFrom(modeNavCss, "@container mode-nav (min-width: 42rem)", {
-      label: "mode-nav threshold 42rem block",
+    // `sourceSegment`, not `sourceFrom`: 28rem is no longer the last block in
+    // the section — 42rem now sits after it and does nothing but restore the
+    // icons.
+    const at28 = sourceSegment(modeNavCss, "@container mode-nav (min-width: 28rem)", "@container mode-nav", {
+      label: "mode-nav threshold 28rem block",
     });
-    expect(at42).toContain('data-density-profile="extended"');
-    expect(at42).toContain('.mode-nav__more[data-active-from="5"] .mode-nav__rule');
+    expect(at28).toContain('data-density-profile="extended"');
+    expect(at28).toContain('.mode-nav__more[data-active-from="5"] .mode-nav__rule');
+  });
+
+  it("drops the slot ICON, never the label, when the extended profile is short of width", () => {
+    // `ModeNavItem.label` is never abbreviated; the icon is `aria-hidden`
+    // decoration. So the icon is what a narrow container gives up — 24px a slot
+    // (the 1rem glyph plus the ink's `gap-2`) — which is what lets Therapy show
+    // four destinations on a 390px phone instead of two. Scoped to `extended`:
+    // the other three profiles were calibrated wearing their icons and keep
+    // them at every width.
+    expect(modeNavSource).toContain("mode-nav__icon");
+    expect(modeNavCss).toMatch(/\.mode-nav\[data-density-profile="extended"\] \.mode-nav__icon \{\s*display: none/);
+
+    const at42 = sourceFrom(modeNavCss, "@container mode-nav (min-width: 42rem)", {
+      label: "mode-nav icon restore block",
+    });
+    expect(at42).toContain('.mode-nav[data-density-profile="extended"] .mode-nav__icon');
+    expect(at42).toContain("display: block");
+
+    // The collapsed control keeps its icon at every width. It is the fallback
+    // that must never be ambiguous about which page you are on, and it has the
+    // room — it is one full-width row, not a slot competing with four others.
+    const control = modeNavSource.slice(
+      modeNavSource.indexOf('className="mode-nav__control'),
+      modeNavSource.indexOf("</ul>"),
+    );
+    expect(control).toContain("<active.icon");
+    expect(control).not.toContain("mode-nav__icon");
   });
 
   it("names the carried page to assistive technology at exactly those widths", () => {
@@ -301,10 +332,12 @@ describe("ModeNav density coverage", () => {
     for (const modeId of MODE_NAV_ADOPTED_MODES) {
       expect(covered.has(modeId), `${modeId} adopted the bar but the density spec never loads it`).toBe(true);
     }
-    // Therapy now uses the shared registry and deliberately exposes only the
-    // four workspace destinations. Record-owned outputs require a selected
-    // therapy and therefore stay off the global mode bar.
-    expect(covered.get("therapy-compass")).toBe(4);
+    // Therapy uses the shared registry and exposes five workspace
+    // destinations: the four clinical ones plus Review, the curation queue that
+    // would otherwise have no inbound link once this PR takes it off the
+    // Pathways header. Record-owned outputs (briefs, patient sheets) still
+    // require a selected therapy and stay off the global mode bar.
+    expect(covered.get("therapy-compass")).toBe(5);
   });
 
   it("keeps each mode's declared destination count in step with the registry", () => {
@@ -323,8 +356,8 @@ describe("ModeNav density coverage", () => {
       expect(MODE_NAV_DENSITY_PROFILES).toContain(profile);
       expect(coveredProfiles.get(modeId), `${modeId} browser profile`).toBe(profile);
     }
-    expect(coveredProfiles.get("therapy-compass")).toBe("balanced-four");
-    expect(registryModeNavSource).toContain('"therapy-compass": "balanced-four"');
+    expect(coveredProfiles.get("therapy-compass")).toBe("extended");
+    expect(registryModeNavSource).toContain('"therapy-compass": "extended"');
   });
 });
 

@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import { ShowAllChip } from "@/components/show-all-chip";
 import { chatComposerInput, chatComposerShellBase, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 
 import {
   calculators,
@@ -170,7 +172,7 @@ const promptExamples = ["depression", "anxiety", "drinking", "bipolar", "suicide
 /**
  * The calculators search composer, matching the app's universal composer: a
  * leading "+" (new search), the query input with an inline clear, and the teal
- * send button. `variant="full"` adds the Smart-search hint, prompt chips, and
+ * send button. `variant="full"` adds the example ticker line, prompt chips, and
  * privacy notice (desktop header); `variant="compact"` shows the pill plus the
  * privacy line only (phone bottom dock).
  */
@@ -190,11 +192,9 @@ function CalculatorComposer({
   return (
     <div className="grid gap-2">
       {variant === "full" ? (
-        <div className="smart-search-rotating-text" aria-live="polite">
-          <span>Smart search</span>
-          <span aria-hidden="true">·</span>
+        <div className="search-example-ticker" aria-live="polite">
           <span>
-            Try <span className="smart-search-rotating-query">&ldquo;depression severity&rdquo;</span> in Calculators.
+            Try <span className="search-example-ticker-query">&ldquo;depression severity&rdquo;</span> in Calculators.
           </span>
         </div>
       ) : null}
@@ -292,7 +292,7 @@ function CalculatorTile({
       onClick={onOpen}
       aria-label={`Open ${calc.abbrev} — ${calc.name}`}
       className={cn(
-        "group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-left shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        "group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 text-left shadow-[var(--e2)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         focusRing,
       )}
     >
@@ -683,7 +683,15 @@ export function CalculatorsSearchPageMockup() {
           </div>
         }
         summary={
-          <ResultsHeaderBand count={results.length} query={query.trim()} density={density} onDensity={setDensity} />
+          <div className="grid gap-3">
+            <ShowAllChip
+              href={consolidatedModeSearchPath("calculators")}
+              icon={Calculator}
+              ariaLabel="Show all calculators"
+              testId="calculators-show-all"
+            />
+            <ResultsHeaderBand count={results.length} query={query.trim()} density={density} onDensity={setDensity} />
+          </div>
         }
         sidebar={
           <>

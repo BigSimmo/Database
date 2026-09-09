@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "256bf4a0-9189-4a42-aca9-e6518a7d5c39",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#6SMMB4",
+    "outcome": "Verified on workstation that npm cache resolves to D:\\.npm-cache and fsutil devdrv query returns Error 5 without elevation. Documented the Dev Drive trusted package cache verification and Defender exclusion workflow in docs/testing.md.",
+    "baseRowFingerprint": "e855bd4a29072fcf6e4c37aa76c50511cf61a1c35f972ab18c914e572d53bb0b"
+  }
+}

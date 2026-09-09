@@ -1,4 +1,4 @@
-# Clinical KB design system — DECISIONS
+# PsychSift design system — DECISIONS
 
 **The six conflicts resolved — what was chosen, what was rejected, and why — plus the
 clinical Q&A that shaped the component specs, the assumptions register, and the blocked
@@ -119,7 +119,7 @@ ancestor form in the same commit, both here and in the cascade port (SPEC §4.1)
 
 ---
 
-## C5 · Three identity families cover thirteen modes
+## C5 · Three identity families cover seventeen modes
 
 **Chose.** Three families — `--kind-source`, `--kind-answer`, `--kind-workspace` — with the
 mode mapping in SPEC §3. No fourth family. The four hue tones and the two specifier tones
@@ -131,8 +131,8 @@ identity.
 formulation · therapy-compass was the candidate). Nothing loses its distinction under three:
 **[verified:** no mode carries a hue as its identity today — `mode-home-template.tsx`'s tone
 map serves pills, and the four hues in live use label Services _pathway categories_
-(ATSI / Youth / Telehealth / Free, `services-home-page.tsx:47-83`) plus specifier
-categories (`specifier-ui.tsx:282-294`), not modes.**]** The kind families answer the safety
+(ATSI / Youth / Telehealth / Free historically on the retired Services home) plus specifier
+categories (`specifier-ui.tsx:260-272`), not modes.**]** The kind families answer the safety
 question — _is this evidence, machine output, or my workspace?_ — and reference modes are
 evidence surfaces (`--kind-source`). A fourth family would re-split the channel the freeze
 exists to stabilise, for a distinction no current surface draws.
@@ -147,7 +147,7 @@ source), flagged in SPEC §3 and cheap to veto mode-by-mode.
 
 ## C6 · Publication truth is source-derived; adoption truth is route-complete
 
-**Chose.** The local design-sync registry contains 53 visual exports. Each row is derived from
+**Chose.** The local design-sync registry contains 55 visual exports. Each row is derived from
 one real source file and requires an entry export, an exact TypeScript-checker-derived public
 `*Props` contract (or an explicit zero-prop root), a reference preview, and a direct publication
 test. `OverlayPortal`, `ToastProvider`, `useToast`, `AnswerState`, the answer helpers, and the

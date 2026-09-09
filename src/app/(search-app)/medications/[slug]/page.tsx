@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { MedicationRecordPage } from "@/components/clinical-dashboard/medication-record-page";
-import { deriveGovernanceFromSections } from "@/lib/medication-records";
+import { deriveMedicationSourceGovernance } from "@/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medication-snapshot";
 
 type MedicationPageProps = {
@@ -19,12 +19,12 @@ export async function generateMetadata({ params }: MedicationPageProps): Promise
   const record = getMedicationRecord(slug);
   if (!record) {
     return {
-      title: "Medication | Clinical KB",
+      title: "Medication | PsychSift",
     };
   }
 
   return {
-    title: `${record.name} | Clinical KB`,
+    title: `${record.name} | PsychSift`,
     description: `${record.name} prescribing summary, dosing, safety checks, monitoring, access, and provenance.`,
   };
 }
@@ -40,11 +40,16 @@ export default async function MedicationPage({ params }: MedicationPageProps) {
   const record = getMedicationRecord(slug);
   const fallbackGovernance = record
     ? (() => {
-        const derived = deriveGovernanceFromSections(record);
+        const derived = deriveMedicationSourceGovernance(record.sections);
         // Validation/review status is a governance decision that must come from
         // the live/authoritative response, not a hard-coded guess used only for
         // the pre-fetch content-first paint.
-        return { sourceStatus: derived.source_status, validationStatus: "unverified" as const };
+        return {
+          sourceStatus: derived.sourceStatus,
+          sourceCheckedAt: derived.sourceCheckedAt,
+          sourcesRecorded: derived.sourcesRecorded,
+          validationStatus: "unverified" as const,
+        };
       })()
     : undefined;
 

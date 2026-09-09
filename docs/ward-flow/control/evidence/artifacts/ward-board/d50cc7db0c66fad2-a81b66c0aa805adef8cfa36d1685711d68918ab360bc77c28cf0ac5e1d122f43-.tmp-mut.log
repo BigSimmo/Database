@@ -1,0 +1,26 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-daily-sheet.dom.test.tsx (42 tests | 1 failed) 1676ms
+     × distinguishes two sheets taken at the same time on different days, which is what DB-10 is FOR 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-daily-sheet.dom.test.tsx > the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot lie > distinguishes two sheets taken at the same time on different days, which is what DB-10 is FOR
+AssertionError: expected 'synthetic operating day — this protot…' not to be 'synthetic operating day — this protot…' // Object.is equality
+ ❯ tests/ward-daily-sheet.dom.test.tsx:151:33
+    149|     const opening = asAtStamp(openingMorning);
+    150|     const next = asAtStamp(nextMorning);
+    151|     expect(opening.dayNote).not.toBe(next.dayNote);
+       |                                 ^
+    152|     expect(opening.dayNote).toContain("day 1");
+    153|     expect(next.dayNote).toContain("day 2");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 41 passed (42)
+   Start at  02:22:02
+   Duration  3.37s (transform 445ms, setup 209ms, import 575ms, tests 1.68s, environment 769ms)
+

@@ -313,7 +313,7 @@ function ScopeSwitch({
               compact ? "min-h-tap" : "min-h-9",
               focusRing,
               active
-                ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--shadow-soft)]"
+                ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--e2)]"
                 : points
                   ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                   : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",

@@ -14,6 +14,8 @@
  */
 
 import { categoryAccentVars, FACTSHEET_CATEGORY_IDENTITY, type FactsheetCategoryKey } from "@/lib/category-identity";
+import { includesWholeTerm, normalizeSearchText } from "@/lib/catalog-search";
+import { smartSearchContentTerms } from "@/lib/smart-search-intent";
 
 /**
  * Demonstration/governance status shown on-screen and preserved in the printed /
@@ -649,20 +651,99 @@ export function factsheetSlugs(): string[] {
   return factsheets.map((sheet) => sheet.slug);
 }
 
+/** Canonical detail route for a factsheet record. */
+export function factsheetDetailHref(slug: string): string {
+  return `/factsheets/${slug}`;
+}
+
+/** Category-ordered groups for the Topics browse page. */
+export function factsheetsGroupedByCategory(): Array<{ category: FactsheetCategory; sheets: Factsheet[] }> {
+  return factsheetCategories.map((category) => ({
+    category,
+    sheets: factsheets.filter((sheet) => sheet.category === category),
+  }));
+}
+
+/** First N rows shown before the section's "Show all" control. */
+export const TOPIC_SECTION_PREVIEW_LIMIT = 8;
+
+/** Stable section / hash id for a topic heading. */
+export function topicSectionId(category: string): string {
+  return `factsheet-topic-${category.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+}
+
+/** Query value for `?topic=` — the section slug without the `factsheet-topic-` prefix. */
+export function factsheetTopicQueryValue(category: FactsheetCategory): string {
+  return topicSectionId(category).replace(/^factsheet-topic-/, "");
+}
+
+/**
+ * Resolve `?topic=` to a known category. Accepts the display name, the section
+ * id, or the short slug. Unknown values return undefined so every topic stays
+ * closed instead of opening a blank filter.
+ */
+export function resolveFactsheetTopicParam(value?: string | null): FactsheetCategory | undefined {
+  const raw = value?.trim();
+  if (!raw) return undefined;
+  const exact = factsheetCategories.find((entry) => entry === raw);
+  if (exact) return exact;
+  const slug = raw.replace(/^factsheet-topic-/i, "").toLowerCase();
+  return factsheetCategories.find((entry) => factsheetTopicQueryValue(entry) === slug);
+}
+
+/** Rows a topic section should paint before the reader asks to expand it. */
+export function visibleTopicSheets<T>(
+  sheets: readonly T[],
+  expanded: boolean,
+  limit = TOPIC_SECTION_PREVIEW_LIMIT,
+): T[] {
+  if (expanded || sheets.length <= limit) return [...sheets];
+  return sheets.slice(0, limit);
+}
+
 /** Server-driven filter for the search page: optional query + optional category. */
-export function filterFactsheets(query: string, category?: string): Factsheet[] {
-  const q = query.trim().toLowerCase();
+export function filterFactsheets(query: string, category?: string, expansions: readonly string[] = []): Factsheet[] {
+  const q = normalizeSearchText(query);
+  const normalizedExpansions = Array.from(
+    new Set([...expansions, ...smartSearchContentTerms("factsheets", query)].map(normalizeSearchText).filter(Boolean)),
+  );
   const activeCategory = factsheetCategories.find((entry) => entry === category);
-  return factsheets
-    .filter((sheet) => !activeCategory || sheet.category === activeCategory)
-    .filter((sheet) => {
-      if (!q) return true;
-      // Include the brand suffix (e.g. "(Zoloft)") so brand-name searches resolve
-      // even though it is stored separately from the title.
-      return `${sheet.title} ${sheet.brand ?? ""} ${sheet.summary} ${sheet.category} ${sheet.audience}`
-        .toLowerCase()
-        .includes(q);
-    });
+  const identityMatches: Factsheet[] = [];
+  const directMatches: Factsheet[] = [];
+  const expansionOnlyMatches: Array<{ sheet: Factsheet; score: number }> = [];
+  for (const sheet of factsheets) {
+    if (activeCategory && sheet.category !== activeCategory) continue;
+    // Include the brand suffix (e.g. "(Zoloft)") so brand-name searches resolve
+    // even though it is stored separately from the title.
+    const searchable = normalizeSearchText(
+      `${sheet.title} ${sheet.brand ?? ""} ${sheet.summary} ${sheet.category} ${sheet.audience}`,
+    );
+    // A natural-language query can name a sheet while adding surrounding
+    // context. Treat that embedded title or brand as a direct identity match,
+    // rather than letting an expansion-only hit (for example, an incidental
+    // medicine mentioning "anxiety") appear above the sheet the reader named.
+    const identities = [sheet.title, sheet.brand]
+      .filter((value): value is string => Boolean(value))
+      .map(normalizeSearchText)
+      .filter(Boolean);
+    const mentionsIdentity = identities.some((identity) => ` ${q} `.includes(` ${identity} `));
+    if (q && mentionsIdentity) {
+      identityMatches.push(sheet);
+    } else if (!q || searchable.includes(q)) {
+      directMatches.push(sheet);
+    } else {
+      const identityText = normalizeSearchText(`${sheet.title} ${sheet.brand ?? ""}`);
+      const expansionScore = normalizedExpansions.reduce((score, term) => {
+        const specificity = term.includes(" ") ? term.split(" ").length : 1;
+        if (includesWholeTerm(identityText, term)) return score + 10 * specificity;
+        if (includesWholeTerm(searchable, term)) return score + specificity;
+        return score;
+      }, 0);
+      if (expansionScore > 0) expansionOnlyMatches.push({ sheet, score: expansionScore });
+    }
+  }
+  expansionOnlyMatches.sort((left, right) => right.score - left.score);
+  return [...identityMatches, ...directMatches, ...expansionOnlyMatches.map(({ sheet }) => sheet)];
 }
 
 export function relatedFactsheets(slug: string): Factsheet[] {

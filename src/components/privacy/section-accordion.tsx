@@ -73,10 +73,10 @@ export function PrivacySectionAccordion({
                 aria-describedby={gistId}
                 data-print-keep
                 className={cn(
-                  "group relative flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] sm:gap-3 sm:px-3.5 sm:py-3 lg:px-5",
+                  "group relative flex w-full items-start gap-2.5 px-3 py-3 text-left transition duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] sm:gap-3 sm:px-4 sm:py-3.5 lg:px-5 lg:py-4",
                   searchFocusRing,
-                  "min-h-tap lg:min-h-[calc(var(--spacing-tap)+0.75rem)]",
-                  expanded && "bg-[color:var(--clinical-accent-soft)]/45",
+                  "focus-ring-contained min-h-tap",
+                  expanded && "bg-[color:var(--clinical-accent-soft)]/32",
                 )}
               >
                 {expanded ? (
@@ -88,10 +88,10 @@ export function PrivacySectionAccordion({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "nums mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-2xs font-extrabold",
+                    "nums mt-0.5 grid h-7 w-8 shrink-0 place-items-center rounded-md text-2xs font-extrabold",
                     expanded
                       ? "bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
-                      : "bg-[color:var(--surface-subtle)] text-[color:var(--clinical-accent)]",
+                      : "text-[color:var(--clinical-accent)]",
                   )}
                 >
                   {String(index + 1).padStart(2, "0")}
@@ -122,7 +122,7 @@ export function PrivacySectionAccordion({
               aria-labelledby={triggerId}
               data-open={expanded ? "true" : "false"}
               className={cn(
-                "border-t border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--surface-wash)] px-3 py-3 sm:px-3.5 sm:py-3.5 lg:px-5 lg:py-4 lg:pl-[calc(var(--spacing-tap)+0.75rem)]",
+                "border-t border-[color:var(--border)] bg-[color:var(--surface-wash)] px-3 py-3.5 sm:px-4 sm:py-4 lg:px-5 lg:py-5 lg:pl-[calc(var(--spacing-tap)+0.75rem)]",
                 !expanded && "hidden",
                 "print:block",
               )}

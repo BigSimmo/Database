@@ -1,0 +1,315 @@
+import { StatisticsScreen } from "../src/components/ward-management/statistics/statistics-screen";
+import { StatisticsOverviewScreen } from "../src/components/ward-management/statistics/statistics-overview-screen";
+import { StatisticsCompareScreen } from "../src/components/ward-management/statistics/statistics-compare-screen";
+import { StatisticsWardScreen } from "../src/components/ward-management/statistics/statistics-ward-screen";
+import { StatisticsEdScreen } from "../src/components/ward-management/statistics/statistics-ed-screen";
+import { readdirSync } from "node:fs";
+import path from "node:path";
+import { createElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import { CommunityScreen } from "../src/components/ward-management/community/community-screen";
+import { CommunityIndex } from "../src/components/ward-management/community/community-index";
+import { COMMUNITY_TEAM_PAGES } from "../src/components/ward-management/community/community-derivations";
+
+/**
+ * Task 5/6 (D5, D6, D7). This file is `.test.ts`, not `.dom.test.tsx`, so it collects under
+ * vitest.config.mts's "node" project (no jsdom, no DOM globals) rather than the "jsdom" project
+ * the sibling `*.dom.test.tsx` suites use. `renderToStaticMarkup` renders the real component tree
+ * to an HTML string without needing `document` — the same "SSR-string component test" pattern
+ * already established in this repo (see tests/route-error-boundary.test.ts and vitest.config.mts's
+ * own "pure logic + route + SSR-string component tests" comment) — and the landmark/heading counts
+ * are read back from that string. `.ts` cannot contain JSX, so every element below is built with
+ * `createElement` instead, exactly like route-error-boundary.test.ts does.
+ *
+ * `renderToStaticMarkup` never runs effects (`useEffect`/`useLayoutEffect`), so any `window.`/
+ * `document.` access confined to an effect or an event handler is safe here — checked directly
+ * against every file in RENDERABLE_ROUTES below (coordinator-screen.tsx's `window.matchMedia`,
+ * handover-page.tsx's `window.print`, ward-role-switcher.tsx's and ward-demo-controls.tsx's
+ * `document.addEventListener`, all effect/handler-only). `next/navigation`'s `useRouter` is
+ * different: `ContextualBackLink` (used by `WardPatientWorkspace`) calls it synchronously during
+ * render, so it needs the same module mock tests/ward-patient-page.dom.test.tsx already uses.
+ * `useSearchParams` is the same story for `AddPatientForm` and `ReferralIntakeForm`: this is the
+ * `node` project, with no `window` at all, so the mock returns an always-empty `URLSearchParams`
+ * rather than the `new URLSearchParams(window.location.search)` the jsdom suites use — there is
+ * no real querystring for `renderToStaticMarkup` to read here, and both forms already treat an
+ * absent value as a real case (see each file's own comment).
+ */
+vi.mock("next/link", () => ({
+  default: ({ children, href, ...rest }: { children: ReactNode; href: string; [key: string]: unknown }) =>
+    createElement("a", { href, ...rest }, children),
+}));
+
+const router = vi.hoisted(() => ({
+  back: vi.fn(),
+  replace: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => router,
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+import { WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
+import { CoordinatorScreen } from "@/components/ward-management/coordinator/coordinator-screen";
+import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
+import { EdScreen } from "@/components/ward-management/ed/ed-screen";
+import { EscalationBoardPage } from "@/components/ward-management/escalation/escalation-board";
+import { DischargeBoard } from "@/components/ward-management/discharges/discharge-board";
+import { HandoverPage } from "@/components/ward-management/handover/handover-page";
+import { PatientSearchPage } from "@/components/ward-management/search/patient-search";
+import { seedWardFlowState } from "@/components/ward-management/ward-flow-reducer";
+import { PersonScreen } from "@/components/ward-management/patients/person-screen";
+import { DelaysScreen } from "@/components/ward-management/delays/delays-screen";
+import { CapacityScreen } from "@/components/ward-management/capacity/capacity-screen";
+import { MovementsScreen } from "@/components/ward-management/movements/movements-screen";
+import { OfficerScreen } from "@/components/ward-management/officer/officer-screen";
+import { OutOfAreaBoard } from "@/components/ward-management/out-of-area/out-of-area-board";
+import { WardIndex } from "@/components/ward-management/wards/ward-index";
+import { ReferralBoard } from "@/components/ward-management/referrals/referral-board";
+import { AddPatientForm } from "@/components/ward-management/patients/add-patient";
+import { ReferralIntakeForm } from "@/components/ward-management/referrals/referral-intake";
+import { WardBoard } from "@/components/ward-management/board/ward-board";
+import { WardScreen } from "@/components/ward-management/ward/ward-screen";
+import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
+import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+
+const REPO_ROOT = path.resolve(__dirname, "..");
+const WARD_FLOW_ROOT = path.join(REPO_ROOT, "src", "app", "mockups", "ward-flow");
+const ROUTE_PREFIX = "/mockups/ward-flow";
+
+type WardFlowRoute = { route: string; dynamic: boolean };
+
+/**
+ * Same scan as tests/ward-nav.test.ts's `collectWardFlowRoutes` — deliberately duplicated rather
+ * than imported, matching that file's own established pattern of every structural-contract test
+ * owning its own filesystem scan, so a change to one enumeration can never silently blind the
+ * other. Enumerated straight from the filesystem, never a hand-written list.
+ */
+function collectWardFlowRoutes(dir: string, segments: string[] = []): WardFlowRoute[] {
+  const routes: WardFlowRoute[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      routes.push(...collectWardFlowRoutes(path.join(dir, entry.name), [...segments, entry.name]));
+    } else if (entry.name === "page.tsx") {
+      const dynamic = segments.some((segment) => segment.startsWith("[") && segment.endsWith("]"));
+      const route = segments.length === 0 ? ROUTE_PREFIX : `${ROUTE_PREFIX}/${segments.join("/")}`;
+      routes.push({ route, dynamic });
+    }
+  }
+  return routes;
+}
+
+const wardFlowRoutes = collectWardFlowRoutes(WARD_FLOW_ROOT);
+
+/**
+ * `/mockups/ward-flow/constellation` is a `redirect()`-only stub (its own doc comment: "Phase 2
+ * retired the constellation command view into the coordinator screen and the network diagram. The
+ * route stays as a bookmark/deep-link backstop..."). It renders no landmark, no heading, and no
+ * nav of its own — it is not one of the live routes the D5/D7/D8 measurements are about. (That
+ * sentence named a figure until 2026-09-01, and the figure had been wrong for months: a count
+ * typed into prose beside a count the tests recompute is the half nothing goes red on.)
+ * Recorded here, by name, with a reason, rather than silently missing from RENDERABLE_ROUTES: the
+ * coverage test below fails loudly if this set and the filesystem scan ever disagree on anything
+ * else.
+ *
+ * `/mockups/ward-flow/morning` joined this set under MERGE 02 (owner-approved 2026-09-05): the
+ * morning bed state board folded into `CapacityScreen`, and the old route is now a `redirect()`-only
+ * stub for the same bookmark/deep-link reason `/constellation` is (see morning/page.tsx's own doc
+ * comment).
+ *
+ * `/mockups/ward-flow/transport` joined this set under MERGE 03 (owner-approved 2026-09-05): the
+ * live vehicle tracker folded into `MovementsScreen`, and the old route is now a `redirect()`-only
+ * stub for the same bookmark/deep-link reason `/constellation` and `/morning` are (see
+ * transport/page.tsx's own doc comment).
+ */
+const REDIRECT_ONLY_ROUTES = new Set<string>([
+  `${ROUTE_PREFIX}/constellation`,
+  `${ROUTE_PREFIX}/morning`,
+  `${ROUTE_PREFIX}/transport`,
+]);
+
+type RouteRender = { route: string; render: () => ReactNode };
+
+/**
+ * One entry per real, renderable Ward Flow page — the same component each page.tsx under
+ * src/app/mockups/ward-flow/ actually mounts (checked against every page.tsx file directly), with
+ * real fixture ids standing in for the two dynamic segments: `peel-ed` and `rph-adult-secure`, the
+ * same instances tests/ward-nav.test.ts and the sibling `*.dom.test.tsx` suites already use, and
+ * `WF-001` for the patient workspace's movement id (tests/ward-patient-page.dom.test.tsx uses the
+ * same fixture movement as `patientId`). This mapping is checked against the filesystem scan in
+ * the coverage test below — a route with no entry here, or an entry with no matching route, fails
+ * that test rather than silently under- or over-counting.
+ *
+ * `/mockups/ward-flow/morning` (Phase 6 Task 2/6, `MorningPage`) was landed on this branch
+ * without an entry here — a SIXTH fail-closed registration site this repo's routes have to clear,
+ * beyond the five the phase plan already named (nav link, `sitemap:update`,
+ * `docs/codebase-index.md`, `route-reachability.test.ts`'s allowlist, and this file's own
+ * `RENDERABLE_ROUTES`/`REDIRECT_ONLY_ROUTES` pair). Found by the coverage test below going red
+ * ("route(s) on disk with no test coverage: /mockups/ward-flow/morning"), not by inspection.
+ * `/mockups/ward-flow/referrals/new` (Phase 7 Task 4, `ReferralIntakeForm`) added this entry in
+ * the same commit that added the route, precisely to avoid repeating that omission.
+ * `/mockups/ward-flow/referrals` (Phase 7 Task 5, `ReferralBoard`) does the same.
+ * `/mockups/ward-flow/out-of-area` (Phase 8 Task 5, `OutOfAreaBoard`) does the same again.
+ */
+const RENDERABLE_ROUTES: RouteRender[] = [
+  { route: `${ROUTE_PREFIX}/statistics`, render: () => createElement(StatisticsScreen) },
+  { route: `${ROUTE_PREFIX}/statistics/overview`, render: () => createElement(StatisticsOverviewScreen) },
+  { route: `${ROUTE_PREFIX}/statistics/compare`, render: () => createElement(StatisticsCompareScreen) },
+  {
+    route: `${ROUTE_PREFIX}/statistics/ward/[unitId]`,
+    render: () => createElement(StatisticsWardScreen, { unitId: "rph-adult-secure" }),
+  },
+  {
+    route: `${ROUTE_PREFIX}/statistics/ed/[edId]`,
+    render: () => createElement(StatisticsEdScreen, { edId: "peel-ed" }),
+  },
+  { route: ROUTE_PREFIX, render: () => createElement(CoordinatorScreen) },
+  { route: `${ROUTE_PREFIX}/queue`, render: () => createElement(WardModeWorkspace, { mode: "queue" }) },
+  { route: `${ROUTE_PREFIX}/capacity`, render: () => createElement(CapacityScreen) },
+  { route: `${ROUTE_PREFIX}/governance`, render: () => createElement(WardModeWorkspace, { mode: "governance" }) },
+  { route: `${ROUTE_PREFIX}/movements`, render: () => createElement(MovementsScreen) },
+  { route: `${ROUTE_PREFIX}/network`, render: () => createElement(WardModeWorkspace, { mode: "network" }) },
+  { route: `${ROUTE_PREFIX}/exceptions`, render: () => createElement(WardModeWorkspace, { mode: "exceptions" }) },
+  { route: `${ROUTE_PREFIX}/ed/[edId]`, render: () => createElement(EdScreen, { edId: "peel-ed" }) },
+  {
+    route: `${ROUTE_PREFIX}/community/[teamId]`,
+    render: () => createElement(CommunityScreen, { teamId: COMMUNITY_TEAM_PAGES[0].id }),
+  },
+  { route: `${ROUTE_PREFIX}/escalation`, render: () => createElement(EscalationBoardPage) },
+  { route: `${ROUTE_PREFIX}/discharges`, render: () => createElement(DischargeBoard) },
+  { route: `${ROUTE_PREFIX}/handover`, render: () => createElement(HandoverPage) },
+  { route: `${ROUTE_PREFIX}/search`, render: () => createElement(PatientSearchPage) },
+  { route: `${ROUTE_PREFIX}/transport/officer`, render: () => createElement(OfficerScreen) },
+  { route: `${ROUTE_PREFIX}/ward/[unitId]`, render: () => createElement(WardScreen, { unitId: "rph-adult-secure" }) },
+  {
+    route: `${ROUTE_PREFIX}/board/[unitId]`,
+    render: () => createElement(WardBoard, { unitId: "rph-adult-secure" }),
+  },
+  {
+    route: `${ROUTE_PREFIX}/movements/[movementId]`,
+    render: () => createElement(WardPatientWorkspace, { movementId: "WF-001" }),
+  },
+  {
+    route: `${ROUTE_PREFIX}/people/[patientId]`,
+    render: () => createElement(PersonScreen, { patientId: seedWardFlowState().patients[0].id }),
+  },
+  { route: `${ROUTE_PREFIX}/referrals/new`, render: () => createElement(ReferralIntakeForm) },
+  { route: `${ROUTE_PREFIX}/people/new`, render: () => createElement(AddPatientForm) },
+  { route: `${ROUTE_PREFIX}/referrals`, render: () => createElement(ReferralBoard) },
+  { route: `${ROUTE_PREFIX}/out-of-area`, render: () => createElement(OutOfAreaBoard) },
+  { route: `${ROUTE_PREFIX}/wards`, render: () => createElement(WardIndex) },
+  { route: `${ROUTE_PREFIX}/community`, render: () => createElement(CommunityIndex) },
+  { route: `${ROUTE_PREFIX}/delays`, render: () => createElement(DelaysScreen) },
+];
+
+describe("Ward Flow route/render-map coverage (sanity check on the scan and the map)", () => {
+  it("finds every known page.tsx under src/app/mockups/ward-flow: 33 (30 renderable + 3 redirect-only)", () => {
+    // A silently broken scan (wrong directory, wrong glob) would collapse this to 0 or a handful,
+    // and every assertion below would then vacuously pass — so this is checked before trusting
+    // any of them. Mirrors tests/ward-nav.test.ts's own sanity count. 21, not 20: Phase 8 Task 5
+    // added `/mockups/ward-flow/out-of-area` (`OutOfAreaBoard`) — see RENDERABLE_ROUTES's own doc
+    // comment.
+    // 22 at the fold, not 21: the ward board branch added `/board/[unitId]` while Phase 8 added
+    // `/out-of-area`, and each branch had moved this number to 21 for its own route. Both entries
+    // are present in RENDERABLE_ROUTES below and both routes are rail-linked, verified before this
+    // number moved.
+    // 23, not 22: Phase 8 added `/wards` (`WardIndex`), the ward index — the page that gives the
+    // other 22 of `ward/[unitId]`'s 23 wards a way in. 22 renderable + 1 redirect-only
+    // (`/constellation`) = 23.
+    // 24, not 23: 2026-08-30 added `/people/[patientId]` (`PersonScreen`), a PERSON's own screen —
+    // distinct from `/patients/[patientId]`, which despite its name looked a MOVEMENT up by id. Its
+    // way in is the people list on `/search`, whose rows were inert until the same change.
+    // 23 renderable + 1 redirect-only (`/constellation`) = 24. `/patients/[patientId]` has since
+    // moved to `/movements/[movementId]`, nested under the existing `/movements` mode page — the
+    // renderable count stays 24.
+    // 31, not 30: 2026-09-01 added `/community` (`CommunityIndex`), the community team index — the
+    // page that gives `community/[teamId]`'s teams a way in that is not typing a URL. Registered in
+    // ward-nav.ts in the same change, because an index nothing links to makes nothing reachable.
+    // 30 renderable + 1 redirect-only (`/constellation`) = 31.
+    // 33, not 32: MERGE 01 (owner-approved 2026-09-05) added `/delays` (`DelaysScreen`), folding
+    // the priority queue, the exceptions inbox and the escalation board into one screen. `/queue`,
+    // `/exceptions` and `/escalation` stay on disk as redirects to `/delays` rather than being
+    // deleted, so this is one route ADDED, none removed. Mirrors tests/ward-nav.test.ts's own count.
+    // STAYS 33: MERGE 02 (owner-approved 2026-09-05) folds `/capacity` and `/morning` into one
+    // screen (`CapacityScreen`) but adds no route and deletes none — `/morning` becomes a redirect
+    // stub rather than being removed from disk. The breakdown in this test's title moves from
+    // 32 renderable + 1 redirect-only to 31 renderable + 2 redirect-only; the total does not.
+    // STAYS 33: MERGE 03 (owner-approved 2026-09-05) folds `/movements` and `/transport` into one
+    // screen (`MovementsScreen`) but adds no route and deletes none — `/transport` becomes a
+    // redirect stub rather than being removed from disk. The breakdown moves again, from
+    // 31 renderable + 2 redirect-only to 30 renderable + 3 redirect-only; the total still does not.
+    expect(wardFlowRoutes.length).toBe(33);
+  });
+
+  it("RENDERABLE_ROUTES plus REDIRECT_ONLY_ROUTES covers every route the scan found, and nothing else", () => {
+    const scanned = new Set(wardFlowRoutes.map((entry) => entry.route));
+    const mapped = new Set<string>([...RENDERABLE_ROUTES.map((entry) => entry.route), ...REDIRECT_ONLY_ROUTES]);
+    const uncovered = [...scanned].filter((route) => !mapped.has(route));
+    const stale = [...mapped].filter((route) => !scanned.has(route));
+    expect(uncovered, `route(s) on disk with no test coverage: ${uncovered.join(", ")}`).toEqual([]);
+    expect(stale, `mapped route(s) no longer on disk: ${stale.join(", ")}`).toEqual([]);
+  });
+
+  it("RENDERABLE_ROUTES has exactly 30 entries, one per live route", () => {
+    // 21 at the fold: both branches added one renderable route each, and both entries merged in.
+    // 22 with the ward index (`/wards`, `WardIndex`) — Phase 8.
+    // 23 with a person's own screen (`/people/[patientId]`, `PersonScreen`) — 2026-08-30.
+    // 30 with the community team index (`/community`, `CommunityIndex`) — 2026-09-01.
+    // The title of this test said 24 while this line said 29, from 2026-08-30 until 2026-09-01: a
+    // count in a title is prose, so nothing recomputes it and nothing can go red on it. Both halves
+    // are moved together from here on, and that is the only thing keeping them honest.
+    // 32 with `/delays` (`DelaysScreen`) — MERGE 01, owner-approved 2026-09-05. `/queue`,
+    // `/exceptions` and `/escalation` keep their existing entries unchanged: this test only checks
+    // that every route on disk renders something sane, not what a live visit to it now does.
+    // ⚠️ THE TITLE SAID 31 THROUGH ALL OF THE ABOVE, from the 32-with-`/delays` change onward — the
+    // exact "count in prose, nothing recomputes it" trap the paragraph above already names, caught
+    // here rather than fixed silently. 31, now, not 32: MERGE 02 (owner-approved 2026-09-05) removed
+    // `/morning`'s entry — its board folds into `CapacityScreen`, whose entry replaces `/capacity`'s
+    // in place, and `/morning` moves to REDIRECT_ONLY_ROUTES instead of keeping a stale render — so
+    // one entry is removed and none added. The title is finally true again, for a different reason
+    // than the one that made it wrong.
+    // 30, now, not 31: MERGE 03 (owner-approved 2026-09-05) removed `/transport`'s entry — the live
+    // vehicle tracker folds into `MovementsScreen`, whose entry replaces `/movements`'s in place, and
+    // `/transport` moves to REDIRECT_ONLY_ROUTES instead of keeping a stale `LiveTracker` render —
+    // so again one entry is removed and none added.
+    expect(RENDERABLE_ROUTES.length).toBe(30);
+  });
+});
+
+function renderRoute(entry: RouteRender): string {
+  // `children` goes in the props object, not as a third argument, because `WardFlowProviderProps`
+  // declares it REQUIRED — passing it positionally leaves the props object failing the type
+  // (TS2769). The lint rule below prefers the positional form for JSX ergonomics, but this file
+  // cannot use JSX: it is deliberately `.test.ts` rather than `.test.tsx` so it collects under
+  // vitest's "node" project instead of jsdom (see this file's header), and `renderToStaticMarkup`
+  // needs no DOM. So the rule and the type contract genuinely disagree here, and the type wins.
+  // eslint-disable-next-line react/no-children-prop -- see above: WardFlowProviderProps requires `children`
+  return renderToStaticMarkup(createElement(WardFlowProvider, { initialNow: NOW_ANCHOR, children: entry.render() }));
+}
+
+describe("Every Ward Flow route has exactly one #main-content skip-link target (D5, D6)", () => {
+  for (const entry of RENDERABLE_ROUTES) {
+    it(`renders exactly one <main id="main-content"> on ${entry.route}`, () => {
+      const markup = renderRoute(entry);
+      const matches = markup.match(/<main\b[^>]*\bid="main-content"/g) ?? [];
+      expect(
+        matches.length,
+        `expected exactly one <main id="main-content"> on ${entry.route}, found ${matches.length}`,
+      ).toBe(1);
+    });
+  }
+});
+
+// Task 6 (D7). Every Ward Flow route needs a heading a screen reader can jump straight to, and
+// exactly one — a second <h1> is as much a defect as none, for the same reason a duplicated
+// #main-content landmark is (see the describe block above).
+describe("Every Ward Flow route has exactly one <h1> (D7)", () => {
+  for (const entry of RENDERABLE_ROUTES) {
+    it(`renders exactly one <h1> on ${entry.route}`, () => {
+      const markup = renderRoute(entry);
+      const matches = markup.match(/<h1\b/g) ?? [];
+      expect(matches.length, `expected exactly one <h1> on ${entry.route}, found ${matches.length}`).toBe(1);
+    });
+  }
+});

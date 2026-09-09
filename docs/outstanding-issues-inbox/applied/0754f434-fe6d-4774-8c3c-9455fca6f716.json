@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "0754f434-fe6d-4774-8c3c-9455fca6f716",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Production UI browser jobs failed four times on 2026-09-02 across four unrelated PRs, each a different single spec, each passing on re-run of the identical commit",
+    "detail": "Observed while babysitting PRs #2549, #2550, #2551 and #2552. Each failure was 1 of about 200 tests in a different feature area (the decisive case: run 33610490607 attempt 2 passed on the same commit that attempt 1 failed). Nothing was skipped or quarantined: the repo's flake policy requires three reproductions of the SAME test on the SAME SHA before a tests/flake-ledger.json entry, and no test reproduced even twice. This is recorded as an observation, not a quarantine request. What would close it is either a stability measurement across repeated runs on one commit, or evidence that the shared Playwright fixtures/server startup are the common factor rather than four independent product bugs. Until then, expect roughly one spurious Production UI failure per PR and treat a single red browser shard as unproven rather than either real or flake.",
+    "source": "CI runs 33610490607, 33613433031 and siblings, 2026-09-02",
+    "issueUlid": "01M1GRWG0ERA0QAHVGFJNA2E5K"
+  }
+}

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, publicErrorResponse } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { enqueueDocumentReindexJob, type EnqueueableDocument } from "@/lib/ingestion-enqueue";
 import { checkIngestionMutationSafety } from "@/lib/ingestion-mutation-safety";
@@ -58,10 +58,9 @@ function skip(reason: string, extra: Record<string, unknown> = {}) {
 // delivery — leaving the flag set would let every later UPDATE re-trigger enqueue,
 // defeating the loop-safety guarantee documented above.
 function reindexFlagClearFailed() {
-  return NextResponse.json(
-    { error: "Failed to clear reindex flag; retry.", code: "reindex_flag_clear_failed" },
-    { status: 500 },
-  );
+  return publicErrorResponse("Failed to clear reindex flag; retry.", 500, {
+    code: "reindex_flag_clear_failed",
+  });
 }
 
 export async function POST(request: Request) {
@@ -71,12 +70,11 @@ export async function POST(request: Request) {
     const auth = verifyWebhookSecret(request, env.SUPABASE_INGESTION_WEBHOOK_SECRET);
     if (!auth.ok) {
       if (auth.reason === "misconfigured") {
-        return NextResponse.json(
-          { error: "Supabase ingestion webhook receiver is not configured.", code: "webhook_not_configured" },
-          { status: 503 },
-        );
+        return publicErrorResponse("Supabase ingestion webhook receiver is not configured.", 503, {
+          code: "webhook_not_configured",
+        });
       }
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+      return publicErrorResponse("Unauthorized.", 401);
     }
 
     // No live database in demo mode — accept and no-op so retries stop.
@@ -86,7 +84,7 @@ export async function POST(request: Request) {
     try {
       rawBody = await request.json();
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+      return publicErrorResponse("Invalid JSON body.", 400, { code: "invalid_json" });
     }
 
     const parsed = supabaseWebhookSchema.safeParse(rawBody);
@@ -124,7 +122,7 @@ export async function POST(request: Request) {
       // Supabase unavailable -> 503 so the webhook is retried; an active/stale job
       // already covers this document -> idempotent skip.
       if (safety.reason === "supabase_unavailable") {
-        return NextResponse.json({ error: safety.message, code: "supabase_unavailable" }, { status: 503 });
+        return publicErrorResponse(safety.message, 503, { code: "supabase_unavailable" });
       }
       const cleared = await clearReindexFlagIfRequested(supabase, record.id, ownerId, reindexRequested);
       if (reindexRequested && !cleared) return reindexFlagClearFailed();

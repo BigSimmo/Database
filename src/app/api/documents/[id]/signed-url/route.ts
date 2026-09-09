@@ -4,7 +4,7 @@ import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { getDemoDocument } from "@/lib/demo-data";
 import { env } from "@/lib/env";
 import { isDemoMode } from "@/lib/env";
-import { jsonError, PublicApiError } from "@/lib/http";
+import { jsonError, PublicApiError, publicErrorResponse } from "@/lib/http";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const shouldDownload = ["1", "true"].includes((requestUrl.searchParams.get("download") ?? "").toLowerCase());
     if (isDemoMode()) {
       const document = getDemoDocument(id);
-      if (!document) return NextResponse.json({ error: "Demo document not found." }, { status: 404 });
+      if (!document) return publicErrorResponse("Demo document not found.", 404);
       return NextResponse.json({
         url: shouldDownload ? `${document.storage_path}?download=1` : document.storage_path,
         fileType: document.file_type,
@@ -45,7 +45,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     ).maybeSingle();
 
     if (error) throw new Error(error.message);
-    if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    if (!document) return publicErrorResponse("Document not found.", 404);
 
     const metadata =
       document.metadata && typeof document.metadata === "object" ? (document.metadata as Record<string, unknown>) : {};
@@ -68,9 +68,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     }
 
     if (document.storage_path.startsWith("registry://")) {
-      return NextResponse.json(
-        { error: "Registry summaries open on their registry detail page, not as stored documents." },
-        { status: 409 },
+      return publicErrorResponse(
+        "Registry summaries open on their registry detail page, not as stored documents.",
+        409,
       );
     }
 

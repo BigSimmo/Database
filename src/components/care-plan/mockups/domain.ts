@@ -16,7 +16,9 @@ import {
   type EdPresentation,
   type PresentationAmendment,
   type ManagementPlanVersion,
+  type ParticipationState,
   type Patient,
+  type PatientPlanVersion,
   type PatientSnapshot,
   type PatientSnapshotSource,
   type PersonalSafetyPlanVersion,
@@ -249,6 +251,53 @@ export function getOpenSafetyPlanDraft(
   return open.reduce((latest, version) => (version.version > latest.version ? version : latest));
 }
 
+export function getCurrentPatientPlanVersion(
+  versions: readonly PatientPlanVersion[],
+  planId: SyntheticId,
+): PatientPlanVersion | null {
+  return versions.find((version) => version.planId === planId && version.state === "current") ?? null;
+}
+
+/** The patient edition being worked on. As with the Personal Safety Plan there
+ *  is no `awaiting_approval` state: a patient copy waits on any clinical role,
+ *  not on a senior decision. */
+export function getOpenPatientPlanDraft(
+  versions: readonly PatientPlanVersion[],
+  planId: SyntheticId,
+): PatientPlanVersion | null {
+  const open = versions.filter((version) => version.planId === planId && version.state === "draft");
+  if (open.length === 0) return null;
+  return open.reduce((latest, version) => (version.version > latest.version ? version : latest));
+}
+
+/**
+ * Whether a patient copy still describes the Management Plan in use.
+ *
+ * Always derived from the two identifiers, never stored. A stored flag would
+ * have to be written by whatever changed the Management Plan, and the one thing
+ * certain about a document already printed and carried away is that nothing in
+ * this application can reach it — so the flag would be the part most likely to
+ * be wrong, on the question that most needs to be right.
+ *
+ * A stale copy stays fully readable and is never regenerated, hidden, or
+ * withdrawn on the person's behalf. They may be holding the paper; the
+ * application's account of what they were given has to stay true to it.
+ *
+ * A plan with no version in use makes the copy stale too. Withdrawal sets
+ * `currentVersionId` to null, and returning "not stale" for that meant a person
+ * holding a copy of a plan that had been *taken out of use entirely* was told
+ * nothing, printed it unmarked, and raised no trigger — the case that most needs
+ * marking, quietly exempted. The rule is now simply that a copy is stale unless
+ * it was written from the version currently in use.
+ */
+export function isPatientPlanVersionStale(
+  version: PatientPlanVersion | null,
+  managementPlanCurrentVersionId: SyntheticId | null,
+): boolean {
+  if (version === null || version.state !== "current") return false;
+  return version.derivedFromManagementVersionId !== managementPlanCurrentVersionId;
+}
+
 /** The most recent withdrawn version, used only to keep a withdrawn plan from
  *  rendering identically to a patient who never had one. */
 function getWithdrawnManagementVersion(
@@ -448,6 +497,36 @@ export function deriveReviewState(reviewDueAt: string, now: string): ReviewState
   if (nowMs > dueMs) return "overdue";
   if (dueMs - nowMs <= REVIEW_DUE_SOON_DAYS * MILLISECONDS_PER_DAY) return "due_soon";
   return "within_review";
+}
+
+/**
+ * The two participation states that mean the person took no part in writing the
+ * version.
+ *
+ * It lives here, in the pure domain module, because three layers now depend on
+ * it and none of them may decide for itself: the clinician's
+ * `ParticipationMarker`, the opening sentence of the person's printed copy, and
+ * the section headings and lead-ins that copy is built from. A second notion of
+ * when the claim is allowed is exactly how a marker and a sentence drift apart.
+ */
+export const PARTICIPATION_MARKER_STATES: readonly ParticipationState[] = ["declined", "patient_unavailable"];
+
+/**
+ * True when the record says this version was written *with* the person, so a
+ * document may say so.
+ *
+ * `null` means the source version could not be resolved, and is deliberately
+ * **not** treated as involvement. Not knowing is not the same as knowing they
+ * took part, and the conservative direction on a document handed to somebody is
+ * to claim nothing about how it was written.
+ *
+ * `discussed` counts as joint authorship, mirroring `PARTICIPATION_MARKER_STATES`
+ * above. A plan discussed with somebody who did not confirm it is not a plan
+ * written without them, and the user's instruction is about the case where the
+ * person took no part at all.
+ */
+export function claimsJointAuthorship(participationState: ParticipationState | null): boolean {
+  return participationState !== null && !PARTICIPATION_MARKER_STATES.includes(participationState);
 }
 
 /** Approval must produce exactly one Current version per plan. This guards that

@@ -72,12 +72,8 @@ function exactRemoteRef(run, ref) {
   return { ok: true, present: result.stdout.trim().length > 0 };
 }
 
-/**
- * Verify the optional authenticated GitHub shell control plane without making a
- * remote mutation. The final dry-run push reaches GitHub's receive path, then
- * the exact probe ref is checked again to prove that it was not created.
- */
-export function githubShellAccess(run = resilientShellRun) {
+/** Validate the configured account before spending time repairing dependencies. */
+export function githubShellAuthentication(run = resilientShellRun) {
   if (run("gh", ["--version"]).status !== 0) return failure("GH_CLI_MISSING");
 
   const auth = parseJson(run("gh", ["auth", "status", "--hostname", "github.com", "--json", "hosts"]));
@@ -87,6 +83,18 @@ export function githubShellAccess(run = resilientShellRun) {
   if (activeHost.gitProtocol !== "https") return failure("GH_GIT_PROTOCOL_UNSAFE");
   const scopes = normalizedScopes(activeHost.scopes);
   if ([...requiredScopes].some((scope) => !scopes.has(scope))) return failure("GH_REQUIRED_SCOPES_MISSING");
+
+  return { ok: true, outcome: "GH_AUTHENTICATION_READY", identity: expectedIdentity };
+}
+
+/**
+ * Verify the optional authenticated GitHub shell control plane without making a
+ * remote mutation. The final dry-run push reaches GitHub's receive path, then
+ * the exact probe ref is checked again to prove that it was not created.
+ */
+export function githubShellAccess(run = resilientShellRun) {
+  const authentication = githubShellAuthentication(run);
+  if (!authentication.ok) return authentication;
 
   const user = parseJson(run("gh", ["api", "user"]));
   if (user?.login !== expectedIdentity) return failure("GH_IDENTITY_MISMATCH");
@@ -352,6 +360,12 @@ function main() {
       ].join("\n"),
     );
     process.exitCode = 1;
+    return;
+  }
+  if (process.argv.includes("--authentication-only")) {
+    const authentication = githubShellAuthentication();
+    console.log(`GITHUB_SHELL_AUTHENTICATION=${authentication.outcome}`);
+    process.exitCode = authentication.ok ? 0 : 1;
     return;
   }
   const result = githubShellAccess();

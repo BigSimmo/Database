@@ -11,9 +11,6 @@ import { consolidatedModeHomeTargetForSearchParams } from "@/lib/consolidated-mo
  * bookmarks and external deep links keep resolving, and forwards to that shared
  * home. Submitted searches render at `/calculators/search`; the proxy carries the
  * query across, so a deep link never lands here without one.
- *
- * The previous detailed page is preserved, off the live routes, at
- * `/mockups/calculators-home-detailed`.
  */
 type CalculatorsHomeRouteProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;

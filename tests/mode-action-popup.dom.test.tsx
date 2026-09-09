@@ -219,4 +219,12 @@ describe("ModeActionPopup state transitions", () => {
       adminItems.filter((item) => item.id !== "documents-admin").map((item) => item.id),
     );
   });
+
+  it("lists separate Factsheets search and browse actions", () => {
+    const items = modeActionItemsFor("factsheets");
+    expect(items.map((item) => [item.id, item.label])).toEqual([
+      ["factsheets-search", "Search factsheets"],
+      ["factsheets-browse", "Browse all sheets"],
+    ]);
+  });
 });

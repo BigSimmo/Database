@@ -14,7 +14,7 @@ export const SITE_CONTENT_REGISTRY_VERSION = "site-content-registry-v1" as const
 
 export type SiteContentProducerDefinition = {
   version: "site-content-producer-v1";
-  modeId: Exclude<AppModeId, "answer" | "documents" | "favourites">;
+  modeId: Exclude<AppModeId, "answer" | "documents" | "favourites" | "sources" | "on-call">;
   corpusScope: SiteContentCorpusScope;
   domain: SiteContentDomain;
   producerClass: SiteContentRecord["producerClass"];

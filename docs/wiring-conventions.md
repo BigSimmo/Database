@@ -1,3 +1,13 @@
+> ⚠️ **Committed in `b21a24f12` alongside unrelated ED-screen work**, because two writers shared
+> one git index. A wholesale `git revert b21a24f12` therefore deletes this file as a side effect.
+> **Revert paths, not that commit.**
+>
+> ⚠️ **That commit's scope provenance is unconfirmed.** It touched four files outside its author's
+> assignment and asserts a grant nobody can corroborate. The full record — and why it is filed as
+> "unconfirmed" rather than as either "granted" or "violation" — is in
+> `docs/ward-flow/fields-with-no-producer-2026-09-01.md`. Kept in one place on purpose: a fact
+> written out twice decays in two places.
+
 # Page and button wiring conventions
 
 How interactive controls and routes are wired in this app, and the gates that keep them wired.
@@ -65,6 +75,28 @@ a fix. Sites deliberately left native include the compare action in `differentia
 (needs two diagnoses selected — and the same sentence is already rendered as visible text above it),
 the pin editor's save button in `search-pins-menu.tsx` (form validity), the services compare and
 clear actions in `services-navigator-page.tsx`, and the composer send in `master-search-header.tsx`.
+
+**The boundary case: a confirm blocked because nothing has been chosen yet.** Ward Flow spells this
+one rule two ways, and **both were reviewed and both stand** — do not convert either into the other.
+`ward/ward-screen.tsx` renders its decline confirm as `<button type="submit" disabled={!declineReason}>`
+inside a `<form>`: a form action awaiting validity, the transient case exactly. `ed/ed-screen.tsx`
+renders its decline confirm with `aria-disabled` + `ignoreUnavailableActivation` + `title` + an
+`sr-only` reason for what looks like the same "no reason chosen yet" state, in a panel that is
+deliberately **not** a `<form>`.
+
+The discriminator is not the state, it is whether the reason is worth reading. A form awaiting
+validity has nothing to explain that the fields above it do not already show, so native `disabled`
+is right and focusability would be noise. A non-form panel whose blocked reason carries clinical
+meaning must keep that sentence reachable by Tab, so `aria-disabled` is right — the ED reason is
+_"Choose a reason before recording this decline. None is chosen for you: a reason nobody picked
+would be filed as this team's own answer"_, which is a statement about what the record would mean,
+not a restatement of the widget's state.
+
+The ED panel also avoids `<form>` for a second reason worth preserving: a form submits on Enter from
+inside a field whatever its submit control advertises, while an `aria-disabled` confirm stays fully
+operable — so a reasonless decline could go through by keyboard while the screen said it could not,
+and the reducer's refusal would be silent. Wrapping that panel in a `<form>` to "match" the ward
+screen would reintroduce exactly that.
 
 A third case keeps `aria-disabled` for a different reason: a **roving-tabindex group** where skipping
 a dead end would strand arrow navigation, as in `ResultFilterSheet` (`result-filter-control.tsx`) and
@@ -179,14 +211,21 @@ shows is decided by data, never by a per-form branch in the component.
   the reason that section governs that form — because unlike a catalogue cue it is an
   assertion this repo makes rather than one it inherited. `check:mha-act-sections`
   rejects an entry with no basis, and one that duplicates a catalogue cue.
+  **A cue is a citation, not a clinical claim, so it is never gated on review status.**
+  Its `status` is provenance only. Gating it too would hide those seven forms twice over
+  and leave them dark even once their Act summaries were reviewed — that regression
+  shipped once and is pinned by `tests/mha-act-sections.test.ts`.
 - **`actSectionsForCue` returns sections only when every cited section has a summary.**
   That is the staged-rollout gate: a form keeps its Source status card until its whole
   citation list is written, so it can never show a half-populated authority card. Do not
   weaken this to a per-section filter.
 - **Three statuses, and the difference is visible to the reader.** `pending` has no
   summary and does not render. `drafted` was written from the extracted statutory text
-  and renders with "Drafted from the Act text and awaiting clinical review" on the
-  section sheet. `reviewed` additionally names a clinician and a date in
+  and renders, with "Tap a section — awaiting clinical review" on the card face and
+  "Drafted from the Act text and awaiting clinical review" on the section sheet.
+  Withholding drafted summaries instead was tried and reverted: it left 53 of 54 forms
+  with no authority content at all, which the repository owner weighed and rejected.
+  `reviewStatus` carries the distinction to the UI — never hardcode it. `reviewed` additionally names a clinician and a date in
   `reviewedBy`/`reviewedAt`, and drops that note. Never promote a `drafted` entry to
   `reviewed` without a real sign-off — the status is the only thing telling a reader
   whether a clinician has checked the summary.

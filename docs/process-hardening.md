@@ -2,6 +2,14 @@
 
 This document turns the current process review into phased, durable repo practice. It separates changes that already take effect from work that should stay explicit until it is implemented.
 
+## Cloud environment verification boundaries (2026-09-07)
+
+The [Cloud reliability audit](audit/codex-cloud-reliability-20260907.md) records passing hosted
+GitHub/runtime checks and the remaining external boundaries: the known raw `OPENAI_BASE_URL`
+launcher injection and incomplete production privacy/governance evidence. Keep the raw guard
+and release validator fail-closed. GitHub connectivity is not clinical production acceptance;
+new lifecycle code still needs hosted branch evidence before its PR can claim that proof.
+
 ## Testing speed playbook (pointer)
 
 Day-to-day selection, local Playwright keep-root, and refuted speed levers live in
@@ -369,11 +377,11 @@ API rather than estimated:
 
 ## Phase 1 - Active now
 
-- `npm run verify:cheap` is the broad offline local gate for cross-module risk: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests. It is selected, not automatic for every source/config/test edit.
+- `npm run verify:cheap` is the broad offline local gate for cross-module risk: 38 static/consistency gates (`check:runtime` through `check:owner-scope`; `npm run check:gate-manifest` lists them and pins the count), then lint, typecheck, and unit tests. It is selected, not automatic for every source/config/test edit.
 - `npm run verify:pr-local` is the risk-routed local mirror of the normal PR gate: runtime, installed-lock parity, changed-file format, conditional `npm ci --dry-run --ignore-scripts` for package/lockfile edits, then focused docs/workflow contracts or the fail-closed executable plan with lint, typecheck, one full unit run, conditional build, and RAG fixture/manifest validation. Local scope resolves against the repository default base rather than a feature-branch upstream; set `PR_BASE_REF` explicitly for release-targeted PRs.
 - `npm run verify:ui` is the complete required production Chromium gate: `check:runtime` plus all non-quarantined production journeys (`test:e2e:pr`).
 - `npm run verify:release` is the release-confidence gate: `check:runtime`, lint, typecheck, unit tests, build, full Playwright browser matrix, `check:production-readiness`, `governance:release`, and `eval:quality:release` (the last step needs live Supabase and OpenAI keys).
-- CI uses a risk-scoped PR gate: `changes` classifies paths, `static-pr` always runs runtime/install parity, scope/plan self-tests, and changed-file formatting, and `pr-required` is the single always-reporting required aggregate. Focused documentation or workflow contracts run for recognised light scopes; mixed heavy+workflow changes do not repeat the same workflow suites outside full coverage. Lint/typecheck, one full unit run with coverage, safety/RAG, build, both Docker image builds, required production Chromium, and migration replay run only when their file scopes apply; unknown non-document paths fail closed to this heavy route. UI PRs also run one non-blocking advisory Chromium invocation for quarantined and mockup journeys. The external `Supabase Preview` check may still replay migrations on branch databases when enabled. `release-browser-matrix` runs on UI/performance/lockfile-relevant `main` pushes and every release/manual/scheduled run; the wrapper owns its build and omits production Chromium only after that project passed earlier in the same run. Lighthouse baseline refresh is a focused dispatch exception, not a full-run sentinel.
+- CI uses a risk-scoped PR gate: `changes` classifies paths, `static-pr` always runs runtime/install parity, scope/plan self-tests, diff integrity, and changed-file formatting, and `pr-required` is the single always-reporting required aggregate. Focused documentation or workflow contracts run for recognised light scopes; mixed heavy+workflow changes do not repeat the same workflow suites outside full coverage. Lint/typecheck, one full unit run with coverage, safety/RAG, build, both Docker image builds, required production Chromium, and migration replay run only when their file scopes apply; unknown non-document paths fail closed to this heavy route. UI PRs also run one non-blocking advisory Chromium invocation for quarantined and mockup journeys. The external `Supabase Preview` check may still replay migrations on branch databases when enabled. `release-browser-matrix` runs on UI/performance/lockfile-relevant `main` pushes and every release/manual/scheduled run; the wrapper owns its build and omits production Chromium only after that project passed earlier in the same run. Lighthouse baseline refresh is a focused dispatch exception, not a full-run sentinel.
 - `tests/ui-accessibility.spec.ts` covers reduced-motion and forced-colors dashboard usability so those modes are no longer only reviewed by inspection.
 - `tests/ui-tools.spec.ts` covers the Applications dashboard mode at mobile and desktop sizes, including the `/applications` compatibility redirect.
 - `AGENTS.md` now points future agents to these gates and to this document.
@@ -648,7 +656,7 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 
 ## Design convergence & type-scale ratchet (2026-07-06)
 
-- **`docs/design-system.md` is now the front door** for all UI work: token contract, type-scale rules, z-index ladder, Sheet-only modals, a11y requirements, and the UI Definition of Done. The `docs/redesign/*` documents remain the deep references it links to.
+- **`docs/design-system/README.md` is now the front door** for all UI work: token contract, type-scale rules, z-index ladder, Sheet-only modals, a11y requirements, and the UI Definition of Done. [`docs/design-system.md`](./design-system.md) remains live-layer notes during the v1→v2 transition. The `docs/redesign/*` documents remain the deep references they link to.
 - **Type-scale ratchet — backlog cleared, gate now strict:** `node scripts/check-type-scale.mjs --strict` reports **0 hits / 0 files** (this pass retires the last 8 hits in 1 file; the prior recorded baseline was 20/9, originally 168/22). The compact mode-home hero now uses the shared fluid `--text-hero` scale; the temporary mode-home-only aliases were removed after confirming no consumers remained. `check:type-scale --strict` is wired into `verify:cheap` (package.json), so any newly introduced arbitrary `text-[<n>px|rem|em]` size now fails the gate — UI PRs must keep the count at zero. Colour utilities (`text-[color:var(--…)]`) are the sanctioned token form and are not counted.
 - **Cleared this pass:** dead launcher mobile detail rows now expand (aria-expanded disclosures); launcher detail dialog migrated to the `Sheet` primitive (focus trap/return-focus restored); launcher filter tablists gained `aria-controls` + a `role="tabpanel"` results region; styled `src/app/not-found.tsx` added (the `notFound()` calls in differentials no longer fall through to the unstyled default); `?page=abc` NaN leak in the document viewer clamped; `/services` off-palette preview deleted (dead export) and the live navigator's residual hardcodes tokenized; launcher icon tones moved from raw Tailwind palette classes to categorical `--type-*` / semantic danger triads (dark-mode + forced-colors correct); mockups layout emits `robots: noindex`.
 

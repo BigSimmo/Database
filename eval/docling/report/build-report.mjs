@@ -38,7 +38,7 @@ import {
 const REPORT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const LAB_DIR = path.dirname(REPORT_DIR);
 const REPO_ROOT = path.dirname(path.dirname(LAB_DIR));
-const MANIFEST_PATH = path.join(LAB_DIR, "fixtures", "manifest.v1.json");
+const MANIFEST_PATH = path.join(LAB_DIR, "fixtures", "manifest.v2.json");
 const CONFIG_PATH = path.join(REPORT_DIR, "lab-config.json");
 const TEMPLATE_PATH = path.join(REPORT_DIR, "gate-b-decision-record.template.json");
 

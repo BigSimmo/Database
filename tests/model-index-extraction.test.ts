@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  generateStructuredTextResponse: vi.fn(),
+  generateParsedTextResult: vi.fn(),
 }));
 
 vi.mock("@/lib/env", () => ({
@@ -10,16 +10,8 @@ vi.mock("@/lib/env", () => ({
   },
 }));
 
-// The source now calls generateStructuredTextResult (object result) so it can observe
-// truncation; wrap the string-returning inner mock so the existing
-// .mockResolvedValue(JSON.stringify(...)) setups and .mock.calls assertions keep working.
 vi.mock("@/lib/openai", () => ({
-  generateStructuredTextResult: vi.fn(async (...args: unknown[]) => ({
-    text: await mocks.generateStructuredTextResponse(...args),
-    truncated: false,
-    status: "completed" as const,
-    incompleteReason: undefined,
-  })),
+  generateParsedTextResult: mocks.generateParsedTextResult,
 }));
 
 import { generateModelIndexProfile } from "@/lib/model-index-extraction";
@@ -30,16 +22,18 @@ describe("model index extraction", () => {
   });
 
   it("uses coverage-aware chunk selection so late high-yield content reaches the model prompt", async () => {
-    mocks.generateStructuredTextResponse.mockResolvedValueOnce(
-      JSON.stringify({
+    mocks.generateParsedTextResult.mockResolvedValueOnce({
+      parsed: {
         sections: [],
         askable_questions: [],
         clinical_facts: [],
         table_facts: [],
         aliases: [],
         quality_issues: [],
-      }),
-    );
+      },
+      truncated: false,
+      status: "completed",
+    });
 
     await generateModelIndexProfile({
       document: { title: "Large Clozapine Protocol", file_name: "large-clozapine.pdf" },
@@ -56,27 +50,29 @@ describe("model index extraction", () => {
       images: [],
     });
 
-    const prompt = String(mocks.generateStructuredTextResponse.mock.calls[0]?.[0] ?? "");
+    const prompt = String(mocks.generateParsedTextResult.mock.calls[0]?.[0] ?? "");
     expect(prompt).toContain("Coverage strategy: coverage_spread_high_yield_headings");
     expect(prompt).toContain("chunk_id: chunk-132");
     expect(prompt).toContain("remain indexed and retrievable");
     expect(prompt).toContain("<<<SOURCE_EXCERPT>>>");
-    expect(mocks.generateStructuredTextResponse.mock.calls[0]?.[2]).toMatchObject({
+    expect(mocks.generateParsedTextResult.mock.calls[0]?.[2]).toMatchObject({
       promptCacheKey: "clinical-model-index-profile-v1",
     });
   });
 
   it("neutralizes untrusted source instructions in model-index prompts", async () => {
-    mocks.generateStructuredTextResponse.mockResolvedValueOnce(
-      JSON.stringify({
+    mocks.generateParsedTextResult.mockResolvedValueOnce({
+      parsed: {
         sections: [],
         askable_questions: [],
         clinical_facts: [],
         table_facts: [],
         aliases: [],
         quality_issues: [],
-      }),
-    );
+      },
+      truncated: false,
+      status: "completed",
+    });
 
     await generateModelIndexProfile({
       document: {
@@ -106,7 +102,7 @@ describe("model index extraction", () => {
       ],
     });
 
-    const prompt = String(mocks.generateStructuredTextResponse.mock.calls[0]?.[0] ?? "");
+    const prompt = String(mocks.generateParsedTextResult.mock.calls[0]?.[0] ?? "");
     expect(prompt).toContain("[neutralized-instruction:");
     expect(prompt).toContain("<<<SOURCE_EXCERPT>>>");
     expect(prompt).not.toMatch(/ignore all previous instructions/i);

@@ -29,7 +29,7 @@ export function ModeHomeRouteLoading() {
   return (
     // Match ModeHomeMain startOnPhone: top-align on phones, centre from sm up.
     // A phone-centred skeleton jumped when content-rich homes mounted top-aligned.
-    <div className="grid min-h-0 items-start justify-items-center bg-[color:var(--background)] pt-3 sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:items-center sm:pt-0">
+    <div className="grid min-h-0 w-full flex-1 items-start justify-items-center bg-[color:var(--background)] pt-3 sm:items-center sm:pt-0">
       <ModeHomePageSkeleton />
     </div>
   );
@@ -57,7 +57,7 @@ export function DocumentSearchPageSkeleton() {
 export function DocumentViewerPageSkeleton() {
   return (
     <div
-      className="flex h-[calc(100dvh-var(--shell-header-h))] flex-col gap-4 px-4 py-4 animate-fade-in motion-reduce:animate-none"
+      className="flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 animate-fade-in motion-reduce:animate-none"
       role="status"
       aria-label="Loading document"
     >

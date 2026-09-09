@@ -1120,6 +1120,7 @@ function factSupportsAnswerIntent(
   sentence: string,
   query: string,
   intent: AnswerIntent,
+  allowPassiveObligations = false,
 ) {
   const text = normalizeSectionText(sentence);
   const normalizedQuery = normalizeSectionText(query).toLowerCase();
@@ -1210,8 +1211,11 @@ function factSupportsAnswerIntent(
       if (/^what\s+is\b/i.test(query)) {
         return /\b(?:is|are|means|defined|characteri[sz]ed|involves|refers\s+to)\b/i.test(text);
       }
-      return /\b(?:assess|arrange|check|collaborat\w*|complete|conduct|continue|develop|diagnos\w*|document|dose|ensure|identify|include|incorporate|involve|link|manage|monitor|provide|record|refer|revise|review\w*|risk|share|therapy|treat|update)\b/i.test(
-        text,
+      return (
+        /\b(?:assess|arrange|check|collaborat\w*|complete|conduct|continue|develop|diagnos\w*|document|dose|ensure|identify|include|incorporate|involve|link|manage|monitor|provide|record|refer|revise|review\w*|risk|share|therapy|treat|update)\b/i.test(
+          text,
+        ) ||
+        (allowPassiveObligations && /\b(?:must|should|will)\s+be\s+(?:completed|recorded|documented)\b/i.test(text))
       );
   }
 }
@@ -1406,7 +1410,13 @@ function withTerminalPunctuation(value: string | null | undefined) {
 }
 
 /** Extract clinical facts from results. */
-function extractClinicalFactsFromResults(results: SearchResult[], query: string, intent: AnswerIntent, limit = 8) {
+function extractClinicalFactsFromResults(
+  results: SearchResult[],
+  query: string,
+  intent: AnswerIntent,
+  limit = 8,
+  sourceProseOnly = false,
+) {
   const seen = new Set<string>();
   const facts: ExtractedClinicalFact[] = [];
   const usableResults = results.filter((result) => resultCoversAnswerIntent(result, query, intent));
@@ -1416,7 +1426,7 @@ function extractClinicalFactsFromResults(results: SearchResult[], query: string,
     const referencesConflictingBand = (text: string) =>
       sourceLabelledNumericBandConflictsAffectingText(result, text, query).length > 0 ||
       textReferencesAdjacentBandConflict(text, result.id, adjacentBandConflicts, query);
-    for (const fact of tableFactsToClinicalFacts(result, query, intent)) {
+    for (const fact of sourceProseOnly ? [] : tableFactsToClinicalFacts(result, query, intent)) {
       if (referencesConflictingBand(fact.text)) continue;
       const key = `${fact.kind}:${normalizeSectionText(fact.text).toLowerCase().slice(0, 160)}`;
       if (seen.has(key)) continue;
@@ -1455,12 +1465,34 @@ function extractClinicalFactsFromResults(results: SearchResult[], query: string,
     ]
       .filter(Boolean)
       .join("\n");
-    for (const sentence of splitClinicalEvidenceSentences(text)) {
+    // A rejected heading-led answer may still have complete prose in its source chunks.
+    // Recover only within source blocks, without synopsis/heading/card text or table facts.
+    const sentences = sourceProseOnly
+      ? reflowBoundedSourceLines(
+          sourceTextForClinicalProsePreservingBreaks(result.content ?? "").replace(
+            // The captured NOCC proper name wraps onto a capitalized continuation.
+            // Join only that name; other capitalized rows remain hard boundaries.
+            /\bNational Outcome[ \t]*\n[ \t]*Case Mix Collection \(NOCC\)/g,
+            "National Outcome Case Mix Collection (NOCC)",
+          ),
+          { requireContinuationStart: true },
+        )
+          .flatMap(splitClinicalEvidenceSentences)
+          .filter(
+            (sentence) =>
+              sentence.length <= 280 &&
+              /[.!?]$/.test(sentence) &&
+              hasCompleteOpeningSentence(sentence) &&
+              !isFragmentLikeClinicalAnswer(sentence, query) &&
+              !guidanceWrapperLayoutDebrisPattern.test(sentence),
+          )
+      : splitClinicalEvidenceSentences(text);
+    for (const sentence of sentences) {
       if (referencesConflictingBand(sentence)) continue;
       if (!factSentenceMatchesQueryFromResult(sentence, result, query, intent)) continue;
       const kind = factKindForSentence(sentence, query, intent);
       if (!kind) continue;
-      if (!factSupportsAnswerIntent(kind, sentence, query, intent)) continue;
+      if (!factSupportsAnswerIntent(kind, sentence, query, intent, sourceProseOnly)) continue;
       const cleaned = sentence.length <= 280 ? sentence : `${sentence.slice(0, 277).trim()}...`;
       const key = `${kind}:${normalizeSectionText(cleaned).toLowerCase().slice(0, 160)}`;
       if (seen.has(key)) continue;
@@ -2374,6 +2406,7 @@ function buildFactSynthesizedAnswer(args: {
   queryClass: RagQueryClass;
   intent: AnswerIntent;
   results: SearchResult[];
+  allowSourceProseRecovery?: boolean;
 }) {
   if (isSourceBoundBestPracticePrescriptionRequirementsQuery(args.query, args.queryClass)) {
     const requirementsAnswer = buildBestPracticePrescriptionRequirementsAnswer({
@@ -2415,7 +2448,19 @@ function buildFactSynthesizedAnswer(args: {
     };
   }
 
-  const facts = extractClinicalFactsFromResults(args.results, args.query, args.intent);
+  let facts = extractClinicalFactsFromResults(args.results, args.query, args.intent);
+  let recoveredSourceProse = false;
+  if (
+    args.allowSourceProseRecovery &&
+    facts.length &&
+    isLaunderedGuidanceWrapperAnswer(sentenceFromFact(facts[0], args.query))
+  ) {
+    const sourceFacts = extractClinicalFactsFromResults(args.results, args.query, args.intent, 8, true);
+    if (sourceFacts.length) {
+      facts = sourceFacts;
+      recoveredSourceProse = true;
+    }
+  }
   if (!facts.length) {
     const fallbackResults = args.results.filter((result) => !resultContainsProceduralFlowEdgeArtifact(result));
     if (
@@ -2436,7 +2481,7 @@ function buildFactSynthesizedAnswer(args: {
     };
   }
 
-  let leadFacts = facts.slice(0, args.intent === "dose" ? 2 : 1);
+  let leadFacts = facts.slice(0, args.intent === "dose" || (recoveredSourceProse && args.intent === "general") ? 2 : 1);
   if (
     args.intent === "dose" ||
     args.intent === "monitoring_schedule" ||
@@ -2469,6 +2514,7 @@ function buildFactSynthesizedAnswer(args: {
     body: boldHighYieldClinicalText(answer, args.query),
     citationChunkIds: Array.from(new Set(facts.flatMap((fact) => fact.citationChunkIds))),
     answerSections,
+    recoveredSourceProse,
   };
 }
 
@@ -2520,24 +2566,13 @@ function derivedArtifactsContainProceduralFlowEdge(value: unknown) {
 function sourceBackedDocumentFallbackIntent(
   query: string,
   queryClass: RagQueryClass,
-  intent: AnswerIntent,
+  _intent: AnswerIntent,
   results: SearchResult[],
 ) {
   if (results.length === 0) return false;
   const strongestScore = Math.max(...results.map(scoreValue));
   if (strongestScore < 0.45) return false;
-  const normalized = normalizeSectionText(query).toLowerCase();
-  const sourceBackedProcedureQuery =
-    /\b(?:process|procedure|protocol|pathway|workflow|steps?|requirements?|criteria|guidance|document)\b/.test(
-      normalized,
-    );
-  if (!sourceBackedProcedureQuery) return false;
-  return (
-    intent === "document_lookup" ||
-    intent === "pathway_referral" ||
-    queryClass === "document_lookup" ||
-    queryClass === "broad_summary"
-  );
+  return documentSupportListIntent(query, queryClass);
 }
 
 /** Source-backed review intent for broad medication-management evidence that cannot be safely collapsed into facts. */
@@ -2559,10 +2594,11 @@ function sourceBackedManagementReviewIntent(
 }
 
 /** Document support list intent. */
-function documentSupportListIntent(query: string, queryClass: RagQueryClass) {
+export function documentSupportListIntent(query: string, queryClass: RagQueryClass) {
   return (
     classifyAnswerIntent(query, queryClass) === "document_lookup" &&
-    /\b(?:support|supports|supporting|sources?|documents?|guidelines?)\b/i.test(query)
+    /\b(?:support|supports|supporting|sources?|documents?|guidelines?)\b/i.test(query) &&
+    /\b(?:which|what|list|show|name|where|find|provide)\b/i.test(query)
   );
 }
 
@@ -2755,6 +2791,8 @@ export function buildExtractiveAnswer(args: {
   relatedDocuments: RagAnswer["relatedDocuments"];
   routeReason: string;
   timings: RagAnswer["latencyTimings"];
+  /** Enable only after routing, so recovery cannot preempt a valid generated answer. */
+  allowSourceProseRecovery?: boolean;
 }) {
   const results = args.results.filter((result) => !resultContainsProceduralFlowEdgeArtifact(result));
   const removedProceduralArtifact = results.length !== args.results.length;
@@ -2818,6 +2856,7 @@ export function buildExtractiveAnswer(args: {
           queryClass: args.queryClass,
           intent: answerIntent,
           results,
+          allowSourceProseRecovery: args.allowSourceProseRecovery,
         });
 
   // Fact synthesis is the production extractive path. If no clean fact survives
@@ -2840,7 +2879,9 @@ export function buildExtractiveAnswer(args: {
     isSourceBoundAdmissionDischargeComparisonQuery(args.query, args.queryClass) &&
     Boolean((naturalAnswer as { preformatted?: boolean }).preformatted) &&
     naturalAnswer.citationChunkIds.length === 2;
+  const recoveredSourceProse = Boolean((naturalAnswer as { recoveredSourceProse?: boolean }).recoveredSourceProse);
   const sourceBoundCitationOnly =
+    recoveredSourceProse ||
     sourceBoundAdmissionDischargeComparison ||
     Boolean((naturalAnswer as { sourceBoundCitationOnly?: boolean }).sourceBoundCitationOnly);
   const supportListCitationResultIds = (naturalAnswer as { supportListCitationResultIds?: string[] })
@@ -2970,7 +3011,7 @@ export function buildExtractiveAnswer(args: {
   }
   if (rebuiltSmartPanel) rebuiltSmartPanel.conflictsOrGaps = conflictsOrGaps;
 
-  return {
+  const candidate = {
     answer: naturalAnswer.answer,
     grounded: hasExtractedAnswer && finalCitations.length > 0,
     confidence: hasExtractedAnswer ? deriveConfidence(results, finalCitations) : "unsupported",
@@ -2981,6 +3022,7 @@ export function buildExtractiveAnswer(args: {
     preformatted: hasExtractedAnswer && Boolean((naturalAnswer as { preformatted?: boolean }).preformatted),
     routingReason: [
       args.routeReason,
+      recoveredSourceProse ? "source_prose_recovery" : null,
       conflictingBandCitationIds.length > 0 ? "numeric_band_conflict_source_withheld" : null,
     ]
       .filter(Boolean)
@@ -3002,6 +3044,7 @@ export function buildExtractiveAnswer(args: {
     indexingQuality: buildIndexingQuality(answerSources, finalMemoryCards),
     scoreExplanations: buildAnswerScoreExplanations(answerSources),
   } satisfies RagAnswer;
+  return recoveredSourceProse ? retainCitedExtractiveFallbackEvidence(candidate) : candidate;
 }
 
 /** Source backed fallback subject. */
@@ -3014,6 +3057,15 @@ function sourceBackedFallbackSubject(query: string) {
   const normalized = normalizeSectionText(canonicalQuery)
     .replace(/[?!.]+$/, "")
     .trim();
+  // Do not echo a requested governance status into the source-only fallback.
+  // "Is this protocol approved for use?" must become a neutral topic rather
+  // than prose that appears to affirm the unverified status.
+  const governanceStatusQuestion = normalized.match(
+    /^(?:is|are|was|were)\s+(.+?)\s+(?:approved|authori[sz]ed|validated|verified|current)\b/i,
+  );
+  if (governanceStatusQuestion?.[1]) {
+    return lowerFirst(governanceStatusQuestion[1]);
+  }
   const subject = normalized
     .replace(/^summari[sz]e\s+(?:the\s+)?/i, "")
     .replace(/^what\s+(?:is|are)\s+(?:the\s+)?(?:process|requirements?)\s+for\s+/i, "")
@@ -3387,12 +3439,18 @@ export function hasInvalidModelEvidenceIds(answer: Pick<RagAnswer, "routingReaso
 
 /** Generated answer quality failure reason. */
 export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: string, queryClass: RagQueryClass) {
+  if (isBareDocumentSupportListAnswer(answer.answer ?? "")) {
+    return documentSupportListIntent(query, queryClass) ? null : "bare_document_title_list";
+  }
   const cleanedAnswer = sanitizeAnswerText(answer.answer);
   if (!cleanedAnswer) return "empty_after_sanitize";
   // A citation-free source gap is a valid fail-closed terminal response. The
   // lifecycle defect is specifically a refusal whose nearby-source citations
   // make it look grounded and suppress recovery.
   if (hasCitedProviderSourceGap(answer)) return "provider_source_gap";
+  if (isBareDocumentSupportListAnswer(cleanedAnswer)) {
+    return documentSupportListIntent(query, queryClass) ? null : "bare_document_title_list";
+  }
   if (!hasCompleteOpeningSentence(cleanedAnswer)) return "incomplete_opening_sentence";
   if (hasBadFinalAnswerQuality(cleanedAnswer)) return "bad_final_answer_quality";
   if (hasClinicalAnswerQualityIssue(cleanedAnswer)) return "clinical_answer_quality_issue";
@@ -3428,6 +3486,13 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
   if (isTemplateLikeGeneratedAnswer(answer)) return "template_like_answer";
   if (isOverExpandedSimpleGeneratedAnswer(query, queryClass, answer)) return "overexpanded_simple_answer";
   return null;
+}
+
+/**
+ * Detects whether an answer is a bare list of document titles rather than a substantive prose response.
+ */
+export function isBareDocumentSupportListAnswer(text: string): boolean {
+  return /^I found (?:\d+|one) indexed documents? that supports? this query:/i.test(text.trim());
 }
 
 /**
@@ -3625,6 +3690,7 @@ function finalQualityFailure(answer: RagAnswer, query: string, queryClass: RagQu
   return {
     ...answer,
     answer: finalQualityGapAnswer(query, queryClass),
+    rejectedCandidateText: answer.answer,
     grounded: false,
     confidence: "unsupported",
     answerSections: [],
@@ -4017,6 +4083,7 @@ function recoverFinalGateGapExtractively(
     relatedDocuments: answer.relatedDocuments ?? [],
     routeReason: recoveryRouteReason,
     timings: answer.latencyTimings,
+    allowSourceProseRecovery: true,
   });
   if (!candidate.grounded || candidate.confidence === "unsupported" || candidate.citations.length === 0) return null;
   if (isBareCrossReferenceAnswer(candidate.answer ?? "")) return null;
@@ -4447,6 +4514,7 @@ function finalizeRagAnswerQualityCore(
     return {
       ...answer,
       answer: gapAnswer,
+      rejectedCandidateText: answer.answer,
       grounded: false,
       confidence: "unsupported",
       citations: [],

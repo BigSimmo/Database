@@ -7,20 +7,25 @@ import {
   clientChunkNamesFromManifestSource,
   clientRouteAndChunkNamesFromManifestSource,
   compareToBudget,
+  decideBaselineSourceWarning,
   EXIT_FAILSAFE_MS,
   exitProcess,
   findFixtureSnapshotsInChunks,
   gzipBytesOf,
   initialDashboardChunkNames,
+  measureBudgetRoutes,
   measureChunkPaths,
   measureChunks,
-  measureBudgetRoutes,
+  measureServerHtmlPayloads,
   MOCKUP_ROUTE_SEGMENT,
   normalizeManifestRoute,
+  parseMaxDistance,
   partitionRouteClientChunks,
   resolveBaselineCommitDistance,
+  resolveBaselineGitStatus,
   resolveBaselineSource,
   STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD,
+  validateBaselineProvenance,
 } from "../scripts/check-bundle-budget.mjs";
 
 const buf = (n: number) => Buffer.alloc(n, "a"); // highly compressible; gzip < raw
@@ -95,7 +100,10 @@ describe("exitProcess", () => {
 
 describe("check-bundle-budget CLI exit", () => {
   /** Minimal build tree: one chunk, a build manifest, and one production route. */
-  function makeSandbox({ withRouteManifests = true } = {}) {
+  function makeSandbox({
+    withRouteManifests = true,
+    baselineSource,
+  }: { withRouteManifests?: boolean; baselineSource?: string } = {}) {
     const sandbox = mkdtempSync(path.join(tmpdir(), "bundle-budget-cli-"));
     const chunksDir = path.join(sandbox, ".next", "static", "chunks");
     mkdirSync(chunksDir, { recursive: true });
@@ -122,19 +130,34 @@ describe("check-bundle-budget CLI exit", () => {
       // Baselines well above the tiny fixture chunk so the CLI takes the success path.
       JSON.stringify({
         enforce: true,
+        baselineSource,
         production: { gzipBytes: 100_000, tolerancePct: 10 },
         mockups: { gzipBytes: 100_000, tolerancePct: 25 },
+        routes: {
+          "/": { gzipBytes: 100_000, tolerancePct: 10 },
+        },
       }),
     );
     return sandbox;
   }
 
-  function runCli(sandbox: string) {
+  function initGitRepo(dir: string) {
+    execFileSync("git", ["init"], { cwd: dir });
+    execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: dir });
+    execFileSync("git", ["config", "user.name", "Test Runner"], { cwd: dir });
+    execFileSync("git", ["commit", "--allow-empty", "-m", "init", "--no-gpg-sign"], { cwd: dir });
+    return execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir, encoding: "utf8" }).trim();
+  }
+
+  function runCli(sandbox: string, args: string[] = [], envOverrides: Record<string, string> = {}) {
     const script = path.join(process.cwd(), "scripts/check-bundle-budget.mjs");
     return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
-      const child = spawn(process.execPath, [script], {
+      const child = spawn(process.execPath, [script, ...args], {
         cwd: sandbox,
-        env: { ...process.env, NODE_OPTIONS: "", BUNDLE_BUDGET_ROOT: sandbox },
+        // GITHUB_SHA is real (and foreign to the sandbox repo) when this suite runs in CI;
+        // blank it by default so baseline-source resolution falls through to the sandbox's
+        // own git HEAD unless a test deliberately overrides it.
+        env: { ...process.env, NODE_OPTIONS: "", BUNDLE_BUDGET_ROOT: sandbox, GITHUB_SHA: "", ...envOverrides },
         stdio: ["ignore", "pipe", "pipe"],
       });
       let stdout = "";
@@ -214,6 +237,171 @@ describe("check-bundle-budget CLI exit", () => {
     try {
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("could not be decoded");
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("warns without failing when a configured baseline commit cannot be resolved", async () => {
+    const sandbox = makeSandbox({ baselineSource: "c".repeat(40) });
+    const result = await runCli(sandbox);
+    try {
+      expect(result.code).toBe(0);
+      expect(result.stderr).toContain("WARN (baseline source unresolvable)");
+      expect(result.stderr).toContain("Fetch the recorded baseline commit");
+      expect(result.stdout).toContain("[bundle-budget] done.");
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("keeps an unresolvable baseline warning structured in JSON output", async () => {
+    const sandbox = makeSandbox({ baselineSource: "c".repeat(40) });
+    const result = await runCli(sandbox, ["--json"]);
+    try {
+      expect(result.code).toBe(0);
+      expect(result.stderr).toBe("");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.warnings).toEqual([
+        expect.objectContaining({ code: "baseline-source-unresolvable", remediation: expect.any(String) }),
+      ]);
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("fails closed when --refresh-baseline is run without build chunks", async () => {
+    const sandbox = mkdtempSync(path.join(tmpdir(), "bundle-budget-nobuild-"));
+    try {
+      const result = await runCli(sandbox, ["--refresh-baseline"]);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("cannot refresh baseline without a build");
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("fails closed when baseline source SHA is unresolvable during --refresh-baseline", async () => {
+    const sandbox = makeSandbox();
+    try {
+      const result = await runCli(sandbox, ["--refresh-baseline"], {
+        BUNDLE_BUDGET_SOURCE_SHA: "not-a-valid-sha",
+        GITHUB_SHA: "",
+      });
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("could not resolve a 40-character source SHA");
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("fails closed when baseline source commit does not exist in git during --refresh-baseline", async () => {
+    const sandbox = makeSandbox();
+    initGitRepo(sandbox);
+    const nonExistentSha = "0123456789abcdef0123456789abcdef01234567";
+    try {
+      const result = await runCli(sandbox, ["--refresh-baseline"], {
+        BUNDLE_BUDGET_SOURCE_SHA: nonExistentSha,
+      });
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("baseline provenance check failed");
+      expect(result.stderr).toContain("does not exist in local Git history");
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("fails closed when baseline source is not an ancestor of HEAD during --refresh-baseline", async () => {
+    const sandbox = makeSandbox();
+    initGitRepo(sandbox);
+    execFileSync("git", ["checkout", "-b", "diverged-branch"], { cwd: sandbox });
+    execFileSync("git", ["commit", "--allow-empty", "-m", "diverged commit", "--no-gpg-sign"], { cwd: sandbox });
+    const divergedSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: sandbox, encoding: "utf8" }).trim();
+    execFileSync("git", ["checkout", "-"], { cwd: sandbox });
+    execFileSync("git", ["commit", "--allow-empty", "-m", "mainline commit", "--no-gpg-sign"], { cwd: sandbox });
+    try {
+      const result = await runCli(sandbox, ["--refresh-baseline"], {
+        BUNDLE_BUDGET_SOURCE_SHA: divergedSha,
+      });
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("baseline provenance check failed");
+      expect(result.stderr).toContain("is not an ancestor of HEAD");
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("enforces --max-distance threshold during --refresh-baseline", async () => {
+    const sandbox = makeSandbox();
+    const c1 = initGitRepo(sandbox);
+    execFileSync("git", ["commit", "--allow-empty", "-m", "second commit", "--no-gpg-sign"], { cwd: sandbox });
+    try {
+      // Invalid distance
+      const invalidResult = await runCli(sandbox, ["--refresh-baseline", "--max-distance", "invalid"], {
+        BUNDLE_BUDGET_SOURCE_SHA: c1,
+      });
+      expect(invalidResult.code).toBe(1);
+      expect(invalidResult.stderr).toContain("invalid --max-distance value");
+
+      // Distance exceeded (c1 is 1 commit behind HEAD, max-distance is 0)
+      const exceededResult = await runCli(sandbox, ["--refresh-baseline", "--max-distance", "0"], {
+        BUNDLE_BUDGET_SOURCE_SHA: c1,
+      });
+      expect(exceededResult.code).toBe(1);
+      expect(exceededResult.stderr).toContain("exceeding maximum allowed distance of 0");
+
+      // Distance within threshold
+      const okResult = await runCli(sandbox, ["--refresh-baseline", "--max-distance", "5"], {
+        BUNDLE_BUDGET_SOURCE_SHA: c1,
+      });
+      expect(okResult.code).toBe(0);
+      expect(okResult.stdout).toContain("[bundle-budget] baseline refreshed successfully:");
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("refreshes bundle-budget.json with fresh measurements and prints CI integration guidance", async () => {
+    const sandbox = makeSandbox();
+    const headSha = initGitRepo(sandbox);
+    try {
+      const result = await runCli(sandbox, ["--refresh-baseline"]);
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain("[bundle-budget] baseline refreshed successfully:");
+      expect(result.stdout).toContain("[bundle-budget] CI integration guidance:");
+      expect(result.stdout).toContain("npm run check:bundle-budget -- --refresh-baseline");
+
+      const written = JSON.parse(readFileSync(path.join(sandbox, "bundle-budget.json"), "utf8"));
+      expect(written.baselineSource).toBe(headSha.toLowerCase());
+      expect(written.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(written.production.gzipBytes).toBeGreaterThan(0);
+      expect(written.routes["/"].gzipBytes).toBeGreaterThan(0);
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("emits structured JSON reporting when --refresh-baseline --json is used", async () => {
+    const sandbox = makeSandbox();
+    const headSha = initGitRepo(sandbox);
+    try {
+      const result = await runCli(sandbox, ["--refresh-baseline", "--json"]);
+      expect(result.code).toBe(0);
+      expect(result.stderr).toBe("");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.refreshed).toBe(true);
+      expect(parsed.baselineSource).toBe(headSha.toLowerCase());
+      expect(parsed.baselineCommitDistance).toBe(0);
+      expect(parsed.production).toMatchObject({
+        gzipBytes: expect.any(Number),
+        previousGzipBytes: expect.any(Number),
+      });
+      expect(parsed.routes["/"]).toMatchObject({
+        gzipBytes: expect.any(Number),
+      });
+      expect(parsed.ciGuidance).toMatchObject({
+        command: "npm run check:bundle-budget -- --refresh-baseline",
+      });
     } finally {
       rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
@@ -301,6 +489,52 @@ describe("bundle baseline provenance", () => {
     );
   });
 
+  it("checks that the baseline resolves and is an ancestor before distance comparison", () => {
+    const mockExec = vi.fn(() => "");
+    expect(resolveBaselineGitStatus(gitHead, process.cwd(), mockExec as unknown as typeof execFileSync)).toEqual({
+      commitExists: true,
+      comparableAsAncestor: true,
+    });
+    expect(mockExec).toHaveBeenNthCalledWith(
+      1,
+      "git",
+      ["-C", process.cwd(), "cat-file", "-e", `${gitHead.toLowerCase()}^{commit}`],
+      expect.any(Object),
+    );
+    expect(mockExec).toHaveBeenNthCalledWith(
+      2,
+      "git",
+      ["-C", process.cwd(), "merge-base", "--is-ancestor", gitHead.toLowerCase(), "HEAD"],
+      expect.any(Object),
+    );
+  });
+
+  it("returns a pure remediation warning for an unresolvable baseline source", () => {
+    const warning = decideBaselineSourceWarning({
+      baselineSource: gitHead,
+      commitExists: false,
+      comparableAsAncestor: null,
+    });
+    expect(warning).toMatchObject({ code: "baseline-source-unresolvable", remediation: expect.any(String) });
+    expect(warning?.remediation).toContain("Fetch the recorded baseline commit");
+  });
+
+  it("returns a pure remediation warning when the baseline is not comparable as an ancestor", () => {
+    const warning = decideBaselineSourceWarning({
+      baselineSource: gitHead,
+      commitExists: true,
+      comparableAsAncestor: false,
+    });
+    expect(warning).toMatchObject({ code: "baseline-source-not-ancestor", remediation: expect.any(String) });
+    expect(warning?.message).toContain("cannot be compared as an ancestor of HEAD");
+  });
+
+  it("does not warn when the baseline resolves as an ancestor", () => {
+    expect(
+      decideBaselineSourceWarning({ baselineSource: gitHead, commitExists: true, comparableAsAncestor: true }),
+    ).toBeNull();
+  });
+
   it("returns null for malformed or absent baseline commit SHA", () => {
     expect(resolveBaselineCommitDistance(null)).toBeNull();
     expect(resolveBaselineCommitDistance("not-a-sha")).toBeNull();
@@ -319,6 +553,118 @@ describe("bundle baseline provenance", () => {
   });
   it("defines a default stale baseline commit distance threshold", () => {
     expect(STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD).toBe(50);
+  });
+
+  describe("parseMaxDistance", () => {
+    it("parses valid space-separated and equals-separated values", () => {
+      expect(parseMaxDistance(["--max-distance", "10"])).toBe(10);
+      expect(parseMaxDistance(["--max-distance=25"])).toBe(25);
+      expect(parseMaxDistance(["--other", "flag", "--max-distance", "0"])).toBe(0);
+    });
+
+    it("returns NaN for invalid or negative values", () => {
+      expect(Number.isNaN(parseMaxDistance(["--max-distance", "-5"]))).toBe(true);
+      expect(Number.isNaN(parseMaxDistance(["--max-distance=foo"]))).toBe(true);
+      expect(Number.isNaN(parseMaxDistance(["--max-distance"]))).toBe(true);
+    });
+
+    it("returns null when flag is omitted", () => {
+      expect(parseMaxDistance([])).toBeNull();
+      expect(parseMaxDistance(["--update", "--json"])).toBeNull();
+    });
+  });
+
+  describe("validateBaselineProvenance", () => {
+    const dummySha = "d".repeat(40);
+
+    it("rejects malformed or non-40-hex commit SHA", () => {
+      expect(validateBaselineProvenance(null)).toMatchObject({ valid: false, code: "invalid-sha" });
+      expect(validateBaselineProvenance("not-a-sha")).toMatchObject({ valid: false, code: "invalid-sha" });
+      expect(validateBaselineProvenance("g".repeat(40))).toMatchObject({ valid: false, code: "invalid-sha" });
+    });
+
+    it("fails when commit does not exist in git history", () => {
+      const mockExec = vi.fn(() => {
+        throw new Error("missing commit");
+      });
+      const res = validateBaselineProvenance(dummySha, {
+        cwd: process.cwd(),
+        exec: mockExec as unknown as typeof execFileSync,
+      });
+      expect(res).toMatchObject({
+        valid: false,
+        code: "commit-not-found",
+        message: expect.stringContaining("does not exist in local Git history"),
+      });
+    });
+
+    it("fails when commit exists but is not an ancestor of HEAD", () => {
+      const mockExec = vi.fn((_cmd: string, args: string[]) => {
+        if (args.includes("merge-base")) throw new Error("not ancestor");
+        return "";
+      });
+      const res = validateBaselineProvenance(dummySha, {
+        cwd: process.cwd(),
+        exec: mockExec as unknown as typeof execFileSync,
+      });
+      expect(res).toMatchObject({
+        valid: false,
+        code: "not-ancestor",
+        message: expect.stringContaining("is not an ancestor of HEAD"),
+      });
+    });
+
+    it("fails when commit distance is unresolvable", () => {
+      const mockExec = vi.fn((_cmd: string, args: string[]) => {
+        if (args.includes("rev-list")) throw new Error("rev-list error");
+        return "";
+      });
+      const res = validateBaselineProvenance(dummySha, {
+        cwd: process.cwd(),
+        exec: mockExec as unknown as typeof execFileSync,
+      });
+      expect(res).toMatchObject({
+        valid: false,
+        code: "distance-unresolvable",
+        message: expect.stringContaining("Could not determine commit distance"),
+      });
+    });
+
+    it("fails when commit distance exceeds maxDistance threshold", () => {
+      const mockExec = vi.fn((_cmd: string, args: string[]) => {
+        if (args.includes("rev-list")) return "15\n";
+        return "";
+      });
+      const res = validateBaselineProvenance(dummySha, {
+        cwd: process.cwd(),
+        maxDistance: 10,
+        exec: mockExec as unknown as typeof execFileSync,
+      });
+      expect(res).toMatchObject({
+        valid: false,
+        code: "distance-exceeded",
+        commitDistance: 15,
+        message: expect.stringContaining("exceeding maximum allowed distance of 10"),
+      });
+    });
+
+    it("passes when commit exists and is an ancestor within maxDistance", () => {
+      const mockExec = vi.fn((_cmd: string, args: string[]) => {
+        if (args.includes("rev-list")) return "3\n";
+        return "";
+      });
+      const res = validateBaselineProvenance(dummySha, {
+        cwd: process.cwd(),
+        maxDistance: 10,
+        exec: mockExec as unknown as typeof execFileSync,
+      });
+      expect(res).toMatchObject({
+        valid: true,
+        baselineSource: dummySha.toLowerCase(),
+        commitDistance: 3,
+        message: expect.stringContaining("3 commit(s) behind HEAD"),
+      });
+    });
   });
 });
 
@@ -374,6 +720,23 @@ describe("initial dashboard fixture boundary", () => {
       },
     ]);
     expect(violations).toEqual(["forms fixture catalogue"]);
+  });
+
+  it.each([
+    ["medications snapshot", ["GABA / Glutamate Modulator", "1998 mg/day", "Renal Adj."]],
+    [
+      "medication interaction index",
+      ["generatedFrom", "sourceRowCount", "rowsWithCatalogueTarget", "medicationsWithUnresolvedRows"],
+    ],
+  ])("detects the complete %s marker group as prevention-only leakage", (name, markers) => {
+    expect(findFixtureSnapshotsInChunks([{ name: "page.js", buffer: Buffer.from(markers.join(" ")) }])).toEqual([name]);
+  });
+
+  it.each([
+    ["medications snapshot", ["GABA / Glutamate Modulator", "1998 mg/day"]],
+    ["medication interaction index", ["generatedFrom", "sourceRowCount", "rowsWithCatalogueTarget"]],
+  ])("does not flag %s when one low-collision marker is missing", (_name, markers) => {
+    expect(findFixtureSnapshotsInChunks([{ name: "page.js", buffer: Buffer.from(markers.join(" ")) }])).toEqual([]);
   });
 
   it("does not flag an isolated UI string as a serialized fixture", () => {
@@ -543,5 +906,78 @@ describe("production vs mockup chunk attribution", () => {
     expect(result.mockupRouteCount).toBe(1);
     // Caller must fail before trusting mockupExclusive; do not compute budgets from this.
     expect(result.unparseable.length).toBeGreaterThan(0);
+  });
+});
+
+describe("measureServerHtmlPayloads", () => {
+  it("returns missing status when server page file is absent", () => {
+    const results = measureServerHtmlPayloads("app", undefined, {
+      existsSync: () => false,
+      readFileSync: () => Buffer.alloc(0),
+    });
+    expect(results["/mockups/development/review-state"]).toMatchObject({
+      found: false,
+      status: "missing",
+    });
+  });
+
+  it("measures server page HTML within ceiling as ok", () => {
+    const results = measureServerHtmlPayloads(
+      "app",
+      {
+        "/mockups/development/review-state": {
+          rawBytesCeiling: 1000,
+          gzipBytesCeiling: 200,
+        },
+      },
+      {
+        existsSync: () => true,
+        readFileSync: () => Buffer.from("<html><body>Review state content</body></html>"),
+      },
+    );
+    const measurement = results["/mockups/development/review-state"];
+    expect(measurement.found).toBe(true);
+    expect(measurement.status).toBe("ok");
+    expect(measurement.rawBytes).toBeGreaterThan(0);
+    expect(measurement.gzipBytes).toBeGreaterThan(0);
+  });
+
+  it("fails when server page HTML exceeds raw or gzip ceiling", () => {
+    const results = measureServerHtmlPayloads(
+      "app",
+      {
+        "/mockups/development/review-state": {
+          rawBytesCeiling: 10,
+          gzipBytesCeiling: 5,
+        },
+      },
+      {
+        existsSync: () => true,
+        readFileSync: () => Buffer.from("<html><body>Very long repetitive HTML payload content here</body></html>"),
+      },
+    );
+    const measurement = results["/mockups/development/review-state"];
+    expect(measurement.found).toBe(true);
+    expect(measurement.status).toBe("fail");
+    expect(measurement.reason).toContain("exceeds");
+  });
+
+  it("finds server page artifact when only page.js candidate exists", () => {
+    const results = measureServerHtmlPayloads(
+      "app",
+      {
+        "/mockups/development/review-state": {
+          rawBytesCeiling: 5000,
+          gzipBytesCeiling: 1000,
+        },
+      },
+      {
+        existsSync: (p) => p.endsWith("page.js"),
+        readFileSync: () => Buffer.from("export default function Page() { return null; }"),
+      },
+    );
+    const measurement = results["/mockups/development/review-state"];
+    expect(measurement.found).toBe(true);
+    expect(measurement.status).toBe("ok");
   });
 });

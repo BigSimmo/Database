@@ -165,7 +165,7 @@ const documents: DocumentFixture[] = [
     title: "Psychotropic medications monitoring handbook",
     shortTitle: "Psychotropic monitoring handbook",
     source: "Reference",
-    kind: "Clinical KB Repository",
+    kind: "PsychSift Repository",
     version: "v2.1",
     status: "Current",
     review: "Review 2026",
@@ -184,7 +184,7 @@ const documents: DocumentFixture[] = [
     title: "Clozapine: Safe Prescribing Quick Reference",
     shortTitle: "Safe prescribing quick reference",
     source: "Guideline Summary",
-    kind: "Clinical KB Repository",
+    kind: "PsychSift Repository",
     version: "v1.4",
     status: "Current",
     review: "Review 2026",
@@ -203,7 +203,7 @@ const documents: DocumentFixture[] = [
     title: "Neutropenia management in clozapine therapy",
     shortTitle: "Neutropenia management",
     source: "Clinical Review",
-    kind: "Clinical KB Repository",
+    kind: "PsychSift Repository",
     version: "v1.0",
     status: "Review due",
     review: "Review 2025",
@@ -222,7 +222,7 @@ const documents: DocumentFixture[] = [
     title: "Community mental health protocols",
     shortTitle: "Community mental health protocols",
     source: "Procedure",
-    kind: "Clinical KB Repository",
+    kind: "PsychSift Repository",
     version: "v5.0",
     status: "Current",
     review: "Review 2026",
@@ -759,7 +759,7 @@ export function MasterDocumentSearch() {
             <CrossModeLinksSection queries={[query]} variant="compact" />
           </div>
 
-          <section className="mt-4 hidden min-h-0 flex-1 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] md:block">
+          <section className="mt-4 hidden min-h-0 flex-1 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)] md:block">
             <div className="overflow-x-auto">
               <div className="min-w-[56rem]">
                 <div className="grid grid-cols-[minmax(19rem,1.8fr)_minmax(16rem,1.3fr)_9.5rem_7.5rem_6.5rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-3 text-xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
@@ -1225,7 +1225,7 @@ export function MasterDocumentReader() {
           </div>
           <div className="space-y-4 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5 sm:px-5 lg:pb-5">
             <DocumentPreview selectedEvidence={selectedEvidence} />
-            <div className="mx-auto hidden max-w-4xl flex-wrap items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-soft)] sm:flex">
+            <div className="mx-auto hidden max-w-4xl flex-wrap items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-3 shadow-[var(--e2)] sm:flex">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-extrabold text-[color:var(--text-heading)]">
                   {selectedEvidence ? "Highlighted hit 1 of 3" : "No extracted evidence"}
@@ -1259,7 +1259,7 @@ export function MasterDocumentReader() {
                 Clear highlights
               </button>
             </div>
-            <div className="mx-auto hidden max-w-3xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] sm:grid">
+            <div className="mx-auto hidden max-w-3xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-2 shadow-[var(--e2)] sm:grid">
               <IconButton label="Composer options" icon={PanelRight} />
               <input
                 className="min-h-11 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold outline-none"
@@ -1540,7 +1540,7 @@ export function MasterEvidenceDetail() {
     return (
       <DocumentShell>
         <div className="mx-auto max-w-3xl px-3 py-10 sm:px-5">
-          <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-6 text-center shadow-[var(--shadow-soft)]">
+          <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-6 text-center shadow-[var(--e2)]">
             <h1 className="text-xl font-extrabold text-[color:var(--text-heading)]">No extracted evidence</h1>
             <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
               {document.title} has no extracted evidence yet, so there is no evidence detail to show.
@@ -1641,7 +1641,7 @@ function MasterEvidenceDetailContent({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_28rem]">
-          <section className="min-w-0 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]">
+          <section className="min-w-0 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--e2)]">
             <div className="flex gap-1 overflow-x-auto border-b border-[color:var(--border)] px-3">
               {(["Table", "Quote", "Image", "Source page", "Context"] as EvidenceTab[]).map((item) => (
                 <button
@@ -1786,7 +1786,7 @@ function MasterEvidenceDetailContent({
             </div>
           </section>
 
-          <aside className="hidden self-start rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] lg:block">
+          <aside className="hidden self-start rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)] lg:block">
             <div className="border-b border-[color:var(--border)] p-4">
               <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                 Source document
@@ -1923,7 +1923,7 @@ export function MasterDocumentIndex() {
   return (
     <DocumentShell>
       <div className="mx-auto max-w-7xl px-3 py-5 sm:px-6">
-        <header className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--shadow-soft)]">
+        <header className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--e2)]">
           <Pill active icon={ShieldCheck}>
             Master document flow
           </Pill>
@@ -1950,7 +1950,7 @@ export function MasterDocumentIndex() {
               key={title as string}
               href={href as string}
               className={cn(
-                "group rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-soft)] transition hover:-translate-y-1 hover:border-[color:var(--clinical-accent-border)]",
+                "group rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-4 shadow-[var(--e2)] transition hover:-translate-y-1 hover:border-[color:var(--clinical-accent-border)]",
                 focusRing,
               )}
             >

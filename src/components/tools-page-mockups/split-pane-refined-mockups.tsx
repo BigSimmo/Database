@@ -375,7 +375,7 @@ function PhonePopup({
   const notes = clinicalNotes[tool.id] ?? clinicalNotes["clinical-kb-search"];
 
   return (
-    <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] xl:sticky xl:top-4">
+    <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] xl:sticky xl:top-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Phone</p>
@@ -474,7 +474,7 @@ function PhonePopup({
                 <Link
                   href={tool.href}
                   className={cn(
-                    "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
+                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
                     focusRing,
                   )}
                 >

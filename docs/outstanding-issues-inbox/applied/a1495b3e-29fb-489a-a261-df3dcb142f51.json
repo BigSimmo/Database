@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a1495b3e-29fb-489a-a261-df3dcb142f51",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#V0EDR4",
+    "outcome": "Owner decision resolved from the existing route contracts: /?mode=favourites is the selection-only shared dashboard home, while /favourites is the standalone saved-items search workspace, so identical structure is not the intended contract. tests/app-modes.test.ts pins all appModeSelectionHref values to /?mode=<id> and separately pins Favourites as a searchable standalone mode at /favourites; tests/search-route-ownership.test.ts classifies /favourites as always-standalone while / is not. Merged PR #1983 commit 3dec7b3e67e8d26a40596a44848f242e1a8dccac deliberately removed the standalone marketing ModeHome hero to preserve the command-library fold, and merged PR #2186 commit d7ffae1a5782394bd7af14f1a46b8fb6a88fc691 aligned both doors on sharedHomePresentation.favourites copy and composer geometry. Current favourites-command-library-page.tsx retains the explicit retired-lockup rationale and a single workspace h1; favourites-hub.tsx retains ModeHomeHero for the shared selection surface. This is existing merged evidence, not a fresh behavioural test run.",
+    "baseRowFingerprint": "99c641f124f86f87f7e40e1bf8e28df21b431eb21b17cedc59f45d0876b1730a"
+  }
+}

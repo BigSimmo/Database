@@ -26,6 +26,7 @@ import {
   StatusMark,
   SyntheticMarker,
   formatPerthDate,
+  safetyPlanStatusLine,
 } from "./prototype-ui";
 import { carePlanRoute } from "./routes";
 import type { PrototypeScenario, PrototypeUser, SyntheticId } from "./types";
@@ -99,10 +100,7 @@ export function ManagementPlanReviewSurface({
       ? null
       : deriveReviewState(currentManagementVersion.reviewDueAt, PROTOTYPE_NOW);
 
-  const safetyPlanStatus =
-    snapshot.currentSafetyPlanVersion === null
-      ? "No current version"
-      : `Current version ${snapshot.currentSafetyPlanVersion.version}, confirmed ${formatPerthDate(snapshot.currentSafetyPlanVersion.confirmedAt)}`;
+  const safetyPlanStatus = safetyPlanStatusLine(snapshot.currentSafetyPlanVersion);
 
   // The reducer's own account of why a decision cannot be recorded, so the
   // surface and the guard can never say different things.

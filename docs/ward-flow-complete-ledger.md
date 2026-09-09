@@ -1,0 +1,538 @@
+# Ward Flow — the complete ledger, Phases 1 to 5
+
+The single cross-session record of everything built. Assembled 2026-08-21 on branch
+`codex/ward-management-design`, refreshed 2026-08-22, and extended on 2026-08-26 with Phase 4, the
+sandbox and sidebar work, and the Phase 5 design. Ward Flow has run across many chat sessions on
+several different tools, and no single conversation holds the whole picture. This file does.
+
+**It is a map, not a replacement.** Each phase's own ledger holds the detail; this file records
+what happened, in what order, where the detail lives, and what carries forward.
+
+---
+
+## 1. What Ward Flow is
+
+A synthetic, offline prototype for Western Australian metro psychiatry patient flow —
+coordinating a patient from a metropolitan emergency department to an inpatient psychiatric bed.
+Built for a practising psychiatrist in Perth.
+
+The problem it models, from `docs/ward-flow-context.md`: finding an inpatient bed is a
+phone-around. Bed numbers are stale before they are quoted. Mental Health Act clocks are running.
+Transport waits. The patient sits in the department, frequently twelve to twenty-four hours,
+sometimes far longer. **Nobody holds a single current picture** of who is waiting, which beds are
+genuinely allocatable, who has already declined and why, what is legally due and when, and where
+the vehicle is.
+
+**It is a prototype, not clinical decision support.** All data is synthetic. Every surface must be
+verifiable against the model behind it, and must degrade to saying nothing rather than guessing.
+That last rule is the one this project has repeatedly had to enforce against itself.
+
+## 2. Where the work lives
+
+| What         | Where                                                                              |
+| ------------ | ---------------------------------------------------------------------------------- |
+| Worktree     | a local Codex worktree named `ward-management-design` (machine-local path omitted) |
+| Branch       | `codex/ward-management-design`                                                     |
+| Commits      | 72 ahead of `origin/main`, **pushed** to `origin` 2026-08-22                       |
+| **Not** here | `D:\Repos\Database` contains none of this work                                     |
+
+## 3. The three phases
+
+| Phase | What it delivered                                                                           | Dates           | Status                    |
+| ----- | ------------------------------------------------------------------------------------------- | --------------- | ------------------------- |
+| 1     | The domain model: clock, types, eligibility gates, sites, movements; routes migrated        | 2026-08-18      | complete                  |
+| 2     | The coordinator screen: pressure strip, priority queue, flow diagram, shortlist, exceptions | 2026-08-18/19   | complete                  |
+| 3     | Role screens: shared state, and the ward, ED and transport-officer views                    | 2026-08-19 to — | **Tasks 1–6A of 12 done** |
+
+### Phase 1 — the model (2026-08-18)
+
+Spec `docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`, plan
+`docs/superpowers/plans/2026-08-18-ward-flow-phase-1-model.md`. Handoff:
+`docs/ward-flow-phase-handoff.md`.
+
+Built the injectable clock, the domain types, the eligibility gates with destination-only
+authorisation, the site/unit/ED model, and a movement fixture at realistic metro pressure, then
+migrated every existing route onto it. Closed with a whole-branch review pass
+(`787029ae0`) and a recorded set of parked rulings (`de7b92faf`).
+
+Key commits: `99cf00840`, `f04786309`, `b2f7cf39c`, `3cf1e89e8`, `20bdbc8f2`, `1425b38c6`,
+`b2388cd64`, `f060ae763`, `cba50d8b3`, `6adab9a40`, `787029ae0`, `de7b92faf`.
+
+### Phase 2 — the coordinator screen (2026-08-18/19)
+
+Plan `docs/superpowers/plans/2026-08-18-ward-flow-phase-2-coordinator-screen.md`, kickoff
+`docs/ward-flow-phase-2-kickoff.md`.
+
+Built the operational score (deliberately blind to clinical urgency, which orders the queue on its
+own), per-department pressure, the coordinator shell, the pressure strip, the priority queue
+(tier first, score within tier), the flow diagram, the explainable shortlist with verdict-stating
+gates, and the exceptions drawer. Retired the Constellation view and moved mode navigation into
+the rail.
+
+Key commits: `3dbdd5e9d`, `f2b98d814`, `ef4e62c3f`, `992c3e6c7`, `ec2e59495`, `d7f5b76e2`,
+`7b97608af`, `90ed4afd7`, `b8bd43dae`, `2eed0099f`, `19e9e323c`, `04cf7bc53`, `52b001af7`,
+`3789eea62`.
+
+**Phase 2's defining lesson, which set how Phase 3 has been run: its worst defects all passed
+their own tests.** Several tests were unfalsifiable — `992c3e6c7` closed three of them. That is
+why every test in Phase 3 is mutation-tested and every subagent claim is independently re-run.
+
+### Phase 3 — the role screens (2026-08-19 onward, in progress)
+
+Spec `docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md` (the binding
+authority, 19 sections), plan
+`docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md` (12 tasks).
+
+**Detail lives in `docs/ward-flow-phase-3-ledger.md`; state and resume steps in
+`docs/ward-flow-phase-3-handover.md`; every brief, report and review in
+`docs/ward-flow-phase-3-workspace/`.**
+
+| Task | Subject                                                            | State                             |
+| ---- | ------------------------------------------------------------------ | --------------------------------- |
+| 1    | model and fixture                                                  | complete                          |
+| 2    | the reducer                                                        | complete                          |
+| 3    | the contracts                                                      | complete                          |
+| 4    | provider, clock, layout                                            | complete                          |
+| 5    | coordinator rewire                                                 | complete                          |
+| 6    | the other nine routes                                              | complete, 5 fix rounds            |
+| 6A   | the ED clock counts up                                             | complete, 2 fix rounds            |
+| 7    | coordinator phone pin                                              | **next — brief + addendum ready** |
+| 8–12 | ward screen, officer phone, live tracker, ED screen, role switcher | not started                       |
+
+Task 6A is not in the original plan. It was inserted mid-phase when the clinician answered the
+phase's standing open question — see §5.
+
+## 4. Sessions, and what each one was
+
+| Session            | Covered                                                                  | Ended by                                          |
+| ------------------ | ------------------------------------------------------------------------ | ------------------------------------------------- |
+| Phase 1 sessions   | model, gates, migration, whole-branch review                             | phase completion                                  |
+| Phase 2 sessions   | coordinator screen through whole-branch review                           | phase completion                                  |
+| Phase 3, session 1 | plan pre-flight, Tasks 1–5, Task 6 through fix round 2                   | a monthly spend limit killed the Task 6 fix agent |
+| Phase 3, session 2 | Task 6 fix rounds 3–5, Task 6A and its two fix rounds, audit and handoff | deliberate stop at the Task 6A boundary           |
+
+Two agents were killed mid-work by hard usage ceilings across those sessions, and both left
+recoverable state. That is why the handover instructs a resuming session to **inspect the working
+tree before re-dispatching** — the work may be complete and merely uncommitted.
+
+## 5. The decisions that shaped the product
+
+Not process rulings — the ones that changed what the software says to a clinician.
+
+**The post-examination clock counts up.** The phase carried a standing open question about what
+the on-screen countdown after examination should represent. The clinician answered verbatim:
+_"It is just counting how long they have been in ED determining priority. So counting up."_
+
+The prototype had been rendering a Form 3B deadline derived from `examination.at + 240`, displayed
+by seven surfaces as statutory timing and counted as a legal breach. **No such deadline exists in
+the Mental Health Act.** Task 6A deleted it: `LegalForm.dueAt` is now optional, a Form 3B carries
+none, absence is rendered explicitly, and an absent deadline reaching arithmetic is a compile
+error.
+
+**The four hours were real, but attached to the wrong quantity.** Spec §7 requires the
+**emergency department access target** — a departmental performance measure counted up from
+`openedAt`, "the number a department is judged on, and mental health patients are its largest
+breachers". It survives as `ED_ACCESS_TARGET_MINUTES`, quarantined from `LegalForm`. Deleting the
+fabricated deadline without noticing this would have removed a feature Task 11 requires.
+
+**Two clocks, not one.** The spec's own rule, which the clinician's answer confirmed: the ED clock
+runs from `openedAt`; the legal clock runs from `formedAt` where they differ. A patient formed in
+the community at 08:00 who reaches Peel at 11:00 has already spent three hours of the examination
+window.
+
+**The screen must never claim an action it did not perform.** Phase 3's most consequential defect:
+the coordinator reported a successful referral while the reducer had refused it, on nine of
+eighteen movements. Fixed at three layers — the control stops advertising what it cannot do, the
+confirmation is derived from the movement's own state so it is structurally incapable of lying,
+and refusals surface with the reducer's own reason.
+
+**Urgency is the clinician's judgement and is not folded into the operational score.** A number
+labelled "not clinical severity" that partly was is why the previous score was deleted rather than
+migrated.
+
+## 6. Three questions raised with the clinician — two still open
+
+None blocking; all stated rather than buried.
+
+1. **Does the Form 1A countdown stay a countdown?** His answer was scoped to the post-examination
+   case; the pre-examination examination window is still modelled as a deadline.
+2. **Should being detained and examined confer priority of its own?** Today such a patient ranks
+   purely on elapsed time, exactly as described — so patients still awaiting examination tend to
+   rank above them.
+3. **Is four hours the right ED access target for WA metro?** **Answered 2026-08-22 — no.** Four
+   hours is the national figure and was never confirmed for this context; the product owner set
+   the target to 24 hours (1440 minutes) for this prototype, because mental health patients breach
+   four hours so routinely that it stops discriminating. `ED_ACCESS_TARGET_MINUTES` in
+   `ward-model.ts` carries the current value (ruling R65(a)).
+
+Plus one raised but undecided: **the demo now leads with an accident.** The top of the coordinator
+queue is `WF-303`, a _generated_ movement whose breach comes from
+`NOW_ANCHOR + (((index * 53) % 400) - 60)` — arithmetic, not authorship. Task 12's guided journey
+may walk a user straight into it.
+
+## 6b. The push, and an emptied `node_modules` whose cause is unproven
+
+Recorded because it cost an hour, and because the honest version is more useful than the tidy one.
+
+The branch was pushed to `origin` on 2026-08-22 at the user's request, superseding the earlier
+"no push" instruction. The push succeeded. Around the same moment the local `node_modules` went to
+**zero entries**, and recovery needed a full `npm ci --include=dev`.
+
+The symptom is the part worth remembering. It was not an error about missing dependencies. It was
+`tsc` reporting it could not find `process`, and 8 of 10 test files failing at once — which reads
+exactly like a code regression. **`ls node_modules | wc -l` is the first check when a broad,
+unexplained failure appears.**
+
+**The cause was not established, and an earlier draft of this file asserted that it was.** The
+obvious suspect is this repo's known guard-push defect — the pre-push format guard links a real
+dependency tree into a scratch checkout as a Windows junction, then force-deletes the checkout —
+fixed on `main` at `a04330ea0` (PR #2244), which is not an ancestor of this branch. But both
+force-deletes were probed directly on this machine and **neither destroyed the junction's target**:
+Node's recursive `rmSync` did not follow the junction, and neither did `git worktree remove
+--force`. A live alternative is that `findPrettierBin` borrows _another_ worktree's tree when this
+one has none, and this repo has dozens of sibling worktrees.
+
+A hand-written fix was drafted onto this branch and then **reverted**. The mutation test settled
+it: reintroducing the supposed bug on purpose failed no test at all, which proves the fix was
+untestable against an unknown mechanism. Shipping it would have been a guard that claims more than
+it delivers — the exact defect class §7 is about, committed while documenting §7. The correct route
+is bringing `main` into this branch, which carries the reviewed upstream fix; that is a real piece
+of work with conflict risk and is the user's call.
+
+## 7. The recurring failure, across all three phases
+
+One defect class has appeared in every phase, in a different disguise each time:
+
+- **Phase 1** shipped a privacy guard that checked properties and never read strings.
+- **Phase 2** shipped three unfalsifiable tests; its worst defects all passed their own tests.
+- **Phase 3, Task 1** shipped a privacy guard whose loops executed zero times.
+- **Phase 3, Task 3** shipped two vacuous invariants asserting against fixture state, not walk state.
+- **Phase 3, Task 5** shipped a Playwright test asserting `/refus/i` against empty-state copy that
+  contained the word.
+- **Phase 3, Task 6** spent three of five fix rounds on one static guard that overclaimed in three
+  successive forms — co-occurrence scoping, directory scoping, and a hand-rolled scanner blinded by
+  a quote inside a regex literal.
+- **Phase 3, Task 6A** found the same shape a fourth time in a new guard, and answered it
+  differently: **narrow the claim rather than chase completeness**, and move real enforcement into
+  the brief and review of the task that will exercise it.
+
+**The lesson, and it is this project's most important finding: a check that claims more than it
+delivers is worse than no check, because it stops anyone looking harder.** Every one of those was
+found by someone deliberately trying to defeat the check — never by running it.
+
+The practice that follows: mutation-test every test, print the edited line back from the file
+before trusting the run, re-run every subagent's gates independently, and read counts rather than
+the word "passed".
+
+## 5b. Phase 4 — specialist boards (2026-08-25)
+
+Branch `claude/ward-flow-phase-4-spec`, PR #2373. Eleven of twelve planned items delivered; item
+twelve, a statutory clock board, was deliberately **held** because building it requires stating
+figures from the Mental Health Act, and no agent may state, paraphrase or infer one.
+
+Delivered: the handover board, the escalation board, patient search, the role switcher that walks
+one movement through all four roles without a reload, the demo clock and scenario reset, capacity
+columns for sex mix / specialling / authorisation, bed releases with a fixed blocker list, the
+change audit, and the effectiveness numbers with the third measure explicitly dropped and said so
+on the page.
+
+Two of the phase's own claims were **corrected in the spec after the fact**, both wrong in the same
+direction — a measurement taken from a function that truncates its input. The eligible-ward
+distribution is `{0:2, 4:11, 5:6, 6:3, 11:1, 12:9, 14:9}` over 337 eligible pairs, with WF-009 and
+WF-308 stranded. A subagent's test contradicted the original figure and was right.
+
+Binding spec: `docs/superpowers/specs/2026-08-25-ward-flow-phase-4-specialist-boards-design.md`.
+Plan: `docs/superpowers/plans/2026-08-25-ward-flow-phase-4-specialist-boards.md`. Note that
+Prettier never converges on that plan file — two `--write` passes leave thirty lines differing — so
+a format guard on it is expected to need `SKIP_FORMAT_GUARD=1`, and that is documented rather than
+worked around.
+
+## 5c. The sandbox move and the sidebar (2026-08-26)
+
+**Ward Flow became a genuine sandbox.** It now lives at `/mockups/ward-flow`, behind the
+administrator-only developer gate, following the pattern Caring Contacts and Care Plan already use.
+Nine links out of it into the clinical application were removed — and then a tenth, the logo, which
+pointed at the site root and which no amount of source reading had caught. It was found by looking
+at a screenshot. The header also read "Clinical KB / Source-backed clinical search" on every board
+of a prototype that does no searching and is not source-backed; it now reads "Ward Flow / Synthetic
+patient-flow prototype". `tests/ward-nav.test.ts` guards both, and its forbidden-exit list includes
+`/` for exactly this reason.
+
+**The sidebar was rebuilt to the repository's house pattern.** Before this it had one state:
+`ward-management.module.css` held four media queries, of which two were `prefers-reduced-motion` and
+`forced-colors` and two named `.workspaceGrid` and `.patientWorkspace`. Not one touched the rail, so
+a 390px phone rendered the full 4.5rem desktop icon column — 18% of the viewport — on every screen,
+through 38 test files and 428 passing tests, because nothing was structurally wrong.
+
+It now has the three shapes `ClinicalSidebar.tsx` uses: a drawer below 40rem, the icon rail from
+40rem, and an optional 17rem labelled panel from 64rem whose collapsed state persists per browser.
+Nine of the ten Ward Flow shells are a bare rail-plus-main grid with **no header row at all**, so
+unlike the clinical application there was nowhere for a drawer trigger to live — the sidebar brings
+its own fixed phone bar, which is also the first phone chrome those nine screens have ever had.
+
+The eight mode views moved out of eight hand-written link blocks into `WARD_VIEWS` in `ward-nav.ts`.
+A labelled panel cannot read a rail's icon-only JSX, and copying them would have re-created the
+two-lists-drifting defect (D8/D9) that file exists to prevent.
+
+**Three lessons from that day, recorded because they cost real time:**
+
+1. A phone-contract check passed with the very rule it guarded deleted, because its assertion
+   substring also matched a qualified selector further down the same stylesheet. Found by mutation,
+   not by reading.
+2. Two sessions worked the identical task in one worktree folder: a merge with conflicts, and an
+   edit to a test that broke it in a way only a browser run could find. **One session per folder,
+   and no two sessions aimed at the same pull request.**
+3. `node scripts/run-playwright.mjs` exits `0` when tests fail and when it refuses to run at all.
+   Read the `N passed` line; never the exit code.
+
+## 5d. Phase 5 — designed and BUILT 2026-08-26
+
+Direction settled across one long conversation: Ward Flow becomes a bed-flow hub covering the whole
+pipe, from the community mental health team's decision to admit through to discharge — not the
+ED-to-ward segment it models today.
+
+Sixteen decisions are recorded in `docs/ward-flow-roadmap.md`, which is the durable statement of
+direction and should not be re-litigated without instruction. Phase 5 itself is bed availability and
+nothing else: a lifecycle for a bed release, leave beds, a discharge board, predicted capacity for
+today in four bands ending at 22:00, and a freshness stamp on every screen.
+
+Binding spec: `docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md`.
+Plan: `docs/superpowers/plans/2026-08-26-ward-flow-phase-5-bed-availability.md`.
+Cold-start handover: `docs/ward-flow-phase-5-handover.md`.
+
+**The assumption most likely to be wrong**, recorded as spec D14: predicted, confirmed, blocked,
+released is a software model of how a bed comes free, and no ward clinician has checked it. A bed
+may be confirmed and blocked simultaneously in reality. It is cheap to change while synthetic.
+
+### What was built, 2026-08-26
+
+Eight tasks, subagent-driven, one implementer per task with an independent review after each.
+
+- A bed release gained the lifecycle. `confidence` narrowed to `likely | possible` and now means
+  something only while a release is predicted; `blocker` became state-dependent and typed, legal
+  only while blocked. `LeaveBed` is its own type and a usable leave bed is never merged into
+  availability. The blocker list grew to seven, all operational, none describing a person.
+- Five capacity figures, derived in one place. `availableNow` is computed before any release or
+  leave bed is looked at, so a prediction is **structurally** incapable of inflating it — not
+  merely tested against, unable to happen. `availableNow` and `held` are copied verbatim from
+  `unitCapacity` so the number a coordinator acts on cannot drift.
+- Only a ward moves its own beds. A coordinator attempting any transition gets a visible
+  `Rejection`; the one thing it may do — request a refresh — changes no number.
+- The discharge and egress board at `/mockups/ward-flow/discharges`, blocked rows first, cards
+  rather than a squeezed table below 40rem, and the beyond-tonight exclusion count stated even at
+  zero.
+- One freshness stamp, used by every board.
+
+**The boundary went 22:00 → 24:00 → 22:00** in one session. The owner asked for midnight; on being
+shown D5's reasoning (midnight is a calendar boundary, nobody hands over at midnight) they reverted.
+The spec is byte-identical to what it was. Recorded because the round trip is the useful part: D5
+had written the boundary down "so it can be changed in one place", and that is exactly how it
+behaved — one constant, one assertion, no code shipped at the wrong value.
+
+### What the screenshots caught that every test passed
+
+The sweep ran after the first visible change rather than at the end, and found four defects that
+were invisible to 10,000+ passing tests. This is section 7's recurring failure, caught mid-phase for
+the first time instead of after later work was built on top:
+
+1. The discharge board printed each confirming ward twice per row — a bare line above the freshness
+   stamp that already names it. Same class as the Phase 4 sidebar that duplicated its own title.
+2. **The capacity board contradicted its own headline.** The headline carefully separates confirmed
+   from predicted and excludes beyond-tonight; the per-unit row three columns away still showed
+   `potential`, which lumps all of it together including the excluded ones. One screen, two
+   incompatible answers.
+3. A raw union value rendered as user-facing text — a release read `confirmed` in lowercase.
+4. Fixing (2) exposed a fourth: the ward screen still said "Potential 1" for the same unit the
+   capacity board now described as "Confirmed 1, Predicted 0", directly above an itemised list
+   showing that release as Confirmed. Two vocabularies for the same beds.
+
+Each fix carries an assertion that would catch its return, and each was mutation-tested.
+
+### Two gates that hid, and one pre-existing failure
+
+- **Formatting is in none of `test`, `typecheck` or `lint`.** Five files were unformatted after all
+  three passed. Nothing verified during the phase could have caught it; only CI would have.
+- **The legal-figure guard failed the build, correctly.** `candidateEvents` must switch
+  exhaustively over every event type, so adding six events without extending
+  `tests/ward-legal-figure-guard.test.ts` refused to compile rather than letting six actions pass
+  through the Mental Health Act sweep unchecked. Extended, and proven non-vacuous by emptying one
+  candidate list and watching the traversal assertion name the event that stopped being reached.
+- Three failures in `clinical-hazard-controls`, `privacy-readiness-contract` and
+  `rag-plan-package-parity` fail identically on clean `origin/main` — verified in a worktree at
+  that ref. Pre-existing, unrelated to Ward Flow, deliberately not touched.
+
+### Still true after Phase 5
+
+Not one new fact about any patient entered the system. `BedRelease` and `LeaveBed` both remain free
+of anything describing a person, asserted structurally against each type's own field set rather
+than against fixture content — a future field named `patientId` would fail it. No legal figure was
+invented anywhere.
+
+### 5d-ii. Automated review round, and the role-screen flake it uncovered (2026-08-26)
+
+Four findings were raised against PR #2390 by automated review after the phase was assembled.
+Three were real and are fixed; one was rejected. All three fixes carry a new test that was
+mutation-tested — the guarded behaviour was deliberately broken, the test watched to go red with
+the failure line quoted, then restored.
+
+1. **P1 — every ward-entered prediction landed in the wrong band.** `FLAG_BED_RELEASE` carried no
+   expected time, so the reducer stamped `expectedAt` with the moment the ward _reported_ the
+   release. `releaseBand()` then classified it `now` every time, because `expectedAt <= now` is
+   trivially true when the two are equal. The four planning bands therefore worked only for the
+   hand-authored fixture and never for anything a ward actually flagged — the single most
+   consequential defect found in the phase. Fixed by collecting an "Expected free" time on the
+   ward's flag form, parsed by the same helper the leave-bed form already uses, and carrying it
+   through unchanged. `confirmedAt` deliberately stays the moment of the report: they are
+   different facts, and conflating them was the bug. Neither carries anything about the departing
+   patient — `expectedAt` is an operational estimate about the **bed**, the same category
+   `expectedReturn` already occupies.
+2. **P2 — leave-bed identifiers collided, and ending one deleted two.** The identifier was derived
+   from the array's length, but ending a leave bed _removes_ an entry. Record two, end the first,
+   record a third, and the third is handed the first's identifier back; the removal filter then
+   deletes both. Fixed with a monotonic sequence that only ever increases, mirroring the existing
+   referral sequence. Bed releases were checked for the same flaw and do **not** have it: nothing
+   ever removes a release, so its length-derived identifier is safe — that reasoning is now a
+   comment on the identifier itself so nobody has to re-derive it.
+3. **P2 — the freshness stamp reported the wrong time after a transition.** Confirming, blocking
+   and releasing all spread the existing record and kept the original `confirmedAt`, so a row went
+   on reporting when it was first flagged rather than when its current state became true — which
+   defeats the whole point of spec D7. All three now restate `confirmedAt`. `confirmedBy` is
+   deliberately left alone: each case already refuses any acting unit other than the release's own
+   ward, so it can only ever be rewritten to the identical string.
+4. **P2 — rejected in its original form, then implemented narrowly, and SHIPPED.** The reviewer
+   originally wanted a released bed to stop banding `now` once the clock passes the day boundary. That value feeds the discharge board's
+   excluded count, whose footer reads "expected beyond tonight" — and a bed that has already been
+   released is not _expected_ at any future time. The fix would have traded a cosmetic ordering nit
+   for a board making a false statement about a real record, reachable in three clicks of the demo
+   clock.
+
+   **Corrected 2026-08-27 — the premise recorded here was wrong, and the finding was ultimately
+   implemented.** The claim was that "there is no next operating day in this prototype, so
+   'Released today' never needs to empty". The demo clock does roll across operating days, and
+   advancing it by one was still listing yesterday's released beds under "Released today". Before
+   merge the finding was re-implemented in a narrower form and shipped: a released record bands
+   `beyond-today` only when its `confirmedAt` falls on an earlier operating day than `now`. Same-day
+   released beds still band `now`. The board's footer objection is answered because the carried-over
+   row joins the exclusion count that is already stated aloud, rather than being silently dropped.
+   Spec D1 is not weakened either way: `capacityBreakdown()` skips released records before it
+   derives any figure, so `availableNow` never saw them. Scope is the discharge board's display
+   only. Recorded here because a later session will meet this code and **should not revert it**
+   back to an unconditional `now`.
+
+**The role-screen browser flake is pre-existing and is not Phase 5's.** `tests/ui-ward-roles.spec.ts`
+intermittently fails with a Playwright strict-mode violation — a role screen's own test identifier
+resolving to two elements rather than one. Measured deliberately, on a quiet tree, against the
+isolated production server the runner builds:
+
+| Ref                 | Runs | Failing runs | Signature                                 |
+| ------------------- | ---- | ------------ | ----------------------------------------- |
+| This branch         | 3    | 1            | `ward-unit-screen` resolved to 2 elements |
+| Clean `origin/main` | 7    | 1            | `ward-ed-screen` resolved to 2 elements   |
+
+The identical failure class reproduces on `origin/main`, on the **emergency department** screen,
+which Phase 5 does not touch in any way — and `tests/ui-ward-roles.spec.ts` is byte-identical
+between the two refs. So the mechanism is generic to the ward-flow role screens rather than
+anything Phase 5 introduced. Both render sites of each identifier are mutually exclusive branches
+of a single early `return`, so two elements can only mean two component instances or streamed
+markup briefly present in the document at once; that mechanism is **not yet established**, and
+saying otherwise would be a guess.
+
+Honest caveat on the numbers: 1-in-3 against 1-in-7 is too small a sample to claim Phase 5 made it
+either more or less frequent. The attribution that _is_ safe is the one that matters — it happens
+without Phase 5's code.
+
+Nothing was quarantined, skipped or loosened. The repository's flake policy requires three
+reproductions on the same commit before quarantine, which has not happened, and the assertion is
+correct as written: the screen genuinely should appear once. Captured for a later session rather
+than papered over here.
+
+### 5d-iii. Final whole-branch review (2026-08-26)
+
+One review covered the whole branch and stood in for the per-task reviews of Tasks 5, 6 and 7 and
+both visual-fix rounds, which were deliberately deferred into it. Verdict: **approved with
+findings — no P0, no P1, seven P2.** All seven are fixed, each with a new or strengthened test that
+was mutation-tested.
+
+What it confirmed, rather than assumed, is worth recording because these are the phase's own
+promises:
+
+- **Nothing predicted, confirmed-but-unreleased or on leave can reach "available now".** The
+  reviewer traced every producer and every one of the eight consumers rather than trusting the
+  comments. `availableNow` is computed before any release or leave bed is examined, so this is
+  structural blindness rather than arithmetic that merely happens to agree today. The only door by
+  which a release ever moves an availability number is the terminal `released` transition, which is
+  what spec D1 defines as the bed actually being free, and it is clamped to the unit's bed total.
+- **No patient attribute, identifying timing or free text reached `BedRelease` or `LeaveBed`.**
+  Both field sets are exactly the spec's, neither carries sex, and every `confirmedBy` is a role
+  string the caller cannot supply.
+- **The `expectedAt` field added during the review round is a fact about the bed and should stay.**
+  It is mandated by spec D1 and D5 rather than invented; the four planning bands are underivable
+  without it; the record carries no key of any kind linking it to a person; and it sits below the
+  bar spec D4 already set for a leave bed's expected return. The network-wide board renders a band,
+  never the instant — only the owning ward, which already knows who is in the bed, sees the time.
+
+The seven fixed findings, in the order they were worked:
+
+1. The ward screen's chip read `Leave` while counting only _usable_ leave beds, so one screen
+   contradicted itself twice over on seeded data. Now `Leave (usable)`, matching spec D6 and the
+   capacity board.
+2. A `Potential` chip on the network view and the coordinator flow diagram still counted every
+   release regardless of state or timing — advertising an **already released** bed as "may become
+   available", with no clicks, on seeded data. Both surfaces now read the same Confirmed/Predicted
+   breakdown the capacity board and ward screen already use. `unitCapacity()`'s arithmetic is
+   untouched.
+3. `blocker` was still an unconstrained `string` at every layer that spec D3 says must constrain it,
+   and the reducer's guard was a truthiness test rather than a membership test. Both tightened.
+4. The capacity board asserted a confirming ward unconditionally, so spec D7's "Never confirmed"
+   floor was unreachable and a ward could be credited with confirming a figure it never confirmed.
+   It now carries the same guarded props the ward screen already had.
+5. The leave bed's only structural privacy guard inspected one hand-authored fixture object, so
+   adding an optional `sex` field to `LeaveBed` would have passed the whole suite. It now asserts
+   the allowed field set over every seeded record **and** one the reducer produced.
+6. A freshness test's regex accepted both possible outputs, so it could not fail for the behaviour
+   its own title claimed. Pinned to the exact string.
+7. Releasing a bed lowered derived occupancy without touching the sex-mix figure, which every other
+   occupancy-changing event maintains — so the capacity board's own row contradicted itself three
+   clicks in. Sex was **not** added to `BedRelease` (spec D11 forbids it) and no sex was guessed at:
+   the model genuinely cannot know who left, so the cell now says so in visible words when the two
+   no longer agree. Saying less is the phase's stated failure behaviour.
+
+**Follow-up the review found and this phase did not close.** Spec D9 says the discharge board is
+reached "from the sidebar's Boards group **and from the capacity board's own figures**". Only the
+sidebar entry exists. That is an unimplemented spec clause rather than a defect, and it is small —
+worth doing at the start of Phase 6 while the numbers are fresh.
+
+**Third observation on the role-screen flake, and it narrows the cause.** Running three ward specs
+in one invocation, the same strict-mode duplicate-element failure struck the _discharge_ journey's
+own `ward-unit-screen` assertion; the same spec then passed twice in a row immediately afterwards.
+So the condition has now been seen on three different identifiers across two refs. What every
+instance shares is the shape of the assertion, not the screen: an expectation placed immediately
+after `page.goto(..., { waitUntil: "domcontentloaded" })`, and it is likelier under load. That is
+consistent with streamed markup being briefly present in the document twice — but consistent is not
+established, and the mechanism is still unproven. Nothing was quarantined, skipped or loosened.
+
+## 8. Where everything is
+
+| Need                                    | File                                                                              |
+| --------------------------------------- | --------------------------------------------------------------------------------- |
+| Project orientation, Phases 1–3         | `docs/ward-flow-context.md`                                                       |
+| **Phase 3 state and how to resume**     | `docs/ward-flow-phase-3-handover.md`                                              |
+| Phase 3 execution record, every ruling  | `docs/ward-flow-phase-3-ledger.md`                                                |
+| Phase 3 briefs, reports, reviews        | `docs/ward-flow-phase-3-workspace/`                                               |
+| Phase 3 binding authority               | `docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md`      |
+| Phase 3 plan, 12 tasks                  | `docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md`             |
+| Phase 1 handoff                         | `docs/ward-flow-phase-handoff.md`                                                 |
+| Phase 2 kickoff                         | `docs/ward-flow-phase-2-kickoff.md`                                               |
+| Phase 4 binding authority               | `docs/superpowers/specs/2026-08-25-ward-flow-phase-4-specialist-boards-design.md` |
+| Phase 4 plan, 11 delivered + 1 held     | `docs/superpowers/plans/2026-08-25-ward-flow-phase-4-specialist-boards.md`        |
+| Sandbox and sidebar plan                | `docs/superpowers/plans/2026-08-26-ward-flow-sidebar-house-pattern.md`            |
+| **Direction and settled decisions**     | `docs/ward-flow-roadmap.md`                                                       |
+| **Phase 5 binding authority**           | `docs/superpowers/specs/2026-08-26-ward-flow-phase-5-bed-availability-design.md`  |
+| **Phase 5 plan, 8 tasks**               | `docs/superpowers/plans/2026-08-26-ward-flow-phase-5-bed-availability.md`         |
+| **Phase 5 cold-start handover**         | `docs/ward-flow-phase-5-handover.md`                                              |
+| Design decisions across ward management | `docs/ward-management-decisions.md`                                               |
+| Route and mode map                      | `docs/ward-management-mode-map.md`                                                |
+
+The live superpowers workspace is `.superpowers/sdd/2026-08-19-ward-flow-phase-3-role-screens/`
+and is **gitignored** — a continuing session appends there, and refreshes
+`docs/ward-flow-phase-3-workspace/` at each handover.

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "4a13a994-5364-440b-a377-7f6dfd5befc9",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Two Ward Flow documents name live branches without saying they are live",
+    "issueUlid": "01M1G4PSE86ETV640J28Z5WJW2"
+  }
+}

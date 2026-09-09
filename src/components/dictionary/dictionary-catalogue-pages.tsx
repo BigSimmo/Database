@@ -23,12 +23,20 @@ import {
   type ResultFilterOption,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { DictionaryResultRow } from "@/components/dictionary/dictionary-result-row";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { type PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
-import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
-import { cn } from "@/components/ui-primitives";
+import {
+  InformationPageFooter,
+  InformationPageHeader,
+  InformationPageShell,
+} from "@/components/information-page-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { cn, searchShell, searchShellInput } from "@/components/ui-primitives";
 import {
   allDictionaryEntries,
   dictionaryBrowseLetter,
@@ -47,6 +55,7 @@ import {
   dictionaryTopics,
   type DictionaryEntryKind,
 } from "@/lib/dictionary-data";
+import { desktopPageComposerSlotId, modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 
 const scopeOptions = [
   { value: "definitions", label: "Terms" },
@@ -116,14 +125,12 @@ function catalogueNoun(scope: DictionaryCatalogueScope, count: number) {
  * list, and clearing it restores the catalogue. `/dictionary/browse` survives
  * only as a redirect for existing links.
  *
- * The shared bottom composer is this page's ONLY search input. Do not add a
- * second one — `docs/search-chrome-behaviour.md`'s one-composer-per-page rule is
- * a hard constraint with committed tests behind it.
- *
- * The phone control row is sized to its own labels rather than to the viewport.
- * It keeps the complete “Abbreviations” and “Filter” wordmarks, with tighter
- * phone-only horizontal padding so the idle controls remain one balanced row at
- * common phone widths and wrap, rather than clip, on compact screens.
+ * The Filter band is always on this page (count, optional query, Filter). Compact
+ * Terms / Abbreviations and A–Z sit under that band. From `sm` up, the shared
+ * composer portals into this page under mode nav and above the Filter band.
+ * Phones keep the usual compact bottom dock. Do not add a second search field —
+ * `docs/search-chrome-behaviour.md`'s one-composer-per-page rule is a hard
+ * constraint with committed tests behind it.
  */
 export function DictionaryCataloguePage() {
   const { searchParams, replace, setOne, toggleMany } = useDictionaryUrl();
@@ -173,11 +180,8 @@ export function DictionaryCataloguePage() {
     });
   // Clearing the query drops `run` with it, because the shell re-derives the
   // composer's value from the URL on every search-string change and a leftover
-  // submitted marker would restore the results view the reader just dismissed —
-  // and it drops `letter`, because while searching that key is both invisible
-  // and inert, so keeping it would hand back a catalogue narrowed to one initial
-  // under a control that promises the whole thing. The key list is
-  // `dictionaryClearedQueryKeys`, next to the predicate that creates the hazard.
+  // submitted marker would restore the results view the reader just dismissed.
+  // Letter and facets stay: they remain visible under the band / in Filter.
   const clearQuery = () =>
     replace((next) => {
       for (const key of dictionaryClearedQueryKeys) next.delete(key);
@@ -285,48 +289,30 @@ export function DictionaryCataloguePage() {
     })),
   ];
 
-  /* Sized to its own labels, not to the viewport, and joined into one border
-     with no gap. The counts sit inline, so the row needs no summary line of its
-     own while browsing. */
+  /* One equal-layout rail: both catalogue scopes have identical geometry while
+     the shared primitive owns radio semantics, arrow-key navigation, focus and
+     the 48px tap target. Responsive compact widths give the longer
+     Abbreviations label enough room as the shared control's padding grows,
+     without letting either segment size itself from its text and leave the
+     control visually lopsided. */
   const scopeToggle = (
-    <div
-      role="group"
-      aria-label="Show"
-      data-testid="dictionary-scope-toggle"
-      className="inline-flex min-h-tap shrink-0 items-stretch overflow-hidden rounded-lg border border-[color:var(--border)]"
-    >
-      {scopeOptions.map((option) => {
-        const active = params.scope === option.value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={active}
-            aria-controls="dictionary-catalogue-results"
-            onClick={() => setOne("view", option.value, "definitions")}
-            className={cn(
-              "inline-flex items-center gap-0.5 px-1.5 text-xs font-extrabold transition-colors motion-reduce:transition-none sm:gap-1 sm:px-3",
-              focusRing,
-              active
-                ? "bg-[color:var(--tone-purple)] text-[color:var(--surface)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
-                : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] hover:bg-[color:var(--tone-purple-soft)]",
-            )}
-          >
-            {option.label}
-            {/* No `opacity-80` de-emphasis, which the design-scratch mockup
-                carries: on the inactive segment it drops accent-on-accent-soft
-                to 3.42:1 and axe fails it as a serious contrast violation. The
-                count is already secondary by being a number after a word. */}
-            <span className="nums">{scopeCounts[option.value]}</span>
-          </button>
-        );
-      })}
+    <div data-testid="dictionary-scope-toggle" className="w-56 shrink-0 min-[360px]:w-64 sm:w-72">
+      <SegmentedControl
+        label="Show"
+        value={params.scope}
+        onChange={(value) => setOne("view", value, "definitions")}
+        options={scopeOptions.map((option) => ({
+          ...option,
+          hint: String(scopeCounts[option.value]),
+        }))}
+        ariaControls="dictionary-catalogue-results"
+        layout="equal"
+      />
     </div>
   );
 
-  /* The phone's whole alphabet in one 63px control. 27 chips cost a band and a
-     horizontal scroll; the rail below is the same control at a width that can
-     afford it. */
+  /* Phone A–Z: compact to match the toggle. The desktop rail below is the same
+     control at a width that can afford 27 chips. */
   const letterChip = (
     <button
       type="button"
@@ -337,12 +323,12 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex min-h-tap shrink-0 items-center gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-0.5 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:hidden",
         focusRing,
       )}
     >
       {params.letter === "all" ? "A–Z" : params.letter}
-      <ChevronDown className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
+      <ChevronDown className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
       <span className="sr-only">
         {params.letter === "all" ? " · jump to a letter" : ` · jump to a letter, currently ${params.letter}`}
       </span>
@@ -362,8 +348,7 @@ export function DictionaryCataloguePage() {
   );
 
   /* Clears the query from the band's own line, which is where the reader is
-     looking when they decide they are done with it. It is one shared control at
-     every breakpoint; Filter has the band’s dedicated phone slot. */
+     looking when they decide they are done with it. Filter stays in the band. */
   const clearQueryControl = (
     <button
       type="button"
@@ -375,110 +360,85 @@ export function DictionaryCataloguePage() {
       )}
     >
       <X className="size-icon-md" aria-hidden="true" />
-      <span className="sr-only">Clear the search and show the whole catalogue</span>
+      <span className="sr-only">Clear the search and restore the catalogue</span>
     </button>
   );
-
-  /* The band is this page's "what did that narrowing return" line, so it is
-     absent from the plain browse state and present whenever there is something
-     to report: a query, or an applied facet. The retired Browse header carried
-     a summary line unconditionally, and in the default state it was two-thirds
-     empty while the control below it took half the phone width. */
-  const showBand = searching || appliedFilters.length > 0;
 
   return (
     <>
       <InformationPageShell testId="dictionary-catalogue-main" width="bleed" gap={false}>
-        <header className="mx-auto w-full max-w-[76rem] px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-7">
-          {/* Desktop-only: on a phone the mode-nav rail sitting directly above
-              already reads "Terms", so the kicker repeats it for a whole band. */}
-          <p className="hidden text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)] sm:block">
-            Clinical dictionary
-          </p>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:mt-1 sm:text-4xl">
-            Clinical terms
-          </h1>
-        </header>
-        {/* The query gets a line of its own, and only while a query runs.
-            Measured at 390px: sharing the control row, the query is allotted
-            135px of which 95px is text — "tardive dyskinesia" wants 123px and is
-            cut to "tardive dyski…". Given the line, the same words fit whole.
-            The extra row is spent only during a search, on the one thing the
-            reader typed. */}
-        {showBand ? (
-          <div className="mx-auto w-full max-w-[76rem] px-4 pb-2 sm:px-6 sm:pb-3">
-            <SearchResultsHeaderBand
-              modeId="dictionary"
-              query={params.q}
-              matchCount={hits.length}
-              status="ready"
-              resultNoun={noun}
-              utilityControls={
-                <>
-                  {searching ? clearQueryControl : null}
-                  <span className="hidden shrink-0 sm:flex">{filterTrigger("desktop")}</span>
-                </>
-              }
-              mobileControls={filterTrigger("phone")}
-              mobileControlsPlacement="inline"
-              appliedFilters={appliedFilters}
-              onClearFilters={activeCount ? clearFilters : undefined}
-            />
+        {/* A result view, not a mode home: this is the shared PAGE composer slot,
+            so the catalogue gets the compact pill alone at sm+ — no rotating "Try
+            ..." line, Prompts rail, or privacy line, exactly like /forms/search and
+            /documents/search. The slot is page-owned rather than shell-owned only so
+            it sits under the mode nav and above the Filter band; GlobalSearchShell
+            suppresses its own copy for this route. Padding comes from the composer's
+            own `px-4 py-3`, so the slot adds none. */}
+        <DesktopComposerPortalSlot
+          id={desktopPageComposerSlotId}
+          data-testid="dictionary-catalogue-composer"
+          data-composer-reserve={modeHomeComposerReservePendingValue}
+          className="desktop-page-composer-slot mx-auto hidden w-full min-w-0 sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
+        />
+        <h1 className="sr-only">Dictionary catalogue</h1>
+        {/* The original Filter band stays on browse and search. Compact Terms /
+            Abbreviations and A–Z sit centred underneath it on phones. */}
+        <div className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-4 pb-2 pt-3 sm:px-6 sm:pb-3 sm:pt-0">
+          <SearchResultsHeaderBand
+            modeId="dictionary"
+            query={params.q}
+            matchCount={hits.length}
+            status="ready"
+            resultNoun={noun}
+            hideEmptyQuery
+            emptyQueryLabel="Dictionary catalogue filters"
+            utilityControls={
+              <>
+                {searching ? clearQueryControl : null}
+                <span className="hidden shrink-0 sm:flex">{filterTrigger("desktop")}</span>
+              </>
+            }
+            mobileControls={filterTrigger("phone")}
+            mobileControlsPlacement="inline"
+            appliedFilters={appliedFilters}
+            onClearFilters={activeCount ? clearFilters : undefined}
+          />
+          <div className="mt-2 flex flex-nowrap items-center justify-center gap-1.5">
+            {scopeToggle}
+            {letterChip}
           </div>
-        ) : null}
-        <div className="border-y border-[color:var(--border)] bg-[color:var(--surface)]">
-          <div className="mx-auto grid w-full max-w-[76rem] gap-1.5 px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
-            {/* The phone gutter and internal gaps are deliberately tight enough
-                for the complete labels to stay on one row at 390px. At 320px the
-                intrinsic controls still wrap rather than squeezing counts or
-                clipping the Filter wordmark. */}
-            <div className="flex flex-wrap items-center gap-2">
-              {scopeToggle}
-              {/* The alphabet is meaningless against a ranked result set, so it
-                  stands down rather than competing with the words for the line.
-                  `dictionaryCatalogue` drops the letter from the predicate at the
-                  same time, so nothing narrows the list without a visible
-                  control saying so. */}
-              {searching ? null : letterChip}
-              {showBand ? null : (
-                <span className="ml-auto flex items-center gap-2">
-                  <span className="hidden sm:flex">{filterTrigger("desktop")}</span>
-                  <span className="flex sm:hidden">{filterTrigger("phone")}</span>
-                </span>
-              )}
-            </div>
-            {/* Wraps rather than scrolls: 27 chips overrun the 76rem container by
-                a chip's width, and a rail that clips Z is worse than a rail that
-                takes two rows on the narrower desktop widths. */}
-            {searching ? null : (
-              <nav aria-label="Browse by letter" className="hidden flex-wrap gap-1 pb-1 sm:flex">
-                {["all", ...alphabet].map((value) => {
-                  const empty = value !== "all" && !letterCounts.has(value);
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      aria-current={params.letter === value ? "page" : undefined}
-                      disabled={empty}
-                      onClick={() => setOne("letter", value, "all")}
-                      className={cn(
-                        "grid min-h-tap min-w-tap place-items-center rounded-md border text-xs font-extrabold sm:min-h-10 sm:min-w-10",
-                        params.letter === value
-                          ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                          : empty
-                            ? "border-[color:var(--border)] text-[color:var(--disabled)]"
-                            : "border-[color:var(--border)] text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)]",
-                      )}
-                    >
-                      {value === "all" ? "All" : value}
-                    </button>
-                  );
-                })}
-              </nav>
-            )}
-          </div>
+          {/* Wraps rather than scrolls: 27 chips overrun the 76rem container by
+              a chip's width, and a rail that clips Z is worse than a rail that
+              takes two rows on the narrower desktop widths. */}
+          <nav aria-label="Browse by letter" className="mt-2 hidden flex-wrap gap-1 sm:flex">
+            {["all", ...alphabet].map((value) => {
+              const empty = value !== "all" && !letterCounts.has(value);
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-current={params.letter === value ? "page" : undefined}
+                  disabled={empty}
+                  onClick={() => setOne("letter", value, "all")}
+                  className={cn(
+                    "grid min-h-tap min-w-tap place-items-center rounded-md border text-xs font-semibold sm:min-h-10 sm:min-w-10",
+                    params.letter === value
+                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                      : empty
+                        ? "border-[color:var(--border)] text-[color:var(--disabled)]"
+                        : "border-[color:var(--border)] text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)]",
+                  )}
+                >
+                  {value === "all" ? "All" : value}
+                </button>
+              );
+            })}
+          </nav>
         </div>
-        <div id="dictionary-catalogue-results" className="mx-auto w-full max-w-[76rem] px-0 py-3 sm:px-6 sm:py-4">
+        <div
+          id="dictionary-catalogue-results"
+          className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-0 py-3 sm:px-6 sm:py-4"
+        >
           {hits.length ? (
             <section
               aria-label="Dictionary catalogue"
@@ -509,16 +469,22 @@ export function DictionaryCataloguePage() {
                   catalogue the reader is not looking at. */}
               <h2 className="mt-3 text-lg font-extrabold text-[color:var(--text-heading)]">
                 {searching
-                  ? "No matching dictionary entries"
+                  ? params.letter === "all"
+                    ? "No matching dictionary entries"
+                    : `No matching dictionary entries under ${params.letter}`
                   : params.letter === "all"
                     ? `No ${catalogueNoun(params.scope, 0)} match these filters`
                     : `No ${catalogueNoun(params.scope, 0)} under ${params.letter}`}
               </h2>
               <p className="mx-auto mt-1 max-w-md text-sm text-[color:var(--text-muted)]">
                 {searching
-                  ? activeCount
-                    ? "Keep the search term and remove a filter, or try a broader term."
-                    : "Try a broader term, check the spelling, or clear the search to browse the catalogue."
+                  ? params.letter === "all"
+                    ? activeCount
+                      ? "Keep the search term and remove a filter, or try a broader term."
+                      : "Try a broader term, check the spelling, or clear the search to browse the catalogue."
+                    : activeCount
+                      ? "Keep the search term, show all letters, or remove a filter."
+                      : "Show all letters, try a broader term, or clear the search to browse the catalogue."
                   : params.letter === "all"
                     ? "Remove a filter, or switch between terms and abbreviations."
                     : "Choose another letter, or widen the filters."}
@@ -528,15 +494,16 @@ export function DictionaryCataloguePage() {
                   <button
                     type="button"
                     onClick={clearQuery}
-                    className="min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                    className="min-h-tap rounded-lg px-4 text-sm font-semibold text-[color:var(--clinical-accent)]"
                   >
                     Clear the search
                   </button>
-                ) : params.letter === "all" ? null : (
+                ) : null}
+                {params.letter === "all" ? null : (
                   <button
                     type="button"
                     onClick={() => setOne("letter", "all", "all")}
-                    className="min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                    className="min-h-tap rounded-lg px-4 text-sm font-semibold text-[color:var(--clinical-accent)]"
                   >
                     Show all letters
                   </button>
@@ -545,7 +512,7 @@ export function DictionaryCataloguePage() {
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                    className="min-h-tap rounded-lg px-4 text-sm font-semibold text-[color:var(--clinical-accent)]"
                   >
                     Clear filters
                   </button>
@@ -553,6 +520,14 @@ export function DictionaryCataloguePage() {
               </div>
             </div>
           )}
+        </div>
+        {/* The catalogue shell is `bleed`, so every band owns its own container.
+            Without one this cross-mode tray stretched the full viewport while
+            the result list above it stayed inside the catalogue width, which
+            read as a wider, longer panel bolted onto the page. Same container as
+            the header band and the results, so its edges line up with theirs. */}
+        <div className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-4 sm:px-6">
+          <UniversalSearchAlsoMatches modeId="dictionary" query={params.q} className="mt-4" />
         </div>
         <InformationPageFooter>
           All published entries link a source · Specialist clinical approval remains pending
@@ -564,7 +539,7 @@ export function DictionaryCataloguePage() {
         panelId="dictionary-filter-sheet"
         testId="dictionary-filter-sheet"
         title="Filter and sort"
-        description="Facets narrow the current list; the Terms / Abbreviations scope remains a separate control."
+        description="Facets narrow the current list; Terms / Abbreviations and A–Z remain on the page under this band."
         groups={groups}
         onClearAll={activeCount ? clearFilters : undefined}
         summary={{ count: hits.length, noun }}
@@ -573,13 +548,7 @@ export function DictionaryCataloguePage() {
         chromeResetKey={params.q}
       />
       <ResultFilterSheet
-        // The alphabet stands down during a search, and the chip that opens this
-        // sheet unmounts with it — but `letterOpen` is component state, so a
-        // history navigation onto a searched URL changes `params.q` without
-        // closing an already-open sheet. It would then offer a letter that
-        // `dictionaryCatalogue` deliberately ignores: the same invisible-and-
-        // inert filter the chip's own comment exists to prevent.
-        open={letterOpen && !searching}
+        open={letterOpen}
         onClose={() => setLetterOpen(false)}
         panelId="dictionary-letter-sheet"
         testId="dictionary-letter-sheet"
@@ -636,18 +605,11 @@ export function DictionaryTopicsPage() {
   return (
     <>
       <InformationPageShell width="bleed" gap={false} testId="dictionary-topics-main">
-        <div className="mx-auto grid w-full max-w-[76rem] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
+        <div className="mx-auto grid w-full max-w-[var(--content-width-catalogue)] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
           {/* A `div`, not a `main`: `InformationPageShell` already renders the
               route's `<main>`, and a nested one is a duplicate landmark. */}
           <div className="min-w-0">
-            <header>
-              <p className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
-                Governed collections
-              </p>
-              <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-                Topics
-              </h1>
-            </header>
+            <InformationPageHeader eyebrow="Governed collections" title="Topics" />
             {/* The page-level topic search was removed: twelve collections fit on
                 one screen, and the universal composer already searches the whole
                 dictionary. Kind filtering and sort stay, as a compact toolbar. */}
@@ -659,7 +621,7 @@ export function DictionaryTopicsPage() {
               <button
                 type="button"
                 onClick={() => setFilterOpen(true)}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
               >
                 <Filter className="size-icon-sm" aria-hidden="true" />
                 Filter
@@ -668,7 +630,7 @@ export function DictionaryTopicsPage() {
               <button
                 type="button"
                 onClick={() => setOne("sort", sort === "az" ? "za" : "az", "az")}
-                className="inline-flex min-h-tap items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+                className="inline-flex min-h-tap items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
               >
                 {sort === "az" ? "A–Z" : "Z–A"}
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
@@ -726,7 +688,7 @@ export function DictionaryTopicsPage() {
                     <button
                       type="button"
                       onClick={clearTopicFilters}
-                      className="mt-4 min-h-tap rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]"
+                      className="mt-4 min-h-tap rounded-lg px-4 text-sm font-semibold text-[color:var(--clinical-accent)]"
                     >
                       Show all collections
                     </button>
@@ -754,7 +716,7 @@ export function DictionaryTopicsPage() {
                 <Link
                   key={kind}
                   href={`/dictionary/search?kind=${kind}`}
-                  className="flex min-h-10 items-center justify-between border-b border-[color:var(--border)] text-sm font-semibold text-[color:var(--clinical-accent)]"
+                  className="flex min-h-tap items-center justify-between border-b border-[color:var(--border)] text-sm font-semibold text-[color:var(--clinical-accent)]"
                 >
                   {dictionaryKindLabel(kind)}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -873,14 +835,14 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
           <div className="grid">
             <Link
               href="/dictionary/compare"
-              className="flex min-h-tap items-center gap-2 rounded-lg px-3 text-sm font-bold hover:bg-[color:var(--surface-subtle)]"
+              className="flex min-h-tap items-center gap-2 rounded-lg px-3 text-sm font-semibold hover:bg-[color:var(--surface-subtle)]"
             >
               <GitCompareArrows className="size-icon-sm text-[color:var(--clinical-accent)]" aria-hidden="true" />
               Compare terms
             </Link>
             <Link
               href="/dictionary/sources"
-              className="flex min-h-tap items-center gap-2 rounded-lg px-3 text-sm font-bold hover:bg-[color:var(--surface-subtle)]"
+              className="flex min-h-tap items-center gap-2 rounded-lg px-3 text-sm font-semibold hover:bg-[color:var(--surface-subtle)]"
             >
               <BookOpenText className="size-icon-sm text-[color:var(--clinical-accent)]" aria-hidden="true" />
               How sources are governed
@@ -889,34 +851,36 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
         }
       />
       <InformationPageShell width="bleed" gap={false} testId="dictionary-topic-detail-main">
-        <div className="mx-auto grid w-full max-w-[76rem] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
+        <div className="mx-auto grid w-full max-w-[var(--content-width-catalogue)] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
           <div id="dictionary-topic-terms" className="min-w-0 scroll-mt-page-section">
-            <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-              {topic.title}
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[color:var(--text-muted)]">{topic.description}</p>
-            <p className="mt-2 inline-flex items-center gap-3 text-xs font-semibold text-[color:var(--text-muted)]">
-              <span>{topic.entrySlugs.length} terms</span>
-              <span className="inline-flex items-center gap-1 text-[color:var(--success)]">
-                <Check className="h-4 w-4" aria-hidden="true" />
-                Source linked
-              </span>
-            </p>
+            <PageHeader
+              title={topic.title}
+              description={topic.description}
+              meta={
+                <p className="inline-flex items-center gap-3 text-xs font-semibold text-[color:var(--text-muted)]">
+                  <span>{topic.entrySlugs.length} terms</span>
+                  <span className="inline-flex items-center gap-1 text-[color:var(--success)]">
+                    <Check className="h-4 w-4" aria-hidden="true" />
+                    Source linked
+                  </span>
+                </p>
+              }
+            />
             <div className="mt-5 flex gap-2">
-              <label className="flex min-h-tap min-w-0 flex-1 items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 sm:min-h-10">
+              <label className={cn(searchShell, "min-w-0 flex-1 sm:min-h-10")}>
                 <Search className="size-icon-sm text-[color:var(--decoration-soft)]" aria-hidden="true" />
                 <span className="sr-only">Search this topic</span>
                 <input
                   defaultValue={searchParams.get("q") ?? ""}
                   onChange={(event) => setOne("q", event.target.value)}
                   placeholder="Search this topic"
-                  className="min-w-0 flex-1 bg-transparent text-base outline-none sm:text-sm"
+                  className={cn(searchShellInput, "text-base sm:text-sm")}
                 />
               </label>
               <button
                 type="button"
                 onClick={() => setFilterOpen(true)}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold sm:min-h-10"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold sm:min-h-10"
               >
                 <Filter className="size-icon-sm" aria-hidden="true" />
                 Filter{kinds.length ? ` ${kinds.length}` : ""}
@@ -924,7 +888,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
               <button
                 type="button"
                 onClick={() => setOne("sort", sort === "az" ? "za" : "az", "az")}
-                className="hidden min-h-tap items-center gap-1 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold sm:inline-flex sm:min-h-10"
+                className="hidden min-h-tap items-center gap-1 rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold sm:inline-flex sm:min-h-10"
               >
                 {sort === "az" ? "A–Z" : "Z–A"}
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
@@ -955,7 +919,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
               className="mt-5 grid scroll-mt-page-section border-y border-[color:var(--border)] lg:hidden"
             >
               <details className="border-b border-[color:var(--border)]">
-                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-bold">
+                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-semibold">
                   About this collection
                   <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 </summary>
@@ -965,7 +929,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
                 </div>
               </details>
               <details className="border-b border-[color:var(--border)]">
-                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-bold">
+                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-semibold">
                   Related topics
                   <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 </summary>
@@ -984,7 +948,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
                 </div>
               </details>
               <details>
-                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-bold">
+                <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between py-2.5 text-sm font-semibold">
                   Common comparisons
                   <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 </summary>

@@ -196,7 +196,7 @@ function CompactCards({ sheets }: { sheets: Specimen[] }) {
             type="button"
             data-factsheet-result
             className={cn(
-              "group flex flex-col rounded-xl border border-[color:var(--border)] border-t-[3px] bg-[color:var(--surface)] p-2.5 text-left shadow-[var(--shadow-card)] transition hover:border-[color:var(--border-strong)]",
+              "group flex flex-col rounded-xl border border-[color:var(--border)] border-t-[3px] bg-[color:var(--surface)] p-2.5 text-left shadow-[var(--e2)] transition hover:border-[color:var(--border-strong)]",
               focusRing,
             )}
             style={{ borderTopColor: theme.accent }}
@@ -291,7 +291,7 @@ function ComfortableCards({ sheets }: { sheets: Specimen[] }) {
             type="button"
             data-factsheet-result
             className={cn(
-              "group flex flex-col rounded-xl border border-[color:var(--border)] border-t-[3px] bg-[color:var(--surface)] p-4 text-left shadow-[var(--shadow-card)] transition hover:border-[color:var(--border-strong)]",
+              "group flex flex-col rounded-xl border border-[color:var(--border)] border-t-[3px] bg-[color:var(--surface)] p-4 text-left shadow-[var(--e2)] transition hover:border-[color:var(--border-strong)]",
               focusRing,
             )}
             style={{ borderTopColor: theme.accent }}
@@ -348,7 +348,7 @@ function OptionFrame({
         <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">{title}</p>
         <p className="mt-1 text-sm-minus leading-5 text-[color:var(--text-muted)]">{blurb}</p>
       </header>
-      <div className="mx-auto w-full max-w-[24.5rem] rounded-[1.35rem] border border-[color:var(--border-strong)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-card)]">
+      <div className="mx-auto w-full max-w-[24.5rem] rounded-[1.35rem] border border-[color:var(--border-strong)] bg-[color:var(--surface)] p-3 shadow-[var(--e2)]">
         <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">Find a sheet</p>
         <h2 className="mt-1 text-xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
           Search patient information

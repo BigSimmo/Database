@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a2cff633-7bfe-480e-91bc-8d97f68c66c7",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#XEGPCD",
+    "outcome": "Hardened ensureTeam with explicit row-level update lock on conflict (id) do update set id = excluded.id and pinned assertion in tests/caring-contacts-write-serialisation.test.ts",
+    "baseRowFingerprint": "617f51f05b375ff9afe960f89dbfec8bdcb24958b05cc7927082c9f8f297811e"
+  }
+}

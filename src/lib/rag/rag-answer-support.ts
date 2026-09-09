@@ -21,6 +21,12 @@ import type {
 export const machineReadableFallbackAnswer =
   "The indexed sources were not machine-readable enough to produce a formatted answer.";
 
+/**
+ * Computes an effective score value for a search result, bounding hybrid score boost.
+ *
+ * @param result - The search result to evaluate
+ * @returns The normalized score between 0 and 1
+ */
 export function scoreValue(result: SearchResult) {
   const similarity = result.similarity ?? 0;
   const hybrid = result.hybrid_score ?? similarity;
@@ -28,6 +34,13 @@ export function scoreValue(result: SearchResult) {
   return Math.min(1, hybrid);
 }
 
+/**
+ * Derives the aggregate confidence level for an answer based on search results and accepted citations.
+ *
+ * @param results - The pool of search results
+ * @param acceptedCitations - Citations accepted for the answer
+ * @returns 'unsupported' | 'low' | 'medium' | 'high'
+ */
 export function deriveConfidence(
   results: SearchResult[],
   acceptedCitations: Array<Pick<Citation, "chunk_id">>,
@@ -56,6 +69,13 @@ export function isProviderGenerationDegraded(input?: string | null | RagFallback
   return /(?:^|;\s*)generation_fallback(?::|$)/i.test(reason ?? "");
 }
 
+/**
+ * Aggregates unique memory cards from search results up to the specified limit.
+ *
+ * @param results - Search results containing memory cards
+ * @param limit - Maximum number of cards to collect (defaults to 8)
+ * @returns Array of deduplicated document memory cards
+ */
 export function collectMemoryCards(results: SearchResult[], limit = 8) {
   const seen = new Set<string>();
   const cards: DocumentMemoryCard[] = [];
@@ -71,6 +91,13 @@ export function collectMemoryCards(results: SearchResult[], limit = 8) {
   return cards;
 }
 
+/**
+ * Builds a composite document indexing quality summary across search results.
+ *
+ * @param results - The evaluated search results
+ * @param memoryCards - Collected memory cards for the query
+ * @returns Standardized DocumentIndexQuality summary object
+ */
 export function buildIndexingQuality(results: SearchResult[], memoryCards: DocumentMemoryCard[]): DocumentIndexQuality {
   const sourceMetadata = results.map((result) => normalizeSourceMetadata(result.source_metadata));
   const indexedQualityRows = results
@@ -115,6 +142,13 @@ export function buildIndexingQuality(results: SearchResult[], memoryCards: Docum
   };
 }
 
+/**
+ * Builds individual score explanations for top search results.
+ *
+ * @param results - Ranked search results
+ * @param limit - Maximum number of explanations to format
+ * @returns Score explanations array for RagAnswer
+ */
 export function buildAnswerScoreExplanations(
   results: SearchResult[],
   limit = 8,
@@ -129,6 +163,12 @@ export function buildAnswerScoreExplanations(
   }));
 }
 
+/**
+ * Normalizes all available text fields of a search result into a single lowercase string for gating.
+ *
+ * @param result - The search result to extract text from
+ * @returns Normalized lowercase text combining headings, content, tables, and captions
+ */
 export function evidenceTextForGate(result: SearchResult) {
   const tableText = (result.table_facts ?? [])
     .map((fact) =>
@@ -162,6 +202,9 @@ export function evidenceTextForGate(result: SearchResult) {
   ).toLowerCase();
 }
 
+/**
+ * Computes relevance score of a memory card relative to a query and query class.
+ */
 function memoryCardAnswerScore(card: DocumentMemoryCard, query: string, queryClass: RagQueryClass) {
   const content = sourceTextForDisplay(card.content);
   if (!content) return -1;
@@ -205,6 +248,14 @@ function memoryCardAnswerScore(card: DocumentMemoryCard, query: string, queryCla
   return tokenHits * 0.08 + typeBoost + doseBoost + (card.confidence ?? 0) * 0.08 + lowValueTitlePenalty;
 }
 
+/**
+ * Ranks memory cards for answer display based on lexical overlap, card type affinity, and clinical content specificity.
+ *
+ * @param cards - Pool of candidate memory cards
+ * @param query - Clinical search query
+ * @param queryClass - The classified query domain
+ * @returns Sorted array of relevant memory cards
+ */
 export function rankMemoryCardsForAnswer(cards: DocumentMemoryCard[], query: string, queryClass: RagQueryClass) {
   return [...cards]
     .map((card, index) => ({

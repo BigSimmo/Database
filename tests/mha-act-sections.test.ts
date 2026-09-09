@@ -87,8 +87,17 @@ describe("Act section coverage", () => {
 });
 
 describe("actSectionsForCue", () => {
-  it("withholds drafted summaries from the clinical UI", () => {
-    expect(actSectionsForCue("sections 66, 91")).toBeUndefined();
+  it("renders drafted summaries, marked as drafted", () => {
+    // Drafted summaries are written from the statutory text and hash-pinned to it. They
+    // render so the forms carry authority content, and `reviewStatus` drives the
+    // "awaiting clinical review" labelling on both the card face and the sheet.
+    const sections = actSectionsForCue("sections 66, 91");
+    expect(sections?.map((entry) => entry.section)).toEqual(["66", "91"]);
+    for (const entry of sections ?? []) {
+      const source = mhaActSection(entry.section);
+      expect(entry.reviewStatus).toBe(source?.status === "reviewed" ? "reviewed" : "drafted");
+      expect(entry.summary?.trim()).toBeTruthy();
+    }
   });
 
   it("returns no sections for a form with no cue", () => {
@@ -96,11 +105,16 @@ describe("actSectionsForCue", () => {
     expect(actSectionsForCue("")).toBeUndefined();
   });
 
-  it("withholds supplemental mappings until their own review is signed off", () => {
+  it("resolves a supplemental mapping for every unindexed form", () => {
+    // A cue is a citation, not a clinical claim, so its own `status` is provenance only
+    // and never a render gate. Gating it would leave these seven forms dark twice over.
     for (const entry of formsActSectionCues.forms) {
-      expect(entry.status).toBe("drafted");
-      expect(sectionCueForForm(entry.code, undefined), entry.code).toBeUndefined();
+      expect(sectionCueForForm(entry.code, undefined), entry.code).toBe(entry.sections.join(", "));
     }
+  });
+
+  it("prefers a form's own catalogue cue over the supplemental map", () => {
+    expect(sectionCueForForm("13", "sections 66, 91")).toBe("sections 66, 91");
   });
 });
 
@@ -117,7 +131,7 @@ describe("actSectionsForCue against reviewed data", () => {
     },
     sections: [
       { section: "66", title: "Transfer from general hospital", summary: "Summary of 66.", status: "reviewed" },
-      { section: "91", title: "Transfer between authorised hospitals", summary: "Summary of 91.", status: "reviewed" },
+      { section: "91", title: "Transfer between authorised hospitals", summary: "Summary of 91.", status: "drafted" },
       { section: "45", title: "Still being written", status: "pending" },
       { section: "46", title: "Awaiting review", summary: "Summary of 46.", status: "drafted" },
     ],
@@ -126,12 +140,13 @@ describe("actSectionsForCue against reviewed data", () => {
   it("yields sections in cue order once every cited section has a summary", async () => {
     vi.doMock("../data/mha-2014-sections.json", () => ({ default: reviewedFixture }));
     const { actSectionsForCue: withFixture } = await import("@/lib/mha-act-sections");
+    // A mixed list renders, and each entry keeps its own review status.
     expect(withFixture("sections 91, 66")).toEqual([
       {
         section: "91",
         title: "Transfer between authorised hospitals",
         summary: "Summary of 91.",
-        reviewStatus: "reviewed",
+        reviewStatus: "drafted",
       },
       { section: "66", title: "Transfer from general hospital", summary: "Summary of 66.", reviewStatus: "reviewed" },
     ]);
@@ -143,10 +158,14 @@ describe("actSectionsForCue against reviewed data", () => {
     expect(withFixture("sections 66, 45")).toBeUndefined();
   });
 
-  it("withholds the whole list when one cited summary is still drafted", async () => {
+  it("renders a drafted section alongside a reviewed one", async () => {
     vi.doMock("../data/mha-2014-sections.json", () => ({ default: reviewedFixture }));
     const { actSectionsForCue: withFixture } = await import("@/lib/mha-act-sections");
-    expect(withFixture("sections 66, 46")).toBeUndefined();
+    // Only `pending` (no summary written) withholds the card; drafted renders labelled.
+    expect(withFixture("sections 66, 46")?.map((entry) => [entry.section, entry.reviewStatus])).toEqual([
+      ["66", "reviewed"],
+      ["46", "drafted"],
+    ]);
   });
 
   it("throws for a cue naming a section with no curated entry", async () => {

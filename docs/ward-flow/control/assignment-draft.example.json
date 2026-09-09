@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "taskId": "WF-EXAMPLE-BUILD-001",
+  "objective": "Replace this with one bounded implementation outcome.",
+  "baseSha": "0000000000000000000000000000000000000000",
+  "branch": "codex/ward-flow-example-builder",
+  "worktree": "C:/absolute/path/to/the/builder/worktree",
+  "ownedPaths": ["src/components/ward-management/example.tsx"],
+  "symbols": ["ReplaceWithExactExportOrComponentName"],
+  "steps": ["Name the first ordered implementation step.", "Name the second ordered implementation step."],
+  "acceptanceCriterion": "Name the observable result that must become true.",
+  "falsifier": "Name the observation that would prove the task is not complete.",
+  "focusedCheck": "Name the smallest local command or inspection that can decide the criterion.",
+  "modelRouting": {
+    "tier": "opus",
+    "reason": "This is the first task of its shape and sets the implementation pattern.",
+    "catcher": null,
+    "taskShape": "Replace this with a stable, reusable description of the task shape.",
+    "firstOfShape": true,
+    "priorSonnetReviewRejections": 0,
+    "vetoes": {
+      "clinicalLegalPrivacyOrPatientFacing": false,
+      "finalUncheckedOrJudgementCriterion": false,
+      "testStrengthOrMutation": false,
+      "unknownCauseDebugging": false,
+      "specPlanBriefOrDecisionRecord": false
+    }
+  }
+}

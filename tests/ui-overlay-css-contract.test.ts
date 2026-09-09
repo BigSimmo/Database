@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { readPrimitiveRecipeSources } from "../scripts/design-system-contract-utils.mjs";
+
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 const answerResultSurfaceSource = read("src/components/clinical-dashboard/answer-result-surface.tsx");
 const sheetSource = read("src/components/ui/sheet.tsx");
@@ -11,7 +13,7 @@ const agentsSource = read("AGENTS.md");
 const searchChromeBehaviourSource = read("docs/search-chrome-behaviour.md");
 const clinicalDashboardSource = read("src/components/ClinicalDashboard.tsx");
 const globalSearchShellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
-const uiPrimitivesSource = read("src/components/ui-primitives.tsx");
+const uiPrimitivesSource = readPrimitiveRecipeSources();
 const therapyWorkspaceSource = read("src/components/therapy-compass/workspace.tsx");
 const masterSearchHeaderSource = read("src/components/clinical-dashboard/master-search-header.tsx");
 const documentViewerSource = read("src/components/DocumentViewer.tsx");
@@ -100,15 +102,18 @@ describe("overlay and global CSS contracts", () => {
 
   it("keeps phone header edge padding tokenized and never zeroed by unlayered media", () => {
     // --header-edge-pad is the single phone/sm inset shared by the layered
-    // .edge-glass-header base, the unlayered max-width:639px guard, and
-    // .mode-nav-rail — which sits directly under the header and has to land on
-    // the same content edge. A bare max(0px, safe-area) override previously
-    // pinned new-chat to the bezel; a literal in the mode nav would be the same
+    // .edge-glass-header base, the unlayered max-width:639px guard,
+    // .mode-nav-rail, and .inpage-nav-header (layered phone rule + the same
+    // unlayered guard). The in-page header portals into the collapse addon —
+    // a sibling of .edge-glass-header — so it has to carry the token itself
+    // or the action pill sits 4px closer to the bezel than the chrome above it.
+    // A bare max(0px, safe-area) override previously pinned new-chat to the
+    // bezel; a literal in the mode nav or in-page header would be the same
     // defect one element lower.
     expect(occurrenceCount(globalStylesSource, "--header-edge-pad:")).toBe(1);
     expect(globalStylesSource).toMatch(/--header-edge-pad:\s*1rem;/);
-    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-left))")).toBe(3);
-    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-right))")).toBe(3);
+    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-left))")).toBe(5);
+    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-right))")).toBe(5);
     expect(globalStylesSource).not.toMatch(
       /\.edge-glass-header\s*\{[^}]*padding-left:\s*max\(0px,\s*var\(--safe-area-left\)\)/s,
     );
@@ -220,9 +225,18 @@ describe("overlay and global CSS contracts", () => {
     expect(differentialPresentationSource).not.toContain('className="fixed inset-x-0 bottom-0');
     expect(globalSearchShellSource).toContain("phone-viewport-shell");
     expect(clinicalDashboardSource).toContain("phone-viewport-shell");
-    expect(uiPrimitivesSource).toContain('"min-h-0 overflow-x-clip px-3 py-3 pb-4 sm:min-h-[');
+    // Page shells fill the shell's `mobile-composer-reserve-pad` box by growing
+    // into it, never by claiming `calc(100dvh - <chrome estimate>)`. That
+    // estimate could not know the header's own top pad, the addon nav row, or
+    // #main-content's bottom padding, so it left 40-273px of scroll range on
+    // pages whose content had already ended. Growth is exact; keep it that way.
+    expect(uiPrimitivesSource).toContain('"min-h-0 overflow-x-clip px-3 py-3 pb-4 sm:grow');
+    expect(uiPrimitivesSource).not.toContain("sm:min-h-[calc(100dvh-var(--shell-header-h))]");
     expect(therapyWorkspaceSource).toContain("data-therapy-root");
     expect(therapyWorkspaceSource).toContain("min-h-0");
-    expect(therapyWorkspaceSource).toContain("sm:min-h-[calc(100dvh-var(--shell-header-h))]");
+    expect(therapyWorkspaceSource).toContain("sm:grow");
+    expect(therapyWorkspaceSource).not.toContain("sm:min-h-[calc(100dvh-var(--shell-header-h))]");
+    // The pad is the fill box those shells grow inside.
+    expect(globalSearchShellSource).toContain("sm:flex sm:min-h-full sm:flex-col");
   });
 });

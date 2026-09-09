@@ -7,16 +7,22 @@ import {
   RAW_COLOR_EXEMPTIONS,
   analyzeClassContractsInSource,
   analyzeCssContractsInSource,
+  DISABLED_OPACITY_CLASS,
   findDebtPathRegressions,
   findErrorStateCountPropsInSource,
+  findElevationInversionsInSource,
   findFailedStateResultCountsInSource,
+  findHandRolledCommandButtonsInSource,
   findInteractiveTapFloorDeclarationsInSource,
   findInteractiveTapLiteralsInSource,
+  findSameFileTextSmMinusMix,
   findTextSoftConsumersInSource,
   findTypeStepCssUsagesInSource,
+  findVisibleLiveRegionsInSource,
   LEGACY_TAP_CLASS,
   hasLegacyTapClass,
   jsxClassText,
+  listPrimitiveRecipeSourcePaths,
   rawColorContractSource,
 } from "./design-system-contract-utils.mjs";
 
@@ -91,8 +97,8 @@ function findTherapyButtonsWithoutBaseClass(file) {
       // Recipes from controls.ts all include therapyBtn; accept either the base
       // export or a named control recipe in the className expression text.
       const hasTherapyInteraction =
-        /\btherapyBtn\b/.test(classText) ||
-        /\b(?:therapyBtn|accentControl|commandControl|outlineControl|softControl|iconControl|linkButton)\b/.test(
+        /\b(?:therapyBtn|interactiveRow|interactiveRowBase|inPageActionRowClass)\b/.test(classText) ||
+        /\b(?:therapyBtn|interactiveRow|interactiveRowBase|inPageActionRowClass|accentControl|commandControl|outlineControl|softControl|iconControl|linkButton)\b/.test(
           classSource,
         );
       if (!hasTherapyInteraction) {
@@ -139,6 +145,11 @@ const metrics = {
   textSoftConsumers: 0,
   errorStateCountProps: 0,
   failedStateResultCounts: 0,
+  handRolledCommandButtons: 0,
+  elevationInversions: 0,
+  sameFileTextSmMinusMix: 0,
+  visibleLiveRegions: 0,
+  disabledOpacityUses: 0,
 };
 const debtByPath = Object.fromEntries(Object.keys(metrics).map((metric) => [metric, {}]));
 const recordDebt = (metric, relativePath, count) => {
@@ -182,6 +193,18 @@ for (const file of files) {
     file.relativePath,
     findFailedStateResultCountsInSource(file.relativePath, source).length,
   );
+  recordDebt(
+    "handRolledCommandButtons",
+    file.relativePath,
+    findHandRolledCommandButtonsInSource(file.relativePath, source).length,
+  );
+  recordDebt(
+    "elevationInversions",
+    file.relativePath,
+    findElevationInversionsInSource(file.relativePath, source).length,
+  );
+  recordDebt("sameFileTextSmMinusMix", file.relativePath, findSameFileTextSmMinusMix(file.relativePath, source).length);
+  recordDebt("visibleLiveRegions", file.relativePath, findVisibleLiveRegionsInSource(file.relativePath, source).length);
   const fileTextSoftConsumers = findTextSoftConsumersInSource(file.relativePath, source);
   recordDebt("textSoftConsumers", file.relativePath, fileTextSoftConsumers.length);
   textSoftConsumerFindings.push(...fileTextSoftConsumers);
@@ -219,6 +242,12 @@ for (const file of files) {
   imageInversionFindings.push(...classAnalysis.imageInversions);
   recordDebt("legacyPaletteUtilities", file.relativePath, classAnalysis.legacyPaletteUtilities.length);
   recordDebt("darkColorOverrides", file.relativePath, classAnalysis.darkColorOverrides.length);
+  recordDebt("disabledOpacityUses", file.relativePath, classAnalysis.disabledOpacityUses.length);
+  const textDisabledOpacity = countMatches(classTextSource, DISABLED_OPACITY_CLASS);
+  assert(
+    classAnalysis.disabledOpacityUses.length >= textDisabledOpacity,
+    `${file.relativePath} has ${textDisabledOpacity} disabled:opacity text match(es) but the AST class-root pass only saw ${classAnalysis.disabledOpacityUses.length}`,
+  );
   recordDebt("legacyShadowAliases", file.relativePath, classAnalysis.legacyShadowAliases.length);
   recordDebt("arbitraryTracking", file.relativePath, classAnalysis.arbitraryTracking.length);
   recordDebt("rawPaddingLiterals", file.relativePath, classAnalysis.rawPaddingLiterals.length);
@@ -435,7 +464,7 @@ if (themeBlockStart >= 0) {
     );
   }
 }
-const primitives = textAt("src/components/ui-primitives.tsx");
+const primitives = listPrimitiveRecipeSourcePaths().map(textAt).join("\n");
 assert(
   primitives.includes('export const chatComposerInput = "chat-composer-input"'),
   "composer input chrome must have one CSS owner",
@@ -504,6 +533,9 @@ console.log(
   `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; layout transitions ${metrics.layoutTransitionExceptions}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}; arbitrary tracking ${metrics.arbitraryTracking}.`,
 );
 console.log(
+  `Disabled-state boundary (COMPONENTS.md §9.33): native disabled:opacity uses bypassing controlDisabled ${metrics.disabledOpacityUses}.`,
+);
+console.log(
   `Status-colour boundary: colour-only status indicators ${metrics.colourOnlyStatusIndicators}; status-coloured numerals ${metrics.statusColouredNumerals}; image inversions ${imageInversionFindings.length}.`,
 );
 console.log(
@@ -512,4 +544,14 @@ console.log(
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Error-state boundary: count-bearing title/body props ${metrics.errorStateCountProps}.`);
 console.log(`Failed-state boundary: count-bearing result nodes ${metrics.failedStateResultCounts}.`);
+console.log(`Accessibility ratchet: visible nodes carrying aria-live (SPEC §9.2) ${metrics.visibleLiveRegions}.`);
+console.log(
+  `Type-scale density mix (warn/ratchet, not a hard zero): same-file text-sm + text-sm-minus ${metrics.sameFileTextSmMinusMix}.`,
+);
+if (metrics.sameFileTextSmMinusMix > 0) {
+  const mixedPaths = Object.keys(debtByPath.sameFileTextSmMinusMix).sort();
+  console.warn(
+    `Do not mix text-sm and text-sm-minus in one component without a named density reason. Existing mixed files (${mixedPaths.length}): ${mixedPaths.join(", ")}.`,
+  );
+}
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);

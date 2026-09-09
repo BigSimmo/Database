@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { assertSingleCurrentVersion, getOpenManagementDraft } from "@/components/care-plan/mockups/domain";
+import {
+  assertSingleCurrentVersion,
+  getCurrentPatientPlanVersion,
+  getOpenManagementDraft,
+  isPatientPlanVersionStale,
+} from "@/components/care-plan/mockups/domain";
 import { PROTOTYPE_NOW } from "@/components/care-plan/mockups/fixtures";
 import {
   createInitialPrototypeState,
@@ -16,6 +21,7 @@ import type {
   NewEdPresentationInput,
   PrototypeScenario,
   SafetyPlanDraftInput,
+  SyntheticId,
 } from "@/components/care-plan/mockups/types";
 
 const ED_CLINICIAN = "SYN-USER-ED-001";
@@ -108,6 +114,27 @@ function safetyDraftInput(overrides: Partial<SafetyPlanDraftInput> = {}): Safety
     },
     ...overrides,
   };
+}
+
+/** Complete the conversion's deliberate gaps without changing the resource list.
+ * The state tests care about the document lifecycle, not its prose. */
+function completePatientPlanDraft(state: CarePlanPrototypeState, patientId: SyntheticId): CarePlanPrototypeState {
+  const withDraft = prototypeReducer(state, { type: "create-patient-plan-draft", patientId });
+  const draft = withDraft.patientPlanVersions.find((version) => version.state === "draft");
+  if (draft === undefined) throw new Error("the Patient Plan draft was not created");
+  return prototypeReducer(withDraft, {
+    type: "save-patient-plan-draft",
+    versionId: draft.id,
+    input: {
+      sections: draft.sections.map((section) => ({
+        ...section,
+        body: section.body.length > 0 ? section.body : ["Written with the person before approval."],
+        gap: false,
+        gapReason: null,
+      })),
+      resources: draft.resources,
+    },
+  });
 }
 
 /** The lines this application may never write: it knows what it asked an
@@ -744,6 +771,74 @@ describe("Care Plan ED Presentation recording", () => {
     expect(third.presentationAmendments).toHaveLength(first.presentationAmendments.length + 2);
     expect(third.edPresentations.find(({ id }) => id === "SYN-PRESENTATION-001")?.planHelpfulness).toBe("helpful");
   });
+
+  it("raises each applicable review trigger from corrected effective values, once", () => {
+    const withoutOpenTriggers = { ...createInitialPrototypeState(), reviewTriggers: [] };
+    const lessHelpful = prototypeReducer(withoutOpenTriggers, {
+      type: "amend-presentation",
+      presentationId: "SYN-PRESENTATION-001",
+      field: "planHelpfulness",
+      replacementValue: "not_helpful",
+      reason: "The original account was corrected after speaking with Rowan.",
+    });
+    const twiceCorrected = prototypeReducer(lessHelpful, {
+      type: "amend-presentation",
+      presentationId: "SYN-PRESENTATION-001",
+      field: "planHelpfulness",
+      replacementValue: "mixed",
+      reason: "A further correction recorded the more precise account.",
+    });
+    const admission = prototypeReducer(twiceCorrected, {
+      type: "amend-presentation",
+      presentationId: "SYN-PRESENTATION-002",
+      field: "disposition",
+      replacementValue: "mental_health_admission",
+      reason: "The final disposition was corrected from the contemporaneous record.",
+    });
+
+    expect(lessHelpful.reviewTriggers.filter((trigger) => trigger.source === "plan_use_feedback")).toHaveLength(1);
+    expect(twiceCorrected.reviewTriggers.filter((trigger) => trigger.source === "plan_use_feedback")).toHaveLength(1);
+    expect(admission.reviewTriggers.filter((trigger) => trigger.source === "presentation_outcome")).toHaveLength(1);
+    expect(admission.lastOutcome?.message).toMatch(/Review Trigger was raised/i);
+  });
+});
+
+describe("Care Plan Patient Plan source currency", () => {
+  it("marks a current patient copy stale and raises a review trigger when its source is withdrawn", () => {
+    let state = completePatientPlanDraft(createInitialPrototypeState(), ROWAN);
+    const draft = state.patientPlanVersions.find((version) => version.state === "draft")!;
+    state = prototypeReducer(state, { type: "approve-patient-plan-version", versionId: draft.id });
+    const currentCopy = getCurrentPatientPlanVersion(state.patientPlanVersions, state.patientPlans[0]!.id);
+    expect(currentCopy).not.toBeNull();
+
+    const withdrawn = prototypeReducer(withUser(state, SENIOR), {
+      type: "withdraw-current-management-version",
+      patientId: ROWAN,
+      reason: "The current plan was withdrawn while it is rewritten with Rowan.",
+    });
+
+    expect(isPatientPlanVersionStale(currentCopy, null)).toBe(true);
+    expect(withdrawn.reviewTriggers).toContainEqual(
+      expect.objectContaining({ source: "patient_plan_stale", sourceId: currentCopy?.id }),
+    );
+    expect(withdrawn.lastOutcome?.message).toMatch(/needs updating/i);
+  });
+
+  it("refuses approval of a completed draft after its Management Plan source is superseded", () => {
+    let state = completePatientPlanDraft(createInitialPrototypeState("overdue-plan"), MIRA);
+    const patientDraft = state.patientPlanVersions.find((version) => version.state === "draft")!;
+    state = prototypeReducer(withUser(state, SENIOR), {
+      type: "approve-management-version",
+      versionId: MIRA_AWAITING_VERSION,
+    });
+    const before = state.auditEvents;
+
+    const refused = prototypeReducer(state, { type: "approve-patient-plan-version", versionId: patientDraft.id });
+
+    expect(refused.patientPlanVersions.find((version) => version.id === patientDraft.id)?.state).toBe("draft");
+    expect(refused.auditEvents).toEqual(before);
+    expect(refused.lastOutcome?.message).toMatch(/no longer Current/i);
+  });
 });
 
 // --- Personal Safety Plan --------------------------------------------------------
@@ -807,6 +902,81 @@ describe("Care Plan Personal Safety Plan", () => {
     // must not reach the saved record.
     (input.content.warningSigns as string[]).push("A line added after the save.");
     expect(saved.content.warningSigns).toHaveLength(1);
+  });
+
+  /**
+   * D1, 25 August 2026: when the person's part was recorded is its own moment,
+   * not the moment the version went live. `patientConfirmation` is written by
+   * `save-safety-plan-draft`; `confirmedAt` is set later inside
+   * `make-safety-plan-current`. Reading the second as though it were the first
+   * dated a person's participation to a day they may have had nothing to do
+   * with.
+   */
+  it("records when the person's part was recorded, separately from when the version went live", () => {
+    const state = createInitialPrototypeState();
+    const saved = prototypeReducer(state, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-003",
+      input: safetyDraftInput(),
+    });
+    const afterSave = saved.personalSafetyPlanVersions.find(({ id }) => id === "SYN-SAFETY-VERSION-003")!;
+
+    // The moment the save happened, not `undefined` and not the publication.
+    expect(afterSave.participationRecordedAt).toBe(saved.auditEvents.at(-1)?.occurredAt);
+    expect(afterSave.confirmedAt).toBeNull();
+
+    const published = prototypeReducer(saved, {
+      type: "make-safety-plan-current",
+      versionId: "SYN-SAFETY-VERSION-003",
+    });
+    const afterPublish = published.personalSafetyPlanVersions.find(({ id }) => id === "SYN-SAFETY-VERSION-003")!;
+
+    // Publication sets `confirmedAt` and must leave the participation moment
+    // exactly where the save put it. The two are different days in the record
+    // and must be different values here.
+    expect(afterPublish.participationRecordedAt).toBe(afterSave.participationRecordedAt);
+    expect(afterPublish.confirmedAt).toEqual(expect.any(String));
+    expect(afterPublish.confirmedAt).not.toBe(afterPublish.participationRecordedAt);
+  });
+
+  /**
+   * Deliberate: the stamp moves when the participation answer moves, and not
+   * otherwise. A clinician re-saving a draft to tidy the wording has not sat
+   * down with the person again, and stamping a fresh date there would claim a
+   * conversation that did not happen.
+   */
+  it("leaves the recorded moment alone when a later save does not change the participation answer", () => {
+    const state = createInitialPrototypeState();
+    const first = prototypeReducer(state, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-003",
+      input: safetyDraftInput(),
+    });
+    const firstStamp = first.personalSafetyPlanVersions.find(
+      ({ id }) => id === "SYN-SAFETY-VERSION-003",
+    )!.participationRecordedAt;
+    expect(firstStamp).toEqual(expect.any(String));
+
+    const tidied = prototypeReducer(first, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-003",
+      input: safetyDraftInput({
+        collaborationNote: "Tidied the wording of the warning signs. Jordan's part is unchanged.",
+      }),
+    });
+    const afterTidy = tidied.personalSafetyPlanVersions.find(({ id }) => id === "SYN-SAFETY-VERSION-003")!;
+    expect(afterTidy.collaborationNote).toMatch(/Tidied the wording/);
+    expect(afterTidy.participationRecordedAt).toBe(firstStamp);
+
+    const changed = prototypeReducer(tidied, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-003",
+      input: safetyDraftInput({ patientConfirmation: "declined" }),
+    });
+    const afterChange = changed.personalSafetyPlanVersions.find(({ id }) => id === "SYN-SAFETY-VERSION-003")!;
+    expect(afterChange.patientConfirmation).toBe("declined");
+    expect(afterChange.participationRecordedAt).toBe(changed.auditEvents.at(-1)?.occurredAt);
+    expect(afterChange.participationRecordedAt).not.toBe(firstStamp);
   });
 
   it("refuses a draft whose next review date cannot be read as a date", () => {
@@ -1307,10 +1477,23 @@ describe("Care Plan scenarios, reset, and determinism", () => {
       versionConflict: { active: false },
       patientPlans: [],
       patientPlanVersions: [],
-      patientResources: [],
       auditEvents: [],
       lastOutcome: null,
     });
+    /**
+     * The two Patient Plan collections start empty because a patient copy is
+     * produced when somebody makes one, and seeding an edition would put
+     * patient-facing wording on the record that nobody wrote.
+     *
+     * The resource catalogue is not an edition of anything. It is the list a
+     * clinician chooses from, so Task 9 seeds it: an empty one would mean every
+     * patient copy started with nothing to offer, and the housing and money
+     * entries are frequently the whole point of the sheet.
+     */
+    expect(createInitialPrototypeState().patientResources.length).toBeGreaterThan(0);
+    expect(createInitialPrototypeState().patientResources.every((resource) => resource.id.startsWith("SYN-"))).toBe(
+      true,
+    );
     expect(createInitialPrototypeState("empty").selectedPatientId).toBeNull();
     expect(createInitialPrototypeState("overdue-plan").selectedPatientId).toBe(MIRA);
     expect(createInitialPrototypeState("withdrawn-plan").selectedPatientId).toBe(EVELYN);
@@ -1412,5 +1595,43 @@ describe("Care Plan scenarios, reset, and determinism", () => {
     });
 
     expect(JSON.stringify(state)).toBe(before);
+  });
+
+  /**
+   * History resolves who performed a record-derived action by finding the audit
+   * event of that type, on that object, at exactly that timestamp. That is only
+   * sound while an audit timestamp identifies one moment: every `occurredAt` is
+   * `PROTOTYPE_NOW + auditEvents.length + 1` and exactly one event is appended
+   * per action, so they are globally unique — an invariant nothing defended.
+   *
+   * `withAudit` no longer takes an `offsetMinutes`, which removed one route to
+   * a collision. It did not remove the property: two `withAudit(state, …)`
+   * calls in a single reducer branch both read the same pre-mutation
+   * `auditEvents.length` and so produce the same moment, and the lookup would
+   * then return the wrong actor. That converts an honest name into a quiet lie,
+   * which is the failure this whole area exists to prevent, so it stays pinned
+   * here rather than left to be noticed.
+   */
+  it("gives every audit event its own moment, which is what makes an actor lookup sound", () => {
+    const state = run(
+      "normal",
+      SENIOR,
+      { type: "record-plan-shared-with-patient", patientId: MIRA },
+      { type: "approve-management-version", versionId: MIRA_AWAITING_VERSION },
+      { type: "verify-cmht-contact", cmhtId: "SYN-CMHT-001" },
+      { type: "verify-cmht-contact", cmhtId: "SYN-CMHT-003" },
+      {
+        type: "withdraw-current-management-version",
+        patientId: ROWAN,
+        reason: "A reason recorded for the withdrawal.",
+      },
+    );
+
+    expect(state.auditEvents.length).toBeGreaterThan(4);
+    const moments = state.auditEvents.map(({ occurredAt }) => occurredAt);
+    expect(
+      new Set(moments).size,
+      "two audit events share a timestamp, so resolving an actor by (type, object, moment) can return the wrong clinician",
+    ).toBe(moments.length);
   });
 });

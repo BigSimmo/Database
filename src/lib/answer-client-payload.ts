@@ -1,4 +1,5 @@
 import { adaptiveAnswerLimits, answerWithinLimits } from "@/lib/rag/rag-answer-contract-limits";
+import { normalizeClaimText } from "@/lib/answer-claim-marks";
 import { ragAdaptiveAnswerPromptVersion } from "@/lib/rag/rag-versioning";
 import {
   clientAnswerFieldsSchema,
@@ -86,6 +87,7 @@ const answerFieldPolicy = {
   answerContractVersion: "client",
   renderAdaptiveAnswer: "client",
   generationDegradation: "server",
+  rejectedCandidateText: "server",
   ragDiagnostics: "server",
   interactionId: "server",
   feedbackToken: "server",
@@ -817,6 +819,18 @@ export function projectClientAnswerPayload(value: unknown, strict = false): Clie
 
   const fields = clientAnswerFieldsSchema.safeParse(value);
   if (!fields.success) return null;
+  if (fields.data.claimMarks) {
+    const sourceIds = new Set(sources.map((source) => source.id));
+    const displayed = ` ${normalizeClaimText(value.answer)} `;
+    const retained = fields.data.claimMarks.filter((claim) =>
+      claim.supportingChunkIds.length > 0 &&
+      claim.supportingChunkIds.every((id) => sourceIds.has(id)) &&
+      normalizeClaimText(claim.text).length > 0 &&
+      displayed.includes(` ${normalizeClaimText(claim.text)} `),
+    );
+    if (strict && retained.length !== fields.data.claimMarks.length) return null;
+    fields.data.claimMarks = retained;
+  }
   if (fields.data.answerContractVersion === ragAdaptiveAnswerPromptVersion) {
     if (
       typeof fields.data.renderAdaptiveAnswer !== "boolean" ||
@@ -938,7 +952,30 @@ function directSupportingBestSource(answer: RagAnswer): BestSourceRecommendation
   };
 }
 
+export function sourceCurrencyWarningForAnswer(answer: RagAnswer): "supporting" | "retrieved" | undefined {
+  const materialIds = new Set((answer.supportedClaims ?? [])
+    .filter((claim) => claim.supportStatus === "direct")
+    .flatMap((claim) => claim.supportingChunkIds));
+  const assessments = Object.entries(answer.evidenceAssessments ?? {});
+  return assessments.some(([id, assessment]) =>
+    materialIds.has(id) && assessment.currency === "review_due")
+    ? "supporting"
+    : materialIds.size === 0 && assessments.some(([, assessment]) =>
+      assessment.currency === "review_due" && assessment.relevance !== "none")
+      ? "retrieved" : undefined;
+}
+
 export function toClientAnswerPayload(answer: RagAnswer): ClientRagAnswerPayload {
+  const sourceCurrencyWarning = sourceCurrencyWarningForAnswer(answer);
+  const claimMarks = answer.supportedClaims
+    ?.filter((claim) => claim.supportStatus === "direct" || claim.supportStatus === "partial")
+    .slice(0, 100)
+    .map((claim) => ({
+      claimId: claim.claimId,
+      text: claim.text,
+      supportStatus: claim.supportStatus,
+      supportingChunkIds: claim.supportingChunkIds,
+    }));
   const bestSource =
     answer.bestSource === undefined &&
     answer.answerQualityTier === "model_synthesis" &&
@@ -949,6 +986,8 @@ export function toClientAnswerPayload(answer: RagAnswer): ClientRagAnswerPayload
       : answer.bestSource;
   const projected = projectClientAnswerPayload({
     ...answer,
+    claimMarks,
+    sourceCurrencyWarning,
     bestSource,
     retrievalGateBlocked: answer.retrievalGateBlocked === true || answer.retrievalDiagnostics?.gateStatus === "blocked",
     authorityTrustCapRequired: authorityTrustCapRequired(answer),

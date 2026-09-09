@@ -20,6 +20,13 @@ export type AppPreferences = {
   showRecentOnHome: boolean;
   showProtocolsOnHome: boolean;
   compactCitations: boolean;
+  /**
+   * Off means the app stops writing recent questions to session storage at all,
+   * rather than writing them and offering a clear button. Consumed by
+   * `rememberRecentQuery` in ClinicalDashboard, so it is a real privacy control
+   * on a shared machine — not a display toggle like `showRecentOnHome`.
+   */
+  saveRecentSearches: boolean;
   notifyGuidelineUpdates: boolean;
   notifyProductNews: boolean;
   notifySavedChanges: boolean;
@@ -82,6 +89,7 @@ export const DEFAULT_PREFERENCES: AppPreferences = {
   showRecentOnHome: true,
   showProtocolsOnHome: true,
   compactCitations: false,
+  saveRecentSearches: true,
   notifyGuidelineUpdates: true,
   notifyProductNews: false,
   notifySavedChanges: true,
@@ -97,6 +105,32 @@ function coerceEnum<T extends string>(value: unknown, allowed: ReadonlyArray<T>,
 
 function coerceBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
+}
+
+export const PREFERENCE_FIELD_KEYS = [
+  "density",
+  "motion",
+  "jurisdiction",
+  "population",
+  "answerStyle",
+  "landing",
+  "showRecentOnHome",
+  "showProtocolsOnHome",
+  "compactCitations",
+  "saveRecentSearches",
+  "notifyGuidelineUpdates",
+  "notifyProductNews",
+  "notifySavedChanges",
+] as const satisfies ReadonlyArray<keyof AppPreferences>;
+
+/**
+ * Apply a partial preference update without overwriting fields omitted from the
+ * request body. Pre-change clients that PUT an older shape must not re-enable
+ * privacy opt-outs stored on the account.
+ */
+export function mergeAccountPreferences(stored: unknown, patch: Partial<AppPreferences>): AppPreferences {
+  const base = stored === null || stored === undefined ? DEFAULT_PREFERENCES : normalizePreferences(stored);
+  return normalizePreferences({ ...base, ...patch });
 }
 
 export function normalizePreferences(input: unknown): AppPreferences {
@@ -123,6 +157,7 @@ export function normalizePreferences(input: unknown): AppPreferences {
     showRecentOnHome: coerceBoolean(input.showRecentOnHome, DEFAULT_PREFERENCES.showRecentOnHome),
     showProtocolsOnHome: coerceBoolean(input.showProtocolsOnHome, DEFAULT_PREFERENCES.showProtocolsOnHome),
     compactCitations: coerceBoolean(input.compactCitations, DEFAULT_PREFERENCES.compactCitations),
+    saveRecentSearches: coerceBoolean(input.saveRecentSearches, DEFAULT_PREFERENCES.saveRecentSearches),
     notifyGuidelineUpdates: coerceBoolean(input.notifyGuidelineUpdates, DEFAULT_PREFERENCES.notifyGuidelineUpdates),
     notifyProductNews: coerceBoolean(input.notifyProductNews, DEFAULT_PREFERENCES.notifyProductNews),
     notifySavedChanges: coerceBoolean(input.notifySavedChanges, DEFAULT_PREFERENCES.notifySavedChanges),

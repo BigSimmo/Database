@@ -23,15 +23,35 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // `tests/playwright-project-isolation.test.ts` asserts every such file on disk is
 // matched here.
 const productionSpecPattern =
-  /.*(?:adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|dictionary|document-canvas|tools|ward-(?:management|coordinator)|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/;
+  /.*(?:adaptive-answer-ui|api-csrf-proxy|answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts/;
 const mockupSpecPattern =
-  /.*ui-(caring-contact-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory)\.spec\.ts/;
+  /.*ui-(accessible-table-mockup|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-management|ward-coordinator|ward-roles|ward-discharges|ward-morning|ward-referrals|ward-forced-colors|ward-search|ward-statistics-compare|ward-table-thresholds)\.spec\.ts/;
 const mockupTag = /@mockup/;
+
+// The production specs that need a POPULATED Caring Contacts store, and therefore run against
+// `run-playwright.mjs`'s SECOND server (`CARING_CONTACTS_DEMO_SEED=on`) rather than the primary
+// one. Both are deliberately absent from `productionSpecPattern` above: that matcher names
+// `caring-contacts-workspace` explicitly, so neither can leak into the projects pointed at the
+// unseeded server — where the activation journey's referral would not exist and the populated
+// sweep would measure the empty screens the workspace spec already pins. Keep it that way;
+// `tests/playwright-project-isolation.test.ts` fails if it drifts either direction.
+//
+//  - `-activation` drives the wizard end to end and WRITES (it creates one plan), which is why it
+//    is `mode: "serial"` in its own file.
+//  - `-populated` sweeps every screen at every reviewed width with records on it, and writes
+//    nothing at all — so the two share this server without interfering. That file's head comment
+//    records why a populated sweep had to exist separately from the empty-store one.
+const seededSpecPattern = /.*ui-caring-contacts-(activation|populated)\.spec\.ts/;
+
+// Published by `scripts/run-playwright.mjs` when it starts the seeded server. Falling back to the
+// primary `baseURL` would silently point the journey at the EMPTY store, so the spec itself refuses
+// to run without this value rather than trusting a fallback (see its own head comment).
+const seededBaseURL = process.env.PLAYWRIGHT_SEEDED_BASE_URL;
 
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*(?:adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|caring-contact-mockup|dictionary|document-canvas|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-(?:management|coordinator)|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/,
+    /.*(?:adaptive-answer-ui|api-csrf-proxy|answer-progress-ui-smoke|dsm-ui-smoke|ui-(accessible-table-mockup|smoke|stress|accessibility|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|caring-contacts-activation|caring-contacts-populated|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-show-all|tools-search-mode-mockup|tools-task-directory|ward-(?:management|coordinator|roles|discharges|morning|referrals|forced-colors|search|statistics-compare|table-thresholds)|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently
@@ -98,6 +118,20 @@ export default defineConfig({
       },
     },
     {
+      // The Caring Contacts activation journey, and the ONLY project pointed at the seeded server.
+      // Chromium-only on purpose: this is the workspace's one Client Component, so the evidence it
+      // buys is hydration plus a two-write recovery path, neither of which is a cross-engine
+      // question — and a second engine would need a third server for the same population.
+      name: "chromium-caring-contacts-seeded",
+      testMatch: seededSpecPattern,
+      grepInvert: mockupTag,
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(chromiumExecutablePath ? { launchOptions: { executablePath: chromiumExecutablePath } } : {}),
+        baseURL: seededBaseURL ?? baseURL,
+      },
+    },
+    {
       name: "firefox",
       testMatch: productionSpecPattern,
       grepInvert: mockupTag,
@@ -108,6 +142,24 @@ export default defineConfig({
       testMatch: productionSpecPattern,
       grepInvert: mockupTag,
       use: { ...devices["Desktop Safari"] },
+    },
+    {
+      name: "mobile-webkit",
+      testMatch: productionSpecPattern,
+      grepInvert: mockupTag,
+      use: { ...devices["iPhone 14"] },
+    },
+    {
+      name: "mobile-pwa-standalone",
+      testMatch: productionSpecPattern,
+      grepInvert: mockupTag,
+      use: {
+        ...devices["iPhone 14"],
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 3,
+        isMobile: true,
+        hasTouch: true,
+      },
     },
   ],
 });

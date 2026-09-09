@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "998e657c-4852-4572-a4f8-5cf919ea2fea",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#1CYR4V",
+    "outcome": "Reconciled and pinned 640-767px overlay-modality breakpoint band across Sheet and OverlayHost with dom and workspace spec tests",
+    "baseRowFingerprint": "7aab6d7348f3c95e949b5ede740a365e13a77801bf4669745f5aba7c3a4c176a"
+  }
+}

@@ -27,6 +27,7 @@ import { describe, expect, it } from "vitest";
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 
 const railSource = read("src/components/document-viewer/document-rail-panels.tsx");
+const visualsSource = read("src/components/document-viewer/document-visuals-panel.tsx");
 const viewerSource = read("src/components/DocumentViewer.tsx");
 const sourcePanelsSource = read("src/components/document-viewer/source-panels.tsx");
 const demoDataSource = read("src/lib/demo-data.ts");
@@ -47,17 +48,31 @@ describe("document viewer phone layout", () => {
     // identifies the items without this contract having to name each component —
     // a new rail section is caught the moment it is added.
     const itemClassLists = railSource.match(/"[^"]*\bmd:col-span-2\b[^"]*"/g) ?? [];
-    expect(itemClassLists.length).toBeGreaterThanOrEqual(5);
+    expect(itemClassLists.length).toBeGreaterThanOrEqual(4);
     for (const classList of itemClassLists) {
       expect(classList, `rail grid item is missing min-w-0: ${classList}`).toMatch(/\bmin-w-0\b/);
     }
+  });
+
+  it("caps the main reading column's grid, which now carries the wide table crops", () => {
+    // "Tables and diagrams" moved out of the rail and under the indexed source
+    // text, so the blowout hazard moved with it: this inner column is a grid, and
+    // without an explicit base track it is the same implicit min-content column.
+    const columnClass = viewerSource.match(/"grid min-w-0 grid-cols-1 gap-4[^"]*"/)?.[0];
+    expect(columnClass, "main reading column grid class list not found — update this contract").toBeTruthy();
+    expect(columnClass).toMatch(/\bgrid-cols-1\b/);
+    expect(columnClass).toMatch(/\bmin-w-0\b/);
+    // ...and the panel itself must not widen that track from the item side.
+    const visualsClass = visualsSource.match(/"group min-w-0 scroll-mt-[^"]*"/)?.[0];
+    expect(visualsClass, "visuals panel class list not found — update this contract").toBeTruthy();
+    expect(visualsClass).toMatch(/\bmin-w-0\b/);
   });
 
   it("caps the outer document body grid at the base breakpoint too", () => {
     const bodyClass = viewerSource.match(/"mx-auto grid max-w-\[1440px\][^"]*"/)?.[0];
     expect(bodyClass, "document body <section> class list not found — update this contract").toBeTruthy();
     expect(bodyClass).toMatch(/\bgrid-cols-1\b/);
-    expect(bodyClass).toMatch(/\blg:grid-cols-\[minmax\(0,1fr\)_480px\]/);
+    expect(bodyClass).toMatch(/\blg:grid-cols-\[minmax\(0,1fr\)_minmax\(18rem,22rem\)\]/);
   });
 
   it("never pairs a min-height with an explicit aspect ratio on a document image frame", () => {

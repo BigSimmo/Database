@@ -23,6 +23,10 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // cross-entity search domain, so it declares no preferred universal domains.
   factsheets: [],
   dictionary: ["dictionary"],
+  sources: [],
+  // On Call searches the owner's own operational entries, already in the
+  // browser, so it contributes no cross-entity universal-search domain.
+  "on-call": [],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {

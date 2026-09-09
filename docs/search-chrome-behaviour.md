@@ -4,18 +4,31 @@ This repo uses one shared search experience across the global shell, dashboard r
 
 ## Page ownership model
 
-| Page state                                                   | Composer placement                                                                        | Reserve owner                                                                  |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Shared home (`/`, any mode) / standalone mode homes          | In-flow hero composer on phones and larger breakpoints                                    | Page content; no fixed phone dock reserve                                      |
-| Tools directory (`/tools`) and legacy alias (`/?mode=tools`) | No shared composer or phone dock; browse and filter through page-local catalogue controls | Idle shell padding only                                                        |
-| Submitted/search-result views                                | Compact bottom dock on phones; in normal page flow on tablets and desktops                | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
-| Answer result view                                           | Overlaid glass header plus answer composer dock                                           | Dashboard `#main-content` top/bottom reserves                                  |
-| Document detail/source routes                                | `DocumentViewer` floating composer                                                        | `DocumentViewer` content padding                                               |
-| Document section navigation                                  | Header row disclosure (phone sheet) + rail index card at `lg`                             | None — adds no chrome and no reserve                                           |
-| Record page breadcrumb header                                | Same header row without the disclosure or track; view mode inline from `sm`               | None — portals into the phone collapse row, sticky at `sm+`                    |
-| Calculators (`/calculators`)                                 | In-flow hero composer at home; shared compact dock after submission                       | Page content at home; shell reserve for submitted results                      |
-| Info/detail pages with no composer                           | No fixed composer                                                                         | Idle shell padding only                                                        |
-| Guide Centre dialog (`GuideDialog`)                          | No composer — tour-action dock inside the Sheet footer; Sheet footer band from `sm`       | `[data-guide-content]` bottom pad (`guide-tour-dock` reserve owner)            |
+| Page state                                                   | Composer placement                                                                                                                                | Reserve owner                                                                               |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Shared home (`/`, any mode) / standalone mode homes          | In-flow hero composer on phones and larger breakpoints                                                                                            | Page content; no fixed phone dock reserve                                                   |
+| Tools directory (`/tools`) and legacy alias (`/?mode=tools`) | No shared composer or phone dock; browse and filter through page-local catalogue controls                                                         | Idle shell padding only                                                                     |
+| Therapy Recommend (`/therapy-compass/recommend`)             | In-flow clinical-situation composer; no shared composer or phone dock                                                                             | Idle shell padding only                                                                     |
+| Submitted/search-result views                                | Compact bottom dock on phones; in normal page flow on tablets and desktops                                                                        | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop              |
+| Answer result view                                           | Overlaid glass header plus answer composer dock                                                                                                   | Dashboard `#main-content` top/bottom reserves                                               |
+| Document detail/source routes                                | `DocumentViewer` floating composer                                                                                                                | `DocumentViewer` content padding                                                            |
+| Document section navigation                                  | Header row disclosure (phone sheet) + rail index card at `lg`                                                                                     | None — adds no chrome and no reserve                                                        |
+| Record page breadcrumb header                                | Same header row without the disclosure or track; view mode inline from `sm`                                                                       | None — portals into the phone collapse row, sticky at `sm+`                                 |
+| Calculators (`/calculators`)                                 | In-flow hero composer at home; shared compact dock on `/calculators/search` (browse or submitted)                                                 | Page content at home; shell reserve for the catalogue and submitted results                 |
+| Dictionary catalogue (`/dictionary/search`)                  | A result view: compact bottom dock on phones; the page composer slot from `sm` up, page-owned so it sits under mode nav and above the Filter band | Shell `--mobile-composer-reserve` on phones; `desktop-page-composer-slot` (5rem) on desktop |
+| Information/detail (record) pages, every mode                | No composer at any breakpoint                                                                                                                     | Idle shell padding only                                                                     |
+| Guide Centre dialog (`GuideDialog`)                          | No composer — tour-action dock inside the Sheet footer; Sheet footer band from `sm`                                                               | `[data-guide-content]` bottom pad (`guide-tour-dock` reserve owner)                         |
+
+The information-page row has **no per-mode exception**. `GlobalSearchShell` derives it from
+`isInformationPage` alone (`src/lib/information-pages.ts`): if a route is a mode's record page, it
+renders no composer on phone, tablet or desktop, and its phone clearance collapses to
+`mobileComposerIdleReserve`. Services, Forms and Medication record pages used to opt back in through
+an `isToolDetailWithFooterSearch` allowlist; that allowlist is gone, and a route must not be
+re-added to bring a composer back. Catalogue result docks (`/services/search`, `/forms/search`) keep
+theirs because `isSlugDetail` excludes the reserved `search` suffix, not because they are named
+anywhere. Coverage: `tests/information-pages.test.ts`,
+`tests/search-route-ownership.test.ts` ("does not treat catalogue search docks as information
+pages"), and the record-page cases in `tests/ui-tools.spec.ts` and `tests/ui-chrome-scroll.spec.ts`.
 
 The Tools row is scoped to the **mounted Tools directory**, not to `resultKind: "tools"`. Factsheets,
 Dictionary and Therapy Compass borrow that result kind purely as a benign search kind, and on the
@@ -348,6 +361,38 @@ Rail items are `min-h-12` like every other production tap target. Two rails are 
 phone and `min-h-11` would buy back 4px per rail — do not take it. That is the substitution
 `AGENTS.md` calls out, and it reintroduces a known `ui-smoke` sub-pixel flake.
 
+**Band calibration is opt-in, and the default is the generic plan.** `planModeNavBands` fits
+four items from the 33rem band. Medications override that to 42rem — two priority slots plus
+More until every slot fits — because each of its labels carries a count badge, and that is
+now requested explicitly with `rail={{ countedLabels: true }}`. It used to be keyed on
+"exactly four sections", which silently applied medication's width budget to any four-item
+rail: Therapy's four unbadged labels inherited it and sat two-and-More on every phone.
+A rail whose labels carry no badge should pass a `density` from its own label family and
+leave `countedLabels` off — measured against its own labels, not assumed. Therapy's four
+render without truncation from 500px and clip at 430px, which is `balanced-four` (31rem);
+`compact-four` (23rem) does fit four slots on a large phone but clips every one of them.
+
+**Route rails: the sections may be other pages (`/therapy-compass/[slug]`).** Therapy's record
+header declares its sections as that therapy's own routes — the record, its patient sheet, its
+brief intervention, and the comparison — so selecting one navigates rather than swapping a
+panel or scrolling to an anchor. The rail is then "this record's pages", and `activeId` is the
+page you are on.
+
+Two rules follow, and both differ from the panel-swap adopters:
+
+- **A destination whose artefact does not exist is omitted, not disabled.** Not every therapy
+  ships a patient sheet or a brief version, and a rail slot has nowhere to carry the stated
+  reason that `docs/wiring-conventions.md` requires of a disabled control. Dropping the slot
+  is the same answer `useResolvedPageSections` gives for an anchor that is not rendered, so
+  the rail length varies per record by design.
+- **It is guarded by its own test, not by `in-page-nav-route-sections`.** That file asserts a
+  declared section resolves to rendered DOM — an anchor or a panel. A route destination
+  resolves to a navigation call, so `tests/therapy-record-nav.dom.test.tsx` asserts the
+  routing and the omission rule instead.
+
+Therapy's mode-level `ModeNav` is still a separate multi-route pattern and is unaffected: that
+bar moves between Therapy's tools, this rail moves within one record.
+
 ### The differentials presentations workflow keeps its own layout — decided, not pending
 
 `src/components/differentials/differential-presentation-workflow-page.tsx` is **not** being
@@ -424,6 +469,35 @@ in-page navigation work defaults to the DocumentViewer template above.
     omit `source-images` when `visualCount === 0`, and do not require a "Tables and diagrams" sheet row in smoke for
     the empty-images lithium demo doc.
 23. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
+24. **A page fills the box it is in; it never subtracts a chrome estimate from `100dvh`.**
+    At `sm`+ the shell's `#main-content` grows into `.phone-viewport-frame` (`sm:grow`), the
+    `mobile-composer-reserve-pad` inside it is the fill box (`sm:flex sm:min-h-full sm:flex-col`),
+    and page shells grow into that pad (`sm:grow`). The dashboard mirrors this: its content
+    wrapper is `sm:flex sm:min-h-full sm:flex-col` and the mode-home canvas is `sm:grow sm:shrink-0`.
+    Do not reintroduce a `min-h-[calc(100dvh - <chrome estimate>)]` page floor. Three things such an
+    estimate cannot know, each measured as real dead scroll before this contract landed:
+    `--shell-header-h` (4rem) covers the header's inner bar plus `pb-2` but **not** its own
+    `pt-[max(0.5rem,var(--safe-area-top))]` (8px on every route); the `header-collapse-addon` nav row
+    on topic routes adds 49px more; and `#main-content`'s own `sm:pb-8` adds 32px. Pages whose
+    content had already ended carried 8-273px of scroll range as a result — a scrollbar on a page
+    that fits, and a wheel notch that jolts into the bottom stop. Phone floors are unaffected:
+    below `sm` the document owns scrolling and there is no bounded box to fill. Guarded by the
+    "pages that fit the window have no scroll range" cases in `tests/ui-chrome-scroll.spec.ts`, and
+    repo-wide by `tests/viewport-fill-contract.test.ts`, which scans all of `src/**` for any
+    `(min-)h-[calc(100dvh - …)]` class or `(min-)height: calc(100dvh - …)` declaration rather than
+    checking a list of named files, and carries the exempt phone floors in one exact-count allowlist
+    that fails closed when an entry goes stale.
+
+The PWA notice rules that use `:has(#main-content ...)` are a deliberately
+bounded post-hydration exception. `#main-content` can disappear briefly while
+React replaces streamed route content, so those selectors are unsafe for
+first-paint page geometry and must never become a general shell or composer
+input. Every occurrence stays between the `BEGIN/END post-hydration PWA
+main-content selector allowlist` markers in `globals.css`, where
+`PwaLifecycle` waits for the settled shell signature before mounting notices.
+`tests/pwa-lifecycle.dom.test.tsx` rejects any unclassified occurrence outside
+that block. Add a non-`:has()` ownership signal when geometry is needed before
+hydration; do not widen the allowlist to make a new selector pass.
 
 ## Results band (`SearchResultsHeaderBand`)
 
@@ -596,6 +670,24 @@ only for routes without an addon row; addon routes refine by that row's height.
 The clearance is only visible near scroll top, where the header is always
 revealed, so it costs no usable height.
 
+### Streaming shell-presence selector boundary
+
+Next can temporarily remove `#main-content` while it streams a route and React
+hydrates the replacement shell. During that gap every
+`body:has(#main-content...)` selector evaluates false. Geometry driven by one of
+those selectors is therefore safe only when the affected surface cannot mount
+until the app shell is present; otherwise it can paint once with fallback
+geometry and move when `#main-content` returns.
+
+The current exception is deliberately narrow. `PwaLifecycle` holds the PWA
+notice stack until the shell exists, so the phone-hero rules may target
+`.pwa-notice-stack` and descendants of its `.pwa-install-native-sheet`. The
+install-sheet selectors are intentional descendants of the guarded stack, not
+independent consumers. Do not add another `body:has(#main-content...)` geometry
+consumer without giving it the same mount-time shell gate and adding it to the
+explicit allowlist in `tests/pwa-lifecycle.dom.test.tsx`; that contract includes
+an unsafe negative fixture so a newly introduced consumer fails closed.
+
 ### Phone sticky-header mount and settle timing
 
 The phone header stack (`.phone-sticky-header-stack`) is `position: fixed` (in browser tabs) and
@@ -701,12 +793,13 @@ floating element: it portals into a slot rendered _inside_ the dock's `<form>`
 z-index, safe-area padding and scroll-hide transform. There is no bottom-offset
 arithmetic and no second scroll listener anywhere in an addon.
 
-Two claimants exist, and they are mutually exclusive by surface:
+Three claimants exist, and they are mutually exclusive by surface:
 
-| Addon kind              | Slot id                                   | Claimed by                                                  |
-| ----------------------- | ----------------------------------------- | ----------------------------------------------------------- |
-| `differentials-compare` | `differentials-mobile-compare-addon-slot` | Differentials submitted search / `/differentials/diagnoses` |
-| `patient-details`       | `patient-details-addon-slot`              | Prescribing submitted search (dashboard-owned)              |
+| Addon kind              | Slot id                                   | Claimed by                                                                    |
+| ----------------------- | ----------------------------------------- | ----------------------------------------------------------------------------- |
+| `differentials-compare` | `differentials-mobile-compare-addon-slot` | Differentials submitted search / `/differentials/diagnoses`                   |
+| `patient-details`       | `patient-details-addon-slot`              | Prescribing submitted search (dashboard-owned)                                |
+| `therapy-compare`       | `therapy-compare-addon-slot`              | Therapy Compass dock routes, **and only while the URL carries a compare set** |
 
 Rules:
 
@@ -722,16 +815,126 @@ Rules:
   peeping at the viewport edge.
 - **Only claim the addon where the pill actually mounts.** The reserve inflates on
   the claim, not on the render, so claiming a route whose component never mounts
-  opens a blank band at the bottom. `/medications` is a standalone mode home with
-  the composer in the hero and no dock at all; `/medications/[slug]` already opens
+  opens a blank band at the bottom. `/medications` renders nothing at all — its bare
+  path redirects on both branches (`medicationsHomeTarget()` in `src/proxy.ts`, with
+  `medications/page.tsx` as the backstop) — and `/medications/[slug]` already opens
   the patient sheet from its own nav header, so neither claims the addon.
+- **An addon that can be empty must gate its claim on being non-empty.** The
+  therapy compare tray renders nothing until something is in the comparison, so
+  claiming the slot on every therapy route would reserve a tray-sized band under
+  a row that is not there. The shell therefore reads the set out of the URL
+  (`readTherapyCompareSlugCount`) and claims only when it is non-empty — the
+  claim and the render have to agree, in both directions.
+- **Keep an addon exactly one row tall.** The clearance is a static token, so a
+  dock that grows covers page content by exactly its own growth. Anything that
+  needs more room opens a bottom `Sheet` instead of a taller bar; that is why
+  the compare tray's expanded state is a sheet and the Patient details panel is
+  one too.
 - **Gate the portal at 639px**, matching `.phone-footer-layer`'s `sm:fixed`. The two
   Compare bars gate at 1023px, which between 640–1023px portals into a slot on a
   form that is not fixed. Do not copy that.
 
 Coverage: `tests/phone-dock-addon-contract.test.ts` (registry, exclusivity, CSS/TS
-value parity), `tests/patient-details-dock-action.dom.test.tsx` (portal target,
-breakpoint, sheet wiring).
+value parity, therapy route/claim gating), `tests/patient-details-dock-action.dom.test.tsx`
+(portal target, breakpoint, sheet wiring), `tests/therapy-compare-tray.dom.test.tsx`
+(portal target, breakpoint, empty-set silence, sheet wiring),
+`tests/ui-therapy-nav-scroll.spec.ts` (the tray hides with the composer and
+releases its reserve to `0rem`).
+
+## Motion & Animation Preferences (#S4K1GA)
+
+The application supports explicit user motion preference overrides in addition to system-level accessibility settings. The preference is stored in local storage and mirrored onto the root element as `data-motion="full"`, `data-motion="reduced"`, or absent (defaulting to system preference).
+
+### Physical iPhone acceptance rubric
+
+To prevent regressions of the phone/PWA answer-progress animation defect (where OS Reduce Motion froze animations and rendered the then-current ECG trace invisible at `opacity: 0`), verify the following rubric on a physical iPhone in both Mobile Safari and the installed standalone PWA.
+
+The indicator under test changed when the answer wait was redrawn as a single quiet status line: the scrolling ECG strip and the five-circle stepper are gone, and what remains is one breathing dot (`.answer-progress-dot`, `data-slot="answer-progress-dot"`) at the head of the line. The rubric is otherwise unchanged, and the dot was chosen partly because it makes step 2 trivial to satisfy — its resting frame is a complete, correct bullet, where a stopped spinner is a fragment of a circle.
+
+1. **Motion=Full (`data-motion="full"`):**
+   - In physical Safari and installed standalone PWA, when the in-app Motion setting is set to **Full**, the dot visibly breathes (a continuous opacity cycle, 2.4s) even if iOS system **Reduce Motion** is enabled in Accessibility settings.
+2. **Motion=System / Motion=Reduced:**
+   - When iOS system **Reduce Motion** is enabled (or in-app Motion is set to **Reduced**), the dot stops breathing and remains clearly visible at full opacity, rather than disappearing or rendering a blank box (`opacity: 0`).
+   - The status line beside it still reads out what is happening, and the arriving source rail appears without layout jumps. Its cards are staggered by `.answer-sources-arriving .stagger-item` when motion is allowed; under Reduce Motion every card must be present and fully opaque immediately, never held invisible for the length of the cascade.
+
+The motion preference contract in `src/components/clinical-dashboard/answer-status.tsx` and the corresponding stylesheet rules in `src/app/globals.css` must remain strictly intact across all breakpoints.
+
+## Smart natural-language mode search
+
+Smart search is provider-free interpretation of the selected catalogue. It is
+available in Services, Forms, Differentials, Formulation, DSM-5 Diagnosis,
+Specifiers, Therapy, Medication, Tools, Calculators, Factsheets, and Dictionary
+and does not depend on `CLINICAL_ASK_ENABLED`, a hosted provider, Supabase, or a
+server capability endpoint. The original query remains the visible composer value
+and URL value; controlled mode-specific aliases add only low-weight catalogue
+vocabulary to deterministic ranking. Medication, Tools, Calculators, Factsheets,
+and Dictionary are local-only Smart matchers: natural-language interpretation in
+those states suppresses universal-search requests and Document, Answer, and
+Favourites cross-mode actions, while literal searches retain their configured
+cross-mode behaviour.
+
+Enter always opens the selected mode's normal results surface. A question mark,
+question wording, or developed natural-language phrase never diverts the reader
+to Clinical Ask and never generates prose. Compact codes remain literal after
+terminal punctuation is stripped, so `form 4A?` remains a Forms lookup.
+Unsupported modes retain their existing search/filter behaviour and show no
+Smart promise. Clinical Ask is a separate dormant governed-answer workflow, not
+an implementation of Smart mode search.
+
+The phone home example ticker is not a Smart cue and does not follow the
+capability. Below 640px the desktop prompt rail is `display: none`, so the
+ticker ("Try this … Tap to search") is the only worked example a phone home
+page carries, and it offers an ordinary search in every mode — governed or
+dormant. It shows on every phone home composer (`showPhoneSuggestionTickerOnHome`)
+and nowhere else: a submitted result view, an answer thread, and a phone bottom
+dock all stay clear of it.
+
+Tablet and desktop mode homes all share one composer stack in every mode: the
+rotating `Try "…" in <Mode>.` example ticker line above the pill, the pill, the
+`Prompts` chip rail, and the single APP-5 privacy line. The line used to read
+`Smart search · Try "…"` and render only in the eleven catalogue modes, which
+made a Forms home taller than the Documents or Answer home; it now carries no
+Smart wording, so the dormant modes can share it without a Smart promise. Both
+helpers are gated by placement rather than by mode: `MasterSearchHeader` passes
+`showHomeSuggestions={isDesktopHomeComposer}`, so only the mode-home hero
+composer renders them. Every submitted result view and page slot renders the
+compact pill alone at every width (no ticker, prompt rail, or privacy line),
+matching the phone result dock; the answer dock is its own composer type and
+keeps its privacy line. Phones already had this shape: every result view is the
+compact bottom dock and every mode home is the same phone ticker + pill +
+privacy stack, so the phone contract is pinned rather than changed. The
+result-view page slots (`GlobalSearchShell`,
+`DashboardDesktopResultComposerSlot`, and the one `DictionaryCataloguePage`
+renders itself) carry `desktop-page-composer-slot`, which overrides the shared
+reserve token to the compact composer's exact 80px settled height at every sm+
+width; the mode-home token stays sized for the hero stack.
+
+**A page that owns its slot element still takes the page placement.** The
+dictionary catalogue renders the `desktopPageComposerSlotId` slot itself, purely
+so the composer lands under its mode nav rather than above it, and the shell
+suppresses its own copy for that route so exactly one element carries the id.
+Until 2026-09-06 that page borrowed `modeHomeDesktopComposerSlotId` instead —
+harmless while the two slots were one, but once the helpers were gated on
+`placement === "desktop-home"` it was the only reason a results catalogue still
+carried the hero ticker, Prompts rail and privacy line. Slot id chooses
+placement: a result view must never be wired to the home slot to move a
+composer.
+Tools is the standalone-owner exception: its accessible `Search tools` control
+does not render the shared prompt rail or intent cue, while its deterministic
+local matching and ordinary `q`/`run=1` route remain the same. The intent cue
+appears only while a shared-composer query is being interpreted as natural
+language.
+
+There is still exactly one composer. No Ask rail, microphone control, duplicate
+input, or extra phone-dock reserve is mounted. Crossing from literal Search to
+Smart search announces once; continued typing within Smart does not repeatedly
+update the live region. The send control retains the mode's ordinary Search
+name and action throughout.
+
+Coverage: `tests/master-search-header.dom.test.tsx`,
+`tests/smart-search-intent.test.ts`, the mode ranker suites, and
+`tests/ui-clinical-ask.spec.ts` for the one-composer routing and five-mode
+local-only request boundary.
 
 ## Change checklist
 

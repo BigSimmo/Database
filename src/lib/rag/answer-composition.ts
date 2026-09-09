@@ -98,7 +98,13 @@ function menuKeyFor(queryClass: RagQueryClass, intent: ClinicalQueryIntent): Rel
   }
 }
 
-/** Build the related-information menu for a query class and heuristic intent. */
+/**
+ * Builds the related-information menu for a given query class and heuristic intent.
+ *
+ * @param queryClass - The classified query domain
+ * @param intent - The detected clinical intent
+ * @returns RelatedInformationMenu object containing key, items, and metadata
+ */
 export function buildRelatedInformationMenu(
   queryClass: RagQueryClass,
   intent: ClinicalQueryIntent,
@@ -113,7 +119,12 @@ export function buildRelatedInformationMenu(
 const noMenuLine =
   "related_information_menu: none — no related-information menu for this question type; apply the Answer sections rules as written";
 
-/** Serialise a menu as the single `related_information_menu:` prompt line. */
+/**
+ * Serialises a menu as the single `related_information_menu:` prompt line for model generation.
+ *
+ * @param menu - The related information menu to format
+ * @returns Serialized string for inclusion in the generation prompt
+ */
 export function formatRelatedInformationMenuLine(menu: RelatedInformationMenu): string {
   if (menu.items.length === 0) return noMenuLine;
   return `related_information_menu: ${menu.items.map((entry) => `${entry.kind} — ${entry.focus}`).join("; ")}`;

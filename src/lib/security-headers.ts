@@ -77,7 +77,12 @@ export function buildContentSecurityPolicy({
     // server-side only, so the browser gets no provider origin (2026-07-13 audit).
     "img-src 'self' data: blob: https://*.supabase.co; " +
     "media-src 'self' https://*.supabase.co; " +
-    "connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io; " +
+    // No Sentry ingest origin: error tracking is server/edge only
+    // (src/sentry.{server,edge}.config.ts) and docs/error-tracking.md forbids a
+    // browser SDK, so the three wildcard `*.ingest*.sentry.io` origins allowed an
+    // egress channel from the clinical origin that nothing used (2026-09-02 audit,
+    // L34). Re-add them only together with a browser SDK and its privacy review.
+    "connect-src 'self' https://*.supabase.co; " +
     "worker-src 'self'; " +
     "manifest-src 'self'; " +
     scriptSrc +
@@ -96,6 +101,9 @@ export function buildSecurityHeaders(flags: SecurityHeaderFlags): SecurityHeader
     { key: "Cross-Origin-Resource-Policy", value: "same-site" },
     { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
     // No Cross-Origin-Embedder-Policy — see module header note.
+    // Microphone stays denied while Clinical Ask dictation has no user entry point
+    // (PR #2360 removed the composer controls; CLINICAL_ASK_ENABLED defaults to
+    // false). Re-grant `(self)` only together with a governed dictation surface.
     { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
     { key: "Origin-Agent-Cluster", value: "?1" },
     { key: "X-Permitted-Cross-Domain-Policies", value: "none" },

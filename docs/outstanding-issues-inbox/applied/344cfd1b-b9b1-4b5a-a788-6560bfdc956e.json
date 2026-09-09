@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "344cfd1b-b9b1-4b5a-a788-6560bfdc956e",
+  "createdOn": "2026-08-27",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "AGENTS.md states run-playwright.mjs exits 0 on test failure; the script propagates exit codes",
+    "detail": "AGENTS.md (Evidence and calibration section) and the Phase 5 handover both said scripts/run-playwright.mjs exits 0 when tests fail and when it refuses to run. Reading the script on 2026-08-27 shows otherwise: it exits 75 with a DATABASE_HEAVY_RUN_ADMISSION_BUSY marker on admission contention, propagates Playwright's own exit status on test failure, and exits 1 on a wrapper error. The stale wording tells callers to discard a reliable signal and parse logs instead, which loses the distinction between blocked and red. Raised by automated review on PR 2405; the handover and the new docs/development-speed-playbook.md were corrected there. AGENTS.md was deliberately left alone because editing it is a policy change and would widen that PR's risk classification. Next step: correct the AGENTS.md wording to say that both the non-zero status and the decisive output line must be checked, and consider a contract test pinning the script's exit codes so the guidance cannot drift from the code again.",
+    "source": "Codex review on PR 2405, 2026-08-27",
+    "issueUlid": "01M10KQYZDTBW7BRB3D7T239ST"
+  }
+}

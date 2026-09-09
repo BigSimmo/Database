@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "f8cabe84-9be5-4527-ae38-aecb9a61c84c",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "0f9238c1-8add-450c-92d1-917376761248",
+    "reason": "Resolved on feature branch: verified patient-visible automated reply strings for therapeutic neutrality, emergency escalation, and GSM-7 limit in message-copy.ts with tests."
+  }
+}

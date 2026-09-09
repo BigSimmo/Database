@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e2128050-18a7-4a39-b2a8-001063a57f01",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Knowingly-retained gap: patient-alert rows with action \"info\" contribute to neither unassessed tier, so three medications keep a green all-clear over an unread gate",
+    "detail": "In src/lib/medication-patient-alerts.ts as landed in PR #2538 (head ef7c55ab), evaluatePatientAlerts() short-circuits with 'if (patient.action === \"info\") continue;' before the tier split, so info rows never reach unassessed (contraindication tier) or unassessedAdvisory (dosing/monitoring tier). MedicationConsiderations reads hasUnassessedGates from those two arrays only, so the success-tone all-clear stays reachable for a medication whose only unread gate sits on an info row. Measured against data/medications-snapshot.json on 2026-09-02: 330 records, 63 info rows, of which 8 carry a gate readable from an empty profile, across paracetamol, atorvastatin, nystatin, doxycycline, levetiracetam, lorazepam, oxazepam and temazepam; for three of those — nystatin, levetiracetam, lorazepam — both other tiers are empty, so the green all-clear is what a clinician actually sees. The exclusion is defensible on the current data: lorazepam's hepatic row reads \"Existing row describes this as a safer option in hepatic impairment; highlight as information only, not as a contraindication\", levetiracetam's reads \"absence of hepatic enzyme induction or inhibition\", and nystatin's is \"source-reviewed safe-use context\" — none is a gate whose absence changes management. NEXT STEP: no change now; revisit if any info row ever carries a gate whose absence would change management, and re-run the count above against the snapshot when the medication catalogue is next re-exported.",
+    "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
+    "issueUlid": "01M1GA1S5QGNNMAFVF62KYTXS3"
+  }
+}

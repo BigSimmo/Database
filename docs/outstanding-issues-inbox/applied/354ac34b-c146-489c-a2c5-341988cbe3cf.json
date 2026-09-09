@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "354ac34b-c146-489c-a2c5-341988cbe3cf",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#RZVMPD",
+    "outcome": "FIXED AND MERGED to main in 94a14a829 (PR #2532), 2026-09-02. listPlans now selects a narrower PLAN_LIST_COLUMNS that drops patient_name, patient_mobile_number and patient_identifiers, so a caseload render no longer pulls every patient's name, mobile number and identifier list for the whole team into the process. PLAN_COLUMNS is unchanged for readPlanRecord and selectPlanForUpdate, whose callers (getEpisode, markRetentionCleared) genuinely need that detail — narrowing the shared constant would have made getEpisode project undefined for three fields, which no type would catch. patient_name was dropped alongside the two columns the issue named because names have their own separately audited read (listPatientNames, patientNameDirectory object type, Ruling 91), so fetching them inside a read audited as plan under-counted that trail. Evidence read off origin/main: PLAN_LIST_COLUMNS appears 3x in src/lib/caring-contacts/db/postgres-repository.ts at 94a14a829. Two guards ship with it — a static scan asserting the constant excludes the patient columns AND is actually wired into listPlans, and a wire-level Postgres test recording every statement listPlans issues; both were confirmed red against the pre-fix code. Nothing was ever released: PlanRecord excludes patientDetail structurally and that held throughout; the narrowing has moved from the mapping into the query.",
+    "baseRowFingerprint": "2448dd4735678e1775d81b6e3b9e44b500ec9ee7cdcfcb89428b69f015bfb3e1"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "977ad2ec-5dcf-49ee-aa87-018ddc6fb366",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#JVYQEM",
+    "outcome": "Resolved: Phone reserve established at 10.125rem (--spacing-mode-home-composer-phone in globals.css) covering smart hint tickets, and wide reserve established at 5.5rem (--spacing-mode-home-composer-wide) with responsive container adaptivity, eliminating ticket-bearing home CLS.",
+    "baseRowFingerprint": "953ffba540def0269d1f955ecc75d50754ee48e828a23838dbf545028694e9ce"
+  }
+}

@@ -158,6 +158,117 @@ describe("evaluateMedicationInteractions", () => {
     expect(SEVERITY_TONE.critical).toBe("danger");
     expect(SEVERITY_TONE.unknown).toBe("neutral");
   });
+
+  describe("Triple Whammy (ACEi + Diuretic + NSAID) requires the full combination", () => {
+    // PR #2448 review: the generated index used to union each class's matches
+    // into a flat counterparty list, so any ONE of ibuprofen, frusemide, or
+    // even another ACEi fired the CRITICAL three-drug alert alone.
+    it("does not fire on an NSAID alone", () => {
+      const result = evaluateMedicationInteractions("ramipril", ["ibuprofen"]);
+      expect(result.interactions.some((item) => item.kind === "Triple Whammy")).toBe(false);
+    });
+
+    it("does not fire on a diuretic alone", () => {
+      const result = evaluateMedicationInteractions("ramipril", ["frusemide"]);
+      expect(result.interactions.some((item) => item.kind === "Triple Whammy")).toBe(false);
+    });
+
+    it("does not fire on another ACEi alone", () => {
+      const result = evaluateMedicationInteractions("ramipril", ["perindopril"]);
+      expect(result.interactions.some((item) => item.kind === "Triple Whammy")).toBe(false);
+    });
+
+    it("fires once both a diuretic and an NSAID are present", () => {
+      const result = evaluateMedicationInteractions("ramipril", ["frusemide", "ibuprofen"]);
+      const hits = result.interactions.filter((item) => item.kind === "Triple Whammy");
+      expect(hits.length).toBeGreaterThan(0);
+      expect(hits.every((item) => item.severity === "critical")).toBe(true);
+      expect(result.highestTone).toBe("danger");
+    });
+  });
+
+  describe("simvastatin's gemfibrozil row does not overmatch the statin/fibrate classes", () => {
+    // PR #2448 review: "statin" and "(Fibrate)" in this HIGH/Contraindicated row
+    // describe gemfibrozil's own mechanism, not a general class warning — they
+    // used to resolve to every other statin and to fenofibrate, so a patient on
+    // an unrelated statin alone triggered a gemfibrozil-specific alert. The
+    // shared "blocks statin" phrase is unique to the two gemfibrozil rows
+    // (simvastatin's and atorvastatin's), distinct from fenofibrate's own
+    // legitimate, correctly-firing general statin-toxicity warning, which must
+    // keep working.
+    const isGemfibrozilRowNote = (note: string) => note.includes("Gemfibrozil (Fibrate) blocks statin");
+
+    it("does not fire against atorvastatin, which is not gemfibrozil", () => {
+      const result = evaluateMedicationInteractions("simvastatin", ["atorvastatin"]);
+      expect(result.interactions.some((item) => isGemfibrozilRowNote(item.note))).toBe(false);
+    });
+
+    it("does not fire against fenofibrate, the catalogue's only other fibrate", () => {
+      const result = evaluateMedicationInteractions("simvastatin", ["fenofibrate"]);
+      expect(result.interactions.some((item) => isGemfibrozilRowNote(item.note))).toBe(false);
+    });
+
+    it("still fires fenofibrate's own legitimate statin-combination warning", () => {
+      const result = evaluateMedicationInteractions("simvastatin", ["fenofibrate"]);
+      expect(result.interactions.some((item) => item.counterpartySlug === "fenofibrate")).toBe(true);
+    });
+  });
+});
+
+describe("a documented low-severity interaction is never an all-clear", () => {
+  // `success` is the tone the verdict band prints as "No alert found". A row the
+  // catalogue documents is a finding, not an absence of one, so no severity that
+  // produced a row may share it. Missing analysis (`unknown`) stays `neutral`.
+  it("keeps every documented severity off the all-clear tone", () => {
+    for (const severity of ["low", "none", "safe", "beneficial"] as const) {
+      expect(SEVERITY_TONE[severity], severity).not.toBe("success");
+      expect(SEVERITY_TONE[severity], severity).toBe("info");
+    }
+    expect(SEVERITY_TONE.critical).toBe("danger");
+    expect(SEVERITY_TONE.unknown).toBe("neutral");
+  });
+
+  it("composes a LOW-only result away from green even when the analysis is complete", () => {
+    // Mesalazine's own row: "LOW — Decreases absorption of Digoxin." Nothing about
+    // this analysis is incomplete, so the incompleteness guards do not apply and
+    // the tone mapping is the only thing keeping the headline honest.
+    const record = getMedicationRecord("mesalazine");
+    const result = evaluateMedicationInteractions("mesalazine", ["digoxin"], record);
+    expect(result.interactions).toHaveLength(1);
+    expect(result.interactions[0]?.severity).toBe("low");
+    expect(result.interactions[0]?.tone).not.toBe("success");
+    expect(result.unresolvedRowCount).toBe(0);
+    expect(result.unreachableCounterparties).toEqual([]);
+
+    const verdict = composeMedicationVerdict({
+      considerationTone: null,
+      considerationCount: 0,
+      unassessedCount: 0,
+      interactionTone: result.highestTone,
+      interactionCount: result.interactions.length,
+      unresolvedRowCount: result.unresolvedRowCount,
+      unreachableCounterpartyCount: result.unreachableCounterparties.length,
+    });
+    expect(verdict.incomplete).toBe(false);
+    expect(verdict.interactionCount).toBe(1);
+    expect(verdict.tone).not.toBe("success");
+  });
+
+  it("does the same for cefepime's additive-neurotoxicity row with tramadol", () => {
+    const result = evaluateMedicationInteractions("cefepime", ["tramadol-ir"], getMedicationRecord("cefepime"));
+    expect(result.interactions[0]?.severity).toBe("low");
+    expect(result.highestTone).not.toBe("success");
+  });
+
+  it("still ranks an alerting row above a documented low one", () => {
+    // The correction must not disturb the safety order it sits underneath:
+    // mesalazine's CAUTION nephrotoxicity row with ibuprofen still leads, and the
+    // LOW digoxin row sits below it rather than colouring the verdict.
+    const result = evaluateMedicationInteractions("mesalazine", ["digoxin", "ibuprofen"]);
+    expect(result.highestTone).toBe("warning");
+    expect(result.interactions[0]?.severity).toBe("caution");
+    expect(result.interactions.some((item) => item.severity === "low")).toBe(true);
+  });
 });
 
 describe("composeMedicationVerdict", () => {
@@ -182,6 +293,21 @@ describe("composeMedicationVerdict", () => {
       tone: "neutral",
       incomplete: true,
     });
+  });
+
+  it("prefers manual review over a documented low-severity finding when data is incomplete", () => {
+    // `info` is the documented-but-not-alerting tone. It must not outrank "we
+    // could not finish the check": before this, a LOW row composed to `success`
+    // and the incompleteness guard rewrote it to `neutral`, so the manual-review
+    // headline survived. Moving LOW off green must not lose that.
+    expect(
+      composeMedicationVerdict({
+        ...base,
+        interactionTone: "info",
+        interactionCount: 1,
+        unresolvedRowCount: 1,
+      }),
+    ).toMatchObject({ tone: "neutral", incomplete: true });
   });
 
   it("keeps danger even when data is incomplete", () => {

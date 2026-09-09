@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "672f9d6d-e9f1-46bc-8860-b08596fddd4d",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The batch image endpoint calls getPublicUrl against a bucket pinned private, so public-corpus figures silently fail to load",
+    "detail": "api/images/signed-urls/route.ts:109 uses getPublicUrl for every image whose document isPublicDocument, but clinical-images is inserted and re-asserted with public = false. The URL 404s while the route still returns HTTP 200, so nothing surfaces as an error. The singular route (images/[id]/signed-url) always signs correctly. Latent privacy edge: if the bucket is ever flipped public to fix this, the same branch hands out permanent unauthenticated URLs, and isPublicDocument checks metadata markers BEFORE owner_id, so a document with a non-null owner carrying public_corpus metadata would take that branch too. FIX: delete the public branch and sign uniformly.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96R1SZ61JRTT75RGBYWNN"
+  }
+}

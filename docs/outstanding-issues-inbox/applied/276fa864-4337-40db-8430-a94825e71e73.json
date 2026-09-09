@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "276fa864-4337-40db-8430-a94825e71e73",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Icons passed as icon props render with no aria-hidden, and the lint rule is structurally blind to it",
+    "detail": "eslint-rules/require-lucide-icon-aria.mjs only inspects JSX whose tag name is a direct lucide-react import; its own doc comment scopes out icons passed as icon: LucideIcon values. At least nine production components destructure icon: Icon and render it with no aria-hidden, aria-label, role or title and no aria-hidden ancestor, so a bare svg reaches the accessibility tree. DocumentBadge, DocumentActionLink, DocumentActionAnchor and DocumentActionButton alone are used 62 times across 9 production files. evidence-panels.tsx:1185 omits it in the same ternary as a correctly marked Loader2 sibling, showing the omission is inconsistent rather than deliberate. FIX: add aria-hidden at the sites, or extend the rule to flag a tag name resolved from a destructured LucideIcon prop.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96RQGPWZYY8V2ZQBTAYA0"
+  }
+}

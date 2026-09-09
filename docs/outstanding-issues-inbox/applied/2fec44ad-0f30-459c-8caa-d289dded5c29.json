@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "2fec44ad-0f30-459c-8caa-d289dded5c29",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Caring Contacts: a draft plan's contacts are already in state scheduled and listSendableContacts has no plan-state gate",
+    "detail": "Found in the Phase 2B Task 9 review, 2026-08-25, while checking a claim on the activation screen. `createPlan` writes every planned contact in state `scheduled` or `suppressed` AT CREATION — see `in-memory-repository.ts` around line 535 and `db/postgres-repository.ts` around line 1114 — and `listSendableContacts` filters on `contact.state === \"scheduled\"` with NO gate on the owning plan's state (`in-memory-repository.ts` ~1329-1335). Nothing in `model.ts`'s contact transitions checks `plan.state` either. So a plan that has been created and NOT activated already presents sendable contacts. NOT A LIVE RISK TODAY: there is no sender, no SMS provider and no dispatch path anywhere in the tree, so nothing reads that list and acts. It matters for two reasons. FIRST, it falsified a reassurance on the one screen where it counts: the created-but-not-started state told a coordinator 'no message is scheduled to go out yet', which the code does not support. That copy is being fixed in Task 9 fix round 2. SECOND, whoever builds the dispatcher will read `listSendableContacts` as the list of what to send, and unless they independently remember to filter on plan state, a draft plan would dispatch. The question to answer is whether the plan-state gate belongs in `listSendableContacts`, in the future dispatcher, or in the contact state machine — deliberately NOT decided inside Task 9, because it changes a retrieval surface and that needs its own review rather than riding on a copy fix. Whoever takes it should also check whether `suppressed` at creation and the absorbed-Week-1 case interact with the answer.",
+    "issueUlid": "01M0WR03XJPAMATF97XKTD1AXS"
+  }
+}

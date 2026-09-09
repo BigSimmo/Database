@@ -74,6 +74,6 @@ export type TherapySearchMatch = { record: TherapyIndexRecord; score: number };
  * returns the alphabetical library (stable order) so the universal-search
  * domain can still surface a browse list.
  */
-export function searchTherapyRecords(query: string): TherapySearchMatch[] {
-  return rankTherapyCandidates(therapyRecords, query);
+export function searchTherapyRecords(query: string, expansions: readonly string[] = []): TherapySearchMatch[] {
+  return rankTherapyCandidates(therapyRecords, query, expansions);
 }

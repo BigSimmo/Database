@@ -4,6 +4,7 @@ import { Info, X } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { MissingValue } from "@/components/ui/missing-value";
 
 import { calculators, domainLabels, type CalculatorFixture } from "./calculator-fixtures";
 import {
@@ -15,13 +16,7 @@ import {
   progressLabel,
   type AnswerMap,
 } from "./calculator-ui";
-import {
-  CalculatorSearchHome,
-  NextActionsPanel,
-  RelatedContentPanel,
-  ScorePanel,
-  type SessionAnswers,
-} from "./search-detail";
+import { CalculatorSearchHome, NextActionsPanel, ScorePanel, type SessionAnswers } from "./search-detail";
 
 /**
  * Popup variant of the search flow: the individual calculator opens as a
@@ -34,13 +29,11 @@ export function CalculatorSheet({
   answers,
   onAnswersChange,
   onClose,
-  onOpenCalculator,
 }: {
   calc: CalculatorFixture;
   answers: AnswerMap;
   onAnswersChange: (next: AnswerMap) => void;
   onClose: () => void;
-  onOpenCalculator: (calcId: string) => void;
 }) {
   const derived = deriveCalculator(calc, answers);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -147,16 +140,33 @@ export function CalculatorSheet({
         {/* Live strip pinned under the header while items scroll */}
         <div className="modal-landscape-container grid shrink-0 gap-1.5 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)] py-2.5 backdrop-blur-md">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-mono text-lg font-extrabold tabular-nums text-[color:var(--text-heading)]">
-              {derived.started ? derived.score : "—"}
-              <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
-            </span>
+            {/* Unstarted is not a missing score: no score exists yet, so the fraction has no numerator. The scale's own
+                endpoints stay visible in the ScoreBandBar directly below. */}
+            {derived.started ? (
+              <span className="font-mono text-lg font-extrabold tabular-nums text-[color:var(--text-heading)]">
+                {derived.score}
+                <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
+              </span>
+            ) : (
+              <MissingValue reason="not_yet_calculated" />
+            )}
             <span className="flex items-center gap-2">
               <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{progressLabel(derived)}</span>
               <SeverityPill tone={derived.result.tone} label={derived.started ? derived.result.label : "Not started"} />
             </span>
           </div>
           <ScoreBandBar calc={calc} score={derived.score} started={derived.started} />
+          {/* The scope line belongs HERE, not in ScorePanel at the foot of the
+              scroll body: this strip is pinned, so the score and its severity are
+              readable throughout a long instrument while anything below the fold is
+              not. `caution` is set on one of the five released instruments, and the
+              catalogue's "Scores support clinical judgement" note is on the page
+              behind this modal, so without this the number and its label are the
+              only things in view at the moment they are read. */}
+          <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            Clinical reference — not validated decision support. Confirm scoring and interpretation against the source
+            instrument.
+          </p>
         </div>
 
         <div
@@ -173,10 +183,7 @@ export function CalculatorSheet({
 
           <CalculatorItems calc={calc} answers={answers} onAnswersChange={onAnswersChange} />
 
-          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-            <NextActionsPanel calc={calc} derived={derived} />
-            <RelatedContentPanel calc={calc} derived={derived} onOpenCalculator={onOpenCalculator} />
-          </div>
+          <NextActionsPanel calc={calc} derived={derived} />
 
           <ScorePanel calc={calc} derived={derived} onReset={() => onAnswersChange({})} />
         </div>
@@ -213,7 +220,6 @@ export function CalculatorsPopupSheetMockup() {
           answers={session[activeCalc.id] ?? {}}
           onAnswersChange={(next) => setSession((prev) => ({ ...prev, [activeCalc.id]: next }))}
           onClose={() => setOpenId(null)}
-          onOpenCalculator={setOpenId}
         />
       ) : null}
     </div>

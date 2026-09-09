@@ -4,6 +4,8 @@ export const guideTopicIds = [
   "document-scope",
   "answer-anatomy",
   "sources-citations",
+  "source-rating",
+  "colour-coding",
   "document-administration",
   "privacy-safe-use",
   "keyboard-shortcuts",
@@ -29,14 +31,14 @@ export type GuideTopic = {
 export const guideTopics: readonly GuideTopic[] = [
   {
     id: "getting-started",
-    title: "Getting started with Clinical KB",
+    title: "Getting started with PsychSift",
     navLabel: "Getting started",
-    summary: "Understand what Clinical KB does and follow the evidence-first workflow from question to source.",
+    summary: "Understand what PsychSift does and follow the evidence-first workflow from question to source.",
     sections: [
       {
         heading: "Use it as a source-backed starting point",
         paragraphs: [
-          "Clinical KB helps you search indexed clinical documents, review a concise answer, and move quickly to the evidence behind it. It is designed to shorten the path to relevant guidance; it does not replace the original document, local policy, clinical assessment, or professional judgement.",
+          "PsychSift helps you search indexed clinical documents, review a concise answer, and move quickly to the evidence behind it. It is designed to shorten the path to relevant guidance; it does not replace the original document, local policy, clinical assessment, or professional judgement.",
           "Begin with one focused question. Add document scope only when the task should use particular guidance. Read the answer as a structured orientation, then follow its citations to the retrieved source passages and original document before applying it.",
         ],
       },
@@ -122,6 +124,12 @@ export const guideTopics: readonly GuideTopic[] = [
           "If a claim has no direct source, treat it as unconfirmed rather than filling the gap from memory.",
         ],
       },
+      {
+        heading: "Read status badges with the answer",
+        paragraphs: [
+          "Status badges around answers and sources use a fixed six-tone colour system. They flag how current, supported, or cautious a signal is — they are not decorative labels. See Colour coding & badges in this guide for what each tone means.",
+        ],
+      },
     ],
   },
   {
@@ -145,6 +153,62 @@ export const guideTopics: readonly GuideTopic[] = [
           "Notice current, review-due, outdated, or unverified source-status signals.",
           "Check that the passage supports the claim, not merely the same topic or terminology.",
           "If citations conflict, prefer the applicable primary guidance and resolve the discrepancy outside the generated answer.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "source-rating",
+    title: "How sources are rated",
+    navLabel: "Source rating",
+    summary: "Read the catalogue quality band on a source and know what it does, and does not, tell you.",
+    sections: [
+      {
+        heading: "The band rates the document, not the advice",
+        paragraphs: [
+          "Every catalogue source is scored out of 100 across six dimensions and placed in a quality band. The score measures how well the source works as a reference: how it was assured, who published it, what kind of evidence it declares, how current it is, how far it applies in Australia, and how completely it can be traced.",
+          "It is an organisational rating, not a clinical one. A band A source can still be the wrong guidance for the patient in front of you. Read the band as a statement about provenance, then judge the content yourself.",
+        ],
+      },
+      {
+        heading: "Use the band as a prompt to check",
+        bullets: [
+          "A · Preferred and B · Strong — provenance is sound, so verify the content against the passage as usual.",
+          "C · Supplementary — treat it as supporting material beside a stronger source rather than on its own.",
+          "D · Review required — metadata is missing or identity is uncertain, so confirm the original before relying on it.",
+          "Excluded — a governance rule removed the source; look for the replacement rather than working around it.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "colour-coding",
+    title: "Colour coding & badges",
+    navLabel: "Colour coding",
+    summary: "Learn what each badge colour means and how to scan clinical screens faster.",
+    sections: [
+      {
+        heading: "Meaning drives colour",
+        paragraphs: [
+          "PsychSift uses exactly six badge tones. The colour always reflects meaning — never the other way round. Green means current, reviewed, or source-backed; it does not mean clinically safe. Clinical blue means an action to carry out, not verified or trustworthy.",
+          "Badges highlight information for faster scanning. They supplement readable text and never replace contraindications, dosing detail, monitoring requirements, or source provenance.",
+        ],
+      },
+      {
+        heading: "How to scan",
+        bullets: [
+          "When several badges appear together, read danger first, then warning, clinical, success, neutral, and info.",
+          "Danger and warning badges carry icons so they stay distinguishable without colour.",
+          "If a badge label is unclear, read the surrounding row or section — the badge is a scan aid, not the full instruction.",
+        ],
+      },
+      {
+        heading: "Where badges appear",
+        bullets: [
+          "Answers — grounding, evidence strength, and source-currency signals.",
+          "Sources and documents — review state, ingestion status, and metadata.",
+          "Medications — dosing, access, safety, and contraindication flags.",
+          "Services and differentials — availability, referral requirements, and severity.",
         ],
       },
     ],

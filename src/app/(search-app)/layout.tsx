@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 
 import { SharedSearchAppShell } from "@/components/clinical-dashboard/shared-search-app-shell";
+import { clinicalAskModeEnabled } from "@/lib/clinical-ask/authority-registry";
+import { projectClinicalAskAvailableModeIds } from "@/lib/clinical-ask/capabilities";
 
 /**
  * Shared search chrome for mode homes and related routes. Keeping GlobalSearchShell
@@ -8,5 +10,8 @@ import { SharedSearchAppShell } from "@/components/clinical-dashboard/shared-sea
  * between namespaced modes (e.g. /services ↔ /dsm ↔ /).
  */
 export default function SearchAppLayout({ children }: { children: ReactNode }) {
-  return <SharedSearchAppShell>{children}</SharedSearchAppShell>;
+  const clinicalAskAvailableModeIds = projectClinicalAskAvailableModeIds(clinicalAskModeEnabled);
+  return (
+    <SharedSearchAppShell clinicalAskAvailableModeIds={clinicalAskAvailableModeIds}>{children}</SharedSearchAppShell>
+  );
 }

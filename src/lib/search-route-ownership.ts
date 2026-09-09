@@ -16,6 +16,7 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "therapy-compass",
   "factsheets",
   "dictionary",
+  "sources",
   "tools",
   "calculators",
 ]);
@@ -26,14 +27,19 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
  * navigation cannot flip the shell into dock reserve mid-transition.
  */
 export const standaloneModeHomePaths = [
-  // The four modes that still own a home of their own. Every other mode was
-  // consolidated onto the shared home at `/?mode=<id>`, whose composer the
-  // dashboard owns; their bare paths redirect and render nothing to reserve
-  // geometry for (`consolidatedModeHomePaths`).
+  // The two modes that still own a home of their own. Every other mode uses the
+  // shared home at `/?mode=<id>`, whose composer the dashboard owns; their bare
+  // paths redirect and render nothing to reserve geometry for
+  // (`consolidatedModeHomePaths`, plus `/medications` through its own bespoke
+  // proxy fast-path).
+  //
+  // `/medications` and `/sources` were both listed here after they began
+  // redirecting, which could never take effect: detection is pathname-only, and
+  // no render happens at a path that 307s. `/sources` rendered a four-card home
+  // until that home was folded into the shared one; `/medications` has redirected
+  // on both branches since its own consolidation, as this file already says below.
   "/favourites",
   "/tools",
-  "/medications",
-  "/documents",
 ] as const;
 
 /**
@@ -41,15 +47,59 @@ export const standaloneModeHomePaths = [
  * page component. They must mount the dashboard even with nothing submitted, which
  * `pathname === "/"` alone would not cover.
  *
- * `/medications` is intentionally absent: it is always-standalone and owns its body
- * via `MedicationsHomeClient`. Listing it here would never take effect (the shell
- * short-circuits always-standalone paths before the dashboard gate) and would
+ * Empty now that Documents is consolidated: its bare path redirects to the
+ * shared home at `/?mode=documents` (`consolidatedModeHomePaths`) instead of
+ * being dashboard-owned in place, so it no longer belongs here. The map and its
+ * two accessors below stay — `global-search-shell.tsx` and
+ * `use-home-mode-seed.ts` still call them — as intentionally inert until a
+ * future mode needs this shape again.
+ *
+ * `/medications` is intentionally absent: it now redirects (via its own bespoke
+ * proxy fast-path, not this map — see `medicationsHomeTarget()` in `src/proxy.ts`)
+ * rather than rendering a body at all. Listing it here would never take effect (the
+ * shell short-circuits always-standalone paths before the dashboard gate) and would
  * wrongly imply keystroke auto-run should follow the documents-home contract.
  */
-const dashboardOwnedModeHomePaths = { "/documents": "documents" } as const satisfies Record<string, AppModeId>;
+const dashboardOwnedModeHomePaths = {} as const satisfies Record<string, AppModeId>;
+
+/**
+ * The dedicated home a mode owns, or `null` when it belongs to the shared home.
+ *
+ * Deliberately limited to the two paths in `standaloneModeHomePaths` above. It is tempting to
+ * add `documents` and `prescribing` here, because both have a bare path that looks like a home —
+ * but `/documents` 307s to `/?mode=documents` (`consolidatedModeHomePaths`) and `/medications`
+ * 307s through its own proxy fast-path, as the comment on `dashboardOwnedModeHomePaths` says.
+ * Returning either would send the mode pill on a redirect round trip AND drop the draft query,
+ * query mode and scope filters that `appModeSelectionHref` carries, landing the user on the
+ * shared home they were already on with their context lost. A mode belongs here only once its
+ * path renders a body.
+ */
+export function standaloneModeHomeHref(mode: AppModeId): string | null {
+  switch (mode) {
+    case "tools":
+      return "/tools";
+    case "favourites":
+      return "/favourites";
+    default:
+      return null;
+  }
+}
 
 export function isStandaloneModeHomePath(pathname: string): boolean {
   return standaloneModeHomePaths.includes(pathname as (typeof standaloneModeHomePaths)[number]);
+}
+
+/**
+ * Dictionary catalogue owns the desktop in-flow composer slot (under mode
+ * nav, above the Filter band). Phones keep the usual compact bottom dock.
+ * Pathname-only so a submitted `?q=` cannot move the desktop composer into
+ * the generic page slot above mode nav.
+ *
+ * `/dictionary/browse` redirects onto `/dictionary/search`; keep both so the
+ * brief pre-redirect frame cannot paint the wrong slot.
+ */
+export function isDictionaryCataloguePath(pathname: string): boolean {
+  return pathname === "/dictionary/search" || pathname === "/dictionary/browse";
 }
 
 /** Exact pathnames that mount ClinicalDashboard for an unsubmitted mode home. */
@@ -87,14 +137,33 @@ const alwaysStandaloneShellPathPrefixes = [
   "/formulation",
   "/factsheets",
   "/dictionary",
+  "/sources",
   "/therapy-compass",
   "/medications",
   "/calculators",
   "/tools",
+  "/on-call",
 ] as const;
 
+/**
+ * Exact paths that never mount ClinicalDashboard, unlike the prefixes above.
+ *
+ * `/documents` is the only entry. Every other mode in this list is consolidated
+ * across its whole namespace, so a prefix match is correct for it. Documents is
+ * different: only its bare path is consolidated (redirects to `/?mode=documents`)
+ * — `/documents/search` and `/documents/[id]` stay dashboard-owned and must keep
+ * rendering ClinicalDashboard in place. Adding `/documents` to the prefix list
+ * above would also match `/documents/search`, silently breaking document search
+ * results (covered by an `@critical`-tagged Playwright test), so it gets its own
+ * exact-match list instead.
+ */
+const alwaysStandaloneShellExactPaths = ["/documents"] as const;
+
 export function isAlwaysStandaloneShellPath(pathname: string): boolean {
-  return alwaysStandaloneShellPathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  return (
+    alwaysStandaloneShellExactPaths.includes(pathname as (typeof alwaysStandaloneShellExactPaths)[number]) ||
+    alwaysStandaloneShellPathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+  );
 }
 
 /** Dashboard-owned hrefs stay on `/` with `?mode=`, or the submitted documents search route. */

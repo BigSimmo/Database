@@ -40,6 +40,7 @@ const staticKnownRoutes = new Set([
   "/documents/source",
   "/documents/source/evidence",
   "/factsheets/search",
+  "/factsheets/topics",
 ]);
 
 const acceptedDynamicPatterns = [
@@ -56,7 +57,6 @@ const acceptedDynamicPatterns = [
   /^\/formulation\/[^/?#]+(?:[?#].*)?$/,
   /^\/specifiers\/[^/?#]+(?:[?#].*)?$/,
   /^\/therapy-compass\/[^/?#]+(?:[?#].*)?$/,
-  /^\/ward-management\/patients\/[^/?#]+(?:[?#].*)?$/,
 ];
 
 function pathOnly(href: string) {
@@ -85,7 +85,6 @@ function routePatternForHref(href: string) {
     if (pathname.startsWith("/formulation/")) return "/formulation/[slug]";
     if (pathname.startsWith("/specifiers/")) return "/specifiers/[slug]";
     if (pathname.startsWith("/therapy-compass/")) return "/therapy-compass/[slug]";
-    if (pathname.startsWith("/ward-management/patients/")) return "/ward-management/patients/[patientId]";
   }
   return pathname;
 }
@@ -146,6 +145,20 @@ describe("tracked sitemap", () => {
       expect(apiSection).not.toContain(`\`${route}\``);
       expect(productSection).not.toContain(`\`${route}\``);
     }
+  });
+
+  it("describes Dictionary Sources as the query-preserving Sources compatibility redirect", async () => {
+    const data = collectSiteMapData();
+    const rendered = await renderSiteMap(data);
+
+    expect(data.redirects).toContainEqual({
+      route: "/dictionary/sources",
+      file: "src/app/(search-app)/dictionary/sources/page.tsx",
+      target: "/sources/search?usedBy=dictionary",
+    });
+    expect(rendered).toContain(
+      "`/dictionary/sources` - Query-preserving compatibility redirect to `/sources/search?usedBy=dictionary`",
+    );
   });
 
   it("documents seeded dynamic slugs", () => {

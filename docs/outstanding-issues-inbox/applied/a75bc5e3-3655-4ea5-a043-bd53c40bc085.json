@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a75bc5e3-3655-4ea5-a043-bd53c40bc085",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Two live overloads of purge_expired_rag_response_cache, one unbounded",
+    "detail": "schema.sql:862 defines a zero-arg version whose body is an unbounded delete from rag_response_cache where expires_at <= now(); :6449 defines the bounded (p_limit integer default 1000) version whose whole purpose was to stop a large backlog becoming one long-running delete. Both remain installed. 20260713201542 re-schedules only the bounded call, so nothing invokes the unbounded form today, but it stays executable by service_role and a bare call is now ambiguous against a defaulted overload. FIX: drop the zero-arg overload in a migration plus mirror.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96SQQ0JJ4RD36DERPJ71T"
+  }
+}

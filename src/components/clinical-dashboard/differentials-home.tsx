@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity,
@@ -20,9 +20,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { ModeHomeTemplate } from "@/components/mode-home-template";
-import { appModeIcons } from "@/lib/app-mode-icons";
-import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -36,6 +33,7 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { Chip as DesignChip } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
@@ -48,26 +46,11 @@ import {
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import {
   composeDifferentialSearchResults,
-  defaultDifferentialRecentQueries,
   type DifferentialSearchResultItem,
 } from "@/lib/differential-search-composition";
 import type { DifferentialRecord } from "@/lib/differential-snapshot";
 import type { ClientDocumentMatch } from "@/lib/answer-client-payload";
 import { sortResultItems } from "@/lib/result-sort";
-
-type DifferentialAction = {
-  label: string;
-  description: string;
-  query: string;
-  icon: LucideIcon;
-  target: "search" | "presentations" | "diagnoses";
-};
-
-type RecentDifferential = {
-  label: string;
-  query: string;
-  icon: LucideIcon;
-};
 
 type DifferentialResult = {
   id: string;
@@ -87,29 +70,6 @@ type DifferentialResult = {
 };
 
 type DifferentialEvidenceState = "source-backed" | "guided";
-
-const primaryActions: DifferentialAction[] = [
-  {
-    label: "Search presentations",
-    description: "By symptom or scenario.",
-    query: "acute confusion differential diagnosis",
-    icon: Search,
-    target: "presentations",
-  },
-  {
-    label: "Compare differentials",
-    description: "Likely causes, side by side.",
-    query: "delirium vs dementia differential diagnosis",
-    icon: GitCompareArrows,
-    target: "diagnoses",
-  },
-];
-
-const recentDifferentials: RecentDifferential[] = defaultDifferentialRecentQueries.map((query) => ({
-  label: query.replace(/\bdifferential diagnosis\b/i, "").trim() || query,
-  query: query.includes("differential") ? query : `${query} differential diagnosis`,
-  icon: BrainCircuit,
-}));
 
 const candidateIconBySlug: Array<[string, LucideIcon]> = [
   ["substance", FlaskConical],
@@ -201,6 +161,20 @@ function statusTone(status: DifferentialRecord["status"]) {
     return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
   }
   return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
+}
+
+/**
+ * The card's left urgency rail. Same status semantics as `statusTone`, reduced
+ * to a single solid fill so urgency is legible before any text is read.
+ */
+function statusRailTone(status: DifferentialRecord["status"]) {
+  if (status === "emergent") return "bg-[color:var(--danger-solid)]";
+  if (status === "urgent") return "bg-[color:var(--warning)]";
+  return "bg-[color:var(--info)]";
+}
+
+function openActionLabel(kind: DifferentialResult["kind"]) {
+  return kind === "presentation" ? "Open presentation" : "Open differential";
 }
 
 function resultIcon(kind: DifferentialResult["kind"], slug: string) {
@@ -314,11 +288,37 @@ function Chip({ children }: { children: string }) {
   );
 }
 
-function SelectionCheckbox({ selected, onChange, label }: { selected: boolean; onChange: () => void; label: string }) {
+/**
+ * The compare toggle. It sits on the same card as the whole-card open link, so
+ * it carries its own word ("Compare"/"Added") rather than a bare tick: the two
+ * actions must never read as the same target. `relative z-10` keeps it above
+ * the card's stretched open link.
+ */
+function SelectionCheckbox({
+  selected,
+  onChange,
+  label,
+  showLabel = true,
+}: {
+  selected: boolean;
+  onChange: () => void;
+  label: string;
+  showLabel?: boolean;
+}) {
   return (
     <label
       data-testid="differential-selection-target"
-      className="group grid size-tap shrink-0 cursor-pointer place-items-center rounded-md"
+      className={cn(
+        "group/compare relative z-10 inline-flex shrink-0 cursor-pointer items-center justify-center rounded-lg transition",
+        showLabel
+          ? cn(
+              "min-h-tap gap-2 border px-2.5",
+              selected
+                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]",
+            )
+          : "size-tap",
+      )}
     >
       <input
         type="checkbox"
@@ -330,7 +330,7 @@ function SelectionCheckbox({ selected, onChange, label }: { selected: boolean; o
       <span
         data-testid="differential-selection-box"
         className={cn(
-          "grid size-6 place-items-center rounded-sm border text-transparent transition group-hover:border-[color:var(--clinical-accent-border)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--focus)]",
+          "grid size-6 shrink-0 place-items-center rounded-sm border text-transparent transition group-hover/compare:border-[color:var(--clinical-accent-border)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--focus)]",
           selected
             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
             : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
@@ -339,7 +339,49 @@ function SelectionCheckbox({ selected, onChange, label }: { selected: boolean; o
       >
         <Check aria-hidden="true" className="size-icon-sm stroke-[2.5]" />
       </span>
+      {showLabel ? (
+        <span className="whitespace-nowrap text-2xs font-extrabold uppercase tracking-eyebrow">
+          {selected ? "Added" : "Compare"}
+        </span>
+      ) : null}
     </label>
+  );
+}
+
+/**
+ * The visible "click here" label for the stretched card link. It is text, not a
+ * second anchor to the same href — duplicating the link would double every
+ * result in a screen-reader link list.
+ */
+function OpenAffordance({
+  kind,
+  compact = false,
+  className,
+}: {
+  kind: DifferentialResult["kind"];
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      data-testid="differential-open-affordance"
+      className={cn(
+        "inline-flex items-center gap-1.5 whitespace-nowrap text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]",
+        className,
+      )}
+    >
+      {compact ? "Open" : openActionLabel(kind)}
+      <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] transition group-hover:bg-[color:var(--clinical-accent)] group-hover:text-[color:var(--clinical-accent-contrast)]">
+        <ChevronRight className="size-icon-xs stroke-[3]" aria-hidden />
+      </span>
+    </span>
+  );
+}
+
+/** The card's left urgency rail, drawn inside the card's rounded clip. */
+function StatusRail({ status }: { status: DifferentialRecord["status"] }) {
+  return (
+    <span aria-hidden className={cn("pointer-events-none absolute inset-y-0 left-0 w-1.5", statusRailTone(status))} />
   );
 }
 
@@ -359,18 +401,22 @@ function DesktopResultRow({
   return (
     <article
       data-testid="differential-compact-result"
-      className="group grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-3 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]"
+      className="group relative grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_10.75rem_auto] items-center gap-3 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] py-3 pl-4 pr-3.5 shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]/40 hover:shadow-[var(--e2)]"
     >
+      <StatusRail status={result.status} />
       <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]">
         {index + 1}
       </span>
-      <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] transition group-hover:border-[color:var(--clinical-accent-border)]">
+      <span className="grid h-14 w-14 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] transition group-hover:border-[color:var(--clinical-accent-border)] group-hover:text-[color:var(--clinical-accent)]">
         <Icon className="h-7 w-7 stroke-[1.75]" aria-hidden />
       </span>
       <div className="min-w-0">
         <Link
           href={result.href}
-          className="block min-w-0 rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className={cn(
+            "block min-w-0 rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]",
+            stretchedRowLinkClass,
+          )}
         >
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="line-clamp-1">{result.title}</span>
@@ -396,10 +442,15 @@ function DesktopResultRow({
           {result.clinicalCues.length > 4 ? <Chip>{`+${result.clinicalCues.length - 4}`}</Chip> : null}
         </div>
       </div>
-      <div className="grid min-h-10 place-items-center border-l border-[color:var(--border)] pl-3">
+      <div className="grid min-h-10 justify-items-center gap-2 self-center border-l border-[color:var(--border)] pl-3">
         <MatchBadge label={result.matchLabel} />
+        <OpenAffordance kind={result.kind} />
       </div>
-      {onToggle ? <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} /> : <span />}
+      {onToggle ? (
+        <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} showLabel={false} />
+      ) : (
+        <span />
+      )}
     </article>
   );
 }
@@ -418,8 +469,9 @@ function MobileResultCard({
   return (
     <article
       data-testid="differential-mobile-result-card"
-      className="grid gap-2.5 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+      className="group relative grid gap-2.5 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] py-3 pl-4 pr-3 shadow-[var(--shadow-inset)] transition active:border-[color:var(--clinical-accent-border)] active:bg-[color:var(--clinical-accent-soft)]/25"
     >
+      <StatusRail status={result.status} />
       <div className="flex min-w-0 items-start gap-2.5">
         <span
           data-testid="differential-mobile-result-rank"
@@ -430,15 +482,13 @@ function MobileResultCard({
         </span>
         <Link
           href={result.href}
-          className="block min-w-0 flex-1 rounded-md text-sm font-extrabold leading-5 text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className={cn(
+            "block min-w-0 flex-1 rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)]",
+            stretchedRowLinkClass,
+          )}
         >
           <span className="line-clamp-2">{result.title}</span>
         </Link>
-        {onToggle ? (
-          <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} />
-        ) : (
-          <ChevronRight className="mt-1 size-icon-md shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
-        )}
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <ResultTypeBadge kind={result.kind} />
@@ -460,6 +510,10 @@ function MobileResultCard({
             <Chip key={`${result.id}-cue-${cueIndex}-${tag}`}>{tag}</Chip>
           ))}
         </div>
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-2.5">
+        <OpenAffordance kind={result.kind} />
+        {onToggle ? <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} /> : null}
       </div>
     </article>
   );
@@ -538,13 +592,15 @@ function BestAnswerCard({
       data-testid={compact ? "differential-best-answer" : "differential-best-match-card"}
       aria-label="Best differential match"
       className={cn(
-        "grid items-start gap-x-2.5 gap-y-3 rounded-lg border shadow-[var(--e1)]",
+        "group relative grid items-start gap-x-2.5 gap-y-3 overflow-hidden rounded-xl border shadow-[var(--e1)] transition",
         "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45",
+        "hover:shadow-[var(--e2)]",
         compact
-          ? "grid-cols-[minmax(0,1fr)_var(--spacing-tap)] p-3"
-          : "grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] p-3.5",
+          ? "grid-cols-[minmax(0,1fr)] py-3 pl-4 pr-3"
+          : "grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_10.75rem_auto] py-3.5 pl-4 pr-3.5",
       )}
     >
+      <StatusRail status={best.status} />
       {!compact ? (
         <span
           data-testid="differential-best-match-rank"
@@ -565,10 +621,7 @@ function BestAnswerCard({
       ) : null}
       <Link
         href={best.href}
-        className={cn(
-          "block min-w-0 self-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-          compact && "self-start",
-        )}
+        className={cn("block min-w-0 self-center rounded-md", stretchedRowLinkClass, compact && "self-start")}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {compact ? (
@@ -587,33 +640,38 @@ function BestAnswerCard({
           >
             <span className={cn(compact && "line-clamp-2")}>{best.title}</span>
           </h2>
-          <ResultTypeBadge kind={best.kind} />
-          <StatusBadge status={best.status} />
+          <div className={cn("flex min-w-0 flex-wrap items-center gap-2", compact && "w-full")}>
+            <ResultTypeBadge kind={best.kind} />
+            <StatusBadge status={best.status} />
+            {compact ? <MatchBadge label="Best match" /> : null}
+          </div>
         </div>
         {best.scopeLabel ? (
           <p className="mt-1 text-xs font-semibold leading-5 text-[color:var(--text-heading)]">{best.scopeLabel}</p>
         ) : null}
       </Link>
       {!compact ? (
-        <div className="grid min-h-10 place-items-center self-center border-l border-[color:var(--clinical-accent-border)] pl-3">
+        <div className="grid min-h-10 justify-items-center gap-2 self-center border-l border-[color:var(--clinical-accent-border)] pl-3">
           <MatchBadge label="Best match" />
+          <OpenAffordance kind={best.kind} />
         </div>
       ) : null}
-      {onToggle ? (
-        <SelectionCheckbox selected={Boolean(selected)} onChange={onToggle} label={best.title} />
-      ) : compact ? (
-        <ChevronRight className="mt-1 size-icon-md shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
-      ) : (
-        <span />
-      )}
-      {compact ? (
-        <div className="col-span-2 flex items-center gap-1.5">
-          <MatchBadge label="Best match" />
-        </div>
+      {!compact ? (
+        onToggle ? (
+          <SelectionCheckbox selected={Boolean(selected)} onChange={onToggle} label={best.title} showLabel={false} />
+        ) : (
+          <span />
+        )
       ) : null}
-      <div className={cn(compact ? "col-span-2" : "col-start-3 col-end-6")}>
+      <div className={compact ? undefined : "col-start-3 col-end-6"}>
         <BestMatchReasoningPanel result={best} compact={compact} />
       </div>
+      {compact ? (
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-[color:var(--clinical-accent-border)] pt-2.5">
+          <OpenAffordance kind={best.kind} />
+          {onToggle ? <SelectionCheckbox selected={Boolean(selected)} onChange={onToggle} label={best.title} /> : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -643,8 +701,15 @@ function LikelyPresentationCard({ lead }: { lead: DifferentialResult }) {
 function UrgencyCard({ results }: { results: DifferentialResult[] }) {
   const urgentResults = results.filter((result) => result.status === "emergent").slice(0, 3);
 
+  // Nothing emergent in the result set is a real answer, but an empty bordered
+  // card reads as a failed load. Drop the card instead.
+  if (urgentResults.length === 0) return null;
+
   return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
+    <section
+      data-testid="differentials-highest-urgency"
+      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
+    >
       <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Highest urgency
       </h2>
@@ -653,14 +718,85 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
           <Link
             key={result.id}
             href={result.href}
-            className="grid min-h-tap grid-cols-[5.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] px-2 text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+            // The badge track is content-sized, never a fixed width. A fixed
+            // 5.25rem track clipped "Emergent" mid-word in this narrow rail,
+            // which is the one label that must stay readable.
+            className="grid min-h-tap grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] px-2 text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
           >
             <StatusBadge status={result.status} />
             <span className="truncate">{result.title}</span>
-            <ChevronRight className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
+            <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
           </Link>
         ))}
       </div>
+    </section>
+  );
+}
+
+type SharedNextStep = { text: string; sources: string[] };
+
+/**
+ * The workup the ranked differentials agree on, most-shared first.
+ *
+ * Diagnoses only. A presentation's `nextSteps` come from its review checklist,
+ * which is the same five workflow stages ("Stabilise and rule out immediate
+ * threats", …) on every presentation in the catalogue, so including them would
+ * out-count the actual investigations without discriminating between anything.
+ */
+function sharedNextSteps(results: DifferentialResult[], limit = 5): SharedNextStep[] {
+  const byText = new Map<string, SharedNextStep>();
+  for (const result of results) {
+    if (result.kind !== "diagnosis") continue;
+    for (const step of result.nextSteps) {
+      const text = step.trim();
+      if (!text) continue;
+      const key = text.toLocaleLowerCase("en-AU");
+      const existing = byText.get(key);
+      if (existing) {
+        if (!existing.sources.includes(result.title)) existing.sources.push(result.title);
+        continue;
+      }
+      byText.set(key, { text, sources: [result.title] });
+    }
+  }
+  // Stable sort: differentials that share an investigation lift it to the top,
+  // and everything else holds the ranked order it arrived in.
+  return [...byText.values()].sort((a, b) => b.sources.length - a.sources.length).slice(0, limit);
+}
+
+/**
+ * Highest urgency answers "what must I not miss". This answers the question a
+ * clinician asks straight after it — "what do I order" — from the investigations
+ * the ranked differentials already name on their own cards. It derives nothing
+ * new: every line here is visible on a result card below.
+ */
+function NextStepsCard({ results }: { results: DifferentialResult[] }) {
+  const steps = sharedNextSteps(results);
+
+  if (steps.length === 0) return null;
+
+  return (
+    <section
+      data-testid="differentials-shared-next-steps"
+      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
+    >
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Check next</h2>
+      <p className="mt-1 text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
+        Investigations named by the ranked differentials
+      </p>
+      <ul className="mt-3 grid gap-2.5">
+        {steps.map((step) => (
+          <li key={step.text} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
+            <FlaskConical className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-sm font-bold leading-5 text-[color:var(--text-heading)]">{step.text}</p>
+              <p className="mt-0.5 truncate text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
+                {step.sources.length > 1 ? `Shared by ${step.sources.length} differentials` : `From ${step.sources[0]}`}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -735,7 +871,21 @@ function SourceStatusBanner({
   );
 }
 
-function InterpretationRail({ best, results }: { best: DifferentialResult; results: DifferentialResult[] }) {
+/**
+ * The two cards read different lists on purpose. Highest urgency is a safety net
+ * over the whole result set, so a result-type or urgency lens must not hide an
+ * emergent differential from it. Check next describes the list the clinician is
+ * actually reading, so it follows the lens.
+ */
+function InterpretationRail({
+  best,
+  results,
+  filteredResults,
+}: {
+  best: DifferentialResult;
+  results: DifferentialResult[];
+  filteredResults: DifferentialResult[];
+}) {
   return (
     <aside className="hidden min-w-0 gap-3 lg:grid" aria-label="Differential interpretation">
       <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
@@ -744,6 +894,7 @@ function InterpretationRail({ best, results }: { best: DifferentialResult; resul
       </h2>
       {best.kind === "presentation" ? <LikelyPresentationCard lead={best} /> : null}
       <UrgencyCard results={results} />
+      <NextStepsCard results={filteredResults} />
     </aside>
   );
 }
@@ -773,6 +924,13 @@ function SearchResultsView({
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const [urgencyFilter, setUrgencyFilter] = useState<UrgencyFilter>("all");
   const filterPanelId = useId();
+  // Anchor for the tablet/desktop filter panel. Only the wide trigger carries
+  // it: the phone trigger opens the bottom sheet, which anchors to the
+  // viewport rather than to a control.
+  const desktopFilterTriggerRef = useRef<HTMLButtonElement>(null);
+  // The browse links in this view are `Link`s; the filter's reach action is a
+  // button inside the panel footer, so it needs the router directly.
+  const filterReachRouter = useRouter();
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   // Capture cold-load URL ids in state so a loading catalogue cannot wipe `ids`
@@ -1010,6 +1168,7 @@ function SearchResultsView({
         }
         filterControls={
           <ResultFilterTrigger
+            ref={desktopFilterTriggerRef}
             panelId={filterPanelId}
             testId="differential-filter-trigger-desktop"
             title="Filter differentials"
@@ -1027,22 +1186,33 @@ function SearchResultsView({
         hasCatalogueResults={!catalogFailed && results.length > 0}
         onRunSourceSearch={rerunSearch}
       />
-      {/* Phone-only by construction: the trigger that opens it lives in the
-          ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
+      {/* One panel, two presentations. Both triggers above open this: the phone
+          one from the ribbon's `mobileControls` slot, the wide one from
+          `filterControls`, which the band renders from `sm` up. Passing
+          `anchorRef` is what makes the wide case a panel under that trigger
+          instead of a full-height right rail — two short groups left roughly
+          85% of the rail empty, and gave a 768px tablet two thirds of its
+          screen to a refinement of the list behind it. */}
       <ResultFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
+        anchorRef={desktopFilterTriggerRef}
         panelId={filterPanelId}
         testId="differential-filter-panel"
         title="Filter differentials"
         description="Narrow by result type, then by clinical urgency. Both narrow the same list together."
         groups={[
+          // Both dimensions are exact partitions carrying counts, which is the
+          // case `ChoiceChip` itself sends to `SegmentedControl`: a counted
+          // chip is wide enough that four of them wrap one per line and leave
+          // most of each row empty.
           resultFilterGroup({
             id: "result-type",
             label: "Show",
             value: kindFilter,
             options: kindFilterOptions,
             onChange: setKindFilter,
+            renderAs: "segmented",
           }),
           resultFilterGroup({
             id: "urgency",
@@ -1050,12 +1220,29 @@ function SearchResultsView({
             value: urgencyFilter,
             options: urgencyFilterOptions,
             onChange: setUrgencyFilter,
+            renderAs: "segmented",
           }),
         ]}
         onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
         summary={{
           count: visibleResults.length,
           noun: visibleResults.length === 1 ? "result" : "results",
+        }}
+        // Reach, not refinement — the filter-contract framing for an action
+        // that leaves the result set rather than narrowing it, which is why it
+        // is the footer's secondary action and not a group option (there is
+        // deliberately no `navigate` kind).
+        //
+        // This is the way out of a filtered-to-zero state that does not throw
+        // the query away: `differentialRouteWithQuery` carries `q` across.
+        // Deliberately uncounted. The page cannot state the catalogue size
+        // honestly — the snapshot is a megabyte this client bundle must not
+        // import, and `/api/differentials` returns `total` as the *match* count
+        // once `q` is present, not the catalogue's. A number here would be
+        // wrong more often than right.
+        secondaryAction={{
+          label: "Browse the full differentials catalogue",
+          onClick: () => filterReachRouter.push(differentialRouteWithQuery("/differentials/diagnoses", query)),
         }}
       />
       {catalogLoading ? (
@@ -1247,7 +1434,7 @@ function SearchResultsView({
               )}
             </section>
 
-            <InterpretationRail best={best} results={results} />
+            <InterpretationRail best={best} results={results} filteredResults={relevanceResults} />
           </div>
         </div>
       )}
@@ -1267,12 +1454,7 @@ export function DifferentialsHome({
   searchSubmitted,
   documentMatches,
   evidenceQuery,
-  onQueryChange,
-  onSuggestedSearch,
   onRunSearch,
-  onOpenPresentations,
-  onOpenDiagnoses,
-  desktopComposerSlotId,
 }: {
   query: string;
   loading: boolean;
@@ -1304,29 +1486,6 @@ export function DifferentialsHome({
     router.push(appModeHomeHref("differentials", { query: searchText, run: true, focus: true }));
   }
 
-  function handleSuggestedSearch(nextQuery: string) {
-    onQueryChange?.(nextQuery);
-    if (onSuggestedSearch) {
-      onSuggestedSearch(nextQuery);
-      return;
-    }
-    router.push(appModeHomeHref("differentials", { query: nextQuery, run: true, focus: true }));
-  }
-
-  function handleAction(action: DifferentialAction) {
-    if (action.target === "presentations") {
-      if (onOpenPresentations) onOpenPresentations(action.query);
-      else router.push(differentialRouteWithQuery("/differentials/presentations", action.query));
-      return;
-    }
-    if (action.target === "diagnoses") {
-      if (onOpenDiagnoses) onOpenDiagnoses(action.query);
-      else router.push(differentialRouteWithQuery("/differentials/diagnoses", action.query));
-      return;
-    }
-    runSearch(action.query);
-  }
-
   // Only surface ranked results once an actual search has run (submitted,
   // loading, or evidence matches present) — not on every keystroke. The
   // catalogue results are the primary content, so a submitted search with
@@ -1343,48 +1502,7 @@ export function DifferentialsHome({
     );
   }
 
-  return (
-    <div data-testid="differentials-home" className="w-full">
-      <ModeHomeTemplate
-        testId="differentials-home-template"
-        title={sharedHomePresentation.differentials.title}
-        subtitle={sharedHomePresentation.differentials.subtitle}
-        icon={appModeIcons.differentials}
-        headingLevel={1}
-        desktopComposerSlotId={desktopComposerSlotId}
-        actionsLabel="Differential actions"
-        actions={primaryActions.map((action) => ({
-          title: action.label,
-          description: action.description,
-          icon: action.icon,
-          onClick: () => handleAction(action),
-          disabled: loading,
-        }))}
-        pillsTitle={hasEvidenceMatches ? "Library matches" : "Recent work"}
-        pillsAction={
-          <button
-            type="button"
-            onClick={() => router.push("/differentials/presentations?q=recent+differential+review")}
-            className="inline-flex min-h-tap items-center gap-1.5 rounded-full px-2 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-sm"
-          >
-            View all
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          </button>
-        }
-        pills={
-          hasEvidenceMatches
-            ? documentMatches?.slice(0, 4).map((match) => ({
-                label: match.title,
-                icon: FlaskConical,
-                onClick: () => handleSuggestedSearch(match.title),
-              }))
-            : recentDifferentials.map((item) => ({
-                label: item.label,
-                icon: item.icon,
-                onClick: () => handleSuggestedSearch(item.query),
-              }))
-        }
-      />
-    </div>
-  );
+  // Empty unsubmitted visits 307 to `/?mode=differentials`. Returning null here
+  // so a dashboard loading flash cannot resurrect the retired tile home.
+  return null;
 }

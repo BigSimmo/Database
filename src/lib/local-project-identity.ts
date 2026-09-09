@@ -26,5 +26,5 @@ export function unsafeLocalProjectMessage(identity: LocalProjectIdentityPayload 
     typeof identity.localServer.projectPortEnd === "number"
       ? ` Use the URL printed by npm run ensure; managed ports are ${identity.localServer.projectPortStart}-${identity.localServer.projectPortEnd}.`
       : " Use the URL printed by npm run ensure.";
-  return `This tab is not using the guarded Clinical KB local URL.${range}`;
+  return `This tab is not using the guarded PsychSift local URL.${range}`;
 }

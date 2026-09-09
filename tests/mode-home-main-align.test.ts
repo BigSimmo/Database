@@ -55,36 +55,10 @@ describe("ModeHomeMain alignment contract", () => {
     expect(strip("lg:justify-between justify-end")).toBe("");
   });
 
-  it("top-aligns differentials search results and keeps the empty home centred", () => {
-    expect(differentialsPageSource).toMatch(/const showingResults = autoRunSearch/);
-    expect(differentialsPageSource).toMatch(/contentAlign=\{showingResults \? "start" : "center"\}/);
-  });
-
-  it("migrates content-rich homes off fragile className justify overrides", () => {
-    const alwaysStartOnPhone = [
-      resolve(SRC_ROOT, "components/therapy-compass/screens/home-screen.tsx"),
-      resolve(SRC_ROOT, "components/formulation/formulation-home-page.tsx"),
-      resolve(SRC_ROOT, "components/specifiers/specifiers-home-page.tsx"),
-      resolve(SRC_ROOT, "components/dsm/dsm-home-page.tsx"),
-    ].map((path) => readFileSync(path, "utf8"));
-
-    for (const source of alwaysStartOnPhone) {
-      expect(source).toMatch(/contentAlign="startOnPhone"/);
-      expect(source).not.toMatch(/ModeHomeMain[^>]*className="[^"]*justify-/);
-    }
-
-    // Forms/services top-align while loading or seeded so the registry ready
-    // flip does not jump center → start; confirmed empty/error stay centred.
-    for (const path of [
-      resolve(SRC_ROOT, "components/forms/forms-home-page.tsx"),
-      resolve(SRC_ROOT, "components/services/services-home-page.tsx"),
-    ]) {
-      const source = readFileSync(path, "utf8");
-      expect(source).toMatch(
-        /contentAlign=\{registry\.status === "loading" \|\| hasRegistryRecords \? "startOnPhone" : "center"\}/,
-      );
-      expect(source).not.toMatch(/ModeHomeMain[^>]*className="[^"]*justify-/);
-    }
+  it("top-aligns differentials search results; empty search redirects home", () => {
+    expect(differentialsPageSource).toContain('contentAlign="start"');
+    expect(differentialsPageSource).not.toMatch(/showingResults = autoRunSearch/);
+    expect(differentialsPageSource).not.toMatch(/contentAlign=\{showingResults \? "start" : "center"\}/);
   });
 
   it("forbids ModeHomeMain className justify-* overrides across src/", () => {

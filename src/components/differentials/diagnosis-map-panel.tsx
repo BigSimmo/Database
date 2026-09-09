@@ -27,9 +27,15 @@ import {
 } from "lucide-react";
 
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { DiagnosisMapInsights } from "@/components/differentials/diagnosis-map-insights";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, floatingControl, primaryControl, toolbarButton } from "@/components/ui-primitives";
-import { differentialStatusLabel, type DifferentialRelatedMapDetail } from "@/lib/differential-detail";
+import type { DifferentialCuratedEntry } from "@/lib/differential-curated";
+import {
+  buildDiscriminators,
+  differentialStatusLabel,
+  type DifferentialRelatedMapDetail,
+} from "@/lib/differential-detail";
 import { differentialSelectedCompareHref } from "@/lib/differentials-navigation";
 import type { DifferentialLikelihood, DifferentialMapNode, DifferentialRecord } from "@/lib/differentials";
 
@@ -267,9 +273,12 @@ function NodeBadge({ label, className }: { label: string; className?: string }) 
 }
 
 function MapLegend({ nodes, compact = false }: { nodes: DifferentialMapNode[]; compact?: boolean }) {
-  const presentLikelihoods = new Set(nodes.map((node) => node.likelihood));
-  const entries: Array<{ id: string; label: string; className: string }> = [
-    { id: "focus", label: "Focus diagnosis", className: "bg-[color:var(--clinical-accent)]" },
+  const likelihoodCounts = nodes.reduce<Partial<Record<DifferentialLikelihood, number>>>((counts, node) => {
+    counts[node.likelihood] = (counts[node.likelihood] ?? 0) + 1;
+    return counts;
+  }, {});
+  const entries: Array<{ id: string; label: string; className: string; count: number | null }> = [
+    { id: "focus", label: "Focus diagnosis", className: "bg-[color:var(--clinical-accent)]", count: null },
   ];
   const likelihoodEntries: Array<{ id: DifferentialLikelihood; className: string }> = [
     { id: "most-likely", className: "bg-[color:var(--clinical-accent)]" },
@@ -281,8 +290,9 @@ function MapLegend({ nodes, compact = false }: { nodes: DifferentialMapNode[]; c
     { id: "must-not-miss", className: "bg-[color:var(--danger)]" },
   ];
   for (const entry of likelihoodEntries) {
-    if (presentLikelihoods.has(entry.id)) {
-      entries.push({ id: entry.id, label: likelihoodLabels[entry.id], className: entry.className });
+    const count = likelihoodCounts[entry.id] ?? 0;
+    if (count > 0) {
+      entries.push({ id: entry.id, label: likelihoodLabels[entry.id], className: entry.className, count });
     }
   }
 
@@ -304,6 +314,9 @@ function MapLegend({ nodes, compact = false }: { nodes: DifferentialMapNode[]; c
             )}
           />
           {entry.label}
+          {entry.count === null ? null : (
+            <span className="nums font-bold text-[color:var(--text-heading)]">{entry.count}</span>
+          )}
         </span>
       ))}
     </div>
@@ -530,8 +543,18 @@ function MapGraph({
           "flex-1 cursor-grab outline-none active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
       )}
       style={{ minHeight: minimumHeight, touchAction: interactive ? "none" : "auto" }}
-      role={interactive ? "region" : "img"}
-      aria-label={interactive ? "Interactive diagnosis relationship map" : `Diagnosis map preview for ${record.title}`}
+      // The preview is no longer a picture: its nodes are buttons, so it is a
+      // group of controls rather than an `img`. A phone reader can select a
+      // node and read the panel below without opening the fullscreen dialog,
+      // which was previously the only way in.
+      role={interactive ? "region" : onSelect ? "group" : "img"}
+      aria-label={
+        interactive
+          ? "Interactive diagnosis relationship map"
+          : onSelect
+            ? `Diagnosis map for ${record.title}`
+            : `Diagnosis map preview for ${record.title}`
+      }
       aria-describedby={interactive ? describedBy : undefined}
       tabIndex={interactive ? 0 : undefined}
       onPointerDown={handlePointerDown}
@@ -543,27 +566,35 @@ function MapGraph({
       {viewport.width > 0 && viewport.height > 0 ? (
         <>
           <svg className="absolute inset-0 h-full w-full" aria-hidden>
-            {relatedPoints.map(({ node, point }) => (
-              <line
-                key={node.id}
-                x1={focusPoint.x}
-                y1={focusPoint.y}
-                x2={point.x}
-                y2={point.y}
-                stroke={lineTone[node.likelihood]}
-                strokeWidth={node.likelihood === "must-not-miss" ? 3 : 2}
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
+            {relatedPoints.map(({ node, point }) => {
+              const isSelectedEdge = selectedId === node.id;
+              return (
+                <line
+                  key={node.id}
+                  x1={focusPoint.x}
+                  y1={focusPoint.y}
+                  x2={point.x}
+                  y2={point.y}
+                  stroke={lineTone[node.likelihood]}
+                  strokeWidth={isSelectedEdge ? 3.5 : node.likelihood === "must-not-miss" ? 3 : 2}
+                  strokeLinecap="round"
+                  // A dashed edge for "less likely" gives the weakest tier a
+                  // second channel besides colour, which is what forced-colors
+                  // and greyscale printing are left with.
+                  strokeDasharray={node.likelihood === "less-likely" ? "5 5" : undefined}
+                  opacity={selectedId !== "diagnosis" && !isSelectedEdge ? 0.45 : 1}
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
           </svg>
 
-          {interactive ? (
+          {onSelect ? (
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                onSelect?.("diagnosis");
+                onSelect("diagnosis");
               }}
               data-map-node="diagnosis"
               data-testid="diagnosis-map-node-diagnosis"
@@ -584,15 +615,17 @@ function MapGraph({
               aria-pressed={selectedId === "diagnosis"}
               aria-label={`Show details for ${record.title}`}
             >
-              <span className="text-2xs font-extrabold uppercase tracking-wide opacity-85">Focus diagnosis</span>
-              <span data-map-node-label className="text-xs sm:text-sm">
+              {interactive ? (
+                <span className="text-2xs font-extrabold uppercase tracking-wide opacity-85">Focus diagnosis</span>
+              ) : null}
+              <span data-map-node-label className={interactive ? "text-xs sm:text-sm" : "text-2xs"}>
                 {record.title}
               </span>
             </button>
           ) : (
             <div
               data-map-node="diagnosis"
-              className="absolute z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-lg border-2 border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-2 py-1.5 text-center text-2xs font-bold leading-tight break-words text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)] forced-colors:border-[ButtonText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]"
+              className="absolute z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-lg border-2 border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-2 py-1.5 text-center text-2xs font-bold leading-tight break-words text-[color:var(--clinical-accent-contrast)] shadow-[var(--e2)] forced-colors:border-[ButtonText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]"
               style={{
                 left: focusPoint.x,
                 top: focusPoint.y,
@@ -617,7 +650,7 @@ function MapGraph({
               width: nodeLayout?.width ?? 120,
               minHeight: nodeLayout?.height ?? 72,
             };
-            if (!interactive) {
+            if (!onSelect) {
               return (
                 <div
                   key={node.id}
@@ -635,7 +668,7 @@ function MapGraph({
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  onSelect?.(node);
+                  onSelect(node);
                 }}
                 data-map-node={node.id}
                 data-testid={`diagnosis-map-node-${node.id}`}
@@ -650,11 +683,15 @@ function MapGraph({
                 aria-pressed={isSelected}
                 aria-label={`Show details for ${node.label}`}
               >
-                <span className="flex items-center justify-center gap-1 text-3xs font-extrabold uppercase tracking-wide opacity-85">
-                  {node.likelihood === "must-not-miss" ? <ShieldAlert className="h-3 w-3" aria-hidden /> : null}
-                  {likelihoodLabels[node.likelihood]}
-                </span>
-                <span data-map-node-label className="text-2xs sm:text-xs">
+                {interactive ? (
+                  <span className="flex items-center justify-center gap-1 text-3xs font-extrabold uppercase tracking-wide opacity-85">
+                    {node.likelihood === "must-not-miss" ? <ShieldAlert className="h-3 w-3" aria-hidden /> : null}
+                    {likelihoodLabels[node.likelihood]}
+                  </span>
+                ) : node.likelihood === "must-not-miss" ? (
+                  <ShieldAlert className="h-3 w-3" aria-hidden />
+                ) : null}
+                <span data-map-node-label className={interactive ? "text-2xs sm:text-xs" : "text-2xs"}>
                   {node.label}
                 </span>
               </button>
@@ -859,9 +896,16 @@ function NodeInspector({
 export function DiagnosisMapPanel({
   record,
   relatedMapDetails = {},
+  knownRelatedSlugs,
+  curated = null,
 }: {
   record: DifferentialRecord;
   relatedMapDetails?: Record<string, DifferentialRelatedMapDetail>;
+  /** Related ids verified against the catalogue. Defaults to the keys of
+   *  `relatedMapDetails`, which the server builds from the same check. */
+  knownRelatedSlugs?: readonly string[];
+  /** This record's authored overlay entry, resolved server-side. */
+  curated?: DifferentialCuratedEntry | null;
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<SelectedNode>("diagnosis");
@@ -878,6 +922,15 @@ export function DiagnosisMapPanel({
   const visibleNodes = useMemo(
     () => record.related.filter((node) => !filtered || node.likelihood === "must-not-miss"),
     [filtered, record.related],
+  );
+  const discriminatorRows = useMemo(
+    () =>
+      buildDiscriminators(record, {
+        knownRelatedSlugs: knownRelatedSlugs ?? Object.keys(relatedMapDetails),
+        relatedMapDetails,
+        curated,
+      }),
+    [curated, knownRelatedSlugs, record, relatedMapDetails],
   );
   const compareIds = useMemo(
     () => [record.slug, ...selectedCompareIds.filter((slug) => slug !== record.slug && relatedMapDetails[slug])],
@@ -955,7 +1008,7 @@ export function DiagnosisMapPanel({
     <>
       <section
         aria-label="Diagnosis map"
-        className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4"
+        className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)] sm:p-4"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -968,17 +1021,23 @@ export function DiagnosisMapPanel({
         </div>
 
         <div className="mt-3 grid gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2.5 sm:p-3">
-          <MapGraph record={record} nodes={record.related} selectedId="diagnosis" />
+          <MapGraph record={record} nodes={record.related} selectedId={selectedId} onSelect={handleSelect} />
           <MapLegend nodes={record.related} compact />
+          {record.related.length > 0 ? (
+            <p className="text-2xs font-medium text-[color:var(--text-muted)]">
+              Select a diagnosis to compare it below.
+            </p>
+          ) : null}
           <button
             ref={openButtonRef}
             type="button"
             aria-label="Open full diagnosis map"
             onClick={() => {
-              setSelected("diagnosis");
+              // Selection carries into the dialog. Resetting it here meant a
+              // node chosen on the preview was silently dropped the moment the
+              // reader asked for a bigger view of the same thing.
               setView(fitView);
               setFiltered(false);
-              setInspectorExpanded(false);
               setOpen(true);
             }}
             className={cn(floatingControl, "min-h-tap w-full justify-center px-3")}
@@ -988,6 +1047,23 @@ export function DiagnosisMapPanel({
             <Maximize2 className="h-4 w-4" aria-hidden />
           </button>
         </div>
+
+        {/* The graph shows THAT two diagnoses are related. It cannot show how to
+            tell them apart, which is the question a clinician is actually
+            holding while looking at it — so that answer sits directly under the
+            map rather than behind the fullscreen dialog. */}
+        <DiagnosisMapInsights
+          className="mt-3"
+          record={record}
+          rows={discriminatorRows}
+          selectedSlug={selected === "diagnosis" ? null : selected.id}
+          selectedNode={selected === "diagnosis" ? null : selected}
+          relatedMapDetails={relatedMapDetails}
+          onSelect={(slug) => {
+            const node = record.related.find((candidate) => candidate.id === slug);
+            if (node) handleSelect(node);
+          }}
+        />
       </section>
 
       <Sheet
@@ -997,7 +1073,7 @@ export function DiagnosisMapPanel({
         description={`${record.title} · ${record.related.length} related differential${record.related.length === 1 ? "" : "s"}`}
         closeLabel="Close diagnosis map"
         mobilePlacement="fullscreen"
-        contentClassName="lg:max-w-[76rem]"
+        contentClassName="lg:max-w-[var(--content-width-catalogue)]"
         headerClassName="pt-[max(1rem,env(safe-area-inset-top))] lg:pt-5"
         bodyClassName="p-0 overflow-y-auto lg:overflow-hidden"
         portal

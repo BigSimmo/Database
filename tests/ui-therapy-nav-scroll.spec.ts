@@ -30,7 +30,7 @@ async function blockExternalRequests(page: Page) {
 async function installTherapyFixtures(page: Page) {
   await page.route("**/therapy-compass-data/*.json", async (route) => {
     const filename = new URL(route.request().url()).pathname.split("/").at(-1) ?? "";
-    if (!/^(?:therapies(?:-(?:home|index))?\.[a-f0-9]{16}|pathways|reference)\.json$/.test(filename)) {
+    if (!/^(?:therapies(?:-index)?\.[a-f0-9]{16}|pathways|reference)\.json$/.test(filename)) {
       await route.abort("blockedbyclient");
       return;
     }
@@ -52,6 +52,22 @@ async function gotoTherapyCompare(page: Page) {
     content: ":root{--safe-area-top:59px !important;--safe-area-bottom:34px !important;}",
   });
   await page.waitForTimeout(700);
+}
+
+/** Two real therapy slugs, enough to make the tray offer a comparison. */
+const COMPARE_SLUGS = ["cognitive-behavioural-therapy-cbt", "acceptance-and-commitment-therapy-act"];
+
+async function readTrayGeometry(page: Page) {
+  return page.evaluate(() => {
+    const tray = document.querySelector<HTMLElement>('[data-testid="therapy-compare-tray"]');
+    const main = document.querySelector<HTMLElement>("#main-content");
+    const rect = tray?.getBoundingClientRect();
+    return {
+      trayTop: rect?.top ?? Number.POSITIVE_INFINITY,
+      trayBottom: rect?.bottom ?? Number.POSITIVE_INFINITY,
+      reserve: main ? getComputedStyle(main).getPropertyValue("--mobile-composer-reserve").trim() : "",
+    };
+  });
 }
 
 test.beforeEach(async ({ page }) => {
@@ -125,4 +141,60 @@ test("phone Therapy mode nav hides and returns with the universal header", async
   expect(box).not.toBeNull();
   expect(box!.y).toBeGreaterThanOrEqual(0);
   expect(box!.height).toBeGreaterThan(8);
+});
+
+/**
+ * The compare tray docks INSIDE the phone search dock's form, so it inherits the
+ * dock's fixed position and — the clause most likely to be broken by a later
+ * edit — its scroll-hide transform. If it ever became independently fixed
+ * chrome, it would stay pinned over the page after the composer scrolled away,
+ * and the content reserve would no longer describe what is on screen.
+ */
+test("phone compare tray hides with the composer and releases its reserve", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await page.goto(`/therapy-compass/search?q=CBT&run=1&ids=${COMPARE_SLUGS.join(",")}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+  await page.addStyleTag({
+    content: ":root{--safe-area-top:59px !important;--safe-area-bottom:34px !important;}",
+  });
+
+  const tray = page.getByTestId("therapy-compare-tray");
+  const dock = page.locator(".answer-footer-search-dock");
+  await expect(tray).toBeVisible({ timeout: 15_000 });
+
+  // Docked, not free-floating: the tray is a descendant of the composer's form.
+  await expect
+    .poll(async () => tray.evaluate((node) => Boolean(node.closest(".answer-footer-search-dock"))))
+    .toBe(true);
+  await expect(dock).toHaveAttribute("data-footer-addon", "therapy-compare");
+
+  const visible = await readTrayGeometry(page);
+  expect(visible.trayBottom).toBeLessThanOrEqual(phoneViewport.height + 1);
+  expect(visible.reserve, "a claimed dock reserves room for the tray").not.toBe("0rem");
+
+  await appendPrimaryScrollSpacer(page, { heightPx: 2400, testId: "therapy-tray-hide-scroll-spacer" });
+  for (const offset of [40, 80, 120, 160, 220, 300]) {
+    await scrollPrimarySurface(page, offset);
+  }
+
+  await expect(dock).toHaveAttribute("data-scroll-hidden", "true", { timeout: 5_000 });
+  await expect
+    .poll(async () => (await readTrayGeometry(page)).trayTop, { timeout: 5_000 })
+    .toBeGreaterThanOrEqual(phoneViewport.height - 1);
+  // Hidden means zero reserve — never the safe-area inset, which on iOS Safari
+  // recreates a toolbar-sized blank band under the content.
+  await expect.poll(async () => (await readTrayGeometry(page)).reserve, { timeout: 5_000 }).toBe("0rem");
+
+  for (const offset of [220, 140, 60, 0]) {
+    await scrollPrimarySurface(page, offset);
+  }
+
+  await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true", { timeout: 5_000 });
+  await expect(tray).toBeVisible();
+  const returned = await readTrayGeometry(page);
+  expect(returned.trayBottom).toBeLessThanOrEqual(phoneViewport.height + 1);
+  expect(returned.reserve).not.toBe("0rem");
 });

@@ -298,7 +298,7 @@ describe("PWA service worker cache and lifecycle policy", () => {
     const shellCache = await worker.caches.open(cacheNames[0]);
     const offlineResponse = await shellCache.match("/offline.html");
     expect(await offlineResponse?.text()).toBe(OFFLINE_DOCUMENT);
-    expect(OFFLINE_DOCUMENT).toContain("Clinical KB is offline");
+    expect(OFFLINE_DOCUMENT).toContain("PsychSift is offline");
     expect(OFFLINE_DOCUMENT).toMatch(/does not store or\s+replay clinical queries, answers, documents/);
     expect(worker.networkFetch).toHaveBeenCalledTimes(3);
     for (const [request] of worker.networkFetch.mock.calls) {
@@ -570,6 +570,11 @@ describe("PWA service worker cache and lifecycle policy", () => {
       destination: "script",
       cache: "no-store",
     },
+    // L67: the 51 same-origin /forms-pdf/*.pdf statutory forms (50 password-gated per
+    // check:forms-pdf-manifest) are the largest sensitive static path on the origin, and this
+    // table never exercised it. Correct by trace today (neither isImmutableNextAsset nor
+    // isPublicPwaAsset matches /forms-pdf/), but unpinned until this row.
+    { label: "statutory form PDF", url: "/forms-pdf/form-1a.pdf", destination: "document" },
   ])(
     "does not intercept or cache a $label request",
     async ({ absoluteUrl, cache, destination, headers, method, url }) => {

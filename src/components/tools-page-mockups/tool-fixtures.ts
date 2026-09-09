@@ -1,10 +1,10 @@
 import {
-  Activity,
   Brain,
   Calculator,
   ClipboardList,
   FileCheck2,
   FileText,
+  HeartHandshake,
   Pill,
   Search,
   Star,
@@ -91,15 +91,6 @@ const fixtureExtras: ToolFixtureExtras[] = [
     secondary: "Access pathways, criteria, contacts",
   },
   {
-    id: "ward-management",
-    icon: Activity,
-    area: "coordination",
-    status: "ready",
-    lastUsed: "Not yet opened",
-    primaryAction: "Coordinate",
-    secondary: "Patient flow, bed capacity, destination matching",
-  },
-  {
     id: "forms",
     icon: FileCheck2,
     area: "coordination",
@@ -125,6 +116,18 @@ const fixtureExtras: ToolFixtureExtras[] = [
     lastUsed: "Today, 9:20 AM",
     primaryAction: "Open",
     secondary: "Rating scales, severity bands, bedside scoring",
+  },
+  {
+    // Identity comes from the shared catalogue; this entry exists so the mockup grid and
+    // `route-reachability.test.ts` (which reads the exported `tools` array as a nav-builder
+    // source) both see the workspace's front door.
+    id: "caring-contacts",
+    icon: HeartHandshake,
+    area: "coordination",
+    status: "ready",
+    lastUsed: "Today, 7:55 AM",
+    primaryAction: "Open",
+    secondary: "Synthetic workspace, invented patients, nothing sent",
   },
   {
     id: "favourites",

@@ -2,7 +2,15 @@
 
 import { X, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
+import {
+  cn,
+  ignoreUnavailableActivation,
+  toneDanger,
+  toneInfo,
+  toneNeutral,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
 
 export type ChipSize = "compact" | "standard";
 export type ChipStatusTone = "neutral" | "info" | "success" | "warning" | "danger";
@@ -62,6 +70,108 @@ function appearanceClasses(appearance: ChipAppearance) {
   if (appearance.kind === "status") return STATUS[appearance.tone];
   if (appearance.kind === "category") return CATEGORY[appearance.tone];
   return INFORMATION[appearance.tone ?? "neutral"];
+}
+
+export type ChoiceChipProps = {
+  children: ReactNode;
+  pressed: boolean;
+  onPressedChange: (pressed: boolean) => void;
+  size?: ChipSize;
+  icon?: LucideIcon;
+  /** Optional category/status treatment for specialised tag families. */
+  appearance?: ChipAppearance;
+  disabled?: boolean;
+  ariaDisabled?: boolean;
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
+  title?: string;
+  testId?: string;
+  /** Layout only: width, shrink/grow, alignment and wrapping. */
+  className?: string;
+};
+
+/** Compact many-of-many selection. Use SegmentedControl for one-of-many choices. */
+export function ChoiceChip({
+  children,
+  pressed,
+  onPressedChange,
+  size = "standard",
+  icon: Icon,
+  appearance,
+  className,
+  disabled,
+  ariaDisabled,
+  ariaLabel,
+  ariaDescribedBy,
+  title,
+  testId,
+}: ChoiceChipProps) {
+  // An explained dead end remains focusable. If both flags arrive, preserve that
+  // accessible state rather than allowing native disabled to remove it from Tab.
+  const ariaUnavailable = Boolean(ariaDisabled);
+  const nativeDisabled = Boolean(disabled) && !ariaUnavailable;
+  const unavailable = nativeDisabled || ariaUnavailable;
+  const unavailableAttributes = ariaUnavailable
+    ? { "aria-disabled": true, disabled: false }
+    : { disabled: nativeDisabled };
+  const surfaceAppearance = unavailable
+    ? "border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)]"
+    : appearance
+      ? appearanceClasses(appearance)
+      : pressed
+        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
+        : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] group-hover:border-[color:var(--border-strong)] group-hover:bg-[color:var(--surface-subtle)]";
+  const contentAppearance = unavailable
+    ? "cursor-default text-[color:var(--text-muted)]"
+    : appearance
+      ? cn(appearanceClasses(appearance), "!border-transparent !bg-transparent")
+      : pressed
+        ? "text-[color:var(--clinical-accent)]"
+        : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]";
+
+  return (
+    <button
+      type="button"
+      {...unavailableAttributes}
+      aria-pressed={pressed}
+      aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
+      title={title}
+      data-testid={testId}
+      data-choice-chip="true"
+      data-size={size}
+      onClick={(event) => {
+        if (unavailable) {
+          if (ariaUnavailable) ignoreUnavailableActivation(event);
+          return;
+        }
+        onPressedChange(!pressed);
+      }}
+      className={cn(
+        "group relative isolate inline-flex min-h-tap max-w-full items-center justify-center rounded-lg font-semibold leading-none transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        size === "compact" ? "px-2.5 text-2xs" : "px-3 text-xs",
+        contentAppearance,
+        pressed && "font-bold forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]",
+        className,
+      )}
+    >
+      <span
+        aria-hidden="true"
+        data-choice-chip-surface="true"
+        className={cn(
+          "pointer-events-none absolute inset-1 z-0 rounded-lg border shadow-[var(--shadow-inset)]",
+          surfaceAppearance,
+        )}
+      />
+      <span
+        data-choice-chip-content="true"
+        className="relative z-[var(--z-raised)] inline-flex min-w-0 items-center justify-center gap-1.5"
+      >
+        {Icon ? <Icon aria-hidden="true" className="size-icon-xs shrink-0" /> : null}
+        {typeof children === "string" ? <span className="min-w-0 truncate">{children}</span> : children}
+      </span>
+    </button>
+  );
 }
 
 function dotClasses(appearance: ChipAppearance) {
@@ -131,18 +241,18 @@ export function Chip({
         {children}
       </span>
       {onRemove ? (
-        // Wrap mode uses min-height only, so `h-full` collapses to 0. Stretch the
-        // track to the flex line (or a 20px floor) so the remove control stays
-        // tappable on multi-line tags without a 48px overhang onto neighbours.
+        // Visual chip stays compact. The remove control is absolutely centred so
+        // its padded hit can be min-h-tap / w-8 without inflating ChoiceChip
+        // (already min-h-tap) or the painted Chip. Wrap still stretches the
+        // track to the flex line so a multi-line tag does not collapse to 0.
         <span className={cn("relative w-5 shrink-0", wrap ? "min-h-5 self-stretch" : "h-full self-center")}>
           <button
             type="button"
             onClick={onRemove}
             aria-label={removeLabel}
-            // w-8 is intentionally wider than the w-5 track so the hit area
-            // overhangs into chip horizontal padding. Do not add max-w-full —
-            // that clamps back to the track width and nullifies the enlarge.
-            className="absolute inset-y-0 left-1/2 grid h-full min-h-5 w-8 -translate-x-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
+            // w-8 overhangs the w-5 track into chip padding. min-h-tap is the
+            // production floor; do not add max-w-full - that clamps the enlarge.
+            className="absolute left-1/2 top-1/2 grid min-h-tap w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
           >
             <span className="grid h-5 w-5 place-items-center rounded-sm transition hover:bg-[color:var(--surface-highlight)]">
               <X aria-hidden="true" className="h-3 w-3" />

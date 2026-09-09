@@ -463,7 +463,7 @@ function EvidencePanel() {
 
 function DesktopFrame() {
   return (
-    <div className="flex h-[27rem] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="flex h-[27rem] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <UniversalTopBar device="desktop" />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <DocumentHeaderRow device="desktop" list={fullSections} activeId="evidence" />
@@ -486,7 +486,7 @@ function DesktopFrame() {
 
 function TabletFrame() {
   return (
-    <div className="mx-auto flex h-[27rem] w-full max-w-[768px] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="mx-auto flex h-[27rem] w-full max-w-[768px] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <UniversalTopBar device="tablet" />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <DocumentHeaderRow device="tablet" list={fullSections} activeId="evidence" />
@@ -541,7 +541,7 @@ function PhoneFrame({ state }: { state: PhoneState }) {
   const sheet = state === "sheet";
 
   return (
-    <div className="relative flex h-[37rem] w-[330px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="relative flex h-[37rem] w-[330px] max-w-full flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       {hidden ? null : (
         <>
           <UniversalTopBar device="phone" />

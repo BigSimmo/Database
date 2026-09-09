@@ -20,6 +20,7 @@ import CalculatorsRoute from "@/app/(search-app)/calculators/page";
 import CalculatorsSearchRoute from "@/app/(search-app)/calculators/search/page";
 import {
   calculatorDomainCandidateCount,
+  calculatorMatchesQuery,
   calculatorProgressCandidateCount,
   calculatorTimeCandidateCount,
   filterCalculatorRecords,
@@ -28,11 +29,17 @@ import {
 } from "@/components/calculators/calculator-filters";
 import { calculators, type CalculatorFixture } from "@/components/calculators/calculator-fixtures";
 import { calculatorRecordHref } from "@/components/calculators/calculator-routes";
-import { CalculatorsHomePage } from "@/components/calculators/home-page";
 import { CalculatorsSearchPage } from "@/components/calculators/search-page";
 import { deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
+import { SharedHomeEmptyState } from "@/components/clinical-dashboard/answer-status";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 function completeAnswers(calc: CalculatorFixture): AnswerMap {
   return Object.fromEntries(calc.items.map((item) => [item.id, 0]));
 }
@@ -71,15 +78,15 @@ describe("calculator mode routing", () => {
     expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?q=PHQ-9&run=1&mode=calculators");
   });
 
-  it("renders results only once a non-empty search is submitted", async () => {
+  it("renders the catalogue on an empty query and results when a search is submitted", async () => {
     navigation.redirect.mockClear();
-    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({}) })).rejects.toThrow("NEXT_REDIRECT");
-    expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
+    const browse = await CalculatorsSearchRoute({ searchParams: Promise.resolve({}) });
+    expect(browse.type).toBe(CalculatorsSearchPage);
+    expect(browse.props.initialQuery).toBe("");
 
-    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({ run: "1", q: "  " }) })).rejects.toThrow(
-      "NEXT_REDIRECT",
-    );
-    expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
+    const whitespace = await CalculatorsSearchRoute({ searchParams: Promise.resolve({ run: "1", q: "  " }) });
+    expect(whitespace.type).toBe(CalculatorsSearchPage);
+    expect(whitespace.props.initialQuery).toBe("");
 
     const results = await CalculatorsSearchRoute({
       searchParams: Promise.resolve({ run: "1", q: " depression " }),
@@ -139,20 +146,50 @@ describe("calculator mode routing", () => {
     expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?q=GAD-7");
   });
 
-  it("mounts the universal hero composer slot and canonical starter searches", () => {
-    const { container } = render(<CalculatorsHomePage />);
+  it("keeps calculator home copy on the shared lightweight home", () => {
+    render(<SharedHomeEmptyState modeId="calculators" />);
 
-    expect(screen.getByRole("heading", { level: 1, name: "Clinical Calculators" })).toBeVisible();
-    expect(container.querySelector(".mode-home-composer-slot")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Depression severity/ })).toHaveAttribute(
-      "href",
-      "/calculators/search?q=depression&run=1",
-    );
-    expect(screen.getByRole("link", { name: "PHQ-9" })).toHaveAttribute("href", "/calculators/search?q=PHQ-9&run=1");
+    expect(screen.getByTestId("shared-home-empty-state")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Clinical Calculators" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Psychiatry assessment and monitoring tools with scoring guidance, limitations, safety prompts, and source-linked clinical considerations.",
+      ),
+    ).toBeInTheDocument();
+
+    const showAll = screen.getByTestId("calculators-show-all");
+    expect(showAll).toHaveAttribute("href", "/calculators/search");
+    expect(showAll).toHaveAttribute("aria-label", "Show all calculators");
+    expect(showAll).toHaveClass("min-h-tap");
+    expect(showAll).toHaveTextContent("Show all");
+    expect(screen.getByTestId("calculators-show-all-well")).toBeInTheDocument();
   });
 });
 
 describe("calculator filter predicates", () => {
+  it("matches Smart screening intent and normalized exact calculator codes", () => {
+    expect(
+      calculatorMatchesQuery(
+        calculators.find((calculator) => calculator.id === "phq9")!,
+        "screen depression severity",
+        smartSearchExpansions("calculators", "screen depression severity"),
+      ),
+    ).toBe(true);
+    expect(
+      calculatorMatchesQuery(
+        calculators.find((calculator) => calculator.id === "gad7")!,
+        "measure anxiety symptoms",
+        smartSearchExpansions("calculators", "measure anxiety symptoms"),
+      ),
+    ).toBe(true);
+    expect(
+      calculatorMatchesQuery(
+        calculators.find((calculator) => calculator.id === "phq9")!,
+        "PHQ-9?",
+      ),
+    ).toBe(true);
+  });
+
   it("applies OR within domains and AND across domain, progress, time, and query", () => {
     const records = recordsWithProgress();
     const filters: CalculatorFilterState = {
@@ -187,9 +224,9 @@ describe("calculator filter predicates", () => {
     const idsFor = (time: "quick" | "standard" | "extended") =>
       filterCalculatorRecords(records, "", { ...emptyFilters(), time }).map(({ calc }) => calc.id);
 
-    expect(idsFor("quick")).toEqual(["gad7", "cage", "auditc", "sadpersons"]);
-    expect(idsFor("standard")).toEqual(["phq9", "k10", "mdq"]);
-    expect(idsFor("extended")).toEqual(["ybocs"]);
+    expect(idsFor("quick")).toEqual(["gad7", "cage", "auditc"]);
+    expect(idsFor("standard")).toEqual(["phq9", "k10"]);
+    expect(idsFor("extended")).toEqual([]);
   });
 
   it("derives candidate counts from the same predicates", () => {
@@ -200,20 +237,91 @@ describe("calculator filter predicates", () => {
       time: "all",
     };
 
-    expect(calculatorDomainCandidateCount(records, "", filters, "anxiety")).toBe(4);
+    expect(calculatorDomainCandidateCount(records, "", filters, "anxiety")).toBe(2);
     expect(calculatorProgressCandidateCount(records, "", filters, "in-progress")).toBe(1);
     expect(calculatorTimeCandidateCount(records, "", filters, "quick")).toBe(0);
+  });
+
+  it("uses the expanded query predicate for candidate counts and visible records", () => {
+    const records = recordsWithProgress();
+    const query = "screen depression severity";
+    const expansions = smartSearchExpansions("calculators", query);
+    const filters = emptyFilters();
+
+    const visibleIds = filterCalculatorRecords(records, query, filters, expansions).map(({ calc }) => calc.id);
+    expect(visibleIds[0]).toBe("phq9");
+    expect(calculatorProgressCandidateCount(records, query, filters, "all", expansions)).toBe(visibleIds.length);
+  });
+
+  it("prioritizes an explicit calculator identity ahead of expansion-only matches", () => {
+    const records = recordsWithProgress();
+    const query = "AUDIT-C screen hazardous drinking";
+    const ids = filterCalculatorRecords(
+      records,
+      query,
+      emptyFilters(),
+      smartSearchExpansions("calculators", query),
+    ).map(({ calc }) => calc.id);
+
+    expect(ids.indexOf("auditc")).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf("cage")).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf("auditc")).toBeLessThan(ids.indexOf("cage"));
+  });
+
+  it("finds a calculator identity embedded in a natural query without expansion terms", () => {
+    const records = recordsWithProgress();
+    const query = "What does PHQ-9 mean?";
+
+    expect(smartSearchExpansions("calculators", query)).toEqual([]);
+    expect(filterCalculatorRecords(records, query, emptyFilters()).map(({ calc }) => calc.id)).toEqual(["phq9"]);
+  });
+
+  it("finds the subject of a natural calculator question without a curated phrase rule", () => {
+    const records = recordsWithProgress();
+    const query = "What tool measures depression symptoms?";
+
+    expect(smartSearchExpansions("calculators", query)).toEqual([]);
+    expect(filterCalculatorRecords(records, query, emptyFilters()).map(({ calc }) => calc.id)[0]).toBe("phq9");
+  });
+
+  it("does not invent calculator matches from question boilerplate alone", () => {
+    const records = recordsWithProgress();
+
+    expect(filterCalculatorRecords(records, "Which calculator should I use?", emptyFilters())).toEqual([]);
+    expect(filterCalculatorRecords(records, "Can you help me choose a score?", emptyFilters())).toEqual([]);
+  });
+
+  it("matches calculator identities with spaced or unicode-dash separators", () => {
+    const phq9 = calculators.find((calculator) => calculator.id === "phq9")!;
+
+    expect(calculatorMatchesQuery(phq9, "What does PHQ 9 mean?")).toBe(true);
+    expect(calculatorMatchesQuery(phq9, "What does PHQ–9 mean?")).toBe(true);
+    expect(calculatorMatchesQuery(phq9, "What does Patient Health Questionnaire 9 mean?")).toBe(true);
   });
 });
 
 describe("calculator results surface", () => {
+  it("lists the catalogue and Show all chip when the query is empty", () => {
+    render(<CalculatorsSearchPage />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "All" })).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent(`${calculators.length} calculators`);
+    const showAll = screen.getByTestId("calculators-show-all");
+    expect(showAll).toHaveAttribute("href", "/calculators/search");
+    expect(showAll).toHaveAttribute("aria-label", "Show all calculators");
+    expect(showAll).toHaveClass("min-h-tap");
+  });
+
   it("uses the shared results band and filter sheet without a page-owned composer", async () => {
     const user = userEvent.setup();
     const { container } = render(<CalculatorsSearchPage initialQuery="depression" />);
 
     expect(screen.getByRole("heading", { level: 1, name: "depression" })).toBeVisible();
-    expect(screen.getByRole("status")).toHaveTextContent("2 calculators");
+    expect(screen.getByRole("status")).toHaveTextContent("1 calculator");
     expect(container.querySelector('[data-testid="calculators-phone-dock"]')).toBeNull();
+    const showAll = screen.getByTestId("calculators-show-all");
+    expect(showAll).toHaveAttribute("href", "/calculators/search");
+    expect(showAll).toHaveClass("min-h-tap");
 
     await user.click(screen.getByTestId("calculators-filter-trigger-phone"));
     const sheet = screen.getByTestId("calculators-filter-sheet");

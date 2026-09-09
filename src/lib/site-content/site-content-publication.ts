@@ -457,16 +457,20 @@ type RpcClient = {
   };
 };
 
-async function callRpc(client: RpcClient, name: string, args: Record<string, unknown>) {
-  return await (
+async function callRpc(client: RpcClient, name: string, args: Record<string, unknown>, signal?: AbortSignal) {
+  signal?.throwIfAborted();
+  const request = (
     client.rpc as (
       name: string,
       args?: Record<string, unknown>,
     ) => PromiseLike<{
       data: unknown;
       error: { message: string } | null;
-    }>
+    }> & { abortSignal?: (signal: AbortSignal) => PromiseLike<{ data: unknown; error: { message: string } | null }> }
   )(name, args);
+  const result = await (signal && request.abortSignal ? request.abortSignal(signal) : request);
+  signal?.throwIfAborted();
+  return result;
 }
 
 function publicProjection(value: unknown): unknown {
@@ -484,6 +488,7 @@ export async function readCanonicalSiteContentRecords<T>(input: {
   kind: string;
   slug: string | null;
   seeds: readonly T[];
+  signal?: AbortSignal;
   mapRecord?: (representation: {
     canonicalRecord: Record<string, unknown>;
     finalRenderPayload: Record<string, unknown>;
@@ -492,7 +497,7 @@ export async function readCanonicalSiteContentRecords<T>(input: {
   const { data, error } = await callRpc(input.supabase as RpcClient, "read_site_content_public_records", {
     p_kind: input.kind,
     p_slug: input.slug,
-  });
+  }, input.signal);
   if (error) throw new Error(`Canonical site-content read failed: ${error.message}`);
   if (!Array.isArray(data)) throw new Error("Canonical site-content read failed: invalid RPC response.");
   const rows = data as Array<Record<string, unknown>>;

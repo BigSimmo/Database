@@ -1,7 +1,7 @@
 {
   "name": "clinical-kb-local",
   "interface": {
-    "displayName": "Clinical KB local"
+    "displayName": "PsychSift local"
   },
   "plugins": [
     {

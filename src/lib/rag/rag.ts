@@ -17,7 +17,7 @@ import { createGenerationDegradationRecorder } from "@/lib/rag/rag-generation-de
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
-import { answerLatencyMetadata, answerScopedEvidenceMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
+import { answerLatencyMetadata, answerScopedEvidenceMetadata, scoreExplanationLogMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions, adaptiveAnswerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
@@ -43,11 +43,9 @@ export {
   retrievalCorpusScopes,
   searchGovernedCorpora,
 } from "@/lib/rag/rag-candidate-sources";
-import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   embedTextWithTelemetry,
-  generateParsedTextResult,
   generateStructuredTextResult,
   openAISafetyIdentifier,
 } from "@/lib/openai";
@@ -80,7 +78,11 @@ import {
   applyNumericVerification,
   textReferencesAdjacentBandConflict,
 } from "@/lib/answer-verification";
-import { buildEvidencePreviewProgress, type VerifiedUnit } from "@/lib/answer-preview";
+import {
+  buildCachedEvidencePreviewProgress,
+  buildEvidencePreviewProgress,
+  type VerifiedUnit,
+} from "@/lib/answer-preview";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
 import {
   selectModelContextEvidencePair,
@@ -123,6 +125,7 @@ export {
   completeExtractiveSentence,
   generatedAnswerQualityFailureReason,
   isBareDefinitionQuestion,
+  isBareDocumentSupportListAnswer,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
 } from "@/lib/rag/rag-extractive-answer";
@@ -249,13 +252,16 @@ import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry
 export { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
 import { observeRagAnswer, recordRagQueryForAnswer, retrievalLogMetadata } from "@/lib/rag/rag-programme-telemetry";
 import {
-  clearlyOutsideCorpusMedicalPattern,
-  isUnsupportedSoftTailAnalysis,
   shouldSkipUnsupportedSoftTailAnswerCacheWrite,
   shouldSkipUnsupportedSoftTailCacheWrite,
-  unavailableDocumentNoisePattern,
 } from "@/lib/rag/rag-query-guard";
 export { shouldShortCircuitUnsupportedSearch } from "@/lib/rag/rag-query-guard";
+import { analyzeQueryWithClassifierFallback, uniqueTextValues } from "@/lib/rag/rag-classifier-fallback";
+export {
+  analyzeQueryWithClassifierFallback,
+  resetClassifierVerdictMemoForTests,
+} from "@/lib/rag/rag-classifier-fallback";
+import { awaitWithCallerSignal } from "@/lib/rag/rag-abort-signal";
 import {
   hasAdmissionCommunityLookupIntent,
   hasAdmissionCommunityTitleSupport,
@@ -359,26 +365,6 @@ function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
     throw signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
   }
-}
-
-function awaitWithCallerSignal<T>(pending: Promise<T>, signal?: AbortSignal): Promise<T> {
-  if (!signal) return pending;
-  if (signal.aborted) throw signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
-
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(signal.reason ?? new DOMException("The operation was aborted.", "AbortError"));
-    signal.addEventListener("abort", onAbort, { once: true });
-    pending.then(
-      (value) => {
-        signal.removeEventListener("abort", onAbort);
-        resolve(value);
-      },
-      (error) => {
-        signal.removeEventListener("abort", onAbort);
-        reject(error);
-      },
-    );
-  });
 }
 
 export type AnswerProgressEvent = {
@@ -763,276 +749,6 @@ function addOpenAIUsage(total: OpenAITokenUsage, usage?: OpenAITokenUsage) {
 /** Has OpenAI usage. */
 function hasOpenAIUsage(usage: OpenAITokenUsage) {
   return Object.values(usage).some((value) => typeof value === "number" && value > 0);
-}
-
-const queryClassifierParseSchema = z
-  .object({
-    queryClass: z.enum([
-      "document_lookup",
-      "table_threshold",
-      "medication_dose_risk",
-      "comparison",
-      "broad_summary",
-      "unsupported_or_general",
-    ]),
-    confidence: z.number(),
-    reasons: z.array(z.string()),
-    expandedTerms: z.array(z.string()),
-  })
-  .strict();
-
-const queryClassifierVerdictSchema = queryClassifierParseSchema.extend({
-  confidence: z.number().min(0).max(1),
-  reasons: z.array(z.string().max(80)).max(4),
-  expandedTerms: z.array(z.string().max(60)).max(10),
-});
-
-/** Unique text values. */
-function uniqueTextValues(values: Array<string | null | undefined>, limit = 32) {
-  const seen = new Set<string>();
-  const output: string[] = [];
-  for (const value of values) {
-    const normalized = value?.replace(/\s+/g, " ").trim();
-    if (!normalized) continue;
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    output.push(normalized);
-    if (output.length >= limit) break;
-  }
-  return output;
-}
-
-type ClassifierVerdict = z.infer<typeof queryClassifierVerdictSchema>;
-
-// Finding #11 interim fix (docs/process-hardening.md): the LLM classifier verdict flips
-// run-to-run for the same query, so the unsupported short-circuit downstream intermittently
-// returned 0 results for valid in-corpus topics. Memoizing successful verdicts makes the
-// verdict — and therefore retrieval behaviour — deterministic per query for the TTL window.
-// Only *successful* classifier calls are memoized (accepted and rejected verdicts alike);
-// transport errors and timeouts stay retryable, otherwise one transient 6s timeout would pin
-// a query's classification for the whole TTL. The full corpus-grounded relevance fix remains
-// scoped to RAG optimisation Phase 2.
-const classifierVerdictMemoTtlMs = 15 * 60 * 1000;
-// Finding #11 follow-up: bounds retries for a rejected soft-tail verdict (isUnsupportedSoftTailAnalysis).
-const rejectedSoftTailMemoTtlMs = 60 * 1000;
-const classifierVerdictMemoMaxEntries = 500;
-const classifierVerdictMemo = new Map<string, { expiresAt: number; verdict: ClassifierVerdict }>();
-const classifierVerdictInflight = new Map<string, Promise<ClassifierVerdict>>();
-
-/** Classifier verdict memo key. */
-function classifierVerdictMemoKey(query: string, analysis: ClinicalQueryAnalysis) {
-  const normalizedQuery = query.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
-  // The deterministic class + confidence bucket are part of the key so a deterministic-analyzer
-  // change invalidates stale verdicts instead of replaying them against a different baseline.
-  return [
-    env.OPENAI_QUERY_CLASSIFIER_MODEL,
-    ragQueryClassifierPromptVersion,
-    normalizedQuery,
-    analysis.queryClass,
-    analysis.confidence.toFixed(2),
-  ].join("::");
-}
-
-/** Store classifier verdict memo. */
-function storeClassifierVerdictMemo(key: string, verdict: ClassifierVerdict, ttlMs = classifierVerdictMemoTtlMs) {
-  if (classifierVerdictMemo.size >= classifierVerdictMemoMaxEntries) {
-    const oldestKey = classifierVerdictMemo.keys().next().value;
-    if (oldestKey !== undefined) classifierVerdictMemo.delete(oldestKey);
-  }
-  classifierVerdictMemo.set(key, { expiresAt: Date.now() + ttlMs, verdict });
-}
-
-/** Reset classifier verdict memo for tests. */
-export function resetClassifierVerdictMemoForTests() {
-  classifierVerdictMemo.clear();
-  classifierVerdictInflight.clear();
-}
-
-/** Request classifier verdict. */
-async function requestClassifierVerdict(
-  query: string,
-  analysis: ClinicalQueryAnalysis,
-  ownerId?: string | null,
-): Promise<ClassifierVerdict> {
-  const result = await generateParsedTextResult(
-    [
-      {
-        role: "user",
-        content: [
-          {
-            type: "input_text",
-            text: [
-              `Query: ${query}`,
-              `Deterministic query class: ${analysis.queryClass}`,
-              `Deterministic confidence: ${analysis.confidence}`,
-              `Known expanded terms: ${analysis.expandedTerms.join(", ") || "none"}`,
-            ].join("\n"),
-          },
-        ],
-      },
-    ],
-    queryClassifierParseSchema,
-    {
-      model: env.OPENAI_QUERY_CLASSIFIER_MODEL,
-      maxOutputTokens: 220,
-      operation: "text_generation",
-      instructions:
-        "Classify this query for retrieval routing only. Do not answer the clinical question. Prefer unsupported when the query is not about indexed clinical document retrieval.",
-      reasoningEffort: "low",
-      textVerbosity: "low",
-      schemaName: "clinical_rag_query_classifier",
-      promptCacheKey: ragQueryClassifierPromptVersion,
-      timeoutMs: 6000,
-      safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(ownerId) : undefined,
-    },
-  );
-  return queryClassifierVerdictSchema.parse(result.parsed);
-}
-
-/** Apply classifier verdict. */
-function applyClassifierVerdict(analysis: ClinicalQueryAnalysis, parsed: ClassifierVerdict): ClinicalQueryAnalysis {
-  if (parsed.confidence < 0.58 || parsed.queryClass === "unsupported_or_general") return analysis;
-  return {
-    ...analysis,
-    queryClass: parsed.queryClass,
-    confidence: Math.max(analysis.confidence, parsed.confidence),
-    needsClassifierFallback: false,
-    needsSynthesis:
-      analysis.needsSynthesis ||
-      parsed.queryClass === "comparison" ||
-      parsed.queryClass === "broad_summary" ||
-      parsed.queryClass === "medication_dose_risk",
-    expandedTerms: uniqueTextValues([...analysis.expandedTerms, ...parsed.expandedTerms], 36),
-    queryRewrite: {
-      ...analysis.queryRewrite,
-      expansions: uniqueTextValues([...analysis.queryRewrite.expansions, ...parsed.expandedTerms], 48),
-      searchQuery: uniqueTextValues(
-        [analysis.queryRewrite.searchQuery, ...analysis.queryRewrite.expansions, ...parsed.expandedTerms],
-        60,
-      ).join(" "),
-      reasons: uniqueTextValues([...analysis.queryRewrite.reasons, ...parsed.reasons, "classifier_fallback"], 16),
-    },
-    reasons: uniqueTextValues([...analysis.reasons, ...parsed.reasons, "classifier_fallback"], 12),
-  } satisfies ClinicalQueryAnalysis;
-}
-
-/** Analyze query with classifier fallback. */
-export async function analyzeQueryWithClassifierFallback(
-  query: string,
-  analysis: ClinicalQueryAnalysis,
-  opts?: {
-    // Finding #11 corpus grounding: when provided, unsupported-soft-tail queries are checked
-    // against the corpus BEFORE the nondeterministic LLM classifier. Scoped with the exact
-    // owner_filter retrieval will use so grounding can never see documents retrieval cannot.
-    corpusGrounding?: { supabase: ReturnType<typeof createAdminClient>; ownerFilter: string | null };
-    ownerId?: string | null;
-    signal?: AbortSignal;
-  },
-) {
-  if (
-    // Fail closed before any generative model call: an adversarial-manipulation
-    // query is routed to "unsupported" downstream, so never send its text to the
-    // LLM query classifier. (Embedding-based retrieval is non-generative and not
-    // an injection surface.)
-    hasAdversarialManipulationIntent(query) ||
-    unavailableDocumentNoisePattern.test(query) ||
-    (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0)
-  ) {
-    return { ...analysis, needsClassifierFallback: false } satisfies ClinicalQueryAnalysis;
-  }
-
-  // Finding #11 corpus-grounded relevance: for queries that would hit the unsupported soft
-  // tail, the corpus — not the LLM — decides. An in-corpus bare topic ("bipolar disorder")
-  // deterministically reclassifies to broad_summary (mirroring what an accepted classifier
-  // verdict would have done, minus the coin flip); a corpus-absent query ("florbizone syndrome
-  // management") skips the LLM entirely so the soft-tail refusal is deterministic — and typos
-  // remain rescuable because the short-circuit path still runs trigram correction afterwards.
-  // "inconclusive" (including DB errors and an unapplied migration) keeps legacy behaviour.
-  // This deliberately runs before the OPENAI_API_KEY gate: offline/source-only deployments
-  // still retrieve lexically, so in-corpus bare topics should answer there too.
-  if (opts?.corpusGrounding && isUnsupportedSoftTailAnalysis(query, analysis)) {
-    const grounding = await classifyCorpusGrounding({
-      supabase: opts.corpusGrounding.supabase,
-      query,
-      ownerFilter: opts.corpusGrounding.ownerFilter,
-    });
-    if (grounding.verdict === "in_corpus_topic") {
-      return {
-        ...analysis,
-        queryClass: "broad_summary",
-        confidence: Math.max(analysis.confidence, 0.62),
-        needsSynthesis: true,
-        needsClassifierFallback: false,
-        corpusGrounding: "in_corpus_topic",
-        reasons: uniqueTextValues([...analysis.reasons, "corpus_topic_grounding"], 12),
-      } satisfies ClinicalQueryAnalysis;
-    }
-    if (grounding.verdict === "out_of_corpus") {
-      // Do NOT touch queryClass/confidence/reasons: the existing soft-tail short-circuit (and
-      // its alias-expansion + trigram-correction escape hatches) must keep firing exactly as
-      // before — only the LLM lottery is removed.
-      return {
-        ...analysis,
-        needsClassifierFallback: false,
-        corpusGrounding: "out_of_corpus",
-      } satisfies ClinicalQueryAnalysis;
-    }
-    analysis = { ...analysis, corpusGrounding: "inconclusive" };
-  }
-
-  // Finding #2: Deterministic fallback routing for short clinical queries.
-  // Short, bare clinical search queries (e.g., "bipolar disorder", "anorexia management")
-  // can be misclassified by the generative LLM. We route them deterministically.
-  if (
-    analysis.needsClassifierFallback &&
-    analysis.corpusGrounding !== "inconclusive" &&
-    query.trim().split(/\s+/).length <= 4 &&
-    (analysis.documentTitleTerms.length > 0 || analysis.canonicalTerms.length > 0)
-  ) {
-    return {
-      ...analysis,
-      queryClass: "broad_summary",
-      needsClassifierFallback: false,
-      reasons: uniqueTextValues([...analysis.reasons, "deterministic_short_clinical_query_fallback"], 12),
-    } satisfies ClinicalQueryAnalysis;
-  }
-
-  if (!analysis.needsClassifierFallback || !env.OPENAI_API_KEY) return analysis;
-
-  const memoKey = classifierVerdictMemoKey(query, analysis);
-  const memoized = classifierVerdictMemo.get(memoKey);
-  if (memoized) {
-    if (memoized.expiresAt > Date.now()) return applyClassifierVerdict(analysis, memoized.verdict);
-    classifierVerdictMemo.delete(memoKey);
-  }
-
-  let pending = classifierVerdictInflight.get(memoKey);
-  if (!pending) {
-    pending = requestClassifierVerdict(query, analysis, opts?.ownerId).finally(() => {
-      classifierVerdictInflight.delete(memoKey);
-    });
-    classifierVerdictInflight.set(memoKey, pending);
-  }
-
-  try {
-    const verdict = await awaitWithCallerSignal(pending, opts?.signal);
-    // Finding #11 follow-up: bounded TTL for a rejected soft-tail verdict — see the constant above.
-    const rejected = verdict.confidence < 0.58 || verdict.queryClass === "unsupported_or_general";
-    const softTail = rejected && isUnsupportedSoftTailAnalysis(query, analysis);
-    storeClassifierVerdictMemo(memoKey, verdict, softTail ? rejectedSoftTailMemoTtlMs : undefined);
-    return applyClassifierVerdict(analysis, verdict);
-  } catch (error) {
-    if (
-      error &&
-      (error instanceof DOMException || typeof error === "object") &&
-      (error as { name?: string }).name === "AbortError"
-    )
-      throw error;
-    // Transport/parse failures are deliberately NOT memoized: fall back to the deterministic
-    // analysis for this request only, and let the next request retry the classifier.
-    return analysis;
-  }
 }
 
 /** Metadata expansion term score. */
@@ -1490,11 +1206,27 @@ async function searchChunksWithTiming(
   const cacheOutcome = classifySearchCacheOutcome(isSearchCacheEnabled(args), Boolean(cached), sharedCached);
   if (cacheOutcome !== "skip") recordCacheLookup(cacheOutcome === "hit");
 
+  const dispatchSearchCacheWrite = (
+    args: SearchChunksArgs,
+    results: SearchResult[],
+    telemetry: SearchTelemetry,
+    queryVariants: string[],
+    indexingVersionAtRetrievalStart?: string | null,
+  ) => {
+    void setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart }).catch(
+      () => undefined,
+    );
+  };
+
   if (cached) return finishSearch(searchTiming, cached);
   if (sharedCached?.kind === "hit") {
-    await setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants, {
+    dispatchSearchCacheWrite(
+      args,
+      sharedCached.results,
+      sharedCached.telemetry,
+      queryVariants,
       indexingVersionAtRetrievalStart,
-    });
+    );
     return finishSearch(searchTiming, { results: sharedCached.results, telemetry: sharedCached.telemetry });
   }
   if (sharedCached?.kind === "miss") {
@@ -1535,7 +1267,7 @@ async function searchChunksWithTiming(
         openAiApiKeyPresent: Boolean(env.OPENAI_API_KEY),
       })
     ) {
-      await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+      dispatchSearchCacheWrite(args, [], telemetry, queryVariants, indexingVersionAtRetrievalStart);
     }
     return finishSearch(searchTiming, { results: [] as SearchResult[], telemetry });
   }
@@ -1617,7 +1349,7 @@ async function searchChunksWithTiming(
       telemetry.retrieval_strategy = "text_fast_path";
       textFastResults = await applySemanticRerankOnce(textFastResults);
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+      dispatchSearchCacheWrite(args, textFastResults, telemetry, queryVariants, indexingVersionAtRetrievalStart);
       return finishSearch(searchTiming, { results: textFastResults, telemetry });
     }
 
@@ -1666,7 +1398,7 @@ async function searchChunksWithTiming(
       telemetry.retrieval_strategy = "text_fast_path";
       textFastResults = await applySemanticRerankOnce(textFastResults);
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+      dispatchSearchCacheWrite(args, textFastResults, telemetry, queryVariants, indexingVersionAtRetrievalStart);
       return finishSearch(searchTiming, { results: textFastResults, telemetry });
     }
   }
@@ -1787,9 +1519,13 @@ async function searchChunksWithTiming(
         telemetry.retrieval_strategy = "document_lookup_fast_path";
         documentLookupResults = await applySemanticRerankOnce(documentLookupResults);
         recordSearchScoreTelemetry(telemetry, documentLookupResults);
-        await setCachedSearch(args, documentLookupResults, telemetry, queryVariants, {
+        dispatchSearchCacheWrite(
+          args,
+          documentLookupResults,
+          telemetry,
+          queryVariants,
           indexingVersionAtRetrievalStart,
-        });
+        );
         return finishSearch(searchTiming, { results: documentLookupResults, telemetry });
       }
       textFastResults = mergeSearchResults(documentLookupResults, textFastResults);
@@ -1816,7 +1552,7 @@ async function searchChunksWithTiming(
       telemetry.retrieval_strategy = coverageGate.strategy;
       const semanticResults = await applySemanticRerankOnce(coverageGateResults);
       recordSearchScoreTelemetry(telemetry, semanticResults);
-      await setCachedSearch(args, semanticResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+      dispatchSearchCacheWrite(args, semanticResults, telemetry, queryVariants, indexingVersionAtRetrievalStart);
       return finishSearch(searchTiming, { results: semanticResults, telemetry });
     }
     textFastResults = mergeSearchResults(coverageGateResults, textFastResults);
@@ -2022,7 +1758,7 @@ async function searchChunksWithTiming(
     telemetry.retrieval_strategy = "hybrid";
     results = await applySemanticRerankOnce(results);
     recordSearchScoreTelemetry(telemetry, results);
-    await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+    dispatchSearchCacheWrite(args, results, telemetry, queryVariants, indexingVersionAtRetrievalStart);
     return finishSearch(searchTiming, { results, telemetry });
   }
 
@@ -2113,7 +1849,7 @@ async function searchChunksWithTiming(
   telemetry.retrieval_strategy = "vector_fallback";
   results = await applySemanticRerankOnce(results);
   recordSearchScoreTelemetry(telemetry, results);
-  await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+  dispatchSearchCacheWrite(args, results, telemetry, queryVariants, indexingVersionAtRetrievalStart);
   return finishSearch(searchTiming, { results, telemetry });
 }
 
@@ -2197,6 +1933,7 @@ export function parseAnswerJson(
 export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
 }
+/** Answer question with scope. */
 export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs): Promise<RagAnswer> {
   const startedAt = Date.now();
   throwIfAborted(args.signal);
@@ -2295,6 +2032,10 @@ async function answerQuestionWithScopeUncoalesced(
       directSourceCount: cachedRelevance.directSourceCount,
       weakSourceCount: cachedRelevance.weakSourceCount,
       relevance: cachedRelevance,
+      // A cache hit returns here without ever reaching the ranking event, so until this the
+      // wait for a repeated question showed no sources at all — the common case for a
+      // reference tool, where the same question recurs on the next patient.
+      ...buildCachedEvidencePreviewProgress({ results: cachedSources, relevance: cachedRelevance }),
     });
     return assessAndEnforceClaimSupport({
       ...cachedAnswer,
@@ -2324,6 +2065,9 @@ async function answerQuestionWithScopeUncoalesced(
       directSourceCount: cachedRelevance.directSourceCount,
       weakSourceCount: cachedRelevance.weakSourceCount,
       relevance: cachedRelevance,
+      // The shared cache survives restarts and spans replicas, so this path is the one a
+      // question asked again hours later takes. It showed no sources either.
+      ...buildCachedEvidencePreviewProgress({ results: cachedSources, relevance: cachedRelevance }),
     });
     return assessAndEnforceClaimSupport({
       ...sharedCachedAnswer,
@@ -2880,6 +2624,7 @@ async function answerQuestionWithScopeUncoalesced(
     const extractiveContextArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, extractiveContextResults);
     relatedDocuments = retainRelatedDocumentsForResults(relatedDocuments, extractiveContextResults);
     const builtSourceSafeExtractiveAnswer = buildExtractiveAnswer({
+      allowSourceProseRecovery: true,
       query: args.query,
       queryClass,
       results: extractiveContextResults,
@@ -2957,6 +2702,11 @@ async function answerQuestionWithScopeUncoalesced(
         "ungrounded_extractive_answer";
       const reviewRouteReason = `${finalizedAnswer.routingReason ?? answer.routingReason ?? route.reason}; ${SOURCE_BACKED_REVIEW_FALLBACK_REASON}; extractive_quality_gate:${extractiveQualityReason}`;
       const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason, finalizedAnswer.sources);
+      // The candidate text the quality gate actually judged and rejected — captured before
+      // finalizeAnswer below builds a fresh fallback candidate from
+      // sourceBackedGenerationTimeoutAnswer() and overwrites `finalizedAnswer`. Debug-only; see
+      // RagAnswer.rejectedCandidateText.
+      const priorRejectedCandidateText = finalizedAnswer.rejectedCandidateText ?? finalizedAnswer.answer;
       finalizedAnswer = finalizeAnswer({
         ...answer,
         answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
@@ -2970,6 +2720,7 @@ async function answerQuestionWithScopeUncoalesced(
         smartApiPlan: reviewPlan,
         answerSections: [],
       });
+      finalizedAnswer.rejectedCandidateText ??= priorRejectedCandidateText;
     }
     if (args.logQuery !== false)
       await recordQuery(finalizedAnswer, {
@@ -3326,7 +3077,6 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
     ...buildEvidencePreviewProgress({
       normalResults: modelContextResults,
       fallbackResults: generationFallbackResults,
-      governanceResults: answerInputResults,
       relevance,
     }),
   });
@@ -3600,6 +3350,7 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
       const recoveryArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, responseContextResults);
       responseContextArtifacts = recoveryArtifacts;
       answer = buildExtractiveAnswer({
+        allowSourceProseRecovery: true,
         query: args.query,
         queryClass,
         results: responseContextResults,
@@ -3839,6 +3590,7 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
       const candidatePlan = buildCurrentSmartApiPlan("extractive", extractiveFallbackRouteReason, candidateResults);
       return {
         ...buildExtractiveAnswer({
+          allowSourceProseRecovery: true,
           query: args.query,
           queryClass,
           results: candidateResults,

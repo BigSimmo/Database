@@ -16,6 +16,7 @@ import {
   sourceGovernanceDangerFailuresForAnswer,
   sourceWarningsForRagQualityAnswer,
   type RagQualityResult,
+  qualityThresholds,
 } from "../scripts/eval-quality";
 import { evaluateGoldenRetrievalCase, type GoldenRetrievalResult } from "../scripts/eval-retrieval";
 
@@ -479,9 +480,97 @@ describe("eval quality reporting", () => {
       substantive_grounded_rate: 0.4,
       comparison_source_extractive_fallback_count: 1,
     });
-    expect(report.blocking_threshold_failures).toContain("RAG source_backed_review_fallback_count 3 above 0");
+    // None of these three ids is in the allowance, so every one is named as unaccounted. The
+    // gate reports WHICH case degraded and why, not merely how many did.
+    expect(report.blocking_threshold_failures).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("RAG source_backed_review_fallback unaccounted:"),
+        expect.stringContaining("agitation-arousal-typo-dosing"),
+      ]),
+    );
     expect(renderEvalQualityMarkdown(report)).toContain("| Source-backed review fallbacks | 3 |");
     expect(renderEvalQualityMarkdown(report)).toContain("| Substantive grounded answers | 2 |");
+  });
+
+  // The substitution a bare count cannot see (Codex P1 on PR #2301). The two conversions canary
+  // 32589154243 attributed to `guidance_wrapper_fragment` are accounted for; swap one of them for
+  // an unrelated case and the total is still 2, while grounded_supported_rate absorbs a single
+  // swap in a run this size. Keying the allowance by case id AND reason is what makes the swap
+  // visible.
+  it("accounts for the allowed fallbacks by case id and reason, not by how many there are", () => {
+    const allowed = buildEvalQualityReport({
+      generatedAt: "2026-08-22T00:00:00.000Z",
+      retrievalResults: [],
+      sourceBackedReviewFallbackAllowance: [
+        { id: "quality-antipsychotic-metabolic-monitoring", reason: "guidance_wrapper_fragment" },
+        { id: "quality-discharge-documentation", reason: "guidance_wrapper_fragment" },
+      ],
+      ragResults: [
+        ragResult({
+          id: "quality-antipsychotic-metabolic-monitoring",
+          routingReason:
+            "high_confidence_extractive_retrieval; source_backed_review_fallback; final_quality_gate:guidance_wrapper_fragment",
+        }),
+        ragResult({
+          id: "quality-discharge-documentation",
+          routingReason:
+            "high_confidence_extractive_retrieval; source_backed_review_fallback; final_quality_gate:guidance_wrapper_fragment",
+        }),
+      ],
+    });
+    expect(allowed.rag.summary.source_backed_review_fallback_count).toBe(2);
+    expect(allowed.rag.summary.source_backed_review_fallback_unaccounted).toEqual([]);
+    expect(allowed.blocking_threshold_failures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("source_backed_review_fallback")]),
+    );
+
+    // Same count, one substituted case: the old count-based gate passed this.
+    const substituted = buildEvalQualityReport({
+      generatedAt: "2026-08-22T00:00:00.000Z",
+      retrievalResults: [],
+      sourceBackedReviewFallbackAllowance: [
+        { id: "quality-antipsychotic-metabolic-monitoring", reason: "guidance_wrapper_fragment" },
+        { id: "quality-discharge-documentation", reason: "guidance_wrapper_fragment" },
+      ],
+      ragResults: [
+        ragResult({
+          id: "quality-discharge-documentation",
+          routingReason:
+            "high_confidence_extractive_retrieval; source_backed_review_fallback; final_quality_gate:guidance_wrapper_fragment",
+        }),
+        ragResult({
+          id: "quality-lithium-toxicity-action",
+          routingReason:
+            "high_confidence_extractive_retrieval; source_backed_review_fallback; extractive_quality_gate:missing_query_overlap",
+        }),
+      ],
+    });
+    expect(substituted.rag.summary.source_backed_review_fallback_count).toBe(2);
+    expect(substituted.rag.summary.source_backed_review_fallback_unaccounted).toEqual([
+      "quality-lithium-toxicity-action (high_confidence_extractive_retrieval; source_backed_review_fallback; extractive_quality_gate:missing_query_overlap)",
+    ]);
+    expect(substituted.blocking_threshold_failures).toEqual(
+      expect.arrayContaining([expect.stringContaining("quality-lithium-toxicity-action")]),
+    );
+
+    // An allowed case degrading for a DIFFERENT reason is also unaccounted: the allowance
+    // covers one specific defect, not that case in perpetuity.
+    const otherReason = buildEvalQualityReport({
+      generatedAt: "2026-08-22T00:00:00.000Z",
+      retrievalResults: [],
+      sourceBackedReviewFallbackAllowance: [
+        { id: "quality-antipsychotic-metabolic-monitoring", reason: "guidance_wrapper_fragment" },
+        { id: "quality-discharge-documentation", reason: "guidance_wrapper_fragment" },
+      ],
+      ragResults: [
+        ragResult({
+          id: "quality-antipsychotic-metabolic-monitoring",
+          routingReason:
+            "high_confidence_extractive_retrieval; source_backed_review_fallback; extractive_quality_gate:missing_query_overlap",
+        }),
+      ],
+    });
+    expect(otherReason.rag.summary.source_backed_review_fallback_unaccounted).toHaveLength(1);
   });
 
   it("fails forced-embedding retrieval cases that return from cache, coverage, or lexical paths", () => {
@@ -994,5 +1083,36 @@ describe("cross-region retrieval-exhausted carve-out (E-3b)", () => {
       ragAnswerTimingDiagnostics({ routingMode: "extractive", latencyTimings: exhaustedTimings }).timings
         .budgetExhaustedByRetrieval,
     ).toBe(true);
+  });
+});
+
+describe("source-backed-review-fallback allowance must name real cases (#NPQJKP)", () => {
+  // PR #2301 added two allowance entries written as `quality-<id>`, while every id in
+  // ragEvalCases is bare. `allowed.id === result.id` is an exact match, so neither entry has
+  // ever excused anything: the waiver reads as active in the source and is inert at runtime,
+  // and the canary stayed red on cases nobody had accepted. An allowance that cannot match is
+  // worse than no allowance, because it stops the reader looking further.
+  it("every allowance id exists in the eval fixture", async () => {
+    const { ragEvalCases } = await import("../src/lib/rag/rag-eval-cases");
+    const known = new Set(ragEvalCases.map((evalCase) => evalCase.id));
+    const unmatched = qualityThresholds.ragSourceBackedReviewFallbackAllowance
+      .map((allowed) => allowed.id)
+      .filter((id) => !known.has(id));
+    expect(unmatched).toEqual([]);
+  });
+
+  it("every allowance reason is a reason the pipeline can actually emit", () => {
+    const emittable = new Set([
+      "guidance_wrapper_fragment",
+      "bare_document_title_list",
+      "provider_source_gap",
+      "source_gap",
+      "empty_after_sanitize",
+      "generation_quality_failed",
+      "invalid_model_citation_ids",
+    ]);
+    for (const allowed of qualityThresholds.ragSourceBackedReviewFallbackAllowance) {
+      expect(emittable.has(allowed.reason)).toBe(true);
+    }
   });
 });

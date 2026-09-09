@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "354316f3-74f7-4d2b-a3f0-91bac3fb18e6",
+  "createdOn": "2026-08-29",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Ward Flow network diagram has no @media print block and prints zero unit nodes",
+    "detail": "Pre-existing, NOT caused by the ward board fold or Phase 8 — recorded before the fold so it is not later attributed to the merge. Found by the Phase 8 visual pass (branch claude/ward-flow-phases-6-7-design, reported DONE_WITH_CONCERNS at 7f2a024b9) and deliberately left unfixed to avoid widening that task's scope. The whole-network diagram renders no unit nodes at print time in either mode, because the component ships no @media print rules at all. This matters more than an ordinary print bug: the ward board branch is building print-time work under decision DB-10 (the printed morning sheet, current at print time), and Ward Flow's stated purpose is to be shown to WA clinicians, where someone will press Print. Owner of the fix is whoever owns DB-10. Ward suite was 898 passed across 62 files with this defect present, so no test sees it — it is only visible by printing.",
+    "source": "WARD - Repo Change session, 2026-08-29, relayed from the Phase 8 visual pass",
+    "issueUlid": "01M15Y9HKFWCJGYBB6Y9Z91JNJ"
+  }
+}

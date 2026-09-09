@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "964e1147-56b2-4750-8794-4b8b1d8e4e04",
+  "createdOn": "2026-08-27",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Ward Flow pinned-clock fix is committed only to an unpushed local branch, and the Phase 6 morning page still carries the defect, its workaround, and an untested D5 branch",
+    "detail": "WardFlowProvider's initialNow prop silently discarded its value: the render body forced elapsed=0 when pinned, so now was always NOW_ANCHOR (642, 10:42) whatever instant was passed. Latent, never active - all 40 initialNow call sites pass NOW_ANCHOR, and the live app never passes the prop - but it made every time-of-day branch untestable through the real provider. FIXED and PROVEN in commit 62f798c2a on branch claude/serene-heyrovsky-7a5e53 (base be65b8a1b), worktree D:\\Repos\\Database\\.claude\\worktrees\\nostalgic-vaughan-7ee231: 40/40 existing call sites stayed green (92 tests), whole ward suite 519 passed, typecheck/lint/prettier pass, and a mutation test showed 3 of 4 new tests going red with 'Expected 450 / Received 642'. RISK: that branch has never been pushed, has no upstream and no PR, so the work exists on one machine only. NEXT ACTIONS, all on claude/ward-flow-phases-6-7-design (which was ACTIVELY ADVANCING when this was written - a53a3a994 to 0d29dd734 in one session, so confirm ownership before editing): (1) cherry-pick 62f798c2a or re-apply the two-line change; (2) write the spec D5 pre-08:00 test through the real provider by rendering MorningPage inside WardFlowProvider initialNow={7*60+30} - today D5 is proven at the pure-function level only, not through the rendered page; (3) remove the now-misleading NullHandoverHarness and its doc comments in tests/ward-morning-page.dom.test.tsx, which describe the defect as present-tense fact (DirectFrozenHarness may still earn its place as a unit-level check - judgement call, not a mechanical delete); (4) decide whether claude/serene-heyrovsky-7a5e53 should be closed as redundant or pushed as its own low-risk two-file PR - owner's call. Full handover with evidence, traps and do-not-reopen list: docs/ward-flow-pinned-clock-handover.md (committed 3fd861418 on the same branch, so it is also unpushed). Offline only - no provider, Supabase, OpenAI or CI access needed for any step.",
+    "source": "Claude Code session 2026-08-27; handover doc docs/ward-flow-pinned-clock-handover.md",
+    "issueUlid": "01M11QZ5X4YTR84P2K9TGQ5RQB"
+  }
+}

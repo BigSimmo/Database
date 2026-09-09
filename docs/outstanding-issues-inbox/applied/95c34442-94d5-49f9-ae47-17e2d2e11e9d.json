@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "95c34442-94d5-49f9-ae47-17e2d2e11e9d",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#BJ80DB",
+    "outcome": "Closed the remaining diagnostic gap without claiming a historical root cause: the one-off 2026-08-21 Windows failure remains unproven. The hosted migration-role guard now discovers tracked and untracked paths separately, attaches provenance to every guarded entry, inspects only guarded regular files without following non-regular paths, and fails closed with sanitized category/code evidence for directory or read failures. Failure-only diagnostics permanently capture exact HEAD when available, origin/main commit and merge-base plus ahead/behind when safely resolvable, shallow state, platform/architecture/Node version, tracked/untracked/guarded/read-error counts, and the discovered migration filename range/count; collection failures render unavailable and never expose file contents, environment values, absolute user paths, raw commands, or unrestricted Git output. Focused proof passed 10/10 in tests/hosted-migration-role-guard.test.ts, and npm run check:migration-role passed against the current repository state.",
+    "baseRowFingerprint": "c56871479d77d951a572b0ca35fda11dc8f2fce037015c2ff15412d815dd121d"
+  }
+}

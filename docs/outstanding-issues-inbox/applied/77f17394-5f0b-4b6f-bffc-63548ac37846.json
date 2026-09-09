@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "77f17394-5f0b-4b6f-bffc-63548ac37846",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Unbounded recursive delete in tests/ward-flow-chat-control.test.ts has no retry guard",
+    "detail": "An rmSync on a scratch path with recursive:true and no bounded retry, flagged by tests/test-runner-safety.test.ts. The same file already uses the retry-bounded shape elsewhere, so the fix is to copy the existing local template. Matters more than usual on a machine that has been dropping shell commands. Reproduced at fb17db7b1.",
+    "source": "Ward Builder One closing sweep 2026-09-02",
+    "issueUlid": "01M1G4PYSG78MRNJHSJBNMZY9S"
+  }
+}

@@ -1,6 +1,6 @@
 # Deployment Architecture
 
-Decision record for the production topology of Clinical KB. Written 2026-07-06,
+Decision record for the production topology of PsychSift. Written 2026-07-06,
 revised 2026-07-12 when the app went live on Railway. Companion documents:
 `docs/observability-slos.md` (SLOs + eval canary) and `docs/audit/capacity-review.md`
 (load model, first bottleneck, soak test).
@@ -335,11 +335,18 @@ Semantics of `claim_ingestion_jobs` (migration
   failure time. Claims take `FOR UPDATE SKIP LOCKED` over the job _and_ its
   document row, rank one job per document, and exclude any document that
   already has a _fresh_ processing job.
-- **There is no heartbeat.** The worker never refreshes `locked_at` mid-job.
-  If the worker dies, the job sits in `processing` until `locked_at` is older
-  than the stale window (`p_stale_after_minutes`, default 45, worker-side
+- **The lease is heartbeated and fenced** (since 2026-07-08, migration
+  `20260708130000_ingestion_concurrency_rpc_hardening.sql` and
+  `updateJobProgress` in `worker/main.ts`). A live worker refreshes `locked_at`
+  on each persisted progress write, at least once per third of the stale window
+  and on a 60 s timer during extraction, guarded by `locked_by = workerId` so a
+  reclaimed worker cannot resurrect its lease. If the worker dies, the job sits
+  in `processing` until `locked_at` is older than the stale window
+  (`p_stale_after_minutes`, default 45, worker-side
   `WORKER_STALE_AFTER_MINUTES`), after which any worker reclaims it
-  (`stage = 'reclaimed stale job'`).
+  (`stage = 'reclaimed stale job'`). `complete_ingestion_job` and
+  `fail_or_retry_ingestion_job` take `p_worker_id` and return `ok:false` to a
+  caller that lost the lease, so the reclaiming worker owns the outcome.
 - **Dead-lettering is implicit.** Because attempts are consumed at claim, a
   crash-looping job exhausts `max_attempts` (default 3) after ~3 stale windows
   and becomes terminally `failed` — the de-facto dead-letter state. Recovery is
@@ -399,6 +406,26 @@ Rules:
   Supabase dashboard action + Railway variable update + redeploy.
 - `npm run check:supabase-project` runs after any Supabase env change (repo
   rule), and the eval canary runs it before every scheduled eval.
+
+**`CARING_CONTACTS_DATABASE_URL` — the Caring Contacts workspace's own database.** The
+synthetic Caring Contacts prototype (`src/lib/caring-contacts-server/`) reads exactly one
+variable, in `config.ts`, and it is **not** in `src/lib/env.ts`: unset or blank means the
+in-memory demo store (what the demo and the offline suites use); set means every workspace
+read and write goes to that Postgres database. Only the app tier reads it — Railway service
+`Database` in production, `app` in staging — and the `worker` never does. It is set on no
+deployment today and is absent from the Railway expectations in `scripts/check-env-parity.mjs`,
+because the workspace is locked in production until enterprise sign-on exists
+(`isCaringContactsDemoEnabled`, `src/lib/caring-contacts-server/session.ts`). Two guards make
+misconfiguration fail closed rather than reach the clinical database: the process refuses a
+URL that names the pinned PsychSift project ref, and one that is byte-identical to
+`SUPABASE_DB_URL` or `DATABASE_URL` (`assertNotClinicalKbProject`, run in both `store.ts` and
+`pool.ts`). One prerequisite is not enforced by code: the login role in the URL must be a
+member of `caring_contacts_app`, because migration `0001` grants that membership only to the
+role that ran the migration, and every transaction begins with `set local role
+caring_contacts_app` — a non-member role fails there and the workspace returns 500s. CI's
+`caring-contacts-db` job sets the variable to its throwaway container (`postgres@127.0.0.1:54329`),
+which is both migrator and login role, so it never meets that gap. `.env.example` carries the
+commented entry so `npm run check:env-parity` knows the name.
 
 ## 5. Staging environment
 

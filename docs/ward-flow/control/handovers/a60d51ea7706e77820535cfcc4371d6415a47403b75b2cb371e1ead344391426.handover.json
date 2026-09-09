@@ -1,0 +1,206 @@
+{
+  "content": {
+    "completedWork": [
+      {
+        "summary": "Decided the R1/R3 criterion at the frozen target in full: five items, PASS on all, zero failures. Covers the only independent evidence that the six-reason urgency work and the ward-board work in progress were genuinely preserved."
+      },
+      {
+        "summary": "Confirmed lease custody: recomputed the active verifier lease SHA-256 as 72cc93ab781a92ba6eeaf007c4379364c430521ee15135b72fc0655533df56d7, matching the machine block exactly; generation 1, no predecessor, ownedPaths empty, target 89d7f99ec."
+      },
+      {
+        "summary": "Found and returned unrepaired: docs/ward-flow/control/BUILDER-ACTIVATION-RECEIPTS.md was stale at the frozen target, claiming one of six chat exports existed and that live-state.json carried no provenance fields. Both false. Ward Lead corrected it at 6a8778b6f."
+      },
+      {
+        "summary": "Established a full green ward vitest baseline at the frozen target so any later ward regression is provably new rather than pre-existing."
+      },
+      {
+        "summary": "Identified two sequencing traps in the Builder activation plan and returned them to Ward Lead before it froze the tree: the shared sourceSha had to be at or after the last non-evidence commit, and the system-state.json steady-state edit had to land strictly after the activation snapshot rather than inside the evidence window. Ward Lead reported hitting and correcting both. NOTE: this advice compromises this role's independence for any later verdict on that activation."
+      }
+    ],
+    "decisions": [
+      {
+        "summary": "Owner ruling on Ward Flow scope, quoted verbatim: 'keep walled off in its own separate isolated environment in the repo like it currently is. Similar to option 1'. Ward Flow stays prototype-only under src/app/mockups/ward-flow/; no production routes, no registered app mode. Stated directly to this role and relayed to Ward Lead."
+      },
+      {
+        "summary": "Owner instructed that the Builder unlock be completed ahead of further screen work, after being told the cost had fallen from days to about an hour. Relayed to Ward Lead by this role."
+      },
+      {
+        "summary": "Owner subsequently decided NOT to create the Ward Builder chat, on being told Ward Lead is already the primary builder. Ward Lead reports his words as 'wait... in that case just continue buildling here?'. REPORTED BY WARD LEAD, not stated to this role. The Builder role is activatable in system-state.json at 1b7459968 but no builder lease exists, deliberately."
+      },
+      {
+        "summary": "Owner approval for removing four untracked files under docs/ward-flow/ through the protection hook override is REPORTED BY WARD LEAD ONLY, which quotes him as writing 'yes delete them'. This role asked the owner for that approval directly and never received an answer. NOT CORROBORATED by this role. A successor must not treat it as an owner statement made to this role."
+      }
+    ],
+    "evidence": [
+      {
+        "acceptanceCriterion": "R1/R3 item 1 - artifacts. Both committed artifact manifests hash to the value recorded in live-state.json, their sourceId and head match the entry, and for every artifact the blob committed at the target is byte-identical both to the manifest sourceSha256 and to the live file still present in the source checkout.",
+        "action": "Read live-state.json at the target; hashed both committed manifests; for all 141 artifacts hashed the committed blob via git show and the live file via the recorded checkout path, comparing both against the manifest sourceSha256.",
+        "decisiveEvidence": "2 manifests: working-line a7edcf954667c1c0d15cd0ef59f5d491d1a6b8a2f634e723a5d7979a5ed60174 MATCH, ward-board fbdf963ca7e66a7461e463a7ba3d009c36e768eb65f22e97ab30e45b7fe19826 MATCH; sourceId and head MATCH for both. Artifact counts 2 (working-line, both status M) and 139 (ward-board, all untracked), 141 total. committed blob == manifest sourceSha256: 141/141. live file == manifest sourceSha256: 141/141. Artifacts absent: 0. Live files missing or unreadable: 0. FAILURES: 0.",
+        "falsifier": "Any manifest hash mismatch, sourceId or head mismatch, artifact absent at the target, committed blob differing from sourceSha256, or live file drifted from the manifest.",
+        "outcome": "passed",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      },
+      {
+        "acceptanceCriterion": "R1/R3 item 2 - sources undisturbed. Both source checkouts remain on the recorded branch and HEAD with the recorded tracked status, and the ward-board checkout still holds exactly the same untracked path set as the manifest, not merely the same count.",
+        "action": "Ran git --no-optional-locks -C <checkout> for rev-parse, status --untracked-files=no and ls-files --others --exclude-standard, so no index was written in either checkout; sorted the live untracked listing and compared it against the manifest sourcePaths with comm in both directions and diff.",
+        "decisiveEvidence": "pr-2390-fix: branch claude/ward-flow-phases-6-7-design, HEAD 5db2f02fc6f0d04eed3425bc74b0adad438b7ea7, exactly 2 modified tracked files (ward-change-reasons.ts and tests/ward-change-reasons.test.ts, the same two the manifest records as M), 0 untracked. nostalgic-vaughan-7ee231: branch claude/ward-flow-print-fixes, HEAD 68e501e5fc725542e090a0698a87519ac242804b, 0 modified tracked, 139 untracked. Untracked path set versus manifest sourcePaths: comm empty in both directions, diff reports files identical. Exact set match. Read-only throughout; no write of any kind to either checkout.",
+        "falsifier": "Either checkout drifted in branch, HEAD, tracked status, or untracked path set by any addition, removal or substitution.",
+        "outcome": "passed",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      },
+      {
+        "acceptanceCriterion": "R1/R3 item 3 - exports. For all six chats the committed export blob hashes to its recorded exportSha256 and the envelope's own chat and sessionId match its live-state entry.",
+        "action": "For each of the six chatLogs entries, hashed the committed export blob and compared it to exportSha256, then compared the parsed envelope chat and sessionId against the entry.",
+        "decisiveEvidence": "6/6 export hashes MATCH; 6/6 envelope chat MATCH; 6/6 envelope sessionId MATCH. Sessions: Ward Decisions a4cba676, Ward Verifier 96a0e846, Ward Orchestrator 9e69b934, Ward Board db884133, Ward Referrals 2a7fcecc, Ward Core 23c91695. FAILURES: 0.",
+        "falsifier": "Any export hash mismatch, or an envelope whose chat or sessionId disagrees with the entry it is recorded against.",
+        "outcome": "passed",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      },
+      {
+        "acceptanceCriterion": "R1/R3 item 4 - provenance binding. For all six chats the committed owner decision hashes to its recorded ownerDecisionSha256, and that decision's own chat, sessionId and decisionId match the entry it is attached to, with no crossed pairing between the six structurally near-identical records.",
+        "action": "For each entry, hashed the committed decision blob against ownerDecisionSha256, then compared decision.chat to the entry chat, decision.sessionId to the EXPORT envelope's sessionId (so a swap between two entries could not pass by matching the entry alone), and decision.decisionId to the entry ownerDecisionId.",
+        "decisiveEvidence": "6/6 decision hashes MATCH; 6/6 chat MATCH; 6/6 sessionId MATCH against the export envelope; 6/6 decisionId MATCH. Pairings: a4cba676/-001, 96a0e846/-002, 9e69b934/-003, db884133/-004, 2a7fcecc/-005, 23c91695/-006, all six sessionIds distinct. No crossing. FAILURES: 0. LIMIT: this proves the binding is internally consistent and untampered; it does NOT prove the owner's original identification of which chat produced which session file, which the control README states is an owner judgement rather than a tool-derived fact.",
+        "falsifier": "Any decision hash mismatch, or a decision bound to the wrong chat, session or decision id.",
+        "outcome": "passed",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      },
+      {
+        "acceptanceCriterion": "R1/R3 item 5 - archives. Each archived chat log is byte-identical to its source transcript under the Claude log root, and is a genuinely separate file rather than a link to it.",
+        "action": "For all six, hashed the archive at the recorded archivedLogPath and compared to archivedLogSha256; hashed the source transcript at sourceLogPath; compared the two hashes; and used lstat to check symlink status and link count plus realpath on both paths.",
+        "decisiveEvidence": "6/6 archive hashes MATCH archivedLogSha256; 6/6 not symlinks; 6/6 nlink == 1 so not hard links; 6/6 byte-identical to their source transcript; 6/6 realpath(archive) != realpath(source), so each is a distinct file. FAILURES: 0.",
+        "falsifier": "Any archive differing from its source, or resolving to the same file, or being a symlink or hard link.",
+        "outcome": "passed",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      },
+      {
+        "acceptanceCriterion": "The active verifier lease matches the machine-provided control block on every field, so the session operated on the intended frozen target under the intended generation.",
+        "action": "Recomputed sha256 of the active lease file under the shared git common directory and compared every field to the machine block; ran chat-control validate and status.",
+        "decisiveEvidence": "Lease SHA-256 72cc93ab781a92ba6eeaf007c4379364c430521ee15135b72fc0655533df56d7 equals the machine block value. HEAD 89d7f99ec, detached, clean. validate printed: [ward-flow-chat] VALID: 3 fixed roles, mode recovery, 0 assignment(s), 0 handover(s), 0 reset certificate(s).",
+        "falsifier": "Any mismatch in lease SHA-256, generation, instanceId, predecessor handover, targetSha, branch or worktree.",
+        "outcome": "passed",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      },
+      {
+        "acceptanceCriterion": "docs/ward-flow/control/BUILDER-ACTIVATION-RECEIPTS.md accurately describes the activation state at the commit it is read against.",
+        "action": "Compared the document's claims against committed evidence at the frozen target.",
+        "decisiveEvidence": "Measured at 9d2edecbf, it stated one of six chat exports existed and that live-state.json carried no provenanceDecision, ownerDecisionId, ownerDecisionPath, ownerDecisionSha256, exportPath or exportSha256 fields for any chat. At the frozen target all six exports and all six owner decisions were committed and all six entries carried all six fields populated. Returned to Ward Lead unrepaired; corrected by it at 6a8778b6f.",
+        "falsifier": "Any statement in that document contradicted by the committed state at the frozen target.",
+        "outcome": "failed",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      },
+      {
+        "acceptanceCriterion": "The complete ward vitest suite passes at the frozen target, establishing a baseline against which any later regression is provably new.",
+        "action": "Discovered the ward test set from disk via git ls-tree filtered to ward and split by extension (119 vitest, 6 Playwright), then ran node scripts/run-vitest.mjs run with all 119 explicit paths.",
+        "decisiveEvidence": "Test Files 119 passed (119); Tests 1589 passed (1589); Duration 187.63s; vitest v4.1.10. The run reported exactly the 119 files discovered, so there was no silent zero and no quietly skipped file.",
+        "falsifier": "Any failing ward vitest file, or a run reporting fewer files than the set discovered from disk.",
+        "outcome": "passed",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      },
+      {
+        "acceptanceCriterion": "The three Builder-activation gates are genuinely unstarted at the frozen target, so Builder is correctly gated rather than incorrectly open.",
+        "action": "Listed committed contents of the control evidence subtree and read system-state.json at the frozen target.",
+        "decisiveEvidence": "control/evidence/bundles/ held 0 files; no inventory or disposition manifest was committed; no transition receipt existed beyond the schema example; transitionEvidence was [] and activationSnapshot was null.",
+        "falsifier": "Any committed bundle, inventory, disposition manifest or transition receipt, or a non-empty transitionEvidence array.",
+        "outcome": "passed",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      },
+      {
+        "acceptanceCriterion": "The six ward Playwright journeys pass at the frozen target.",
+        "action": "None. Deliberately not run.",
+        "decisiveEvidence": "NOT RUN. These require a live server via npm run ensure and no change was under test. Explicitly unrun, not passing.",
+        "falsifier": "Any failing ward browser journey.",
+        "outcome": "unrun",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      },
+      {
+        "acceptanceCriterion": "The 895-source current-truth inventory regenerates byte-identically.",
+        "action": "None. No inventory existed at the frozen target to compare against.",
+        "decisiveEvidence": "NOT RUN. The inventory and disposition manifest were first committed later, at 016b37812 and e1199a53e, outside this role's frozen target. Regenerating them is the core of the unrun R2 criterion and is the single largest unverified item in the recovery.",
+        "falsifier": "Any byte difference between a regenerated inventory and the committed one.",
+        "outcome": "unrun",
+        "targetSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+      }
+    ],
+    "nextAction": "Recreate Ward Verifier with --target-sha 1b7459968ba77e6865af74d69f4c5623d92199ce and issue the R2 criterion as a COMMITTED ASSIGNMENT, so the steady-state transition, the three receipts and the 895-source inventory receive their first independent verification from a party that did not advise on them.",
+    "pendingWork": [
+      {
+        "summary": "R2 criterion for target 1b7459968 (evidence window, bundle verify and restore, byte-identical inventory regeneration, disposition manifest, control-plane receipt input hash) is well-formed and REFUSED BY THIS ROLE because the lease pins 89d7f99ec. Requires recreate --role verifier --target-sha 1b7459968ba77e6865af74d69f4c5623d92199ce. Ward Lead has accepted it should not retarget by message."
+      },
+      {
+        "summary": "Nothing committed after 89d7f99ec has been independently verified. That includes the three transition receipts, the 895-source inventory and disposition manifest, the recovery bundle and restore, the steady-state activation, and all ward product commits from e6b7afb91 onward."
+      },
+      {
+        "summary": "Six ward Playwright specs never run, needing a live server: ui-ward-coordinator, ui-ward-discharges, ui-ward-management, ui-ward-morning, ui-ward-referrals, ui-ward-roles."
+      }
+    ],
+    "questions": [
+      {
+        "summary": "Did the owner approve removal of the four untracked files under docs/ward-flow/ through the protection hook override? Ward Lead states he wrote 'yes delete them'. This role asked him directly and received no answer. Unresolved from this role's position."
+      },
+      {
+        "summary": "Is the owner's instruction to skip the Ward Builder chat settled? It reached this role only through Ward Lead. If he wants the third chat, create-assignment and recreate --role builder are the remaining steps and the gate is already open."
+      }
+    ],
+    "risks": [
+      {
+        "summary": "NOTHING COMMITTED AFTER 89d7f99ec HAS BEEN INDEPENDENTLY VERIFIED. The Builder activation, the three transition receipts, the 895-source inventory and disposition manifest, the recovery bundle and restore, and all ward product commits from e6b7afb91 onward rest on Ward Lead's own checking. This role is structurally unable to verify them because its lease pins 89d7f99ec."
+      },
+      {
+        "summary": "INDEPENDENCE PARTIALLY COMPROMISED for the activation work. This role advised Ward Lead on the sourceSha choice and on ordering the steady-state edit after the activation snapshot. Any later verdict on that activation is therefore partly marking this role's own reasoning and must be checked against the validator code rather than against that advice. A successor should treat the activation as unverified by an untainted party."
+      },
+      {
+        "summary": "CUSTODY FAILURE OBSERVED AND ACKNOWLEDGED. Ward Lead believed it had issued the R1/R3 criterion and referred to it twice as open; it never arrived and no assignment was ever committed. Its SendMessage returned success, which it reasonably read as delivery. A successful send is not evidence of receipt, and a chat message is not a durable record. Ward Lead has agreed future criteria will be committed assignments."
+      },
+      {
+        "summary": "Owner approval for the protected deletion is uncorroborated by this role. Nothing unique was at risk: both the abandoned and the live recovery bundle were confirmed present in the owner's backup store outside every checkout, and the abandoned receipts were pinned to sourceSha 6a8778b6f which five later non-evidence commits had already made unusable."
+      }
+    ],
+    "subagentDispatches": [],
+    "summary": "Ward Verifier generation 1, session ward-verifier-20260831-claude-a, frozen target 89d7f99ec. The R1/R3 criterion (artifact preservation, source-checkout integrity, chat exports, provenance binding, archive independence) was decided in full: PASS on all five items with zero failures, every hash recomputed rather than accepted. CUSTODY WARNING FOR THE SUCCESSOR: that criterion was never issued as a committed assignment. It arrived only as a chat message, after Ward Lead twice referred to it as already open when it had never reached this role. validate reported 0 assignments for the entire session. Ward Lead has agreed future criteria will be committed assignments. The verdict below is therefore sound but its criterion is not durably recorded anywhere except in this handover. Separately, this role observed later integration-branch commits (the Builder activation at 1b7459968 and ward product work) for coordination only; those observations carry NO verdict, because the lease pins this role to 89d7f99ec and a message cannot retarget it."
+  },
+  "contentAudit": {
+    "decisionsCaptured": true,
+    "evidenceCaptured": true,
+    "noUniqueChatContentRemaining": true,
+    "questionsCaptured": true,
+    "uncommittedWorkCaptured": true,
+    "workCaptured": true
+  },
+  "createdAt": "2026-08-31T12:29:32.377Z",
+  "instanceId": "ward-verifier-20260831-claude-a",
+  "integration": {
+    "commit": null,
+    "durableCheckpoint": null,
+    "status": "not-required",
+    "targetBranch": "codex/task-ward-flow-live-state-20260831"
+  },
+  "kind": "ward-flow-chat-handover",
+  "leaseSha256": "72cc93ab781a92ba6eeaf007c4379364c430521ee15135b72fc0655533df56d7",
+  "previousHandover": null,
+  "privacyAudit": {
+    "noPatientData": true,
+    "noSecrets": true,
+    "syntheticOnly": true
+  },
+  "reason": "replacement",
+  "role": "verifier",
+  "roleGeneration": 1,
+  "schemaVersion": 1,
+  "sessionLabel": "Ward Verifier",
+  "source": {
+    "branch": "DETACHED",
+    "head": "89d7f99ec15dd80be3bb27a7334d25d985ab5749",
+    "status": [],
+    "worktree": "D:/Worktrees/Database/ward-verifier-89d7f99ec"
+  },
+  "task": {
+    "assignmentPath": null,
+    "baseSha": "89d7f99ec15dd80be3bb27a7334d25d985ab5749",
+    "completionCommit": "89d7f99ec15dd80be3bb27a7334d25d985ab5749",
+    "id": "WF-VERIFIER-R1-BOOTSTRAP",
+    "objective": "Bootstrap Ward Verifier at frozen target 89d7f99ec and independently decide stated acceptance criteria. No criterion existed for most of the session; the R1/R3 criterion arrived late, by chat message rather than committed assignment, and was decided in full. Verdict: PASS on all five items, zero failures, everything recomputed.",
+    "ownedPaths": [],
+    "status": "complete",
+    "verificationTarget": "89d7f99ec15dd80be3bb27a7334d25d985ab5749"
+  }
+}

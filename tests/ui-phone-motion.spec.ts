@@ -7,12 +7,16 @@ import { devices, expect, test, type Page } from "playwright/test";
  * The answer-progress panel was reported dead on a physical iPhone in both Safari
  * and the installed PWA. The cause was not a WebKit repaint bug — it was this
  * app's own reduced-motion CSS, which stopped every animation and additionally set
- * the ECG trace to `opacity: 0`. Every existing gate missed it because
+ * the then-current ECG trace to `opacity: 0`. Every existing gate missed it because
  * playwright.config.ts applies `reducedMotion: "reduce"` suite-wide and the one
  * spec asserting the animation opts out to "no-preference" first, so the default
  * user configuration was never exercised.
  *
- * Two contracts are pinned here:
+ * Two contracts are pinned here, and they outlived the component that prompted
+ * them: the ECG trace has since been replaced by a breathing dot on the quiet
+ * progress line, so these tests now target `.answer-progress-dot`. The rules are
+ * unchanged, and the dot was chosen partly because it makes the first one easy to
+ * hold — a stopped dot is a bullet, where a stopped spinner is a broken circle.
  *   1. Reduce Motion suppresses motion but must never remove the indicator.
  *   2. The in-app Motion preference ("full") can opt back in over the OS request.
  *
@@ -111,7 +115,7 @@ async function startAnswer(page: Page) {
     await expect(submit).toBeEnabled();
   }).toPass({ timeout: 30_000 });
   await submit.click();
-  return page.getByTestId("answer-progress-stepper");
+  return page.getByTestId("answer-progress");
 }
 
 // The device fields are picked explicitly rather than spread: the descriptor's
@@ -130,6 +134,33 @@ test.use({
 });
 
 test.describe("phone motion behaviour with OS Reduce Motion on", () => {
+  const dotOf = (progress: ReturnType<Page["getByTestId"]>) => progress.locator('[data-slot="answer-progress-dot"]');
+
+  /** Reads the computed state that decides whether an indicator is still there. */
+  const indicatorState = (dot: ReturnType<Page["locator"]>) =>
+    dot.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return {
+        animationName: style.animationName,
+        opacity: Number.parseFloat(style.opacity),
+        display: style.display,
+        visibility: style.visibility,
+      };
+    });
+
+  /** Proves the breath actually moves, rather than merely being declared. */
+  const breathTravel = (dot: ReturnType<Page["locator"]>) =>
+    dot.evaluate(async (node) => {
+      const animation = node.getAnimations()[0];
+      animation.pause();
+      animation.currentTime = 0;
+      await new Promise(requestAnimationFrame);
+      const resting = getComputedStyle(node).opacity;
+      animation.currentTime = 1_200;
+      await new Promise(requestAnimationFrame);
+      return { resting, mid: getComputedStyle(node).opacity };
+    });
+
   test("suppresses motion without hiding the progress indicator", async ({ page }) => {
     await stubAnswerStream(page);
     await seedMotionPreference(page, "system");
@@ -137,23 +168,23 @@ test.describe("phone motion behaviour with OS Reduce Motion on", () => {
     const progress = await startAnswer(page);
     await expect(progress).toBeVisible();
 
-    const sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
-    const base = progress.locator('[data-slot="answer-activity-trace-base"]');
-    await expect(sweep).toBeVisible();
-    await expect(base).toBeVisible();
+    const dot = dotOf(progress);
+    await expect(dot).toBeVisible();
 
-    const state = await sweep.evaluate((node) => {
-      const style = getComputedStyle(node);
-      return { animationName: style.animationName, opacity: Number.parseFloat(style.opacity) };
-    });
+    const state = await indicatorState(dot);
     expect(state.animationName).toBe("none");
-    // The exact resting value is a design choice; that it is legible is the contract.
-    expect(state.opacity).toBeGreaterThan(0.3);
+    // The whole point of a dot: its resting frame is the complete, correct mark.
+    expect(state.opacity).toBe(1);
+    expect(state.display).not.toBe("none");
+    expect(state.visibility).not.toBe("hidden");
 
-    // A static trace still has to paint real ink, not an empty box.
-    const box = await sweep.boundingBox();
+    // A stopped indicator still has to paint real ink, not an empty box.
+    const box = await dot.boundingBox();
     expect(box?.width ?? 0).toBeGreaterThan(0);
     expect(box?.height ?? 0).toBeGreaterThan(0);
+
+    // And the line it marks must still say what is happening.
+    await expect(progress.getByTestId("answer-progress-line")).toContainText(/\w/);
   });
 
   test("motion:full opts back in over the OS setting", async ({ page }) => {
@@ -163,27 +194,12 @@ test.describe("phone motion behaviour with OS Reduce Motion on", () => {
     const progress = await startAnswer(page);
     await expect(page.locator("html")).toHaveAttribute("data-motion", "full");
 
-    const sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
-    await expect(sweep).toBeVisible();
-    expect(await sweep.evaluate((node) => getComputedStyle(node).animationName)).toBe("answer-ecg-scroll");
+    const dot = dotOf(progress);
+    await expect(dot).toBeVisible();
+    expect(await dot.evaluate((node) => getComputedStyle(node).animationName)).toBe("answer-progress-breath");
 
-    // The step spinner is the second half of the report: the universal reduced-motion
-    // rule froze it too, which is how the whole panel read as broken.
-    const spinner = progress.getByLabel("Answer generation stages").locator('li[data-state="current"] svg');
-    expect(await spinner.evaluate((node) => getComputedStyle(node).animationName)).not.toBe("none");
-
-    // Prove travel, not just a declared animation.
-    const transforms = await sweep.evaluate(async (node) => {
-      const animation = node.getAnimations()[0];
-      animation.pause();
-      animation.currentTime = 0;
-      await new Promise(requestAnimationFrame);
-      const resting = getComputedStyle(node).transform;
-      animation.currentTime = 1_600;
-      await new Promise(requestAnimationFrame);
-      return { resting, mid: getComputedStyle(node).transform };
-    });
-    expect(transforms.mid).not.toBe(transforms.resting);
+    const travel = await breathTravel(dot);
+    expect(travel.mid).not.toBe(travel.resting);
   });
 
   test("motion:reduced still wins when the OS has no preference", async ({ page }) => {
@@ -194,9 +210,11 @@ test.describe("phone motion behaviour with OS Reduce Motion on", () => {
     const progress = await startAnswer(page);
     await expect(page.locator("html")).toHaveAttribute("data-motion", "reduced");
 
-    const sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
-    await expect(sweep).toBeVisible();
-    expect(await sweep.evaluate((node) => getComputedStyle(node).animationName)).toBe("none");
+    const dot = dotOf(progress);
+    await expect(dot).toBeVisible();
+    const state = await indicatorState(dot);
+    expect(state.animationName).toBe("none");
+    expect(state.opacity).toBe(1);
   });
 
   test("runs active animations under OS default no-preference motion", async ({ page }) => {
@@ -207,24 +225,12 @@ test.describe("phone motion behaviour with OS Reduce Motion on", () => {
     const progress = await startAnswer(page);
     await expect(progress).toBeVisible();
 
-    const sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
-    await expect(sweep).toBeVisible();
-    expect(await sweep.evaluate((node) => getComputedStyle(node).animationName)).toBe("answer-ecg-scroll");
+    const dot = dotOf(progress);
+    await expect(dot).toBeVisible();
+    expect(await dot.evaluate((node) => getComputedStyle(node).animationName)).toBe("answer-progress-breath");
 
-    const spinner = progress.getByLabel("Answer generation stages").locator('li[data-state="current"] svg');
-    expect(await spinner.evaluate((node) => getComputedStyle(node).animationName)).not.toBe("none");
-
-    const transforms = await sweep.evaluate(async (node) => {
-      const animation = node.getAnimations()[0];
-      animation.pause();
-      animation.currentTime = 0;
-      await new Promise(requestAnimationFrame);
-      const resting = getComputedStyle(node).transform;
-      animation.currentTime = 1_600;
-      await new Promise(requestAnimationFrame);
-      return { resting, mid: getComputedStyle(node).transform };
-    });
-    expect(transforms.mid).not.toBe(transforms.resting);
+    const travel = await breathTravel(dot);
+    expect(travel.mid).not.toBe(travel.resting);
   });
 
   test("contract: motion-sensitive components explicitly declare both reduce and no-preference behaviors", async ({
@@ -232,44 +238,30 @@ test.describe("phone motion behaviour with OS Reduce Motion on", () => {
   }) => {
     await stubAnswerStream(page);
 
-    // 1. Reduced motion: animations suppressed, indicators remain visible and legible
+    // 1. Reduced motion: animation suppressed, indicator remains visible and legible
     await page.emulateMedia({ reducedMotion: "reduce" });
     await seedMotionPreference(page, "system");
     let progress = await startAnswer(page);
     await expect(progress).toBeVisible();
-    let sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
-    await expect(sweep).toBeVisible();
-    const stateReduce = await sweep.evaluate((node) => {
-      const style = getComputedStyle(node);
-      return {
-        animationName: style.animationName,
-        opacity: Number.parseFloat(style.opacity),
-        display: style.display,
-        visibility: style.visibility,
-      };
-    });
+    let dot = dotOf(progress);
+    await expect(dot).toBeVisible();
+    const stateReduce = await indicatorState(dot);
     expect(stateReduce.animationName).toBe("none");
-    expect(stateReduce.opacity).toBeGreaterThan(0.3);
+    expect(stateReduce.opacity).toBe(1);
     expect(stateReduce.display).not.toBe("none");
     expect(stateReduce.visibility).not.toBe("hidden");
 
-    // 2. Full motion: animations active and traveling
+    // 2. Full motion: animation active and actually changing
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await seedMotionPreference(page, "system");
     await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
     await dismissBlockingPwaNotice(page);
     progress = await startAnswer(page);
     await expect(progress).toBeVisible();
-    sweep = progress.locator('[data-slot="answer-activity-trace-sweep"]');
-    await expect(sweep).toBeVisible();
-    const stateFull = await sweep.evaluate((node) => {
-      const style = getComputedStyle(node);
-      return {
-        animationName: style.animationName,
-        opacity: Number.parseFloat(style.opacity),
-      };
-    });
-    expect(stateFull.animationName).toBe("answer-ecg-scroll");
+    dot = dotOf(progress);
+    await expect(dot).toBeVisible();
+    const stateFull = await indicatorState(dot);
+    expect(stateFull.animationName).toBe("answer-progress-breath");
     expect(stateFull.opacity).toBeGreaterThan(0);
   });
 });

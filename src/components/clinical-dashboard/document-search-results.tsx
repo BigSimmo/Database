@@ -27,9 +27,11 @@ import {
   MoreHorizontal,
   Shield,
   ShieldAlert,
+  Sparkles,
   Target,
 } from "lucide-react";
 
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import {
   ResultFilterSheet,
@@ -268,7 +270,7 @@ function DocumentPagePreview({ document, href }: { document: ClientDocumentMatch
       href={href}
       aria-label={`Preview page ${pageNumber} of ${document.title}`}
       data-testid="document-page-preview"
-      className="group relative flex h-28 w-20 shrink-0 flex-col overflow-hidden rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transform-none motion-reduce:transition-none sm:h-32 sm:w-24"
+      className="group relative z-10 flex h-28 w-20 shrink-0 flex-col overflow-hidden rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--e2)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transform-none motion-reduce:transition-none sm:h-32 sm:w-24"
     >
       {hasCoverUrl ? (
         // Private signed covers stay unoptimized so bearer URLs never enter `/_next/image`.
@@ -607,10 +609,24 @@ function DocumentSearchHome({
       footer={
         <div className="grid w-full gap-3">
           {documentCount > 0 ? (
-            <p className="text-xs font-semibold text-[color:var(--text-muted)]" aria-live="polite">
+            <p className="text-xs font-semibold text-[color:var(--text-muted)]">
               {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
             </p>
           ) : null}
+          {/* The visible count above can change while this home screen stays
+              mounted (ingestion polling updates the indexed total), so the
+              live announcement lives on this separate sr-only twin rather
+              than on the visible node itself — SPEC.md §9.2. Mounted
+              unconditionally (empty until documentCount is positive): a
+              region that appears already containing its content — the shape
+              a poll landing on the very first render would produce — is not
+              reliably announced by assistive tech, only a text change inside
+              an already-mounted region is. */}
+          <span className="sr-only" role="status" aria-live="polite">
+            {documentCount > 0
+              ? `${documentCount.toLocaleString()} indexed source${documentCount === 1 ? "" : "s"}`
+              : ""}
+          </span>
         </div>
       }
     />
@@ -668,7 +684,7 @@ function SearchRecordResults({
               className={cn(
                 sourceCard,
                 "content-auto",
-                "grid gap-3 p-3 shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent-border)] sm:p-4",
+                "relative grid gap-3 p-3 shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent-border)] sm:p-4",
                 index === 0 && "ring-1 ring-[color:var(--clinical-accent)]/15",
               )}
             >
@@ -679,7 +695,10 @@ function SearchRecordResults({
                   </p>
                   <Link
                     href={recordRoute(service.slug)}
-                    className="mt-0.5 inline-flex min-h-tap items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] sm:min-h-7"
+                    className={cn(
+                      "mt-0.5 inline-flex min-h-tap items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)]",
+                      stretchedRowLinkClass,
+                    )}
                   >
                     <span className="line-clamp-2">{service.title}</span>
                   </Link>
@@ -695,7 +714,7 @@ function SearchRecordResults({
                   href={recordRoute(service.slug)}
                   className={cn(
                     floatingControl,
-                    "inline-flex min-h-tap w-full justify-center rounded-lg px-3 text-sm text-[color:var(--clinical-accent)] sm:w-auto",
+                    "relative z-10 inline-flex min-h-tap w-full justify-center rounded-lg px-3 text-sm text-[color:var(--clinical-accent)] sm:w-auto",
                   )}
                   aria-label={`Open ${service.title}`}
                 >
@@ -1604,7 +1623,6 @@ function DocumentSearchResultsPanelImpl({
                         sourceCard,
                         "content-auto",
                         "relative overflow-visible p-0 shadow-[var(--e1)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none",
-                        index === 0 && "border-t-2 border-t-[color:var(--clinical-accent)]",
                       )}
                     >
                       <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-start gap-3 p-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4 sm:p-4">
@@ -1624,7 +1642,12 @@ function DocumentSearchResultsPanelImpl({
                             </span>
                             <Link
                               href={openHref}
-                              className="inline-flex min-h-12 min-w-0 items-center rounded-md text-base font-semibold leading-snug text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-lg sm:leading-6"
+                              className={cn(
+                                "inline-flex min-h-12 min-w-0 items-center rounded-md text-base font-semibold leading-snug text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-lg sm:leading-6",
+                                // The whole card opens the document. The title
+                                // carries it because its text names the result.
+                                stretchedRowLinkClass,
+                              )}
                             >
                               <span className="sr-only">Result {index + 1}: </span>
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
@@ -1632,7 +1655,19 @@ function DocumentSearchResultsPanelImpl({
                           </h3>
                           <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-2.5">
                             {index === 0 ? (
-                              <DocumentBadge variant="best" className="min-h-7 rounded-lg px-2.5 text-2xs">
+                              // The top hit used to carry BOTH this chip and a 2px
+                              // saturated rail across the card's top edge — two accent
+                              // treatments on one card, which is exactly what the
+                              // "one accent per card" note above exists to prevent, and
+                              // the loudest block of colour in the results list. The rail
+                              // is gone; the chip says the same thing in the badge
+                              // language every other marker on this card already uses,
+                              // and takes an icon so it still reads at a glance.
+                              <DocumentBadge
+                                variant="best"
+                                icon={Sparkles}
+                                className="min-h-7 rounded-lg px-2.5 text-2xs"
+                              >
                                 Best match
                               </DocumentBadge>
                             ) : null}
@@ -1675,14 +1710,14 @@ function DocumentSearchResultsPanelImpl({
                             query={query}
                             limit={2}
                             compact
-                            className="mt-2.5"
+                            className="relative z-10 mt-2.5"
                             onTagClick={onTagSearch}
                           />
                         </div>
                       </div>
                       <div
                         data-testid="document-result-actions"
-                        className="grid grid-cols-3 items-stretch divide-x divide-[color:var(--border)] rounded-b-xl border-t border-[color:var(--border)] bg-[color:var(--surface)]"
+                        className="relative z-10 grid grid-cols-3 items-stretch divide-x divide-[color:var(--border)] rounded-b-xl border-t border-[color:var(--border)] bg-[color:var(--surface)]"
                       >
                         <DocumentActionLink
                           href={openHref}

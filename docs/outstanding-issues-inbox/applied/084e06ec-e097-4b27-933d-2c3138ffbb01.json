@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "084e06ec-e097-4b27-933d-2c3138ffbb01",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#XHNTHD",
+    "outcome": "Added --allow-partial CLI flag and resolveEvaluationCases() fail-safe throwing when cases.length === 0 or when cases are filtered without --allow-partial in scripts/eval-retrieval.ts; added unit tests in tests/eval-retrieval.test.ts.",
+    "baseRowFingerprint": "fa3df871bf0b55ad457dd4ef483a6bc41f0c780700e6149c652d24ba5efe4b3f"
+  }
+}

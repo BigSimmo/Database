@@ -1,6 +1,7 @@
 "use client";
 
 import { cn, ignoreUnavailableActivation, textMuted } from "@/components/ui-primitives";
+import { missingValuePhrase } from "@/components/ui/missing-value";
 import type { ImageRow } from "@/components/document-viewer/types";
 
 /**
@@ -56,8 +57,14 @@ export function DocumentImageFilmstrip({
                   : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
               )}
             >
+              {/* The page slot itself, so the phrase stands where `p.4` would: the figure has no
+                  recorded page number and the record does not say which page it came from.
+                  SPEC §11 has no compact citation form, and "p. Unknown" is not one — the `p.`
+                  prefix belongs to a page number, not to the absence of one. The button's
+                  accessible name and its sr-only description already read "page unknown", so the
+                  visible text now agrees with them instead of showing a dash. */}
               <span className={cn("nums shrink-0", isActive ? undefined : textMuted)}>
-                {page === null ? "—" : `p.${page}`}
+                {page === null ? missingValuePhrase("unknown") : `p.${page}`}
               </span>
               <span className="max-w-[9rem] truncate">{shortLabel}</span>
             </button>

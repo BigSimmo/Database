@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d4452409-69bf-4bb6-9ad7-dab654822940",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "eval-retrieval can report success over zero golden fixture cases",
+    "detail": "scripts/eval-retrieval.ts:932-937 prepends captured DB cases to the golden fixture cases and then slice(0, limit) truncates FROM THE FRONT, so --limit 10 against 10 or more captured cases runs zero golden cases; a --query filter matching nothing yields zero cases outright. Either way summary.failed_cases is empty and the run exits 0 under --fail-on-threshold. The canary-pair comparator fails closed on a non-identical case set so the protocol is protected, but a standalone pre-merge run is not. FIX: fail when cases.length is 0, and require an explicit --allow-partial when limit or query would drop any golden case. Offline, no canary.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96RCXXHNTHDZZHVF2NSET"
+  }
+}

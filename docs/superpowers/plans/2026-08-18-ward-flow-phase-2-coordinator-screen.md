@@ -903,7 +903,7 @@ npx vitest run tests/route-reachability.test.ts
 npm run docs:update
 ```
 
-Expected: no source or test references remain; route-reachability passes; the site map loses the route.
+Expected: no source or test navigation references remain; route-reachability passes; the site map loses the unlinked route while `src/proxy.ts` preserves `/ward-management/constellation` as an intentional compatibility redirect for historical deep-links.
 
 - [ ] **Step 5: Update the mode map**
 

@@ -5,6 +5,12 @@ export function ownsVerticalScroll(element: HTMLElement) {
   return overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay";
 }
 
+function clampScrollOffset(scroller: Element, target: ScrollSurfaceTarget) {
+  const maxOffset = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+  if (target === "end") return maxOffset;
+  return Math.min(Math.max(0, target), maxOffset);
+}
+
 export function scrollSurface(
   element: HTMLElement | null,
   target: ScrollSurfaceTarget,
@@ -12,9 +18,9 @@ export function scrollSurface(
 ) {
   if (!element) return;
   if (ownsVerticalScroll(element)) {
-    element.scrollTo({ top: target === "end" ? element.scrollHeight : target, behavior });
+    element.scrollTo({ top: clampScrollOffset(element, target), behavior });
     return;
   }
   const scrollingElement = document.scrollingElement ?? document.documentElement;
-  window.scrollTo({ top: target === "end" ? scrollingElement.scrollHeight : target, behavior });
+  window.scrollTo({ top: clampScrollOffset(scrollingElement, target), behavior });
 }

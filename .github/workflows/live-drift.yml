@@ -75,6 +75,7 @@ jobs:
           npm run check:drift 2>&1 | tee drift-output.txt
 
       - name: Align migration history for Supabase Preview
+        if: ${{ !cancelled() }}
         run: |
           set -o pipefail
           npm run check:migration-history 2>&1 | tee migration-history-output.txt

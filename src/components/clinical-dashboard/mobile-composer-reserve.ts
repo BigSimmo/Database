@@ -34,6 +34,18 @@ export const mobileComposerDifferentialsCompareReserve =
  */
 export const mobileComposerPatientDetailsReserve = "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
 
+/**
+ * Therapy Compass: compare tray + compact search pill.
+ *
+ * Same geometry as the Patient details pill — one ~3rem row plus the 0.5rem gap
+ * above the composer — because the tray is required to stay exactly one row
+ * tall. Its expanded state is a sheet, not a taller dock, precisely so this
+ * single static number can keep being correct. Keep the rem figure equal to
+ * --phone-dock-therapy-compare-clearance in globals.css;
+ * tests/mobile-composer-reserve.test.ts pins the pair.
+ */
+export const mobileComposerTherapyCompareReserve = "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
+
 // Every phone dock is the compact single-row pill (mode homes and result views
 // alike); only the answer dock with a follow-up chip row is taller. The answer
 // values are derived from the dock constants so the pairs cannot silently
@@ -49,6 +61,7 @@ export const mobileComposerVisibleReserve = {
   dashboardDock: dashboardCompactSingleRowReserve,
   differentialsCompare: mobileComposerDifferentialsCompareReserve,
   patientDetails: mobileComposerPatientDetailsReserve,
+  therapyCompare: mobileComposerTherapyCompareReserve,
 } as const;
 
 export function resolveMobileComposerReserve(bottomComposerHidden: boolean, visibleReserve: string): string {
@@ -85,6 +98,7 @@ export function resolveDashboardVisibleMobileComposerReserve(input: {
   hasAnswerFollowUps: boolean;
   differentialsCompareAddonActive: boolean;
   patientDetailsAddonActive?: boolean;
+  therapyCompareAddonActive?: boolean;
   /** Hero owns the phone composer (no fixed bottom dock) — match shell idle pad. */
   heroOwnsPhoneComposer?: boolean;
 }): string {
@@ -105,6 +119,9 @@ export function resolveDashboardVisibleMobileComposerReserve(input: {
   if (input.patientDetailsAddonActive) {
     return mobileComposerVisibleReserve.patientDetails;
   }
+  if (input.therapyCompareAddonActive) {
+    return mobileComposerVisibleReserve.therapyCompare;
+  }
   return mobileComposerVisibleReserve.dashboardDock;
 }
 
@@ -118,6 +135,7 @@ export function resolveShellVisibleMobileComposerReserve(input: {
   searchMode: string;
   differentialsCompareAddonActive: boolean;
   patientDetailsAddonActive?: boolean;
+  therapyCompareAddonActive?: boolean;
 }): string {
   if (!input.shouldShowSearchComposer) {
     // Page-owned composers (DocumentViewer) manage their own dock
@@ -133,5 +151,6 @@ export function resolveShellVisibleMobileComposerReserve(input: {
   if (input.searchMode === "answer") return mobileComposerVisibleReserve.shellAnswer;
   if (input.differentialsCompareAddonActive) return mobileComposerVisibleReserve.differentialsCompare;
   if (input.patientDetailsAddonActive) return mobileComposerVisibleReserve.patientDetails;
+  if (input.therapyCompareAddonActive) return mobileComposerVisibleReserve.therapyCompare;
   return mobileComposerVisibleReserve.shellDock;
 }

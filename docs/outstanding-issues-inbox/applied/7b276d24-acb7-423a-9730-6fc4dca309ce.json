@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7b276d24-acb7-423a-9730-6fc4dca309ce",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#JVYQEM",
+    "outcome": "Resolved by the 2026-08-23 current-main performance remediation. The already-fixed phone case remains zero. At desktop 800, where initial CLS 0.021676 crossed the intervention threshold, a 640-1023.98px one-line prompt rail plus 160px reserve removes the 88px-to-199px growth shift. Desktop 1280/1350/1440 deliberately retain the 88px reserve because their measured initial CLS was already below 0.01; post-fix totals remain below 0.01. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts.",
+    "baseRowFingerprint": "953ffba540def0269d1f955ecc75d50754ee48e828a23838dbf545028694e9ce"
+  }
+}

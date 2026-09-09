@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "76744c9f-6e7f-4390-a202-756e50be0cd1",
+  "createdOn": "2026-08-26",
+  "action": "done",
+  "payload": {
+    "id": "#243HCC",
+    "outcome": "Emitted data-settings-nav-target on sub-navigation tabs in settings-dialog.",
+    "baseRowFingerprint": "88109c3d3be29e89faa7503ae01720afc377bdd78dce7036557099268caf412d"
+  }
+}

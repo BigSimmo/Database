@@ -5,6 +5,7 @@ import { ChevronDown, Scale, Search } from "lucide-react";
 
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { ChoiceChip } from "@/components/ui/chip";
 import { BrowserPrintButton, PrintOutput } from "@/components/ui/print-output";
 import { cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,12 +15,16 @@ import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 import { useTcBindings } from "../bindings";
 import { parseSteps, searchTherapies } from "../data/select";
 import { LoadingState } from "../ui";
-import { therapyBtn } from "../controls";
+import { InteractiveRow, interactiveRowBase } from "@/components/ui/interactive-row";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
+import { TherapyCompareAction } from "../record/compare-action";
+import { TherapySaveNotice } from "../record/save-notice";
+import { useTherapyFavourite } from "../use-therapy-favourite";
 
 export function SheetsScreen() {
   const b = useTcBindings();
   const t = b.selectedTherapy;
+  const { notice, saved, toggleFavourite } = useTherapyFavourite(t?.slug ?? null);
   if (b.loading || !t) return <LoadingState label="Loading patient sheet builder…" />;
 
   const steps = parseSteps(t.deliverySteps, 5);
@@ -36,13 +41,17 @@ export function SheetsScreen() {
   return (
     <>
       <TherapyRecordNavHeader
-        title={`${t.name} patient sheet`}
+        therapy={t}
+        active="sheet"
         backHref={b.workspaceHref(therapyRecordHref(t.slug))}
         backLabel={t.name}
         testIdPrefix="therapy-sheet"
+        saved={saved}
+        onToggleSave={() => void toggleFavourite()}
       />
       <InformationPageShell testId="therapy-sheet-page" gap={false}>
         <section data-screen-label="Patient sheet">
+          <TherapySaveNotice notice={notice} />
           {/* `data-therapy-no-print` stays on a wrapper: a bare `data-*` attribute
               cannot be passed to a component (see the `testId` note in
               `ui/button.tsx`). */}
@@ -55,13 +64,17 @@ export function SheetsScreen() {
             />
           </div>
 
+          <div data-therapy-no-print className="mb-5">
+            <TherapyCompareAction therapy={t} />
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-[340px_minmax(0,_1fr)] gap-5 items-start">
             {/* BUILDER */}
             <div className="max-sm:static max-sm:top-auto flex flex-col gap-4 sticky top-[84px]">
-              <div className={cn(cardSurface, "py-[18px] px-5")}>
+              <div className={cn(cardSurface, "py-4.5 px-5")}>
                 <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mb-3">Therapy</div>
                 <TherapyPicker />
-                <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mt-[18px] mx-0 mb-2.5">
+                <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mt-4.5 mx-0 mb-2.5">
                   Reading level &amp; tone
                 </div>
                 <SegmentedControl
@@ -81,56 +94,31 @@ export function SheetsScreen() {
                 />
               </div>
 
-              <div className={cn(cardSurface, "py-[18px] px-5")}>
+              <div className={cn(cardSurface, "py-4.5 px-5")}>
                 <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mb-1.5">Sections</div>
                 <p className="mt-0 mx-0 mb-3.5 text-xs text-[color:var(--text-muted)]">
                   Toggle what appears on the sheet.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${b.chipAbout}`}
-                    onClick={b.toggleAbout}
-                    aria-pressed={b.secAbout}
-                  >
+                  <ChoiceChip pressed={b.secAbout} onPressedChange={b.toggleAbout}>
                     About this therapy
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${b.chipSteps}`}
-                    onClick={b.toggleSteps}
-                    aria-pressed={b.secSteps}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secSteps} onPressedChange={b.toggleSteps}>
                     Your plan
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${b.chipPractice}`}
-                    onClick={b.togglePractice}
-                    aria-pressed={b.secPractice}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secPractice} onPressedChange={b.togglePractice}>
                     Practice at home
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${b.chipCoping}`}
-                    onClick={b.toggleCoping}
-                    aria-pressed={b.secCoping}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secCoping} onPressedChange={b.toggleCoping}>
                     If things get hard
-                  </button>
-                  <button
-                    type="button"
-                    className={`${therapyBtn} ${b.chipContacts}`}
-                    onClick={b.toggleContacts}
-                    aria-pressed={b.secContacts}
-                  >
+                  </ChoiceChip>
+                  <ChoiceChip pressed={b.secContacts} onPressedChange={b.toggleContacts}>
                     Support contacts
-                  </button>
+                  </ChoiceChip>
                 </div>
               </div>
 
-              <div className={cn(cardSurface, "py-[18px] px-5")}>
+              <div className={cn(cardSurface, "py-4.5 px-5")}>
                 <div className="flex items-center justify-between gap-3">
                   <span>
                     <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
@@ -158,10 +146,10 @@ export function SheetsScreen() {
               <PrintOutput
                 paperTone="therapy"
                 provenance={`Source: ${t.name} Therapy record · Review status: ${t.reviewStatus === "reviewed" ? "reviewed" : "source review required"}`}
-                className="w-full max-w-[720px] bg-[color:var(--tc-paper-background)] border border-[color:var(--tc-paper-border)] rounded-sm shadow-[var(--tc-paper-shadow)] py-[52px] px-14 text-[color:var(--tc-paper-ink)]"
+                className="w-full max-w-[720px] bg-[color:var(--tc-paper-background)] border border-[color:var(--tc-paper-border)] rounded-sm shadow-[var(--tc-paper-shadow)] py-13 px-14 text-[color:var(--tc-paper-ink)]"
               >
                 <div className="max-sm:flex-wrap flex items-center justify-between border-b-2 border-b-[color:var(--tc-paper-accent-strong)] pb-4 mb-6">
-                  <div className="flex items-center gap-[11px]">
+                  <div className="flex items-center gap-3">
                     <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--tc-paper-accent-background)] text-[color:var(--tc-paper-accent)]">
                       <Scale aria-hidden="true" size={20} strokeWidth={1.6} />
                     </span>
@@ -182,7 +170,7 @@ export function SheetsScreen() {
                 <p
                   contentEditable
                   suppressContentEditableWarning
-                  className="mt-0 mx-0 mb-[26px] text-sm text-[color:var(--tc-paper-muted)]"
+                  className="mt-0 mx-0 mb-6.5 text-sm text-[color:var(--tc-paper-muted)]"
                 >
                   {t.bestUsedFor && t.bestUsedFor.length < 70 && !/^(most|the|a |an )/i.test(t.bestUsedFor)
                     ? `A step-by-step plan to help with ${t.bestUsedFor.toLowerCase()}.`
@@ -192,7 +180,7 @@ export function SheetsScreen() {
                 {b.secAbout && about ? <PaperSection title="About this therapy">{about}</PaperSection> : null}
 
                 {b.secSteps && steps.length ? (
-                  <div className="mb-[22px]">
+                  <div className="mb-5.5">
                     <h2
                       contentEditable
                       suppressContentEditableWarning
@@ -220,7 +208,7 @@ export function SheetsScreen() {
                 ) : null}
 
                 {b.secPractice ? (
-                  <div className="mb-[22px] bg-[color:var(--tc-paper-accent-background)] border border-[color:var(--tc-paper-accent-border)] rounded-md py-4 px-[18px]">
+                  <div className="mb-5.5 bg-[color:var(--tc-paper-accent-background)] border border-[color:var(--tc-paper-accent-border)] rounded-md py-4 px-4.5">
                     <h2
                       contentEditable
                       suppressContentEditableWarning
@@ -248,7 +236,7 @@ export function SheetsScreen() {
                 ) : null}
 
                 {b.secContacts ? (
-                  <div className="mb-2 bg-[color:var(--tc-paper-warning-background)] border border-[color:var(--tc-paper-warning-border)] rounded-md py-4 px-[18px]">
+                  <div className="mb-2 bg-[color:var(--tc-paper-warning-background)] border border-[color:var(--tc-paper-warning-border)] rounded-md py-4 px-4.5">
                     <h2
                       contentEditable
                       suppressContentEditableWarning
@@ -269,7 +257,7 @@ export function SheetsScreen() {
                 ) : null}
 
                 {b.sheetClinician ? (
-                  <div className="flex justify-between gap-4 mt-[26px] pt-4 border-t border-[color:var(--tc-paper-border-subtle)] text-2xs text-[color:var(--tc-paper-muted)] flex-wrap">
+                  <div className="flex justify-between gap-4 mt-6.5 pt-4 border-t border-[color:var(--tc-paper-border-subtle)] text-2xs text-[color:var(--tc-paper-muted)] flex-wrap">
                     <span contentEditable suppressContentEditableWarning>
                       Clinician: ____________________
                     </span>
@@ -297,7 +285,7 @@ export function SheetsScreen() {
 
 function PaperSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mb-[22px]">
+    <div className="mb-5.5">
       <h2
         contentEditable
         suppressContentEditableWarning
@@ -322,7 +310,11 @@ function TherapyPicker() {
   const [q, setQ] = useState("");
   const matches = useMemo(() => {
     const base = q.trim()
-      ? searchTherapies(b.therapies, { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false })
+      ? searchTherapies(
+          b.therapies,
+          { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false },
+          true,
+        )
       : b.therapies;
     // Only offer therapies that actually ship a patient sheet — selecting one now
     // navigates to its /sheet subroute, which 404s for records without a sheet.
@@ -333,31 +325,32 @@ function TherapyPicker() {
     <div className="relative">
       <button
         type="button"
-        className={`${therapyBtn} flex items-center justify-between w-full h-[46px] py-0 px-3.5 border border-[color:var(--border-strong)] rounded-lg bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus font-semibold cursor-pointer`}
+        className={cn(
+          interactiveRowBase,
+          "flex w-full items-center justify-between py-0 px-3.5 border border-[color:var(--border-strong)] rounded-lg bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus font-semibold cursor-pointer",
+        )}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="flex items-center gap-[9px] min-w-0">
-          <Scale aria-hidden="true" size={16} className="text-[color:var(--clinical-accent)] flex-none" />
+        <span className="flex items-center gap-2.5 min-w-0">
+          <Scale aria-hidden="true" className="size-icon-md text-[color:var(--clinical-accent)] flex-none" />
           <span className="overflow-hidden text-ellipsis whitespace-nowrap">
             {b.selectedTherapy?.name ?? "Choose a therapy"}
           </span>
         </span>
         <ChevronDown
           aria-hidden="true"
-          size={15}
           strokeWidth={1.8}
-          className="text-[color:var(--decoration-soft)] flex-none"
+          className="size-icon-sm text-[color:var(--decoration-soft)] flex-none"
         />
       </button>
       {open ? (
-        <div className="absolute z-[30] top-[52px] left-0 right-0 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-hover)] overflow-hidden">
+        <div className="absolute z-[30] top-full mt-1 left-0 right-0 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-hover)] overflow-hidden">
           <label className="relative flex items-center p-2 border-b border-[color:var(--border)]">
             <Search
               aria-hidden="true"
-              size={15}
               strokeWidth={1.8}
-              className="absolute left-[18px] text-[color:var(--decoration-soft)]"
+              className="absolute left-[18px] size-icon-sm text-[color:var(--decoration-soft)]"
             />
             <input
               value={q}
@@ -365,23 +358,22 @@ function TherapyPicker() {
               placeholder="Search therapies..."
               aria-label="Search therapies for the patient sheet"
               autoFocus
-              className="w-full h-tap pt-0 pr-3 pb-0 pl-[34px] border border-[color:var(--border)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus"
+              className="w-full h-tap pt-0 pr-3 pb-0 pl-8.5 border border-[color:var(--border)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus"
             />
           </label>
           <div className="max-h-[260px] overflow-auto">
             {matches.map((t) => (
-              <button
+              <InteractiveRow
                 key={t.slug}
-                type="button"
-                className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] block w-full py-2.5 px-3.5 border-0 border-b border-[color:var(--border)] bg-transparent text-left cursor-pointer text-sm-minus font-semibold text-[color:var(--text-heading)]`}
+                variant="table-row"
                 onClick={() => {
                   b.select(t.slug);
                   setOpen(false);
                   setQ("");
                 }}
               >
-                {t.name}
-              </button>
+                <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
+              </InteractiveRow>
             ))}
           </div>
         </div>

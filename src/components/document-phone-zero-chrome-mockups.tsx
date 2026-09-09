@@ -314,7 +314,7 @@ function PhoneFrame({ state }: { state: FrameState }) {
       </figcaption>
       <div
         data-state={state}
-        className="relative flex h-[30rem] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+        className="relative flex h-[30rem] flex-col overflow-hidden rounded-[1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]"
       >
         {chromeHidden ? null : (
           <>

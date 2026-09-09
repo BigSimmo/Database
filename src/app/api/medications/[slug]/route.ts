@@ -7,9 +7,9 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
-import { jsonError } from "@/lib/http";
+import { jsonError, publicErrorResponse } from "@/lib/http";
 import { getMedicationRecord } from "@/lib/medication-snapshot";
-import { deriveGovernanceFromSections, normalizeMedicationSlug } from "@/lib/medication-records";
+import { publicMedicationGovernance, normalizeMedicationSlug } from "@/lib/medication-records";
 import { publicAccessContext } from "@/lib/public-api-access";
 import {
   canonicalSiteContentGovernance,
@@ -32,19 +32,15 @@ function medicationResponse(
 }
 
 function notFoundResponse(slug: string) {
-  return medicationResponse({ error: `No medication found for "${slug}".` }, { status: 404 });
+  return publicErrorResponse(`No medication found for "${slug}".`, 404, { code: "medication_not_found" });
 }
 
 function publicMedicationDetailPayload(slug: string) {
   const record = getMedicationRecord(slug);
   if (!record) return null;
-  const governance = deriveGovernanceFromSections(record);
   return {
     record,
-    governance: {
-      sourceStatus: governance.source_status,
-      validationStatus: governance.validation_status,
-    },
+    governance: publicMedicationGovernance(record),
   };
 }
 
@@ -89,7 +85,10 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       seeds: seed ? [seed] : [],
       mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
         record: finalRenderPayload as unknown as MedicationRecord,
-        governance: canonicalSiteContentGovernance(canonicalRecord),
+        governance: {
+          ...publicMedicationGovernance(finalRenderPayload as unknown as MedicationRecord),
+          ...canonicalSiteContentGovernance(canonicalRecord),
+        },
       }),
     });
     const payload = canonical.records[0];

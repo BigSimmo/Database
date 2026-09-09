@@ -1,4 +1,4 @@
-# Clinical KB design system — COMPONENTS
+# PsychSift design system — COMPONENTS
 
 **The public component contracts, their local publication state, and the remaining
 specifications.** Prop shapes are normative contracts; token references are roles only —
@@ -20,7 +20,7 @@ derived from source, `.design-sync/config.json`, previews, direct contract cover
 production imports. It intentionally does not claim dark, forced-colours, 320px, print, remote
 publication, or product adoption without separate evidence.
 
-### 0.1 Registered visual components (54 — local contract; remote status unverified)
+### 0.1 Registered visual components (55 — local contract; remote status unverified)
 
 Every visual export has one source map entry, a source-derived public `*Props` contract (except
 the two zero-prop roots), a reference preview, and a direct static publication test. The generated
@@ -37,7 +37,7 @@ table under **Generated maturity snapshot** is the canonical list and product-im
 
 _Remaining from the original eight in this document:_ `DocumentFrame` is built locally
 (`src/components/ui/document-frame.tsx`, shell-only in `DocumentViewer`) but is not yet among
-the 54 design-sync registered visual exports — registration and full controls remain follow-up.
+the 55 design-sync registered visual exports — registration and full controls remain follow-up.
 
 `OverlayRoot`, `SegmentedControl`, and the PR 6–8 components are built and represented by the
 local publication contract. The generated snapshot records their current product-import counts;
@@ -47,8 +47,9 @@ design-project publication or browser acceptance.
 _P1 reusable (specified in outline only):_ `Menu`/`Popover` · `KeyValue` ·
 `AppliedFilters`/`FilterSheet` · `ResponsiveActionGroup` · `ScrollableStrip`/
 `ScrollAffordance` · `SourceLink` · `Banner` · `CopyButton`/`CopyField` ·
-state family (`ErrorState`, `OfflineState`, `PermissionDeniedState`, `NotFoundState`,
-`UnavailableState`).
+state family (`OfflineState`, `PermissionDeniedState`, `NotFoundState`,
+`UnavailableState`). `ErrorState` is built (`src/components/ui/error-state.tsx`) and
+locally registered — it is not outline-only.
 
 `FilterBar` and `DataTable` are retired names, not future component contracts. Use a
 surface-owned filter pattern or the canonical `AccessibleTable`; do not revive either name.
@@ -86,7 +87,7 @@ print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
 | Progress/StageList           | all four resolved: `scaleX`, the theme `animate-shimmer` in place of a hardcoded `1.4s`, a step index clamped to ≥1, and an sr-only `role="status"` sibling in place of `aria-live` on the whole `<ol>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | **done**             |
 | EmptyState                   | static live-off default with explicit polite/assertive opt-in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | **done** (PR 8)      |
 | AccessibleTable              | semantic caption, `MissingValue` cells, dense headers (clipped header keeps its full string as `title`) and the expander (now the registered `Button`, off the local ring-focus recipe) landed; content-role widths remain                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | PR 6/PR 12 remainder |
-| ui-primitives.tsx            | 698-line module mixing recipes/actions/feedback/clinical — split. Re-measured 2026-08-12: **157** production files import it (202 including mockups), against the 54 registered components' **31** with product imports; this module, not the registry, is what the product actually runs on. Per-primitive breakdown added 2026-08-21: `Button` **12** importers against 157, with **112** production files still holding a raw `<button>`; `Sheet` **26** — the one genuinely adopted primitive. The split is not uniform, and the pattern explains it: `Sheet` owns focus trap, portal and overlay stacking, which a className cannot fake, while `Button`/`Chip`/field shells own visual convention a recipe string approximates. Deciding between "give `Button` behaviour worth importing" and "promote `ui-primitives` to the documented layer" is the actual PR 12 question | PR 12                |
+| ui-primitives.tsx            | 698-line module mixing recipes/actions/feedback/clinical — split. Re-measured 2026-08-12: **157** production files import it (202 including mockups), against the 55 registered components' **31** with product imports; this module, not the registry, is what the product actually runs on. Per-primitive breakdown added 2026-08-21: `Button` **12** importers against 157, with **112** production files still holding a raw `<button>`; `Sheet` **26** — the one genuinely adopted primitive. The split is not uniform, and the pattern explains it: `Sheet` owns focus trap, portal and overlay stacking, which a className cannot fake, while `Button`/`Chip`/field shells own visual convention a recipe string approximates. Deciding between "give `Button` behaviour worth importing" and "promote `ui-primitives` to the documented layer" is the actual PR 12 question | PR 12                |
 
 ---
 
@@ -222,10 +223,12 @@ type RetrievalStateBannerProps = {
   `NoAnswer` is excluded from the union: offline / no-confident-answer renders **no answer
   card** — the `EmptyState` path with last sync, cached sources, and a "search cached
   sources" action. Neutral, not amber.
-- The banner renders above the prose. `stale_evidence` lists every overdue source with its
-  review date (`DateDisplay`) and an open-at-cited-page action; the answer remains readable —
-  caution, never a gate (DECISIONS §Q1). When every cited source is overdue, the banner
-  states totality: "Every source for this answer is past its review date."
+- The banner renders above the prose. `stale_evidence` starts as a compact “Review due” tab
+  with the affected-source count, matching the source-only disclosure rather than occupying
+  a full warning panel. Expanding it lists every overdue source with its review date
+  (`DateDisplay`) and an open-at-cited-page action; the answer remains readable — caution,
+  never a gate (DECISIONS §Q1). When every cited source is overdue, the expanded detail states
+  totality: “Every source for this answer is past its review date.”
 - **A source is a document, not a chunk.** `RagAnswer.sources` is chunk-level and several
   chunks of one document is the normal case, so `answerStateFromRetrieval()` dedupes and
   counts by `document_id`. Chunk-level counting is wrong in both directions, and the
@@ -305,15 +308,31 @@ sites must converge on the same explicit vocabulary because a dash can read as a
 
 ```ts
 type MissingValueProps = {
-  reason: "not_recorded" | "not_applicable" | "unknown" | "extraction_failed";
+  reason:
+    | "not_recorded"
+    | "not_applicable"
+    | "unknown"
+    | "extraction_failed"
+    | "not_yet_calculated"
+    | "withheld_until_complete";
   /** "cell" tightens spacing for dense tables; the phrase is never abbreviated. */
   density?: "inline" | "cell";
   className?: string;
 };
 ```
 
-**Variants.** The four phrases (SPEC §11): `Not recorded` · `Not applicable` · `Unknown` ·
-`Unable to extract`. **[assumed:** "Withheld" excluded until a redaction path exists.**]**
+**Variants.** The six phrases (SPEC §11): `Not recorded` · `Not applicable` · `Unknown` ·
+`Unable to extract` · `Not yet calculated` · `Withheld until complete`. The last two say the
+value is absent only for now — `not_yet_calculated` where nothing has been computed because
+the user has not finished, `withheld_until_complete` where a value **could** be computed and
+the surface is deliberately suppressing it so a partial reading cannot mislead. Do not use
+either where the input is complete. **[assumed:** a general "Withheld" redaction phrase is
+still excluded until a redaction path exists — `Withheld until complete` is suppression
+pending completion, not redaction.**]**
+
+**Plain-string call sites.** `missingValuePhrase(reason)` returns the same phrase as a string,
+for the accessors and result objects typed `string` that would break if handed a component
+(diffing through a `Set`, clipboard export). Same wording, same rules; never a second vocabulary.
 
 **States.** None — it is a terminal, static rendering of absence.
 
@@ -478,8 +497,13 @@ into the previous sentence; `RouteAnnouncer` skips the first render (arrival is 
 navigation), moves focus to the new `<h1>` unless focus sits inside a dialog or a
 `data-preserve-focus` workflow, and announces the page title once. Retiring the visible
 `aria-live` nodes that remain in production — `document-search-results.tsx`, `StageList`,
-`AnswerProgressStepper`, `EmptyState`'s default — is adoption work in PR 13, because each
+`AnswerProgress`, `EmptyState`'s default — is adoption work in PR 13, because each
 one needs its own surface diff. Until then two announcement mechanisms coexist.
+
+`AnswerProgress` is the successor to `AnswerProgressStepper`, which was retired when the
+answer wait was redrawn as a single quiet status line plus the arriving source rail. Its
+live region moved with it and is now the status line itself (`answer-progress-line`) rather
+than a wrapper, because the line is the element that persists while its text is replaced.
 
 ---
 
@@ -642,6 +666,15 @@ stated here falls back to the universal rules (SPEC §6) and the authoring defin
 done (SPEC §14). **Open defects** name their closing PR from the playbook (SPEC §13);
 until that PR lands the defect stands and is not re-litigated per review.
 
+### Focus chrome
+
+Two carriers, never a third:
+
+- **Controls** (`button` / `a` / `summary` / checkbox-radio-range): `outline: 2px solid var(--focus)` on `:focus-visible`, same as `controlBase`. No Tailwind `ring-*` companion on the same node.
+- **Text fields / search shells:** quiet 1px color-mix hairline. Use `fieldControl` / `fieldControlPlain` / `fieldControlWithIcon`, or `searchShell` + `searchShellInput`. Nested inputs stay `outline: none`. Never put `controlBase`'s 2px outline on a text field.
+
+`focus:ring-4` plus `focus:border` on leftover fields is forbidden: those rings win over the unlayered field `box-shadow`. Residual: the production composer pill (`.answer-footer-search-pill` / `.answer-footer-search-input`) keeps the `ui-smoke` halo until a dedicated chrome PR — do not restyle that pill here.
+
 ### 9.1 `Button`
 
 **Purpose.** The one action primitive. `AsyncButton` and hand-rolled `<button>`s converge
@@ -654,20 +687,29 @@ tab order, never removes its accessible name); disabled via `controlBase` encodi
 `--focus` outline only. **Rules.** Verb-first specific labels, never "OK"/bare "Confirm" ·
 hover/active from semantic tokens, never `brightness-*` filters · one filled command per
 surface. **Landed.** Danger contrast and hover/active tokens plus the 48px tap-floor comment.
+**Tap vs compact-meta (DS-P1-09 / DS-P2-24).** Primary `Button` / `primaryControl` / filled command actions stay `min-h-tap` at **all** breakpoints — no `sm:min-h-10`, `sm:min-h-9`, `lg:min-h-9`, or `min-h-11`. Metadata, disclosure, filter chips, and table micro-actions may use `min-h-compact-meta` (40px) or a documented prefixed compact (`sm:min-h-compact-meta`). `--row-compact` / `min-h-9` (36px) is row height, not a tap target. Recipes: `interactiveCompact` and `tableMicroActionRow` are the named compact-meta exceptions in `ui-primitives.tsx`; `controlBase` stays tap-sized. Full table: TOKENS §2 “Compact-meta vs tap”.
 **Open defects → PR.** ref forwarding and the needless client boundary → follow-on.
+
+**Command CTA path.** Pick one encoding; do not invent a fourth.
+
+| Situation                                         | Winner                                                                                                                       |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Real button action (copy, continue, submit, busy) | `<Button variant="primary">` from `src/components/ui/button.tsx`                                                             |
+| Navigation that must look like the filled command | `Link` + `primaryControl` (`Button` has no `href` / `asChild`)                                                               |
+| Unavailable placeholder                           | `aria-disabled` + `ignoreUnavailableActivation` from ui-primitives; **never** native `disabled` and `aria-disabled` together |
 
 ### 9.2 `IconButton`
 
 **Purpose.** Icon-only action with a mandatory `label`. **States/Keyboard.** As Button;
 the label is the accessible name; the glyph is `aria-hidden`. **Rules.** Visible face may
 be compact; the hit target meets the tap floor via padding or pseudo-element. **Open
-defects → PR.** `disabled:opacity` (one of the ten) → PR 3; ref forwarding → PR 4.
+defects → PR.** `disabled:opacity` (one of the 39, §9.33) → PR 3; ref forwarding → PR 4.
 
 ### 9.3 `AsyncButton` — deprecated
 
-**Disposition.** Retire or alias to `Button` (PR 4). Until then its one live defect
-stands: no `type="button"`, so it can submit a surrounding form. Do not build new surfaces
-on it.
+**Disposition.** Retire or alias to `Button` (PR 4). Do not build new surfaces on it.
+**Resolved.** `type` defaults to `"button"` (applied after the prop spread so an explicit
+`type="submit"` still wins) — it can no longer submit a surrounding form.
 
 ### 9.4 `ToggleSwitch`
 
@@ -684,7 +726,9 @@ component; broader Gate 9 motion sweep still tracks other surfaces.
 ### 9.5 `Chip`
 
 **Purpose.** Compact label for tones, filters, categories. Static chips are text, not
-targets (tap-exempt under the inline exception). **Modes (union, PR 4).** `static` (no
+targets (tap-exempt under the inline exception). Interactive filter chips that are **not**
+primary CTAs may use `min-h-compact-meta` (or `sm:min-h-compact-meta`) per TOKENS density
+policy; do not copy that step-down onto a filled command action. **Modes (union, PR 4).** `static` (no
 removal props representable) · `removable` (`onRemove` + `removeLabel` both required).
 **Rules.** Remove control keeps a small visible glyph inside an overlapping hit target
 that does not inflate the chip · truncated labels need a full-value path · category tones
@@ -842,9 +886,11 @@ links carry the `ExternalLink` icon and an explicit new-tab policy, not an accid
 universal · `DownloadLink`'s `download` semantics are not overridable by spread; `tone`
 is destructured, never leaked to the DOM · `LinkAction`'s arrow animates with `transform`,
 never `gap`. **Resolved (6 Aug 2026).** `tone` is destructured before the spread in
-`TextLink`, `ExternalTextLink`, and `DownloadLink`. **Open defects → PR.** `download`
-still overridable by spread · `LinkAction` `gap` animation · new-tab policy implicit /
-raw underline offset → PR 9.
+`TextLink`, `ExternalTextLink`, and `DownloadLink`. **Resolved.** `DownloadLink`'s
+`download` is `Omit`ted from the spread type and applied after `{...props}`, so it can no
+longer be overridden; `LinkAction`'s arrow nudge uses `transition-transform` +
+`group-hover:translate-x-0.5`, never `gap`. **Open defects → PR.** new-tab policy implicit
+/ raw underline offset → PR 9.
 
 ### 9.21 `Tooltip`
 
@@ -886,17 +932,35 @@ source-derived and its reference preview exercises the typed confirmation path.
 **Contract.** Heading level is a prop — never a hardcoded `<h3>` · collapsed content is
 **not** find-in-page reachable via plain `hidden` (retracted claim); evaluate
 `hidden="until-found"` where discoverability matters · print-relevant disclosures expand
-under the print theme (PR 11) · the group supports controlled and default-open ids.
-**Landed.** `headingLevel` drives `h2`–`h6` for both components. **Open defects → PR.** print
-behaviour and truncation → PR 11.
+under the print theme (PR 11) · the group supports controlled and default-open ids ·
+the trigger is a **grid** and the panel repeats its template, so the label, the collapsed
+preview and the expanded body share one left edge · `py-2.5` plus a 28px first-line band
+(`leading-7`) puts a single-line row exactly on the 48px tap floor, and `items-start` holds
+the tile, `meta` and chevron to that band when copy wraps · the preview clamps to two
+lines · `icon` is a **leading tile for list-shaped groups**, passed as a bare glyph so the
+component owns the tile and its grid track cannot desync from
+`--spacing-disclosure-icon`; an inline glyph inside a sentence stays in `title` (see
+`medication-considerations.tsx`) · `surface` and the group's `variant` are props, never
+`className` overrides, because `cn()` joins strings and does not resolve Tailwind
+conflicts · panel copy uses the exported `disclosureBodyText`, never a restated size.
+**Landed.** `headingLevel` drives `h2`–`h6` for both components. Truncation is closed: the
+trigger had horizontal padding only, so a wrapped preview pressed its copy into the border;
+the preview was `text-xs` against a `text-sm leading-6` panel, so an `extendDescription` row
+re-sized the same sentence on open; and the panel's own `px-3` moved that copy sideways.
+Pinned in a browser by `tests/ui-forms-section-nav.spec.ts` ("symmetric vertical padding",
+"left edge and in the preview's type") — jsdom applies no Tailwind, so it can assert neither.
+**Accepted residual.** With `extendDescription` the trigger holds the tap floor whether or
+not the preview is present, so the copy moves down about 10px on expand. It does not change
+size, colour or left edge. **Open defects → PR.** print behaviour → PR 11.
 
 ### 9.26 `Progress`
 
 **Contract.** Determinate progress is `transform: scaleX()` with `transform-origin:
 left` — never `width` · indeterminate must use tokened duration; reduced motion shows a
 static state · the track/fill pair follows the edge rule. **Landed.** Determinate fill uses
-`scaleX()` and tokened transition duration. **Open defects → PR.** the indeterminate animation
-still carries a hardcoded `1.4s` timing → PR 9.
+`scaleX()` and tokened transition duration; indeterminate now uses the `animate-shimmer`
+`@theme` token rather than a hardcoded `1.4s` literal. **Open defects → PR.** none
+remaining on this component.
 
 ### 9.27 `StageList`
 
@@ -948,11 +1012,16 @@ sanitiser's tiny grammar renders as plain text.
 
 ### 9.33 `ui-primitives.tsx` recipes
 
-**Contract.** `controlBase` owns the disabled encoding — the ten remaining
-`disabled:opacity` uses migrate in PR 3 · the module splits in PR 12
+**Contract.** `controlBase` owns the disabled encoding — the 39 remaining
+`disabled:opacity` uses (ratcheted as `disabledOpacityUses` in
+`scripts/design-system-contract-baseline.json`; re-measured 2 Sep 2026, corrected from a
+stale "ten") migrate in PR 3 · the module splits in PR 12
 (`styles/recipes.ts`, actions, feedback, forms, clinical-source, source-metadata
 contract) so generic primitives stop importing clinical application modules · recipes
-never restate a token value. The 2026-07-31 icon regression (lucide imports replaced
+never restate a token value. `interactiveCompact` and `tableMicroActionRow` use
+`min-h-tap` on phones and `sm:min-h-compact-meta` on pointer layouts (metadata /
+disclosure, not primaries). Do not copy that step-down onto `controlBase` or
+`primaryControl`. The 2026-07-31 icon regression (lucide imports replaced
 with glyph spans by an unverified merge, repaired in `0b0f393c7`) is the cautionary case:
 this file is load-bearing for the icon vocabulary; changes to it require the focused DOM
 tests to run.
@@ -961,9 +1030,9 @@ tests to run.
 
 ## Generated maturity snapshot
 
-Registered public components: 54
-Components with a valid design-sync preview: 54
-Components with product imports: 34
+Registered public components: 55
+Components with a valid design-sync preview: 55
+Components with product imports: 40
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -974,54 +1043,55 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
-| `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              26 |
+| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
+| `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
-| `ConfirmDialog`          | layout   | yes   | yes                | no                    | yes            | no                 |               0 |
+| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `DateDisplay`            | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
-| `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `DoseLine`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DownloadLink`           | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
+| `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              14 |
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `ExternalTextLink`       | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FieldError`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FieldHint`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `ExternalTextLink`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               7 |
+| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
-| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
+| `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
 | `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `PanelHeading`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Progress`               | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `Quantity`               | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `RadioGroup`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
-| `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              26 |
+| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
+| `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              34 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SourceStatusBadge`      | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `StageList`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `Tabs`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
+| `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `TextLink`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToastRegion`            | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToggleSwitch`           | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Tooltip`                | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `VerificationNotice`     | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `VerificationNotice`     | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 
 <!-- adoption-manifest:maturity:end -->

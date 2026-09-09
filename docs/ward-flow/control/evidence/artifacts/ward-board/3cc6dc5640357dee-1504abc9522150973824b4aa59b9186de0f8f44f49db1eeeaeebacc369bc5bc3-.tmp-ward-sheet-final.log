@@ -1,0 +1,36 @@
+discovered files: 77
+--- attempt 1 01:54:21
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+Not implemented: navigation to another Document
+
+ Test Files  77 passed (77)
+      Tests  1171 passed (1171)
+   Start at  01:54:22
+   Duration  65.41s (transform 4.09s, setup 8.67s, import 13.78s, tests 58.01s, environment 35.48s)
+
+[gate-receipts] recorded a pass for "vitest run tests/ward-admission-model.test.ts tests/ward-admissions-seed.test.ts tests/ward-bed-availability-model.test.ts tests/ward-bed-availability.test.ts tests/ward-bed-release-lifecycle.test.ts tests/ward-bed-release.dom.test.tsx tests/ward-board-consistency.test.ts tests/ward-board-derivations.test.ts tests/ward-board-page.dom.test.tsx tests/ward-board-people-panel.dom.test.tsx tests/ward-board-selection.dom.test.tsx tests/ward-board-triage.dom.test.tsx tests/ward-capacity-freshness-source.dom.test.tsx tests/ward-capacity-reconciliation.test.ts tests/ward-capacity-sexmix-release.dom.test.tsx tests/ward-capacity-view.dom.test.tsx tests/ward-change-reasons.test.ts tests/ward-clock.test.ts tests/ward-daily-sheet.dom.test.tsx tests/ward-data-checker.test.ts tests/ward-derivations.test.ts tests/ward-discharge-board.dom.test.tsx tests/ward-discharge-dates.test.ts tests/ward-ed-screen.dom.test.tsx tests/ward-eligibility.test.ts tests/ward-escalation.dom.test.tsx tests/ward-escalation.test.ts tests/ward-flow-clock-consistency.dom.test.tsx tests/ward-flow-contracts.test.ts tests/ward-flow-data-boundary.test.ts tests/ward-flow-potential-chip-migration.dom.test.tsx tests/ward-flow-provider.dom.test.tsx tests/ward-flow-queue-selection.dom.test.tsx tests/ward-flow-reducer.test.ts tests/ward-flow-sandbox.test.ts tests/ward-flow-seam.test.ts tests/ward-flow-service-coverage.test.ts tests/ward-flow-single-source.test.ts tests/ward-freshness.dom.test.tsx tests/ward-governance.dom.test.tsx tests/ward-governance.test.ts tests/ward-handover-print.test.ts tests/ward-handover.dom.test.tsx tests/ward-handover.test.ts tests/ward-landmarks.test.ts tests/ward-legal-figure-guard.test.ts tests/ward-management.test.ts tests/ward-model-phase3.test.ts tests/ward-model.test.ts tests/ward-morning-page.dom.test.tsx tests/ward-morning-print.test.ts tests/ward-morning-rollup.test.ts tests/ward-morning-tour.dom.test.tsx tests/ward-nav.test.ts tests/ward-network-referral-placement.dom.test.tsx tests/ward-output.test.ts tests/ward-patient-page.dom.test.tsx tests/ward-patient-search.dom.test.tsx tests/ward-patient-search.test.ts tests/ward-pressure.test.ts tests/ward-priority.test.ts tests/ward-referral-matching.test.ts tests/ward-referral-model.test.ts tests/ward-referral-reducer.test.ts tests/ward-referral-screens.dom.test.tsx tests/ward-referrals-print.test.ts tests/ward-restriction-notice.test.ts tests/ward-scenarios.test.ts tests/ward-screen.dom.test.tsx tests/ward-shortlist.dom.test.tsx tests/ward-sidebar-phone-contract.test.ts tests/ward-sidebar.dom.test.tsx tests/ward-statistics.test.ts tests/ward-teams.test.ts tests/ward-tracker-leg-badge.dom.test.tsx tests/ward-travel-bands.test.ts tests/ward-travel-grouping.test.ts" (5707 input files).
+BLOCKED by lock, retrying
+--- attempt 2 01:56:14
+file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/scripts/test-run-lock.mjs:505
+      throw new Error(message);
+            ^
+
+Error: Database focused-test capacity is full (current owner PID 30376, worktree D:\Repos\Database\.claude\worktrees\nostalgic-vaughan-7ee231, started 2026-08-29T17:56:11.767Z): vitest run tests/ward-admission-model.test.ts tests/ward-admissions-seed.test.ts tests/ward-bed-availability-model.test.ts tests/ward-bed-availability.test.ts tests/ward-bed-release-lifecycle.test.ts tests/ward-bed-release.dom.test.tsx tests/ward-board-consistency.test.ts tests/ward-board-derivations.test.ts tests/ward-board-page.dom.test.tsx tests/ward-board-people-panel.dom.test.tsx tests/ward-board-selection.dom.test.tsx tests/ward-board-triage.dom.test.tsx tests/ward-capacity-freshness-source.dom.test.tsx tests/ward-capacity-reconciliation.test.ts tests/ward-capacity-sexmix-release.dom.test.tsx tests/ward-capacity-view.dom.test.tsx tests/ward-change-reasons.test.ts tests/ward-clock.test.ts tests/ward-data-checker.test.ts tests/ward-derivations.test.ts tests/ward-discharge-board.dom.test.tsx tests/ward-discharge-dates.test.ts tests/ward-ed-screen.dom.test.tsx tests/ward-eligibility.test.ts tests/ward-escalation.dom.test.tsx tests/ward-escalation.test.ts tests/ward-flow-clock-consistency.dom.test.tsx tests/ward-flow-contracts.test.ts tests/ward-flow-data-boundary.test.ts tests/ward-flow-potential-chip-migration.dom.test.tsx tests/ward-flow-provider.dom.test.tsx tests/ward-flow-queue-selection.dom.test.tsx tests/ward-flow-reducer.test.ts tests/ward-flow-sandbox.test.ts tests/ward-flow-seam.test.ts tests/ward-flow-service-coverage.test.ts tests/ward-flow-single-source.test.ts tests/ward-freshness.dom.test.tsx tests/ward-governance.dom.test.tsx tests/ward-governance.test.ts tests/ward-handover-print.test.ts tests/ward-handover.dom.test.tsx tests/ward-handover.test.ts tests/ward-landmarks.test.ts tests/ward-legal-figure-guard.test.ts tests/ward-management.test.ts tests/ward-model-phase3.test.ts tests/ward-model.test.ts tests/ward-morning-page.dom.test.tsx tests/ward-morning-print.test.ts tests/ward-morning-rollup.test.ts tests/ward-morning-tour.dom.test.tsx tests/ward-nav.test.ts tests/ward-network-referral-placement.dom.test.tsx tests/ward-output.test.ts tests/ward-patient-page.dom.test.tsx tests/ward-patient-search.dom.test.tsx tests/ward-patient-search.test.ts tests/ward-pressure.test.ts tests/ward-priority.test.ts tests/ward-referral-matching.test.ts tests/ward-referral-model.test.ts tests/ward-referral-reducer.test.ts tests/ward-referral-screens.dom.test.tsx tests/ward-referrals-print.test.ts tests/ward-restriction-notice.test.ts tests/ward-scenarios.test.ts tests/ward-screen.dom.test.tsx tests/ward-shortlist.dom.test.tsx tests/ward-sidebar-phone-contract.test.ts tests/ward-sidebar.dom.test.tsx tests/ward-statistics.test.ts tests/ward-teams.test.ts tests/ward-tracker-leg-badge.dom.test.tsx tests/ward-travel-bands.test.ts tests/ward-travel-grouping.test.ts
+    at acquireHeavyRunLock (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/scripts/test-run-lock.mjs:505:13)
+    at file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/scripts/run-vitest.mjs:56:14
+
+Node.js v24.19.0
+BLOCKED by lock, retrying
+--- attempt 3 01:57:30
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+Not implemented: navigation to another Document
+
+ Test Files  77 passed (77)
+      Tests  1171 passed (1171)
+   Start at  01:57:32
+   Duration  78.30s (transform 5.18s, setup 8.89s, import 16.36s, tests 76.01s, environment 36.61s)
+EXIT=0

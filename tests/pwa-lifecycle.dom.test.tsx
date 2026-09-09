@@ -49,6 +49,73 @@ function dispatchInstallEligibility(outcome: "accepted" | "dismissed" = "accepte
   return prompt;
 }
 
+const HERO_MAIN_CONTENT_SELECTOR = 'body:has(#main-content[data-phone-footer-owner="hero"])';
+const ALLOWED_HERO_MAIN_CONTENT_SELECTORS = new Set([
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-notice-stack`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-grip`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-tagline`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-copy`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-support`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-benefits`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-header`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-body`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-compact-copy`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-actions`,
+]);
+
+function splitCssSelectors(prelude: string) {
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (const char of prelude) {
+    if (char === "(") depth += 1;
+    else if (char === ")") depth = Math.max(0, depth - 1);
+    if (char === "," && depth === 0) {
+      parts.push(current.replace(/\s+/g, " ").trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  const last = current.replace(/\s+/g, " ").trim();
+  if (last) parts.push(last);
+  return parts.filter(Boolean);
+}
+
+function normalizeCssSelector(selector: string) {
+  return selector
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/:has\(\s+/g, ":has(")
+    .replace(/\s+\)/g, ")");
+}
+
+function disallowedMainContentHasSelectors(styles: string) {
+  const withoutComments = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+  const disallowed: string[] = [];
+  let token = "";
+  for (const char of withoutComments) {
+    if (char === "{") {
+      const prelude = token.replace(/\s+/g, " ").trim();
+      if (!prelude.startsWith("@")) {
+        for (const selector of splitCssSelectors(prelude).map(normalizeCssSelector)) {
+          if (selector.includes("body:has(#main-content") && !ALLOWED_HERO_MAIN_CONTENT_SELECTORS.has(selector)) {
+            disallowed.push(selector);
+          }
+        }
+      }
+      token = "";
+      continue;
+    }
+    if (char === "}") {
+      token = "";
+      continue;
+    }
+    token += char;
+  }
+  return disallowed;
+}
+
 beforeEach(() => {
   window.history.replaceState({}, "", "/");
   window.localStorage.clear();
@@ -164,9 +231,9 @@ describe("PwaLifecycle", () => {
     const user = userEvent.setup();
     render(<PwaLifecycle />);
 
-    expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Install PsychSift" })).not.toBeInTheDocument();
     const prompt = dispatchInstallEligibility();
-    const installRegion = await screen.findByRole("region", { name: "Install Clinical KB" });
+    const installRegion = await screen.findByRole("region", { name: "Install PsychSift" });
     expect(installRegion).toBeInTheDocument();
     expect(installRegion).toHaveTextContent("Clinical guidelines on your home screen.");
     expect(installRegion).toHaveTextContent(
@@ -192,7 +259,7 @@ describe("PwaLifecycle", () => {
 
     expect(await screen.findByText("Update available")).toBeInTheDocument();
     dispatchInstallEligibility();
-    expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Install PsychSift" })).not.toBeInTheDocument();
     expect(waitingWorker.postMessage).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Reload" }));
@@ -238,23 +305,21 @@ describe("PwaLifecycle", () => {
       const user = userEvent.setup();
       const { unmount } = render(<PwaLifecycle />);
 
-      const hint = await screen.findByRole("region", { name: "Install Clinical KB" });
+      const hint = await screen.findByRole("region", { name: "Install PsychSift" });
       expect(hint).toHaveTextContent("In Safari, tap Share, then Add to Home Screen.");
       expect(hint).toHaveTextContent("Private clinical features still require a connection.");
-      expect(screen.getByRole("list", { name: "Add Clinical KB to your Home Screen" })).toHaveTextContent(
+      expect(screen.getByRole("list", { name: "Add PsychSift to your Home Screen" })).toHaveTextContent(
         "1. Tap Share2. Add to Home Screen",
       );
       expect(screen.queryByRole("button", { name: "Install app" })).not.toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Not now" }));
-      await waitFor(() =>
-        expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument(),
-      );
+      await waitFor(() => expect(screen.queryByRole("region", { name: "Install PsychSift" })).not.toBeInTheDocument());
       expect(Number(window.localStorage.getItem("clinical-kb-pwa-ios-install-dismissed-at"))).toBeGreaterThan(0);
 
       unmount();
       render(<PwaLifecycle />);
-      expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Install PsychSift" })).not.toBeInTheDocument();
     } finally {
       delete (navigator as { userAgent?: string }).userAgent;
     }
@@ -420,5 +485,53 @@ describe("notice-stack hero-compact geometry selectors", () => {
         `body:has(#main-content[data-phone-footer-owner="hero"]) ${selector === ".pwa-notice-stack" ? selector : `.pwa-install-native-sheet ${selector}`}`,
       );
     }
+  });
+
+  it("rejects every unguarded body:has(#main-content...) geometry consumer", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+
+    expect(disallowedMainContentHasSelectors(styles)).toEqual([]);
+
+    const unsafeFixture = `${styles}\nbody:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay { bottom: 0; }`;
+    expect(disallowedMainContentHasSelectors(unsafeFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
+
+    const multilineUnsafeFixture = `${styles}
+body:has(#main-content[data-phone-footer-owner="hero"])
+  .future-overlay {
+  bottom: 0;
+}`;
+    expect(disallowedMainContentHasSelectors(multilineUnsafeFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
+
+    const spacedHasFixture = `${styles}
+body:has(
+  #main-content[data-phone-footer-owner="hero"]
+) .future-overlay {
+  bottom: 0;
+}`;
+    expect(disallowedMainContentHasSelectors(spacedHasFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
+  });
+
+  it("top-aligns only constrained sm+ hero canvases so tall desktops remain centred", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+    expect(styles).toContain("@media (min-width: 640px) and (max-width: 1919.98px) and (max-height: 1279.98px)");
+    expect(styles).toContain(
+      '#main-content[data-phone-footer-owner="hero"] [data-mode-home-canvas] {\n    place-items: start center;\n    align-content: start;',
+    );
+    expect(styles).not.toMatch(
+      /@media \(min-width: 640px\) and \(max-width: 1919\.98px\) \{\s*#main-content\[data-phone-footer-owner="hero"\] \[data-mode-home-canvas\] \{/,
+    );
+    expect(styles).not.toContain("body:has(.pwa-notice-stack) #main-content");
+    expect(styles).not.toMatch(
+      /@media \(min-width: 640px\) \{\s*#main-content\[data-phone-footer-owner="hero"\] \[data-mode-home-canvas\] \{/,
+    );
+    expect(styles).not.toMatch(
+      /@media \(min-width: 640px\) and \(max-width: 1279\.98px\) \{\s*body:has\(#main-content\[data-phone-footer-owner="hero"\]\) \.pwa-notice-stack \{/,
+    );
   });
 });

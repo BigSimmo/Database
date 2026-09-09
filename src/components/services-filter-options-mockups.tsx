@@ -342,7 +342,7 @@ function ComposerWithSuggestions({ compact }: { compact: boolean }) {
     <div className="grid gap-2">
       <div
         className={cn(
-          "flex items-center gap-2 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 shadow-[var(--shadow-soft)]",
+          "flex items-center gap-2 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 shadow-[var(--e2)]",
           compact ? "min-h-14" : "min-h-12",
         )}
       >

@@ -34,14 +34,14 @@ export function useDeferredRegistrySearch(
     if (!liveQuery) return [];
     // First keystrokes may leave deferred empty — avoid empty-query "all records" ranking.
     if (!deferredQuery.trim()) return [];
-    return rankServiceRecords(registryRecords.records, deferredQuery);
+    return rankServiceRecords(registryRecords.records, deferredQuery, registryRecords.records.length, [], true);
   }, [deferredQuery, liveQuery, searchMode, registryRecords.records]);
 
   const formSearchMatches = useMemo(() => {
     if (searchMode !== "forms") return [];
     if (!liveQuery) return [];
     if (!deferredQuery.trim()) return [];
-    return rankFormRecords(registryRecords.records, deferredQuery);
+    return rankFormRecords(registryRecords.records, deferredQuery, registryRecords.records.length, [], true);
   }, [deferredQuery, liveQuery, searchMode, registryRecords.records]);
 
   const recordSearchMatches = useMemo(

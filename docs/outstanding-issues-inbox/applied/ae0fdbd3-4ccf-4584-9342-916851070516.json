@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "ae0fdbd3-4ccf-4584-9342-916851070516",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "b5d6b1be-d1c9-4739-898a-33aec4a656a5",
+    "reason": "Resolved on feature branch: added /ward-management/constellation to staticRouteRedirects in src/proxy.ts and documented in ward flow phase 2 plan."
+  }
+}

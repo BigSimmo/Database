@@ -8,6 +8,31 @@ const otherDocumentId = "22222222-2222-4222-8222-222222222222";
 const imageId = "33333333-3333-4333-8333-333333333333";
 const token = "valid-token";
 
+function documentDetailRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: documentId,
+    owner_id: userId,
+    title: "Clinical guideline",
+    description: null,
+    file_name: "guideline.pdf",
+    file_type: "application/pdf",
+    file_size: 1024,
+    storage_path: `${userId}/documents/guideline.pdf`,
+    content_hash: null,
+    source_path: null,
+    import_batch_id: null,
+    status: "indexed",
+    page_count: 2,
+    chunk_count: 1,
+    image_count: 0,
+    error_message: null,
+    metadata: {},
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 function expectFeedbackTokenBoundToAnswer(payload: Record<string, unknown>) {
   expect(payload.interactionId).toEqual(expect.any(String));
   expect(payload.feedbackToken).toEqual(expect.any(String));
@@ -609,7 +634,9 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
     expect(body.pagination).toMatchObject({ limit: 100, offset: 0, nextOffset: 1, hasMore: false });
-    expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
+    expect(client.calls[0].orFilters).toContain(
+      `owner_id.eq.${userId},and(owner_id.is.null,metadata->>public_corpus.eq.true)`,
+    );
     expect(client.calls[0].selected).toContain("storage_path");
     expect(client.calls[0].range).toEqual({ from: 0, to: 99 });
   });
@@ -740,7 +767,9 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(client.auth.getUser).toHaveBeenCalledWith(token);
     expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
-    expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
+    expect(client.calls[0].orFilters).toContain(
+      `owner_id.eq.${userId},and(owner_id.is.null,metadata->>public_corpus.eq.true)`,
+    );
   });
 
   it("accepts Supabase auth token cookies for private document access", async () => {
@@ -755,27 +784,26 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(client.auth.getUser).toHaveBeenCalledWith(token);
     expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
-    expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
+    expect(client.calls[0].orFilters).toContain(
+      `owner_id.eq.${userId},and(owner_id.is.null,metadata->>public_corpus.eq.true)`,
+    );
   });
 
   it("redacts owner-internal fields when an authenticated user reads a public document they do not own", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
-        return ok({
-          id: documentId,
-          owner_id: null,
-          title: "Public guideline",
-          file_name: "guideline.pdf",
-          file_type: "application/pdf",
-          page_count: 2,
-          chunk_count: 1,
-          storage_path: "someone-else/documents/guideline.pdf",
-          content_hash: "sha256:leaky-hash",
-          source_path: "/import/guideline.pdf",
-          import_batch_id: "batch-99",
-          error_message: "internal stage error",
-          metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
-        });
+        return ok(
+          documentDetailRow({
+            owner_id: null,
+            title: "Public guideline",
+            storage_path: "someone-else/documents/guideline.pdf",
+            content_hash: "sha256:leaky-hash",
+            source_path: "/import/guideline.pdf",
+            import_batch_id: "batch-99",
+            error_message: "internal stage error",
+            metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
+          }),
+        );
       }
       if (call.table === "document_summaries") {
         return ok({
@@ -783,7 +811,7 @@ describe("private document API access", () => {
           document_id: documentId,
           owner_id: null,
           summary: "Public summary text.",
-          clinical_specifics: null,
+          clinical_specifics: {},
           source_chunk_ids: ["chunk-a", "chunk-b"],
           source_image_ids: ["image-a"],
           model: "gpt-internal",
@@ -809,7 +837,9 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     // The caller can still read the shared public document...
     expect(document).toMatchObject({ id: documentId, title: "Public guideline" });
-    expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
+    expect(client.calls[0].orFilters).toContain(
+      `owner_id.eq.${userId},and(owner_id.is.null,metadata->>public_corpus.eq.true)`,
+    );
     // ...but not the owner's storage location, dedup hash, import provenance, raw error, metadata,
     // or index-health diagnostics — an authed non-owner gets the same redacted view as anonymous.
     expect(document).not.toHaveProperty("storage_path");
@@ -834,19 +864,15 @@ describe("private document API access", () => {
   it("returns full owner-internal fields when the authenticated caller owns the document", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
-        return ok({
-          id: documentId,
-          owner_id: userId,
-          title: "Owned guideline",
-          file_name: "guideline.pdf",
-          file_type: "application/pdf",
-          page_count: 2,
-          chunk_count: 1,
-          storage_path: `${userId}/documents/guideline.pdf`,
-          content_hash: "sha256:owned-hash",
-          metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
-        });
+        return ok(
+          documentDetailRow({
+            title: "Owned guideline",
+            content_hash: "sha256:owned-hash",
+            metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
+          }),
+        );
       }
+      if (call.table === "document_summaries" && call.maybeSingle) return ok(null);
       if (["document_pages", "document_images", "document_chunks", "document_table_facts"].includes(call.table)) {
         return ok([]);
       }
@@ -874,17 +900,15 @@ describe("private document API access", () => {
   it("allows anonymous users to read public document detail", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && matchesOwnerReadScope(call)) {
-        return ok({
-          id: documentId,
-          owner_id: null,
-          title: "Public guideline",
-          file_name: "guideline.pdf",
-          file_type: "application/pdf",
-          page_count: 2,
-          chunk_count: 1,
-          metadata: { index_generation_id: "generation-a" },
-        });
+        return ok(
+          documentDetailRow({
+            owner_id: null,
+            title: "Public guideline",
+            metadata: { index_generation_id: "generation-a" },
+          }),
+        );
       }
+      if (call.table === "document_summaries" && call.maybeSingle) return ok(null);
       if (["document_pages", "document_images", "document_chunks", "document_table_facts"].includes(call.table)) {
         return ok([]);
       }
@@ -982,7 +1006,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(429);
     expect(await payload(response)).toMatchObject({
       error: "Document requests are rate limited. Try again shortly.",
-      retryAfterSeconds: 30,
+      details: { kind: "rate_limit", retryAfterSeconds: 30 },
     });
     expect(client.rpc).toHaveBeenCalledWith(
       "consume_api_subject_rate_limit",
@@ -1155,7 +1179,19 @@ describe("private document API access", () => {
     expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`public/images/${imageId}.png`, 600);
   });
 
-  it("allows legacy image signed URLs when parent document generation metadata is missing", async () => {
+  /*
+   * Audit L11 boundary case, pinned separately from the sibling below.
+   *
+   * A TRULY legacy image — one written before the worker began stamping
+   * `document_images.metadata.index_generation_id` (worker/main.ts gained that
+   * stamp in the same commit that introduced `commit_document_index_generation`,
+   * which stamps the parent document in the same transaction) — carries NO
+   * generation of its own. That is the SQL predicate's unconditional
+   * `row_generation is null` arm, so such an image stays accessible whatever the
+   * parent document carries. This case exists so the L11 fail-closed change can
+   * never be widened into "a legacy document loses its images".
+   */
+  it("allows signed URLs for an unstamped legacy image on an unstamped document", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "document_images") {
         return ok({
@@ -1163,7 +1199,7 @@ describe("private document API access", () => {
           storage_path: `${userId}/images/${imageId}.png`,
           mime_type: "image/png",
           caption: "Legacy indexed image",
-          metadata: { index_generation_id: "generation-a" },
+          metadata: {},
         });
       }
       if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
@@ -1182,6 +1218,80 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(body.mimeType).toBe("image/png");
     expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`${userId}/images/${imageId}.png`, 600);
+  });
+
+  it("fails with 500 when storage createSignedUrl returns a missing signedUrl", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok({
+          document_id: documentId,
+          storage_path: `${userId}/images/${imageId}.png`,
+          mime_type: "image/png",
+          caption: "Legacy indexed image",
+          metadata: {},
+        });
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        return ok({ id: documentId, metadata: {} });
+      }
+      return ok(null);
+    });
+    client.storageMocks.createSignedUrl.mockResolvedValueOnce({
+      data: { signedUrl: "" },
+      error: null,
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/images/[id]/signed-url/route");
+
+    const response = await GET(authenticatedRequest(`/api/images/${imageId}/signed-url`), {
+      params: Promise.resolve({ id: imageId }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await payload(response)).toMatchObject({
+      error: "Failed to generate signed URL for image.",
+    });
+  });
+
+  /*
+   * Audit L11. This case previously asserted 200 and named itself "legacy", but its
+   * fixture is not a legacy image: the image CARRIES a generation while its parent
+   * document carries none. The SQL predicate excludes exactly that shape —
+   * `is_committed_artifact_generation` (supabase/schema.sql) is
+   * `row_generation is null or row_generation = document_generation`, and
+   * `'generation-a' = NULL` is NULL, not true. So the old expectation pinned the
+   * TypeScript predicate being MORE permissive than the database, which is the
+   * defect L11 exists to remove.
+   *
+   * The genuinely legacy shape (image with no generation) is pinned by the sibling
+   * case above and still returns 200, so no legacy document loses its images.
+   * This case now pins the staged/abandoned shape the SQL refuses.
+   */
+  it("refuses a stamped image whose parent document has no committed generation", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok({
+          document_id: documentId,
+          storage_path: `${userId}/images/${imageId}.png`,
+          mime_type: "image/png",
+          caption: "Staged image from an uncommitted generation",
+          metadata: { index_generation_id: "generation-a" },
+        });
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        return ok({ id: documentId, metadata: {} });
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/images/[id]/signed-url/route");
+
+    const response = await GET(authenticatedRequest(`/api/images/${imageId}/signed-url`), {
+      params: Promise.resolve({ id: imageId }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
   it("rejects image signed URLs for uncommitted replacement generations", async () => {
@@ -1305,6 +1415,22 @@ describe("private document API access", () => {
       [imageId]: { url: `https://signed.local/${userId}/images/${imageId}.png`, mimeType: "image/png" },
     });
     expect(client.storageMocks.createSignedUrls).toHaveBeenCalledWith([`${userId}/images/${imageId}.png`], 600);
+  });
+
+  it("fails with 500 when storage createSignedUrls returns a per-item error", async () => {
+    const client = createBatchImageMock();
+    client.storageMocks.createSignedUrls.mockResolvedValueOnce({
+      data: [{ path: `${userId}/images/${imageId}.png`, signedUrl: "", error: "Object not found" as never }],
+      error: null,
+    } as never);
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId]));
+    const body = await payload(response);
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe("Failed to generate signed URL for image: Object not found");
   });
 
   it("omits images whose parent document belongs to another user", async () => {
@@ -1447,10 +1573,11 @@ describe("private document API access", () => {
 
   it("rejects an authenticated non-administrator upload", async () => {
     const client = createSupabaseMock();
-    client.auth.getUser.mockResolvedValueOnce({
-      data: { user: { id: userId, app_metadata: { site_role: "user" } } },
-      error: null,
-    });
+    client.auth.getUser.mockImplementation(async (receivedToken?: string) =>
+      receivedToken === token
+        ? { data: { user: { id: userId, app_metadata: { site_role: "user" } } }, error: null }
+        : { data: { user: null }, error: { message: "Invalid token" } },
+    );
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
@@ -1466,6 +1593,44 @@ describe("private document API access", () => {
     expect(response.status).toBe(403);
     expect(await payload(response)).toMatchObject({ code: "administrator_required" });
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejects administrator uploads when proxy claims cannot be revalidated live", async () => {
+    const client = createSupabaseMock();
+    client.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: "Auth lookup failed" },
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const { signProxyAuthPayload } = await import("../src/lib/supabase/proxy-auth-crypto");
+    const previousServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-for-proxy-auth";
+    const proxyHeader = signProxyAuthPayload(
+      Buffer.from(JSON.stringify({ id: userId, appMetadata: { site_role: "administrator" } })).toString("base64"),
+    );
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
+
+    try {
+      const response = await POST(
+        request("/api/upload", {
+          method: "POST",
+          body: formData,
+          headers: proxyHeader ? { "x-proxy-auth-user": proxyHeader } : undefined,
+        }),
+      );
+
+      expect(response.status).toBe(401);
+      expect(await payload(response)).toMatchObject({ code: "authentication_required" });
+      expect(client.storageMocks.upload).not.toHaveBeenCalled();
+    } finally {
+      if (previousServiceRoleKey === undefined) {
+        delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      } else {
+        process.env.SUPABASE_SERVICE_ROLE_KEY = previousServiceRoleKey;
+      }
+    }
   });
 
   it("fails closed for administrator uploads when the durable limiter is unavailable", async () => {
@@ -2146,7 +2311,17 @@ describe("private document API access", () => {
 
   it("refuses to retry a job a live worker still holds (IDX-C3, B6)", async () => {
     const client = createSupabaseMock();
-    client.rpc.mockResolvedValueOnce(ok({ outcome: "active_worker" }));
+    // The route now consumes the ingestion_admin rate-limit bucket (its own
+    // consume_api_rate_limit RPC call) before retry_ingestion_job_if_idle
+    // (#L43), so a plain mockResolvedValueOnce would intercept that earlier
+    // call instead. Target the retry RPC by name and fall through to the
+    // mock's normal per-name behaviour (including the rate-limit check) for
+    // everything else.
+    const baseRpc = client.rpc.getMockImplementation()!;
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "retry_ingestion_job_if_idle") return ok({ outcome: "active_worker" });
+      return baseRpc(name, args);
+    });
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
@@ -2172,12 +2347,18 @@ describe("private document API access", () => {
 
   it("re-queues a stale/non-processing job without resetting the live index (IDX-C3, IDX-H1, B6)", async () => {
     const client = createSupabaseMock();
-    client.rpc.mockResolvedValueOnce(
-      ok({
-        outcome: "queued",
-        job: { id: "99999999-9999-4999-8999-999999999999", document_id: documentId, status: "pending" },
-      }),
-    );
+    // Same reason as the previous test: target the retry RPC by name so the
+    // earlier rate-limit consume call keeps its own normal behaviour (#L43).
+    const baseRpc = client.rpc.getMockImplementation()!;
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "retry_ingestion_job_if_idle") {
+        return ok({
+          outcome: "queued",
+          job: { id: "99999999-9999-4999-8999-999999999999", document_id: documentId, status: "pending" },
+        });
+      }
+      return baseRpc(name, args);
+    });
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
@@ -2612,7 +2793,8 @@ describe("private document API access", () => {
     expect(response.status).toBe(409);
     expect(body).toMatchObject({
       error: "Document already has pending or processing indexing work.",
-      safety: {
+      details: {
+        kind: "ingestion_mutation_safety",
         safeToRun: false,
         reason: "active_jobs",
         activeJobCount: 1,
@@ -2669,7 +2851,8 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(409);
     expect(body).toMatchObject({
-      safety: {
+      details: {
+        kind: "ingestion_mutation_safety",
         safeToRun: false,
         reason: "active_jobs",
         activeJobCount: 1,
@@ -2708,7 +2891,8 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(503);
     expect(body).toMatchObject({
-      safety: {
+      details: {
+        kind: "ingestion_mutation_safety",
         safeToRun: false,
         reason: "supabase_unavailable",
         activeJobCount: 0,
@@ -2853,7 +3037,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(409);
     expect(body).toMatchObject({
       error: "Document already has pending or processing indexing work.",
-      safety: { reason: "active_jobs", activeJobCount: 1 },
+      details: { kind: "ingestion_mutation_safety", reason: "active_jobs", activeJobCount: 1 },
     });
     expect(client.calls.some((call) => call.operation === "update" || call.operation === "insert")).toBe(false);
   });
@@ -3232,16 +3416,17 @@ describe("private document API access", () => {
     const replacementGeneration = "22222222-2222-4222-8222-222222222222";
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") {
-        return ok({
-          id: documentId,
-          owner_id: userId,
-          page_count: 1,
-          chunk_count: 1,
-          image_count: 1,
-          metadata: { index_generation_id: committedGeneration },
-        });
+        return ok(
+          documentDetailRow({
+            page_count: 1,
+            chunk_count: 1,
+            image_count: 1,
+            metadata: { index_generation_id: committedGeneration },
+          }),
+        );
       }
-      if (call.table === "document_pages") return ok([{ id: "page-1", page_number: 1, text: "Page", metadata: {} }]);
+      if (call.table === "document_pages")
+        return ok([{ id: "page-1", page_number: 1, text: "Page", ocr_used: false, metadata: {} }]);
       if (call.table === "document_images") {
         return ok([
           {
@@ -3266,6 +3451,7 @@ describe("private document API access", () => {
             id: "chunk-old",
             page_number: 1,
             chunk_index: 0,
+            section_heading: null,
             content: "Old",
             image_ids: [],
             metadata: { index_generation_id: committedGeneration },
@@ -3274,6 +3460,7 @@ describe("private document API access", () => {
             id: "chunk-new",
             page_number: 1,
             chunk_index: 1,
+            section_heading: null,
             content: "New",
             image_ids: [],
             metadata: { index_generation_id: replacementGeneration },
@@ -3282,10 +3469,33 @@ describe("private document API access", () => {
       }
       if (call.table === "document_table_facts") {
         return ok([
-          { id: "fact-old", document_id: documentId, metadata: { index_generation_id: committedGeneration } },
-          { id: "fact-new", document_id: documentId, metadata: { index_generation_id: replacementGeneration } },
+          {
+            id: "fact-old",
+            document_id: documentId,
+            source_image_id: null,
+            page_number: 1,
+            table_title: null,
+            row_label: null,
+            clinical_parameter: null,
+            threshold_value: null,
+            action: null,
+            metadata: { index_generation_id: committedGeneration },
+          },
+          {
+            id: "fact-new",
+            document_id: documentId,
+            source_image_id: null,
+            page_number: 1,
+            table_title: null,
+            row_label: null,
+            clinical_parameter: null,
+            threshold_value: null,
+            action: null,
+            metadata: { index_generation_id: replacementGeneration },
+          },
         ]);
       }
+      if (call.table === "document_summaries" && call.maybeSingle) return ok(null);
       return ok([]);
     });
     mockRuntime(client);
@@ -4269,7 +4479,7 @@ describe("private document API access", () => {
     expect(limited.headers.get("Retry-After")).toBe("60");
     expect(await payload(limited)).toMatchObject({
       error: "Too many answer requests. Retry shortly.",
-      retryAfterSeconds: 60,
+      details: { kind: "rate_limit", retryAfterSeconds: 60 },
     });
     expect(answerQuestionWithScope).toHaveBeenCalledTimes(6);
     expect(client.rpc).not.toHaveBeenCalledWith(
@@ -4323,7 +4533,7 @@ describe("private document API access", () => {
     expect(limited.headers.get("Retry-After")).toBe("60");
     expect(await payload(limited)).toMatchObject({
       error: "Too many answer requests. Retry shortly.",
-      retryAfterSeconds: 60,
+      details: { kind: "rate_limit", retryAfterSeconds: 60 },
     });
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
 
@@ -4385,7 +4595,7 @@ describe("private document API access", () => {
     expect(limited.headers.get("Retry-After")).toBe("60");
     expect(await payload(limited)).toMatchObject({
       error: "Search is temporarily rate limited because too many requests were received. Retry shortly.",
-      retryAfterSeconds: 60,
+      details: { kind: "rate_limit", retryAfterSeconds: 60 },
     });
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
@@ -4663,10 +4873,11 @@ describe("private document API access", () => {
     expect(body).not.toContain("event: final");
     expect(errorPayload).toMatchObject({
       error: "Answer generation failed. Retry with a narrower question.",
+      message: "Answer generation failed. Retry with a narrower question.",
+      code: "supabase_api_key_configuration",
       status: 500,
       // Key-configuration failures carry a stable code so a production outage is
       // diagnosable from the client network tab (confirmed live 2026-07-06).
-      details: { code: "supabase_api_key_configuration" },
     });
     expect(JSON.stringify(errorPayload)).not.toMatch(
       /stack|causeName|causeMessage|sqlState|private\/path|[A-Za-z]:\\\\/i,
@@ -5721,7 +5932,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(429);
     expect(await payload(response)).toMatchObject({
       error: "Too many document summary requests. Retry shortly.",
-      retryAfterSeconds: 60,
+      details: { kind: "rate_limit", retryAfterSeconds: 60 },
     });
     expect(summarizeDocument).not.toHaveBeenCalled();
   });

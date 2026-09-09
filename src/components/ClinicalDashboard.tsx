@@ -15,7 +15,6 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
-  Square,
   Activity,
   Wrench,
 } from "lucide-react";
@@ -48,6 +47,13 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
+import {
+  clinicalAskWorkspaceVisible,
+  type ClinicalDashboardProps,
+  useClinicalAskDashboardChrome,
+} from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
+import { ModeClinicalAskSurface } from "@/components/clinical-dashboard/mode-clinical-ask-surface";
+import { ClinicalAskDashboardBoundary } from "@/components/clinical-dashboard/clinical-ask-dashboard-boundary";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -61,20 +67,24 @@ import {
   ClinicalMobileSidebar,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import {
+  canRunDashboardSearch,
   fallbackSetupChecks,
   hasReadyRequiredPublicSearchConfig,
   hasReadyPublicSearchSetup,
+  shouldShowDashboardDegradedNotice,
   type SetupCheck,
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/document-manager-contracts";
 import { LibraryHealthStrip } from "@/components/clinical-dashboard/library-health-strip";
 import { GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
-import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
+import { SystemNotice, DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-notices";
+import { resolveModeHomeCanvasClass } from "@/components/clinical-dashboard/mode-home-canvas";
 import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
+import { AnswerCancelledNotice } from "@/components/clinical-dashboard/answer-cancelled-notice";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
-  AnswerProgressStepper,
+  AnswerProgress,
   AnswerSkeleton,
   SearchProgressBanner,
   SharedHomeEmptyState,
@@ -83,9 +93,7 @@ import {
   type AnswerProgressUpdate,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
-import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
 import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
-import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import {
@@ -161,7 +169,13 @@ import {
   StagedAnswerResultSurface,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
-import { clearLegacyRecentQueries, recentQueryStorageKey } from "@/lib/recent-query-storage";
+import {
+  clearLegacyRecentQueries,
+  loadRecentQueries,
+  recentQueriesChangeEvent,
+  saveRecentQueries,
+} from "@/lib/recent-query-storage";
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
@@ -225,7 +239,7 @@ import {
   type AnswerThreadSnapshotMetadata,
 } from "@/components/clinical-dashboard/use-persisted-answer-thread";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
-import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
+import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
 import type {
   ClientDocumentLabel,
   ClientDocumentMatch,
@@ -268,21 +282,21 @@ import {
 } from "@/components/clinical-dashboard/answer-thread-turn";
 import type { AnswerFeedbackType } from "@/lib/answer-feedback";
 export type { AnswerFeedbackType } from "@/lib/answer-feedback";
+export function ClinicalDashboard(props: ClinicalDashboardProps = {}) {
+  return (
+    <ClinicalAskDashboardBoundary>
+      <ClinicalDashboardContent {...props} />
+    </ClinicalAskDashboardBoundary>
+  );
+}
 
-/**
- * Renders the clinical search dashboard, including document search, answer generation, conversation history, source management, and ingestion controls.
- *
- * @param initialSearchMode - The mode selected when the dashboard loads.
- * @param initialQuery - The initial search or composer query.
- * @param focusSearch - Whether to focus the search input on load.
- * @param autoRunSearch - Whether to automatically submit the initial query.
- */
-export function ClinicalDashboard({
+function ClinicalDashboardContent({
   initialSearchMode = "answer",
   initialQuery = "",
   focusSearch = false,
   autoRunSearch = false,
-}: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
+  clinicalAskAvailableModeIds = [],
+}: ClinicalDashboardProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -450,7 +464,10 @@ export function ClinicalDashboard({
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>(initialSearchNavigationContext.scopeFilters);
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
   const [sourceGovernanceWarnings, setSourceGovernanceWarnings] = useState<SourceGovernanceWarning[]>([]);
-  const [answerViewMode, setAnswerViewMode] = useState<AnswerViewMode>("high_yield");
+  // Write-only for now: the clinical-notes panel was its only reader and the source
+  // drawer replaced that panel. The state and its resets stay until the panel itself
+  // is removed (handover §8), so re-wiring a view mode does not have to be rebuilt.
+  const [, setAnswerViewMode] = useState<AnswerViewMode>("high_yield");
   const [bulkActionStatus, setBulkActionStatus] = useState<string | null>(null);
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -513,9 +530,15 @@ export function ClinicalDashboard({
       if (!target) return;
       setActiveHash(href);
       const targetTop = target.getBoundingClientRect().top;
-      const top = ownsVerticalScroll(main)
+      const unclamped = ownsVerticalScroll(main)
         ? main.scrollTop + targetTop - main.getBoundingClientRect().top - 8
         : window.scrollY + targetTop - 8;
+      // Clamp like settings-dialog: short #quotes|#images|#sources sections can
+      // compute a top past the runway. scrollSurface also clamps; keep the
+      // local clamp so this hash path does not fight use-hide-on-scroll.
+      const scroller = ownsVerticalScroll(main) ? main : (document.scrollingElement ?? document.documentElement);
+      const maxOffset = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      const top = Math.min(Math.max(0, unclamped), maxOffset);
       scrollSurface(main, top);
       if (shouldUpdateHistory) window.history.replaceState(null, "", href);
       navSyncLockRef.current = window.setTimeout(() => {
@@ -547,6 +570,12 @@ export function ClinicalDashboard({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
+  const { clinicalAskSession, clinicalAskMode, runModeClinicalAsk } = useClinicalAskDashboardChrome({
+    accountId: auth.session?.user.id,
+    searchMode,
+    query,
+    clinicalAskAvailableModeIds,
+  });
   const {
     status: authStatus,
     authorizationHeader,
@@ -718,12 +747,14 @@ export function ClinicalDashboard({
   const isAdministrator = isAdministratorUser(auth.session?.user);
   const canUseAdministrativeApis = localProjectReady && isAdministrator;
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
-  const canRunSearch =
-    explicitDemoMode ||
-    canUsePublicSearchApis ||
-    canUseDegradedLocalSearchApis ||
-    canUseNonProductionDemoFallback ||
-    canAttemptDeployedPublicSearch;
+  const canRunSearch = canRunDashboardSearch({
+    localProjectReady,
+    explicitDemoMode,
+    canUsePublicSearchApis,
+    canUseDegradedLocalSearchApis,
+    canUseNonProductionDemoFallback,
+    canAttemptDeployedPublicSearch,
+  });
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
       indexingAdminReturnFocusRef.current =
@@ -775,11 +806,6 @@ export function ClinicalDashboard({
     [canUseAdministrativeApis, closeDashboardTransientSurfaces, settingsState],
   );
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(prefetchApplications, 250);
-    return () => window.clearTimeout(timeoutId);
-  }, [prefetchApplications]);
-
   // The dashboard renders directly on "/" without the standalone search shell,
   // so it must purge the legacy unscoped recent-queries key too (2026-07-13
   // audit, finding 4).
@@ -787,29 +813,26 @@ export function ClinicalDashboard({
     clearLegacyRecentQueries();
   }, []);
 
+  // Authenticated account preference bootstrap + recent-search recording gate.
+  // canRecordRecentSearches stays false until bootstrap settles, so we never
+  // leak queries against a remote opt-out while local defaults still say on.
+  const { canRecordRecentSearches } = useAppPreferences();
+
   useEffect(() => {
     if (!answerThreadOwnerId) {
       queueMicrotask(() => setRecentQueries([]));
       return;
     }
     let cancelled = false;
-    queueMicrotask(() => {
+    const reload = () => {
       if (cancelled) return;
-      try {
-        const stored = JSON.parse(
-          window.sessionStorage.getItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`) ?? "[]",
-        );
-        setRecentQueries(
-          Array.isArray(stored)
-            ? stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5)
-            : [],
-        );
-      } catch {
-        setRecentQueries([]);
-      }
-    });
+      setRecentQueries(loadRecentQueries(answerThreadOwnerId));
+    };
+    queueMicrotask(reload);
+    window.addEventListener(recentQueriesChangeEvent, reload);
     return () => {
       cancelled = true;
+      window.removeEventListener(recentQueriesChangeEvent, reload);
     };
   }, [answerThreadOwnerId]);
 
@@ -817,22 +840,19 @@ export function ClinicalDashboard({
     (value: string) => {
       const trimmedValue = value.trim();
       if (!trimmedValue) return;
+      // "Save recent searches" off (or bootstrap still in flight) means nothing
+      // is recorded at all, so bail before touching state too.
+      if (!canRecordRecentSearches) return;
       setRecentQueries((current) => {
         const next = [
           trimmedValue,
           ...current.filter((item) => item.toLowerCase() !== trimmedValue.toLowerCase()),
         ].slice(0, 5);
-        try {
-          if (answerThreadOwnerId) {
-            window.sessionStorage.setItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`, JSON.stringify(next));
-          }
-        } catch {
-          // Recent questions are a convenience only; ignore storage failures.
-        }
+        saveRecentQueries(answerThreadOwnerId, next);
         return next;
       });
     },
-    [answerThreadOwnerId],
+    [answerThreadOwnerId, canRecordRecentSearches],
   );
 
   usePersistedAnswerThread({
@@ -1503,11 +1523,16 @@ export function ClinicalDashboard({
     };
   }, []);
 
+  // The URL sync reads the current mode to tell a stale UI-change flag from a
+  // genuine one, without the mode becoming one of its dependencies.
+  const searchModeRef = useRef(searchMode);
+  searchModeRef.current = searchMode;
   useHomeModeSeed({
     pathname,
     searchParams,
     lastAppMode,
     setSearchMode,
+    searchModeRef,
     setQuery,
     setQueryMode,
     setScopeFilters,
@@ -1612,13 +1637,13 @@ export function ClinicalDashboard({
 
   function searchNetworkFailure(label: string) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
-    const origin = typeof window !== "undefined" ? window.location.origin : "Clinical KB";
+    const origin = typeof window !== "undefined" ? window.location.origin : "PsychSift";
     return makeSearchError(
       offline
         ? `${label} could not run because the browser is offline.`
         : isDeployedClinicalKb()
-          ? `${label} could not reach Clinical KB at ${origin}. Check your connection and try again shortly.`
-          : `${label} could not reach Clinical KB at ${origin}. The local server may still be starting or restarting; retry shortly or run npm run ensure.`,
+          ? `${label} could not reach PsychSift at ${origin}. Check your connection and try again shortly.`
+          : `${label} could not reach PsychSift at ${origin}. The local server may still be starting or restarting; retry shortly or run npm run ensure.`,
       undefined,
       true,
     );
@@ -2679,6 +2704,7 @@ export function ClinicalDashboard({
   }
 
   function startNewChat() {
+    clinicalAskSession.clear();
     modeChangeFromUiRef.current = true;
     const href = appModeHomeHref("answer", { focus: true });
     setQuery("");
@@ -2833,11 +2859,6 @@ export function ClinicalDashboard({
   const safetyFindings = useMemo(() => extractSafetyFindings(answer), [answer]);
   const bestSource = answerRenderModel?.bestSource ?? null;
   const sourceSummary = answer?.evidenceSummary;
-  const answerGrounded =
-    answer?.grounded === true &&
-    answer.confidence !== "unsupported" &&
-    isAnswerSourceBacked(answer) &&
-    answerRenderModel?.trust !== "unsupported";
   const answerPreformatted = isPreformattedGroundedAnswer(answer);
   const safeAnswerText = useMemo(
     () => sanitizeAnswerDisplayText(answer?.answer ?? "", { preformatted: answerPreformatted }),
@@ -2853,11 +2874,6 @@ export function ClinicalDashboard({
     if (showEarlierTurns || hiddenPriorTurnCount === 0) return priorAnswerTurns;
     return priorAnswerTurns.slice(-maxVisiblePriorTurns);
   }, [hiddenPriorTurnCount, priorAnswerTurns, showEarlierTurns]);
-  const answerEvidenceMapRows = useMemo(() => {
-    if (!answerRenderModel?.allowedBlocks.includes("evidenceMap")) return [];
-    return evidenceMapRowsFromRenderModel(answerRenderModel).slice(0, answerRenderModel.trust === "high" ? 8 : 6);
-  }, [answerRenderModel]);
-
   const showSystemNotice = Boolean(setupWarning && !demoMode);
   const groupedGovernanceWarningCount = useMemo(
     () =>
@@ -2953,7 +2969,7 @@ export function ClinicalDashboard({
     },
   ] as const;
   const showAuthPanel = false;
-  const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
+  const showDegradedNotice = shouldShowDashboardDegradedNotice({ isOnline, apiUnavailable, canRunSearch });
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
   const showSharedHome = shouldShowSharedHome({
@@ -2972,8 +2988,19 @@ export function ClinicalDashboard({
   useEffect(() => {
     if (showSharedHome) document.title = sharedHomeDocumentTitle(searchMode);
   }, [searchMode, showSharedHome]);
+  // A stopped generation reports on the last action rather than describing the
+  // page, so the notice renders at the top of the content column while this same
+  // condition still short-circuits the mode-home empty-state chain below.
+  const showAnswerCancelledNotice = answerLifecycle.status === "cancelled" && activeModeResultKind === "answer";
+  // `submittedAnswerSearchActive` stays true after the reader presses Stop, and a
+  // cancel is not an `error`, so without the cancelled guard the pending branch
+  // held its skeleton on screen indefinitely — a shimmering placeholder promising
+  // an answer that was already abandoned, directly beneath the notice saying so.
   const showAnswerPending =
-    activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
+    activeModeResultKind === "answer" &&
+    !answer &&
+    !showAnswerCancelledNotice &&
+    (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
   const showAnswerProgress =
     activeModeResultKind === "answer" &&
@@ -2986,6 +3013,15 @@ export function ClinicalDashboard({
   // matches for the prior query do not compete with the new Drafting stepper.
   const showUniversalAlsoMatches =
     !showSharedHome &&
+    // Prescribing declares `resultKind: "documents"` on purpose (it searches the
+    // indexed sources, not a forms table), so the documents arm below matches it
+    // and this dashboard would mount a SECOND panel over the one
+    // MedicationPrescribingWorkspace already renders under the medication list.
+    // The workspace owns the mount, because only it knows where the result list
+    // ends; the mode is named here rather than the result kind, because the kind
+    // is shared and the ownership is not. `tests/ui-stress.spec.ts` pins the count
+    // at one on `/?mode=prescribing`, which is how the duplicate was caught.
+    searchMode !== "prescribing" &&
     Boolean(universalAlsoMatchesQuery.trim()) &&
     (activeModeResultKind === "tools" ||
       activeModeResultKind === "favourites" ||
@@ -3013,8 +3049,8 @@ export function ClinicalDashboard({
           // Prescribing keeps MedicationHome (and the hero/phone composer) until
           // an explicit submit — draft keystrokes must not flip to results/dock.
           (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
-          // DifferentialsHome leaves ModeHomeTemplate when a draft query coincides
-          // with stale evidence matches — keep the hero slot only while home mounts.
+          // Empty unsubmitted differentials visits 307 to the shared home;
+          // keep the hero slot only while that idle dashboard branch mounts.
           (activeModeResultKind === "differentials" &&
             !modeSearchSubmitted &&
             !(query.trim() && documentMatches.length > 0)))));
@@ -3272,6 +3308,7 @@ export function ClinicalDashboard({
         onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
         onOpenSearch={openSidebarSearch}
+        onSelectMode={selectSearchMode}
         showAccountLibrary={favouritesAccessible}
       />
       <PhoneFooterLayerFrame
@@ -3284,7 +3321,7 @@ export function ClinicalDashboard({
           documentTotal={indexedDocumentTotal}
           query={query}
           searchMode={searchMode}
-          loading={loading}
+          loading={loading || (clinicalAskSession.mode === clinicalAskMode && clinicalAskSession.submitted)}
           selectedDocumentIds={selectedDocumentIds}
           queryMode={queryMode}
           scopeFilters={scopeFilters}
@@ -3327,7 +3364,13 @@ export function ClinicalDashboard({
             void ask();
           }}
           onCrossModeSearch={crossModeSearch}
-          composerFollowUpSuggestions={searchMode === "answer" ? answerFollowUpSuggestions : undefined}
+          /* The answer thread owns the follow-up questions now, as full-width
+             rows above its library line (owner decision, 2026-08-26,
+             "direction B"). The composer strip showed the same three questions
+             again, a few hundred pixels lower and truncated to whatever fitted
+             one scrolling line — which is the defect that argued for rows in
+             the first place. One place, readable, not two. */
+          composerFollowUpSuggestions={undefined}
           onPickComposerFollowUpSuggestion={handlePickFollowUpSuggestion}
           composerFollowUpSuggestionsDisabled={loading}
           showPhoneSuggestionTickerOnHome={heroOwnsPhoneComposer}
@@ -3378,18 +3421,20 @@ export function ClinicalDashboard({
           data-phone-chrome-transition={reserveTransitioning || chromeTransitioning ? "active" : "idle"}
           className={cn(
             "phone-scroll-surface min-h-0 flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:overflow-x-hidden sm:overflow-y-auto sm:overscroll-contain sm:[-webkit-overflow-scrolling:touch]",
-            // Answer view: the glass header is absolute over this surface, so
-            // <main> reserves its measured height 1:1 with #search so all the
-            // section floors below keep their meaning). Padding scrolls with
-            // content so it can frost beneath the bar. It stays constant when
-            // scroll-hidden: the reserve is at scroll-start, already off-screen
-            // whenever the header is hidden, so reclaiming it would only jump
-            // the content.
-            searchMode === "answer" &&
-              "pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]",
-            // Non-answer modes overlay their phone chrome, so this surface owns
-            // the clearance. Constant across hide/reveal by design.
-            searchMode !== "answer" && "max-sm:pt-[var(--phone-overlay-chrome-h)]",
+            // Idle phone homes stretch a column through this surface so the
+            // cluster can flex-center in leftover space. Result views stay a
+            // normal block scrollport.
+            compactMobileModeHome && "max-sm:flex max-sm:flex-col",
+            // Answer *results* keep the glass-header overlay pad at every width.
+            // Answer *home* on phones uses the measured overlay token so it
+            // cannot disagree with --phone-overlay-chrome-h after the stack
+            // is published. sm+ answer home still uses the glass pad because
+            // answer overlay is all-breakpoint.
+            searchMode === "answer" && compactMobileModeHome
+              ? "max-sm:pt-[var(--phone-overlay-chrome-h)] sm:pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] sm:[scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"
+              : searchMode === "answer"
+                ? "pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"
+                : "max-sm:pt-[var(--phone-overlay-chrome-h)]",
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
@@ -3404,7 +3449,7 @@ export function ClinicalDashboard({
                 : "mb-0",
           )}
         >
-          <h1 className="sr-only">Clinical Guide</h1>
+          <h1 className="sr-only">PsychSift</h1>
           {privateScopeStatus === "unavailable" ? (
             // Lives inside <main> (not as a header sibling): in the answer view
             // the header is absolute, so a sibling alert would reflow to the
@@ -3443,97 +3488,83 @@ export function ClinicalDashboard({
                 // overflow-x-CLIP, not -hidden: hidden makes this wrapper a scroll
                 // container (overflow-y computes to auto), which clips the composer's
                 // command dropdown mid-panel and shows a phantom inner scrollbar.
-                "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
-                compactMobileModeHome && "max-sm:px-0",
-                // Centred mode homes carry little content, so drop the large
-                // mobile bottom padding (the fixed composer already has its own
-                // reserved margin on <main>) to avoid a needless scrollbar.
-                // sm+/lg values stay identical to the result-view treatment.
+                //
+                // `sm:flex sm:min-h-full sm:flex-col` makes this the box the mode-home
+                // canvas grows into. `#main-content` is a bounded scrollport with a
+                // definite height at `sm`+, so `min-h-full` resolves against it exactly
+                // — border-box, so this wrapper's own padding is inside the 100% and
+                // cannot push the column past the scrollport. That is what lets the
+                // canvas drop its `calc(100dvh - <estimate>)` floor (see
+                // mode-home-canvas.ts) instead of guessing this padding, the desktop
+                // composer slot and the space-y gap in one hard-coded number.
+                "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 sm:flex sm:min-h-full sm:flex-col sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+                // Idle phone homes fill the already-padded <main> and centre
+                // in that box. Extra py/space-y here double-counted overlay
+                // chrome and manufactured a scrollbar.
+                compactMobileModeHome &&
+                  // Grow to fill leftover <main> space so the canvas can centre.
+                  // `flex-1` (`1 1 0%`) still shrinks. Keep grow without shrink so
+                  // a taller sibling (PWA scroll runway, late notices) overflows
+                  // the standalone #main-content scrollport instead of collapsing.
+                  "max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col max-sm:space-y-0 max-sm:px-0 max-sm:py-0",
                 searchMode === "answer"
                   ? compactMobileModeHome
-                    ? "pb-4"
+                    ? "sm:pb-4"
                     : // The <main> reserve already clears the fixed composer dock on
                       // phones, so the old large mobile bottom padding only floated a
                       // long answer's last line high above the dock (and padded a short
-                      // answer's empty space further). Keep it small here; sm+/desktop
+                      // answer's empty space further). This stays far below that, but
+                      // `pb-4` was the smallest tail in the app and left the last card
+                      // sitting almost on the bottom edge once the dock scroll-hides
+                      // and its reserve releases to zero. `pb-10` matches the
+                      // `sm:pb-10` every other mode wrapper already uses. sm+/desktop
                       // keep the original generous padding.
-                      "pb-4 sm:pb-36 lg:pb-40"
+                      "pb-10 sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
-                    ? // The <main> reserve clears the compact dock on phones, so
-                      // content keeps only a small pad of its own.
-                      compactMobileModeHome
-                      ? "pb-4 sm:pb-10 lg:pb-12"
+                    ? compactMobileModeHome
+                      ? "sm:pb-10 lg:pb-12"
                       : "pb-8 sm:pb-10 lg:pb-12"
                     : "pb-8 sm:pb-10 lg:pb-12",
               )}
             >
               <DashboardDesktopResultComposerSlot slotId={desktopResultComposerSlotId} />
+              {showAnswerCancelledNotice ? (
+                <AnswerCancelledNotice onRunAgain={() => void ask(answerLifecycle.query ?? query)} />
+              ) : null}
               {actionNotice && (
                 <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
                   {actionNotice.message}
                 </InlineNotice>
               )}
-              {showDegradedNotice && <DegradedNotice isOnline={isOnline} />}
+              <DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} reserveSpace={centeredModeHome} />
               {showSystemNotice && answer ? (
                 <SystemNotice demoMode={demoMode} setupWarning={setupWarning} className="hidden sm:block" />
               ) : null}
 
               <section
-                className={cn(
-                  compactMobileModeHome
-                    ? cn(
-                        // Every breakpoint keeps a viewport-height floor so
-                        // justify/place-items-center has free space to centre the
-                        // home block instead of hugging the header.
-                        "max-sm:flex max-sm:min-h-[calc(100dvh-12.5rem)] max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
-                        centeredModeHome && "max-sm:justify-center",
-                      )
-                    : // A rendered answer is content-sized and top-aligned on phones:
-                      // it must NOT inherit the viewport-height floor (that floor exists
-                      // to give the centred home block room). With the floor, a short
-                      // answer stretches the section to ~full height and you can scroll
-                      // down into a black void; content-sized keeps the answer under the
-                      // question with calm space below and no phantom scroll. Other
-                      // result kinds keep the floor; sm+/desktop is unchanged.
-                      activeModeResultKind === "answer" && answer
-                      ? "sm:min-h-[calc(100dvh-11rem)]"
-                      : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
-                  centeredModeHome || showSharedHome
-                    ? // Phones centre the home block mid-screen, matching the
-                      // standalone-route homes; the pop-up action surface picks
-                      // its own up/down placement so it stays unclipped either way.
-                      "grid w-full place-items-center max-sm:pt-2"
-                    : activeModeResultKind === "tools" ||
-                        activeModeResultKind === "favourites" ||
-                        activeModeResultKind === "differentials"
-                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                      : activeModeResultKind === "documents" || activeModeResultKind === "services"
-                        ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                        : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
-                )}
+                // Constrained 640–1919 first-paint top-align hook in globals.css.
+                // Tall desktop canvases keep their default optical centring. Do
+                // not restyle this from body:has(.pwa-notice-stack) — that caused CLS.
+                data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}
+                className={resolveModeHomeCanvasClass({
+                  activeModeResultKind,
+                  centeredModeHome,
+                  compactMobileModeHome,
+                  hasAnswer: Boolean(answer),
+                  showSharedHome,
+                })}
               >
                 <h2 data-testid="answer-section-heading" className="sr-only">
                   {activeModeSearch.resultHeading}
                 </h2>
-                {answerLifecycle.status === "cancelled" && activeModeResultKind === "answer" ? (
-                  <EmptyState
-                    icon={Square}
-                    title="Generation stopped"
-                    body="No partial clinical answer was kept. You can safely run the same question again."
-                    live="polite"
-                    testId="answer-cancelled"
-                    actions={
-                      <button
-                        type="button"
-                        className={cn(primaryControl, "text-xs")}
-                        onClick={() => void ask(answerLifecycle.query ?? query)}
-                      >
-                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                        Run again
-                      </button>
-                    }
-                  />
-                ) : error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
+                {/* Rendered above, at the top of the content column — see
+                    `showAnswerCancelledNotice`. The condition stays here so the
+                    chain below still short-circuits exactly as it did: a stopped
+                    generation must not fall through into the no-results or error
+                    empty states. */}
+                {showAnswerCancelledNotice ? null : error &&
+                  errorKind === "no-results" &&
+                  activeModeResultKind === "answer" ? (
                   <EmptyState
                     icon={Search}
                     title={answerRecovery.noResults.heading}
@@ -3605,21 +3636,22 @@ export function ClinicalDashboard({
                 {searchMode !== "prescribing" &&
                   (activeModeResultKind === "answer" ? (
                     showAnswerProgress ? (
-                      <AnswerProgressStepper
+                      // The evidence preview is rendered by AnswerProgress rather than
+                      // as a sibling panel below it. Two separate blocks in the answer's
+                      // own position — a progress panel and an evidence panel — both
+                      // vanished when the answer arrived; as one unit the rail simply
+                      // stays and takes its numbers.
+                      <AnswerProgress
                         events={answerProgressEvents}
                         startedAt={answerProgressStartedAt}
                         active={loading}
                         onStop={stopSearch}
-                        density={loading && Boolean(answer) ? "compact" : "expanded"}
+                        evidencePreview={loading ? answerEvidencePreview : null}
                       />
                     ) : null
                   ) : loading && answerProgress ? (
                     <SearchProgressBanner message={answerProgress} onStop={stopSearch} />
                   ) : null)}
-
-                {activeModeResultKind === "answer" && loading && answerEvidencePreview ? (
-                  <AnswerEvidencePreview preview={answerEvidencePreview} />
-                ) : null}
 
                 {showUniversalAlsoMatches &&
                 (activeModeResultKind === "tools" ||
@@ -3629,7 +3661,19 @@ export function ClinicalDashboard({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
-                {showSharedHome ? (
+                {clinicalAskWorkspaceVisible(clinicalAskSession, clinicalAskMode) ? (
+                  <ModeClinicalAskSurface
+                    session={clinicalAskSession}
+                    activeMode={clinicalAskMode}
+                    searchMode={searchMode}
+                    queryMode={queryMode}
+                    scopeFilters={scopeFilters}
+                    setDraft={setQuery}
+                    setSearchSubmitted={setModeSearchSubmitted}
+                    focusSearch={focusComposerInput}
+                    onRun={runModeClinicalAsk}
+                  />
+                ) : showSharedHome ? (
                   // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
                   // presentation and composer target; mode-owned content stays behind
@@ -3738,7 +3782,13 @@ export function ClinicalDashboard({
                     </>
                   )
                 ) : showAnswerPending ? (
-                  <AnswerSkeleton />
+                  // Only until the first progress event. From there AnswerProgress owns
+                  // the whole wait — line, prose placeholder, sources, in the order the
+                  // arrived answer uses — and rendering the skeleton here as well would
+                  // put a second prose placeholder below its sources.
+                  showAnswerProgress ? null : (
+                    <AnswerSkeleton />
+                  )
                 ) : answer && answerRenderModel ? (
                   stagedDashboardExtraction.answerSurface ? (
                     <>
@@ -3769,10 +3819,6 @@ export function ClinicalDashboard({
                         sourceSummary={sourceSummary}
                         renderModel={answerRenderModel}
                         weakEvidence={weakEvidence}
-                        answerViewMode={answerViewMode}
-                        answerEvidenceMapRows={answerEvidenceMapRows}
-                        onScopeDocument={handleScopeDocument}
-                        answerGrounded={answerGrounded}
                         sources={answerRenderModel.reviewSources}
                         demoMode={demoMode}
                         safetyFindings={safetyFindings}
@@ -3781,19 +3827,26 @@ export function ClinicalDashboard({
                         onCopyAnswer={handleCopyAnswer}
                         onSubmitFeedback={handleSubmitAnswerFeedback}
                         onFollowUpQuote={handleAnswerFollowUpQuote}
+                        crossModeQueries={crossModeQueries}
+                        onCrossModeSearch={handleCrossModeSearch}
                         followUpSuggestions={answerFollowUpSuggestions}
                         onPickFollowUpSuggestion={handleFollowUpSuggestionPick}
                         followUpSuggestionsDisabled={loading}
-                        crossModeQueries={crossModeQueries}
-                        onCrossModeSearch={handleCrossModeSearch}
+                        onScopeDocument={handleScopeDocument}
                       />
                     </>
                   ) : null
                 ) : null}
 
-                {showUniversalAlsoMatches && activeModeResultKind === "answer" ? (
-                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
-                ) : null}
+                {/* No mode-level "Also matches" under an answer. It sat directly
+                    beneath the answer surface's own "Also in your library" and
+                    asked the same question — where else does this appear — one
+                    panel less specifically: this one names modes, that one names
+                    the actual medication, factsheet or form inside them. Two
+                    near-identical panels under one answer is what the owner
+                    photographed on 2026-08-26. The mode-level view is still
+                    reachable from mode navigation and still renders on the
+                    tools, documents, services and forms result kinds above. */}
               </section>
 
               {showSystemNotice && answer ? (
@@ -3927,7 +3980,7 @@ export function ClinicalDashboard({
                               )}
                             >
                               <span className="flex items-center gap-1.5 text-xs font-bold">
-                                <Icon className="h-3.5 w-3.5" />
+                                <Icon aria-hidden="true" className="h-3.5 w-3.5" />
                                 {tab.label}
                               </span>
                               <span
@@ -4044,7 +4097,10 @@ export function ClinicalDashboard({
           open={settingsState.settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
-          onSignOut={auth.signOut}
+          onSignOut={async () => {
+            clinicalAskSession.clear();
+            await auth.signOut();
+          }}
           onOpenGuide={settingsGuideFlow.openGuideFromSettings}
           onPrefetchGuide={loadGuideDialog}
           initialFocus={settingsGuideFlow.settingsInitialFocus}
@@ -4068,6 +4124,7 @@ export function ClinicalDashboard({
           onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
           onOpenSearch={openSidebarSearch}
+          onSelectMode={selectSearchMode}
           showAccountLibrary={favouritesAccessible}
         />
       </PhoneFooterLayerFrame>

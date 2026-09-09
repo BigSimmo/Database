@@ -1,19 +1,28 @@
+import { z } from "zod";
+
+import { parseApiSuccessResponse } from "@/lib/api-success-response";
 import { getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 
 export const BATCH_SIGNED_URLS_MAX_CHUNK = 100;
 
-export type BatchSignedUrlItem = {
-  url: string;
-  mimeType: string | null;
-  caption: string | null;
-  expiresAt: string;
-  demoMode?: boolean;
-};
+export const batchSignedUrlItemSchema = z
+  .object({
+    url: z.string().min(1),
+    mimeType: z.string().nullable(),
+    caption: z.string().nullable(),
+    expiresAt: z.string().datetime({ offset: true }),
+    demoMode: z.boolean().optional(),
+  })
+  .strict();
 
-export type BatchSignedUrlsResponse = {
-  urls: Record<string, BatchSignedUrlItem>;
-  error?: string;
-};
+export const batchSignedUrlsResponseSchema = z
+  .object({
+    urls: z.record(z.string(), batchSignedUrlItemSchema),
+  })
+  .strict();
+
+export type BatchSignedUrlItem = z.infer<typeof batchSignedUrlItemSchema>;
+export type BatchSignedUrlsResponse = z.infer<typeof batchSignedUrlsResponseSchema>;
 
 /**
  * Filter an array of image IDs to only those that do NOT currently have an active
@@ -76,8 +85,12 @@ export async function fetchBatchSignedImageUrls(
         return { status: response.status, urls: {} };
       }
 
-      const data = (await response.json()) as BatchSignedUrlsResponse;
-      return { status: response.status, urls: data.urls ?? {} };
+      const data = await parseApiSuccessResponse(
+        response,
+        batchSignedUrlsResponseSchema,
+        "Signed image URLs returned an invalid response.",
+      );
+      return { status: response.status, urls: data.urls };
     }),
   );
 

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
-import { planModeNavBands } from "@/components/mode-nav/mode-nav-bands";
+import { planModeNavBands, type ModeNavDensityProfile } from "@/components/mode-nav/mode-nav-bands";
 import { ModeNavSlotInk, modeNavSlotBase } from "@/components/mode-nav/nav-slot-ink";
 import { cn } from "@/components/ui-primitives";
 
@@ -18,6 +18,11 @@ const focusRing =
  * the four-slot band. Below the minimum bar width, the header's existing title
  * disclosure remains the safe non-overflow fallback.
  *
+ * Defaults to `extended-counted`, not `extended` — the two happen to share a
+ * label family, but `extended` is Therapy's mode-nav profile and free to
+ * change for Therapy's own reasons. Coupling this rail to it by relying on a
+ * shared name is the mistake `extended-counted` exists to rule out.
+ *
  * This is deliberately not a tablist. The panel is a plain region and all
  * sections are also reachable from the sheet, so ordinary buttons keep every
  * visible destination in the normal Tab order.
@@ -30,6 +35,8 @@ export function InPageSectionRail({
   sectionSheetOpen,
   label,
   testIdPrefix,
+  density = "extended-counted",
+  countedLabels = false,
 }: {
   sections: readonly PageSection[];
   activeId: string | null;
@@ -39,13 +46,27 @@ export function InPageSectionRail({
   /** Accessible name for the rail, e.g. "Medication sections". */
   label: string;
   testIdPrefix: string;
+  /**
+   * Which calibrated label family this rail's labels belong to. It only moves
+   * the container width at which each band becomes active — never the order,
+   * and never which item folds first.
+   */
+  density?: ModeNavDensityProfile;
+  /**
+   * `true` when every slot carries a count badge beside its label, which needs
+   * roughly a third more width per slot.
+   */
+  countedLabels?: boolean;
 }) {
   const plan = useMemo(() => {
     const sharedPlan = planModeNavBands(sections.length);
-    if (sections.length !== 4) return sharedPlan;
-    // Medication labels carry icons and count badges, so the generic 33rem
-    // four-slot band clips them. Reuse the established 42rem density band:
-    // two priority destinations plus More until all four fit completely.
+    if (sections.length !== 4 || !countedLabels) return sharedPlan;
+    // Counted labels (icon + label + count badge) clip at the generic four-slot
+    // band, so those rails hold two priority destinations plus More until the
+    // 42rem band fits all four completely. A rail whose labels carry no badge
+    // does not pay that, which is why this is opt-in rather than keyed on the
+    // section count: it cost Therapy's rail two of its four destinations, both
+    // of them behind More on every phone.
     return {
       firstVisibleBand: new Map([
         [0, 3],
@@ -55,7 +76,7 @@ export function InPageSectionRail({
       ] as const),
       moreUntil: 4,
     } satisfies ReturnType<typeof planModeNavBands>;
-  }, [sections.length]);
+  }, [sections.length, countedLabels]);
   const activeIndex = sections.findIndex((section) => section.id === activeId);
   const activeBand = activeIndex >= 0 ? plan.firstVisibleBand.get(activeIndex) : undefined;
   const activeFrom = plan.moreUntil !== null && activeIndex >= 0 ? (activeBand ?? "none") : undefined;
@@ -71,9 +92,9 @@ export function InPageSectionRail({
     <nav
       aria-label={label}
       data-testid={`${testIdPrefix}-section-rail`}
-      className="border-t border-[color:var(--border)] sm:mt-2 sm:rounded-xl sm:border sm:border-[color:var(--border-lux)] sm:bg-[color:var(--surface-raised)] sm:px-1 sm:shadow-[var(--shadow-inset)]"
+      className="mt-2 border-t border-[color:var(--border)] sm:rounded-xl sm:border sm:border-[color:var(--border-lux)] sm:bg-[color:var(--surface-raised)] sm:px-1 sm:shadow-[var(--shadow-inset)]"
     >
-      <div className="mode-nav" data-density-profile="extended">
+      <div className="mode-nav" data-density-profile={density}>
         <ul className="mode-nav__bar h-12 items-stretch px-1">
           {sections.map((section, index) => {
             const band = plan.firstVisibleBand.get(index);

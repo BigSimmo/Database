@@ -160,6 +160,38 @@ describe.skipIf(process.platform === "win32")("push-format-guard", () => {
       expect(out.stdout).toBe("");
     });
 
+    it("stays silent from a linked worktree whose primary .githooks is wired", () => {
+      const primary = mkdtempSync(join(tmpdir(), "push-format-guard-primary-ok-"));
+      const worktreeParent = mkdtempSync(join(tmpdir(), "push-format-guard-wt-ok-"));
+      scratchRoots.push(worktreeParent, primary);
+      execFileSync("git", ["init", "-q"], { cwd: primary });
+      execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: primary });
+      execFileSync("git", ["config", "user.name", "test"], { cwd: primary });
+      execFileSync("git", ["commit", "--allow-empty", "-q", "-m", "init"], { cwd: primary });
+
+      const worktree = join(worktreeParent, "worktree");
+      execFileSync("git", ["worktree", "add", "-q", worktree, "HEAD"], { cwd: primary });
+
+      mkdirSync(join(worktree, "node_modules/prettier"), { recursive: true });
+      mkdirSync(join(primary, ".githooks"), { recursive: true });
+      const primaryHook = join(primary, ".githooks/pre-push");
+      writeFileSync(primaryHook, "#!/usr/bin/env bash\nexit 0\n");
+      chmodSync(primaryHook, 0o755);
+
+      setHooksPath(worktree, join(primary, ".githooks"));
+
+      const binDir = mkdtempSync(join(tmpdir(), "push-format-guard-bin-"));
+      scratchRoots.push(binDir);
+      const npx = join(binDir, "npx");
+      writeFileSync(npx, '#!/usr/bin/env bash\necho "[warn] bad.js"\nexit 1\n');
+      chmodSync(npx, 0o755);
+
+      const out = runHook(worktree, binDir, "git push origin HEAD", worktree);
+      expect(out.denied).toBe(false);
+      expect(out.stdout).toBe("");
+      expect(out.status).toBe(0);
+    });
+
     // Windows drive-letter paths are case-insensitive; Bash `=` is not. Git
     // reports whatever casing `npm install` happened to write, so a checkout
     // Claude Code knows as `D:/Database` can carry `core.hooksPath` of
@@ -226,6 +258,40 @@ describe.skipIf(process.platform === "win32")("push-format-guard", () => {
       const { root, binDir } = riggedRepo();
       setHooksPath(root, `${join(root, ".githooks").toUpperCase()}`);
       expect(runHook(root, binDir).denied).toBe(true);
+    });
+
+    it("denies when core.hooksPath matches the primary tree but only the worktree pre-push is executable", () => {
+      // Linked-worktree self-disable must pair the resolved hooks path with
+      // THAT tree's pre-push. Matching the primary checkout's .githooks while only the
+      // worktree hook is executable would skip the Prettier check for the
+      // directory Git will actually run.
+      const primary = mkdtempSync(join(tmpdir(), "push-format-guard-primary-"));
+      const worktreeParent = mkdtempSync(join(tmpdir(), "push-format-guard-wt-"));
+      scratchRoots.push(worktreeParent, primary);
+      execFileSync("git", ["init", "-q"], { cwd: primary });
+      execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: primary });
+      execFileSync("git", ["config", "user.name", "test"], { cwd: primary });
+      execFileSync("git", ["commit", "--allow-empty", "-q", "-m", "init"], { cwd: primary });
+
+      const worktree = join(worktreeParent, "worktree");
+      execFileSync("git", ["worktree", "add", "-q", worktree, "HEAD"], { cwd: primary });
+
+      mkdirSync(join(worktree, "node_modules/prettier"), { recursive: true });
+      mkdirSync(join(primary, ".githooks"), { recursive: true });
+      mkdirSync(join(worktree, ".githooks"), { recursive: true });
+      const worktreeHook = join(worktree, ".githooks/pre-push");
+      writeFileSync(worktreeHook, "#!/usr/bin/env bash\nexit 0\n");
+      chmodSync(worktreeHook, 0o755);
+
+      setHooksPath(worktree, join(primary, ".githooks"));
+
+      const binDir = mkdtempSync(join(tmpdir(), "push-format-guard-bin-"));
+      scratchRoots.push(binDir);
+      const npx = join(binDir, "npx");
+      writeFileSync(npx, '#!/usr/bin/env bash\necho "[warn] bad.js"\nexit 1\n');
+      chmodSync(npx, 0o755);
+
+      expect(runHook(worktree, binDir, "git push origin HEAD", worktree).denied).toBe(true);
     });
   });
 

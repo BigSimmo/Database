@@ -74,7 +74,7 @@ export default function RecentSearchesBottomMockupPage() {
       <section className="mx-auto max-w-7xl space-y-5 px-3 py-6 pb-48 sm:px-4 sm:py-8 lg:px-8">
         <div className="grid min-h-[calc(100dvh-18rem)] place-items-center">
           <div className="w-full max-w-4xl space-y-5">
-            <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
+            <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] sm:p-5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--shadow-inset)]">
                   <Search className="h-4.5 w-4.5" />

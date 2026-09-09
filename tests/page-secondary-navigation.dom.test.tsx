@@ -47,6 +47,7 @@ describe("PageSecondaryNavigation", () => {
     "/dsm/search",
     "/dsm/compare",
     "/factsheets/search",
+    "/factsheets/topics",
   ])("does not treat %s as locally owned information navigation", (pathname) => {
     expect(hasLocalInformationPageNavigation(pathname)).toBe(false);
   });
@@ -95,10 +96,11 @@ describe("PageSecondaryNavigation", () => {
     expect(bar).toHaveAttribute("aria-label", "Specifiers pages");
     expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Build" })).toHaveAttribute("href", "/specifiers/builder");
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("href", "/specifiers/search");
     // Registry order is load-bearing: only the first two slots survive the
-    // narrowest band, so Find and Build must be the ones that stay.
+    // narrowest band, so Search and Build must be the ones that stay.
     expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual([
-      "Find",
+      "Search",
       "Build",
       "Compare",
       "Map",
@@ -128,7 +130,7 @@ describe("PageSecondaryNavigation", () => {
     );
     const bar = screen.getByTestId("mode-nav");
     expect(bar).toHaveAttribute("aria-label", "Factsheets pages");
-    expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual(["Topics", "Search"]);
+    expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual(["Search", "Topics"]);
     expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
     // Search is the tab you are already on. Its own link must not reset the
     // category filter you are reading, nor drop `run` — that flips
@@ -137,10 +139,17 @@ describe("PageSecondaryNavigation", () => {
       "href",
       "/factsheets/search?q=sertraline&category=Medicines&run=1",
     );
-    // Topics is the mode home — the shared lightweight one since `/factsheets`
-    // became a redirect. It reads neither param, and carries no focus=1 either:
-    // autofocusing the composer there would open the phone keyboard unbidden.
-    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("href", "/?mode=factsheets");
+    // Topics is the category browse. It reads neither param, and carries no
+    // focus=1 either: autofocusing the composer there would open the phone
+    // keyboard unbidden.
+    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("href", "/factsheets/topics");
+  });
+
+  it("marks Topics current on the category browse page", () => {
+    render(<PageSecondaryNavigation modeId="factsheets" pathname="/factsheets/topics" hasSubmittedSearch={false} />);
+    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("href", "/factsheets/search");
+    expect(screen.getByRole("link", { name: "Search" })).not.toHaveAttribute("aria-current");
   });
 
   it("keeps the newly adopted factsheets bar off its record routes", () => {

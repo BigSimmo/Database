@@ -1,6 +1,7 @@
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
-import { planRequestBatch } from "../scripts/ledger-inbox.mjs";
+import { applyRequest, applyRequestBatch, planRequestBatch } from "../scripts/ledger-inbox.mjs";
 
 const UPDATE_ID = "11111111-1111-4111-8111-111111111111";
 const CANCEL_ID = "22222222-2222-4222-8222-222222222222";
@@ -138,5 +139,46 @@ describe("ledger inbox cancellation planning", () => {
     expect(() =>
       plan([update(UPDATE_ID), update(CANCEL_ID), cancel(UNKNOWN_ID, APPLIED_ID)], [update(APPLIED_ID)]),
     ).toThrow(/multiple pending mutations require an explicit cancellation decision/);
+  });
+
+  it("handles done requests on already-archived issues idempotently (#686WHW)", () => {
+    const base = [
+      "# Outstanding",
+      "",
+      "## Open items",
+      "",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| #002 | P2 | issue | two | d | s | 2026-01-01 |",
+      "",
+      "## Resolved / archive",
+      "",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #001 | issue | one | done | 2026-01-01 |",
+      "",
+    ].join("\n");
+
+    const staleDone = {
+      version: 2,
+      id: "99999999-9999-4999-8999-999999999999",
+      createdOn: "2026-08-14",
+      action: "done",
+      payload: { id: "#001", outcome: "another done", baseRowFingerprint: "a".repeat(64) },
+    };
+
+    expect(applyRequest(base, staleDone, { idempotent: true })).toBe(base);
+    expect(applyRequestBatch(base, [staleDone]).markdown).toBe(base);
+  });
+
+  it("executes CLI with --dry-run without creating files (#AGBNBV)", () => {
+    const result = spawnSync(
+      process.execPath,
+      ["scripts/ledger-inbox.mjs", "add", "--pri", "P2", "--type", "issue", "--summary", "dry run test", "--dry-run"],
+      { encoding: "utf8" },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("[dry-run] Planned add request for");
+    expect(result.stdout).toContain('"summary": "dry run test"');
   });
 });

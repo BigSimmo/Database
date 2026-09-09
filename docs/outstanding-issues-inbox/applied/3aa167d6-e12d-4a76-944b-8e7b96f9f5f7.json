@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3aa167d6-e12d-4a76-944b-8e7b96f9f5f7",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#QSHHGK",
+    "outcome": "Resolved by existing merged evidence, not a fresh run: PR #2186 commit d7ffae1a5782394bd7af14f1a46b8fb6a88fc691 added bundle-budget baselineSource and updatedAt provenance, JSON baselineSource/baselineCommitDistance output, a stale-baseline warning above the 50-commit threshold, and focused provenance/drift tests in scripts/check-bundle-budget.mjs and tests/bundle-budget.test.ts. bundle-budget.json now carries updatedAt and baselineSource. The row chosen remediation was to make staleness visible before unrelated PRs inherit the hard failure; no scheduled rebuild is required for that option.",
+    "baseRowFingerprint": "48b51b001f5bccea71e0663890ecb6f1c352a568316833bef460c1c55f36d7e2"
+  }
+}

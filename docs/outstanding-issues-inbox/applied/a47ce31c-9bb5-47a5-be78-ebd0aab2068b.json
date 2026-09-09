@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a47ce31c-9bb5-47a5-be78-ebd0aab2068b",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "The review-state page renders 1.73 MB of HTML and no gate watches it",
+    "detail": "/mockups/development/review-state lists all committed review records unpaginated - measured at 1.73 MB of served HTML for 454 records, and the corpus grows with every merge. The no-pagination choice is deliberate and correct: it is what makes the list unable to disagree with its own count, and both alternatives are worse - pagination needs a client boundary, which reintroduces the Server/Client trap this phase exists to avoid, and capping means the page hides records from its own total. But nothing measures the cost. check:bundle-budget weighs client JavaScript and these pages ship none, so the payload can grow indefinitely unnoticed. A future option worth considering is collapsible grouping by year as presentation chrome only, never filtering.",
+    "source": "Phase 2 acceptance measurement, PR #2359",
+    "issueUlid": "01M0V9N5SFY0BDBJ02B8B21NGQ"
+  }
+}

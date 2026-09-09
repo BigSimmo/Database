@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "npm:postgres@3.4.7";
 
 import { hasServiceRoleAuthorization } from "./auth.ts";
+import { INGESTION_WORKER_RETIRED, retiredIngestionWorkerResponse } from "./retirement.ts";
 
 declare const Supabase: {
   ai: {
@@ -265,6 +266,11 @@ async function processJob(job: ClaimedJob, workerId: string): Promise<"completed
 
 Deno.serve(async (req: Request) => {
   try {
+    // Audit L24: this function performs no extraction, yet claims real jobs from
+    // the shared queue and stamps documents `indexed` on its way through the
+    // catch. Refuse before touching the queue; see ./retirement.ts.
+    if (INGESTION_WORKER_RETIRED) return retiredIngestionWorkerResponse();
+
     if (req.method !== "POST") {
       return new Response("Method not allowed", { status: 405, headers: { Allow: "POST" } });
     }

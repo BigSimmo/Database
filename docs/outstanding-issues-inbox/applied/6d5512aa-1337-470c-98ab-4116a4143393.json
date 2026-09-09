@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6d5512aa-1337-470c-98ab-4116a4143393",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#308",
+    "outcome": "Resolved by the 2026-08-23 current-main performance remediation. The production CLS attribution matrix now measures /documents/search at 0 on mobile and 0.000061, 0.000335, 0.000269, and 0.000021 at desktop 800/1280/1350/1440 after splitting generic-page composer ownership into a settled 184px reserve. The former 96-135px main displacement is absent, header geometry is stable from first observation, and hidden composer owners retain zero reserve. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts; tests/header-scroll-hide-contract.test.ts.",
+    "baseRowFingerprint": "0a72c497b31144c86a6ad3b2d4189577b4a8ab1d59e715f468f1029809d8be15"
+  }
+}

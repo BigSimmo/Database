@@ -1,4 +1,5 @@
-import { canAccessFavouritesMode } from "@/lib/app-modes";
+import { appModeHomeHref, canAccessFavouritesMode } from "@/lib/app-modes";
+import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 
 // Canonical Tools dataset. Previously duplicated between the live launcher
@@ -24,6 +25,7 @@ export type ToolCatalogId =
   | "differentials"
   | "documents"
   | "clinical-dictionary"
+  | "source-catalogue"
   | "guidelines"
   | "risk-safety"
   | "medication-prescribing"
@@ -33,8 +35,8 @@ export type ToolCatalogId =
   | "safety-plan"
   | "calculators"
   | "monitoring"
-  | "favourites"
-  | "ward-management";
+  | "caring-contacts"
+  | "favourites";
 
 export type ToolCatalogRecord = {
   id: ToolCatalogId;
@@ -60,8 +62,8 @@ export type ToolCatalogRecord = {
 export const toolCatalogRecords: ToolCatalogRecord[] = [
   {
     id: "clinical-kb-search",
-    title: "Clinical KB Search",
-    mobileTitle: "Clinical KB",
+    title: "PsychSift Search",
+    mobileTitle: "PsychSift",
     description: "Ask source-backed clinical questions and move straight to evidence.",
     bestFor: "Quick answers and guidance",
     detail: "Ask source-backed clinical questions and move straight to evidence.",
@@ -82,7 +84,11 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Build and compare diagnostic possibilities with source-aware prompts.",
     bestFor: "Broad or complex presentations",
     detail: "Compare diagnostic possibilities, supporting features, red flags, and next-step questions.",
-    href: "/differentials",
+    // Tools is in-app navigation, so go straight to the canonical shared home.
+    // The bare namespace is only a compatibility redirect for old bookmarks;
+    // sending a client transition through it can briefly retain the Tools route
+    // shell and its phone geometry before the second navigation settles.
+    href: appModeHomeHref("differentials"),
     area: "assessment",
     status: "recent",
     sourceBacked: true,
@@ -119,7 +125,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     bestFor: "Terminology and abbreviation lookup",
     detail:
       "Open concise definitions, resolve ambiguous abbreviations, compare terms, and review their direct sources.",
-    href: "/dictionary",
+    href: appModeHomeHref("dictionary"),
     area: "reference",
     status: "ready",
     sourceBacked: true,
@@ -129,6 +135,22 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     checkFirst: ["Term or abbreviation", "Clinical topic or context", "Whether a distinction or comparison is needed"],
     neededInput: ["Term, abbreviation, or topic"],
     output: "Source-checked definition, related terminology, distinctions, and source links.",
+  },
+  {
+    id: "source-catalogue",
+    title: "Sources",
+    description: "Browse ranked clinical sources and their traceability.",
+    bestFor: "Source quality and provenance review",
+    detail: "Review source identity, quality bands, locations, publishers, topics, and application usage.",
+    href: appModeHomeHref("sources"),
+    area: "reference",
+    status: "ready",
+    sourceBacked: true,
+    actionLabel: "Browse",
+    keywords: ["sources", "catalogue", "publisher", "quality", "provenance", "traceability"],
+    checkFirst: ["Source identity", "Quality band", "Review and lifecycle status"],
+    neededInput: ["Optional title, publisher, topic, or usage filter"],
+    output: "Read-only source catalogue records with quality and traceability details.",
   },
   {
     id: "guidelines",
@@ -199,7 +221,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     description: "Open source-backed service records, referral routes, and eligibility.",
     bestFor: "Referrals and coordination",
     detail: "Open service records with referral routes, eligibility, source status, and access pathways.",
-    href: "/services",
+    href: appModeHomeHref("services"),
     area: "coordination",
     status: "ready",
     sourceBacked: true,
@@ -211,52 +233,12 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     output: "Referral pathway, eligibility notes, service record, and source link.",
   },
   {
-    id: "ward-management",
-    title: "Ward Flow",
-    mobileTitle: "Ward Flow",
-    description: "Coordinate synthetic psychiatry demand, bed capacity, referrals, and patient movement across WA.",
-    bestFor: "Statewide mental-health patient flow",
-    detail:
-      "Review a synthetic priority queue, scan current ward capacity, inspect explainable destination matches, and confirm the next owned movement action.",
-    href: "/ward-management",
-    area: "coordination",
-    status: "ready",
-    sourceBacked: false,
-    highYield: true,
-    actionLabel: "Coordinate",
-    keywords: [
-      "ward",
-      "ward flow",
-      "bed management",
-      "bed availability",
-      "psychiatry",
-      "patient flow",
-      "hospital coordination",
-      "ED transfer",
-      "catchment",
-      "MHPF",
-      "WACHS",
-    ],
-    checkFirst: [
-      "Human urgency tier and elapsed wait",
-      "Catchment and required ward setting",
-      "Legal, handover, and transport readiness",
-      "Last-confirmed ward capacity",
-    ],
-    neededInput: [
-      "Synthetic movement identifier",
-      "Cohort, catchment, and open or secure setting",
-      "Referral, legal, and transport status",
-    ],
-    output: "An explainable destination shortlist and human-confirmed patient movement plan.",
-  },
-  {
     id: "forms",
     title: "Forms",
     description: "Find clinical forms and source-backed readiness pathways.",
     bestFor: "Forms and workflows",
     detail: "Open form search, readiness checks, pathway tasks, and source-backed records.",
-    href: "/forms",
+    href: appModeHomeHref("forms"),
     area: "coordination",
     status: "ready",
     sourceBacked: true,
@@ -326,7 +308,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     bestFor: "Bedside scoring and severity banding",
     detail:
       "Search and complete clinical calculators (PHQ-9, GAD-7, CSSRS, and related scales). Scores support clinical judgement and cite their source — they never replace a full assessment.",
-    href: "/calculators",
+    href: appModeHomeHref("calculators"),
     area: "assessment",
     status: "ready",
     sourceBacked: true,
@@ -368,6 +350,26 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     checkFirst: ["Monitoring indication", "Last result date", "Thresholds and alerts"],
     neededInput: ["Medication or condition", "Recent results", "Monitoring timeframe"],
     output: "Monitoring schedule, thresholds, and review prompts.",
+  },
+  {
+    // The one card that is the front door to a standalone workspace. Caring Contacts owns
+    // its own navigation once you are inside it, so this catalogue entry is the only place
+    // the host application names it — see docs/codebase-index.md.
+    id: "caring-contacts",
+    title: "Caring Contacts",
+    description: "A synthetic demonstration of caring-contact follow-up after a hospital stay.",
+    bestFor: "Seeing how caring-contact follow-up is coordinated",
+    detail:
+      "A working demonstration built on invented patients and invented numbers. Nothing in it is ever sent to a real number, and none of it is patient data.",
+    href: CARING_CONTACTS_ROUTES.today,
+    area: "coordination",
+    status: "ready",
+    sourceBacked: false,
+    actionLabel: "Open",
+    keywords: ["caring contacts", "follow-up", "aftercare", "discharge", "coordination", "demonstration"],
+    checkFirst: ["Everything shown is invented", "No message is ever sent", "Not a clinical record"],
+    neededInput: ["Nothing — the workspace carries its own synthetic examples"],
+    output: "A demonstration workspace showing how caring-contact follow-up is coordinated.",
   },
   {
     id: "favourites",
@@ -413,14 +415,60 @@ export function publicKnowledgeToolCatalogRecordById(id: string): ToolCatalogRec
   return publicKnowledgeToolCatalogRecords.find((record) => record.id === id) ?? null;
 }
 
+/**
+ * Resolves a catalogue record by id, and throws for an id the catalogue does not
+ * know. It used to fall back to the first record, so a typo rendered the PsychSift
+ * Search card in place of the tool that was asked for instead of failing; the only
+ * caller builds mockup fixtures at module load, where a thrown error is caught by the
+ * fixture test before anything is rendered.
+ */
 export function toolCatalogRecordById(id: string): ToolCatalogRecord {
-  return toolCatalogRecords.find((tool) => tool.id === id) ?? toolCatalogRecords[0];
+  const record = toolCatalogRecords.find((tool) => tool.id === id);
+  if (!record) throw new Error(`Unknown tool catalogue id: ${id}`);
+  return record;
 }
 
-/** Hide account-scoped Favourites / Saved workflows from guest Tools surfaces. */
+/**
+ * Whether the Caring Contacts card may be offered at all.
+ *
+ * The workspace behind it fails closed in production (`isCaringContactsDemoEnabled`,
+ * src/lib/caring-contacts-server/session.ts): every route 404s until enterprise sign-on
+ * exists, with one exception for the isolated Playwright production server. Offering
+ * the card there would put an "Open" button on the live launcher whose target is a
+ * dead link on a suicide-prevention surface, so the card follows the same lock.
+ *
+ * It cannot call that predicate: the module is server-only, and the catalogue is
+ * rendered by client components, which see only what the client bundle inlines —
+ * `NODE_ENV` and `NEXT_PUBLIC_DEMO_MODE`. `PLAYWRIGHT_OFFLINE_MODE` never reaches the
+ * browser, and reading it here would make the server and the client disagree about
+ * the list. The two predicates still agree everywhere a server can start: a production
+ * process carrying `NEXT_PUBLIC_DEMO_MODE=true` without the Playwright offline flag is
+ * refused by `src/instrumentation.ts`. Pinned by tests/tools-catalog.test.ts.
+ *
+ * Both reads must stay as literal `process.env.NAME` member expressions — that is
+ * what Next inlines into the client bundle; an indirection reads `undefined` there.
+ */
+export function isCaringContactsToolListed(
+  environment: string | undefined = process.env.NODE_ENV,
+  demoMode: string | undefined = process.env.NEXT_PUBLIC_DEMO_MODE,
+): boolean {
+  if (environment !== "production") return true;
+  return demoMode === "true";
+}
+
+/**
+ * The catalogue as a given session may see it: account-scoped Favourites / Saved
+ * workflows are hidden from guests, and the Caring Contacts card is hidden wherever
+ * its workspace is locked (see `isCaringContactsToolListed`).
+ */
 export function toolCatalogRecordsForSession(options: { authenticated: boolean; demoMode: boolean }) {
-  if (canAccessFavouritesMode(options)) return toolCatalogRecords;
-  return toolCatalogRecords.filter((tool) => tool.id !== "favourites" && !tool.href.startsWith("/favourites"));
+  const favouritesAllowed = canAccessFavouritesMode(options);
+  const caringContactsListed = isCaringContactsToolListed();
+  return toolCatalogRecords.filter((tool) => {
+    if (tool.id === "caring-contacts") return caringContactsListed;
+    if (favouritesAllowed) return true;
+    return tool.id !== "favourites" && !tool.href.startsWith("/favourites");
+  });
 }
 
 export function toolSearchText(tool: ToolCatalogRecord) {
@@ -467,6 +515,7 @@ export function rankToolRecords(
     fullText: toolSearchText,
     contentWeight: 2,
     phraseBonus: 4,
+    exactValues: (tool) => [normalizeSearchText(tool.actionLabel)],
     expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
     limit,
     tieBreak: (left, right) => left.title.localeCompare(right.title),

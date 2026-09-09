@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "b557ad9e-3663-4b7c-8296-9426b44d6d7e",
+  "createdOn": "2026-08-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "c9689169-5616-4282-bf8c-25bd5f089575",
+    "reason": "Duplicate of main's more detailed #9X40BT close request (46d9aaa1) landed via PR #2406; keep the more thorough record."
+  }
+}

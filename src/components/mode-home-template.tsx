@@ -40,6 +40,8 @@ type ModeHomeTemplateProps = {
   className?: string;
   headingLevel?: 1 | 2;
   stabilizePhoneCopy?: boolean;
+  /** Optional control between the hero copy and the composer (e.g. Show all). */
+  heroAction?: ReactNode;
 };
 
 const pillToneClass: Record<NonNullable<ModeHomePill["tone"]>, string> = {
@@ -195,7 +197,7 @@ export function ModeHomeMain({
     <main
       data-testid={testId}
       className={cn(
-        "flex min-h-0 w-full flex-1 flex-col items-center bg-[color:var(--background)] px-0 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+        "flex min-h-0 w-full flex-1 flex-col items-center bg-[color:var(--background)] px-0 pb-4 text-[color:var(--text)] sm:grow sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
         withoutJustifyUtilities(className),
         MODE_HOME_MAIN_ALIGN_CLASS[contentAlign],
       )}
@@ -211,9 +213,11 @@ export function ModeHomeMain({
 // themselves. Hierarchy comes from weight alone, so the label half (capability)
 // carries the emphasis rather than the body half (caveat).
 //
-// No mode home renders this any more: the line under the composer was removed
-// from every home page. The sole remaining call site is the therapy-compass
-// page footer, which sits at the bottom of the sub-routes and is explicitly not
+// Architectural decision (#MPZTBR): the scope line was permanently removed from
+// all mode homes because every clinical surface already carries its own scope
+// line, so the footer remains permanently off mode homes to avoid future
+// re-introduction. The sole remaining call site is the therapy-compass page
+// footer, which sits at the bottom of the sub-routes and is explicitly not
 // rendered on the therapy home (`showFooter={!isHome}` in workspace.tsx).
 export function ModeHomeVerificationFooter({ label, body }: { label: string; body: string }) {
   return (
@@ -250,7 +254,7 @@ export function ModeHomeStatusNotice({
   onAction?: () => void;
 }) {
   const actionClass =
-    "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9";
+    "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
   const action =
     onAction && actionLabel ? (
       <button type="button" onClick={onAction} className={actionClass}>
@@ -290,6 +294,7 @@ export function ModeHomeTemplate({
   className,
   headingLevel = 1,
   stabilizePhoneCopy = false,
+  heroAction,
 }: ModeHomeTemplateProps) {
   return (
     <div
@@ -308,6 +313,8 @@ export function ModeHomeTemplate({
         stabilizePhoneCopy={stabilizePhoneCopy}
       />
 
+      {heroAction}
+
       {/* Reserve settled composer height only while adoption is pending or the
           portal host is present. SSR starts pending so first paint does not CLS;
           MasterSearchHeader clears the attribute when the home media query does
@@ -323,7 +330,7 @@ export function ModeHomeTemplate({
       {actions?.length ? (
         <section
           aria-label={actionsLabel}
-          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] sm:gap-3 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none"
+          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--e2)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] sm:gap-3 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none"
         >
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
@@ -347,7 +354,7 @@ export function ModeHomeTemplate({
               </>
             );
             const actionClassName = cn(
-              "mode-home-action group grid min-h-[4.4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[4.4rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-4 sm:py-3 sm:shadow-[var(--shadow-card)] lg:min-h-[4.75rem] lg:grid-cols-[2.75rem_minmax(0,1fr)_1rem] lg:gap-3 lg:px-5 lg:py-3.5",
+              "mode-home-action group grid min-h-[4.4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[4.4rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-4 sm:py-3 sm:shadow-[var(--e2)] lg:min-h-[4.75rem] lg:grid-cols-[2.75rem_minmax(0,1fr)_1rem] lg:gap-3 lg:px-5 lg:py-3.5",
               // Phone stack separator only — the action grid becomes multi-column
               // at `sm`, where each action also becomes its own bordered card,
               // so do not keep a top edge that would double the card border.
@@ -405,8 +412,9 @@ export function ModeHomeTemplate({
                   <span className="text-balance text-center">{displayLabel}</span>
                 </>
               );
+              // DS-P2-24: catalogue chrome, not a primary CTA — compact-meta from lg.
               const pillClassName =
-                "inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm lg:min-h-9";
+                "inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm lg:min-h-compact-meta";
               const pillA11y = pill.shortLabel ? { "aria-label": pill.label, title: pill.label } : {};
               return pill.href ? (
                 <Link key={pill.label} href={pill.href} className={pillClassName} {...pillA11y}>

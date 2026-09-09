@@ -127,11 +127,11 @@ describe("contextual back navigation", () => {
     expect(onBeforeNavigate).toHaveBeenCalledOnce();
   });
 
-  it("returns the colour-coding reference to the canonical Tools home on direct entry", () => {
+  it("returns the colour-coding reference to the app home on direct entry", () => {
     render(<ColourCodingReferencePage />);
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 
-    expect(router.replace).toHaveBeenCalledWith(appModeHomeHref("tools"));
+    expect(router.replace).toHaveBeenCalledWith("/");
   });
 
   it("returns privacy readers to their allowlisted source mode on direct entry", () => {

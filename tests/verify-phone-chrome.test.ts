@@ -9,6 +9,31 @@ const ids = (files: string[], fullMode: "auto" | "always" | "never" = "auto") =>
 
 const stage = (files: string[], id: string) => phoneChromePlan(files).stages.find((candidate) => candidate.id === id);
 
+const PHONE_CHROME_EXECUTED_CONTRACT_COUNT = 135;
+
+function countExecutedVitestCases(source: string): number {
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const pattern = /(?:^|\n)\s*(?:it|test)(?:\.each\s*\((?<table>[\s\S]*?)\))?\s*\(/g;
+  let count = 0;
+  for (const match of code.matchAll(pattern)) {
+    const table = match.groups?.table?.trim();
+    if (!table) {
+      count += 1;
+      continue;
+    }
+    if (!table.startsWith("[")) {
+      count += 1;
+      continue;
+    }
+    count += table
+      .slice(1, table.endsWith("]") ? -1 : undefined)
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean).length;
+  }
+  return count;
+}
+
 describe("phoneChromePlan", () => {
   it("keeps documentation-only work out of browser suites", () => {
     expect(ids(["docs/phone-chrome-physical-acceptance.md"])).toEqual(["docs-index", "docs-links"]);
@@ -119,6 +144,20 @@ describe("phoneChromePlan", () => {
       expect(plan.notes.join(" ")).not.toContain("No phone-chrome-affecting file was detected");
     },
   );
+
+  it("maintains the complete 9-suite phone-chrome contract baseline with 135 executed contracts", () => {
+    const plan = phoneChromePlan(["tests/header-scroll-hide-contract.test.ts"]);
+    const contractStage = plan.stages.find((candidate) => candidate.id === "contracts");
+    expect(contractStage).toBeDefined();
+    const contractFiles = (contractStage?.command.args as string[]).filter((arg) => arg.startsWith("tests/"));
+    expect(contractFiles).toHaveLength(9);
+    const executedContracts = contractFiles.reduce((total, file) => {
+      const cases = countExecutedVitestCases(readFileSync(resolve(process.cwd(), file), "utf8"));
+      expect(cases, `${file} must declare at least one executed contract`).toBeGreaterThan(0);
+      return total + cases;
+    }, 0);
+    expect(executedContracts).toBe(PHONE_CHROME_EXECUTED_CONTRACT_COUNT);
+  });
 });
 
 describe("runPhoneChromeStages", () => {

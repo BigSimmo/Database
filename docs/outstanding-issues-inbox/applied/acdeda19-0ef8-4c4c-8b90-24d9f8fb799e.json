@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "acdeda19-0ef8-4c4c-8b90-24d9f8fb799e",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "repo-awareness snapshot emits two per-section documentation counts that nothing reads",
+    "detail": "documentation.sections[] carries documents and uncatalogued for all 15 sections; grep shows only .name is consumed, by documentsBySection for ordering. The documentation page shows section.documents.length computed at render instead. Rendering the live list is arguably SAFER than trusting a stored number, but it means the plan's 'counts are computed once by the generator so a count and its own list cannot disagree' rule has an undocumented exception, and 30 dead numbers ride in the committed snapshot. Pick one deliberately: render the stored counts, or stop emitting them. Deferred from the Phase 2 fix wave because it changes either the data contract or a page, which is a design decision rather than a cleanup.",
+    "source": "Phase 2 whole-branch review, PR #2359",
+    "issueUlid": "01M0V9M4MRXHADPV4YYKR0QXQG"
+  }
+}

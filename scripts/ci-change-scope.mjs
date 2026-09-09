@@ -198,6 +198,79 @@ function isUiChangedPath(filePath) {
  * quarantined, the lane comes back on every UI PR without anyone remembering to
  * re-enable it.
  */
+/**
+ * The advisory-project spec NAMES, read from `mockupSpecPattern` in playwright.config.ts — the one
+ * place that decides which specs the advisory project runs.
+ *
+ * Parsed here rather than duplicated, and parsed ONCE rather than in two places:
+ * `assertMockupSpecParity` below reads the same function, so the guard and the classifier can no
+ * longer disagree about what the config says even if the config's shape changes.
+ */
+function advisorySpecNames() {
+  const source = readFileSync("playwright.config.ts", "utf8");
+  const alternation = source.match(/const mockupSpecPattern\s*=\s*\/\.\*ui-\(([^)]+)\)\\.spec\\.ts\//u);
+  if (!alternation) {
+    throw new Error(
+      "mockup-spec-parity: could not read the `mockupSpecPattern` alternation from playwright.config.ts. " +
+        "If that constant moved or changed shape, update this reader — do not delete it. Guessing the " +
+        "advisory spec list is what produced three separate drifts already.",
+    );
+  }
+  const names = alternation[1]
+    .split("|")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  if (names.length === 0) throw new Error("mockup-spec-parity: the `mockupSpecPattern` alternation is empty.");
+  return names;
+}
+
+/**
+ * 🔴 **THE WARD ARM IS DERIVED, NOT RESTATED — because restating it drifted three times.**
+ *
+ * `ui-ward-*.spec.ts` journeys carry no "mockup" in the path, so every name-based rule in
+ * `mockupPatterns` misses them and they needed an explicit alternation. That alternation was a
+ * SECOND copy of a list whose first copy lives in playwright.config.ts, and the two fell out of step
+ * on `morning` (Phase 6 Task 2), then on `forced-colors` (2026-09-04), then on THREE at once
+ * (`ward-search`, `ward-statistics-compare`, `ward-table-thresholds`) — that last time because a
+ * merge resolved the playwright config as a union while this list was not in the conflict at all,
+ * so nothing marked the divergence. Each time the consequence was the same: a spec in one list and
+ * not the other either never runs, or trips `check:ci-scope` on somebody else's branch.
+ *
+ * ⚠️ **THIS MAKES THE GUARD'S WARD ARM STRUCTURAL RATHER THAN CHECKED, AND THAT IS THE POINT — but
+ * it must be said out loud.** `assertMockupSpecParity` can no longer fail on a ward spec, because a
+ * ward spec that is in the config is in this list by construction. **The guard is NOT thereby
+ * decorative:** every non-ward entry in `mockupSpecPattern` is still matched by a HAND-WRITTEN rule
+ * above, so adding a spec the other rules do not cover still fails it by name. The self-test proves
+ * that direction rather than assuming it.
+ *
+ * ⚠️ **AND IT FAILS LOUDLY RATHER THAN EMPTY.** An unreadable config or a ward-less alternation
+ * throws, instead of yielding a regex that quietly matches nothing — which is the drift returning
+ * wearing the shape of a pass.
+ */
+const wardAdvisorySpecs = (() => {
+  const ward = advisorySpecNames().filter((name) => name.startsWith("ward-"));
+  if (ward.length === 0) {
+    throw new Error(
+      "mockup-spec-parity: `mockupSpecPattern` names no ward specs. Either the config changed shape " +
+        "or the ward journeys left the advisory project; an empty ward arm here matches nothing and " +
+        "would leave every ui-ward-*.spec.ts edit with advisory_ui_changed=false.",
+    );
+  }
+  // Validated rather than escaped. Every advisory spec name is a plain kebab identifier, so a name
+  // carrying a regex metacharacter means the config has changed shape — and building a pattern out
+  // of it would produce a regex that matches the wrong thing SILENTLY. Fail instead.
+  for (const name of ward) {
+    if (!/^[a-z0-9-]+$/u.test(name)) {
+      throw new Error(
+        `mockup-spec-parity: advisory spec name ${JSON.stringify(name)} is not a plain kebab identifier, ` +
+          "so it cannot be interpolated into a pattern safely. Read `mockupSpecPattern` in " +
+          "playwright.config.ts and update this reader deliberately.",
+      );
+    }
+  }
+  return new RegExp(String.raw`^tests/ui-(?:${ward.join("|")})\.spec\.ts$`, "u");
+})();
+
 const mockupPatterns = [
   "src/app/mockups",
   "tests/ui-mockups.spec.ts",
@@ -219,6 +292,41 @@ const mockupPatterns = [
   // below holds this list to `mockupSpecPattern` in playwright.config.ts.
   /^tests\/.*mockup.*\.spec\.ts$/,
   /^tests\/ui-tools(?:-collapse|-task-directory)?\.spec\.ts$/,
+  // Ward Flow is a gated /mockups/ward-flow prototype. Its implementation tree
+  // and the ui-ward-*.spec.ts journeys carry no "mockup" in the path, so every
+  // rule above misses them. After those specs moved into chromium-mockups, a
+  // component-only or spec-only edit left advisory_ui_changed=false and the
+  // 46 journeys ran in neither lane.
+  //
+  // `morning` was added to playwright.config.ts's `mockupSpecPattern` by Phase 6
+  // Task 2 but never here, so `assertMockupSpecParity` below had been failing
+  // `check:ci-scope` on this branch — the exact drift that guard exists to name,
+  // caught by it and repaired here rather than by widening the guard. Keep this
+  // alternation and that one in step; a spec in one and not the other either
+  // never runs or trips this gate.
+  "src/components/ward-management",
+  // `forced-colors` added 2026-09-04, and by the same route as `morning` before it: the spec was
+  // added to `mockupSpecPattern` in playwright.config.ts on a ward branch and never here, so the
+  // union resolution that brought that branch onto the integration line tripped
+  // `assertMockupSpecParity` immediately. The guard named the file and the consequence
+  // ("editing that spec would leave advisory_ui_changed=false and the journey unrun") — repaired
+  // here rather than by widening the guard, which is the second time this exact drift has been
+  // caught by it and the second time the repair is one alternative in this list.
+  //
+  // ⚠️ **THE HAND-WRITTEN ALTERNATION IS GONE, AND THE THIRD OCCURRENCE IS WHY.** On 2026-09-06
+  // `search`, `statistics-compare` and `table-thresholds` were all missing at once, because the
+  // integration merge resolved `playwright.config.ts`'s `mockupSpecPattern` as a union of both
+  // sides while THIS list was not in that conflict at all — so nothing marked the divergence, and
+  // the first thing to notice was CI's `Static PR checks` going red on `ui-ward-search.spec.ts`.
+  // Three occurrences of one drift by one mechanism was the argument for deriving this from the
+  // config rather than restating it, and `wardAdvisorySpecs` below is that derivation.
+  //
+  // ⚠️ **IT DID NOT MAKE THE GUARD TAUTOLOGICAL, WHICH WAS THE CONDITION FOR DOING IT AT ALL.** A
+  // ward spec in the config is now in this list by construction, so `assertMockupSpecParity` can no
+  // longer fail on one — but every NON-ward entry in `mockupSpecPattern` is still matched by a
+  // hand-written rule above, so a spec the other rules miss still fails the parity check by name.
+  // That is what the control exercises: a brand-new non-ward surface added to the config goes red.
+  wardAdvisorySpecs,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {
@@ -256,6 +364,11 @@ const workflowPatterns = [
   "plugins/clinical-kb/skills",
   ".github/pull_request_template.md",
   "AGENTS.md",
+  // AGENTS.md is a small core plus an index; the rules themselves live in
+  // docs/agents/**. Without this entry an edit to a moved rule matches only
+  // /^.*\.md$/ and drops to the docs-only lane — the same edit that used to
+  // route here when the text sat inline in AGENTS.md.
+  "docs/agents",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
   /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|list-database-skills|sync-skills|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
@@ -264,6 +377,9 @@ const workflowPatterns = [
 const codexAutofixPatterns = [
   ".github/workflows/codex-autofix-review-comments.yml",
   "AGENTS.md",
+  // check-codex-autofix-workflow.mjs enforces docs/agents/codex-github-review.md
+  // against the live workflow, so an edit there must re-run that guard.
+  "docs/agents",
   "docs/codex-review-protocol.md",
   "scripts/check-codex-autofix-workflow.mjs",
 ];
@@ -333,8 +449,8 @@ const perfPatterns = [
   // render tree, so a path-based split would fail open.
   "src",
   // Route payload, both forms: data/** is imported into route chunks and public/** is
-  // fetched on the critical path (#117 therapies-home ~136 KB, #013 forms-catalog
-  // ~132 KB).
+  // fetched by route journeys (the Therapy browse index is ~136 KB; #013
+  // forms-catalog is ~132 KB).
   "data",
   "public",
   // These rewrite the emitted bundle/CSS for every route, so a change invalidates the
@@ -385,6 +501,35 @@ const perfExclusionPatterns = [
   "src/instrumentation.ts",
   "src/sentry.server.config.ts",
   "src/sentry.edge.config.ts",
+  // Developer-hub payload only. `src/lib/developer-area/ledger-snapshot.ts`
+  // imports this JSON, and the only route importers are under
+  // `src/app/mockups/development/` (already excluded; 404 in production). A
+  // ledger reconcile that closes the last P1 must not pay a 7-minute
+  // Lighthouse budget run, and must not fail merge on TBT noise from
+  // `/documents/search`. Measured on PR #2302: this file alone flipped
+  // perf_changed and the job failed mobile TBT +32.7% against a baseline
+  // the same change cannot move.
+  "data/outstanding-issues-snapshot.json",
+  // Same reasoning, same developer hub, sibling artefact:
+  // `src/lib/developer-area/repo-awareness-snapshot.ts` imports this JSON and
+  // the only route importers are under `src/app/mockups/development/`. It was
+  // missed when the sibling was carved out, and it is the more frequent one —
+  // every `ledger:append` regenerates it, so a routine handoff paid a
+  // ~7-minute Lighthouse run against a budget the change cannot move
+  // (`#EFETZT`, whose measured cost is "one full CI round trip" per
+  // occurrence).
+  "data/repo-awareness-snapshot.json",
+  // Developer hub panels: reachable only from `src/app/mockups/development/**`,
+  // which is already excluded and 404s in production.
+  "src/components/developer-area/hub",
+  // Same hub, its data layer — with ONE carve-out. `headers.ts` is imported by
+  // `src/proxy.ts` and `src/lib/api-csrf.ts`, whose matcher runs before every
+  // budgeted page request, so it is a production request-path module wearing a
+  // developer-area path. Excluding it would skip the Lighthouse budget for a
+  // change that moves TTFB/LCP directly — the same reasoning that already keeps
+  // `src/proxy.ts` itself out of this list. Every other module here is reached
+  // only from the mockups tree or the developer-area gate components.
+  /^src\/lib\/developer-area\/(?!headers\.ts$).+/,
 ];
 
 function isPerfChangedPath(filePath) {
@@ -400,7 +545,7 @@ const dbPatterns = [
   "src/lib/supabase",
   "docs/database-drift-detection.md",
   "docs/supabase-migration-reconciliation.md",
-  /^scripts\/(check-drift|generate-drift-manifest|check-m13-migration|check-retrieval-owner-migration|check-supabase-project|audit-tables|reindex|reindex-health|cleanup-abandoned-reindex-generations)\.ts$/,
+  /^scripts\/(check-drift|check-chain-mirror-parity|generate-drift-manifest|check-m13-migration|check-retrieval-owner-migration|check-supabase-project|audit-tables|reindex|reindex-health|cleanup-abandoned-reindex-generations)\.ts$/,
   /^tests\/(supabase|drift|private-rag|private-access|retrieval-owner).*\.test\.ts$/,
 ];
 
@@ -869,6 +1014,23 @@ function selfTest() {
   assertScope("advisory-on-for-tools-task-directory-spec", ["tests/ui-tools-task-directory.spec.ts"], {
     advisory_ui_changed: true,
   });
+  // Ward Flow: gated prototype whose specs and implementation tree have no
+  // "mockup" in the path. Both a spec-only edit and a component edit without
+  // the route wrapper must start the advisory lane; a vitest file must not.
+  assertScope("advisory-on-for-ward-spec", ["tests/ui-ward-management.spec.ts"], {
+    advisory_ui_changed: true,
+  });
+  assertScope(
+    "advisory-on-for-ward-management-component",
+    ["src/components/ward-management/coordinator/coordinator-screen.tsx"],
+    {
+      ui_changed: true,
+      advisory_ui_changed: true,
+    },
+  );
+  assertScope("advisory-off-for-ward-unit-test", ["tests/ward-management.test.ts"], {
+    advisory_ui_changed: false,
+  });
   // The directory rule must not swallow ordinary component paths.
   assertScope("advisory-off-for-non-mockup-component-directory", ["src/components/clinical-dashboard/mode-nav.tsx"], {
     ui_changed: true,
@@ -1081,6 +1243,18 @@ function selfTest() {
     db_changed: true,
     perf_changed: false,
   });
+  assertScope("perf-off-for-developer-hub-components", ["src/components/developer-area/hub/ingestion-panel.tsx"], {
+    perf_changed: false,
+  });
+  assertScope("perf-off-for-developer-hub-lib", ["src/lib/developer-area/repo-awareness-snapshot.ts"], {
+    perf_changed: false,
+  });
+  // The carve-out above, pinned: headers.ts is on the production request path
+  // via src/proxy.ts and src/lib/api-csrf.ts, so it must stay perf-scoped even
+  // though it sits under the excluded developer-area directory.
+  assertScope("perf-on-for-proxy-owned-developer-headers", ["src/lib/developer-area/headers.ts"], {
+    perf_changed: true,
+  });
 
   assertScope("perf-on-for-route-page", ["src/app/(search-app)/dsm/page.tsx"], {
     ui_changed: true,
@@ -1099,9 +1273,20 @@ function selfTest() {
   assertScope("perf-on-for-css-entrypoints", ["src/app/globals.css"], { perf_changed: true });
   assertScope(
     "perf-on-for-route-payload",
-    ["public/therapy-compass-data/therapies-home.json", "data/medications-snapshot.json"],
+    ["public/therapy-compass-data/pathways.json", "data/medications-snapshot.json"],
     { perf_changed: true },
   );
+  // Mockup-only ledger snapshot: same `data/` root as medications, but it
+  // cannot reach a budgeted route. Closing the last P1 on PR #2302 otherwise
+  // forced Lighthouse onto a docs/ledger reconcile.
+  assertScope("perf-off-for-outstanding-issues-snapshot", ["data/outstanding-issues-snapshot.json"], {
+    perf_changed: false,
+  });
+  // The sibling developer-hub snapshot, carved out for the same reason. Pinned
+  // separately because it was the one the original carve-out missed.
+  assertScope("perf-off-for-repo-awareness-snapshot", ["data/repo-awareness-snapshot.json"], {
+    perf_changed: false,
+  });
   assertScope("perf-on-for-build-config", ["next.config.ts", "postcss.config.mjs", "tsconfig.json"], {
     perf_changed: true,
   });
@@ -1351,6 +1536,12 @@ function selfTest() {
       build_changed: false,
     },
   );
+  assertScope("agent-rule-reference", ["docs/agents/pull-request-workflow.md"], {
+    workflow_changed: true,
+    codex_autofix_changed: true,
+    docs_only: false,
+    source_changed: false,
+  });
   assertScope("package", ["package.json"], {
     source_changed: false,
     coverage_changed: true,

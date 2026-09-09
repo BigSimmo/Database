@@ -216,7 +216,7 @@ function SearchControl({
             aria-label="Clear search"
             onClick={onClear}
             className={cn(
-              "grid h-9 w-9 shrink-0 place-items-center rounded-full text-[color:var(--text-soft)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+              "grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-soft)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-9 sm:w-9",
               focusRing,
             )}
           >
@@ -227,7 +227,7 @@ function SearchControl({
           type="submit"
           aria-label={label}
           className={cn(
-            "grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]",
+            "grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] sm:h-10 sm:w-10",
             focusRing,
           )}
         >
@@ -257,7 +257,7 @@ function FilterChip({
       aria-pressed={pressed}
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold shadow-[var(--shadow-inset)]",
+        "inline-flex min-h-tap items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold shadow-[var(--shadow-inset)] sm:min-h-10",
         pressed
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
           : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
@@ -371,7 +371,7 @@ function RecentWorkList({ compact = false, title = "Recent work" }: { compact?: 
         <Link
           href="/favourites"
           className={cn(
-            "inline-flex min-h-10 items-center rounded-md px-1 text-xs font-bold text-[color:var(--clinical-accent)]",
+            "inline-flex min-h-tap items-center rounded-md px-1 text-xs font-bold text-[color:var(--clinical-accent)] sm:min-h-10",
             focusRing,
           )}
         >
@@ -427,7 +427,7 @@ function WideToolTile({
   onSelect?: () => void;
 }) {
   const className = cn(
-    "group grid min-h-[9rem] min-w-0 max-w-full content-between rounded-md border bg-[color:var(--surface)] p-4 text-left shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
+    "group grid min-h-[9rem] min-w-0 max-w-full content-between rounded-md border bg-[color:var(--surface)] p-4 text-left shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--e2)]",
     selected || suggested
       ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
       : "border-[color:var(--border)]",
@@ -596,7 +596,7 @@ function PhoneBrowserPreview({
   const SelectedIcon = selectedTool?.icon;
 
   return (
-    <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] xl:sticky xl:top-4">
+    <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)] xl:sticky xl:top-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
@@ -625,7 +625,7 @@ function PhoneBrowserPreview({
                   type="button"
                   onClick={onBackToDirectory}
                   className={cn(
-                    "inline-flex min-h-9 w-fit items-center gap-1 rounded-md px-1 text-xs font-bold text-[color:var(--clinical-accent)]",
+                    "inline-flex min-h-tap w-fit items-center gap-1 rounded-md px-1 text-xs font-bold text-[color:var(--clinical-accent)]",
                     focusRing,
                   )}
                 >
@@ -666,7 +666,7 @@ function PhoneBrowserPreview({
                   <Link
                     href={selectedTool.href}
                     className={cn(
-                      "mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
+                      "mt-4 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]",
                       focusRing,
                     )}
                   >

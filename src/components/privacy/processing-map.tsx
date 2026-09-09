@@ -5,8 +5,9 @@ import { cn } from "@/components/ui-primitives";
 import { PRIVACY_PROCESSING_MAP } from "@/lib/privacy-page-content";
 
 /**
- * Precision instrument — three equal cells at every width.
- * Soft tone washes + MapPin marks; never horizontal pill/circle chips that clip External.
+ * Calm processing journey: stacked at phone width, three equal stages from
+ * tablet upward. Soft tone washes + MapPin marks; never horizontal pills that
+ * force the payload into unreadably narrow columns.
  *
  * Each cell now carries what actually travels there. Naming the payload is the
  * difference between a label and a map: "External / OpenAI API" says nothing
@@ -23,18 +24,15 @@ export function ProcessingMap({ density = "comfortable" }: { density?: "comforta
         <p className="text-3xs font-medium text-[color:var(--text-muted)]">Operator must verify regions</p>
       </div>
       <div
-        className={cn(
-          "grid grid-cols-3 overflow-hidden rounded-2xl border border-[color:var(--border)] shadow-[var(--shadow-inset)]",
-          "bg-[color:var(--surface-raised)]",
-        )}
+        data-testid="privacy-processing-stages"
+        className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--border)] shadow-[var(--shadow-inset)] sm:grid-cols-3"
       >
-        {PRIVACY_PROCESSING_MAP.map((cell, index) => (
+        {PRIVACY_PROCESSING_MAP.map((cell) => (
           <div
             key={cell.place}
             className={cn(
               "relative min-w-0",
-              compact ? "px-2 py-2 sm:px-3 sm:py-2.5" : "px-2.5 py-2.5 sm:px-4 sm:py-3.5",
-              index > 0 && "border-l border-[color:var(--border)]",
+              compact ? "px-3 py-3 sm:py-3.5" : "px-2.5 py-2.5 sm:px-4 sm:py-3.5",
               privacyToneSurface[cell.tone],
             )}
           >

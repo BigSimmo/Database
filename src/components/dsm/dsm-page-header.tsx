@@ -1,24 +1,34 @@
-import { BookOpenCheck } from "lucide-react";
+import { BookOpenCheck, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { DsmCodeCopy } from "@/components/dsm/dsm-code-copy";
 import { InformationPageBreadcrumbs } from "@/components/information-page-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
+import { dsmSearchHref } from "@/lib/app-modes";
 
 export function DsmPageHeader({
   eyebrow = "DSM-5 Diagnosis",
   title,
   description,
   code,
+  copyCode = false,
   category,
   actions,
   className,
   breadcrumb = true,
+  homeIcon,
+  icon = BookOpenCheck,
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
   code?: string;
+  /**
+   * Render the code as a copy control. Only true where the code belongs to one
+   * diagnosis; a page showing a summary across records must leave it as text.
+   */
+  copyCode?: boolean;
   category?: string;
   actions?: ReactNode;
   className?: string;
@@ -29,6 +39,8 @@ export function DsmPageHeader({
    * header's title is a `<span>`.
    */
   breadcrumb?: boolean;
+  homeIcon?: LucideIcon | false;
+  icon?: LucideIcon | false;
 }) {
   return (
     <div className={cn("border-b border-[color:var(--border)] bg-[color:var(--surface)]", className)}>
@@ -37,18 +49,34 @@ export function DsmPageHeader({
             `InformationPageBreadcrumbs` (now itself a `Breadcrumb`), so the
             `PageHeader` below is not given a second `breadcrumb` of its own. */}
         {breadcrumb ? (
-          <InformationPageBreadcrumbs home={{ label: "DSM-5 Diagnosis home", href: "/dsm" }} className="mb-3" />
+          <InformationPageBreadcrumbs
+            home={{ label: "DSM search", href: dsmSearchHref }}
+            homeIcon={homeIcon}
+            className="mb-3"
+          />
         ) : null}
         <PageHeader
           eyebrow={eyebrow}
           title={title}
           description={description}
-          icon={BookOpenCheck}
+          icon={icon === false ? undefined : icon}
           actions={actions}
           meta={
             code || category ? (
               <>
-                {code ? <span className={cn(metadataPill, codeText)}>{code}</span> : null}
+                {/*
+                  Copyable only where a single record owns the code. The
+                  comparison and differential-considerations pages pass a
+                  summary string rather than one diagnosis's code, and copying
+                  that would put the wrong thing on the clipboard.
+                */}
+                {code ? (
+                  copyCode ? (
+                    <DsmCodeCopy code={code} />
+                  ) : (
+                    <span className={cn(metadataPill, codeText)}>{code}</span>
+                  )
+                ) : null}
                 {category ? <span className={metadataPill}>{category}</span> : null}
                 <span className={metadataPill}>Local clinical reference</span>
               </>

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "d837a152-2bf2-4fee-b02e-46cc68faf70f",
+  "createdOn": "2026-08-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "5ccb7318-5b8c-4caf-ab95-eb9f4dae8883",
+    "reason": "Superseded by PR 2406's own closure of S4K1GA, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands."
+  }
+}

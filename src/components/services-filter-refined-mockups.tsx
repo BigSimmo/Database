@@ -542,7 +542,7 @@ export function PhoneSheetShell({
             type="button"
             onClick={onClear}
             className={cn(
-              "inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-3xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+              "inline-flex min-h-tap shrink-0 items-center gap-1 rounded-lg px-2 text-3xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
               focusRing,
             )}
           >
@@ -752,8 +752,8 @@ function ActiveFilterBar({
         type="button"
         onClick={onClear}
         className={cn(
-          "shrink-0 rounded-lg px-2 text-3xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
-          compact ? "min-h-8" : "min-h-7",
+          "inline-flex shrink-0 items-center rounded-lg px-2 text-3xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+          compact ? "min-h-tap" : "min-h-7",
           focusRing,
         )}
       >
@@ -990,7 +990,7 @@ function SegmentSwitch({
           className={cn(
             "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-2xs font-extrabold transition-colors",
             "motion-reduce:transition-none",
-            compact ? "min-h-10" : "min-h-9",
+            compact ? "min-h-tap" : "min-h-9",
             focusRing,
             value === segment.value
               ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
@@ -1521,7 +1521,7 @@ export function ServicesFilterRefinedMockupsPage() {
                 type="button"
                 onClick={clearAll}
                 className={cn(
-                  "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-9",
                   focusRing,
                 )}
               >

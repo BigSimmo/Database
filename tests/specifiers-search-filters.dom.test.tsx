@@ -8,6 +8,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SpecifiersHomePage } from "@/components/specifiers/specifiers-home-page";
 import { searchSpecifierCatalog } from "@/lib/specifiers-search-index";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(window.location.search),
 }));
@@ -26,6 +31,23 @@ afterEach(() => {
 });
 
 describe("SpecifiersHomePage filters", () => {
+  it("clears a failed search to the browsable catalogue route", () => {
+    render(<SpecifiersHomePage query="qzxvjkplm" autoRunSearch />);
+
+    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute("href", "/specifiers/search");
+  });
+
+  it("defaults natural-language searches to their interpreted catalogue results", () => {
+    render(<SpecifiersHomePage query="Which specifier describes anxiety symptoms?" autoRunSearch />);
+
+    const catalogue = screen.getByRole("region", { name: "Full specifier catalogue matches" });
+    // Several disorder-specific catalogue rows share the same specifier label; assert the
+    // intended Smart match is present in the default catalogue lane rather than unique.
+    const matches = within(catalogue).getAllByRole("link", { name: /with anxious distress/i });
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0]).toBeVisible();
+  });
+
   it("filters the catalogue before applying the 24-item display limit", () => {
     const matches = searchSpecifierCatalog("disorder").filter(({ item }) => item.categoryId === "per");
     expect(matches.length).toBeGreaterThan(0);

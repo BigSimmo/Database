@@ -1,4 +1,5 @@
 import formulationContentJson from "@/data/formulation-content.json";
+import { expandedSmartSearchQuery } from "@/lib/smart-search-intent";
 
 export type FormulationMechanism = {
   id: string;
@@ -221,10 +222,20 @@ export function searchFormulationMechanisms(
   // them on average, so asking for Affect OR Risk must widen rather than
   // intersect. Empty means no constraint. `domain` is the older one-of-N form,
   // still used by the builder page's own select.
-  options: { domain?: string; domains?: ReadonlySet<string> } = {},
+  options: {
+    domain?: string;
+    domains?: ReadonlySet<string>;
+    interpretNaturalLanguage?: boolean;
+    expansions?: readonly string[];
+  } = {},
 ) {
-  const normalizedQuery = normalize(query);
+  const normalizedQuery = normalize(
+    options.interpretNaturalLanguage ? expandedSmartSearchQuery("formulation", query) : query,
+  );
   const queryTokens = normalizedQuery.split(" ").filter(Boolean);
+  const expansionTokens = Array.from(
+    new Set((options.expansions ?? []).flatMap((expansion) => normalize(expansion).split(" ").filter(Boolean))),
+  );
   const domainFacets = options.domains;
 
   return formulationMechanisms
@@ -250,6 +261,12 @@ export function searchFormulationMechanisms(
           if (phrases.includes(token)) score += 10;
           if (clues.includes(token)) score += 8;
           if (haystack.includes(token)) score += 3;
+        }
+        for (const token of expansionTokens) {
+          if (name.includes(token)) score += 5;
+          if (phrases.includes(token)) score += 4;
+          if (clues.includes(token)) score += 3;
+          if (haystack.includes(token)) score += 1;
         }
       }
 

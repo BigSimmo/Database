@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b887e3ab-faad-4134-b207-8ef7562d128a",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#164Z0H",
+    "outcome": "Confirmed .claude/hooks/session-start.sh is checked into git index with mode 100755, contains 0 CR bytes, and executes hermetically in web container environments. Verified with tests/session-start-hook.test.ts (11/11 passed).",
+    "baseRowFingerprint": "6a229433313347af90d3fed884f51dc05aa90e20c7c451e8184525ccbfacaf60"
+  }
+}

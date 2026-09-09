@@ -32,13 +32,16 @@ const PROFILE_BANDS = {
   ],
   extended: [
     { rem: 22, capacity: 3 },
-    { rem: 33, capacity: 4 },
-    { rem: 42, capacity: 5 },
+    { rem: 23, capacity: 4 },
+    { rem: 28, capacity: 5 },
   ],
 } as const;
 
 type DensityProfile = keyof typeof PROFILE_BANDS;
 
+// Reused by the Specifiers and Formulation folded-active tests below, which are
+// `compact-four`, not `extended`. The coupling is deliberate but invisible:
+// moving `extended`'s first band silently moves their viewport too.
 const BAND_3_PX = PROFILE_BANDS.extended[0].rem * 16;
 const BAND_4_PX = PROFILE_BANDS.extended[1].rem * 16;
 const BAND_5_PX = PROFILE_BANDS.extended[2].rem * 16;
@@ -80,13 +83,20 @@ const gotoTherapySearch = (page: Page) => gotoTherapy(page);
  * offline rather than leaving a mode uncovered.
  */
 const MODES = [
-  { modeId: "therapy-compass", route: "/therapy-compass/search?q=CBT&run=1", items: 4, profile: "balanced-four" },
+  { modeId: "therapy-compass", route: "/therapy-compass/search?q=CBT&run=1", items: 5, profile: "extended" },
   { modeId: "dsm", route: "/dsm/compare", items: 2, profile: "two-item" },
   { modeId: "specifiers", route: "/specifiers/compare", items: 4, profile: "compact-four" },
+  { modeId: "sources", route: "/sources/search?q=RANZCP", items: 4, profile: "balanced-four" },
   { modeId: "formulation", route: "/formulation/compare", items: 4, profile: "compact-four" },
   { modeId: "differentials", route: "/differentials/diagnoses", items: 4, profile: "balanced-four" },
   { modeId: "factsheets", route: "/factsheets/search", items: 2, profile: "two-item" },
   { modeId: "dictionary", route: "/dictionary/search?q=MSE", items: 4, profile: "balanced-four" },
+  // On Call is deliberately absent. Its six section routes are information
+  // pages, so `PageSecondaryNavigation` returns null on every one of them and
+  // the shared bar never renders — this spec failed at all nine width points
+  // not because labels clipped but because there was no bar to measure. The
+  // mode navigates with `OnCallNavHeader` instead, and its own density is
+  // covered by the phone-chrome suite.
 ] as const;
 
 function densityPoints(profile: DensityProfile) {
@@ -182,10 +192,10 @@ test.describe("ModeNav density", () => {
   }
 
   for (const [width, labels] of [
-    [320, ["Find", "Build", "More"]],
-    [375, ["Find", "Build", "Compare", "Map"]],
-    [390, ["Find", "Build", "Compare", "Map"]],
-    [430, ["Find", "Build", "Compare", "Map"]],
+    [320, ["Search", "Build", "More"]],
+    [375, ["Search", "Build", "Compare", "Map"]],
+    [390, ["Search", "Build", "Compare", "Map"]],
+    [430, ["Search", "Build", "Compare", "Map"]],
   ] as const) {
     test(`uses available Specifiers phone space at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 844 });
@@ -197,6 +207,53 @@ test.describe("ModeNav density", () => {
       expectNoClippedLabels(nav, `specifiers phone at ${width}px`);
     });
   }
+
+  /**
+   * The reason the `extended` thresholds moved. A 390px phone used to show two
+   * of Therapy's five destinations: the profile was calibrated when the mode
+   * carried seven, "Brief Intervention" among them, and kept that budget after
+   * the set shrank to five. Dropping the icon at the narrow bands — decoration,
+   * where the label is the contract — pays for two more real words.
+   *
+   * Asserted at device widths, not only at the synthetic boundaries above,
+   * because a threshold change is free to move a boundary and is not free to
+   * move these.
+   */
+  for (const [width, labels] of [
+    [375, ["Search", "Recommend", "Compare", "More"]],
+    [390, ["Search", "Recommend", "Compare", "More"]],
+    [430, ["Search", "Recommend", "Compare", "More"]],
+    [768, ["Search", "Recommend", "Compare", "Pathways", "Review"]],
+  ] as const) {
+    test(`uses available Therapy phone space at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await gotoTherapy(page);
+
+      await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
+      const nav = await readNav(page);
+      expect(nav.labels.map((slot) => slot.text)).toEqual(labels);
+      expectNoClippedLabels(nav, `therapy phone at ${width}px`);
+    });
+  }
+
+  test("drops the Therapy slot icon while short, and restores it once it fits", async ({ page }) => {
+    // A container query, so it can only be proved in a browser: jsdom loads no
+    // stylesheet and would report the icon present at every width.
+    const iconDisplay = async () =>
+      page.evaluate((selector) => {
+        const icon = document.querySelector(`${selector} .mode-nav__bar li:not(.hidden) .mode-nav__icon`);
+        return icon ? getComputedStyle(icon).display : "absent";
+      }, anchoredNav);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoTherapy(page);
+    await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
+    expect(await iconDisplay()).toBe("none");
+
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect.poll(iconDisplay, { timeout: 10_000 }).toBe("block");
+    expectNoClippedLabels(await readNav(page), "therapy at 1024px with icons");
+  });
 
   test("preserves Specifiers overflow focus with reduced motion and forced colors", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 844 });
@@ -213,7 +270,7 @@ test.describe("ModeNav density", () => {
 
     await page.emulateMedia({ forcedColors: "active" });
     const nav = await readNav(page);
-    expect(nav.labels.map((slot) => slot.text)).toEqual(["Find", "Build", "More"]);
+    expect(nav.labels.map((slot) => slot.text)).toEqual(["Search", "Build", "More"]);
     expectNoClippedLabels(nav, "specifiers phone in forced colors");
   });
 
@@ -284,6 +341,7 @@ test.describe("ModeNav density", () => {
         ["/therapy-compass/compare", "Compare"],
         ["/therapy-compass/recommend", "Recommend"],
         ["/therapy-compass/pathways", "Pathways"],
+        ["/therapy-compass/review", "Review"],
       ] as const) {
         await gotoTherapy(page, route);
         await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");

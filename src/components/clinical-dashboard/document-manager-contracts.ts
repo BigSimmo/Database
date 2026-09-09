@@ -61,3 +61,40 @@ export function hasReadyRequiredPublicSearchConfig(checks: SetupCheck[]) {
     (id) => checks.find((check) => check.id === id)?.status === "ready",
   );
 }
+
+export function canRunDashboardSearch({
+  localProjectReady,
+  explicitDemoMode,
+  canUsePublicSearchApis,
+  canUseDegradedLocalSearchApis,
+  canUseNonProductionDemoFallback,
+  canAttemptDeployedPublicSearch,
+}: {
+  localProjectReady: boolean;
+  explicitDemoMode: boolean;
+  canUsePublicSearchApis: boolean;
+  canUseDegradedLocalSearchApis: boolean;
+  canUseNonProductionDemoFallback: boolean;
+  canAttemptDeployedPublicSearch: boolean;
+}) {
+  return (
+    localProjectReady &&
+    (explicitDemoMode ||
+      canUsePublicSearchApis ||
+      canUseDegradedLocalSearchApis ||
+      canUseNonProductionDemoFallback ||
+      canAttemptDeployedPublicSearch)
+  );
+}
+
+export function shouldShowDashboardDegradedNotice({
+  isOnline,
+  apiUnavailable,
+  canRunSearch,
+}: {
+  isOnline: boolean;
+  apiUnavailable: boolean;
+  canRunSearch: boolean;
+}) {
+  return !isOnline || (apiUnavailable && !canRunSearch);
+}

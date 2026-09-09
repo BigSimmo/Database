@@ -1,4 +1,12 @@
-import { appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import {
+  appModeHomeHref,
+  dsmSearchHref,
+  factsheetsSearchHref,
+  factsheetsTopicsHref,
+  type AppModeId,
+} from "@/lib/app-modes";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import { SOURCE_METHOD_ROUTE } from "@/lib/sources/rating-method";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
 export type ModeSecondaryNavigationEntry = {
@@ -33,11 +41,11 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compare", label: "Compare", href: "/differentials/compare" },
   ],
   dsm: [
-    { id: "search", label: "Search", href: appModeHomeHref("dsm", { focus: true }) },
+    { id: "search", label: "Search", href: dsmSearchHref },
     { id: "compare", label: "Compare", href: "/dsm/compare" },
   ],
   specifiers: [
-    { id: "search", label: "Find", href: appModeHomeHref("specifiers", { focus: true }) },
+    { id: "search", label: "Search", href: consolidatedModeSearchPath("specifiers") },
     { id: "builder", label: "Build", href: "/specifiers/builder" },
     { id: "compare", label: "Compare", href: "/specifiers/compare" },
     { id: "map", label: "Map", href: "/specifiers/map" },
@@ -60,24 +68,22 @@ export const modeSecondaryNavigationRegistry = {
     { id: "recommend", label: "Recommend", href: "/therapy-compass/recommend" },
     { id: "compare", label: "Compare", href: "/therapy-compass/compare" },
     { id: "pathways", label: "Pathways", href: "/therapy-compass/pathways" },
+    { id: "review", label: "Review", href: "/therapy-compass/review" },
   ],
-  // Two genuinely distinct surfaces: the mode home and `/factsheets/search`, a
-  // separate component with filters, a view toggle and result rows.
-  // `/factsheets/[slug]` is a record and never reaches here —
-  // `hasLocalInformationPageNavigation` returns null for it first.
+  // Two genuinely distinct surfaces: `/factsheets/search` (query + filters +
+  // result rows) and `/factsheets/topics` (category browse). Search leads, the
+  // same way Dictionary leads with Terms then Topics. `/factsheets/[slug]` is a
+  // record and never reaches here — `hasLocalInformationPageNavigation` returns
+  // null for it first.
   //
-  // Topics resolves through `appModeHomeHref`, so it followed factsheets onto the
-  // shared lightweight home when `/factsheets` became a redirect. The label still
-  // says Topics while the destination is that home; renaming it is a copy decision
-  // left to the owner rather than folded into the consolidation.
   // No `focus: true` on Topics, unlike the Search/Find entry of every mode
   // above. Those tabs are the mode's search affordance, so focusing the composer
   // on arrival is the point. Topics is a browse destination — autofocusing there
   // would open the phone keyboard over the topics the user asked to see. The
   // search affordance for this mode is the Search tab.
   factsheets: [
-    { id: "topics", label: "Topics", href: appModeHomeHref("factsheets") },
-    { id: "search", label: "Search", href: "/factsheets/search" },
+    { id: "search", label: "Search", href: factsheetsSearchHref },
+    { id: "topics", label: "Topics", href: factsheetsTopicsHref },
   ],
   // Search and Browse were one catalogue behind two destinations: the same
   // entries, the same rows, the same data, so a reader who typed a term while on
@@ -94,6 +100,22 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compare", label: "Compare", href: "/dictionary/compare" },
     { id: "sources", label: "Sources", href: "/dictionary/sources" },
   ],
+  sources: [
+    { id: "catalogue", label: "Catalogue", href: "/sources/search" },
+    { id: "topics", label: "Topics", href: "/sources/topics" },
+    { id: "publishers", label: "Publishers", href: "/sources/publishers" },
+    { id: "method", label: "Method", href: SOURCE_METHOD_ROUTE },
+  ],
+  // On Call registers no destinations, and that is deliberate. Its six section
+  // routes are information pages (`isInformationPage`), so
+  // `PageSecondaryNavigation` returns null for every one of them and the shared
+  // bar could never render — the entries this once carried were declared for
+  // exactly the routes that cannot show them. On Call navigates with
+  // `OnCallNavHeader`, the `InPageNavHeader` template AGENTS.md names as the
+  // default for in-page navigation, portalling through the one phone header
+  // collapse owner. `tests/ui-mode-nav-density.spec.ts` proved the mismatch:
+  // the bar never appeared at any width because nothing rendered it.
+  "on-call": [],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -127,6 +149,8 @@ export const MODE_NAV_ADOPTED_MODES = [
   "factsheets",
   "therapy-compass",
   "dictionary",
+  "sources",
+  // On Call is deliberately not adopted: see its (empty) registry entry above.
 ] as const satisfies readonly AppModeId[];
 
 export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
@@ -168,22 +192,30 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/dsm" || pathname === "/dsm/search" || pathname.startsWith("/dsm?")) return "search";
     return null;
   }
-  if (modeId === "specifiers" || modeId === "formulation") {
+  if (modeId === "specifiers") {
+    if (pathname === "/specifiers/builder" || pathname.startsWith("/specifiers/builder/")) return "builder";
+    if (pathname === "/specifiers/compare" || pathname.startsWith("/specifiers/compare/")) return "compare";
+    if (pathname === "/specifiers/map" || pathname.startsWith("/specifiers/map/")) return "map";
+    if (pathname === "/specifiers/search" || pathname.startsWith("/specifiers/search?")) return "search";
+    if (pathname === "/specifiers" || pathname.startsWith("/specifiers?")) return "search";
+    return null;
+  }
+  if (modeId === "formulation") {
     // Exact segment prefixes, not `includes`: a future slug containing
     // "map"/"compare"/"builder" must not steal `aria-current` from Find.
     // Matches the exact-path checks in `isModeSecondaryNavigationRoute`.
-    if (pathname === `/${modeId}/builder` || pathname.startsWith(`/${modeId}/builder/`)) return "builder";
-    if (pathname === `/${modeId}/compare` || pathname.startsWith(`/${modeId}/compare/`)) return "compare";
-    if (pathname === `/${modeId}/map` || pathname.startsWith(`/${modeId}/map/`)) return "map";
-    if (pathname === `/${modeId}` || pathname.startsWith(`/${modeId}?`)) return "search";
+    if (pathname === "/formulation/builder" || pathname.startsWith("/formulation/builder/")) return "builder";
+    if (pathname === "/formulation/compare" || pathname.startsWith("/formulation/compare/")) return "compare";
+    if (pathname === "/formulation/map" || pathname.startsWith("/formulation/map/")) return "map";
+    if (pathname === "/formulation" || pathname.startsWith("/formulation?")) return "search";
     return null;
   }
   if (modeId === "factsheets") {
     if (pathname === "/factsheets/search" || pathname.startsWith("/factsheets/search?")) return "search";
-    if (pathname === "/factsheets" || pathname.startsWith("/factsheets?")) return "topics";
-    // `/factsheets/<slug>` is a record. It cannot reach `ModeNav` today —
-    // `hasLocalInformationPageNavigation` returns null for it first — but
-    // without this branch it would inherit the mode's first entry.
+    if (pathname === "/factsheets/topics" || pathname.startsWith("/factsheets/topics?")) return "topics";
+    // `/factsheets` redirects to the shared home and never renders ModeNav.
+    // `/factsheets/<slug>` is a record. Neither path is Search or Topics;
+    // without this explicit null they would inherit the mode's first entry.
     return null;
   }
   if (modeId === "therapy-compass") {
@@ -191,6 +223,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/therapy-compass/recommend") return "recommend";
     if (pathname === "/therapy-compass/compare") return "compare";
     if (pathname === "/therapy-compass/pathways") return "pathways";
+    if (pathname === "/therapy-compass/review") return "review";
     return null;
   }
   if (modeId === "dictionary") {
@@ -200,6 +233,22 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/dictionary/topics" || pathname.startsWith("/dictionary/topics/")) return "topics";
     if (pathname === "/dictionary/compare") return "compare";
     if (pathname === "/dictionary/sources") return "sources";
+    return null;
+  }
+  if (modeId === "sources") {
+    if (pathname === "/sources/search") return "catalogue";
+    if (pathname === "/sources/topics") return "topics";
+    if (pathname === "/sources/publishers") return "publishers";
+    if (pathname === SOURCE_METHOD_ROUTE) return "method";
+    return null;
+  }
+  if (modeId === "on-call") {
+    if (pathname === "/on-call/contacts") return "contacts";
+    if (pathname === "/on-call/playbook") return "playbook";
+    if (pathname === "/on-call/referrals") return "referrals";
+    if (pathname === "/on-call/orientation") return "orientation";
+    if (pathname === "/on-call/education") return "teaching";
+    if (pathname === "/on-call/logistics") return "logistics";
     return null;
   }
   // Every mode with destinations has a branch above; the rest register none, so
@@ -233,23 +282,32 @@ export function isModeSecondaryNavigationRoute(params: {
   }
   if (modeId === "dsm") return pathname === "/dsm/search" || pathname === "/dsm/compare";
   if (modeId === "specifiers") {
-    return pathname === "/specifiers/builder" || pathname === "/specifiers/compare" || pathname === "/specifiers/map";
+    return (
+      pathname === "/specifiers/search" ||
+      pathname.startsWith("/specifiers/search?") ||
+      pathname === "/specifiers/builder" ||
+      pathname === "/specifiers/compare" ||
+      pathname === "/specifiers/map"
+    );
   }
   if (modeId === "formulation") {
     return (
       pathname === "/formulation/builder" || pathname === "/formulation/compare" || pathname === "/formulation/map"
     );
   }
-  // Same shape as `dsm` above: list the routed destination that is not the mode
-  // home. The clean `/factsheets` home stays out so its `ModeHomeTemplate` tiles
-  // remain the single answer to "where can I go"; it reaches the bar through the
-  // `hasSubmittedSearch` early return, and Topics is marked current there.
-  if (modeId === "factsheets") return pathname === "/factsheets/search";
+  // Same shape as `dsm` above: list the routed destinations that are not the
+  // mode home. The clean `/factsheets` home stays out so the shared home remains
+  // the single answer to "where can I go"; it reaches the bar through the
+  // `hasSubmittedSearch` early return. Topics browse and Search both show the bar.
+  if (modeId === "factsheets") return pathname === "/factsheets/search" || pathname === "/factsheets/topics";
   if (modeId === "therapy-compass") return pathname !== "/therapy-compass";
   if (modeId === "dictionary") {
     return ["/dictionary/search", "/dictionary/topics", "/dictionary/compare", "/dictionary/sources"].includes(
       pathname,
     );
+  }
+  if (modeId === "sources") {
+    return ["/sources/search", "/sources/topics", "/sources/publishers", SOURCE_METHOD_ROUTE].includes(pathname);
   }
   return false;
 }
@@ -303,16 +361,26 @@ export function modeSecondaryNavigationHref(params: {
   }
 
   if (modeId === "dsm") {
-    if (itemId === "search" && query) {
-      return navigationHrefWithParams(
-        appModeHomeHref("dsm", { query, focus: true, run: currentSearchParams.get("run") === "1" }),
-        currentSearchParams.get("ids") ? [["ids", currentSearchParams.get("ids") ?? ""]] : [],
-      );
+    if (itemId === "search") {
+      const category = currentSearchParams.get("category");
+      const support = currentSearchParams.get("support");
+      const ids = currentSearchParams.get("ids");
+      return navigationHrefWithParams(dsmSearchHref, [
+        ...(query ? ([["q", query]] as const) : []),
+        ...(category ? ([["category", category]] as const) : []),
+        ...(support ? ([["support", support]] as const) : []),
+        // Returning to Search with a carried query must reopen the results view
+        // (`run=1`), not the empty search surface — even when the previous tab
+        // lacked run. When Search is the current tab, `run` travels with the
+        // query so clicking the tab you are on does not re-place the composer.
+        ...(query ? ([["run", "1"]] as const) : []),
+        ...(ids ? ([["ids", ids]] as const) : []),
+      ]);
     }
-    return navigationHrefWithParams(
-      href,
-      currentSearchParams.get("ids") ? [["ids", currentSearchParams.get("ids") ?? ""]] : [],
-    );
+    return navigationHrefWithParams(href, [
+      ...(query ? ([["q", query]] as const) : []),
+      ...(currentSearchParams.get("ids") ? ([["ids", currentSearchParams.get("ids") ?? ""]] as const) : []),
+    ]);
   }
 
   if (modeId === "specifiers") {
@@ -322,6 +390,27 @@ export function modeSecondaryNavigationHref(params: {
       currentSearchParams.get("b"),
       currentSearchParams.get("selected"),
     ]);
+    if (itemId === "search") {
+      const entries: Array<readonly [string, string]> = query ? [["q", query]] : [];
+      // Returning to Search with a carried query must reopen the results view
+      // (`run=1`), not the empty catalogue — even when the prior tab lacked run.
+      if (query) entries.push(["run", "1"]);
+      else if (currentSearchParams.get("run") === "1") entries.push(["run", "1"]);
+      const scope = currentSearchParams.get("scope");
+      if (scope) entries.push(["scope", scope]);
+      const family = currentSearchParams.get("family");
+      if (family) entries.push(["family", family]);
+      const diagnosis = currentSearchParams.get("diagnosis");
+      if (diagnosis) entries.push(["diagnosis", diagnosis]);
+      for (const category of currentSearchParams.getAll("category")) {
+        entries.push(["category", category]);
+      }
+      if (currentSearchParams.get("reviewed") === "1") entries.push(["reviewed", "1"]);
+      for (const value of selections) {
+        entries.push(["specifier", value]);
+      }
+      return navigationHrefWithParams(href, entries);
+    }
     if (itemId === "builder")
       return navigationHrefWithParams(
         href,
@@ -379,8 +468,8 @@ export function modeSecondaryNavigationHref(params: {
 
   if (modeId === "factsheets") {
     // Search carries the live query and category filter so switching tabs does
-    // not silently discard them. Topics goes to the clean browse home: it reads
-    // neither param, so appending them would only produce a misleading URL.
+    // not silently discard them. Topics goes to the clean category browse: it
+    // reads neither param, so appending them would only produce a misleading URL.
     if (itemId !== "search") return href;
     const category = currentSearchParams.get("category");
     return navigationHrefWithParams(href, [
@@ -417,6 +506,14 @@ export function modeSecondaryNavigationHref(params: {
         ...(currentSearchParams.get("b") ? ([["b", currentSearchParams.get("b") ?? ""]] as const) : []),
       ]);
     }
+  }
+
+  if (modeId === "sources") {
+    if (itemId === "method") return href;
+    const entries: Array<readonly [string, string]> = [];
+    if (query) entries.push(["q", query]);
+    for (const usage of currentSearchParams.getAll("usedBy")) entries.push(["usedBy", usage]);
+    return navigationHrefWithParams(href, entries);
   }
 
   return href;

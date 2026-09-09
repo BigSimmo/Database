@@ -21,6 +21,21 @@ vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => authSession,
 }));
 
+function snapshot(favourites: Array<{ contentType: string; contentKey: string }> = []) {
+  return {
+    version: 1,
+    favourites: favourites.map((item, index) => ({
+      ...item,
+      createdAt: "2026-08-23T00:00:00.000Z",
+      setId: null,
+      sortOrder: (index + 1) * 10,
+      pinnedAt: null,
+      lastOpenedAt: null,
+    })),
+    sets: [],
+  };
+}
+
 type MockResponse = {
   ok: boolean;
   status: number;
@@ -73,7 +88,7 @@ describe("favourites clear ordering", () => {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ favourites: [] }),
+          json: async () => snapshot(),
         });
       }
       if (method === "PUT") return put.promise;
@@ -81,7 +96,7 @@ describe("favourites clear ordering", () => {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({}),
+          json: async () => ({ version: 1, cleared: true }),
         });
       }
       throw new Error(`Unexpected fetch method: ${method}`);
@@ -105,7 +120,7 @@ describe("favourites clear ordering", () => {
     expect(methods).toEqual(["GET", "PUT"]);
 
     await act(async () => {
-      put.resolve({ ok: true, status: 200, json: async () => ({}) });
+      put.resolve({ ok: true, status: 200, json: async () => ({ version: 1, saved: true }) });
     });
 
     await waitFor(() => expect(methods).toEqual(["GET", "PUT", "DELETE"]));
@@ -123,7 +138,7 @@ describe("favourites clear ordering", () => {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ favourites: [{ contentType: "therapy", contentKey: "cbt" }] }),
+          json: async () => snapshot([{ contentType: "therapy", contentKey: "cbt" }]),
         });
       }
       if (method === "DELETE") return clear.promise;
@@ -149,16 +164,12 @@ describe("favourites clear ordering", () => {
     expect(methods).toEqual(["GET", "DELETE"]);
 
     await act(async () => {
-      clear.resolve({ ok: true, status: 200, json: async () => ({}) });
+      clear.resolve({ ok: true, status: 200, json: async () => ({ version: 1, cleared: true }) });
     });
     await waitFor(() => expect(methods).toEqual(["GET", "DELETE", "PUT"]));
 
     await act(async () => {
-      put.resolve({
-        ok: false,
-        status: 503,
-        json: async () => ({ message: "Saved items could not be updated." }),
-      });
+      put.resolve(Response.json({ message: "Saved items could not be updated." }, { status: 503 }));
     });
     await waitFor(() => expect(screen.getByTestId("therapy-saved")).toHaveTextContent("not saved"));
   });

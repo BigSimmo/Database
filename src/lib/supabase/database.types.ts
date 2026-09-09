@@ -46,6 +46,30 @@ export type Database = {
   };
   public: {
     Tables: {
+      api_rate_limit_subjects: {
+        Row: {
+          bucket: string;
+          request_count: number;
+          subject_key: string;
+          updated_at: string;
+          window_start: string;
+        };
+        Insert: {
+          bucket: string;
+          request_count?: number;
+          subject_key: string;
+          updated_at?: string;
+          window_start?: string;
+        };
+        Update: {
+          bucket?: string;
+          request_count?: number;
+          subject_key?: string;
+          updated_at?: string;
+          window_start?: string;
+        };
+        Relationships: [];
+      };
       api_rate_limits: {
         Row: {
           bucket: string;
@@ -124,6 +148,87 @@ export type Database = {
           note?: string | null;
           owner_id?: string;
           record_id?: string;
+        };
+        Relationships: [];
+      };
+      clinical_quality_feedback_triage: {
+        Row: {
+          created_at: string;
+          owner_role: string;
+          owner_user_id: string | null;
+          resolution_code: string | null;
+          resolved_at: string | null;
+          retest_reference: string;
+          signal_id: string;
+          signal_type: string;
+          status: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          created_at?: string;
+          owner_role?: string;
+          owner_user_id?: string | null;
+          resolution_code?: string | null;
+          resolved_at?: string | null;
+          retest_reference?: string;
+          signal_id: string;
+          signal_type: string;
+          status?: string;
+          updated_at?: string;
+          updated_by: string;
+        };
+        Update: {
+          created_at?: string;
+          owner_role?: string;
+          owner_user_id?: string | null;
+          resolution_code?: string | null;
+          resolved_at?: string | null;
+          retest_reference?: string;
+          signal_id?: string;
+          signal_type?: string;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Relationships: [];
+      };
+      clinical_quality_feedback_triage_events: {
+        Row: {
+          actor_user_id: string;
+          created_at: string;
+          id: string;
+          owner_role: string;
+          owner_user_id: string | null;
+          resolution_code: string | null;
+          retest_reference: string;
+          signal_id: string;
+          signal_type: string;
+          status: string;
+        };
+        Insert: {
+          actor_user_id: string;
+          created_at?: string;
+          id?: string;
+          owner_role: string;
+          owner_user_id?: string | null;
+          resolution_code?: string | null;
+          retest_reference?: string;
+          signal_id: string;
+          signal_type: string;
+          status: string;
+        };
+        Update: {
+          actor_user_id?: string;
+          created_at?: string;
+          id?: string;
+          owner_role?: string;
+          owner_user_id?: string | null;
+          resolution_code?: string | null;
+          retest_reference?: string;
+          signal_id?: string;
+          signal_type?: string;
+          status?: string;
         };
         Relationships: [];
       };
@@ -369,6 +474,81 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      document_corpus_access_snapshots: {
+        Row: {
+          published_label_ids: string[];
+          published_summary_ids: string[];
+          published_table_fact_ids: string[];
+          activation_id: string;
+          captured_at: string;
+          document_id: string;
+          owner_id: string | null;
+          public_corpus_present: boolean;
+          public_corpus_value: Json | null;
+        };
+        Insert: {
+          published_label_ids?: string[];
+          published_summary_ids?: string[];
+          published_table_fact_ids?: string[];
+          activation_id: string;
+          captured_at?: string;
+          document_id: string;
+          owner_id?: string | null;
+          public_corpus_present: boolean;
+          public_corpus_value?: Json | null;
+        };
+        Update: {
+          published_label_ids?: string[];
+          published_summary_ids?: string[];
+          published_table_fact_ids?: string[];
+          activation_id?: string;
+          captured_at?: string;
+          document_id?: string;
+          owner_id?: string | null;
+          public_corpus_present?: boolean;
+          public_corpus_value?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "document_corpus_access_snapshots_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "document_strict_gate_status";
+            referencedColumns: ["document_id"];
+          },
+          {
+            foreignKeyName: "document_corpus_access_snapshots_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      document_corpus_access_state: {
+        Row: {
+          activated_at: string | null;
+          activation_id: string | null;
+          mode: string;
+          singleton: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          activated_at?: string | null;
+          activation_id?: string | null;
+          mode: string;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          activated_at?: string | null;
+          activation_id?: string | null;
+          mode?: string;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       document_embedding_fields: {
         Row: {
@@ -1524,6 +1704,36 @@ export type Database = {
           },
         ];
       };
+      document_title_words: {
+        Row: {
+          document_id: string;
+          word: string;
+        };
+        Insert: {
+          document_id: string;
+          word: string;
+        };
+        Update: {
+          document_id?: string;
+          word?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "document_title_words_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "document_strict_gate_status";
+            referencedColumns: ["document_id"];
+          },
+          {
+            foreignKeyName: "document_title_words_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       documents: {
         Row: {
           chunk_count: number;
@@ -1696,6 +1906,72 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      indexing_v3_agent_jobs: {
+        Row: {
+          attempt_count: number;
+          created_at: string;
+          document_id: string;
+          enrichment_status: string;
+          id: string;
+          last_error: string | null;
+          locked_at: string | null;
+          locked_by: string | null;
+          max_attempts: number;
+          metadata: Json;
+          next_run_at: string | null;
+          status: string;
+          updated_at: string;
+          version: string;
+        };
+        Insert: {
+          attempt_count?: number;
+          created_at?: string;
+          document_id: string;
+          enrichment_status?: string;
+          id?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          metadata?: Json;
+          next_run_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          version?: string;
+        };
+        Update: {
+          attempt_count?: number;
+          created_at?: string;
+          document_id?: string;
+          enrichment_status?: string;
+          id?: string;
+          last_error?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          metadata?: Json;
+          next_run_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          version?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "indexing_v3_agent_jobs_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "document_strict_gate_status";
+            referencedColumns: ["document_id"];
+          },
+          {
+            foreignKeyName: "indexing_v3_agent_jobs_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       ingestion_job_stages: {
         Row: {
@@ -1902,6 +2178,63 @@ export type Database = {
           tag?: string | null;
           updated_at?: string;
           validation_status?: string;
+        };
+        Relationships: [];
+      };
+      on_call_entries: {
+        Row: {
+          body: string | null;
+          created_at: string;
+          details: Json;
+          id: string;
+          include_on_card: boolean;
+          is_personal: boolean;
+          last_verified_at: string | null;
+          linked_document_ids: string[];
+          owner_id: string;
+          section: string;
+          slug: string;
+          sort_order: number;
+          subtitle: string | null;
+          tags: string[];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          body?: string | null;
+          created_at?: string;
+          details?: Json;
+          id?: string;
+          include_on_card?: boolean;
+          is_personal?: boolean;
+          last_verified_at?: string | null;
+          linked_document_ids?: string[];
+          owner_id: string;
+          section: string;
+          slug: string;
+          sort_order?: number;
+          subtitle?: string | null;
+          tags?: string[];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          body?: string | null;
+          created_at?: string;
+          details?: Json;
+          id?: string;
+          include_on_card?: boolean;
+          is_personal?: boolean;
+          last_verified_at?: string | null;
+          linked_document_ids?: string[];
+          owner_id?: string;
+          section?: string;
+          slug?: string;
+          sort_order?: number;
+          subtitle?: string | null;
+          tags?: string[];
+          title?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -2531,26 +2864,73 @@ export type Database = {
           },
         ];
       };
+      user_favourite_sets: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          sort_order: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+          sort_order?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+          sort_order?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       user_favourites: {
         Row: {
           content_key: string;
           content_type: string;
           created_at: string;
+          last_opened_at: string | null;
+          pinned_at: string | null;
+          set_id: string | null;
+          sort_order: number;
           user_id: string;
         };
         Insert: {
           content_key: string;
           content_type: string;
           created_at?: string;
+          last_opened_at?: string | null;
+          pinned_at?: string | null;
+          set_id?: string | null;
+          sort_order?: number;
           user_id: string;
         };
         Update: {
           content_key?: string;
           content_type?: string;
           created_at?: string;
+          last_opened_at?: string | null;
+          pinned_at?: string | null;
+          set_id?: string | null;
+          sort_order?: number;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "user_favourites_owner_set_fkey";
+            columns: ["user_id", "set_id"];
+            isOneToOne: false;
+            referencedRelation: "user_favourite_sets";
+            referencedColumns: ["user_id", "id"];
+          },
+        ];
       };
       user_preferences: {
         Row: {
@@ -2684,6 +3064,28 @@ export type Database = {
         };
         Returns: Json;
       };
+      record_clinical_quality_feedback_triage: {
+        Args: {
+          p_actor_user_id: string;
+          p_owner_role: string;
+          p_owner_user_id: string | null;
+          p_resolution_code: string | null;
+          p_retest_reference: string;
+          p_signal_id: string;
+          p_signal_type: string;
+          p_status: string;
+        };
+        Returns: Json;
+      };
+      reorder_user_favourite: {
+        Args: {
+          p_content_key: string;
+          p_content_type: string;
+          p_direction: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
       purge_expired_rag_response_cache: {
         Args: { p_limit?: number };
         Returns: number;
@@ -2702,6 +3104,10 @@ export type Database = {
           retry_after_seconds: number;
           reset_at: string;
         }[];
+      };
+      backfill_legacy_index_health_batch: {
+        Args: { p_limit?: number };
+        Returns: Json;
       };
       chunk_image_metadata: {
         Args: { chunk_image_ids: string[] };
@@ -2727,6 +3133,15 @@ export type Database = {
           stage: string;
           status: string;
         }[];
+      };
+      update_indexing_v3_agent_job_status: {
+        Args: {
+          p_document_id: string;
+          p_error?: string | null;
+          p_next_run_at?: string | null;
+          p_status: string;
+        };
+        Returns: Json;
       };
       claim_ingestion_jobs: {
         Args: {
@@ -3213,6 +3628,35 @@ export type Database = {
           title: string;
         }[];
       };
+      match_document_chunks_text_scoped: {
+        Args: {
+          document_filters: string[] | null;
+          include_public: boolean;
+          match_count: number;
+          owner_filter: string | null;
+          query_text: string;
+        };
+        Returns: {
+          chunk_index: number;
+          content: string;
+          document_id: string;
+          document_labels: Json;
+          document_summary: string;
+          file_name: string;
+          hybrid_score: number;
+          id: string;
+          image_ids: string[];
+          images: Json;
+          lexical_score: number;
+          page_number: number;
+          retrieval_synopsis: string;
+          section_heading: string;
+          similarity: number;
+          source_metadata: Json;
+          text_rank: number;
+          title: string;
+        }[];
+      };
       match_document_chunks_text_v3: {
         Args: {
           corpus_scopes?: string[] | null;
@@ -3318,6 +3762,18 @@ export type Database = {
           title: string;
           unit_type: string;
         }[];
+      };
+      match_document_index_units_hybrid_scoped: {
+        Args: {
+          document_filters: string[] | null;
+          include_public: boolean;
+          match_count: number;
+          min_similarity: number;
+          owner_filter: string | null;
+          query_embedding: Vector;
+          query_text: string;
+        };
+        Returns: Database["public"]["Functions"]["match_document_index_units_hybrid"]["Returns"];
       };
       match_document_lookup_chunks_text: {
         Args: {
@@ -3453,6 +3909,10 @@ export type Database = {
           text_rank: number;
           title: string;
         }[];
+      };
+      retrieval_owner_matches: {
+        Args: { owner_filter: string; row_owner_id: string | null };
+        Returns: boolean;
       };
       retrieval_owner_matches_v2: {
         Args: { owner_filter: string; row_owner_id: string | null; include_public?: boolean };
@@ -3594,6 +4054,10 @@ export type Database = {
         Args: { p_retention_days?: number };
         Returns: number;
       };
+      purge_expired_rag_query_misses: {
+        Args: { p_retention_days?: number };
+        Returns: number;
+      };
       refresh_import_batch_status: {
         Args: { p_batch_id: string };
         Returns: Json;
@@ -3601,6 +4065,10 @@ export type Database = {
       repair_enrichment_quality_batch: {
         Args: { p_limit?: number };
         Returns: Json;
+      };
+      preview_strict_enrichment_gate_repair: {
+        Args: { p_limit?: number };
+        Returns: Database["public"]["Views"]["document_strict_gate_status"]["Row"][];
       };
       repair_strict_enrichment_gate_batch: {
         Args: { p_limit?: number };
@@ -3640,7 +4108,13 @@ export type Database = {
           trigram_score: number;
         }[];
       };
+      migration_history_versions: { Args: never; Returns: Json };
+      schema_drift_snapshot: { Args: never; Returns: Json };
       search_schema_health: { Args: never; Returns: Json };
+      set_document_corpus_access_mode: {
+        Args: { p_mode: string };
+        Returns: Json;
+      };
       stamp_document_deep_memory_version: {
         Args: { p_document_id: string; p_version: string };
         Returns: undefined;

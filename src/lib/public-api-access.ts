@@ -79,19 +79,41 @@ type OwnerScopedQuery<T> = {
 };
 
 /**
- * Scope reads to public rows (owner_id IS NULL) and, when signed in, the caller's owned rows.
+ * A document is public only when publication deliberately made it so.
  *
- * Anonymous callers intentionally see ONLY the public corpus (owner_id IS NULL). Uploads are
- * administrator-only; newly uploaded owner-scoped documents remain private until the existing
- * publication-review workflow promotes them to the public corpus.
+ * `documents.owner_id` is `on delete set null`, so deleting an auth user blanks the owner of
+ * every document that user held. Treating "no owner" as "public" would then silently publish
+ * that user's private clinical documents — no error, no audit signal, and an erasure request
+ * is exactly the situation that triggers it.
+ *
+ * `publish_approved_documents` is the only writer of a null `documents.owner_id`, and it always
+ * stamps `metadata.public_corpus = true` in the same statement. Requiring the marker is
+ * therefore equivalent for every deliberately published document and excludes orphans. An
+ * orphaned row fails closed — invisible rather than exposed — which is the direction this
+ * system is meant to fail in.
+ */
+const PUBLIC_CORPUS_MARKER_FILTER = "metadata->>public_corpus.eq.true";
+
+/**
+ * Scope reads to the public corpus and, when signed in, the caller's owned rows.
+ *
+ * Anonymous callers intentionally see ONLY the public corpus. Uploads are administrator-only;
+ * newly uploaded owner-scoped documents remain private until the existing publication-review
+ * workflow promotes them to the public corpus.
+ *
+ * Every call site of this helper queries `documents`, which is the table carrying the
+ * publication marker. Applying it to a table without a `metadata` column would filter
+ * everything out, so keep new call sites on `documents`.
  */
 export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, ownerId: string | undefined): T {
   // The owner id is interpolated into a PostgREST `or=` filter string, where a comma,
   // parenthesis, or dot is filter syntax rather than data. Supabase user ids are always
   // UUIDs, so anything else is rejected and the read falls back to the public corpus
   // instead of letting a crafted identity widen the filter.
-  if (ownerId && OWNER_ID_PATTERN.test(ownerId)) return query.or(`owner_id.eq.${ownerId},owner_id.is.null`);
-  return query.is("owner_id", null);
+  if (ownerId && OWNER_ID_PATTERN.test(ownerId)) {
+    return query.or(`owner_id.eq.${ownerId},and(owner_id.is.null,${PUBLIC_CORPUS_MARKER_FILTER})`);
+  }
+  return query.is("owner_id", null).eq("metadata->>public_corpus", "true");
 }
 
 // Owner-internal document columns that must never be exposed on a row the caller does not own.

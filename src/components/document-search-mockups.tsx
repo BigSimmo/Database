@@ -257,7 +257,7 @@ function ActionLink({
 
 function SectionFrame({ title, body, children }: { title: string; body: string; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4">
+    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--e2)] sm:p-4">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="max-w-3xl">
           <h2 className="text-base font-bold text-[color:var(--text-heading)]">{title}</h2>
@@ -372,7 +372,7 @@ function PreviewImage({
   priority?: boolean;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+    <div className="relative overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--e2)]">
       <Image
         src={asset.src}
         alt={asset.alt}
@@ -389,7 +389,7 @@ function PreviewImage({
 
 function MockupHeader({ copy }: { copy: VariantCopy }) {
   return (
-    <header className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
+    <header className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] sm:p-5">
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">

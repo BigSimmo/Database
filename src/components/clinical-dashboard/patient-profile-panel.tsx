@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { ChoiceChip } from "@/components/ui/chip";
 import { TextField } from "@/components/ui/text-field";
 import { cn, fieldLabel, ToggleSwitch } from "@/components/ui-primitives";
 import { catalogueMedicationOptions, medicationDisplayName } from "@/lib/medication-interactions";
@@ -12,7 +13,30 @@ import { SCR_UMOL_PER_MGDL } from "@/lib/medication-patient-alerts";
 import type { AllergyClass, HepaticSeverity, ScrUnit } from "@/lib/medication-patient-alerts";
 import { PATIENT_PROFILE_NUMERIC_BOUNDS, PATIENT_PROFILE_SCR_UMOL_BOUNDS } from "@/lib/patient-profile-storage";
 
-const HEPATIC_OPTIONS: { value: HepaticSeverity; label: string }[] = [
+/**
+ * "Not set" is a real segment, not the absence of a selection.
+ *
+ * The engine already treats `hepatic: "none"` as present-and-non-firing (it
+ * tests `hepatic !== "none"` rather than falsiness), so "assessed, no
+ * impairment" clears a hepatic gate while a null leaves it unassessed. Storing
+ * "None" as null collapsed those two states into one: selecting None was
+ * indistinguishable from never touching the field, and the control then
+ * displayed "None" for a profile that recorded nothing at all. The sentinel is
+ * a display-only value — it is written through as `null`, never stored.
+ *
+ * The label is "Not set" rather than the more descriptive "Not recorded"
+ * because this is a five-segment `layout="equal"` control: at a 320px viewport
+ * each segment is ~50px, and "Not recorded" truncated to "Not recor…" beside a
+ * fully legible "None". Truncating the default state of the one control whose
+ * entire purpose is separating "no answer" from "answered: no impairment" is
+ * the wrong thing to shorten by ellipsis, so it is shortened by wording.
+ */
+const HEPATIC_UNRECORDED = "unrecorded" as const;
+
+type HepaticSegment = HepaticSeverity | typeof HEPATIC_UNRECORDED;
+
+const HEPATIC_OPTIONS: { value: HepaticSegment; label: string }[] = [
+  { value: HEPATIC_UNRECORDED, label: "Not set" },
   { value: "none", label: "None" },
   { value: "mild", label: "Mild" },
   { value: "moderate", label: "Moderate" },
@@ -305,10 +329,10 @@ export function PatientProfilePanel({
           </span>
           <SegmentedControl
             ariaLabelledBy="patient-hepatic-label"
-            value={profile.hepatic ?? "none"}
-            onChange={(value) => updateField("hepatic", value === "none" ? null : value)}
+            value={profile.hepatic ?? HEPATIC_UNRECORDED}
+            onChange={(value) => updateField("hepatic", value === HEPATIC_UNRECORDED ? null : value)}
             options={HEPATIC_OPTIONS}
-            layout="fit"
+            layout="equal"
           />
         </div>
 
@@ -316,27 +340,26 @@ export function PatientProfilePanel({
 
         <fieldset className="min-w-0">
           <legend className={fieldLabel}>Allergies</legend>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {ALLERGY_OPTIONS.map((option) => {
               const active = allergies.has(option.value);
               return (
-                <button
+                <ChoiceChip
                   key={option.value}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => toggleAllergy(option.value)}
-                  data-testid={`patient-allergy-${option.value}`}
-                  className={cn(segmentBase, active ? segmentActive : segmentIdle)}
+                  pressed={active}
+                  onPressedChange={() => toggleAllergy(option.value)}
+                  size="compact"
+                  testId={`patient-allergy-${option.value}`}
                 >
                   {option.label}
-                </button>
+                </ChoiceChip>
               );
             })}
           </div>
         </fieldset>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <span className="flex items-center gap-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
+        <div className="grid grid-cols-2 items-center gap-x-3 gap-y-2 sm:flex sm:flex-wrap">
+          <span className="flex min-w-0 items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
             <ToggleSwitch
               enabled={profile.pregnant ?? false}
               onToggle={() => updateField("pregnant", !profile.pregnant)}
@@ -344,7 +367,7 @@ export function PatientProfilePanel({
             />
             Pregnancy
           </span>
-          <span className="flex items-center gap-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
+          <span className="flex min-w-0 items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
             <ToggleSwitch
               enabled={profile.breastfeeding ?? false}
               onToggle={() => updateField("breastfeeding", !profile.breastfeeding)}
@@ -359,7 +382,7 @@ export function PatientProfilePanel({
               setResetNonce((nonce) => nonce + 1);
             }}
             disabled={isEmpty}
-            className="ml-auto inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="col-span-2 inline-flex min-h-tap items-center justify-self-end gap-1.5 rounded-lg border border-[color:var(--border)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:ml-auto"
           >
             <Eraser className="h-3.5 w-3.5" aria-hidden="true" />
             Clear
@@ -367,8 +390,8 @@ export function PatientProfilePanel({
         </div>
 
         <p className="text-2xs leading-4 text-[color:var(--text-muted)]">
-          Anonymous values only — no patient‑identifying information is stored. Cleared when the tab closes. Decision
-          support, not medical advice.
+          Anonymous values only — no patient‑identifying information is stored. Cleared when the tab closes. Clinical
+          reference — not validated decision support.
         </p>
       </div>
     </details>

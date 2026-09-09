@@ -80,8 +80,12 @@ describe("FavouritesHub unavailable controls", () => {
 
     const hub = screen.getByTestId("favourites-hub");
     expect(within(hub).getByText("Loading your favourites")).toBeInTheDocument();
-    expect(within(hub).getByLabelText("Items unavailable until favourites finish loading")).toHaveTextContent("—");
-    expect(within(hub).getByLabelText("Sets unavailable until favourites finish loading")).toHaveTextContent("—");
+    // SPEC §11: the tile states the count is unknown rather than showing a dash, which in a
+    // numeric tile reads as zero. The test's subject is unchanged — no library zero is asserted.
+    expect(within(hub).getByLabelText("Items unavailable until favourites finish loading")).toHaveTextContent(
+      "Unknown",
+    );
+    expect(within(hub).getByLabelText("Sets unavailable until favourites finish loading")).toHaveTextContent("Unknown");
     // Filters is local UI state, not library inventory — a zero there is honest.
     expect(within(hub).getByText("Filters").parentElement?.parentElement).toHaveTextContent("0");
     expect(within(hub).getByRole("button", { name: "Choose favourite type" })).toHaveTextContent("All");
@@ -95,10 +99,10 @@ describe("FavouritesHub unavailable controls", () => {
     const hub = screen.getByTestId("favourites-hub");
     expect(within(hub).getByText("Could not load your favourites")).toBeInTheDocument();
     expect(within(hub).getByLabelText("Items unavailable because favourites could not be loaded")).toHaveTextContent(
-      "—",
+      "Unknown",
     );
     expect(within(hub).getByLabelText("Sets unavailable because favourites could not be loaded")).toHaveTextContent(
-      "—",
+      "Unknown",
     );
     expect(within(hub).getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(within(hub).queryByText("All · 0")).not.toBeInTheDocument();

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "024829c4-b99d-4276-8cd9-152abb058a96",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The repo-awareness snapshot goes stale on any PR that waits, and it already reddened CI once",
+    "detail": "data/repo-awareness-snapshot.json is generated from the route tree, the docs tree, the flake ledger and docs/branch-review-records/. The last two grow monotonically on almost every merge, so any PR that sits while main advances fails check:repo-awareness-snapshot against the merge commit CI builds, even though nothing in that PR is wrong. This is not hypothetical: PR #2359 went red on exactly this within hours of opening, and was fixed by merging main and regenerating. Every ledger-appending PR must now regenerate the snapshot, which is the same concurrent-PR collision that ledger:append's immutable-record design was built to escape. Worth deciding whether the gate should compare a narrower key set, or whether the review-records section should be excluded from the compared content the way captured_revision already is.",
+    "source": "PR #2359 CI failure, 2026-08-25",
+    "issueUlid": "01M0V9MK4ZEFETZTWQRGCE41JY"
+  }
+}

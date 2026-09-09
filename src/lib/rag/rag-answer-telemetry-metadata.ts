@@ -90,6 +90,12 @@ export function answerScopedEvidenceMetadata(
     indexing_version: answer.indexingVersion ?? indexingQuality.indexingVersion ?? null,
     indexing_extraction_quality: indexingQuality.extractionQuality,
     indexing_stale: indexingQuality.stale,
+    ...scoreExplanationLogMetadata(scoreExplanations),
+  };
+}
+
+export function scoreExplanationLogMetadata(scoreExplanations: NonNullable<RagAnswer["scoreExplanations"]>) {
+  return {
     score_explanation_count: scoreExplanations.length,
     top_cited_score_explanations: scoreExplanations.slice(0, 8).map((entry) => ({
       chunk_id: entry.chunk_id,

@@ -194,6 +194,101 @@ describe("/api/ingestion/quality", () => {
     expect(failedOcr).toMatchObject({ type: "failed_ocr", jobId: null });
   });
 
+  // #M11: document_pages/document_images/ingestion_jobs/ingestion_job_stages
+  // were read with no `.limit()`, so hosted Supabase's 1,000-row response cap
+  // could silently drop rows for a large corpus and the route would report
+  // whichever ~1,000 rows happened to come back as if that were everything —
+  // no error, no signal, documents past the cut simply look clean. This
+  // proves the route now caps each child read explicitly, detects exactly
+  // hitting that cap, and reports it instead of staying silent.
+  it("reports partial coverage instead of silently truncating when a child table hits the row cap", async () => {
+    const CHILD_QUERY_ROW_CAP = 1000;
+    const truncatedPages = Array.from({ length: CHILD_QUERY_ROW_CAP }, (_, index) => ({
+      document_id: documentId,
+      page_number: index + 1,
+      text: "enough extracted text to not read as low-text on its own, well past eighty characters of body prose",
+      ocr_used: false,
+      metadata: {},
+    }));
+    const client = clientWithTables({
+      documents: [
+        {
+          id: documentId,
+          title: "Large guideline",
+          file_name: "large.pdf",
+          status: "indexed",
+          page_count: CHILD_QUERY_ROW_CAP + 50,
+          chunk_count: 1,
+          image_count: 0,
+          error_message: null,
+          metadata: {},
+          updated_at: "2026-06-25T00:00:00.000Z",
+        },
+      ],
+      document_index_quality: [],
+      ingestion_jobs: [],
+      ingestion_job_stages: [],
+      document_pages: truncatedPages,
+      document_images: [],
+    });
+    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { GET } = await import("../src/app/api/ingestion/quality/route");
+
+    const response = await GET(new Request("http://localhost/api/ingestion/quality"));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.partial).toBe(true);
+    expect(payload.partialTables).toEqual(expect.arrayContaining(["document_pages"]));
+  });
+
+  it("does not report partial coverage when every child table reads under the row cap", async () => {
+    const client = clientWithTables({
+      documents: [
+        {
+          id: documentId,
+          title: "Small guideline",
+          file_name: "small.pdf",
+          status: "indexed",
+          page_count: 3,
+          chunk_count: 1,
+          image_count: 0,
+          error_message: null,
+          metadata: {},
+          updated_at: "2026-06-25T00:00:00.000Z",
+        },
+      ],
+      document_index_quality: [],
+      ingestion_jobs: [],
+      ingestion_job_stages: [],
+      document_pages: [
+        { document_id: documentId, page_number: 1, text: "plenty of text", ocr_used: false, metadata: {} },
+      ],
+      document_images: [],
+    });
+    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { GET } = await import("../src/app/api/ingestion/quality/route");
+
+    const response = await GET(new Request("http://localhost/api/ingestion/quality"));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.partial).toBeUndefined();
+    expect(payload.partialTables).toBeUndefined();
+  });
+
   it("returns an empty demo payload without querying Supabase", async () => {
     const client = clientWithTables({});
     vi.doMock("@/lib/env", () => ({ isDemoMode: () => true }));

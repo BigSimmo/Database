@@ -892,7 +892,7 @@ export function ModeActionPopup({
                 className={cn("mode-action-mode-option", active && "mode-action-mode-option-active")}
               >
                 <span className="mode-action-mode-option-icon">
-                  <Icon className="h-4 w-4" />
+                  <Icon aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-extrabold">{mode.label}</span>
@@ -938,7 +938,7 @@ export function ModeActionPopup({
           aria-hidden="true"
           className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
         >
-          <TitleIcon className="h-5 w-5" />
+          <TitleIcon aria-hidden="true" className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
           <button

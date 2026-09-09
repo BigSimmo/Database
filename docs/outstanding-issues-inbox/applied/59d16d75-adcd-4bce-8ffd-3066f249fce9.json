@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "59d16d75-adcd-4bce-8ffd-3066f249fce9",
+  "createdOn": "2026-08-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "a193dfb0-236c-44bd-bfc1-f955eb20f273",
+    "reason": "Superseded by PR 2406's own closure of 023, already merged to main. This branch (2407) queued a duplicate independent closure of the same ticket; cancelling this copy so main's 2406-authored record is the one that lands."
+  }
+}

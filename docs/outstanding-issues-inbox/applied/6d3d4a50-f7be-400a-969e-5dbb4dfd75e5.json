@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "6d3d4a50-f7be-400a-969e-5dbb4dfd75e5",
+  "createdOn": "2026-08-27",
+  "action": "cancel",
+  "payload": {
+    "requestId": "ea5915df-befe-4c8d-81d3-3686fa9459e1",
+    "reason": "Duplicate of main's more detailed #TF6TPJ close request (13ea8c93) landed via PR #2406; keep the more thorough record."
+  }
+}

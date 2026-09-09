@@ -12,12 +12,19 @@ vi.mock("next/navigation", () => ({
 import { FactsheetsSearchPage } from "@/components/factsheets/factsheets-search-page";
 import { filterFactsheets } from "@/components/factsheets/factsheets-data";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 // "sertraline" matches exactly one factsheet (Medications) — a small, stable
 // fixture that still exercises real counting rather than an empty result set.
 const query = "sertraline";
 const results = filterFactsheets(query);
 const unrelatedZeroLabels = ["Conditions (0)", "Therapies (0)", "Tests & procedures (0)"] as const;
 const selectedZeroMessage = "No results in Conditions for this search. Choose All or another available category.";
+const naturalLanguageQuery = "I worry all the time";
+const naturalLanguageExpansions = ["generalised anxiety disorder", "worry", "anxiety"];
 
 describe("FactsheetsSearchPage category filter", () => {
   it("derives the shared desktop and phone options from categories available at the current query", async () => {
@@ -116,5 +123,21 @@ describe("FactsheetsSearchPage category filter", () => {
     for (const category of ["Medications", "Conditions", "Therapies", "Tests & procedures"]) {
       expect(within(desktopGroup).queryByRole("radio", { name: `${category} (0)` })).not.toBeInTheDocument();
     }
+    expect(screen.getByRole("link", { name: "Browse sheets" })).toHaveAttribute("href", "/factsheets/search");
+  });
+
+  it("counts category options from the supplied expansion list used for results", () => {
+    render(
+      <FactsheetsSearchPage
+        query={naturalLanguageQuery}
+        expansions={naturalLanguageExpansions}
+        results={filterFactsheets(naturalLanguageQuery, undefined, naturalLanguageExpansions)}
+      />,
+    );
+
+    const desktopGroup = screen.getByRole("radiogroup", { name: "Category" });
+    expect(within(desktopGroup).getByRole("radio", { name: "All (2)" })).toBeInTheDocument();
+    expect(within(desktopGroup).getByRole("radio", { name: "Medications (1)" })).toBeInTheDocument();
+    expect(within(desktopGroup).getByRole("radio", { name: "Conditions (1)" })).toBeInTheDocument();
   });
 });

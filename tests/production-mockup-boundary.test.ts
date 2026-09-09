@@ -30,7 +30,8 @@ describe("production and mockup boundaries", () => {
       resolve(process.cwd(), "src/components/tools-page-mockups/tools-page-mockup-page.tsx"),
       "utf8",
     );
-    expect(differentials).toContain("onSuggestedSearch={navigateToSearch}");
+    expect(differentials).toContain("onRunSearch={navigateToSearch}");
+    expect(differentials).toContain("readSearchNavigationContext");
     expect(tools).toContain("selected={selectedToolId === tool.id}");
     expect(tools).toContain("onSelect={() => setSelectedToolId(tool.id)}");
   });

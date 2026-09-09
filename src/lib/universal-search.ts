@@ -1,5 +1,6 @@
 import { normalizeSearchText } from "@/lib/catalog-search";
 import { analyzeClinicalQuery } from "@/lib/clinical-search";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { demoSearch } from "@/lib/demo-data";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
@@ -11,17 +12,16 @@ import {
 import { dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
 import { dictionaryKindLabel, searchDictionary } from "@/lib/dictionary";
 import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
-import { rowToMedicationRecord } from "@/lib/medication-records";
-import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
+import { defaultMedicationRecords } from "@/lib/medication-seed";
 import { analyzeMedicationCatalogQuery } from "@/lib/medication-query";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
-import { loadOwnerCatalogue } from "@/lib/owner-catalogue-cache";
+import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
-import { fetchOwnerRegistryRows, mergeRegistryRecordsWithDefaults } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { searchFormulationMechanisms } from "@/lib/formulation";
 import { searchSpecifiers as searchPsychiatricSpecifiers } from "@/lib/specifiers";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { searchTherapyRecords, therapyNeedsReview } from "@/lib/therapies";
 import { rankToolRecords } from "@/lib/tools-catalog";
 import type { ClinicalQueryAnalysis, SearchResult } from "@/lib/types";
@@ -134,37 +134,6 @@ const registryDomainTimeoutMs = 2500;
 // prior full budget without delaying any sibling domains.
 const documentsFederatedDomainTimeoutMs = 750;
 const documentsFocusedDomainTimeoutMs = 6000;
-const ownerCatalogueLimit = 500;
-
-// Owner typeahead needs the complete rankable catalogue, but not governance timestamps, IDs,
-// audit columns, or other route-only payload. These projections keep the short-lived cache and
-// Supabase response limited to fields consumed by row conversion, ranking, and result cards.
-const medicationRankingProjection = "slug,name,class,subclass,category,tag,schedule,stats,sections,quick";
-const registryRankingProjection = [
-  "slug",
-  "title",
-  "subtitle",
-  "status_chips",
-  "primary_contact",
-  "contacts",
-  "route",
-  "eligibility",
-  "cost",
-  "referral",
-  "location",
-  "summary_cards",
-  "referral_info",
-  "best_use",
-  "criteria",
-  "verification",
-  "tags",
-  "catchments",
-  "catalogue_label",
-  "navigator_query",
-  "source",
-  "catalog_payload",
-].join(",");
-
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
 }
@@ -243,22 +212,11 @@ function formItem(record: FormRecord, score: number): UniversalSearchItem {
 }
 
 async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  const records =
-    !args.demo && args.supabase && args.ownerId
-      ? (
-          await loadOwnerCatalogue({
-            ownerId: args.ownerId,
-            kind: "medication",
-            limit: ownerCatalogueLimit,
-            signal: args.signal,
-            load: (signal) =>
-              fetchOwnerMedicationRowsWithSeed(args.supabase!, args.ownerId!, ownerCatalogueLimit, {
-                signal,
-                select: medicationRankingProjection,
-              }),
-          })
-        ).map(rowToMedicationRecord)
-      : defaultMedicationRecords();
+  const records = !args.demo && args.supabase
+    ? (await readCanonicalSiteContentRecords({
+        supabase: args.supabase, kind: "medication", slug: null, seeds: defaultMedicationRecords(), signal: args.signal,
+      })).records
+    : defaultMedicationRecords();
   // Catalog-local typo/brand understanding (not clinical-search / RAG analysis).
   // Prefer catalog corrections when they change the query; otherwise keep the
   // shared clinical-search correction (e.g. monitring → monitoring) and its
@@ -277,46 +235,22 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
 }
 
 async function searchServicesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  const records =
-    !args.demo && args.supabase && args.ownerId
-      ? mergeRegistryRecordsWithDefaults(
-          "service",
-          await loadOwnerCatalogue({
-            ownerId: args.ownerId,
-            kind: "service",
-            limit: ownerCatalogueLimit,
-            signal: args.signal,
-            load: (signal) =>
-              fetchOwnerRegistryRows(args.supabase!, args.ownerId!, "service", ownerCatalogueLimit, {
-                signal,
-                select: registryRankingProjection,
-              }),
-          }),
-        )
-      : serviceRecords;
+  const records = !args.demo && args.supabase
+    ? (await readCanonicalSiteContentRecords({
+        supabase: args.supabase, kind: "service", slug: null, seeds: serviceRecords, signal: args.signal,
+      })).records
+    : serviceRecords;
   return rankServiceRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     serviceItem(match.service, match.score),
   );
 }
 
 async function searchFormsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  const records =
-    !args.demo && args.supabase && args.ownerId
-      ? mergeRegistryRecordsWithDefaults(
-          "form",
-          await loadOwnerCatalogue({
-            ownerId: args.ownerId,
-            kind: "form",
-            limit: ownerCatalogueLimit,
-            signal: args.signal,
-            load: (signal) =>
-              fetchOwnerRegistryRows(args.supabase!, args.ownerId!, "form", ownerCatalogueLimit, {
-                signal,
-                select: registryRankingProjection,
-              }),
-          }),
-        )
-      : formRecords;
+  const records = !args.demo && args.supabase
+    ? (await readCanonicalSiteContentRecords({
+        supabase: args.supabase, kind: "form", slug: null, seeds: formRecords, signal: args.signal,
+      })).records
+    : formRecords;
   return rankFormRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     formItem(match.service, match.score),
   );
@@ -440,7 +374,7 @@ async function searchDictionaryDomain(args: ResolvedSearchArgs): Promise<Univers
 }
 
 async function searchFormulationDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  return searchFormulationMechanisms(args.baseQuery)
+  return searchFormulationMechanisms(args.baseQuery, { expansions: args.expansions })
     .slice(0, args.limitPerDomain)
     .map(({ mechanism, score }) => ({
       id: mechanism.id,
@@ -455,7 +389,7 @@ async function searchFormulationDomain(args: ResolvedSearchArgs): Promise<Univer
 }
 
 async function searchSpecifiersDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  return searchPsychiatricSpecifiers(args.baseQuery)
+  return searchPsychiatricSpecifiers(args.baseQuery, { expansions: args.expansions })
     .slice(0, args.limitPerDomain)
     .map(({ record, score }) => ({
       id: record.slug,
@@ -470,7 +404,7 @@ async function searchSpecifiersDomain(args: ResolvedSearchArgs): Promise<Univers
 }
 
 async function searchTherapiesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  return searchTherapyRecords(args.baseQuery)
+  return searchTherapyRecords(args.baseQuery, args.expansions)
     .slice(0, args.limitPerDomain)
     .map(({ record, score }) => ({
       id: record.slug,
@@ -694,7 +628,15 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
   // expanded lane. The documents adapter still receives the ORIGINAL query (it self-analyses).
   const analysis = analyzeClinicalQuery(args.query);
   const baseQuery = applyTypoCorrections(args.query, analysis.typoCorrections);
-  const expansions = deriveExpansions(analysis, baseQuery);
+  // Keep the command surface aligned with the selected mode's local search: both
+  // routes score its deterministic vocabulary in the same low-weight expansion
+  // lane. The original query remains untouched for document retrieval.
+  const expansions = Array.from(
+    new Set([
+      ...(args.contextMode ? smartSearchExpansions(args.contextMode, args.query) : []),
+      ...deriveExpansions(analysis, baseQuery),
+    ]),
+  ).slice(0, maxExpansions);
   const resolved: ResolvedSearchArgs = { ...args, baseQuery, expansions };
 
   const groups = await Promise.all(
@@ -753,6 +695,20 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
   };
 }
 
+/**
+ * Where a domain's "See all" goes.
+ *
+ * The consolidated domains name `<mode>/search` directly rather than the bare mode
+ * path. The bare path is not a page any more — the proxy 307s a submitted link from
+ * it to exactly this route (`consolidatedModeHomeTarget`) — so pointing at it cost a
+ * server round-trip, and on phones a frame of the previous route shell before the
+ * second navigation settled (tools-catalog.ts documents that transition; 2026-09-02
+ * audit, L112). `consolidatedModeSearchPath` is the same map the proxy redirects
+ * through, so the href and the redirect cannot disagree.
+ *
+ * `/tools`, `/favourites` and `/medications` are deliberately absent from that map:
+ * their bare paths are real surfaces, not redirects, so they stay as written.
+ */
 export function universalSearchViewAllHref(domain: UniversalSearchDomain, query: string): string {
   switch (domain) {
     case "documents":
@@ -760,23 +716,23 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
     case "medications":
       return `/?mode=prescribing&q=${encodeURIComponent(query)}&run=1`;
     case "services":
-      return `/services?q=${encodeURIComponent(query)}&run=1`;
+      return `${consolidatedModeSearchPath("services")}?q=${encodeURIComponent(query)}&run=1`;
     case "forms":
-      return `/forms?q=${encodeURIComponent(query)}&run=1`;
+      return `${consolidatedModeSearchPath("forms")}?q=${encodeURIComponent(query)}&run=1`;
     case "differentials":
     // The differentials mode home search composes both kinds, so presentations share it.
     case "presentations":
-      return `/differentials?q=${encodeURIComponent(query)}&run=1`;
+      return `${consolidatedModeSearchPath("differentials")}?q=${encodeURIComponent(query)}&run=1`;
     case "dsm":
-      return `/dsm/search?q=${encodeURIComponent(query)}&run=1`;
+      return `${consolidatedModeSearchPath("dsm")}?q=${encodeURIComponent(query)}&run=1`;
     case "specifiers":
-      return `/specifiers?q=${encodeURIComponent(query)}&run=1`;
+      return `${consolidatedModeSearchPath("specifiers")}?q=${encodeURIComponent(query)}&run=1`;
     case "formulation":
-      return `/formulation?q=${encodeURIComponent(query)}&run=1`;
+      return `${consolidatedModeSearchPath("formulation")}?q=${encodeURIComponent(query)}&run=1`;
     case "therapies":
-      return `/therapy-compass/search?q=${encodeURIComponent(query)}&run=1`;
+      return `${consolidatedModeSearchPath("therapy-compass")}?q=${encodeURIComponent(query)}&run=1`;
     case "dictionary":
-      return `/dictionary/search?q=${encodeURIComponent(query)}`;
+      return `${consolidatedModeSearchPath("dictionary")}?q=${encodeURIComponent(query)}`;
     case "tools":
       return `/tools?q=${encodeURIComponent(query)}&run=1`;
   }

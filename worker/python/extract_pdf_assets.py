@@ -24,6 +24,17 @@ TARGET_COVER_MAX_WIDTH = 480
 MAX_RENDER_SCALE = 4.0
 MIN_USEFUL_RENDER_SCALE = 0.25
 
+# Audit L12: embedded image streams are copied out of the PDF as-is, and their
+# MIME type used to be derived from PyMuPDF's filter extension
+# (`f"image/{ext}"`), which yields image/jpx, image/jb2, image/tiff, image/bmp,
+# image/pnm for JPEG2000/JBIG2/other filters. The vision provider rejects those,
+# and the rejection used to fail the WHOLE document. Only these formats are
+# forwarded untouched; everything else is re-encoded to PNG under the existing
+# render-pixel budget. A single embedded artifact is also capped on its own,
+# because the aggregate maxArtifactBytes budget lets one huge stream through.
+WEB_SAFE_IMAGE_EXTS = ("png", "jpg", "jpeg", "gif", "webp")
+MAX_EMBEDDED_IMAGE_BYTES = 20 * 1024 * 1024
+
 DEFAULT_BUDGET = {
     "version": 1,
     "maxRenderPixels": 4_000_000,
@@ -100,6 +111,70 @@ class ExtractionBudget:
             "artifactBytes": self.artifact_bytes,
             "textBytes": self.text_bytes,
         }
+
+
+def embedded_image_mime_type(ext):
+    """MIME type for an embedded image the worker will hand to the vision model.
+
+    Never returns a PDF-filter extension: anything outside WEB_SAFE_IMAGE_EXTS
+    has been re-encoded to PNG by normalize_embedded_image before this is called.
+    """
+    normalized = str(ext or "").lower().lstrip(".")
+    if normalized in ("jpg", "jpeg"):
+        return "image/jpeg"
+    if normalized in WEB_SAFE_IMAGE_EXTS:
+        return f"image/{normalized}"
+    return "image/png"
+
+
+def normalize_embedded_image(document, xref, extracted, budget, max_bytes=MAX_EMBEDDED_IMAGE_BYTES):
+    """Return ``(payload, warning)`` for one embedded image stream.
+
+    ``payload`` is None when the image must be skipped; the warning then says why
+    (never quoting the bytes). A skipped image is one skipped image — the caller
+    keeps going, and the document still completes.
+    """
+    ext = str(extracted.get("ext") or "png").lower().lstrip(".")
+    image_bytes = extracted.get("image") or b""
+    width = extracted.get("width")
+    height = extracted.get("height")
+
+    if ext not in WEB_SAFE_IMAGE_EXTS:
+        max_pixels = budget.limits["maxRenderPixels"]
+        pixels = int(width or 0) * int(height or 0)
+        if pixels > max_pixels:
+            return None, (
+                f"embedded_image_skipped: xref {xref} is {ext} at {pixels} pixels, "
+                f"above the {max_pixels} render-pixel budget"
+            )
+        try:
+            pixmap = fitz.Pixmap(document, xref)
+            if pixmap.n - pixmap.alpha >= 4:
+                # CMYK / separation colourspaces cannot be written as PNG directly.
+                pixmap = fitz.Pixmap(fitz.csRGB, pixmap)
+            image_bytes = pixmap.tobytes("png")
+            width = getattr(pixmap, "width", width)
+            height = getattr(pixmap, "height", height)
+            ext = "png"
+        except Exception as exc:
+            return None, f"embedded_image_skipped: xref {xref} ({ext}) could not be re-encoded to PNG: {type(exc).__name__}"
+
+    if len(image_bytes) > max_bytes:
+        return None, (
+            f"embedded_image_skipped: xref {xref} is {len(image_bytes)} bytes, "
+            f"above the {max_bytes}-byte per-image cap"
+        )
+
+    return (
+        {
+            "ext": ext,
+            "bytes": image_bytes,
+            "mime": embedded_image_mime_type(ext),
+            "width": width,
+            "height": height,
+        },
+        None,
+    )
 
 
 def bounded_render_scale(rect, desired_scale, max_pixels):
@@ -1106,10 +1181,15 @@ def extract(pdf_path, output_dir, budget=None):
             xref = image_info[0]
             budget.ensure_artifact_slot()
             extracted = document.extract_image(xref)
-            ext = extracted.get("ext", "png")
-            image_bytes = extracted["image"]
-            width = extracted.get("width")
-            height = extracted.get("height")
+            normalized, normalize_warning = normalize_embedded_image(document, xref, extracted, budget)
+            if normalize_warning:
+                warnings.append(normalize_warning)
+            if normalized is None:
+                continue
+            ext = normalized["ext"]
+            image_bytes = normalized["bytes"]
+            width = normalized["width"]
+            height = normalized["height"]
             rects = page.get_image_rects(xref) or []
             bbox = rect_payload(rects[0]) if rects else None
             image_path = os.path.join(
@@ -1119,7 +1199,7 @@ def extract(pdf_path, output_dir, budget=None):
             with open(image_path, "wb") as handle:
                 handle.write(image_bytes)
 
-            mime = "image/jpeg" if ext.lower() in ("jpg", "jpeg") else f"image/{ext}"
+            mime = normalized["mime"]
             images.append(
                 {
                     "pageNumber": page_number,

@@ -4,7 +4,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { childProcessExitCode, childProcessFailureSummary } from "../scripts/child-process-result.mjs";
 import {
   offlineTestEnvironment,
@@ -852,9 +852,44 @@ describe("provider-safe test environment", () => {
     expect(providerFreeCloudLiveTestGap({ ...environment, CODEX_CLOUD_ACCESS_PROFILE: "connected" })).toBeNull();
   });
 
-  it("keeps live tests out of default Vitest discovery", () => {
-    const config = readFileSync(new URL("../vitest.config.mts", import.meta.url), "utf8");
-    expect(config).toContain('exclude: liveProviderTests ? [] : ["tests/**/*.live.test.ts"]');
+  it("keeps live tests out of default Vitest discovery", async () => {
+    // Asserted against the loaded config rather than a literal line of its source. The guarantee
+    // is "the default node project never collects a live test", and a source-text match reported
+    // that guarantee broken whenever anything unrelated was added to the same exclude list --
+    // a guard that goes red for the wrong reason gets edited to match the source, which is how a
+    // real regression would slip through.
+    type ProjectTest = { name: string; include: string[]; exclude?: string[] };
+    type LoadedConfig = { default: { test: { projects: { test: ProjectTest }[] } } };
+
+    async function nodeProject(allowProviderTests: string | undefined): Promise<ProjectTest> {
+      const previous = process.env.ALLOW_PROVIDER_TESTS;
+      if (allowProviderTests === undefined) delete process.env.ALLOW_PROVIDER_TESTS;
+      else process.env.ALLOW_PROVIDER_TESTS = allowProviderTests;
+      try {
+        vi.resetModules();
+        // Specifier held in a variable: a literal `.mts` path is rejected by the repository
+        // tsconfig (TS5097), and this file is typechecked like any other source.
+        const specifier = "../vitest.config.mts";
+        const loaded = (await import(specifier)) as unknown as LoadedConfig;
+        const project = loaded.default.test.projects.map((entry) => entry.test).find((t) => t.name === "node");
+        if (!project) throw new Error("vitest.config.mts declares no node project");
+        return project;
+      } finally {
+        if (previous === undefined) delete process.env.ALLOW_PROVIDER_TESTS;
+        else process.env.ALLOW_PROVIDER_TESTS = previous;
+        vi.resetModules();
+      }
+    }
+
+    const offline = await nodeProject(undefined);
+    expect(offline.include).toEqual(["tests/**/*.test.ts"]);
+    expect(offline.exclude).toContain("tests/**/*.live.test.ts");
+
+    // With permission granted the live glob becomes the only thing collected, so the offline
+    // suite can never be run under provider credentials by accident either.
+    const live = await nodeProject("true");
+    expect(live.include).toEqual(["tests/**/*.live.test.ts"]);
+    expect(live.exclude).not.toContain("tests/**/*.live.test.ts");
   });
 
   it("keeps residual source surfaces visible without lowering the core coverage floor", () => {
@@ -995,5 +1030,26 @@ describe("provider-safe test environment", () => {
     expect(devRunner).toContain('fs.realpathSync(path.join(projectRoot, "node_modules"))');
     expect(devRunner).toContain('return dependenciesAreExternal ? ["--webpack"] : [];');
     expect(devRunner).toContain('args.some((arg) => ["--webpack", "--turbopack", "--turbo"].includes(arg))');
+  });
+
+  describe("vitest reporter safety (#EV7RMQ)", () => {
+    it("rejects unknown reporters at startup before acquiring run lock or memoising", async () => {
+      const { validateReporters } = await import("../scripts/run-vitest.mjs");
+      expect(validateReporters(["--reporter=dot"]).valid).toBe(true);
+      expect(validateReporters(["-r", "json"]).valid).toBe(true);
+      expect(validateReporters(["--reporter=./custom-reporter.mjs"]).valid).toBe(true);
+      expect(validateReporters(["--reporter=default,json"]).valid).toBe(true);
+
+      const invalid = validateReporters(["--reporter=basic"]);
+      expect(invalid.valid).toBe(false);
+      expect(invalid.error).toContain("Unrecognized Vitest reporter(s): basic");
+
+      const processResult = spawnSync(process.execPath, ["scripts/run-vitest.mjs", "--reporter=basic"], {
+        cwd: process.cwd(),
+        encoding: "utf8",
+      });
+      expect(processResult.status).toBe(1);
+      expect(processResult.stderr).toContain("Unrecognized Vitest reporter(s): basic");
+    });
   });
 });

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "7698edb7-af3e-4618-97f6-b70f74b803fb",
+  "createdOn": "2026-08-24",
+  "action": "cancel",
+  "payload": {
+    "requestId": "fa89c68a-3769-483f-9670-900012471425",
+    "reason": "Superseded by 977ad2ec-5dcf-49ee-aa87-018ddc6fb366, the replacement #JVYQEM done request queued on this branch. Both close the same mode-home composer-reserve CLS row against the same baseRowFingerprint."
+  }
+}

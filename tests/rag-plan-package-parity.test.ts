@@ -62,6 +62,7 @@ const operationalTemplate = JSON.parse(
   readFileSync("docs/superpowers/rag-upgrade/canonical/operational-receipt.template.json", "utf8"),
 );
 type ProgrammeManifest = {
+  reconciledBase: string;
   phases: Array<{ id: string }>;
   localPhases: Array<{ id: string; closesGate?: string | null }>;
   requiredResidualGates: Array<{ id: string }>;
@@ -74,8 +75,52 @@ const manifest = JSON.parse(
   readFileSync("docs/superpowers/rag-upgrade/canonical/programme-manifest.json", "utf8"),
 ) as ProgrammeManifest;
 
+function isShallowClone(): boolean {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isCommitAvailable(commit: string): boolean {
+  try {
+    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ensureHistoryDeepened(depth = 2000): void {
+  if (!isShallowClone()) return;
+  try {
+    execFileSync("git", ["fetch", `--deepen=${depth}`], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+  } catch {
+    // Ignore network or fetch failures
+  }
+}
+
 describe("RAG plan execution packages", () => {
   it("keeps Local and Cloud task bodies identical and executable", () => {
+    if (!isCommitAvailable(manifest.reconciledBase)) {
+      ensureHistoryDeepened(2000);
+      if (!isCommitAvailable(manifest.reconciledBase) && isShallowClone()) {
+        console.warn(
+          `RAG_PLAN_PACKAGE_PARITY_SHALLOW_CLONE: reconciledBase ${manifest.reconciledBase} is unavailable in shallow clone and history could not be deepened; skipping package parity check.`,
+        );
+        return;
+      }
+    }
     expect(() =>
       execFileSync(process.execPath, ["scripts/build-rag-plan-packages.mjs", "--check", "--require-origin-main"], {
         cwd: process.cwd(),
@@ -83,6 +128,20 @@ describe("RAG plan execution packages", () => {
         stdio: "pipe",
       }),
     ).not.toThrow();
+  });
+
+  it("keeps live ingestion plans off the retired Docling v1 manifest", () => {
+    const paths = [
+      "docs/superpowers/plans/2026-08-21-trusted-admin-document-ingestion.md",
+      "docs/superpowers/rag-upgrade/local/plans/2026-08-21-trusted-admin-document-ingestion.md",
+      "docs/superpowers/rag-upgrade/cloud/plans/2026-08-21-trusted-admin-document-ingestion.md",
+    ];
+
+    for (const path of paths) {
+      const plan = readFileSync(path, "utf8");
+      expect(plan).not.toContain("eval/docling/fixtures/manifest.v1.json");
+      expect(plan.match(/eval\/docling\/fixtures\/manifest\.v2\.json/g)).toHaveLength(2);
+    }
   });
 
   it("extracts the exact manifest-selected task with the tracked Cloud helper", () => {

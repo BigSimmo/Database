@@ -13,7 +13,7 @@ import {
   parseGuideProgress,
 } from "@/components/clinical-dashboard/guide-progress";
 
-describe("Clinical KB Guide Centre content", () => {
+describe("PsychSift Guide Centre content", () => {
   it("keeps topic and tour identifiers unique and in the intended order", () => {
     expect(new Set(guideTopicIds).size).toBe(guideTopicIds.length);
     expect(guideTopics.map((topic) => topic.id)).toEqual(guideTopicIds);
@@ -57,7 +57,7 @@ describe("Clinical KB Guide Centre content", () => {
   });
 });
 
-describe("Clinical KB Guide Centre progress", () => {
+describe("PsychSift Guide Centre progress", () => {
   it("falls back safely for corrupt, unknown-version, and unknown-step records", () => {
     expect(parseGuideProgress("not json")).toEqual(emptyGuideProgress);
     expect(parseGuideProgress(JSON.stringify({ version: 2, completedStepIds: [] }))).toEqual(emptyGuideProgress);

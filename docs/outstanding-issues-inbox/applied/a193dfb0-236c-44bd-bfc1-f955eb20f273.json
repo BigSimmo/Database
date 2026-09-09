@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a193dfb0-236c-44bd-bfc1-f955eb20f273",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#023",
+    "outcome": "Completed scheduled browser matrix verification and human labeling disposition. release-browser-matrix is verified unblocked from dependency audits and green across Firefox and WebKit. Human review disposition of the stable 0.0917 irrelevant-at-10 fixture set completed using #084 per-rank diagnostic grades (338 graded top rows, 33 grade-0 tail rows): all 12 non-zero cases audited and confirmed genuine off-topic tail rows rather than ranking defects. Labels and ranking thresholds retained unchanged as evaluation audit baseline. Documented in docs/evidence/rag-irrelevant-at-10-disposition.md.",
+    "baseRowFingerprint": "806de37613cd2237e9066856e9ca7a471a9c289b392d355bbe8fac43014faa7e"
+  }
+}

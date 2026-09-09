@@ -8,6 +8,10 @@ export type HubPanel = {
   /** 1 = built now. 2–4 = declared placeholder; flipping the phase and adding an href is the whole change. */
   phase: 1 | 2 | 3 | 4;
   href?: string;
+  /** The href is a static file under `public/`, not an app route. Rendered as a
+   *  plain anchor rather than a <Link>, and excluded from the route-existence
+   *  check — which reads the route manifest and would not find it. */
+  external?: boolean;
 };
 
 export const HUB_PANELS: readonly HubPanel[] = [
@@ -19,43 +23,59 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/ledger",
   },
+  // The id stays `work-in-flight` on purpose (plan ruling R9): it is Phase 1's
+  // extension mechanism, and renaming it would be churn with a test to update
+  // and nothing gained. Only the name and summary changed, because the old
+  // ones promised live pull-request state (open changes, CI status) that this
+  // repository does not have on disk — only its own committed review records.
   {
     id: "work-in-flight",
-    name: "Work in flight",
-    summary: "Open changes, their checks, and whether reviewed",
+    name: "Review state",
+    summary: "Which branches were reviewed, at which head, with what outcome",
     group: "work",
-    phase: 2,
+    phase: 1,
+    href: "/mockups/development/review-state",
   },
-  { id: "decision-log", name: "Decision log", summary: "Why things are the way they are", group: "work", phase: 4 },
+  // `decision-log` (phase 4) was removed 2026-08-25, along with `errors`,
+  // `budgets` and `commands` below, and `database-drift` (phase 3) for the
+  // same reason: `.github/workflows/live-drift.yml` already creates and
+  // updates a GitHub issue on drift. Each restated a fact the repository
+  // already surfaces elsewhere — exactly what Ruling R1 forbids ("render only
+  // facts no green gate already guarantees"), and every placeholder card is a
+  // promise on screen: a card that never arrives quietly tells a reader work
+  // is coming which is not. `decision-log`'s specific case: `docs/decisions/`
+  // holds exactly one file, so the gap is that decisions are not being
+  // written down, not that they are not being rendered — a page over one
+  // document would make the gap look addressed. Do not re-add these five
+  // believing they were forgotten.
 
   {
-    id: "source-review",
-    name: "Source review queue",
-    summary: "Documents shaping answers most, with no qualified human sign-off",
+    id: "clinical-trust",
+    name: "Clinical trust cockpit",
+    summary: "Quality feedback, source-change impact, and content maturity",
     group: "clinical",
-    phase: 3,
+    phase: 1,
+    href: "/mockups/development/clinical-trust",
   },
+  // Named for its evidence, not for its subject. It reports open ledger items
+  // that name one of the repository's own clinical eval cases -- not "every
+  // clinical answer problem", which it has no way to know. A panel on a clinical
+  // system that implies coverage it does not have is worse than no panel, so the
+  // narrower name is deliberate and should not be "improved" into a broader one.
   {
-    id: "source-currency",
-    name: "Source currency",
-    summary: "Age, publisher, jurisdiction, superseded guidance",
+    id: "clinical-answer-failures",
+    name: "Answer failures",
+    summary: "Open problems recorded against a named clinical question",
     group: "clinical",
-    phase: 3,
+    phase: 1,
+    href: "/mockups/development/clinical-answer-failures",
   },
-  {
-    id: "governance-debt",
-    name: "Governance debt",
-    summary: "Missing metadata and unattributed reviews",
-    group: "clinical",
-    phase: 3,
-  },
-  {
-    id: "answer-quality",
-    name: "Answer quality",
-    summary: "Retrieval scores and document quality signals",
-    group: "clinical",
-    phase: 3,
-  },
+  // Kept, unlike the five removed above, and settled: the owner ruled on
+  // 2026-08-26 that the hazard register belongs in the developer hub rather
+  // than as a separate clinical-safety surface. It was never a removal
+  // candidate on the Ruling R1 ground the five removed entries failed on --
+  // it restates no fact an existing green gate already guarantees. Do not
+  // drop it in a later placeholder sweep; it is unbuilt, not unwanted.
   {
     id: "hazard-register",
     name: "Hazard register",
@@ -66,33 +86,72 @@ export const HUB_PANELS: readonly HubPanel[] = [
 
   // No `environment` card: the environment strip renders as its own section on
   // the hub, so a card pointing at `#developer-hub-environment` would be a
-  // self-link, not a destination.
+  // self-link, not a destination. No `database-drift` card either — see the
+  // removal comment above; a phase-3 "coming soon" would promise a panel the
+  // plan records as never to be built.
   {
-    id: "database-drift",
-    name: "Database drift",
-    summary: "Schema and function differences against the repo",
+    id: "ingestion",
+    name: "Ingestion",
+    summary: "Stuck, failed, and queued document jobs",
     group: "system",
-    phase: 3,
+    phase: 1,
+    href: "/mockups/development/ingestion",
   },
-  { id: "ingestion", name: "Ingestion", summary: "Stuck, failed, and queued document jobs", group: "system", phase: 3 },
-  { id: "errors", name: "Errors and alerts", summary: "What is failing for real users", group: "system", phase: 4 },
-  { id: "test-health", name: "Test health", summary: "Unstable and quarantined tests", group: "system", phase: 2 },
+  // Named for the question it answers -- which of my documents are broken -- and
+  // scoped to that. The ingestion card above shows documents *moving*; this one
+  // shows the library at rest, which is where a document that finished and
+  // produced nothing usable hides. It reports what indexing produced, never
+  // whether an answer drawn from those documents is any good, and the page says
+  // so; do not widen the summary into a claim about answer quality.
   {
-    id: "budgets",
-    name: "Speed and weight",
-    summary: "Page weight and performance budgets",
+    id: "corpus-health",
+    name: "Corpus health",
+    summary: "Documents that finished indexing and produced nothing usable",
     group: "system",
-    phase: 4,
+    phase: 1,
+    href: "/mockups/development/corpus-health",
+  },
+  {
+    id: "test-health",
+    name: "Test health",
+    summary: "Unstable and quarantined tests",
+    group: "system",
+    phase: 1,
+    href: "/mockups/development/test-health",
   },
 
   {
     id: "documentation",
     name: "Documentation",
-    summary: "Every document, its age, and its broken links",
+    summary: "Every document, its area, and whether the index lists it",
     group: "reference",
-    phase: 2,
+    phase: 1,
+    href: "/mockups/development/documentation",
   },
-  { id: "routes", name: "Routes and modes", summary: "Every page and all 15 modes", group: "reference", phase: 2 },
+  {
+    id: "routes",
+    name: "Routes and modes",
+    // Audit L81: this summary used to state a mode count, which drifted every time
+    // a mode was added (the routes page below it renders the live count from the
+    // snapshot). Kept deliberately count-free — do not reintroduce a number here.
+    summary: "Every page and every app mode",
+    group: "reference",
+    phase: 1,
+    href: "/mockups/development/routes",
+  },
+  // A static sheet, not a route: it is the generated brand preview, mirrored
+  // from docs/brand/preview.html into public/ so the hub can link to it.
+  // `tests/developer-hub-panels.test.ts` holds the two copies byte-identical,
+  // so the link can never show a stale mark.
+  {
+    id: "brand",
+    name: "Brand and design",
+    summary: "The mark's construction, every size and lockup, clear space and misuse",
+    group: "reference",
+    phase: 1,
+    href: "/brand/preview.html",
+    external: true,
+  },
   // Three real prototype cards, not one generic self-linking "Prototypes" card.
   // This is also what preserves the Care Plan, Caring Contact, and Ward Flow entries the
   // spec requires to survive the hub rewrite.
@@ -110,8 +169,12 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "care-plan",
     name: "Care Plan",
+    // #L76: this described the August (pre-Task 10-11) state, before
+    // Reviews/Team/Governance (operations-pages.tsx: ReviewsSurface,
+    // TeamSurface, GovernanceSurface) and the Patient Plan route became
+    // functional. Kept accurate to what the prototype actually covers now.
     summary:
-      "Stage B prototype: Management Plan authoring, ED Presentation continuity, and Personal Safety Plan; later routes remain specimens",
+      "Synthetic, memory-only prototype: Management Plan, ED Presentations, Personal Safety Plan, Patient Plan, Reviews/Team/Governance",
     group: "reference",
     phase: 1,
     href: "/mockups/care-plan",
@@ -127,12 +190,11 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "ward-flow",
     name: "Ward flow",
-    summary: "Queue, capacity, transport, movements",
+    summary: "Synthetic prototype, not clinical decision support: queue, capacity, transport, movements",
     group: "reference",
     phase: 1,
-    href: "/ward-management",
+    href: "/mockups/ward-flow",
   },
-  { id: "commands", name: "Commands", summary: "What each repository command does", group: "reference", phase: 4 },
 ];
 
 export function panelsInGroup(group: HubPanelGroup): HubPanel[] {

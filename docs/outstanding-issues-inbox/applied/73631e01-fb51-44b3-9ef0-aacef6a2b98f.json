@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "73631e01-fb51-44b3-9ef0-aacef6a2b98f",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Medication considerations panel formats its two not-assessed sentences differently — the contraindication one uses a bare comma join, the advisory one a serial-and helper",
+    "detail": "In src/components/clinical-dashboard/medication-considerations.tsx as landed in PR #2538 (head ef7c55ab), the advisory not-assessed sentence renders its input list through formatInputList(), a helper added in that PR which produces \"eGFR\", \"eGFR and QTc\", \"eGFR, QTc and hepatic status\". The contraindication sentence one InlineNotice above still renders result.unassessed.join(\", \"). With a single missing input the two read identically; with two or more they read inconsistently, and the bare join is the case formatInputList's own doc comment argues against, because the sentence continues into a relative clause (\"which this profile does not include\") that a comma-only list runs straight into. NEXT STEP: apply formatInputList() to the contraindication sentence too. It is identity for a single input (it returns items.join(\"\") when length <= 1), so no existing assertion in tests/medication-interaction-surfaces.dom.test.tsx breaks; add a two-input case for the contraindication tier so the shared formatting is pinned rather than incidental.",
+    "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
+    "issueUlid": "01M1GA2GWJDFMVMN4YACPREHS4"
+  }
+}

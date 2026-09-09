@@ -1,0 +1,338 @@
+import type { AppModeId } from "@/lib/app-modes";
+import { normalizeSearchText } from "@/lib/catalog-search";
+
+export const smartNaturalSearchModeIds = [
+  "services",
+  "forms",
+  "differentials",
+  "formulation",
+  "dsm",
+  "specifiers",
+  "therapy-compass",
+  "prescribing",
+  "tools",
+  "calculators",
+  "factsheets",
+  "dictionary",
+] as const satisfies readonly AppModeId[];
+
+export type SmartNaturalSearchModeId = (typeof smartNaturalSearchModeIds)[number];
+
+export const smartLocalOnlyModeIds = [
+  "prescribing",
+  "tools",
+  "calculators",
+  "factsheets",
+  "dictionary",
+] as const satisfies readonly AppModeId[];
+
+export type SmartLocalOnlyModeId = (typeof smartLocalOnlyModeIds)[number];
+
+export type SmartSearchInterpretation = {
+  modeId: AppModeId;
+  originalQuery: string;
+  naturalLanguage: boolean;
+  expansions: string[];
+};
+
+type ExpansionRule = { pattern: RegExp; terms: readonly string[] };
+
+const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRule[]> = {
+  services: [
+    { pattern: /\b(?:young person|young people|teen(?:ager)?s?)\b/i, terms: ["youth", "child", "adolescent"] },
+    { pattern: /\b(?:after hours|out of hours|overnight)\b/i, terms: ["after hours", "24/7", "crisis"] },
+    {
+      pattern: /\b(?:after discharge|follow[ -]?up|ongoing support|community care)\b/i,
+      terms: ["community", "follow-up", "post-discharge"],
+    },
+    { pattern: /\b(?:urgent|immediate|in crisis|crisis support)\b/i, terms: ["crisis", "emergency", "urgent"] },
+    { pattern: /\b(?:older adult|older person|older people|elderly)\b/i, terms: ["older adult", "older people"] },
+  ],
+  forms: [
+    {
+      pattern: /\b(?:involuntary admission|detain|detention|compulsory admission)\b/i,
+      terms: ["involuntary", "admission", "detention", "assessment"],
+    },
+    {
+      // Bare "move"/"moving" fired on ordinary phrasing ("moving forward with the
+      // assessment") while missing the inflections a real query uses ("moved the
+      // patient"). Require the transfer sense: an explicit transfer/transport verb,
+      // or a movement verb carrying a person or a destination.
+      pattern:
+        /\b(?:transfers?|transferred|transferring|transports?|transported|transporting|mov(?:e|es|ed|ing)\s+(?:an?\s+|the\s+|this\s+)?(?:patient|consumer|person|inpatient|them|him|her)|mov(?:e|es|ed|ing)\s+(?:to|between|from|out\s+of)\s+(?:an?other\s+|a\s+different\s+|the\s+)?(?:hospital|wards?|units?|facility|facilities|authorised\s+hospital))\b/i,
+      terms: ["transfer", "transport", "movement"],
+    },
+    { pattern: /\b(?:extend(?:s|ed|ing)?|extension|continue detention)\b/i, terms: ["extension", "detention"] },
+    { pattern: /\b(?:revoke|revocation|cancel an order)\b/i, terms: ["revocation", "order"] },
+  ],
+  differentials: [
+    { pattern: /\b(?:hearing voices|hear voices|seeing things)\b/i, terms: ["hallucinations", "psychosis"] },
+    { pattern: /\b(?:memory loss|memory problems?|forgetful)\b/i, terms: ["cognitive", "dementia", "memory"] },
+    { pattern: /\b(?:low mood|feeling low)\b/i, terms: ["depression", "depressive"] },
+    { pattern: /\b(?:high mood|elevated mood|little need for sleep)\b/i, terms: ["mania", "hypomania"] },
+    { pattern: /\b(?:confused|confusion|disorientated|disoriented)\b/i, terms: ["delirium", "cognitive"] },
+  ],
+  formulation: [
+    { pattern: /\b(?:keep going over|going over it|cannot stop thinking)\b/i, terms: ["rumination"] },
+    { pattern: /\b(?:what if|constant worry|keeps worrying)\b/i, terms: ["worry"] },
+    { pattern: /\b(?:not perfect|must be perfect|a failure)\b/i, terms: ["perfectionism"] },
+    { pattern: /\b(?:not really there|disconnected|outside myself)\b/i, terms: ["dissociation"] },
+    {
+      // The bare imperative "avoid" is the reader asking for advice ("how do I avoid
+      // a relapse"), not the avoidance mechanism. The inflected forms carry the
+      // clinical sense, and "avoids" was previously missed altogether.
+      pattern: /\b(?:avoids|avoided|avoiding|avoidance|avoidant|(?:stays?|staying|keeps?|kept)\s+away\s+from)\b/i,
+      terms: ["avoidance"],
+    },
+  ],
+  dsm: [
+    { pattern: /\b(?:low mood|feeling low)\b/i, terms: ["depressive", "depression"] },
+    { pattern: /\b(?:high mood|elevated mood|little need for sleep)\b/i, terms: ["mania", "hypomania", "bipolar"] },
+    { pattern: /\b(?:hearing voices|hear voices|seeing things)\b/i, terms: ["psychosis", "schizophrenia"] },
+    { pattern: /\b(?:flashbacks?|after trauma|traumatic event)\b/i, terms: ["trauma", "ptsd"] },
+    { pattern: /\b(?:attention problems?|hyperactive|cannot concentrate)\b/i, terms: ["adhd", "attention"] },
+  ],
+  specifiers: [
+    { pattern: /\b(?:anxious|anxiety symptoms?)\b/i, terms: ["anxious distress"] },
+    { pattern: /\b(?:getting better|partly recovered|fully recovered)\b/i, terms: ["remission"] },
+    { pattern: /\b(?:psychotic|with psychosis)\b/i, terms: ["psychotic features"] },
+    { pattern: /\b(?:seasonal|time of year)\b/i, terms: ["seasonal pattern"] },
+    { pattern: /\b(?:after birth|postpartum|during pregnancy)\b/i, terms: ["peripartum onset"] },
+  ],
+  "therapy-compass": [
+    { pattern: /\b(?:after trauma|traumatic event|flashbacks?)\b/i, terms: ["trauma-focused", "ptsd"] },
+    { pattern: /\b(?:young person|young people|teen(?:ager)?s?)\b/i, terms: ["youth", "child", "adolescent"] },
+    { pattern: /\b(?:constant worry|worrying|anxiety symptoms?)\b/i, terms: ["anxiety", "worry"] },
+    { pattern: /\b(?:low mood|feeling low)\b/i, terms: ["depression", "behavioural activation"] },
+    {
+      // Bare "couple" matched the quantifier ("a couple of options") and, because of
+      // the trailing word boundary, missed the plural "couples therapy" the rule
+      // exists for. Match the plural, or the singular only in a therapy context.
+      pattern:
+        /\b(?:couples|couple\s+(?:therapy|counselling|counseling|work|session|sessions)|relationship\s+(?:problems?|difficulties|issues))\b/i,
+      terms: ["couples", "relationship"],
+    },
+    { pattern: /\b(?:emotion regulation|intense emotions?)\b/i, terms: ["dbt", "dialectical behaviour therapy"] },
+  ],
+  prescribing: [
+    {
+      pattern: /\b(?:medicine that needs regular blood tests|regular blood tests)\b/i,
+      terms: ["monitoring", "blood tests"],
+    },
+    {
+      pattern: /\b(?:medicine for alcohol dependence|alcohol dependence)\b/i,
+      terms: ["alcohol dependence", "relapse prevention"],
+    },
+    {
+      pattern: /\b(?:antidepressant sexual side effects|antidepressant.*sexual adverse effects)\b/i,
+      terms: ["antidepressant", "sexual adverse effects"],
+    },
+  ],
+  tools: [
+    {
+      pattern: /\b(?:check medication interactions|medication interactions)\b/i,
+      terms: ["medication", "prescribing", "interactions", "safety"],
+    },
+    { pattern: /\b(?:mental health form|mental health forms)\b/i, terms: ["forms", "paperwork"] },
+    {
+      pattern: /\b(?:screening score|screening scores)\b/i,
+      terms: ["calculators", "assessment", "score"],
+    },
+  ],
+  calculators: [
+    {
+      pattern: /\b(?:screen depression severity|depression severity)\b/i,
+      terms: ["PHQ-9", "depression"],
+    },
+    { pattern: /\b(?:measure anxiety symptoms|anxiety symptoms)\b/i, terms: ["GAD-7", "anxiety"] },
+    {
+      pattern: /\b(?:screen hazardous drinking|hazardous drinking)\b/i,
+      terms: ["AUDIT-C", "CAGE", "alcohol"],
+    },
+    {
+      pattern: /\b(?:rate obsessive compulsive symptoms|obsessive compulsive symptoms)\b/i,
+      terms: ["Y-BOCS", "obsessive compulsive"],
+    },
+  ],
+  factsheets: [
+    {
+      pattern: /\b(?:worries all the time|worry all the time)\b/i,
+      terms: ["generalised anxiety disorder", "worry", "anxiety"],
+    },
+    { pattern: /\b(?:talking therapy)\b/i, terms: ["cognitive behavioural therapy", "CBT"] },
+    {
+      pattern: /\b(?:antidepressant side effects)\b/i,
+      terms: ["antidepressants", "SSRI", "side effects"],
+    },
+  ],
+  dictionary: [
+    {
+      pattern: /\b(?:hearing a voice that is not there|hearing voices)\b/i,
+      terms: ["hallucination", "auditory hallucination"],
+    },
+    { pattern: /\b(?:mental state exam)\b/i, terms: ["mental state examination", "MSE"] },
+    { pattern: /\b(?:repeated unwanted thoughts)\b/i, terms: ["obsession", "intrusive thought"] },
+    { pattern: /\b(?:feel(?:ing)? sad|feeling down)\b/i, terms: ["low mood", "depression", "sadness"] },
+  ],
+};
+
+const naturalLanguageStopWords = new Set([
+  "a",
+  "about",
+  "all",
+  "an",
+  "and",
+  "are",
+  "be",
+  "been",
+  "by",
+  "can",
+  "choose",
+  "could",
+  "do",
+  "does",
+  "for",
+  "from",
+  "give",
+  "has",
+  "have",
+  "help",
+  "how",
+  "i",
+  "if",
+  "in",
+  "is",
+  "it",
+  "looking",
+  "me",
+  "my",
+  "need",
+  "needs",
+  "of",
+  "on",
+  "or",
+  "please",
+  "right",
+  "should",
+  "that",
+  "the",
+  "there",
+  "they",
+  "this",
+  "to",
+  "use",
+  "using",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "with",
+  "would",
+  "you",
+  "your",
+]);
+
+const modeSearchWords: Partial<Record<SmartNaturalSearchModeId, ReadonlySet<string>>> = {
+  calculators: new Set(["assessment", "calculator", "calculators", "measure", "measures", "screen", "score", "tool"]),
+  factsheets: new Set(["factsheet", "factsheets", "information", "know", "read", "sheet", "sheets", "someone"]),
+  dictionary: new Set(["called", "define", "definition", "explain", "mean", "meaning", "means", "term", "word"]),
+};
+
+const conversationalLeadPattern =
+  /^(?:(?:please\s+)?(?:show|find|search(?:\s+for)?|look\s+up|help\s+me\s+find)|what|which|where|when|how|can|could|would|is|are|do|does)\b/i;
+const compactCodePattern = /^(?:form\s+)?[a-z]{0,5}[\s-]*\d{1,3}(?:\.\d+)?[a-z]?$/i;
+const embeddedIdentifierPattern = /\b(?=[a-z0-9.]*[a-z])(?=[a-z0-9.]*\d)[a-z0-9.]{3,}\b/i;
+
+function lexicalTokens(value: string): string[] {
+  return value.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? [];
+}
+
+export function isSmartNaturalSearchMode(modeId: AppModeId): modeId is SmartNaturalSearchModeId {
+  return smartNaturalSearchModeIds.includes(modeId as SmartNaturalSearchModeId);
+}
+
+export function isSmartLocalOnlyMode(modeId: AppModeId): modeId is SmartLocalOnlyModeId {
+  return smartLocalOnlyModeIds.includes(modeId as SmartLocalOnlyModeId);
+}
+
+/**
+ * Interprets a selected mode's query without a provider call.
+ *
+ * The original query remains the URL and user-visible value. Expansions are
+ * low-weight catalogue vocabulary only: they broaden deterministic ranking and
+ * never generate an answer, infer a diagnosis, or leave the selected mode.
+ */
+export function interpretSmartSearch(modeId: AppModeId, query: string): SmartSearchInterpretation {
+  const originalQuery = query.trim();
+  if (!originalQuery || !isSmartNaturalSearchMode(modeId)) {
+    return { modeId, originalQuery, naturalLanguage: false, expansions: [] };
+  }
+
+  const withoutTerminalPunctuation = originalQuery.replace(/[?!.,;:]+$/u, "").trim();
+  if (compactCodePattern.test(withoutTerminalPunctuation) || embeddedIdentifierPattern.test(originalQuery)) {
+    return { modeId, originalQuery, naturalLanguage: false, expansions: [] };
+  }
+
+  const expansions = modeExpansionRules[modeId]
+    .filter((rule) => rule.pattern.test(originalQuery))
+    .flatMap((rule) => rule.terms)
+    .map(normalizeSearchText)
+    .filter(Boolean)
+    .flatMap((term) => [term, ...term.split(" ").filter((token) => token.length > 1)]);
+  const uniqueExpansions = Array.from(new Set(expansions)).slice(0, 16);
+  const tokenCount = lexicalTokens(originalQuery).length;
+  const naturalLanguage =
+    uniqueExpansions.length > 0 ||
+    originalQuery.endsWith("?") ||
+    conversationalLeadPattern.test(originalQuery) ||
+    tokenCount >= 4;
+
+  return { modeId, originalQuery, naturalLanguage, expansions: uniqueExpansions };
+}
+
+export function smartSearchExpansions(modeId: AppModeId, query: string): string[] {
+  return interpretSmartSearch(modeId, query).expansions;
+}
+
+/**
+ * Subject-bearing terms for deterministic catalogue matching.
+ *
+ * Expansions remain first so a specific governed phrase outranks incidental
+ * words from the question. Boilerplate and mode nouns are removed; the query
+ * itself remains unchanged in the URL and visible search state.
+ */
+export function smartSearchContentTerms(modeId: AppModeId, query: string): string[] {
+  const interpretation = interpretSmartSearch(modeId, query);
+  if (!interpretation.naturalLanguage) return interpretation.expansions;
+
+  const ignored = isSmartNaturalSearchMode(modeId) ? modeSearchWords[modeId] : undefined;
+  // Recompute the curated terms straight from the matching rules rather than
+  // reusing `interpretation.expansions`, which also carries the single-word
+  // pieces a multi-word rule term is decomposed into (for `smartSearchExpansions`
+  // consumers that only ever `.includes()` against a flat, unstructured haystack).
+  // Deduping against that flattened list previously dropped a rule's own curated
+  // single-word term whenever another rule for the same query also contributed a
+  // phrase containing that word — e.g. a "hallucination" rule term disappeared
+  // whenever "auditory hallucination" matched too, because the decomposed
+  // "hallucination" token from the phrase looked identical and got filtered out
+  // as redundant, along with the real curated term.
+  const curatedTerms = isSmartNaturalSearchMode(modeId)
+    ? modeExpansionRules[modeId]
+        .filter((rule) => rule.pattern.test(interpretation.originalQuery))
+        .flatMap((rule) => rule.terms)
+        .map(normalizeSearchText)
+        .filter(Boolean)
+    : interpretation.expansions;
+  const subjectTerms = lexicalTokens(interpretation.originalQuery)
+    .map(normalizeSearchText)
+    .filter((term) => term.length > 1 && !naturalLanguageStopWords.has(term) && !ignored?.has(term));
+
+  return Array.from(new Set([...curatedTerms, ...subjectTerms])).slice(0, 24);
+}
+
+export function expandedSmartSearchQuery(modeId: AppModeId, query: string): string {
+  const interpretation = interpretSmartSearch(modeId, query);
+  return [interpretation.originalQuery, ...interpretation.expansions].filter(Boolean).join(" ");
+}

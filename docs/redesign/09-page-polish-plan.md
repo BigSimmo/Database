@@ -46,9 +46,9 @@ files — we never edit there. Commits stay path-scoped; rebase before any PR.
 | `/differentials/diagnoses`             | `differential-stream-page.tsx` (111)                | shell + `ui-primitives`                                                           |
 | `/differentials/diagnoses/[slug]`      | `differential-detail-page.tsx` (525)                | `ui-primitives`                                                                   |
 | `/differentials/presentations`         | `differential-presentation-workflow-page.tsx` (635) | `ui-primitives`                                                                   |
-| `/services`                            | `services-home-page.tsx` (104)                      | **`mode-home-template`**                                                          |
+| `/services`                            | shared home (`/?mode=services`)                     | **`mode-home-template`**                                                          |
 | `/services/[slug]`                     | `service-detail-page.tsx` (780)                     | `ui-primitives`                                                                   |
-| `/forms`                               | `forms-home-page.tsx` (90)                          | **`mode-home-template`**                                                          |
+| `/forms`                               | shared home (`/?mode=forms`)                        | **`mode-home-template`**                                                          |
 | `/forms/[slug]`                        | `form-detail-page.tsx` (802)                        | `ui-primitives`                                                                   |
 | `/favourites`                          | `favourites-home-page.tsx` (33)                     | **`mode-home-template`**                                                          |
 | `/medications` → `/medications/[slug]` | `medication-prescribing-workspace.tsx`              | shell + `ui-primitives`                                                           |

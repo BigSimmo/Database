@@ -361,6 +361,44 @@ describe("OpenAI query embedding cache", () => {
     });
   });
 
+  it.each([
+    ["missing", undefined, "openai_missing_parsed_output"],
+    ["malformed", { queryClass: 42, confidence: "high" }, "openai_invalid_structured_output"],
+  ])("rejects %s parsed provider output at the shared schema boundary", async (_label, outputParsed, code) => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = { create: vi.fn() };
+        responses = {
+          create: vi.fn(),
+          parse: vi.fn(() => ({
+            withResponse: async () => ({
+              data: {
+                status: "completed",
+                output_text: '{"queryClass":"broad_summary","confidence":0.9}',
+                output_parsed: outputParsed,
+              },
+              request_id: "req_invalid_parse",
+            }),
+          })),
+        };
+      },
+    }));
+
+    const { generateParsedTextResult } = await import("../src/lib/openai");
+    await expect(
+      generateParsedTextResult("Question", z.object({ queryClass: z.string(), confidence: z.number() }).strict(), {
+        model: "gpt-5.6-luna",
+        operation: "text_generation",
+        schemaName: "clinical_query_classifier",
+      }),
+    ).rejects.toMatchObject({
+      name: "PublicApiError",
+      status: 502,
+      details: { code },
+    });
+  });
+
   it("omits GPT-5.6 prompt cache options when the TTL is disabled", async () => {
     let capturedBody: Record<string, unknown> = {};
 
@@ -719,41 +757,44 @@ describe("OpenAI query embedding cache", () => {
       default: class MockOpenAI {
         embeddings = { create: vi.fn() };
         responses = {
-          create: vi.fn((body: Record<string, unknown>) => {
+          create: vi.fn(),
+          parse: vi.fn((body: Record<string, unknown>) => {
             capturedBody = body;
+            const outputParsed = {
+              image_type: "clinical_table",
+              searchable: true,
+              clinical_relevance_score: 0.82,
+              labels: ["monitoring"],
+              caption: "Monitoring table.",
+              skip_reason: null,
+              clinical_use_class: "clinical_evidence",
+              clinical_use_reason: "Visible monitoring table.",
+              clinical_signal_score: 7,
+              admin_signal_score: 0,
+              structured_visual_profile: {
+                clinical_purpose: "Monitoring",
+                key_terms: [],
+                medications: [],
+                thresholds: [],
+                actions: [],
+                monitoring_items: [],
+                flowchart_nodes: [],
+                flowchart_edges: [],
+                risk_matrix_axes: [],
+                risk_matrix_cells: [],
+                chart_axes: [],
+                chart_findings: [],
+                table_column_roles: [],
+                source_regions: [],
+                confidence: 0.82,
+              },
+            };
             return {
               withResponse: async () => ({
                 data: {
                   status: "completed",
-                  output_text: JSON.stringify({
-                    image_type: "clinical_table",
-                    searchable: true,
-                    clinical_relevance_score: 0.82,
-                    labels: ["monitoring"],
-                    caption: "Monitoring table.",
-                    skip_reason: null,
-                    clinical_use_class: "clinical_evidence",
-                    clinical_use_reason: "Visible monitoring table.",
-                    clinical_signal_score: 7,
-                    admin_signal_score: 0,
-                    structured_visual_profile: {
-                      clinical_purpose: "Monitoring",
-                      key_terms: [],
-                      medications: [],
-                      thresholds: [],
-                      actions: [],
-                      monitoring_items: [],
-                      flowchart_nodes: [],
-                      flowchart_edges: [],
-                      risk_matrix_axes: [],
-                      risk_matrix_cells: [],
-                      chart_axes: [],
-                      chart_findings: [],
-                      table_column_roles: [],
-                      source_regions: [],
-                      confidence: 0.82,
-                    },
-                  }),
+                  output_text: JSON.stringify(outputParsed),
+                  output_parsed: outputParsed,
                 },
                 request_id: "req_vision_classification",
               }),

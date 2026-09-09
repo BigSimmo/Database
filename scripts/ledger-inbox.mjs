@@ -12,12 +12,13 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { addIssue, resolveIssue, updateIssue, updateQueueRow } from "./outstanding-issues.mjs";
+import { addIssue, findRow, resolveIssue, updateIssue, updateQueueRow } from "./outstanding-issues.mjs";
 import {
   ISSUES_PATH,
   checkIssues,
   issueRowFingerprint,
   isValidIssueRowFingerprint,
+  parseIssues,
   queueRowFingerprint,
 } from "./check-outstanding-issues.mjs";
 import {
@@ -124,13 +125,13 @@ export function validateRequest(request) {
   return problems;
 }
 
-export function applyRequest(markdown, request) {
+export function applyRequest(markdown, request, options = {}) {
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
   if (request.action === "cancel") {
     throw new Error("cancel requests must be applied through batch reconciliation");
   }
-  const options = { date: request.createdOn };
+  const dateOptions = { ...options, date: request.createdOn };
   if (request.action === "queue" && request.payload?.baseRowFingerprint) {
     const id = request.payload.id;
     const fingerprint = queueRowFingerprint(markdown, id);
@@ -143,6 +144,16 @@ export function applyRequest(markdown, request) {
       throw new Error(
         `${id} queue row is stale: it changed after this request was queued; reread and reissue from the latest ledger`,
       );
+    }
+  }
+  if (options.idempotent && ["done", "update"].includes(request.action)) {
+    const id = request.payload?.id;
+    if (typeof id === "string") {
+      const parsed = parseIssues(markdown);
+      const row = findRow(parsed, id);
+      if (row?.table === "archive") {
+        return markdown;
+      }
     }
   }
   if ((request.action === "done" || request.action === "update") && request.payload?.baseRowFingerprint) {
@@ -159,9 +170,10 @@ export function applyRequest(markdown, request) {
   }
   if (request.action === "add") {
     const durableId = request.payload.issueUlid ?? issueUlidFromRequest(request.createdOn, request.id);
-    return addIssue(markdown, request.payload, { ...options, issueUlid: durableId });
+    return addIssue(markdown, request.payload, { ...dateOptions, issueUlid: durableId });
   }
-  if (request.action === "done") return resolveIssue(markdown, request.payload.id, request.payload.outcome, options);
+  if (request.action === "done")
+    return resolveIssue(markdown, request.payload.id, request.payload.outcome, dateOptions);
   if (request.action === "queue") return updateQueueRow(markdown, request.payload.id, request.payload);
   return updateIssue(markdown, request.payload.id, request.payload);
 }
@@ -282,10 +294,10 @@ export function planRequestBatch(requests, options = {}) {
   return { active, cancellations, cancelledIds: [...cancelledIds], ineffectiveCancellations: ineffective };
 }
 
-export function applyRequestBatch(markdown, requests) {
-  const plan = planRequestBatch(requests);
+export function applyRequestBatch(markdown, requests, options = {}) {
+  const plan = planRequestBatch(requests, options);
   let next = markdown;
-  for (const request of plan.active) next = applyRequest(next, request);
+  for (const request of plan.active) next = applyRequest(next, request, { ...options, idempotent: true });
   return { markdown: next, ...plan };
 }
 
@@ -675,6 +687,9 @@ export function assertSafeRemoteReconciliation(argv = [], options = {}) {
 }
 
 function createRequest(action, argv) {
+  const positionalId = argv[1]?.startsWith("--") ? undefined : argv[1];
+  const targetId = argValue(argv, "id") ?? positionalId;
+  const targetRequestId = argValue(argv, "requestId") ?? argValue(argv, "id") ?? positionalId;
   const payload =
     action === "add"
       ? {
@@ -686,12 +701,12 @@ function createRequest(action, argv) {
           issueUlid: issueUlid(),
         }
       : action === "done"
-        ? { id: argv[1], outcome: argValue(argv, "outcome") }
+        ? { id: targetId, outcome: argValue(argv, "outcome") }
         : action === "cancel"
-          ? { requestId: argv[1], reason: argValue(argv, "reason") }
+          ? { requestId: targetRequestId, reason: argValue(argv, "reason") }
           : action === "queue"
             ? {
-                id: argv[1],
+                id: targetId,
                 acuity: argValue(argv, "acuity"),
                 capability: argValue(argv, "capability"),
                 when: argValue(argv, "when"),
@@ -705,7 +720,7 @@ function createRequest(action, argv) {
                 // which is the half of ledger #313 the inbox would otherwise
                 // reintroduce: updateIssue accepts --pri and validateRequest
                 // permits it, but nothing could produce the payload.
-                id: argv[1],
+                id: targetId,
                 pri: argValue(argv, "pri"),
                 summary: argValue(argv, "summary"),
                 detail: argValue(argv, "detail"),
@@ -714,6 +729,18 @@ function createRequest(action, argv) {
   if (["done", "update"].includes(action) && typeof payload.id === "string") {
     const currentFingerprint = issueRowFingerprint(readOutstandingIssues(), payload.id);
     if (currentFingerprint === null) {
+      if (action === "done") {
+        const parsed = parseIssues(readOutstandingIssues());
+        const row = findRow(parsed, payload.id);
+        if (row?.table === "archive") {
+          if (argv.includes("--dry-run")) {
+            console.log(`[dry-run] ${payload.id} is already archived in ${ISSUES_PATH}; no-op.`);
+            return;
+          }
+          console.warn(`ledger request skipped: ${payload.id} is already archived in ${ISSUES_PATH}`);
+          return;
+        }
+      }
       throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
     }
     payload.baseRowFingerprint = currentFingerprint;
@@ -731,6 +758,11 @@ function createRequest(action, argv) {
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
   const relative = requestPath(request.id);
+  if (argv.includes("--dry-run")) {
+    console.log(JSON.stringify(request, null, 2));
+    console.log(`[dry-run] Planned ${action} request for ${relative} (no file written).`);
+    return;
+  }
   const target = path.join(ROOT, relative);
   mkdirSync(path.dirname(target), { recursive: true });
   writeFileSync(target, `${JSON.stringify(request, null, 2)}\n`, { encoding: "utf8", flag: "wx" });

@@ -30,6 +30,22 @@ vi.mock("@/lib/use-registry-records", () => ({
   useRegistryRecords: () => ({ records: [], status: "ready", refetch: () => undefined }),
 }));
 
+const testTimestamp = "2026-08-23T00:00:00.000Z";
+function snapshot(favourites: Array<{ contentType: string; contentKey: string }> = []) {
+  return {
+    version: 1,
+    favourites: favourites.map((item, index) => ({
+      ...item,
+      createdAt: testTimestamp,
+      setId: null,
+      sortOrder: (index + 1) * 10,
+      pinnedAt: null,
+      lastOpenedAt: null,
+    })),
+    sets: [],
+  };
+}
+
 function Probe() {
   const { items, status, refetch } = useSavedRegistryFavourites();
   return (
@@ -96,13 +112,10 @@ describe("favourites account retry", () => {
   it("recovers after the account request fails once and succeeds on Retry", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ message: "Saved items could not be loaded." }),
-      })
+      .mockResolvedValueOnce(Response.json({ message: "Saved items could not be loaded." }, { status: 503 }))
       .mockResolvedValue({
         ok: true,
-        json: async () => ({ favourites: [{ contentType: "differential", contentKey: "delirium" }] }),
+        json: async () => snapshot([{ contentType: "differential", contentKey: "delirium" }]),
       });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -130,11 +143,7 @@ describe("favourites account retry", () => {
     // Retry re-sends the same authorization header, so a rejected token can
     // never be recovered by retrying. The load path has to change the auth
     // state and route the reader to sign in, as the mutation paths already do.
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({ message: "Session expired." }),
-    });
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ message: "Session expired." }, { status: 401 }));
     vi.stubGlobal("fetch", fetchMock);
 
     render(
@@ -149,11 +158,9 @@ describe("favourites account retry", () => {
   it("does not mark the session expired for a non-auth load failure", async () => {
     // A 503 is exactly what Retry is for; flipping the session on it would send
     // a signed-in reader to a sign-in screen over a transient server fault.
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 503,
-      json: async () => ({ message: "Saved items could not be loaded." }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json({ message: "Saved items could not be loaded." }, { status: 503 }));
     vi.stubGlobal("fetch", fetchMock);
 
     render(
@@ -172,15 +179,11 @@ describe("favourites account retry", () => {
       if (method === "GET") {
         return {
           ok: true,
-          json: async () => ({ favourites: [] }),
+          json: async () => snapshot(),
         };
       }
       if (method === "PUT") {
-        return {
-          ok: false,
-          status: 503,
-          json: async () => ({ message: "Saved items could not be updated." }),
-        };
+        return Response.json({ message: "Saved items could not be updated." }, { status: 503 });
       }
       throw new Error(`Unexpected fetch method: ${method}`);
     });
@@ -203,11 +206,32 @@ describe("favourites account retry", () => {
     expect(screen.getByTestId("count")).toHaveTextContent("0");
   });
 
+  it("rolls back an optimistic save when a 2xx response violates the shared contract", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET") return { ok: true, status: 200, json: async () => snapshot() };
+      if (method === "PUT") return { ok: true, status: 200, json: async () => ({ saved: true }) };
+      throw new Error(`Unexpected fetch method: ${method}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AccountDataProvider>
+        <FirstSaveProbe />
+      </AccountDataProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(screen.getByTestId("action-error")).toHaveTextContent("response was invalid"));
+    expect(screen.getByTestId("count")).toHaveTextContent("0");
+  });
+
   it("serializes opposite writes and leaves the final requested state persisted", async () => {
     type PutResponse = {
       ok: boolean;
       status: number;
-      json: () => Promise<Record<string, never>>;
+      json: () => Promise<Record<string, unknown>>;
     };
     const pendingPuts: Array<{
       body: { contentType: string; contentKey: string; saved: boolean };
@@ -219,7 +243,7 @@ describe("favourites account retry", () => {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: async () => ({ favourites: [] }),
+          json: async () => snapshot(),
         });
       }
       if (method === "PUT") {
@@ -249,11 +273,15 @@ describe("favourites account retry", () => {
     await waitFor(() => expect(pendingPuts).toHaveLength(1));
     expect(pendingPuts[0]?.body.saved).toBe(true);
 
-    await act(async () => pendingPuts[0]?.resolve({ ok: true, status: 200, json: async () => ({}) }));
+    await act(async () =>
+      pendingPuts[0]?.resolve({ ok: true, status: 200, json: async () => ({ version: 1, saved: true }) }),
+    );
     await waitFor(() => expect(pendingPuts).toHaveLength(2));
     expect(pendingPuts[1]?.body.saved).toBe(false);
 
-    await act(async () => pendingPuts[1]?.resolve({ ok: true, status: 200, json: async () => ({}) }));
+    await act(async () =>
+      pendingPuts[1]?.resolve({ ok: true, status: 200, json: async () => ({ version: 1, saved: false }) }),
+    );
     await waitFor(() => expect(screen.getByTestId("therapy-saved")).toHaveTextContent("not saved"));
   });
 });

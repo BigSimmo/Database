@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2166a980-bac5-4565-b009-f7f4ea530e5c",
+  "createdOn": "2026-08-26",
+  "action": "done",
+  "payload": {
+    "id": "#GQ5X8T",
+    "outcome": "NOT REPRODUCED ON PINNED LINUX; WINDOWS-SPECIFIC CAUSE UNRESOLVED. Eleven retained PR #2313 ubuntu-24.04 Lighthouse artifacts used Lighthouse 12.8.2 and pinned HeadlessChrome/151.0.0.0. In the nine-run synchronized-baseline subset, mobile-root LCP was 2260.791-2300.923ms with median 2287.574ms versus 2274.017ms baseline (+13.557ms, +0.60%); TBT median was 430.602ms versus 436.600ms baseline (-1.37%); CLS was 0 throughout. Across all eleven heads LCP was 2221.675-2300.923ms, never reproducing the Windows 7422-8032ms state. The exact local 883f1007 control / 7cf37b53 treatment snapshots had identical lock hashes, but the local host stayed at 42.3-62.9% CPU and the control build hit the 10-minute Linux cap after compiling, before measurement; that attempt is environment-blocked and was not rerun. This excludes a repeatable cross-platform regression but cannot distinguish Windows host noise from a Windows-specific client regression. No product, budget, tolerance, request-count, or proven CLS change was made. Reopen if a pinned Linux exact-head run breaches repeatably or a synchronized quiet-host Windows control reproduces the slowdown. Evidence: docs/evidence/mobile-root-timing-control-2026-08-26.md.",
+    "baseRowFingerprint": "6c24eee2dac74f8ae1aa5a54af9c5b5f2d118e057ce1d71d76568dea05d3eeca"
+  }
+}

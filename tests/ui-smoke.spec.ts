@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectNoPageHorizontalOverflow, gotoApp } from "./helpers/spec-navigation";
 import {
   appendPrimaryScrollSpacer,
   readMobileComposerReservePx,
@@ -11,10 +12,11 @@ import {
 } from "./playwright-scroll";
 import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
+import { BRAND_NAME } from "../src/lib/brand";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { formRecords } from "../src/lib/forms";
-import { deriveGovernanceFromSections } from "../src/lib/medication-records";
+import { publicMedicationGovernance } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { searchMedicationCatalog } from "../src/lib/medication-query";
 import { medicationToSearchResult, type MedicationRecord } from "../src/lib/medications";
@@ -34,15 +36,6 @@ const uiAssertionTimeoutMs = 30_000;
 const demoAnswerThreadOwnerId = "local-demo-session";
 const demoAnswerThreadStorageKey = `${answerThreadStorageKey}:${demoAnswerThreadOwnerId}`;
 const demoRecentQueryStorageKey = `${recentQueryStorageKey}:${demoAnswerThreadOwnerId}`;
-
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
-}
 
 async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
   // Next streaming can leave a hidden DocumentFrame clone (#093); bare getByTestId
@@ -94,11 +87,6 @@ async function installClipboardMock(page: Page) {
       },
     });
   });
-}
-
-async function gotoApp(page: Page, path: string) {
-  await page.goto(path, { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onClick" | "onScroll" | "onSubmit") {
@@ -217,7 +205,7 @@ async function mockLocalProjectIdentity(page: Page) {
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
-        appName: "Clinical KB",
+        appName: "PsychSift",
         projectId: "test-project",
         identityPath: "/api/local-project-id",
         localServer: {
@@ -359,14 +347,10 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
         await route.fulfill({ status: 404, json: { error: `No medication found for "${slug}".` } });
         return;
       }
-      const governance = deriveGovernanceFromSections(record);
       await route.fulfill({
         json: {
           record,
-          governance: {
-            sourceStatus: governance.source_status,
-            validationStatus: governance.validation_status,
-          },
+          governance: publicMedicationGovernance(record),
           demoMode: true,
         },
       });
@@ -404,13 +388,16 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
     });
   });
   await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
-    const kind = new URL(route.request().url()).searchParams.get("kind");
+    const url = new URL(route.request().url());
+    const kind = url.searchParams.get("kind");
+    const view = url.searchParams.get("view") ?? "full";
     const records = kind === "form" ? formRecords : serviceRecords;
     await route.fulfill({
       json: {
         records,
         total: records.length,
-        governance: {},
+        verifiedCount: 0,
+        ...(view === "full" ? { governance: {} } : {}),
         demoMode: true,
       },
     });
@@ -732,7 +719,7 @@ async function openScopeControl(page: Page) {
     await actionMenu.click();
     const actionsMenu = page.getByTestId("daily-actions-menu");
     await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
+    await actionsMenu.getByRole("button", { name: /^Scope\b/ }).click();
   }
   await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: uiAssertionTimeoutMs });
 }
@@ -785,18 +772,18 @@ async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
 }
 
 async function openMobileClinicalGuideMenu(page: Page) {
-  const trigger = page.getByRole("button", { name: "Open Clinical Guide menu" });
+  const trigger = page.getByRole("button", { name: "Open PsychSift menu" });
   await expect(trigger).toBeVisible();
   await waitForReactEventHandler(trigger, "onClick");
   await trigger.click();
 
-  const menu = page.getByRole("dialog", { name: "Clinical Guide" });
+  const menu = page.getByRole("dialog", { name: "PsychSift" });
   await expect(menu).toBeVisible();
   const menuBox = await menu.boundingBox();
   expect(menuBox).not.toBeNull();
   expect(menuBox!.x).toBeGreaterThanOrEqual(0);
   await expect(menu.getByRole("button", { name: "New chat" })).toBeVisible();
-  await expect(menu.getByRole("button", { name: "Search Clinical Guide" })).toBeVisible();
+  await expect(menu.getByRole("button", { name: "Search PsychSift" })).toBeVisible();
   await expect(menu.getByText("Recent chats", { exact: true })).toHaveCount(0);
   await expect(menu.getByText("Shortcuts", { exact: true })).toBeVisible();
   await expect(menu.getByRole("button", { name: "Edit" })).toBeVisible();
@@ -808,14 +795,19 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
     { name: "Answer", href: "/?mode=answer" },
-    // Documents owns a real home: the shell mounts ClinicalDashboard for
-    // /documents, so it paints browse and recent documents rather than the
-    // shared hero. Every other consolidated mode links at the shared home
-    // directly — pointing a pinned entry at its old bare path would spend a
-    // 307 arriving in the same place.
-    { name: "Documents", href: "/documents" },
+    // Owner decision 2026-08-27: Documents joins the other consolidated modes and
+    // links at the shared home. `/documents` still exists and still paints its
+    // browse/recent workspace, but it is a second landing page — same subtitle,
+    // different title — and reaching it from the sidebar read as the wrong screen.
+    // It keeps its route and its inbound link from the Tools directory.
+    // Medication also redirects now — through its own bespoke proxy fast-path
+    // rather than the shared consolidatedModeHomePaths map, since /medications has
+    // no /search sub-route (src/proxy.ts, medicationsHomeTarget()) — and the
+    // pinned sidebar entry points straight at the shared home now too, matching
+    // Documents/Services above (ClinicalSidebar.tsx).
+    { name: "Documents", href: "/?mode=documents" },
     { name: "Services", href: "/?mode=services" },
-    { name: "Medication", href: "/medications" },
+    { name: "Medication", href: "/?mode=prescribing" },
     { name: "Factsheets", href: "/?mode=factsheets" },
     { name: "Tools", href: "/tools" },
   ]);
@@ -825,7 +817,7 @@ async function openMobileClinicalGuideMenu(page: Page) {
   await expect(menu.getByRole("button", { name: /Appearance Auto/ })).toBeVisible();
   await expect(menu.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   await expect(menu.getByText("Guest")).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "PsychSift guide" })).toHaveCount(0);
   await expectNoPageHorizontalOverflow(page);
   return menu;
 }
@@ -853,7 +845,7 @@ async function waitForPersistedAnswerThread(page: Page, minPriorTurns = 1) {
 }
 
 async function openGuide(page: Page) {
-  const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
+  const dialog = page.getByRole("dialog", { name: "PsychSift guide" });
   const settings = accountSettingsDialog(page);
   const viewport = page.viewportSize();
 
@@ -875,13 +867,13 @@ async function openGuide(page: Page) {
         // The swallowed click leaves the phone menu OPEN, so a retry that always
         // reopens would toggle it shut and then fail to find Settings inside it.
         // Reuse the open menu; only summon one when there is none.
-        const openMenu = page.getByRole("dialog", { name: "Clinical Guide" });
+        const openMenu = page.getByRole("dialog", { name: "PsychSift" });
         const menu = (await openMenu.isVisible().catch(() => false))
           ? openMenu
           : await openMobileClinicalGuideMenu(page);
         await menu.getByRole("button", { name: "Settings", exact: true }).click();
       } else if (viewport && viewport.width < 1024) {
-        const rail = page.getByLabel("Clinical Guide collapsed sidebar");
+        const rail = page.getByLabel("PsychSift collapsed sidebar");
         const railSettings = rail.getByRole("button", { name: "Settings", exact: true });
         await expect(railSettings).toBeVisible();
         await railSettings.click();
@@ -889,7 +881,7 @@ async function openGuide(page: Page) {
         const sidebar = page.locator("#clinical-tools-sidebar");
         const settingsTrigger = (await sidebar.isVisible().catch(() => false))
           ? sidebar.getByRole("button", { name: "Settings", exact: true })
-          : page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
+          : page.getByLabel("PsychSift collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
         await expect(settingsTrigger).toBeVisible();
         await settingsTrigger.click();
       }
@@ -927,8 +919,20 @@ async function expectControlsBelowPhoneTopSafeArea(page: Page, controls: Locator
   }
 }
 
-async function expectAccountSettingsSurface(settings: Locator) {
+async function expectAccountSettingsSurface(settings: Locator, chrome: "desktop" | "phone") {
   await expect(settings.getByRole("heading", { name: "Account & app" })).toBeVisible();
+  const subtitle = settings.getByText("Account and workspace preferences", { exact: true });
+  const search = settings.getByRole("search");
+  const navigation = settings.getByRole("navigation", { name: "Settings sections" });
+  if (chrome === "desktop") {
+    await expect(subtitle).toBeHidden();
+    await expect(search).toBeVisible();
+    await expect(navigation).toBeVisible();
+  } else {
+    await expect(subtitle).toBeVisible();
+    await expect(search).toHaveCount(0);
+    await expect(navigation).toHaveCount(0);
+  }
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Clinical defaults", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "App preferences", exact: true })).toBeVisible();
@@ -942,6 +946,8 @@ async function expectAccountSettingsSurface(settings: Locator) {
 }
 
 async function expectMobileSettingsLayout(settings: Locator) {
+  await expect(settings.getByRole("search")).toHaveCount(0);
+  await expect(settings.getByRole("navigation", { name: "Settings sections" })).toHaveCount(0);
   const jurisdictionRow = settings.getByTestId("settings-row-jurisdiction");
   // The row carries two labels for one control, deliberately. The visible row
   // text is a `<label htmlFor>` so clicking it focuses the select, and the DS
@@ -1044,7 +1050,10 @@ async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stac
   expect(boxes.every(Boolean)).toBe(true);
   const [apple, google, microsoft] = boxes as NonNullable<(typeof boxes)[number]>[];
 
-  expect(boxes.every((box) => box!.height >= 48)).toBe(true);
+  // Chromium can report a CSS-enforced 48px minimum as 47.999… after layout
+  // rounding. Keep the clinical touch-target contract while ignoring that
+  // sub-hundredth-pixel measurement noise.
+  expect(boxes.every((box) => box!.height >= 47.99)).toBe(true);
   if (layout === "row") {
     expect(Math.max(apple.y, google.y, microsoft.y) - Math.min(apple.y, google.y, microsoft.y)).toBeLessThanOrEqual(1);
     expect(apple.x + apple.width).toBeLessThanOrEqual(google.x);
@@ -1064,7 +1073,7 @@ async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stac
 
 async function expectDocumentUploadUnavailable(page: Page) {
   const menu = await openDailyActions(page);
-  await expect(menu.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+  await expect(menu.getByRole("button", { name: /Add document|Upload PDF/ })).toHaveCount(0);
   await expect(page.locator('input[type="file"]')).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
@@ -1091,7 +1100,7 @@ async function openDailyActions(page: Page, triggerName: string | RegExp = /^Ope
 
 test.beforeEach(stubZeroTouchPoints);
 
-test.describe("Clinical KB UI smoke coverage", () => {
+test.describe("PsychSift UI smoke coverage", () => {
   test.describe.configure({ timeout: 60000 });
 
   test("Supabase connection hints reach the document head without provider traffic", async ({ page }) => {
@@ -1112,7 +1121,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await gotoApp(page, "/");
       await waitForDemoDashboardReady(page);
 
-      await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
+      await expect(page.getByRole("heading", { level: 1, name: "PsychSift" })).toHaveCount(1);
       await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
       await expect(visibleQuestionInput(page)).toBeVisible();
       await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
@@ -1129,11 +1138,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
       if (viewport.width < 640) {
         const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
         const dailyActions = await openDailyActions(page);
-        const searchAction = dailyActions.getByRole("menuitem", { name: "Search" });
+        const searchAction = dailyActions.getByRole("button", { name: "Search sources", exact: true });
         await expect(searchAction).toBeVisible();
-        await expect(dailyActions.getByRole("menuitem", { name: "View evidence" })).toBeVisible();
+        await expect(dailyActions.getByRole("button", { name: "View evidence" })).toBeVisible();
         await expectMinTouchTarget(searchAction);
-        await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
+        await expect(page.getByRole("dialog", { name: "PsychSift guide" })).toHaveCount(0);
         await page.keyboard.press("Escape");
         await expect(dailyActions).toBeHidden();
         await expect(dailyActionsTrigger).toBeFocused();
@@ -1151,7 +1160,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
+    await expect(page.getByText("Create your PsychSift account")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
@@ -1165,11 +1174,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
+    await expect(page.getByText("Create your PsychSift account")).toHaveCount(0);
     await expect(page.getByText("Service unavailable")).toHaveCount(0);
     await expect(page.getByText("API unavailable")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
+  });
+
+  test("Medication shortcut opens the shared Medication home", async ({ page }) => {
+    // Medication was reversed out of its standalone `/medications` home (see
+    // src/app/(search-app)/medications/page.tsx) so its idle view is now the shared
+    // home, matching the other consolidated modes and Documents.
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const menu = await openMobileClinicalGuideMenu(page);
+    await menu.getByRole("link", { name: "Medication" }).click();
+
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/");
+    await expect.poll(() => new URL(page.url()).searchParams.get("mode"), { timeout: 30_000 }).toBe("prescribing");
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible();
   });
 
   test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {
@@ -1201,7 +1228,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(universalFocus.pillShadow).not.toBe("none");
 
     const menu = await openMobileClinicalGuideMenu(page);
-    const closeMenu = menu.getByRole("button", { name: "Close Clinical Guide menu" });
+    const closeMenu = menu.getByRole("button", { name: "Close PsychSift menu" });
     const newChat = menu.getByRole("button", { name: "New chat" });
     const restingButtonShadow = await newChat.evaluate((element) => getComputedStyle(element).boxShadow);
     await closeMenu.focus();
@@ -1222,7 +1249,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(buttonFocus.outlineStyle).toBe("solid");
     expect(buttonFocus.boxShadow).toBe(restingButtonShadow);
 
-    const guideSearch = menu.getByRole("button", { name: "Search Clinical Guide" });
+    const guideSearch = menu.getByRole("button", { name: "Search PsychSift" });
     await guideSearch.focus();
     const fieldFocus = await guideSearch.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -1263,7 +1290,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // so first-run desktop shows the collapsed rail, not the labelled panel;
     // expanding is remembered. #clinical-tools-sidebar only mounts when
     // expanded, so its absence (not just hidden) is the collapsed signal.
-    await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
+    await expect(page.getByLabel("PsychSift collapsed sidebar")).toBeVisible();
     await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Collapse sidebar" })).toHaveCount(0);
@@ -1301,7 +1328,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     );
 
     const collapseSidebar = page.getByRole("button", { name: "Collapse sidebar" });
-    const guideSearch = sidebar.getByRole("button", { name: "Search Clinical Guide" });
+    const guideSearch = sidebar.getByRole("button", { name: "Search PsychSift" });
     await expect(guideSearch).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
     await guideSearch.click();
     await expect(page).toHaveURL(/\/\?mode=answer&focus=1$/);
@@ -1324,6 +1351,68 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "Clinical Answers", exact: true })).toBeVisible();
   });
 
+  test("sidebar shortcuts switch mode in place, on the shared home and after an answer", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "0"));
+    await gotoApp(page, "/?mode=answer");
+    await waitForDemoDashboardReady(page);
+    const sidebar = page.locator("#clinical-tools-sidebar");
+    await expect(sidebar).toBeVisible();
+    const documentsShortcut = sidebar.getByRole("link", { name: "Documents", exact: true });
+
+    // On the shared home a shortcut is the mode pill's in-place switch: the URL
+    // is rewritten and the mode flips with no navigation request at all.
+    const navigationRequests: string[] = [];
+    page.on("request", (request) => {
+      const headers = request.headers();
+      if (headers["rsc"] !== "1") return;
+      // Next 16 does NOT mark every prefetch with `next-router-prefetch: 1`.
+      // `fetchSegmentPrefetchesUsingDynamicRequest` in
+      // node_modules/next/dist/client/components/segment-cache/cache.js sets the
+      // header per fetch strategy — `1` loading-boundary, `2` PPR-runtime, `3`
+      // runtime-shell — and for `FetchStrategy.Full` it sets NO header at all.
+      // A `!== "1"` test therefore reads strategies 2 and 3 as navigations.
+      if (headers["next-router-prefetch"] !== undefined) return;
+      // A Full-strategy prefetch carries the same headers as a navigation, so
+      // headers alone cannot separate them. Scope by route instead, which is
+      // what this test actually asks: an in-place mode switch must not fetch
+      // the page it is switching to, and every mode here lives on the shared
+      // home. The sidebar deliberately prefetches /tools (the one link with
+      // `prefetch` plus focus/pointer warming, because Tools is browse-first
+      // and opens its own directory route) — a different route, and not a
+      // navigation caused by this click.
+      if (new URL(request.url()).pathname !== "/") return;
+      navigationRequests.push(request.url());
+    });
+    await documentsShortcut.click();
+    await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
+    await expect(page).toHaveURL(/\/\?mode=documents$/);
+    await expect(documentsShortcut).toHaveAttribute("aria-current", "page");
+    expect(navigationRequests).toEqual([]);
+
+    await sidebar.getByRole("link", { name: "Answer", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
+    await expect(page).toHaveURL(/\/\?mode=answer$/);
+    expect(navigationRequests).toEqual([]);
+
+    // After an answer the dashboard is off the shared home. The shortcut must
+    // still land on the mode it names: the submission left the UI-change flag
+    // raised, and the URL sync used to mistake the next navigation for a UI
+    // change and skip it — URL on Documents, header and answer still on Answer.
+    const question = "What clozapine monitoring items are shown in the table image?";
+    await fillVisibleQuestionInput(page, question);
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+    await expect(page).toHaveURL(/run=1/);
+
+    await documentsShortcut.click();
+    await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
+    await expect(page).toHaveURL(/\/\?mode=documents/);
+    await expect(documentsShortcut).toHaveAttribute("aria-current", "page");
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
+  });
+
   test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await mockDemoApi(page);
@@ -1335,12 +1424,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
-    await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open PsychSift menu" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
     await expect(page.locator("#clinical-tools-sidebar")).toBeHidden();
-    await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
+    await expect(page.getByLabel("PsychSift collapsed sidebar")).toBeVisible();
 
-    const rail = page.getByLabel("Clinical Guide collapsed sidebar");
+    const rail = page.getByLabel("PsychSift collapsed sidebar");
     const scrollRegion = rail.getByTestId("collapsed-sidebar-scroll-region");
     const navigation = rail.getByRole("navigation", { name: "Pinned shortcuts" });
     const library = rail.getByRole("navigation", { name: "Your library" });
@@ -1356,9 +1445,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
         ),
     ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
-      { name: "Documents", href: "/documents" },
+      { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/?mode=services" },
-      { name: "Medication", href: "/medications" },
+      { name: "Medication", href: "/?mode=prescribing" },
       { name: "Factsheets", href: "/?mode=factsheets" },
       { name: "Tools", href: "/tools" },
     ]);
@@ -1440,7 +1529,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const llms = await page.request.get("/llms.txt");
     expect(llms.status()).toBe(200);
     const llmsText = await llms.text();
-    expect(llmsText).toContain("Clinical Guide");
+    expect(llmsText).toContain(BRAND_NAME);
     expect(llmsText).toContain("rely on cited source evidence");
 
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -1471,7 +1560,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
-    await expectAccountSettingsSurface(settings);
+    await expectAccountSettingsSurface(settings, "desktop");
     await expectNoPageHorizontalOverflow(page);
 
     await settings.getByRole("button", { name: "Close settings" }).click();
@@ -1491,13 +1580,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSetupSurface(setup);
   });
 
-  test("desktop settings scrolls its own column and keeps the rail and close control reachable", async ({ page }) => {
-    // Regression: the panel grid used `lg:h-auto` + `lg:max-h-`, so its single
-    // auto row sized to the full content height, overflowed the capped grid and
-    // was clipped by `overflow-hidden`. The scroll column therefore never
-    // overflowed its own box, `overflow-y-auto` never engaged, and a rail click's
-    // `scrollIntoView` scrolled the clipped grid instead — dragging the rail and
-    // the close control out of the dialog with no way to scroll them back.
+  test("desktop settings restores search and section navigation while keeping one scroll owner", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -1511,11 +1594,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const settings = accountSettingsDialog(page);
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
+    await expectAccountSettingsSurface(settings, "desktop");
+
+    for (const width of [768, 1280, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(settings.getByRole("search")).toBeVisible();
+      await expect(settings.getByRole("navigation", { name: "Settings sections" })).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+    }
 
     const rail = settings.getByRole("navigation", { name: "Settings sections" });
-    const close = settings.getByRole("button", { name: "Close settings" });
-    await expect(rail).toBeVisible();
+    const search = settings.getByTestId("settings-search-input");
+    await search.fill("dark mode");
+    await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
+    await expect(settings.getByTestId("settings-row-jurisdiction")).toHaveCount(0);
+    await expect(rail.getByRole("button", { name: "App preferences", exact: true })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await search.press("Escape");
+    await expect(search).toHaveValue("");
+    await expect(settings.getByTestId("settings-row-jurisdiction")).toBeVisible();
 
+    const close = settings.getByRole("button", { name: "Close settings" });
     const port = settings.getByTestId("settings-scroll-port");
 
     const scrollState = async () =>
@@ -1527,68 +1628,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
         };
       });
 
-    // The settings column owns the overflow; the two-column panel never does.
+    // The settings column owns the overflow; the two-column panel never becomes
+    // a second clipped scroll container.
     expect(await scrollState()).toEqual({ portScrollable: true, panelClipped: false });
 
-    for (const section of ["Privacy", "Shortcuts", "Help & About"]) {
-      await settings.getByRole("button", { name: section, exact: true }).click();
-      await expect(settings.getByRole("button", { name: section, exact: true })).toHaveAttribute(
-        "aria-current",
-        "true",
-      );
-      // The rail and the only pointer-driven way out both stay inside the panel.
-      await expect(rail).toBeInViewport();
-      await expect(close).toBeInViewport();
-      expect((await scrollState()).panelClipped).toBe(false);
-    }
-
-    // A rail click holds its own highlight — the last sections are shorter than
-    // the scroll port and can never reach the marker line — but only until the
-    // reader scrolls somewhere else. Dragging the native scrollbar moves
-    // `scrollTop` and emits `scroll` alone, with no wheel/touch/key event, so
-    // assign `scrollTop` directly to reproduce exactly that interaction. Force
-    // `scroll-behavior: auto` first: the port carries Tailwind `scroll-smooth`,
-    // and a bare `scrollTop` write would otherwise animate.
-    await settings.getByRole("button", { name: "Help & About", exact: true }).click();
-    await expect(settings.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
+    await rail.getByRole("button", { name: "Help & About", exact: true }).click();
+    await expect(rail.getByRole("button", { name: "Help & About", exact: true })).toHaveAttribute(
       "aria-current",
       "true",
     );
-    await port.evaluate((element) => {
-      const previous = element.style.scrollBehavior;
-      element.style.scrollBehavior = "auto";
-      element.scrollTop = 0;
-      element.style.scrollBehavior = previous;
-    });
-    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
+    await expect(rail).toBeInViewport();
+    await expect(close).toBeInViewport();
+    expect((await scrollState()).panelClipped).toBe(false);
 
     await close.click();
     await expect(settings).toBeHidden();
-
-    // The pin must not outlive the dialog: the Sheet unmounts its children, but
-    // the component stays mounted, so a stale pin would hold the spy inert. A
-    // coalesced spy rAF armed before close is cancelled on `open` flip (and
-    // dropped if its port is no longer the live ref), so reopen starts on
-    // Account rather than the previous section.
-    await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
-    await expect(settings).toBeVisible();
-    await expect(settings.getByRole("button", { name: "Account", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
-    await port.evaluate((element) => {
-      const previous = element.style.scrollBehavior;
-      element.style.scrollBehavior = "auto";
-      element.scrollTop = element.scrollHeight;
-      element.style.scrollBehavior = previous;
-    });
-    await expect(settings.getByRole("button", { name: "Developer", exact: true })).toHaveAttribute(
-      "aria-current",
-      "true",
-    );
   });
 
   test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
@@ -1605,7 +1659,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await menu.getByRole("button", { name: "Settings", exact: true }).click();
     await expect(menu).toHaveCount(0);
     await expect(settings).toBeVisible();
-    await expectAccountSettingsSurface(settings);
+    await expectAccountSettingsSurface(settings, "phone");
     const settingsBox = await settings.boundingBox();
     const viewport = await page.evaluate(() => ({
       width: window.visualViewport?.width ?? window.innerWidth,
@@ -1631,6 +1685,24 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.setViewportSize({ width: 430, height: 820 });
     await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 639, height: 820 });
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    const reducedMotionDuration = await settings
+      .locator("header")
+      .first()
+      .evaluate((element) => getComputedStyle(element).transitionDuration);
+    expect(Number.parseFloat(reducedMotionDuration)).toBeLessThanOrEqual(0.001);
+    expect(
+      await settings.getByRole("button", { name: "Close settings" }).evaluate((element) => {
+        return getComputedStyle(element).borderStyle;
+      }),
+    ).not.toBe("none");
+    await expectNoPageHorizontalOverflow(page);
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
 
     await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(settings).toBeHidden();
@@ -1701,11 +1773,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("offline browser gate remains in demo mode when private endpoints are mocked", async ({ page }) => {
+  test("unsafe local caller disables the demo composer when private endpoints are mocked", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     const answerRequests: string[] = [];
     const unsafeLocalProjectPayload = {
-      appName: "Clinical KB",
+      appName: "PsychSift",
       projectId: "test-project",
       identityPath: "/api/local-project-id",
       localServer: {
@@ -1729,15 +1801,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/");
 
-    // Use the hydration-aware helper rather than a raw fill: the server-rendered
-    // composer is visible before React owns it, and a fill landing in that gap is
-    // discarded by hydration, leaving submit disabled with title "Enter a
-    // clinical question".
-    await fillVisibleQuestionInput(page, "lithium monitoring");
-    await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
+    const questionInput = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
+    const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
+    await expect(questionInput).toBeDisabled();
+    await expect(submitAnswer).toBeDisabled();
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     expect(answerRequests).toEqual([]);
-    await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "PsychSift" })).toBeVisible();
     await expectDomIntegrity(page, { mobileNav: true, mobileFabReady: false });
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1765,7 +1835,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await appModeTrigger.click();
       await expect(appModeMenu).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: uiAssertionTimeoutMs });
-    await page.mouse.click(640, 430);
+    await dismissOverlayByHeaderClick(page);
     await expect(appModeMenu).toBeHidden();
 
     await appModeTrigger.click();
@@ -1788,7 +1858,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(dailyActionsMenu).toHaveCount(0);
     await expect(appModeMenu).toBeVisible();
-    await page.mouse.click(640, 430);
+    await dismissOverlayByHeaderClick(page);
     await expect(appModeMenu).toBeHidden();
     await expect(page.getByTestId("app-mode-menu-sheet")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
@@ -1829,6 +1899,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
+    // Sources reached the desktop menu (built from `appModeDefinitions`) but not
+    // this one, which renders `phoneModeGroups` and drops any mode no group names.
+    // `tests/phone-mode-groups.test.ts` guards the constant; this is the rendered proof.
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Sources\b/ })).toBeAttached();
     await expect(modeOptions.first()).toBeInViewport();
     await expect(modeOptions.first()).toHaveAttribute("aria-checked", "true");
     await expect(modeOptions.first()).toContainText("Source-backed clinical answer");
@@ -1955,7 +2029,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
 
     await expect(page.getByRole("button", { name: "Ask a question" })).toHaveCount(0);
-    const questionEcho = page.getByTestId("answer-card-query");
+    // The current turn's question is a chat bubble, the same shape every prior
+    // turn uses; it was a muted echo inside the answer card header until the
+    // answer surface became one conversation.
+    const questionEcho = page.getByTestId("user-question-bubble");
     await expect(questionEcho).toBeVisible();
     await expect(questionEcho).toContainText(question);
 
@@ -1966,37 +2043,81 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Demo", { exact: true })).toHaveCount(0);
     await expect(plainAnswer.locator("ul, ol, li")).toHaveCount(0);
     await expect(plainAnswer.getByTestId("plain-answer-prose").locator("svg")).toHaveCount(0);
-    const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
-    await expect(sourceCapsule).not.toContainText("Check sources");
-    await expectMinTouchTarget(sourceCapsule);
-    await sourceCapsule.click();
-    const sourceSheet = page.getByRole("dialog", { name: "Sources" });
-    await expect(sourceSheet).toBeVisible();
-    const sourcePreview = page.getByTestId("source-capsule-preview");
-    await expect(sourcePreview).toBeVisible();
-    await expect(sourcePreview).toContainText("Best match");
-    await expect(sourcePreview.getByTestId("source-capsule-preview-row")).toHaveCount(2);
-    const firstPreviewSource = sourcePreview.getByTestId("source-capsule-preview-row").first();
-    await expect(firstPreviewSource).toHaveAttribute("href", /\/documents\/.+chunk=/);
-    await expectMinTouchTarget(firstPreviewSource);
-    await expect(sourcePreview.getByRole("link", { name: /Open S1 source page/i })).toBeVisible();
+
+    // The numbered marks in the prose. They are the reason the whole surface
+    // exists, so this asserts the three things that make one trustworthy: it
+    // stays inside the line box, it opens the source it names, and the sentence
+    // it belongs to is still findable while the drawer covers the screen.
+    const marks = plainAnswer.getByTestId("answer-source-mark");
+    await expect(marks.first()).toBeVisible();
+    const markGeometry = await plainAnswer.getByTestId("plain-answer-prose").evaluate((prose) => {
+      const nodes = [...prose.querySelectorAll('[data-testid="answer-source-mark"]')];
+      const boxes = nodes.map((node) => node.getBoundingClientRect());
+      let minGap = Number.POSITIVE_INFINITY;
+      for (let index = 1; index < boxes.length; index += 1) {
+        const previous = boxes[index - 1];
+        const current = boxes[index];
+        if (Math.abs(previous.top - current.top) > 2) continue;
+        minGap = Math.min(minGap, current.left - previous.right);
+      }
+      return { count: boxes.length, minGap };
+    });
+    expect(markGeometry.count).toBeGreaterThan(0);
+    // Two marks in one cluster must not touch. An earlier shape painted the box
+    // from a pseudo-element wider than the control, so "2" and "3" overlapped.
+    if (markGeometry.count > 1) expect(markGeometry.minGap).toBeGreaterThan(0);
+
+    await marks.first().click();
+    const claimDrawer = page.getByTestId("answer-source-drawer");
+    await expect(claimDrawer).toBeVisible();
+    // Opened from a claim, so the drawer speaks about the claim — not the
+    // "opened from the source list" wording a rail card produces.
+    await expect(claimDrawer.getByTestId("answer-source-drawer-support")).toContainText(
+      /states the claim|part of the claim/,
+    );
+    await expect(page.getByTestId("answer-claim").first()).toHaveAttribute("data-claim-lit", "true");
+    await page.keyboard.press("Escape");
+    await expect(claimDrawer).toHaveCount(0);
+    await expect(marks.first()).toBeFocused();
+
+    // The source rail replaced the "Sources" capsule and its popover/sheet pair:
+    // the cited list is on the page rather than one tap behind a chip, and each
+    // card opens the per-source drawer. Cards scroll sideways so six sources cost
+    // one row of phone scroll rather than six.
+    const sourceRail = page.getByTestId("answer-source-rail");
+    await expect(sourceRail).toBeVisible();
+    const railRows = sourceRail.getByTestId("answer-source-rail-row");
+    await expect(railRows).toHaveCount(2);
+    const firstRailRow = railRows.first();
+    await expectMinTouchTarget(firstRailRow);
+    await expect(firstRailRow).toHaveAccessibleName(/^Source 1: /);
+    await firstRailRow.click();
+    const sourceDrawer = page.getByTestId("answer-source-drawer");
+    await expect(sourceDrawer).toBeVisible();
+    // Opened from a rail card rather than a claim, so the drawer makes no
+    // support statement at all — it used to spend its first line saying there
+    // was no claim, above a front-page thumbnail of a page it was not showing.
+    await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toHaveCount(0);
+    await expect(sourceDrawer.getByTestId("answer-source-drawer-cover")).toHaveCount(0);
+    await expect(sourceDrawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
-    const copyQuoteButton = sourcePreview.getByRole("button", { name: "Copy passage" });
-    await expect(copyQuoteButton).toBeVisible();
-    await expectMinTouchTarget(copyQuoteButton);
+    // Paging is the drawer's whole navigation model; at two sources it is numbered.
+    const pager = sourceDrawer.getByTestId("answer-source-drawer-pager");
+    await expect(pager).toHaveAttribute("data-pager-variant", "numbered");
+    await pager.getByRole("button", { name: /^Show source 2/ }).click();
+    await expect(sourceDrawer.getByRole("link", { name: "View original PDF" })).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    await page.keyboard.press("Escape");
+    await expect(sourceDrawer).toHaveCount(0);
+    // Focus returns to the row the drawer was showing, not the row it opened from.
+    await expect(railRows.nth(1)).toBeFocused();
     if (browserName === "chromium") {
+      // The grant used to ride along with the removed "Copy passage" control; the
+      // clipboard read below still needs it.
       await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
         origin: new URL(page.url()).origin,
       });
-      await copyQuoteButton.click();
-      await expect(sourcePreview.getByRole("button", { name: "Copied passage" })).toBeVisible();
-    }
-    await expectNoPageHorizontalOverflow(page);
-    await page.keyboard.press("Escape");
-    await expect(sourceSheet).toHaveCount(0);
-    await expect(sourceCapsule).toBeFocused();
-    if (browserName === "chromium") {
-      const copyWithSources = plainAnswer.getByRole("button", { name: "Copy answer with source status" });
+      const copyWithSources = page.getByRole("button", { name: "Copy answer with source status" });
       await expect(copyWithSources).toBeVisible();
       await expectMinTouchTarget(copyWithSources);
       await copyWithSources.click();
@@ -2007,11 +2128,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     }
     await expect(plainAnswer.getByRole("button", { name: "More answer actions" })).toHaveCount(0);
 
-    const supportCard = page.getByTestId("answer-support-card");
-    await expect(supportCard).toBeVisible();
-    await expect(supportCard).toContainText("Clinical notes");
-    await expect(supportCard).toContainText("Evidence");
-    await expect(supportCard).toContainText(/Safety findings|Priority|FBC\/ANC|Myocarditis|Metabolic/i);
+    // The support card was removed on 2026-08-31 (owner decision): the status it
+    // carried is now a chip line above the prose, and the safety chip below is
+    // the route it used to own. What this block protected — that the answer's
+    // state is stated on screen, and that the old per-source sheets stay gone —
+    // is asserted against the chip instead.
+    const supportChip = page.getByTestId("answer-card-support");
+    await expect(supportChip).toBeVisible();
+    await expect(supportChip).toContainText(/support/i);
+    await expect(page.getByTestId("answer-support-card")).toHaveCount(0);
+    await expect(page.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
+    await expect(page.getByTestId("answer-evidence-trigger")).toHaveCount(0);
     await expect(page.getByTestId("safety-findings-panel")).toHaveCount(0);
 
     // Safety findings are MANDATORY for this clozapine fixture — the answer is saturated
@@ -2020,49 +2147,151 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // when safetyFindings.length > 0, see answer-result-surface.tsx) must FAIL this
     // @critical smoke, not pass silently on an absent trigger (audit F3 / C6). Asserting
     // the trigger is visible unconditionally enforces "safety findings present".
+    const clinicalPointsRail = page.getByTestId("answer-clinical-points");
+    await expect(clinicalPointsRail).toBeVisible();
     const safetyFindingsTrigger = page.getByTestId("answer-safety-findings-trigger");
     await expect(safetyFindingsTrigger).toBeVisible();
     await expectMinTouchTarget(safetyFindingsTrigger);
+
+    // The rail sits at the seam: after the prose, before the cited sources.
+    const pointsBox = await clinicalPointsRail.boundingBox();
+    const proseSeamBox = await page.getByTestId("plain-answer-prose").boundingBox();
+    const sourceRailBox = await page.getByTestId("answer-source-rail").boundingBox();
+    expect(pointsBox).not.toBeNull();
+    expect(proseSeamBox).not.toBeNull();
+    expect(sourceRailBox).not.toBeNull();
+    expect(pointsBox!.y).toBeGreaterThanOrEqual(proseSeamBox!.y + proseSeamBox!.height - 1);
+    expect(sourceRailBox!.y).toBeGreaterThanOrEqual(pointsBox!.y + pointsBox!.height - 1);
+
     await safetyFindingsTrigger.click();
-    const safetyFindingsSheet = page.getByRole("dialog", { name: "Safety-critical source findings" });
+    const safetyFindingsSheet = page.getByRole("dialog", { name: "Key points" });
     await expect(safetyFindingsSheet).toBeVisible();
     await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
     expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
-    await safetyFindingsSheet.getByRole("button", { name: "Close safety findings" }).click();
+    // Severity order inside the sheet: a stop-tier row never follows a know-tier
+    // one, so the list always reads in the same direction.
+    const sheetTones = await safetyFindingsSheet
+      .getByTestId("safety-finding-row")
+      .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-tone")));
+    const toneRank = { stop: 0, act: 1, know: 2 } as Record<string, number>;
+    const sheetRanks = sheetTones.map((tone) => toneRank[tone ?? "know"] ?? 2);
+    expect(sheetRanks).toEqual([...sheetRanks].sort((left, right) => left - right));
+    await safetyFindingsSheet.getByRole("button", { name: "Close key points" }).click();
     await expect(safetyFindingsSheet).toHaveCount(0);
     await expect(safetyFindingsTrigger).toBeFocused();
 
-    const clinicalTable = page.getByLabel("Inline table preview").first();
+    // Opening from a LATER pill must return focus to that pill, not to the first
+    // one. A ref bound to the first button satisfies every assertion above while
+    // dragging focus back to the left edge of a horizontally scrolling rail.
+    const laterPills = clinicalPointsRail.getByTestId("answer-clinical-point");
+    if ((await laterPills.count()) > 0) {
+      const laterPill = laterPills.first();
+      await laterPill.click();
+      await expect(page.getByRole("dialog", { name: "Key points" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Key points" })).toHaveCount(0);
+      await expect(laterPill).toBeFocused();
+      await expect(safetyFindingsTrigger).not.toBeFocused();
+    }
+
+    // The status chips carry a real 48px tap target inside a 24px-tall pill. The
+    // first shape did that with `-my-3`, which keeps `boundingBox()` honest while
+    // moving the hit region outside the element's layout box — so the chip
+    // quietly sat on top of its neighbours. Measured here before the fix: the
+    // safety chip covered a 133x9px band of the support chip and a 133x2px band
+    // of the prose, and a tap in either band opened the chip. Geometry is the
+    // only thing that catches this — every DOM assertion above passes with the
+    // overlap in place — and 320px is the width where the chip row wraps.
+    for (const statusWidth of [390, 320]) {
+      await page.setViewportSize({ width: statusWidth, height: 820 });
+      await expect(safetyFindingsTrigger).toBeVisible();
+      await expectMinTouchTarget(safetyFindingsTrigger);
+      const collisions = await page.evaluate(() => {
+        const box = (selector: string) => {
+          const node = document.querySelector(selector);
+          return node ? { id: selector, ...node.getBoundingClientRect().toJSON() } : null;
+        };
+        const chips = [
+          box('[data-testid="answer-safety-findings-trigger"]'),
+          box('[data-testid="answer-limitations-trigger"]'),
+        ].filter((entry) => entry !== null);
+        const neighbours = [
+          box('[data-testid="answer-card-support"]'),
+          box('[data-testid="plain-answer-prose"]'),
+          ...chips,
+        ].filter((entry) => entry !== null);
+        const overlaps: string[] = [];
+        for (const chip of chips) {
+          for (const other of neighbours) {
+            if (other.id === chip.id) continue;
+            const width = Math.min(chip.right, other.right) - Math.max(chip.left, other.left);
+            const height = Math.min(chip.bottom, other.bottom) - Math.max(chip.top, other.top);
+            // Sub-pixel rounding, not a real collision.
+            if (width > 0.5 && height > 0.5) {
+              overlaps.push(`${chip.id} over ${other.id} by ${width.toFixed(1)}x${height.toFixed(1)}`);
+            }
+          }
+        }
+        return overlaps;
+      });
+      expect(collisions, `status chip hit regions overlap at ${statusWidth}px`).toEqual([]);
+    }
+    await page.setViewportSize({ width: 390, height: 820 });
+
+    // The support word and the limitations chip share one line at 390px. They used to be forced
+    // onto separate rows by a `w-full` on the chip container, on the reasoning that a 48px
+    // control cannot sit in a 24px line without a negative margin. True, and the row is now
+    // centre-aligned and 48px tall instead, so no negative margin is needed and the collision
+    // check above still passes. Asserted positively because "they do not overlap" is also
+    // satisfied by stacking them again, which is the regression this guards.
+    const statusRowShare = await page.evaluate(() => {
+      const rect = (selector: string) => document.querySelector(selector)?.getBoundingClientRect() ?? null;
+      const support = rect('[data-testid="answer-card-support"]');
+      const chip = rect('[data-testid="answer-limitations-trigger"]');
+      if (!support || !chip) return null;
+      return {
+        verticalOverlap: Math.min(support.bottom, chip.bottom) - Math.max(support.top, chip.top),
+        horizontalGap: Math.max(support.left, chip.left) - Math.min(support.right, chip.right),
+      };
+    });
+    expect(statusRowShare, "support pill and limitations chip both render at 390px").not.toBeNull();
+    // Sharing a line: the shorter pill's full height sits within the taller chip's band.
+    expect(statusRowShare!.verticalOverlap).toBeGreaterThan(8);
+    // Side by side, not on top of each other.
+    expect(statusRowShare!.horizontalGap).toBeGreaterThan(0);
+
+    // Decision 2 (2026-08-24): tables fold into the source drawer, so they are no
+    // longer on the answer surface at all — reaching one goes through a rail row.
+    await expect(page.getByLabel("Inline table preview")).toHaveCount(0);
+    // A table hangs off the source it was cited from, so open the row that has it
+    // rather than assuming it is the best match.
+    const tableDrawer = page.getByTestId("answer-source-drawer");
+    const clinicalTable = tableDrawer.getByLabel("Inline table preview").first();
+    let foundTable = false;
+    for (let index = 0; index < (await railRows.count()); index += 1) {
+      await railRows.nth(index).click();
+      await expect(tableDrawer).toBeVisible();
+      if (await clinicalTable.count()) {
+        foundTable = true;
+        break;
+      }
+      await page.keyboard.press("Escape");
+      await expect(tableDrawer).toHaveCount(0);
+    }
+    expect(foundTable).toBe(true);
     await expect(clinicalTable).toBeVisible();
     await expect(clinicalTable.getByRole("table")).toBeVisible();
     await expect(clinicalTable).toContainText("FBC/ANC");
     await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
-    const openTableSource = clinicalTable.getByRole("link", { name: "Open table source" });
-    await expect(openTableSource).toBeVisible();
-    await expectMinTouchTarget(openTableSource);
     await expect(clinicalTable.getByRole("button", { name: "Copy table preview" })).toHaveCount(0);
     await expect(clinicalTable.getByRole("button", { name: "More table actions" })).toHaveCount(0);
-    const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
     await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeVisible();
-    await page.keyboard.press("Escape");
-    const tableDialog = await openMobileTableFullscreen(page, clinicalTable);
-    await expect(tableDialog.getByRole("table")).toBeVisible();
-    await expect(tableDialog).toContainText("FBC/ANC");
-    await expect(tableDialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
     await expectNoPageHorizontalOverflow(page);
-    await page.keyboard.press("Escape");
-    await expect(tableDialog).toBeHidden();
-    if (await tableExpandButton.isVisible().catch(() => false)) {
-      await expect(tableExpandButton).toBeFocused();
-    } else {
-      await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
-    }
-    if (await tableExpandButton.isVisible().catch(() => false)) {
-      const reopenedTableDialog = await openMobileTableFullscreen(page, clinicalTable);
-      await reopenedTableDialog.getByRole("button", { name: "Close full-screen table" }).click();
-      await expect(reopenedTableDialog).toBeHidden();
-      await expect(tableExpandButton).toBeFocused();
-    }
+    // Full-screen table expansion from inside the drawer is covered on its own by
+    // the "clinical table mobile expansion" test below, which owns the nested
+    // dialog case rather than repeating it here.
+    await tableDrawer.getByRole("button", { name: "Close source detail" }).click();
+    await expect(tableDrawer).toHaveCount(0);
     await expect(page.locator("#answer-more-detail-drawer")).toHaveCount(0);
     await expect(page.getByTestId("raw-answer-narrative")).toHaveCount(0);
     await expect(page.getByText("Source narrative")).toHaveCount(0);
@@ -2083,110 +2312,76 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("mobile-section-fab-menu")).toHaveCount(0);
     await expectDomIntegrity(page, { mobileNav: true });
 
-    const clinicalNotesTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
-    await expect(clinicalNotesTrigger).toBeVisible();
-    await expect(clinicalNotesTrigger).toContainText("Clinical notes");
-    await expect(clinicalNotesTrigger).toContainText(/notes?/i);
-    await expectMinTouchTarget(clinicalNotesTrigger);
-    await clinicalNotesTrigger.click();
-    const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
-    await expect(clinicalNotesSheet).toBeVisible();
-    await expect(clinicalNotesSheet.getByTestId("clinical-notes-checklist")).toBeVisible();
-    const essentialsTab = clinicalNotesSheet.getByRole("tab", { name: /Essentials/ });
-    const actionsTab = clinicalNotesSheet.getByRole("tab", { name: /Actions/ });
-    const safetyTab = clinicalNotesSheet.getByRole("tab", { name: /Safety/ });
-    await expect(essentialsTab).toBeVisible();
-    await expect(actionsTab).toBeVisible();
-    await expect(safetyTab).toBeVisible();
-    await expect(actionsTab).toHaveAttribute("aria-selected", "true");
-    await actionsTab.focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(safetyTab).toBeFocused();
-    await expect(safetyTab).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("ArrowLeft");
-    await expect(actionsTab).toBeFocused();
-    await expect(actionsTab).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("Home");
-    await expect(essentialsTab).toBeFocused();
-    await expect(essentialsTab).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("End");
-    await expect(safetyTab).toBeFocused();
-    await expect(safetyTab).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("ArrowLeft");
-    await expect(actionsTab).toBeFocused();
-    await expect(actionsTab).toHaveAttribute("aria-selected", "true");
-    expect(await clinicalNotesSheet.getByTestId("clinical-note-row").count()).toBeGreaterThan(0);
-    const linkedNoteRow = clinicalNotesSheet.getByTestId("clinical-note-row").first();
-    await expect(linkedNoteRow).toHaveAttribute("href", /\/documents\//);
-    await expect(clinicalNotesSheet.getByText("Review toxicity symptoms", { exact: true })).toBeVisible();
-    await tapOutsideActiveSurface(page);
-    await expect(clinicalNotesSheet).toHaveCount(0);
-
-    const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
-    await expect(evidenceDrawer).toBeVisible();
-    await expect(evidenceDrawer).toContainText("Evidence");
-    await expect(evidenceDrawer).toContainText(/claims?/i);
-    await expect(evidenceDrawer).toContainText(/quotes?/i);
+    // The clinical-notes sheet and the five-tab evidence sheet are both gone: the
+    // rail lists every cited document and the drawer carries that document's
+    // support, passage, tables and images. Their triggers must not come back.
+    await expect(page.locator("#answer-clinical-notes-drawer-mobile-trigger")).toHaveCount(0);
+    await expect(page.locator("#answer-evidence-drawer-mobile-trigger")).toHaveCount(0);
+    await expect(page.getByTestId("clinical-notes-checklist")).toHaveCount(0);
+    await expect(page.getByTestId("mobile-evidence-tabs")).toHaveCount(0);
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 
+    // Document order on the answer surface: question, the status chip line, the
+    // prose, the rail that cites it, the quiet utilities, then the governed
+    // caution. The caution moved below the answer on 2026-08-31 (owner
+    // decision); pinning it here is what stops it drifting back up or, worse,
+    // being dropped when a call site takes placement from AnswerCard.
     const hierarchy = await page.evaluate(() => {
-      const question = document.querySelector('[data-testid="answer-card-query"]');
+      const question = document.querySelector('[data-testid="user-question-bubble"]');
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
-      const support = document.querySelector('[data-testid="answer-support-card"]');
-      const table = document.querySelector('[aria-label="Inline table preview"]');
+      const rail = document.querySelector('[data-testid="answer-source-rail"]');
+      const utilities = document.querySelector('section[aria-label="Answer utilities"]');
+      const support = document.querySelector('[data-testid="answer-card-support"]');
+      const caution = document.querySelector('[data-testid="verification-notice"]');
       return {
         questionTop: question?.getBoundingClientRect().top ?? 9999,
         plainAnswerTop: plainAnswer?.getBoundingClientRect().top ?? 9999,
+        railTop: rail?.getBoundingClientRect().top ?? 9999,
+        utilitiesTop: utilities?.getBoundingClientRect().top ?? 9999,
         supportTop: support?.getBoundingClientRect().top ?? 9999,
-        tableTop: table?.getBoundingClientRect().top ?? 9999,
+        cautionTop: caution?.getBoundingClientRect().top ?? 9999,
+        cautionPresent: Boolean(caution),
       };
     });
-    expect(hierarchy.questionTop).toBeLessThan(hierarchy.plainAnswerTop);
-    expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.supportTop);
-    expect(hierarchy.supportTop).toBeLessThan(hierarchy.tableTop);
+    expect(hierarchy.cautionPresent).toBe(true);
+    expect(hierarchy.questionTop).toBeLessThan(hierarchy.supportTop);
+    expect(hierarchy.supportTop).toBeLessThan(hierarchy.plainAnswerTop);
+    expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.railTop);
+    expect(hierarchy.railTop).toBeLessThan(hierarchy.utilitiesTop);
+    expect(hierarchy.utilitiesTop).toBeLessThan(hierarchy.cautionTop);
 
-    await evidenceDrawer.click();
-    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-    await expect(evidenceSheet).toBeVisible();
-    await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
-    const evidenceSheetOrder = await evidenceSheet.evaluate((element) => {
-      const tabs = element.querySelector('[data-testid="mobile-evidence-tabs"]');
-      const claims = element.querySelector('[data-testid="evidence-claims-panel"]');
-      return {
-        tabsTop: tabs?.getBoundingClientRect().top ?? 9999,
-        claimsTop: claims?.getBoundingClientRect().top ?? 9999,
-      };
-    });
-    expect(evidenceSheetOrder.tabsTop).toBeLessThan(evidenceSheetOrder.claimsTop);
-    await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
-    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
-    await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-claims"));
-    const sourcePanelLink = evidenceSheet
-      .getByTestId("mobile-evidence-panel-claims")
-      .getByTestId("evidence-map-open-source")
-      .first();
-    await expect(sourcePanelLink).toBeVisible();
-    await expect(sourcePanelLink).toHaveAttribute("href", /\/documents\/.+chunk=/);
-    await expectMinTouchTarget(sourcePanelLink);
-    await evidenceSheet.getByTestId("mobile-evidence-tab-tables").click();
-    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
-    await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-tables"));
-    const gapsTab = evidenceSheet.getByTestId("mobile-evidence-tab-gaps");
-    if (await gapsTab.count()) {
-      await gapsTab.click();
-      await expect(evidenceSheet.getByTestId("mobile-evidence-panel-gaps")).toBeVisible();
-      await expectMinTouchTarget(gapsTab);
-    }
-    await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
+    // Evidence gaps and feedback remain answer-level, but use the same quiet
+    // utility treatment as Copy with sources rather than the safety panel.
+    const utilities = page.getByLabel("Answer utilities");
+    const feedbackTrigger = utilities.getByTestId("answer-feedback-trigger");
+    await expect(feedbackTrigger).toBeVisible();
+    await expectMinTouchTarget(feedbackTrigger);
+    // The problem list is a Sheet, so it portals out of the utilities section
+    // and is looked up on the page. It has to be: as an in-flow disclosure it
+    // opened partly behind the fixed phone composer, and no scripted scroll can
+    // clear it without hiding the phone chrome.
+    await feedbackTrigger.click();
+    const feedbackSheet = page.getByTestId("answer-feedback-sheet");
+    await expect(feedbackSheet).toBeVisible();
+    await expect(feedbackSheet.getByTestId("answer-review-panel")).toBeVisible();
+    await expect(utilities.getByTestId("answer-review-panel")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(feedbackSheet).toHaveCount(0);
+    await expect(feedbackTrigger).toBeFocused();
 
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
     await expect(page.getByTestId("answer-header-actions")).toHaveCount(0);
 
     await expect(page.getByText("Top source detail")).toHaveCount(0);
     await expect(page.getByText("Retrieval details")).toHaveCount(0);
+    // Tapping the backdrop dismisses the source drawer and returns focus to the
+    // rail row that opened it.
+    await railRows.first().click();
+    const dismissDrawer = page.getByTestId("answer-source-drawer");
+    await expect(dismissDrawer).toBeVisible();
     await tapOutsideActiveSurface(page);
-    await expect(evidenceSheet).toHaveCount(0);
-    await expect(evidenceDrawer).toBeFocused();
+    await expect(dismissDrawer).toHaveCount(0);
+    await expect(railRows.first()).toBeFocused();
 
     await openScopeControl(page);
     const scopePopover = page.getByTestId("scope-command-popover");
@@ -2237,7 +2432,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await visibleAnswerSubmitButton(page).click();
       const answerSurface = page.getByTestId("plain-answer-response");
       await expect(answerSurface).toBeVisible({ timeout: uiAssertionTimeoutMs });
-      await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
+      await page.getByRole("button", { name: "Copy answer with source status" }).click();
 
       const copiedText = await page.evaluate(() => navigator.clipboard.readText());
       expect(copiedText).toContain("toxicity safety-net review");
@@ -2294,18 +2489,42 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
       await visibleAnswerSubmitButton(page).click();
-      const firstTable = page.getByRole("table", { name: "ANC actions" });
-      const secondTable = page.getByRole("table", { name: "Metabolic monitoring" });
-      await expect(firstTable).toBeVisible({ timeout: uiAssertionTimeoutMs });
-      await expect(firstTable).toContainText("1.0–1.5 × 10⁹/L");
-      await expect(firstTable).toContainText("Withhold and seek specialist advice");
-      await expect(secondTable).toBeVisible({ timeout: uiAssertionTimeoutMs });
-      await expect(secondTable).toContainText("HbA1c");
-      await expect(secondTable).toContainText("At baseline and review");
-      await expect(page.getByTestId("canonical-table-caveat")).toContainText("headers are incomplete");
+      // Tables live in the source drawer now, one page at a time. The clipboard
+      // still carries every table, so each one must remain reachable — a copy that
+      // quotes a table nothing on screen can show is exactly the drift this test
+      // was written to catch.
+      const rail = page.getByTestId("answer-source-rail");
+      await expect(rail).toBeVisible({ timeout: uiAssertionTimeoutMs });
+      const rows = rail.getByTestId("answer-source-rail-row");
+      const rowCount = await rows.count();
+      const seenTables: string[] = [];
+      let sawCaveat = false;
+      for (let index = 0; index < rowCount; index += 1) {
+        await rows.nth(index).click();
+        const drawer = page.getByTestId("answer-source-drawer");
+        await expect(drawer).toBeVisible();
+        for (const name of ["ANC actions", "Metabolic monitoring"]) {
+          const table = drawer.getByRole("table", { name });
+          if (await table.count()) {
+            await expect(table).toBeVisible();
+            if (name === "ANC actions") {
+              await expect(table).toContainText("1.0–1.5 × 10⁹/L");
+              await expect(table).toContainText("Withhold and seek specialist advice");
+            } else {
+              await expect(table).toContainText("HbA1c");
+              await expect(table).toContainText("At baseline and review");
+            }
+            if (!seenTables.includes(name)) seenTables.push(name);
+          }
+        }
+        if (await drawer.getByTestId("canonical-table-caveat").count()) sawCaveat = true;
+        await page.keyboard.press("Escape");
+        await expect(drawer).toHaveCount(0);
+      }
+      expect(seenTables.sort()).toEqual(["ANC actions", "Metabolic monitoring"]);
+      expect(sawCaveat).toBe(true);
 
-      const answerSurface = page.getByTestId("plain-answer-response");
-      await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
+      await page.getByRole("button", { name: "Copy answer with source status" }).click();
       const copiedText = await page.evaluate(() => navigator.clipboard.readText());
       expect(copiedText).toContain("ANC range | [header missing] | Action");
       expect(copiedText).toContain("1.0–1.5 × 10⁹/L | [blank] | Increase monitoring");
@@ -2343,17 +2562,94 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await page.goto("/privacy", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("main")).toBeVisible();
-      await expect(page.getByRole("heading", { level: 1, name: "How Clinical KB handles your data" })).toBeVisible();
-      await expect(page.getByRole("heading", { level: 2, name: "Before you use Clinical KB" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "How PsychSift handles your data" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "Before you use PsychSift" })).toBeVisible();
+      await expect(page.getByTestId("privacy-trust-brief")).toBeVisible();
+      await expect(page.getByTestId("privacy-draft-disclaimer")).toBeVisible();
+
+      const safetyDisclosure = page.getByRole("button", { name: /Read more|Show less/ });
+      await safetyDisclosure.focus();
+      await expect(safetyDisclosure).toBeFocused();
+      await safetyDisclosure.click();
+      await expect(safetyDisclosure).toHaveAttribute("aria-expanded", "true");
+      await expect(page.getByText(/Do not enter identifiable patient details such as names/i)).toBeVisible();
+
       // The scannable answer layer and the print affordance are the two things a
       // reader arriving from the composer notice needs without opening anything.
       await expect(page.getByRole("heading", { level: 2, name: "At a glance" })).toBeVisible();
+      const factColumns = await page.getByTestId("privacy-at-a-glance-grid").evaluate((element) => {
+        return getComputedStyle(element).gridTemplateColumns.split(" ").length;
+      });
+      expect(factColumns).toBe(viewport.width >= 1024 ? 3 : viewport.width >= 640 ? 2 : 1);
+
+      const processingColumns = await page.getByTestId("privacy-processing-stages").evaluate((element) => {
+        return getComputedStyle(element).gridTemplateColumns.split(" ").length;
+      });
+      expect(processingColumns).toBe(viewport.width >= 640 ? 3 : 1);
       // The footer control, not the sm+ header one: the header print button is
       // hidden on a phone, and this assertion runs at 320px too.
       await expect(page.getByRole("button", { name: "Print this page" })).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
+
+  test("privacy sticky chrome is an opaque bar on phones and glass from sm", async ({ page }) => {
+    // Proven in a browser, not by class presence: tailwind-merge keeps both the
+    // base and the `sm:` utility, so stylesheet order — not the class list —
+    // decides which one wins, and jsdom cannot resolve either.
+    //
+    // The phone case is the one that matters. This band carried translucent
+    // glass at every width, so scrolled content ghosted through the title; it
+    // was visible against the amber obligation band, whose fill read straight
+    // through "Data handling". The repo's own header rule for phones
+    // (`.edge-glass-header` / `.universal-header` in globals.css) is an opaque
+    // bar with no blur, and this page now follows it.
+    const chrome = page.getByTestId("privacy-sticky-chrome");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+    await expect(chrome).toBeVisible();
+
+    const phone = await chrome.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, blur: style.backdropFilter };
+    });
+    // Fully opaque: no alpha channel at all, so nothing can read through.
+    expect(phone.background).not.toMatch(/\/\s*0?\.\d+|rgba?\([^)]*,\s*0?\.\d+\s*\)/);
+    expect(phone.blur).toBe("none");
+
+    // Scrolled, the band must actually hide what passes behind it.
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await expect(chrome).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /handles your data/i })).not.toBeInViewport();
+
+    // From sm the shared glass treatment is correct again.
+    await page.setViewportSize({ width: 900, height: 900 });
+    await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+    const wide = await chrome.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, blur: style.backdropFilter };
+    });
+    expect(wide.blur).toContain("blur(");
+    expect(wide.background).not.toBe(phone.background);
+  });
+
+  test("privacy trust brief remains operable with reduced motion and forced colours", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+
+    const safetyDisclosure = page.getByRole("button", { name: /Read more|Show less/ });
+    await safetyDisclosure.focus();
+    await expect(safetyDisclosure).toBeFocused();
+    await expect
+      .poll(() => safetyDisclosure.locator("svg").evaluate((icon) => getComputedStyle(icon).transitionProperty))
+      .toBe("none");
+    await safetyDisclosure.click();
+    await expect(safetyDisclosure).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText(/Do not enter identifiable patient details such as names/i)).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
 
   test("answer failure offers a retry action that re-runs the question", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -2474,6 +2770,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
       const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
       const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
+      const sourceRail = document.querySelector('[data-testid="answer-source-rail"]');
       // Include vertical margins: the phone bottom clearance (`max-sm:mb-4`) sits
       // outside getBoundingClientRect().height and still consumes scroll budget.
       let alsoMatchesHeight = 0;
@@ -2494,11 +2791,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
           box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
         );
       }
+      // The source rail is real, always-rendered content in the same sense: it is
+      // the cited source list, which the old capsule hid behind a single chip.
+      let sourceRailHeight = 0;
+      if (sourceRail instanceof HTMLElement) {
+        const box = sourceRail.getBoundingClientRect();
+        const styles = window.getComputedStyle(sourceRail);
+        sourceRailHeight = Math.ceil(
+          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+        );
+      }
       return {
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
         alsoMatchesHeight,
         supportLabelHeight,
+        sourceRailHeight,
       };
     });
     // Content-sized section => no unexplained phantom scroll. Submitted universal
@@ -2512,7 +2820,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // AnswerCard's required support label is likewise real, always-rendered
     // content (`support` became a required prop), so it is measured and added
     // the same way rather than absorbed into the flat allowance.
-    const permittedOverflow = geo.alsoMatchesHeight + geo.supportLabelHeight + 8;
+    // The rail is measured and added for the same reason the support label is:
+    // always-rendered content, not phantom scroll. The flat 8px unexplained-
+    // overflow allowance is deliberately unchanged — that is the part of this
+    // guard the redesign must not be allowed to spend.
+    const permittedOverflow = geo.alsoMatchesHeight + geo.supportLabelHeight + geo.sourceRailHeight + 8;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
@@ -2635,14 +2947,38 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    const relatedItems = page.getByRole("region", { name: "Related pages in other modes" }).getByRole("listitem");
+    // The library matches are one collapsed line in the answer's evidence stack
+    // and open on demand. Still asserted end to end rather than dropped —
+    // open it and the same two links are there, at full tap size.
+    const relatedRegion = page.getByRole("region", { name: "Related pages in other modes" });
+    const relatedTrigger = relatedRegion.getByTestId("cross-mode-links-line-trigger");
+    await relatedTrigger.click();
+    const relatedItems = relatedRegion.getByRole("listitem");
     await expect(relatedItems).toHaveCount(2);
     await expect(relatedItems.last()).toBeVisible();
+    // Collapse it again before the geometry below. The rest of this test
+    // measures the answer's scroll runway in its resting state, and an expanded
+    // panel adds ~88px of content that the page does not carry by default.
+    await relatedTrigger.click();
+    await expect(relatedItems.last()).toBeHidden();
 
     const main = page.locator("main#main-content");
     const header = page.locator("header.universal-header");
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
+    // Measure the edge-to-edge contract from the revealed state. Expanding the
+    // disclosure above scrolls this short page to its end, which is a genuine
+    // downward gesture, so the dock may legitimately be scroll-hidden by the
+    // time the panel collapses again — hide-on-scroll working, not a defect
+    // (one upward drag brings it straight back). Whether that hide engages
+    // depends on the exact answer height, so asserting the resting transform
+    // here would pin content height rather than the geometry this test names.
+    // Return to the top first: the assertions below are about where a *visible*
+    // dock sits (flush bottom, full-bleed), and that is what must hold.
+    await scrollPrimarySurface(page, 0);
+    await expect
+      .poll(async () => await dock.evaluate((node) => window.getComputedStyle(node).transform))
+      .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
     const edgeGeometry = await dock.evaluate((node) => {
       const rect = node.getBoundingClientRect();
       const style = window.getComputedStyle(node);
@@ -2678,15 +3014,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // content in this scroll container; account for its measured height the
     // same way the geometry above accounts for chrome, rather than baking a
     // stale pre-label constant into the post-collapse ceiling.
-    const supportLabelHeight = await page.evaluate(() => {
-      const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
-      if (!(supportLabel instanceof HTMLElement)) return 0;
-      const box = supportLabel.getBoundingClientRect();
-      const styles = window.getComputedStyle(supportLabel);
-      return Math.ceil(
-        box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
-      );
-    });
+    // Measured, not constant: the support label and the source rail are both
+    // always-rendered content whose height moves the scroll budget. The rail
+    // joined them when it replaced the single-chip capsule.
+    const measuredHeight = (selector: string) =>
+      page.evaluate((testId) => {
+        const element = document.querySelector(`[data-testid="${testId}"]`);
+        if (!(element instanceof HTMLElement)) return 0;
+        const box = element.getBoundingClientRect();
+        const styles = window.getComputedStyle(element);
+        return Math.ceil(
+          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+        );
+      }, selector);
+    const supportLabelHeight =
+      (await measuredHeight("answer-card-support")) + (await measuredHeight("answer-source-rail"));
     const geometry = {
       maxOffset: scrollGeometry.maxScrollTop,
       collapseBudget,
@@ -2745,7 +3087,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await scrollPrimarySurface(page, liveEndpoint);
       await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
       await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-      const endpoint = await relatedItems.last().evaluate((item) => {
+      // Measure the LAST thing in the runway, which is the follow-up rows — not
+      // a library listitem. The library line is collapsed by the block above, so
+      // its listitems are `display:none` and expose no element to measure; this
+      // branch only ever ran on a taller answer before the support card was
+      // removed, which is why the mismatch went unseen. What the assertion is
+      // for is unchanged: the last content clears the dock rather than sitting
+      // under it.
+      const runwayEnd = page.getByTestId("answer-follow-up-suggestions").getByRole("button").last();
+      await expect(runwayEnd).toBeVisible();
+      const endpoint = await runwayEnd.evaluate((item) => {
         const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
         if (!dockNode) throw new Error("Expected phone answer dock");
         return {
@@ -2760,6 +3111,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(input).toBeFocused();
 
     await page.setViewportSize({ width: 320, height: 844 });
+    // Re-open the library line: the tap-target sweep below is about the links
+    // inside it, and the geometry block above needed it resting closed.
+    await relatedTrigger.click();
     const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
     await expect(compactCrossModeRail).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
@@ -2856,11 +3210,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("shared-home-empty-state")).toHaveCount(0);
     await expect(page.getByText("What can I help with?", { exact: true })).toHaveCount(0);
     // Prefer :visible — a useSearchParams() Suspense ancestor can leave a persistent
-    // hidden S: clone (search-chrome invariant 17), which makes getByLabel strict-mode fail.
-    await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
+    // hidden S: clone (search-chrome invariant 17), which makes getByTestId strict-mode fail.
+    // AnswerProgress owns the in-flight state; AnswerSkeleton no longer renders its own
+    // "Loading answer" status line beside it, so the wait is asserted on the progress
+    // element's active state rather than the retired label.
+    await expect(page.locator('[data-testid="answer-progress"][data-progress-state="active"]:visible')).toBeVisible();
     await expect.poll(() => answerRequests[0]).toBe(question);
 
-    const questionEcho = page.getByTestId("answer-card-query");
+    const questionEcho = page.getByTestId("user-question-bubble");
     await expect(questionEcho).toBeVisible({ timeout: uiAssertionTimeoutMs });
     await expect(questionEcho).toContainText(question);
     await expect(page.getByTestId("plain-answer-response")).toContainText("synthetic clozapine table image highlights");
@@ -2908,13 +3265,40 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
-    const rail = strip.getByTestId("cross-mode-links-card-rail");
+    // One collapsed line under the answer, opened on demand (owner decision,
+    // 2026-08-26, "direction B"). Everything below still has to work through it,
+    // so the test opens it rather than dropping the coverage.
+    //
+    // The closed state is asserted here at 1280px, not only at phone width. It
+    // shipped broken on desktop precisely because the one test that checked the
+    // collapse ran at 390px: `hidden` beside a `md:flex` in the same class list
+    // loses to the media-query rule from 768px up, so the rail stayed open while
+    // its trigger reported `aria-expanded="false"`.
+    const trigger = strip.getByTestId("cross-mode-links-line-trigger");
+    const rail = strip.getByTestId("cross-mode-links-rail");
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(rail).toBeHidden();
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(rail).toBeVisible();
     await expect(rail).toHaveCSS("display", "flex");
+    // Close and re-open: the collapse is the half that regressed.
+    await trigger.click();
+    await expect(rail).toBeHidden();
+    await trigger.click();
+    await expect(rail).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true }).filter({ visible: true })).toBeVisible();
     const medicationSearch = strip.getByRole("button", { name: "Search Clozapine in Medication" });
     await expect(medicationSearch).toBeVisible();
+    // Two signposted actions per card: search inside the mode, and open the
+    // record itself. The open control shares the title link's destination and
+    // telemetry, so it must not collide with the title's accessible name.
+    // `exact`: the rail also carries "Open Clozapine-specific adverse effects",
+    // and a substring name matches both.
+    const medicationOpen = strip.getByRole("link", { name: "Open Clozapine", exact: true });
+    await expect(medicationOpen).toBeVisible();
+    await expect(medicationOpen).toHaveAttribute("href", /./);
     await expect(strip.getByText("SGA / TRS", { exact: true }).filter({ visible: true })).toBeVisible();
 
     const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");
@@ -2923,6 +3307,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const followUpBox = await followUps.boundingBox();
       expect(stripBox).toBeTruthy();
       expect(followUpBox).toBeTruthy();
+      // Library context now closes the evidence/safety stack before the next
+      // conversational turn begins.
       expect(stripBox!.y).toBeLessThan(followUpBox!.y);
     }
 
@@ -2968,10 +3354,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
 
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    // Live answer owns the query echo via AnswerCard; prior turns keep UserQuestionBubble.
-    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
-    await expect(page.getByTestId("answer-card-query")).toContainText(firstQuestion);
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(0);
+    // One chat: every question in the thread is a bubble, the newest included.
+    // The card no longer carries a muted echo of its own question.
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
+    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(0);
     await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible();
 
     const composer = visibleQuestionInput(page);
@@ -2982,10 +3369,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, followUp);
     await visibleAnswerSubmitButton(page).click();
 
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
-    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
-    await expect(page.getByTestId("answer-card-query")).toContainText(followUp);
+    const questionBubbles = page.getByTestId("user-question-bubble");
+    await expect(questionBubbles).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
+    await expect(questionBubbles.first()).toContainText(firstQuestion);
+    await expect(questionBubbles.last()).toContainText(followUp);
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1);
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
     await expect(composer).toHaveValue("");
@@ -2996,11 +3383,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.reload();
     await waitForDemoDashboardReady(page);
     await expect(async () => {
-      await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
-      await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+      await expect(page.getByTestId("user-question-bubble")).toHaveCount(2);
     }).toPass({ timeout: 15_000 });
-    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
-    await expect(page.getByTestId("answer-card-query")).toContainText(followUp);
+    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
+    await expect(page.getByTestId("user-question-bubble").last()).toContainText(followUp);
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
   });
 
@@ -3019,9 +3405,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(suggestionText).toBeTruthy();
     await suggestion.click();
 
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
-    await expect(page.getByTestId("answer-card-query")).toContainText(suggestionText ?? "");
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble").last()).toContainText(suggestionText ?? "");
   });
 
   test("quote follow-up stages a composer draft from evidence quotes", async ({ page }) => {
@@ -3035,16 +3420,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
 
-    const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
-    await expect(evidenceDrawer).toBeVisible();
-    await evidenceDrawer.click();
+    // The quote cards' follow-up action came across with the passage: it now lives
+    // in the source drawer, beneath the passage it asks about.
+    const followUpRail = page.getByTestId("answer-source-rail");
+    await expect(followUpRail).toBeVisible();
+    await followUpRail.getByTestId("answer-source-rail-row").first().click();
 
-    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-    await expect(evidenceSheet).toBeVisible();
-    await evidenceSheet.getByRole("tab", { name: /Quotes/i }).click();
-    await expect(evidenceSheet.getByRole("tabpanel", { name: /Quotes/i })).toBeVisible();
+    const followUpDrawer = page.getByTestId("answer-source-drawer");
+    await expect(followUpDrawer).toBeVisible();
+    await expect(followUpDrawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
 
-    const followUpButton = evidenceSheet.getByRole("button", { name: /Ask a follow-up from quote/i }).first();
+    const followUpButton = followUpDrawer.getByTestId("answer-source-drawer-follow-up");
     await expect(followUpButton).toBeVisible();
     await followUpButton.click();
 
@@ -3081,37 +3467,329 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium");
     await visibleAnswerSubmitButton(page).click();
 
-    const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
-    await expect(sourceOnlyDisclosure).toBeVisible();
-    await expect(sourceOnlyDisclosure).toContainText("Source-only");
-    await expect(sourceOnlyDisclosure).toContainText("verify passages");
-    await expect(sourceOnlyDisclosure).not.toContainText("without the AI model");
-    await sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ }).click();
-    await expect(sourceOnlyDisclosure).toContainText("without the AI model");
+    // Owner decision (2026-09-03): the Source-only pill that used to sit below
+    // the prose is gone. Its governed wording leads the Answer limitations
+    // disclosure, and the chip that opens it carries the word "Source-only" so
+    // the provenance fact still reaches the default view — `VerificationNotice`
+    // stays print-only on this answer, so if the chip loses that word nothing
+    // on screen says no model wrote the answer.
+    await expect(page.getByTestId("verification-notice")).toBeHidden();
+    await expect(page.getByTestId("source-only-disclosure")).toHaveCount(0);
+    await expect(page.getByTestId("answer-source-status-row")).toHaveCount(0);
 
-    const supportCard = page.getByTestId("answer-support-card");
-    await expect(supportCard).toBeVisible();
-    await expect(supportCard).toContainText("Review source match");
-    await expect(supportCard).toContainText("Verify cited passages");
-    await expect(supportCard).toContainText("Clinical notes");
-    await expect(supportCard.getByTestId("answer-evidence-trigger")).toContainText(/sources?|claims?/i);
-    await expect(supportCard.getByTestId("answer-evidence-trigger")).not.toContainText("0 claims");
+    const limitationsChip = page.getByTestId("answer-limitations-trigger");
+    const limitationsDetail = page.locator("#answer-limitations-detail");
+    const sourceOnlyRail = page.getByTestId("answer-source-rail");
+    await expect(limitationsChip).toBeVisible();
+    await expect(sourceOnlyRail).toBeVisible();
+    await expect(limitationsChip).toContainText("Source-only");
+    // Opens a dialog, so it announces `haspopup` rather than `expanded`/`controls`. The two are
+    // not interchangeable: `aria-expanded` promises a region revealed in place, which is the
+    // behaviour that was removed. Asserted as absent, not merely changed, so a half-finished
+    // revert that leaves both attributes on the trigger fails here.
+    await expect(limitationsChip).toHaveAttribute("aria-haspopup", "dialog");
+    await expect(limitationsChip).not.toHaveAttribute("aria-expanded", /.*/);
+    await expect(limitationsChip).not.toHaveAttribute("aria-controls", /.*/);
+    // Not merely hidden — the sheet is not in the document until it is opened.
+    await expect(limitationsDetail).toHaveCount(0);
 
-    const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
-    await expect(clinicalTrigger).toBeVisible();
-    await clinicalTrigger.click();
-    const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
-    await expect(clinicalNotesSheet).toBeVisible();
+    // The chip is a full-size button carrying a small pill, so it keeps the
+    // 48px tap region rather than the pill's own height.
+    await expectMinTouchTarget(limitationsChip);
+
+    // The prose runs straight into the source rail now that nothing sits between
+    // them.
+    const proseBox = await page.getByTestId("plain-answer-prose").boundingBox();
+    const railBox = await sourceOnlyRail.boundingBox();
+    expect(proseBox).not.toBeNull();
+    expect(railBox).not.toBeNull();
+    expect(railBox!.y).toBeGreaterThanOrEqual(proseBox!.y + proseBox!.height);
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await limitationsChip.focus();
+    await expect(limitationsChip).toBeFocused();
+    await page.keyboard.press("Enter");
+    const limitationsSheet = page.getByRole("dialog", { name: "Answer limitations" });
+    await expect(limitationsSheet).toBeVisible();
+    await expect(limitationsDetail).toBeVisible();
+    // The governed extractive wording, verbatim, as the first row of the sheet. This is the
+    // assertion that matters most in this block: the wording must survive the move out of the
+    // in-flow panel unchanged, because it is the caution a source-only answer rests on.
+    await expect(limitationsDetail.getByTestId("answer-limitation-source-only")).toContainText(
+      "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
+    );
+
+    // Escape closes, and focus comes back to the chip that opened it — the trigger no longer
+    // toggles, so a second Enter would reopen rather than close.
     await page.keyboard.press("Escape");
-    await expect(clinicalNotesSheet).toHaveCount(0);
+    await expect(limitationsSheet).toHaveCount(0);
+    await expect(limitationsChip).toBeFocused();
 
-    await supportCard.getByTestId("answer-evidence-trigger").click();
-    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-    await expect(evidenceSheet).toBeVisible();
-    await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await expect(limitationsChip).toBeVisible();
+    await expect(limitationsChip).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(limitationsSheet).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(evidenceSheet).toHaveCount(0);
+    await expect(limitationsSheet).toHaveCount(0);
+    await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
+
+    for (const width of [320, 390, 639, 768, 1440, 1920]) {
+      await page.setViewportSize({ width, height: width < 768 ? 820 : 900 });
+      await expect(limitationsChip).toBeVisible();
+      // The label grew a "Source-only" prefix, so the narrow widths are the ones
+      // that matter here.
+      await expectMinTouchTarget(limitationsChip);
+      await expectNoPageHorizontalOverflow(page);
+    }
+
+    // The "Review source match" card is gone with the support card. The caution
+    // it restated is not: the limitations chip carries "Source-only" on the
+    // default view and its panel carries the governed wording, and the support
+    // chip states the degraded support level rather than reading like a fully
+    // supported answer.
+    const sourceOnlySupportChip = page.getByTestId("answer-card-support");
+    await expect(sourceOnlySupportChip).toBeVisible();
+    await expect(sourceOnlySupportChip).toHaveAttribute("data-support", /limited|unassessed/);
+    await expect(page.getByTestId("answer-support-card")).toHaveCount(0);
+    await expect(page.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
+    await expect(page.getByTestId("answer-evidence-trigger")).toHaveCount(0);
+
+    // A source-only answer still cites real documents, so the rail must list them
+    // and the drawer must open — the degraded path is exactly where a clinician
+    // most needs the route back to the page.
+    const sourceOnlyRow = sourceOnlyRail.getByTestId("answer-source-rail-row").first();
+    await expect(sourceOnlyRow).toBeVisible();
+    await sourceOnlyRow.click();
+    const sourceOnlyDrawer = page.getByTestId("answer-source-drawer");
+    await expect(sourceOnlyDrawer).toBeVisible();
+    await expect(sourceOnlyDrawer.getByRole("link", { name: "View original PDF" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sourceOnlyDrawer).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("review-due source-only answers keep the overdue detail behind the evidence-gaps chip", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page, {
+      answerOverride: (query, documentId, documentIds) => {
+        const base = demoAnswer(query, documentId, documentIds);
+        return {
+          ...base,
+          answerQualityTier: "source_only" as const,
+          // The combination that matters: source-only AND overdue AND carrying a
+          // render warning. The governed verification line is print-only on a
+          // source-only answer and the collapsed Source-only pill says only
+          // "Source-only · verify passages", so the evidence chip is the one
+          // thing on the default view that can state the answer is overdue — and
+          // a warning must not displace it there.
+          faithfulnessWarning: "One sentence could not be matched to a cited passage.",
+          sources: base.sources.map((source, index) =>
+            index === 0
+              ? {
+                  ...source,
+                  source_metadata: {
+                    ...source.source_metadata!,
+                    document_status: "review_due" as const,
+                    review_date: "2025-11-01",
+                  },
+                }
+              : source,
+          ),
+        };
+      },
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
+    await visibleAnswerSubmitButton(page).click();
+
+    // Owner decision (2026-09-03): the answer body owns no status row at all.
+    // Both the Source-only wording and the per-source overdue detail are
+    // statements about this answer's evidence, so both live behind the
+    // limitations chip with the other such statements.
+    await expect(page.getByTestId("answer-source-status-row")).toHaveCount(0);
+    await expect(page.getByTestId("source-only-disclosure")).toHaveCount(0);
+
+    const gapsChip = page.getByTestId("answer-limitations-trigger");
+    await expect(gapsChip).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    // All three parts, not one. This chip is the only thing on the default view
+    // that says no model wrote the answer AND that a cited source is overdue —
+    // `VerificationNotice` is print-only here — so a limitation count must never
+    // displace either prefix.
+    await expect(gapsChip).toContainText("Source-only");
+    await expect(gapsChip).toContainText("Review due");
+    await expect(gapsChip).toContainText(/\d+ limitations?/);
+    await expect(gapsChip).toHaveAttribute("aria-haspopup", "dialog");
+    const gapsDetail = page.locator("#answer-limitations-detail");
+    await expect(gapsDetail).toHaveCount(0);
+
+    const reviewDueTab = page.getByTestId("retrieval-state-stale-toggle");
+    await expect(reviewDueTab).toHaveCount(0);
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(0);
+
+    await gapsChip.click();
+    await expect(page.getByRole("dialog", { name: "Answer limitations" })).toBeVisible();
+    await expect(gapsDetail).toBeVisible();
+    // And the count is of gaps only. A source being due for review is a
+    // statement about that source's currency, not a missing piece of evidence,
+    // and it is already the other half of this label — counting it again would
+    // both overstate the gaps and report one fact twice under the wrong name.
+    // Derived from what the panel actually renders, so the assertion holds when
+    // the demo corpus changes how many warnings it produces.
+    // The panel's own rows, excluding the heading and the source-only row that
+    // leads it — neither is a counted limitation.
+    const sourceOnlyRow = gapsDetail.getByTestId("answer-limitation-source-only");
+    await expect(sourceOnlyRow).toBeVisible();
+    // The wording is state-specific by design (#207 precedence lets stale
+    // outrank source_only), so this asserts the ATTRIBUTION rather than one
+    // state's sentence: every extractive variant opens "Copied from", and none
+    // of them may claim a model wrote the answer.
+    await expect(sourceOnlyRow).toContainText(/Copied from/);
+    await expect(sourceOnlyRow).not.toContainText("AI-generated");
+    // Excluded by ELEMENT, not by text. The source-only row's eyebrow is
+    // `uppercase`, so `innerText` reports "SOURCE-ONLY" and a case-sensitive
+    // text filter silently counted this row as a limitation.
+    //
+    // The "Answer limitations" filter below is now belt-and-braces: that heading became the
+    // sheet's own title and is no longer a `<p>` inside this container. It is kept so the
+    // count stays right if the heading is ever reinstated in the body.
+    const panelWarnings = (
+      await gapsDetail.locator('> p:not([data-testid="answer-limitation-source-only"])').allInnerTexts()
+    ).filter((text) => !/^Answer limitations$/i.test(text.trim()));
+    const gapWarnings = panelWarnings.filter((text) => !/\bdue for review\.$/.test(text.trim()));
+    expect(panelWarnings.length).toBeGreaterThan(0);
+    await expect(gapsChip).toContainText(`${gapWarnings.length} limitation${gapWarnings.length === 1 ? "" : "s"}`);
+    // The banner is inside the disclosure, not merely somewhere on the page.
+    await expect(gapsDetail.getByTestId("retrieval-state-stale-toggle")).toBeVisible();
+    await expect(reviewDueTab).toContainText("Review due");
+    await expect(reviewDueTab).toHaveAttribute("aria-expanded", "false");
+    const reviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
+    await expect(reviewDuePanel).toBeHidden();
+
+    for (const viewport of [
+      { width: 320, height: 844 },
+      { width: 390, height: 844 },
+      { width: 639, height: 900 },
+      { width: 768, height: 1024 },
+      { width: 1440, height: 900 },
+      { width: 1920, height: 1080 },
+    ]) {
+      await page.setViewportSize(viewport);
+      // Reading boundingBox() immediately after a resize can race the
+      // reflow — Chromium sometimes reports one sibling's box mid-transition
+      // (seen ~10px short) while the other has already settled. Two rAF
+      // round-trips let layout finish before we measure.
+      await page.evaluate(
+        () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+      );
+      // The chip keeps its full tap region at every width, and the longer
+      // three-part label must not push the page into horizontal overflow.
+      await expect(gapsChip).toBeVisible();
+      await expectMinTouchTarget(gapsChip);
+      await expectNoPageHorizontalOverflow(page);
+      // The overdue detail stays reachable and inside the disclosure, however
+      // narrow the viewport gets.
+      const gapsDetailBox = await gapsDetail.boundingBox();
+      const reviewDueBox = await reviewDueTab.boundingBox();
+      expect(gapsDetailBox).toBeTruthy();
+      expect(reviewDueBox).toBeTruthy();
+      expect(reviewDueBox!.y).toBeGreaterThanOrEqual(gapsDetailBox!.y - 1);
+      expect(reviewDueBox!.x).toBeGreaterThanOrEqual(gapsDetailBox!.x - 1);
+      expect(reviewDueBox!.x + reviewDueBox!.width).toBeLessThanOrEqual(gapsDetailBox!.x + gapsDetailBox!.width + 1);
+      await expectNoPageHorizontalOverflow(page);
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await testInfo.attach("review-due-tab-phone", {
+      body: await page.screenshot({ fullPage: true }),
+      contentType: "image/png",
+    });
+
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+
+    // Both disclosures — the chip and the banner inside the sheet it opens — stay operable from
+    // the keyboard in forced colors with motion reduced.
+    //
+    // The sheet is still open from the click above, and it has to be closed before the chip can
+    // be driven again: while a sheet is open the trigger sits behind the overlay and focus is
+    // trapped inside the dialog. Escape closes and returns focus to the chip, which is the whole
+    // round trip this block is here to prove.
+    await page.keyboard.press("Escape");
+    await expect(gapsDetail).toHaveCount(0);
+    await expect(gapsChip).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(gapsDetail).toBeVisible();
+
+    await reviewDueTab.focus();
+    await expect(reviewDueTab).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(reviewDueTab).toHaveAttribute("aria-expanded", "true");
+    // Re-resolved, not reused. `reviewDuePanel` above was captured from the first mount, and the
+    // banner's panel id comes from `useId` — closing the sheet unmounts it, so reopening mints a
+    // new id and the old locator matches nothing. This is the one real behaviour change the sheet
+    // brings to this test: an in-flow panel was only ever hidden, never unmounted.
+    const reopenedReviewDuePanel = page.locator(`#${await reviewDueTab.getAttribute("aria-controls")}`);
+    await expect(reopenedReviewDuePanel).toBeVisible();
+    await expect(page.getByTestId("retrieval-state-overdue-row")).toHaveCount(1);
+    await expect(page.getByTestId("retrieval-state-open-source")).toBeVisible();
+  });
+
+  test("the problem list opens as a sheet that is fully readable on a phone", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "What lithium monitoring is required?");
+    await visibleAnswerSubmitButton(page).click();
+
+    const trigger = page.getByTestId("answer-feedback-trigger");
+    await expect(trigger).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await trigger.click();
+
+    const sheet = page.getByTestId("answer-feedback-sheet");
+    await expect(sheet).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    // The defect this replaced: as an in-flow disclosure the list opened partly
+    // behind the fixed phone composer, so it LOOKED complete when it was not.
+    // Every option must now be inside the viewport with the sheet at rest — no
+    // page scroll, and none of it under the composer.
+    const options = sheet.getByTestId("answer-review-panel").getByRole("button");
+    const optionCount = await options.count();
+    expect(optionCount).toBeGreaterThan(4);
+    const viewport = page.viewportSize()!;
+    for (let index = 0; index < optionCount; index += 1) {
+      const option = options.nth(index);
+      const box = await option.boundingBox();
+      expect(box, `option ${index} has no box`).toBeTruthy();
+      expect(box!.y, `option ${index} starts above the viewport`).toBeGreaterThanOrEqual(-1);
+      expect(box!.y + box!.height, `option ${index} runs past the viewport`).toBeLessThanOrEqual(viewport.height + 1);
+      // Production tap-target floor, not the generic WCAG 44px: 48px is what
+      // this repo ships and dropping to 44 reintroduces a known ui-smoke flake.
+      expect(box!.height, `option ${index} tap target`).toBeGreaterThanOrEqual(48);
+    }
+    // The affirmative verdict is the thumb up beside the trigger. Offering it
+    // inside a list opened to report a fault records the opposite of the intent.
+    await expect(sheet.getByRole("button", { name: /Verified/ })).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+
+    await testInfo.attach("report-a-problem-sheet-phone", {
+      body: await page.screenshot({ fullPage: false }),
+      contentType: "image/png",
+    });
+
+    // Dismissing returns the reader to the control they tapped, and leaves the
+    // phone composer where it was — the scroll-hide trap the old disclosure fell
+    // into when it tried to scroll itself clear.
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect(visibleAnswerSubmitButton(page)).toBeVisible();
   });
 
   for (const viewport of [
@@ -3131,66 +3809,38 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       const plainAnswer = page.getByTestId("plain-answer-response");
       await expect(plainAnswer).toBeVisible();
-      const supportCard = page.getByTestId("answer-support-card");
-      await expect(supportCard).toBeVisible();
+      await expect(page.getByTestId("answer-card-support")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
 
-      const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
-      await expectMinTouchTarget(sourceCapsule);
-      await sourceCapsule.click();
-      const sourceSurface = page.getByRole("dialog", { name: "Sources" });
-      await expect(sourceSurface).toBeVisible();
-      await expect(sourceSurface.getByTestId("source-capsule-preview-row").first()).toHaveAttribute(
-        "href",
-        /\/documents\/.+chunk=/,
-      );
-      await expectMinTouchTarget(sourceSurface.getByTestId("source-capsule-preview-row").first());
-      await page.keyboard.press("Escape");
-      await expect(sourceSurface).toHaveCount(0);
-      await expect(sourceCapsule).toBeFocused();
-      if (!viewport.sheet) {
-        await sourceCapsule.click();
-        await expect(sourceSurface).toBeVisible();
-        await sourceCapsule.click();
-        await expect(sourceSurface).toHaveCount(0);
-      }
-
-      const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
-      await expectMinTouchTarget(clinicalTrigger);
-      await clinicalTrigger.click();
-      const clinicalSurface = page.getByRole("dialog", { name: "Clinical notes" });
-      await expect(clinicalSurface).toBeVisible();
-      await expect(clinicalSurface.getByTestId("clinical-notes-checklist")).toBeVisible();
-      await expect(clinicalSurface.getByRole("tab", { name: /Actions/ })).toBeVisible();
-      await expectMinTouchTarget(clinicalSurface.getByRole("link", { name: /^Source$/ }).first());
-      const clinicalCopy = clinicalSurface.getByRole("button", { name: /^(Copy|Copied)$/ }).first();
-      await expectMinTouchTarget(clinicalCopy);
-      await clinicalCopy.click();
-      await page.keyboard.press("Escape");
-      await expect(clinicalSurface).toHaveCount(0);
-      await expect(clinicalTrigger).toBeVisible();
-
-      const evidenceTrigger = page.locator("#answer-evidence-drawer-mobile-trigger");
-      await expectMinTouchTarget(evidenceTrigger);
-      await evidenceTrigger.click();
-      const evidenceSurface = page.getByRole("dialog", { name: "Evidence" });
-      await expect(evidenceSurface).toBeVisible();
-      await expect(evidenceSurface.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
-      await expect(evidenceSurface.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
-      await expect(evidenceSurface.getByTestId("evidence-claims-panel")).toBeVisible();
-      await expectMinTouchTarget(evidenceSurface.getByRole("link", { name: /^Source$/ }).first());
-      const evidenceCopy = evidenceSurface.getByRole("button", { name: /^(Copy|Copied)$/ }).last();
-      await expectMinTouchTarget(evidenceCopy);
-      await evidenceCopy.click();
-      const evidenceTablesTab = evidenceSurface.getByTestId("mobile-evidence-tab-tables");
-      if (await evidenceTablesTab.count()) {
-        await evidenceTablesTab.click();
-        await expect(evidenceSurface.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
-        await expectMinTouchTarget(evidenceTablesTab);
+      // One source surface at every breakpoint: the rail on the page, the drawer
+      // behind each row. There is no capsule, no popover/sheet split, and no
+      // separate clinical-notes or evidence sheet to reach.
+      const rail = page.getByTestId("answer-source-rail");
+      await expect(rail).toBeVisible();
+      const railRow = rail.getByTestId("answer-source-rail-row").first();
+      await expectMinTouchTarget(railRow);
+      // The card is one control that opens the drawer; the two routes to the PDF
+      // itself live in the drawer (its header link and "View original PDF"), so
+      // the card does not carry a second competing target at this width.
+      await expect(railRow).toHaveAccessibleName(/open source detail$/);
+      await railRow.click();
+      const drawer = page.getByTestId("answer-source-drawer");
+      await expect(drawer).toBeVisible();
+      // No claim opened this drawer, so it carries no support sentence; the
+      // passage and the route to the PDF are what it must show.
+      await expect(drawer.getByTestId("answer-source-drawer-support")).toHaveCount(0);
+      await expect(drawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
+      await expectMinTouchTarget(drawer.getByRole("link", { name: "View original PDF" }));
+      const drawerPager = drawer.getByTestId("answer-source-drawer-pager");
+      if (await drawerPager.count()) {
+        await expectMinTouchTarget(drawerPager.getByRole("button", { name: "Next source" }));
       }
       await page.keyboard.press("Escape");
-      await expect(evidenceSurface).toHaveCount(0);
-      await expect(evidenceTrigger).toBeFocused();
+      await expect(drawer).toHaveCount(0);
+      await expect(railRow).toBeFocused();
+
+      await expect(page.locator("#answer-clinical-notes-drawer-mobile-trigger")).toHaveCount(0);
+      await expect(page.locator("#answer-evidence-drawer-mobile-trigger")).toHaveCount(0);
 
       await expectNoPageHorizontalOverflow(page);
     });
@@ -3211,7 +3861,32 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const submitAnswer = visibleAnswerSubmitButton(page);
       await submitAnswer.click();
 
-      const clinicalTable = page.getByLabel("Inline table preview").first();
+      // Decision 2 (2026-08-24): the wide-screen table column is gone at every
+      // breakpoint, so a table is only ever reached through the source drawer.
+      await expect(page.getByLabel("Inline table preview")).toHaveCount(0);
+      await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
+        "data-desktop-table-aside",
+        "false",
+      );
+      const tableRail = page.getByTestId("answer-source-rail");
+      await expect(tableRail).toBeVisible();
+      // A table hangs off the source it was cited from, which is not necessarily
+      // the best match — open the row that actually has it.
+      const tableRows = tableRail.getByTestId("answer-source-rail-row");
+      const tableDrawer = page.getByTestId("answer-source-drawer");
+      const clinicalTable = tableDrawer.getByLabel("Inline table preview").first();
+      let openedTableRow = false;
+      for (let index = 0; index < (await tableRows.count()); index += 1) {
+        await tableRows.nth(index).click();
+        await expect(tableDrawer).toBeVisible();
+        if (await clinicalTable.count()) {
+          openedTableRow = true;
+          break;
+        }
+        await page.keyboard.press("Escape");
+        await expect(tableDrawer).toHaveCount(0);
+      }
+      expect(openedTableRow).toBe(true);
       await expect(clinicalTable).toBeVisible();
       await expect(clinicalTable).toContainText("FBC/ANC");
       await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
@@ -3219,31 +3894,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const expandButton = clinicalTable.getByTestId("table-expand-button");
       const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
       if (!viewport.expands) {
-        await expect(page.getByRole("button", { name: "Open answer sources" })).toContainText(/sources?/i);
-        await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
-          "data-desktop-table-aside",
-          "true",
-        );
-        const desktopLayout = await page.evaluate(() => {
-          const answer = document.querySelector('[data-testid="plain-answer-response"]');
-          const support = document.querySelector('[data-testid="answer-support-card"]');
-          const table = document.querySelector('[aria-label="Inline table preview"]');
-          const answerRect = answer?.getBoundingClientRect();
-          const supportRect = support?.getBoundingClientRect();
-          const tableRect = table?.getBoundingClientRect();
-          return {
-            answerRight: answerRect?.right ?? 0,
-            answerTop: answerRect?.top ?? 9999,
-            supportRight: supportRect?.right ?? 0,
-            tableLeft: tableRect?.left ?? 0,
-            tableTop: tableRect?.top ?? 9999,
-          };
-        });
-        expect(desktopLayout.tableLeft).toBeGreaterThan(
-          Math.max(desktopLayout.answerRight, desktopLayout.supportRight),
-        );
-        expect(Math.abs(desktopLayout.tableTop - desktopLayout.answerTop)).toBeLessThan(180);
+        // Desktop reads the table in place inside the drawer rather than expanding it.
         await expect(expandButton).toHaveCount(0);
+        await expect(tableSurface).toBeVisible();
         await expectNoPageHorizontalOverflow(page);
         return;
       }
@@ -3251,7 +3904,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(tableSurface).not.toHaveAttribute("role", "button");
       await expect(tableSurface).not.toHaveAttribute("tabindex");
       await expect(expandButton).toHaveAttribute("aria-expanded", "false");
-      await page.keyboard.press("Escape");
       const surfaceDialog = await openMobileTableFullscreen(page, clinicalTable);
       await expect(expandButton).toHaveAttribute("aria-expanded", "true");
       await expect(surfaceDialog.getByRole("button", { name: "Close full-screen table" })).toBeFocused();
@@ -3269,12 +3921,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(dialog.getByRole("table")).toBeVisible();
       await expect(dialog).toContainText("FBC/ANC");
       await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
-      const modal = page.getByRole("dialog", { name: /clozapine monitoring/i });
-      await expect(modal).toBeVisible();
+      // The full-screen table now opens from inside the source drawer, which is
+      // itself a dialog carrying the document's name — so a by-name lookup is
+      // ambiguous. `openMobileTableFullscreen` already hands back the right
+      // handle; the focus-trap assertions are unchanged.
+      await expect(dialog).toBeVisible();
       await page.keyboard.press("Shift+Tab");
-      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await page.keyboard.press("Tab");
-      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await expectNoPageHorizontalOverflow(page);
       await page.keyboard.press("Escape");
       await expect(dialog).toBeHidden();
@@ -3350,9 +4005,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("dsm-diagnosis-page")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
     // The breadcrumb row went with the in-page header: its back control is the
-    // one route out to the mode home, and a breadcrumb under it is a second.
-    // The one route out of a record is the mode home, which is the shared home now.
-    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/?mode=dsm");
+    // one route out to the DSM search catalogue, not the shared home composer.
+    await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm/search");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3487,10 +4141,96 @@ test.describe("Clinical KB UI smoke coverage", () => {
       (url) =>
         url.pathname === origin.pathname &&
         url.searchParams.get("q") === origin.searchParams.get("q") &&
-        url.searchParams.get("run") === origin.searchParams.get("run"),
+        url.searchParams.get("run") === origin.searchParams.get("run") &&
+        url.searchParams.get("mode") === origin.searchParams.get("mode"),
       { timeout: 30_000 },
     );
     await expect(workspace).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("document detail back arrow skips PDF page changes at phone and desktop", async ({ page }) => {
+    await mockDemoApi(page);
+    const documentId = "22222222-2222-4222-8222-222222222222";
+
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await gotoApp(page, "/documents/search?mode=documents&q=clozapine+monitoring&run=1");
+      const origin = new URL(page.url());
+      await page.goto(`/documents/${documentId}?page=1`, { waitUntil: "domcontentloaded" });
+      await expect(
+        page.getByRole("heading", { level: 1, name: /Synthetic clozapine monitoring protocol/i }),
+      ).toBeVisible({
+        timeout: 30_000,
+      });
+
+      const historyLength = await page.evaluate(() => window.history.length);
+      await page.getByLabel("Next page").first().click();
+      await expect(page).toHaveURL(
+        (url) => url.pathname === `/documents/${documentId}` && url.searchParams.get("page") === "2",
+      );
+      expect(await page.evaluate(() => window.history.length)).toBe(historyLength);
+
+      await page.getByRole("link", { name: "Back to documents" }).click();
+      await expect(page).toHaveURL(
+        (url) =>
+          url.pathname === origin.pathname &&
+          url.searchParams.get("q") === origin.searchParams.get("q") &&
+          url.searchParams.get("run") === origin.searchParams.get("run") &&
+          url.searchParams.get("mode") === origin.searchParams.get("mode"),
+        { timeout: 30_000 },
+      );
+    }
+  });
+
+  test("opening a document reveals phone chrome hidden by the search route", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/search?mode=documents&q=lithium+monitoring&run=1");
+
+    const firstResult = page.getByTestId("document-result-card").first();
+    const openDocument = firstResult.getByRole("link", { name: /^Open / });
+    const collapse = page.getByTestId("universal-header-collapse");
+    await expect(openDocument).toBeVisible({ timeout: 30_000 });
+    await appendPrimaryScrollSpacer(page, { heightPx: 2_000 });
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await scrollPrimarySurface(page, offset);
+    }
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+
+    await page.evaluate(() => {
+      const state = window as typeof window & { __documentRoutePaintedWithHiddenHeader?: boolean };
+      const detectStaleHeader = () => {
+        const onDocumentDetail =
+          window.location.pathname.startsWith("/documents/") && window.location.pathname !== "/documents/search";
+        const documentReady = Boolean(document.querySelector('[data-testid="document-viewer-content"]'));
+        const headerHidden =
+          document.querySelector('[data-testid="universal-header-collapse"]')?.getAttribute("data-scroll-hidden") ===
+          "true";
+        if (onDocumentDetail && documentReady && headerHidden) {
+          state.__documentRoutePaintedWithHiddenHeader = true;
+        }
+      };
+      new MutationObserver(detectStaleHeader).observe(document.documentElement, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+        attributeFilter: ["data-scroll-hidden"],
+      });
+    });
+
+    // Invoke the already-rendered link without Playwright scrolling it back
+    // into view first; the navigation must reset the genuinely hidden state.
+    await openDocument.evaluate((element) => (element as HTMLElement).click());
+    await expect(page).toHaveURL(/\/documents\/[0-9a-f-]+\?/, { timeout: 30_000 });
+    await expect(page.getByTestId("document-viewer-content")).toBeVisible({ timeout: 30_000 });
+    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
+    expect(
+      await page.evaluate(
+        () =>
+          (window as typeof window & { __documentRoutePaintedWithHiddenHeader?: boolean })
+            .__documentRoutePaintedWithHiddenHeader ?? false,
+      ),
+    ).toBe(false);
   });
 
   test("newer routed differential context wins over an older response", async ({ page }) => {
@@ -3567,7 +4307,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
 
     // Desktop hides the header New chat when the sidebar already owns it.
-    await page.getByRole("complementary", { name: "Clinical Guide" }).getByRole("button", { name: "New chat" }).click();
+    await page.getByRole("complementary", { name: "PsychSift" }).getByRole("button", { name: "New chat" }).click();
     await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
@@ -3582,8 +4322,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
         json: {
           records: [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }],
           total: 1,
+          verifiedCount: 0,
           demoMode: true,
-          governance: {},
         },
       });
     });
@@ -3599,7 +4339,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(hub.getByText("13YARN").first()).toBeVisible();
   });
 
-  test("favourites command library exposes truthful item details and a keyboard-operable action menu", async ({
+  test("favourites command library exposes truthful item details and a keyboard-operable action dialog", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1536, height: 900 });
@@ -3622,12 +4362,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const moreActions = page.getByRole("button", { name: "More actions for Lithium monitoring guideline" });
     await moreActions.focus();
     await page.keyboard.press("ArrowDown");
-    const menu = page.getByRole("menu");
-    await expect(menu.getByRole("menuitem", { name: "Ask Lithium monitoring guideline" })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(menu.getByRole("menuitem", { name: "Copy citation" })).toBeFocused();
+    const dialog = page.getByRole("dialog", { name: "Actions for Lithium monitoring guideline" });
+    await expect(dialog.getByRole("link", { name: "Ask Lithium monitoring guideline" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(dialog.getByRole("button", { name: "Copy citation" })).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(menu.getByRole("menuitem", { name: "Copied" })).toBeFocused();
+    await expect(dialog.getByRole("button", { name: "Copied" })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(moreActions).toBeFocused();
   });
@@ -3680,8 +4420,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const appModeButton = page.getByRole("button", { name: "Mode Answer" });
     await waitForReactEventHandler(appModeButton, "onClick");
     await appModeButton.click();
-    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
+    const modeDialog = page.getByRole("dialog", { name: "Choose app mode" });
+    const appModeMenu = modeDialog.getByRole("menu", { name: "Choose app mode" });
+    const modeSearch = modeDialog.getByRole("textbox", { name: "Find a mode" });
+    await expect(modeDialog).toBeVisible();
     await expect(appModeMenu).toBeVisible();
+    await expect(modeSearch).toBeFocused();
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(17);
+    await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Diagnose" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
+
+    await modeSearch.fill("d");
+    await expect(modeDialog.getByRole("status")).toHaveText("5 matches");
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(5);
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^DSM-5 Diagnosis\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Dictionary\b/ })).toBeAttached();
+    await modeDialog.getByRole("button", { name: "Clear mode search" }).click();
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(17);
+
     const answerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
     await answerMode.focus();
     await expect(answerMode).toBeFocused();
@@ -3712,7 +4473,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await appModeButton.click();
     await expect(appModeMenu).toBeVisible();
-    await appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ }).focus();
+    // Opening schedules the search autofocus in a requestAnimationFrame. Focusing an
+    // option before that frame runs lets the autofocus steal focus back into the search
+    // box, where Tab is not a dismiss key, so the menu stays open and this fails.
+    await expect(modeSearch).toBeFocused();
+    const reopenedAnswerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
+    await reopenedAnswerMode.focus();
+    await expect(reopenedAnswerMode).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(appModeMenu).toBeHidden();
   });
@@ -3863,8 +4630,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("tablet document chrome keeps one new-chat action and readable Sources rows", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/documents");
-    await expect(page.getByTestId("document-search-empty-state")).toBeVisible({ timeout: 30_000 });
+    // Documents' idle browse tiles (including the old "Browse library" button)
+    // are retired — `/documents` now redirects to the shared home instead of
+    // rendering them. The Sources dialog this test checks is still reachable,
+    // from a submitted search's wide filter panel, so land there directly.
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1&mode=documents");
+    await expect(page.getByTestId("document-search-workspace")).toBeVisible({ timeout: 30_000 });
 
     const visibleNewChatCount = await page.getByRole("button", { name: /new chat/i }).evaluateAll(
       (buttons) =>
@@ -3876,7 +4647,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     );
     expect(visibleNewChatCount).toBe(1);
 
-    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
+    await page.getByTestId("document-filter-trigger-wide").click();
+    const browseLibraryButton = page.getByRole("button", { name: "Browse all sources" }).first();
     await browseLibraryButton.click();
     const sourcesDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(sourcesDialog).toBeVisible();
@@ -3912,37 +4684,23 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("document search mode lists matching documents and result actions @critical", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
-    // `/` is the shared home for every mode now, so the Documents home lives at
-    // its own route — reached from the sidebar, like every other mode home.
-    await gotoApp(page, "/documents");
+    // Documents' idle browse tiles (Recent documents / Browse library / Open a
+    // source PDF, previously rendered on a distinct `/documents` home) are
+    // retired — `/documents` now redirects to the shared home with Documents
+    // preselected, the same as the other ten consolidated modes. The three
+    // actions those tiles used to trigger are still reachable from the
+    // composer's "Open documents options" menu (unaffected by this change), so
+    // this test exercises them from there instead.
+    await gotoApp(page, "/?mode=documents");
 
     await expect(page.getByRole("button", { name: "Mode Documents" })).toBeVisible();
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Document matches");
     await expect(page.getByRole("button", { name: "Find matching documents" })).toBeDisabled();
-    await expect(page.getByRole("main").getByRole("heading", { name: "Documents" })).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toBeVisible();
-    await expect(visibleQuestionInput(page)).toBeVisible();
-    await expect(page.getByTestId("document-search-empty-state")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Start here" })).toBeVisible();
-    const searchInputBox = await visibleQuestionInput(page).boundingBox();
-    const startHereBox = await page.getByRole("region", { name: "Start here" }).boundingBox();
-    const documentsHeadingBox = await page.getByRole("main").getByRole("heading", { name: "Documents" }).boundingBox();
-    expect(searchInputBox).not.toBeNull();
-    expect(startHereBox).not.toBeNull();
-    expect(documentsHeadingBox).not.toBeNull();
-    expect((documentsHeadingBox?.y ?? 0) + (documentsHeadingBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
-    // Phones keep the compact composer in the mode-home hero (above Start here),
-    // matching every other mode home — no fixed bottom dock on the empty home.
-    expect(searchInputBox?.y ?? 0).toBeLessThan(startHereBox?.y ?? 0);
-    await expect(page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]')).toHaveCount(0);
-    await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input")).toHaveCount(1);
-    const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
-    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
-    const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();
-    await expect(recentDocumentsButton).toBeVisible();
-    await expect(browseLibraryButton).toBeVisible();
-    await expect(sourcePdfButton).toBeVisible();
 
+    const optionsButton = page.getByRole("button", { name: "Open documents options" });
+
+    await optionsButton.click();
+    const recentDocumentsButton = page.getByRole("button", { name: "Recent documents", exact: true });
     await recentDocumentsButton.click();
     const recentDocumentsDialog = page.getByRole("dialog", { name: "Recent documents" });
     await expect(recentDocumentsDialog).toBeVisible();
@@ -3950,6 +4708,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(recentDocumentsDialog).toHaveCount(0);
 
+    await optionsButton.click();
+    const browseLibraryButton = page.getByRole("button", { name: "Browse library", exact: true });
     await browseLibraryButton.click();
     const sourceLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(sourceLibraryDialog).toBeVisible();
@@ -3957,8 +4717,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(sourceLibraryDialog.getByRole("group", { name: "Refine sources" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(sourceLibraryDialog).toHaveCount(0);
-    await expect(browseLibraryButton).toBeFocused();
+    // The menu item that opened it is unmounted once the popover closes, so
+    // focus returns to the menu's own trigger instead.
+    await expect(optionsButton).toBeFocused();
 
+    await optionsButton.click();
+    const sourcePdfButton = page.getByRole("button", { name: "Open source PDF", exact: true });
     await sourcePdfButton.click();
     const sourcePdfDialog = page.getByRole("dialog", { name: "Source PDFs" });
     await expect(sourcePdfDialog).toBeVisible();
@@ -4299,10 +5063,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
       if (pathname === "/api/ingestion/quality") requestCounts.quality += 1;
     });
 
-    // Start on the Documents home rather than switching mode from `/`: the mode
-    // pill no longer changes the page, and a mid-test navigation would reset the
-    // request counts this test exists to measure.
-    await gotoApp(page, "/documents");
+    // Start directly on the shared home with Documents preselected, rather than
+    // switching mode from `/`: the mode pill no longer changes the page, and a
+    // mid-test navigation would reset the request counts this test exists to
+    // measure. `/documents` itself now only 307s here, so land on the real
+    // destination directly instead of relying on that extra hop.
+    await gotoApp(page, "/?mode=documents");
     // waitForDemoDashboardReady looks for "Open answer options"; the actions
     // trigger is named for the active mode, which is Documents on this route.
     await expect(visibleQuestionInput(page)).toBeEnabled();
@@ -4315,10 +5081,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(requestCounts.batches).toBe(0);
     expect(requestCounts.quality).toBe(0);
     // Escape closes the scope popover but leaves the composer's command dropdown
-    // open, and that dropdown overlays the home actions below it — so dismiss the
+    // open, and that dropdown overlays the home content below it — so dismiss the
     // composer the way a user does, by clicking away from it. Previously this test
     // switched mode after scoping and the re-render reset the composer for free;
-    // the Documents home is now its own route, so the blur has to be explicit.
+    // the shared home is a single static route, so the blur has to be explicit.
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("scope-command-popover")).toHaveCount(0);
     await page
@@ -4327,13 +5093,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       .first()
       .click({ position: { x: 2, y: 2 } });
     // Scope restore can land on the composer + trigger; the command listbox must
-    // stay closed so it cannot cover Start-here actions (Browse library).
+    // stay closed so it cannot cover the composer's "Open documents options" menu.
     await expect(page.getByRole("listbox", { name: /search suggestions/i })).toHaveCount(0);
 
-    await page
-      .getByRole("button", { name: /Browse library/i })
-      .first()
-      .click();
+    // Documents' idle browse tiles are retired; "Browse library" now lives in
+    // the composer's own options menu instead of being directly on the page.
+    await page.getByRole("button", { name: "Open documents options" }).click();
+    await page.getByRole("button", { name: "Browse library", exact: true }).first().click();
     await expect.poll(() => requestCounts.documents).toBe(1);
     expect(requestCounts.jobs).toBe(0);
     expect(requestCounts.batches).toBe(0);
@@ -5322,8 +6088,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const generatedSummary = page.getByTestId("generated-clinical-summary");
     await expect(generatedSummary).toBeVisible();
-    await expect(page.getByTestId("answer-progress-stepper")).toHaveAttribute("data-progress-state", "complete");
-    await expect(page.getByText(/Answer ready in 1s/)).toBeVisible();
+    await expect(page.getByTestId("answer-progress")).toHaveAttribute("data-progress-state", "complete");
+    // The completed wait prints no visible chrome: the summary card arriving is
+    // the completion signal, and an elapsed time is a timing boast rather than
+    // anything a reader acts on. The announcement survives for screen readers.
+    await expect(page.getByText(/Answer ready in/)).toHaveCount(0);
+    await expect(page.getByTestId("answer-progress").getByRole("status")).toContainText("Answer ready.");
     await expect(generatedSummary).toContainText("clozapine monitoring requires regular FBC/ANC checks");
     await expect(generatedSummary).not.toContainText("Key practical points:");
     await expect(generatedSummary).not.toContainText("**");
@@ -5416,7 +6186,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const payload = await response.json();
     expect(typeof payload.demoMode).toBe("boolean");
-    expect(payload.checks).toHaveLength(6);
+    expect(payload.checks).toHaveLength(7);
     expect(payload.checks.map((check: { id: string }) => check.id)).toEqual([
       "env",
       "project",
@@ -5424,8 +6194,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "search",
       "openai",
       "worker",
+      // Added by #2590 and missed here, so this assertion was red on `main` from that merge until
+      // #2593 corrected it. Reached the same fix independently here; the conflict was comment-only.
+      // The list is a deliberate enumeration rather than a count, so it must name the check.
+      "answerPreview",
     ]);
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
+    // The whole point of this endpoint's coarsening. `answerPreview` is the one check whose detail
+    // now survives for an anonymous caller, so pin that its content stays a decision word: no
+    // query, document title, owner, or clinical text may ever appear here.
+    const answerPreview = payload.checks.find((check: { id: string }) => check.id === "answerPreview");
+    expect(answerPreview.detail).toMatch(/^(On\.|Switched off,)/);
   });
 
   test("production site does not offer document uploads to unauthenticated users", async ({ page, request }) => {
@@ -5581,9 +6360,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
 
     const dialog = await openGuide(page);
-    await dialog.evaluate((element) => element.style.setProperty("--safe-area-bottom", "34px"));
     const band = dialog.locator(".guide-tour-dock");
     await expect(band).toBeVisible();
+    // Seed the inset on :root and wait until content padding includes it. An
+    // inline style on the dialog node is lost when React re-renders the Sheet,
+    // which made contentPaddingBottom flake at 80px (5rem + 0) instead of 114px
+    // (5rem + 34px). Re-seed inside the poll so a late Sheet render cannot
+    // measure the unseeded token.
+    await expect
+      .poll(
+        async () => {
+          await page.evaluate(() => {
+            document.documentElement.style.setProperty("--safe-area-bottom", "34px");
+          });
+          return band.evaluate((element) => {
+            const contentElement = element.closest('[role="dialog"]')?.querySelector("[data-guide-content]");
+            return contentElement ? Number.parseFloat(window.getComputedStyle(contentElement).paddingBottom) : 0;
+          });
+        },
+        { message: "guide content padding must include the seeded 34px safe-area inset (5rem + 34px)" },
+      )
+      .toBeGreaterThanOrEqual(114);
 
     const painted = await band.evaluate((element) => {
       const style = window.getComputedStyle(element);

@@ -1,0 +1,6 @@
+
+> prompt-for-codex-medical-knowledge-base@0.1.0 ensure
+> node scripts/ensure-local-server.mjs
+
+Clinical KB is running at http://localhost:4141
+Server log: D:\Repos\Database\.claude\worktrees\nostalgic-vaughan-7ee231\dev-server.log

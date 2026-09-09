@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
 import { classifyDocumentOrganization } from "@/lib/document-organization";
 import { env } from "@/lib/env";
 import {
@@ -15,7 +16,7 @@ import {
   compactPromptChunk,
   selectCoverageAwarePromptChunks,
 } from "@/lib/indexing-coverage";
-import { generateStructuredTextResult } from "@/lib/openai";
+import { generateParsedTextResult } from "@/lib/openai";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
 import { safeErrorLogDetails } from "@/lib/privacy";
@@ -59,109 +60,74 @@ function metadataRecord(metadata: unknown): Record<string, unknown> {
     : {};
 }
 
-const anchoredProfileItemSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    text: { type: "string" },
-    source_chunk_ids: { type: "array", items: { type: "string" } },
-    source_image_ids: { type: "array", items: { type: "string" } },
-    evidence_type: { type: "string", enum: ["text", "table", "image", "mixed", "metadata"] },
-    support: { type: "string", enum: ["direct", "partial", "not_found"] },
-  },
-  required: ["text", "source_chunk_ids", "source_image_ids", "evidence_type", "support"],
-};
+const anchoredProfileItemSchema = z
+  .object({
+    text: z.string(),
+    source_chunk_ids: z.array(z.string()),
+    source_image_ids: z.array(z.string()),
+    evidence_type: z.enum(["text", "table", "image", "mixed", "metadata"]),
+    support: z.enum(["direct", "partial", "not_found"]),
+  })
+  .strict();
 
-const summarySchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    summary: { type: "string" },
-    clinical_specifics: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        profile: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            overview: { type: "string" },
-            applies_to: { type: "array", items: anchoredProfileItemSchema },
-            key_clinical_actions: { type: "array", items: anchoredProfileItemSchema },
-            medication_dose_monitoring: { type: "array", items: anchoredProfileItemSchema },
-            thresholds_timing: { type: "array", items: anchoredProfileItemSchema },
-            escalation_risk_warnings: { type: "array", items: anchoredProfileItemSchema },
-            required_forms_documentation: { type: "array", items: anchoredProfileItemSchema },
-            not_covered: { type: "array", items: anchoredProfileItemSchema },
-            important_tables_images: { type: "array", items: anchoredProfileItemSchema },
-            best_questions: { type: "array", items: anchoredProfileItemSchema },
-            source_quality_notes: { type: "array", items: anchoredProfileItemSchema },
-          },
-          required: [
-            "overview",
-            "applies_to",
-            "key_clinical_actions",
-            "medication_dose_monitoring",
-            "thresholds_timing",
-            "escalation_risk_warnings",
-            "required_forms_documentation",
-            "not_covered",
-            "important_tables_images",
-            "best_questions",
-            "source_quality_notes",
-          ],
-        },
-        actions: { type: "array", items: { type: "string" } },
-        thresholds_timing: { type: "array", items: { type: "string" } },
-        medication_monitoring: { type: "array", items: { type: "string" } },
-        risk_escalation: { type: "array", items: { type: "string" } },
-        documentation_forms: { type: "array", items: { type: "string" } },
-        exceptions_gaps: { type: "array", items: { type: "string" } },
-      },
-      required: [
-        "profile",
-        "actions",
-        "thresholds_timing",
-        "medication_monitoring",
-        "risk_escalation",
-        "documentation_forms",
-        "exceptions_gaps",
-      ],
-    },
-    labels: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          label: { type: "string" },
-          label_type: {
-            type: "string",
-            enum: [
-              "topic",
-              "site",
-              "document_type",
-              "medication",
-              "risk",
-              "setting",
-              "workflow",
-              "population",
-              "service",
-              "clinical_action",
-              "care_phase",
-              "document_intent",
-              "content_feature",
-              "custom",
-            ],
-          },
-          confidence: { type: "number" },
-        },
-        required: ["label", "label_type", "confidence"],
-      },
-    },
-  },
-  required: ["summary", "clinical_specifics", "labels"],
-};
+const clinicalProfileSchema = z
+  .object({
+    overview: z.string(),
+    applies_to: z.array(anchoredProfileItemSchema),
+    key_clinical_actions: z.array(anchoredProfileItemSchema),
+    medication_dose_monitoring: z.array(anchoredProfileItemSchema),
+    thresholds_timing: z.array(anchoredProfileItemSchema),
+    escalation_risk_warnings: z.array(anchoredProfileItemSchema),
+    required_forms_documentation: z.array(anchoredProfileItemSchema),
+    not_covered: z.array(anchoredProfileItemSchema),
+    important_tables_images: z.array(anchoredProfileItemSchema),
+    best_questions: z.array(anchoredProfileItemSchema),
+    source_quality_notes: z.array(anchoredProfileItemSchema),
+  })
+  .strict();
+
+const summarySchema = z
+  .object({
+    summary: z.string(),
+    clinical_specifics: z
+      .object({
+        profile: clinicalProfileSchema,
+        actions: z.array(z.string()),
+        thresholds_timing: z.array(z.string()),
+        medication_monitoring: z.array(z.string()),
+        risk_escalation: z.array(z.string()),
+        documentation_forms: z.array(z.string()),
+        exceptions_gaps: z.array(z.string()),
+      })
+      .strict(),
+    labels: z.array(
+      z
+        .object({
+          label: z.string(),
+          label_type: z.enum([
+            "topic",
+            "site",
+            "document_type",
+            "medication",
+            "risk",
+            "setting",
+            "workflow",
+            "population",
+            "service",
+            "clinical_action",
+            "care_phase",
+            "document_intent",
+            "content_feature",
+            "custom",
+          ]),
+          confidence: z.number(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
+type ParsedGeneratedSummary = z.infer<typeof summarySchema>;
 
 type EnrichmentChunk = {
   id: string;
@@ -492,71 +458,52 @@ Image evidence:
 ${imageBlock || "No indexed image evidence available."}`;
 }
 
-function parseGeneratedSummary(
-  raw: string,
+function normalizeGeneratedSummary(
+  parsed: ParsedGeneratedSummary,
   document: Pick<ClinicalDocument, "title" | "file_name" | "source_path">,
   chunks: EnrichmentChunk[],
   images: EnrichmentImage[],
 ) {
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const specifics =
-      parsed.clinical_specifics && typeof parsed.clinical_specifics === "object"
-        ? (parsed.clinical_specifics as DocumentSummary["clinical_specifics"])
-        : fallbackClinicalSpecifics();
-    const summary =
-      cleanClinicalSummaryText(String(parsed.summary ?? "")) ||
-      `${document.title}: indexed source text is available for source-backed review.`;
-    const profile = normalizeClinicalProfile({
-      profile: specifics.profile,
-      fallbackOverview: summary,
-      chunks,
-      images,
-    });
+  const specifics = parsed.clinical_specifics;
+  const summary =
+    cleanClinicalSummaryText(parsed.summary) ||
+    `${document.title}: indexed source text is available for source-backed review.`;
+  const profile = normalizeClinicalProfile({
+    profile: specifics.profile,
+    fallbackOverview: summary,
+    chunks,
+    images,
+  });
 
-    return {
-      summary: summary || `- ${document.title}: indexed source text is available for source-backed review.`,
-      clinical_specifics: {
-        profile,
-        actions: legacyItems(profileItemsToStrings(profile.key_clinical_actions), stringArray(specifics.actions)),
-        thresholds_timing: legacyItems(
-          profileItemsToStrings(profile.thresholds_timing),
-          stringArray(specifics.thresholds_timing),
-        ),
-        medication_monitoring: legacyItems(
-          profileItemsToStrings(profile.medication_dose_monitoring),
-          stringArray(specifics.medication_monitoring),
-        ),
-        risk_escalation: legacyItems(
-          profileItemsToStrings(profile.escalation_risk_warnings),
-          stringArray(specifics.risk_escalation),
-        ),
-        documentation_forms: legacyItems(
-          profileItemsToStrings(profile.required_forms_documentation),
-          stringArray(specifics.documentation_forms),
-        ),
-        exceptions_gaps: legacyItems(
-          profileItemsToStrings(profile.not_covered, 4),
-          stringArray(specifics.exceptions_gaps),
-        ),
-      },
-      labels: normalizeGeneratedLabels(parsed.labels),
-    } satisfies GeneratedSummary;
-  } catch (error) {
-    // Unattended ingestion must not degrade silently: an unparseable enrichment
-    // payload falls back to a minimal summary that weakens retrieval for this
-    // document until it is re-indexed. Warn (greppable by document identity) so
-    // the degradation is observable, matching the truncation warning above.
-    console.warn("document enrichment parse failed", {
-      document: document.file_name ?? document.title,
-      ...safeErrorLogDetails(error),
-    });
-    return {
-      summary: `- ${document.title}: indexed source text is available for source-backed review.`,
-      clinical_specifics: fallbackClinicalSpecifics(),
-      labels: inferLabels(document),
-    } satisfies GeneratedSummary;
-  }
+  return {
+    summary: summary || `- ${document.title}: indexed source text is available for source-backed review.`,
+    clinical_specifics: {
+      profile,
+      actions: legacyItems(profileItemsToStrings(profile.key_clinical_actions), specifics.actions),
+      thresholds_timing: legacyItems(profileItemsToStrings(profile.thresholds_timing), specifics.thresholds_timing),
+      medication_monitoring: legacyItems(
+        profileItemsToStrings(profile.medication_dose_monitoring),
+        specifics.medication_monitoring,
+      ),
+      risk_escalation: legacyItems(profileItemsToStrings(profile.escalation_risk_warnings), specifics.risk_escalation),
+      documentation_forms: legacyItems(
+        profileItemsToStrings(profile.required_forms_documentation),
+        specifics.documentation_forms,
+      ),
+      exceptions_gaps: legacyItems(profileItemsToStrings(profile.not_covered, 4), specifics.exceptions_gaps),
+    },
+    labels: normalizeGeneratedLabels(parsed.labels),
+  } satisfies GeneratedSummary;
+}
+
+function fallbackGeneratedSummary(
+  document: Pick<ClinicalDocument, "title" | "file_name" | "source_path">,
+): GeneratedSummary {
+  return {
+    summary: `- ${document.title}: indexed source text is available for source-backed review.`,
+    clinical_specifics: fallbackClinicalSpecifics(),
+    labels: inferLabels(document),
+  };
 }
 
 export async function generateDocumentEnrichment(args: {
@@ -564,10 +511,10 @@ export async function generateDocumentEnrichment(args: {
   chunks: EnrichmentChunk[];
   images?: EnrichmentImage[];
 }) {
-  const result = await generateStructuredTextResult(
-    buildEnrichmentPrompt({ ...args, images: args.images ?? [] }),
-    summarySchema,
-    {
+  const images = args.images ?? [];
+  let parsed: GeneratedSummary;
+  try {
+    const result = await generateParsedTextResult(buildEnrichmentPrompt({ ...args, images }), summarySchema, {
       model: env.OPENAI_INDEXING_MODEL,
       // Answer-size budget; responseBody() floors the effective cap by reasoning effort so
       // medium-effort reasoning cannot starve the enrichment JSON (reasoningHeadroomFloor).
@@ -577,19 +524,26 @@ export async function generateDocumentEnrichment(args: {
       promptCacheKey: "clinical-document-enrichment-v1",
       reasoningEffort: "medium",
       textVerbosity: "medium",
-    },
-  );
-  // Ingestion runs unattended over the whole corpus, so a truncated enrichment must be loud,
-  // not silent — a silently cut-off summary degrades retrieval for that document and would be
-  // re-wasted on every re-index. Warn with the document identity so it is greppable and
-  // re-processable; parsing still proceeds on the partial text.
-  if (result.truncated) {
-    console.warn("document enrichment truncated", {
-      document: args.document.file_name ?? args.document.title,
-      reason: result.incompleteReason ?? result.status ?? "unknown",
     });
+    // A provider may report an incomplete status while still returning schema-valid parsed output.
+    // Keep that usable payload, but make the degraded generation visible for re-processing.
+    if (result.truncated) {
+      console.warn("document enrichment truncated", {
+        document: args.document.file_name ?? args.document.title,
+        reason: result.incompleteReason ?? result.status ?? "unknown",
+      });
+    }
+    parsed = normalizeGeneratedSummary(result.parsed, args.document, args.chunks, images);
+  } catch (error) {
+    // Refusals, missing parsed output, malformed JSON, and schema-invalid output all fail
+    // closed in the shared parser. Preserve the existing minimal enrichment fallback and
+    // make the retrieval degradation observable with a greppable document identity.
+    console.warn("document enrichment structured output rejected", {
+      document: args.document.file_name ?? args.document.title,
+      ...safeErrorLogDetails(error),
+    });
+    parsed = fallbackGeneratedSummary(args.document);
   }
-  const parsed = parseGeneratedSummary(result.text, args.document, args.chunks, args.images ?? []);
   const inferred = inferLabels(args.document);
   const organization = classifyDocumentOrganization({
     ...args.document,

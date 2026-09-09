@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d1a71c3e-a4ce-4c64-b31d-aab39ed3c79c",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#Y090R5",
+    "outcome": "Both symptoms closed. The core conflict was already fixed before this row was actioned - check-outstanding-issues-snapshot.mjs excludes pending and counts.pending, so an inbox PR no longer has to regenerate the snapshot - but two residues were live and are now fixed. First, regenerating still WROTE pending into the committed file (measured: generate() returned counts.pending 8 against a file committed with 0), so npm run build via prebuild, or npm run docs:update, dirtied the tree and re-armed the conflict for whoever committed the result; the generator now emits an empty pending by default and only fills it under --with-pending, which prebuild passes, so the built image still shows the true unapplied list while the committed artefact never carries another branch's queued requests. Second, the clinicalRisk:true misclassification named on this row is fixed: scripts/pr-policy.mjs now exempts data/repo-awareness-snapshot.json and data/outstanding-issues-snapshot.json by exact path from the blanket data/ clinical-risk rule, pinned by self-test assertions including one proving a neighbour under data/ keeps its risk. Ledger PRs no longer need a Clinical Governance Preflight for files holding no clinical data.",
+    "baseRowFingerprint": "ebf94cc0a0c0d5af374a264181b2d727a0e3bc7d158271aba2d8fe59fc797b83"
+  }
+}

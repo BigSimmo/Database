@@ -138,7 +138,7 @@ function RectangleToolCard({
       href={tool.href}
       aria-label={`Open ${tool.title}`}
       className={cn(
-        "group grid min-w-0 gap-3 rounded-md border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-soft)]",
+        "group grid min-w-0 gap-3 rounded-md border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--e2)]",
         featured
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/25"
           : "border-[color:var(--border)]",
@@ -178,7 +178,7 @@ function SavedWorkPanel() {
   ];
 
   return (
-    <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] xl:sticky xl:top-4">
+    <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)] xl:sticky xl:top-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Saved work</h2>
         <Link href="/favourites" className={cn("text-xs font-bold text-[color:var(--clinical-accent)]", focusRing)}>
@@ -248,7 +248,7 @@ function PhonePreview({ toolIds, title }: { toolIds: string[]; title: string }) 
   const phoneTools = toolIds.map(toolById);
 
   return (
-    <section className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
+    <section className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Phone</p>
@@ -490,7 +490,7 @@ export function ToolsActionWorkbenchMockup() {
           </div>
 
           <div className="grid content-start gap-4">
-            <section className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
+            <section className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2)]">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
                 <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Useful shortcuts</h2>

@@ -3,18 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
-import {
-  ArrowRight,
-  CheckCircle2,
-  ChevronRight,
-  GitCompareArrows,
-  Lightbulb,
-  ListChecks,
-  MessageSquareQuote,
-  Network,
-  Search,
-  Target,
-} from "lucide-react";
+import { ArrowRight, CheckCircle2, Lightbulb, ListChecks, MessageSquareQuote, Search, Target } from "lucide-react";
 
 import {
   FormulationPageShell,
@@ -22,10 +11,6 @@ import {
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
-import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
-import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
-import { appModeIcons } from "@/lib/app-mode-icons";
-import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -38,91 +23,19 @@ import {
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import {
   formulationDomainsInUse,
   formulationDomainGroups,
   formulationSearchPresets,
-  formulationTemplates,
   searchFormulationMechanisms,
 } from "@/lib/formulation";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
 
 function presetHref(query: string) {
   return appModeHomeHref("formulation", { query, run: true, focus: true });
-}
-
-function builderTemplateHref(templateId: string) {
-  const params = new URLSearchParams({ template: templateId });
-  return `/formulation/builder?${params.toString()}`;
-}
-
-function FormulationThreadStrip() {
-  return (
-    <ClinicalPathwayStrip
-      id="formulation-thread"
-      eyebrow="Formulation thread"
-      title="Carry evidence through to an actionable hypothesis"
-      steps={[
-        { label: "Notice", body: "Presenting patterns and patient language" },
-        { label: "Hypothesise", body: "Mechanisms that may explain the pattern" },
-        { label: "Test", body: "Fit, alternatives, and disconfirming evidence" },
-        { label: "Act", body: "Treatment leverage and review points" },
-      ]}
-    />
-  );
-}
-
-function FormulationHome() {
-  return (
-    <ModeHomeMain testId="formulation-home" contentAlign="startOnPhone">
-      <ModeHomeTemplate
-        testId="formulation"
-        title={sharedHomePresentation.formulation.title}
-        subtitle={sharedHomePresentation.formulation.subtitle}
-        icon={appModeIcons.formulation}
-        actionsLabel="Formulation workflows"
-        desktopComposerSlotId={modeHomeDesktopComposerSlotId}
-        actions={[
-          {
-            title: "Search mechanisms",
-            description: "Translate patient language into testable hypotheses.",
-            icon: Search,
-            href: "/formulation?focus=1",
-          },
-          {
-            title: "Build a formulation",
-            description: "Move from mechanisms to a structured draft.",
-            icon: ListChecks,
-            href: "/formulation/builder",
-          },
-          {
-            title: "Compare mechanisms",
-            description: "Clarify close alternatives side by side.",
-            icon: GitCompareArrows,
-            href: "/formulation/compare",
-          },
-        ]}
-        pillsTitle="Frameworks"
-        pills={formulationTemplates.slice(0, 5).map((template) => ({
-          label: template.label,
-          href: builderTemplateHref(template.id),
-          icon: Network,
-        }))}
-        pillsAction={
-          <Link
-            href="/formulation/map"
-            className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9"
-          >
-            Mechanism map
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-          </Link>
-        }
-        footer={<FormulationThreadStrip />}
-      />
-    </ModeHomeMain>
-  );
 }
 
 function EmptySearchResults({ query }: { query: string }) {
@@ -139,8 +52,8 @@ function EmptySearchResults({ query }: { query: string }) {
         </p>
       </div>
       <Link
-        href="/formulation"
-        className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
+        href={consolidatedModeSearchPath("formulation")}
+        className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)]"
       >
         Clear search
       </Link>
@@ -176,7 +89,7 @@ function FormulationResults({ query }: { query: string }) {
     // Empty deferred while live query has text would score every mechanism —
     // treat that lag as "no results yet" instead of dumping the full catalogue.
     if (!deferredQuery.trim()) return [];
-    return searchFormulationMechanisms(deferredQuery, { domains });
+    return searchFormulationMechanisms(deferredQuery, { domains, interpretNaturalLanguage: true });
   }, [domains, deferredQuery, query]);
   const hasUniqueTopMatch = results.length > 0 && (results.length < 2 || results[0].score !== results[1].score);
 
@@ -211,7 +124,10 @@ function FormulationResults({ query }: { query: string }) {
         options: formulationDomainsInUse.map((item) => {
           const withCandidate = pendingRanking
             ? 0
-            : searchFormulationMechanisms(searchQuery, { domains: new Set([...domains, item]) }).length;
+            : searchFormulationMechanisms(searchQuery, {
+                domains: new Set([...domains, item]),
+                interpretNaturalLanguage: true,
+              }).length;
           return {
             value: item,
             label: item,
@@ -330,7 +246,7 @@ function FormulationResults({ query }: { query: string }) {
               data-formulation-result-card
               className={cn(
                 formulationCard,
-                "group relative overflow-hidden rounded-xl border-[color:var(--border-strong)] shadow-[var(--shadow-soft)] transition hover:border-[color:var(--clinical-accent-border)] motion-reduce:transition-none",
+                "group relative overflow-hidden rounded-xl border-[color:var(--border-strong)] shadow-[var(--e2)] transition hover:border-[color:var(--clinical-accent-border)] motion-reduce:transition-none",
                 index === 0 &&
                   hasUniqueTopMatch &&
                   "border-[color:var(--clinical-accent)] ring-1 ring-[color:var(--clinical-accent)]/10",
@@ -344,90 +260,113 @@ function FormulationResults({ query }: { query: string }) {
                   index === 0 && hasUniqueTopMatch && "bg-[color:var(--clinical-accent)]",
                 )}
               />
-              {index === 0 && hasUniqueTopMatch ? (
-                <div className="flex items-center gap-2 border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:px-5">
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)]">
-                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-                  </span>
-                  <span>Top match for your search</span>
-                  <span className="ml-auto hidden font-semibold text-[color:var(--text-muted)] sm:inline">
-                    Review fit and alternatives
-                  </span>
-                </div>
-              ) : null}
-
-              <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(15rem,0.65fr)] lg:items-start">
-                <div className="min-w-0">
-                  <h2 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
-                    <Link
-                      href={`/formulation/${mechanism.id}`}
-                      className="transition hover:text-[color:var(--clinical-accent)] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none"
-                    >
-                      {mechanism.name}
-                    </Link>
-                  </h2>
+              <div
+                data-formulation-card-header
+                className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:gap-4 sm:p-5"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                    <h2 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
+                      <Link
+                        href={`/formulation/${mechanism.id}`}
+                        className={cn(
+                          "transition hover:text-[color:var(--clinical-accent)] focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
+                          // The whole card opens the mechanism. The title carries it
+                          // because its text names the result; both actions on the
+                          // title row stay separate controls on top of it.
+                          stretchedRowLinkClass,
+                        )}
+                      >
+                        {mechanism.name}
+                      </Link>
+                    </h2>
+                    {index === 0 && hasUniqueTopMatch ? (
+                      <>
+                        {/* The banner this replaces spent a whole row saying what a
+                            chip says on the title line. The caution beside it is the
+                            part worth keeping: ranking order is not clinical fit. */}
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--clinical-accent)] px-2.5 py-1 text-2xs font-extrabold uppercase tracking-label text-[color:var(--clinical-accent-contrast)]">
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          Top match
+                        </span>
+                        <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:inline">
+                          Review fit and alternatives
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
                   <p className="mt-1.5 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                     {mechanism.summary}
                   </p>
-                  <div className="mt-3">
-                    <MechanismDomainChips values={mechanism.domains} limit={3} />
-                  </div>
                 </div>
 
-                <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55 p-3.5 shadow-[var(--shadow-inset)]">
-                  <div className="flex items-center gap-2 text-[color:var(--clinical-accent)]">
-                    <Target className="h-4 w-4 shrink-0" aria-hidden />
-                    <p className={eyebrowText}>Look for</p>
-                  </div>
-                  <p className="mt-1.5 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-                    {mechanism.clinicalClues[0]}
-                  </p>
+                {/* Both actions sit on the title row rather than in a footer band of
+                    their own: the old strip cost a full card row per result to hold
+                    one button the heading already linked to. */}
+                <div data-formulation-card-action className="flex shrink-0 items-center gap-2">
+                  <Link
+                    href={`/formulation/builder?mechanism=${mechanism.id}`}
+                    aria-label={`Use ${mechanism.name} in formulation`}
+                    className="relative z-10 inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:flex-none"
+                  >
+                    <ListChecks className="h-4 w-4 shrink-0" aria-hidden />
+                    Use
+                  </Link>
+                  <Link
+                    href={`/formulation/${mechanism.id}`}
+                    aria-label={`Open ${mechanism.name}`}
+                    className="relative z-10 inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:flex-none sm:px-5"
+                  >
+                    Open
+                    <ArrowRight
+                      className="h-4 w-4 shrink-0 transition group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                      aria-hidden
+                    />
+                  </Link>
                 </div>
               </div>
 
+              {/* One band instead of three: the clue keeps its tinted panel, and the
+                  supporting lines sit beside it rather than under two more rules. */}
               <div
                 data-formulation-card-details
-                className="grid gap-px border-y border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-2"
+                className="grid border-t border-[color:var(--border)] sm:grid-cols-[minmax(0,1fr)_minmax(15rem,0.62fr)]"
               >
-                <div className="flex items-start gap-3 bg-[color:var(--surface-subtle)] px-4 py-3.5 sm:px-5 sm:py-4">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--info-soft)] text-[color:var(--info)]">
-                    <MessageSquareQuote className="h-4 w-4" aria-hidden />
-                  </span>
-                  <div className="min-w-0">
-                    <p className={eyebrowText}>Patient language</p>
-                    <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                      “{mechanism.patientPhrases[0]}”
-                    </p>
+                <div className="grid content-start gap-3 px-4 py-3.5 sm:px-5 sm:py-4">
+                  <MechanismDomainChips values={mechanism.domains} limit={3} />
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--info-soft)] text-[color:var(--info)]">
+                      <MessageSquareQuote className="h-4 w-4" aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                      <p className={eyebrowText}>Patient language</p>
+                      <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                        “{mechanism.patientPhrases[0]}”
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 bg-[color:var(--surface-subtle)] px-4 py-3.5 sm:px-5 sm:py-4">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                    <Lightbulb className="h-4 w-4" aria-hidden />
-                  </span>
+
+                <div className="grid content-start gap-3.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-3.5 sm:border-l sm:border-t-0 sm:px-5 sm:py-4">
                   <div className="min-w-0">
-                    <p className={eyebrowText}>Formulation use</p>
+                    <div className="flex items-center gap-2 text-[color:var(--clinical-accent)]">
+                      <Target className="h-4 w-4 shrink-0" aria-hidden />
+                      <p className={eyebrowText}>Look for</p>
+                    </div>
+                    <p className="mt-1.5 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                      {mechanism.clinicalClues[0]}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-[color:var(--clinical-accent)]">
+                      <Lightbulb className="h-4 w-4 shrink-0" aria-hidden />
+                      <p className={eyebrowText}>Formulation use</p>
+                    </div>
                     <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
                       {mechanism.formulationUse}
                     </p>
                   </div>
                 </div>
-              </div>
-
-              <div
-                data-formulation-card-action
-                className="flex bg-[color:var(--surface-raised)] px-4 py-3.5 sm:justify-end sm:px-5 sm:py-4"
-              >
-                <Link
-                  href={`/formulation/${mechanism.id}`}
-                  aria-label={`Open ${mechanism.name}`}
-                  className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:w-auto sm:min-w-44 sm:px-5"
-                >
-                  Open mechanism
-                  <ArrowRight
-                    className="h-4 w-4 transition group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
-                    aria-hidden
-                  />
-                </Link>
               </div>
             </article>
           ))}
@@ -443,12 +382,10 @@ function FormulationResults({ query }: { query: string }) {
 
 export function FormulationHomePage({
   query = "",
-  autoRunSearch = false,
 }: {
   query?: string;
+  /** Kept so existing callers can pass it; empty queries now browse the catalogue. */
   autoRunSearch?: boolean;
 }) {
-  const trimmedQuery = query.trim();
-  if (!autoRunSearch || !trimmedQuery) return <FormulationHome />;
-  return <FormulationResults query={trimmedQuery} />;
+  return <FormulationResults query={query.trim()} />;
 }

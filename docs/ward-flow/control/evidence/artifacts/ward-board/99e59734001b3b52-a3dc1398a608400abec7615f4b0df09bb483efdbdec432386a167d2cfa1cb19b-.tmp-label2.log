@@ -1,0 +1,33 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-screen-fd23-leaks.dom.test.tsx (2 tests | 1 failed) 149ms
+     × never names the unit that accepted, when telling a ward its referral was withdrawn 49ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-screen-fd23-leaks.dom.test.tsx > FD-23 on the ward page > never names the unit that accepted, when telling a ward its referral was withdrawn
+AssertionError: the fixture's reasons no longer name anything, so this guard is vacuous: expected 'another_unit_accepted' to match /[A-Z]/
+
+- Expected:
+/[A-Z]/
+
++ Received:
+"another_unit_accepted"
+
+ ❯ tests/ward-screen-fd23-leaks.dom.test.tsx:130:96
+    128|      */
+    129|     const network = wardMovements.flatMap((movement) => movement.withd…
+    130|     expect(network, "the fixture's reasons no longer name anything, so…
+       |                                                                                                ^
+    131|     expect(shown).not.toMatch(/\b(RGH|RPH|FSH|BTY|GRY)\b/);
+    132|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 24 passed (25)
+   Start at  00:57:59
+   Duration  2.60s (transform 1.01s, setup 424ms, import 1.37s, tests 1.08s, environment 1.53s)
+

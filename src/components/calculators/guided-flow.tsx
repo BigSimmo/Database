@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronRight, Clock3, ListChecks, RotateC
 import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { MissingValue, missingValuePhrase } from "@/components/ui/missing-value";
 
 import { calculators, domainLabels, type CalculatorFixture, type CalculatorItem } from "./calculator-fixtures";
 import {
@@ -36,7 +37,7 @@ function PickerScreen({ onPick }: { onPick: (id: string) => void }) {
               type="button"
               onClick={() => onPick(calc.id)}
               className={cn(
-                "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+                "grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-left shadow-[var(--shadow-inset)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--e2)]",
                 focusRing,
               )}
             >
@@ -116,9 +117,17 @@ function QuestionScreen({
             {stepIndex + 1} / {total}
           </p>
         </div>
-        <span className="inline-flex min-h-8 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 font-mono text-sm-minus font-extrabold tabular-nums text-[color:var(--text-heading)]">
-          {derived.started ? derived.score : 0}
-        </span>
+        {/* A literal 0 here asserted a real score of zero before anything was answered — on a
+            depression or distress scale that reads as "no symptoms", which is the negative-result
+            misreading SPEC §11 exists to prevent. Nothing has been computed yet, so the chip
+            gives way to the phrase (same treatment as the five sibling score slots). */}
+        {derived.started ? (
+          <span className="inline-flex min-h-8 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 font-mono text-sm-minus font-extrabold tabular-nums text-[color:var(--text-heading)]">
+            {derived.score}
+          </span>
+        ) : (
+          <MissingValue reason="not_yet_calculated" density="cell" />
+        )}
       </div>
 
       <div
@@ -130,12 +139,12 @@ function QuestionScreen({
         className="h-1.5 overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
       >
         <div
-          className="h-full rounded-full bg-[color:var(--clinical-accent)] transition-[width] duration-[var(--duration-deliberate)]"
-          style={{ width: `${(stepIndex / total) * 100}%` }}
+          className="h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform duration-[var(--duration-deliberate)]"
+          style={{ transform: `scaleX(${total > 0 ? stepIndex / total : 0})` }}
         />
       </div>
 
-      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
+      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--e2)] sm:p-5">
         {calc.stem ? (
           <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
             {calc.stem}
@@ -250,7 +259,7 @@ function ResultScreen({
 
   return (
     <div className="mx-auto grid w-full max-w-lg content-start gap-4">
-      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center shadow-[var(--shadow-soft)]">
+      <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center shadow-[var(--e2)]">
         <p className="text-2xs font-semibold uppercase leading-4 tracking-label text-[color:var(--text-muted)]">
           {calc.abbrev} result
         </p>
@@ -278,8 +287,20 @@ function ResultScreen({
           <ul className="grid gap-1">
             {calc.items.map((item, itemIndex) => {
               const value = answers[item.id];
-              const answerLabel =
-                item.kind === "checkbox" ? (value === 1 ? "Yes" : "No") : (item.options?.[value ?? -1]?.label ?? "—");
+              // An unanswered item has no answer to review. A dash could not say that, and
+              // "No" was worse: it recorded an explicit clinical negative for an item the
+              // clinician never reached (SPEC §11). This row renders at `text-2xs`, below
+              // `MissingValue`'s smallest density, so the primitive's string form carries the
+              // phrase at the row's own size rather than making an unanswered row larger than
+              // an answered one.
+              const unanswered = value === undefined;
+              const answerLabel = unanswered
+                ? missingValuePhrase("not_recorded")
+                : item.kind === "checkbox"
+                  ? value === 1
+                    ? "Yes"
+                    : "No"
+                  : (item.options?.[value]?.label ?? missingValuePhrase("unknown"));
               const points = itemScore(item, value);
               return (
                 <li
@@ -290,7 +311,13 @@ function ResultScreen({
                     {itemIndex + 1}.
                   </span>
                   <span className="truncate font-medium text-[color:var(--text-muted)]">{item.text}</span>
-                  <span className="font-semibold text-[color:var(--text-heading)]">
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      // A missing answer must not be as loud as a given one.
+                      unanswered ? "text-[color:var(--text-muted)]" : "text-[color:var(--text-heading)]",
+                    )}
+                  >
                     {answerLabel}
                     <span className="ml-1 font-mono font-bold tabular-nums text-[color:var(--text-muted)]">
                       +{points}

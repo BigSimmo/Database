@@ -1,0 +1,1874 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+Not implemented: navigation to another Document
+ ❯ |jsdom| tests/ward-patient-search.dom.test.tsx (9 tests | 1 failed) 3378ms
+     × shows every open movement with no filters applied, matching the measured open count 1953ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-patient-search.dom.test.tsx > PatientSearchPage > shows every open movement with no filters applied, matching the measured open count
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "43 matches"
+
+Here are the accessible roles:
+
+  link:
+
+  Name "Ward Flow":
+  [36m<a[39m
+    [33mclass[39m=[32m"_phoneBrand_d20c9a"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow"[39m
+  [36m/>[39m
+
+  Name "Ward Flow home":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Ward Flow home"[39m
+    [33mclass[39m=[32m"_railBrand_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow"[39m
+  [36m/>[39m
+
+  Name "Command":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Command"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow"[39m
+    [33mtitle[39m=[32m"Command"[39m
+  [36m/>[39m
+
+  Name "Network":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Network"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/network"[39m
+    [33mtitle[39m=[32m"Network"[39m
+  [36m/>[39m
+
+  Name "Priority queue":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Priority queue"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/queue"[39m
+    [33mtitle[39m=[32m"Priority queue"[39m
+  [36m/>[39m
+
+  Name "Capacity":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Capacity"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/capacity"[39m
+    [33mtitle[39m=[32m"Capacity"[39m
+  [36m/>[39m
+
+  Name "Movements":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Movements"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/movements"[39m
+    [33mtitle[39m=[32m"Movements"[39m
+  [36m/>[39m
+
+  Name "Exceptions":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Exceptions"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/exceptions"[39m
+    [33mtitle[39m=[32m"Exceptions"[39m
+  [36m/>[39m
+
+  Name "Transport":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Transport"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/transport"[39m
+    [33mtitle[39m=[32m"Transport"[39m
+  [36m/>[39m
+
+  Name "Governance":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Governance"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/governance"[39m
+    [33mtitle[39m=[32m"Governance"[39m
+  [36m/>[39m
+
+  Name "All wards":
+  [36m<a[39m
+    [33maria-label[39m=[32m"All wards"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/wards"[39m
+    [33mtitle[39m=[32m"All wards"[39m
+  [36m/>[39m
+
+  Name "Officer":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Officer"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/transport/officer"[39m
+    [33mtitle[39m=[32m"Officer"[39m
+  [36m/>[39m
+
+  Name "Ward — RPH Adult Secure":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Ward — RPH Adult Secure"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/ward/rph-adult-secure"[39m
+    [33mtitle[39m=[32m"Ward — RPH Adult Secure"[39m
+  [36m/>[39m
+
+  Name "Ward board — RPH Adult Secure":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Ward board — RPH Adult Secure"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/board/rph-adult-secure"[39m
+    [33mtitle[39m=[32m"Ward board — RPH Adult Secure"[39m
+  [36m/>[39m
+
+  Name "Emergency department":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Emergency department"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/ed/peel-ed"[39m
+    [33mtitle[39m=[32m"Emergency department"[39m
+  [36m/>[39m
+
+  Name "Handover":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Handover"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/handover"[39m
+    [33mtitle[39m=[32m"Handover"[39m
+  [36m/>[39m
+
+  Name "Escalation":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Escalation"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/escalation"[39m
+    [33mtitle[39m=[32m"Escalation"[39m
+  [36m/>[39m
+
+  Name "Patient search":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Patient search"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/search"[39m
+    [33mtitle[39m=[32m"Patient search"[39m
+  [36m/>[39m
+
+  Name "Discharges":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Discharges"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/discharges"[39m
+    [33mtitle[39m=[32m"Discharges"[39m
+  [36m/>[39m
+
+  Name "Morning bed state":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Morning bed state"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/morning"[39m
+    [33mtitle[39m=[32m"Morning bed state"[39m
+  [36m/>[39m
+
+  Name "Referral board":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Referral board"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/referrals"[39m
+    [33mtitle[39m=[32m"Referral board"[39m
+  [36m/>[39m
+
+  Name "Out of area":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Out of area"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/out-of-area"[39m
+    [33mtitle[39m=[32m"Out of area"[39m
+  [36m/>[39m
+
+  Name "Back to the developer hub":
+  [36m<a[39m
+    [33maria-label[39m=[32m"Back to the developer hub"[39m
+    [33mclass[39m=[32m"_railLink_10f60f"[39m
+    [33mhref[39m=[32m"/mockups/development"[39m
+    [33mtitle[39m=[32m"Back to the developer hub"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-001"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-002"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-003"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-004"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-005"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-006"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-009"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-010"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-011"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-012"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-013"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-014"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-015"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-016"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-017"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-018"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-019"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-020"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-301"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-302"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-303"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-304"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-305"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-306"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-308"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-309"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-310"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-311"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-312"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-313"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-315"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-316"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-317"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-318"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-319"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-320"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-322"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-323"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-324"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-325"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-326"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-327"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<a[39m
+    [33mclass[39m=[32m"_resultLink_b09e9e"[39m
+    [33mhref[39m=[32m"/mockups/ward-flow/patients/WF-329"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Open Ward Flow menu":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-label[39m=[32m"Open Ward Flow menu"[39m
+    [33mclass[39m=[32m"_menuButton_d20c9a"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Expand sidebar":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Expand sidebar"[39m
+    [33mclass[39m=[32m"_railExpand_10f60f"[39m
+    [33mtitle[39m=[32m"Expand sidebar"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Switch role":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"ward-role-switcher-menu"[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"Switch role"[39m
+    [33mclass[39m=[32m"_trigger_f93be2"[39m
+    [33mtitle[39m=[32m"Switch role"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Demo clock controls — not a clinical action":
+  [36m<button[39m
+    [33maria-controls[39m=[32m"ward-demo-controls-menu"[39m
+    [33maria-expanded[39m=[32m"false"[39m
+    [33maria-haspopup[39m=[32m"menu"[39m
+    [33maria-label[39m=[32m"Demo clock controls — not a clinical action"[39m
+    [33mclass[39m=[32m"_trigger_9d90a4"[39m
+    [33mdata-testid[39m=[32m"ward-demo-controls-trigger"[39m
+    [33mtitle[39m=[32m"Demo clock controls — moves only the prototype's scenario clock, never a clinical action"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "advance clock":
+  [36m<button[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  complementary:
+
+  Name "Ward Flow":
+  [36m<aside[39m
+    [33maria-label[39m=[32m"Ward Flow"[39m
+    [33mclass[39m=[32m"_clinicalRail_10f60f"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  navigation:
+
+  Name "Ward Flow views":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"Ward Flow views"[39m
+    [33mclass[39m=[32m"_railNav_10f60f"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "Ward Flow role screens":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Ward Flow role screens"[39m
+    [33mclass[39m=[32m"_railGroup_10f60f"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  Name "Example ward and emergency department — one arbitrary synthetic instance each, not a section of the app":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Example ward and emergency department — one arbitrary synthetic instance each, not a section of the app"[39m
+    [33mclass[39m=[32m"_railGroup_10f60f"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  Name "Ward Flow specialist boards":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Ward Flow specialist boards"[39m
+    [33mclass[39m=[32m"_railGroup_10f60f"[39m
+    [33mrole[39m=[32m"group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  main:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"_main_b09e9e"[39m
+    [33mid[39m=[32m"main-content"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_pageSubtitle_b09e9e"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  [36m<strong />[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"_pageHeader_b09e9e"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Patient search":
+  [36m<h1[39m
+    [33mclass[39m=[32m"_pageTitle_b09e9e"[39m
+  [36m/>[39m
+
+  Name "45 matches":
+  [36m<h2[39m
+    [33mclass[39m=[32m"_resultsHeading_b09e9e"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Search":
+  [36m<input[39m
+    [33mid[39m=[32m"ward-patient-search-text"[39m
+    [33mplaceholder[39m=[32m"Movement id, destination, owner…"[39m
+    [33mtype[39m=[32m"text"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "Stage":
+  [36m<select[39m
+    [33mid[39m=[32m"ward-patient-search-stage"[39m
+  [36m/>[39m
+
+  Name "Department":
+  [36m<select[39m
+    [33mid[39m=[32m"ward-patient-search-department"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "All stages":
+  [36m<option[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Placement requested":
+  [36m<option[39m
+    [33mvalue[39m=[32m"placement_requested"[39m
+  [36m/>[39m
+
+  Name "Destination review":
+  [36m<option[39m
+    [33mvalue[39m=[32m"destination_review"[39m
+  [36m/>[39m
+
+  Name "Accepted, awaiting bed":
+  [36m<option[39m
+    [33mvalue[39m=[32m"accepted_awaiting_bed"[39m
+  [36m/>[39m
+
+  Name "Bed held":
+  [36m<option[39m
+    [33mvalue[39m=[32m"bed_held"[39m
+  [36m/>[39m
+
+  Name "Handover ready":
+  [36m<option[39m
+    [33mvalue[39m=[32m"handover_ready"[39m
+  [36m/>[39m
+
+  Name "Moving":
+  [36m<option[39m
+    [33mvalue[39m=[32m"moving"[39m
+  [36m/>[39m
+
+  Name "Arrived":
+  [36m<option[39m
+    [33mvalue[39m=[32m"arrived"[39m
+  [36m/>[39m
+
+  Name "All departments":
+  [36m<option[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  Name "Royal Perth Hospital Emergency Department (RPH)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"rph-ed"[39m
+  [36m/>[39m
+
+  Name "Sir Charles Gairdner Hospital Emergency Department (SCGH)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"scgh-ed"[39m
+  [36m/>[39m
+
+  Name "Fiona Stanley Hospital Emergency Department (FSH)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"fsh-ed"[39m
+  [36m/>[39m
+
+  Name "Armadale Hospital Emergency Department (ARM)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"arm-ed"[39m
+  [36m/>[39m
+
+  Name "St John of God Midland Emergency Department (SJGM)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"sjgm-ed"[39m
+  [36m/>[39m
+
+  Name "Rockingham General Hospital Emergency Department (RGH)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"rgh-ed"[39m
+  [36m/>[39m
+
+  Name "Joondalup Health Campus Emergency Department (JHC)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"jhc-ed"[39m
+  [36m/>[39m
+
+  Name "Peel Health Campus Emergency Department (PEEL)":
+  [36m<option[39m
+    [33mvalue[39m=[32m"peel-ed"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"_referralList_b09e9e"[39m
+    [33mdata-testid[39m=[32m"ward-patient-search-referrals"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_referralRow_b09e9e"[39m
+    [33mdata-testid[39m=[32m"ward-patient-search-referral-RF-001"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"_referralRow_b09e9e"[39m
+    [33mdata-testid[39m=[32m"ward-patient-search-referral-RF-005"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  table:
+
+  Name "":
+  [36m<table[39m
+    [33mclass[39m=[32m"_table_b09e9e"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  rowgroup:
+
+  Name "":
+  [36m<thead />[39m
+
+  Name "":
+  [36m<tbody />[39m
+
+  --------------------------------------------------
+  row:
+
+  Name "Movement Stage Department Destination Since arrival Open":
+  [36m<tr />[39m
+
+  Name "WF-001 Placement requested Armadale Hospital Emergency Department (ARM) No destination chosen 1h 35m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-002 Destination review Fiona Stanley Hospital Emergency Department (FSH) FSH Older Adult 3h 00m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-003 Accepted, awaiting bed Royal Perth Hospital Emergency Department (RPH) RPH Adult Secure 4h 20m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-004 Bed held St John of God Midland Emergency Department (SJGM) BTY Adult Secure 6h 50m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-005 Handover ready Peel Health Campus Emergency Department (PEEL) FRE Adult Open 5h 30m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-006 Moving Rockingham General Hospital Emergency Department (RGH) RGH Adult Secure 8h 20m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-009 Destination review Peel Health Campus Emergency Department (PEEL) No destination chosen 7h 00m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-010 Destination review Joondalup Health Campus Emergency Department (JHC) SJGM Adult Open 1h 50m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-011 Bed held Armadale Hospital Emergency Department (ARM) FRE Older Adult 6h 00m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-012 Placement requested Rockingham General Hospital Emergency Department (RGH) No destination chosen 1h 10m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-013 Destination review St John of God Midland Emergency Department (SJGM) BTY Older Adult 3h 20m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-014 Moving Fiona Stanley Hospital Emergency Department (FSH) RPH Adult Secure 8h 00m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-015 Handover ready Rockingham General Hospital Emergency Department (RGH) SCGH Older Adult 5h 40m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-016 Bed held Peel Health Campus Emergency Department (PEEL) SJGM Adult Open 4h 10m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-017 Destination review Joondalup Health Campus Emergency Department (JHC) BTY Adult Secure 6h 40m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-018 Placement requested Sir Charles Gairdner Hospital Emergency Department (SCGH) No destination chosen 40m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-019 Placement requested Rockingham General Hospital Emergency Department (RGH) No destination chosen 2d 14h waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-020 Placement requested Peel Health Campus Emergency Department (PEEL) No destination chosen 1d 5h waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-301 Placement requested Rockingham General Hospital Emergency Department (RGH) No destination chosen 6h 37m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-302 Destination review Joondalup Health Campus Emergency Department (JHC) No destination chosen 7h 14m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-303 Accepted, awaiting bed Peel Health Campus Emergency Department (PEEL) Geraldton Adult Open 7h 51m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-304 Bed held Royal Perth Hospital Emergency Department (RPH) BTY Older Adult 8h 28m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-305 Placement requested Sir Charles Gairdner Hospital Emergency Department (SCGH) No destination chosen 9h 05m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-306 Moving Fiona Stanley Hospital Emergency Department (FSH) SCGH Adult Open 9h 42m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-308 Placement requested St John of God Midland Emergency Department (SJGM) No destination chosen 10h 56m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-309 Destination review Rockingham General Hospital Emergency Department (RGH) No destination chosen 11h 33m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-310 Accepted, awaiting bed Joondalup Health Campus Emergency Department (JHC) Albany Adult Open 12h 10m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-311 Bed held Peel Health Campus Emergency Department (PEEL) Bunbury Adult Open 12h 47m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-312 Placement requested Royal Perth Hospital Emergency Department (RPH) No destination chosen 13h 24m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-313 Moving Sir Charles Gairdner Hospital Emergency Department (SCGH) Kununurra Adult Open 14h 01m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-315 Placement requested Armadale Hospital Emergency Department (ARM) No destination chosen 15h 15m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-316 Destination review St John of God Midland Emergency Department (SJGM) No destination chosen 15h 52m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-317 Accepted, awaiting bed Rockingham General Hospital Emergency Department (RGH) SJGM Adult Open 1h 29m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-318 Bed held Joondalup Health Campus Emergency Department (JHC) FRE Adult Open 2h 06m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-319 Placement requested Peel Health Campus Emergency Department (PEEL) No destination chosen 2h 43m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-320 Moving Royal Perth Hospital Emergency Department (RPH) FSH Older Adult 3h 20m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-322 Placement requested Fiona Stanley Hospital Emergency Department (FSH) No destination chosen 4h 34m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-323 Destination review Armadale Hospital Emergency Department (ARM) No destination chosen 5h 11m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-324 Accepted, awaiting bed St John of God Midland Emergency Department (SJGM) RPH Older Adult 5h 48m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-325 Bed held Rockingham General Hospital Emergency Department (RGH) ARM Adult Open 6h 25m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-326 Placement requested Joondalup Health Campus Emergency Department (JHC) No destination chosen 7h 02m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-327 Moving Peel Health Campus Emergency Department (PEEL) FRE Adult Open 7h 39m waiting Open":
+  [36m<tr />[39m
+
+  Name "WF-329 Placement requested Sir Charles Gairdner Hospital Emergency Department (SCGH) No destination chosen 8h 53m waiting Open":
+  [36m<tr />[39m
+
+  --------------------------------------------------
+  columnheader:
+
+  Name "Movement":
+  [36m<th[39m
+    [33mscope[39m=[32m"col"[39m
+  [36m/>[39m
+
+  Name "Stage":
+  [36m<th[39m
+    [33mscope[39m=[32m"col"[39m
+  [36m/>[39m
+
+  Name "Department":
+  [36m<th[39m
+    [33mscope[39m=[32m"col"[39m
+  [36m/>[39m
+
+  Name "Destination":
+  [36m<th[39m
+    [33mscope[39m=[32m"col"[39m
+  [36m/>[39m
+
+  Name "Since arrival":
+  [36m<th[39m
+    [33mscope[39m=[32m"col"[39m
+  [36m/>[39m
+
+  Name "Open":
+  [36m<th[39m
+    [33mscope[39m=[32m"col"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  cell:
+
+  Name "WF-001":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Armadale Hospital Emergency Department (ARM)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "1h 35m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-002":
+  [36m<td />[39m
+
+  Name "Destination review":
+  [36m<td />[39m
+
+  Name "Fiona Stanley Hospital Emergency Department (FSH)":
+  [36m<td />[39m
+
+  Name "FSH Older Adult":
+  [36m<td />[39m
+
+  Name "3h 00m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-003":
+  [36m<td />[39m
+
+  Name "Accepted, awaiting bed":
+  [36m<td />[39m
+
+  Name "Royal Perth Hospital Emergency Department (RPH)":
+  [36m<td />[39m
+
+  Name "RPH Adult Secure":
+  [36m<td />[39m
+
+  Name "4h 20m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-004":
+  [36m<td />[39m
+
+  Name "Bed held":
+  [36m<td />[39m
+
+  Name "St John of God Midland Emergency Department (SJGM)":
+  [36m<td />[39m
+
+  Name "BTY Adult Secure":
+  [36m<td />[39m
+
+  Name "6h 50m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-005":
+  [36m<td />[39m
+
+  Name "Handover ready":
+  [36m<td />[39m
+
+  Name "Peel Health Campus Emergency Department (PEEL)":
+  [36m<td />[39m
+
+  Name "FRE Adult Open":
+  [36m<td />[39m
+
+  Name "5h 30m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-006":
+  [36m<td />[39m
+
+  Name "Moving":
+  [36m<td />[39m
+
+  Name "Rockingham General Hospital Emergency Department (RGH)":
+  [36m<td />[39m
+
+  Name "RGH Adult Secure":
+  [36m<td />[39m
+
+  Name "8h 20m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-009":
+  [36m<td />[39m
+
+  Name "Destination review":
+  [36m<td />[39m
+
+  Name "Peel Health Campus Emergency Department (PEEL)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "7h 00m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-010":
+  [36m<td />[39m
+
+  Name "Destination review":
+  [36m<td />[39m
+
+  Name "Joondalup Health Campus Emergency Department (JHC)":
+  [36m<td />[39m
+
+  Name "SJGM Adult Open":
+  [36m<td />[39m
+
+  Name "1h 50m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-011":
+  [36m<td />[39m
+
+  Name "Bed held":
+  [36m<td />[39m
+
+  Name "Armadale Hospital Emergency Department (ARM)":
+  [36m<td />[39m
+
+  Name "FRE Older Adult":
+  [36m<td />[39m
+
+  Name "6h 00m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-012":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Rockingham General Hospital Emergency Department (RGH)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "1h 10m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-013":
+  [36m<td />[39m
+
+  Name "Destination review":
+  [36m<td />[39m
+
+  Name "St John of God Midland Emergency Department (SJGM)":
+  [36m<td />[39m
+
+  Name "BTY Older Adult":
+  [36m<td />[39m
+
+  Name "3h 20m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-014":
+  [36m<td />[39m
+
+  Name "Moving":
+  [36m<td />[39m
+
+  Name "Fiona Stanley Hospital Emergency Department (FSH)":
+  [36m<td />[39m
+
+  Name "RPH Adult Secure":
+  [36m<td />[39m
+
+  Name "8h 00m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-015":
+  [36m<td />[39m
+
+  Name "Handover ready":
+  [36m<td />[39m
+
+  Name "Rockingham General Hospital Emergency Department (RGH)":
+  [36m<td />[39m
+
+  Name "SCGH Older Adult":
+  [36m<td />[39m
+
+  Name "5h 40m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-016":
+  [36m<td />[39m
+
+  Name "Bed held":
+  [36m<td />[39m
+
+  Name "Peel Health Campus Emergency Department (PEEL)":
+  [36m<td />[39m
+
+  Name "SJGM Adult Open":
+  [36m<td />[39m
+
+  Name "4h 10m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-017":
+  [36m<td />[39m
+
+  Name "Destination review":
+  [36m<td />[39m
+
+  Name "Joondalup Health Campus Emergency Department (JHC)":
+  [36m<td />[39m
+
+  Name "BTY Adult Secure":
+  [36m<td />[39m
+
+  Name "6h 40m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-018":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Sir Charles Gairdner Hospital Emergency Department (SCGH)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "40m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-019":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Rockingham General Hospital Emergency Department (RGH)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "2d 14h waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-020":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Peel Health Campus Emergency Department (PEEL)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "1d 5h waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-301":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Rockingham General Hospital Emergency Department (RGH)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "6h 37m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-302":
+  [36m<td />[39m
+
+  Name "Destination review":
+  [36m<td />[39m
+
+  Name "Joondalup Health Campus Emergency Department (JHC)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "7h 14m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-303":
+  [36m<td />[39m
+
+  Name "Accepted, awaiting bed":
+  [36m<td />[39m
+
+  Name "Peel Health Campus Emergency Department (PEEL)":
+  [36m<td />[39m
+
+  Name "Geraldton Adult Open":
+  [36m<td />[39m
+
+  Name "7h 51m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-304":
+  [36m<td />[39m
+
+  Name "Bed held":
+  [36m<td />[39m
+
+  Name "Royal Perth Hospital Emergency Department (RPH)":
+  [36m<td />[39m
+
+  Name "BTY Older Adult":
+  [36m<td />[39m
+
+  Name "8h 28m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-305":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Sir Charles Gairdner Hospital Emergency Department (SCGH)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "9h 05m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-306":
+  [36m<td />[39m
+
+  Name "Moving":
+  [36m<td />[39m
+
+  Name "Fiona Stanley Hospital Emergency Department (FSH)":
+  [36m<td />[39m
+
+  Name "SCGH Adult Open":
+  [36m<td />[39m
+
+  Name "9h 42m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-308":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "St John of God Midland Emergency Department (SJGM)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "10h 56m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-309":
+  [36m<td />[39m
+
+  Name "Destination review":
+  [36m<td />[39m
+
+  Name "Rockingham General Hospital Emergency Department (RGH)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "11h 33m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-310":
+  [36m<td />[39m
+
+  Name "Accepted, awaiting bed":
+  [36m<td />[39m
+
+  Name "Joondalup Health Campus Emergency Department (JHC)":
+  [36m<td />[39m
+
+  Name "Albany Adult Open":
+  [36m<td />[39m
+
+  Name "12h 10m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-311":
+  [36m<td />[39m
+
+  Name "Bed held":
+  [36m<td />[39m
+
+  Name "Peel Health Campus Emergency Department (PEEL)":
+  [36m<td />[39m
+
+  Name "Bunbury Adult Open":
+  [36m<td />[39m
+
+  Name "12h 47m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-312":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Royal Perth Hospital Emergency Department (RPH)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "13h 24m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-313":
+  [36m<td />[39m
+
+  Name "Moving":
+  [36m<td />[39m
+
+  Name "Sir Charles Gairdner Hospital Emergency Department (SCGH)":
+  [36m<td />[39m
+
+  Name "Kununurra Adult Open":
+  [36m<td />[39m
+
+  Name "14h 01m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-315":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Armadale Hospital Emergency Department (ARM)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "15h 15m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-316":
+  [36m<td />[39m
+
+  Name "Destination review":
+  [36m<td />[39m
+
+  Name "St John of God Midland Emergency Department (SJGM)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "15h 52m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-317":
+  [36m<td />[39m
+
+  Name "Accepted, awaiting bed":
+  [36m<td />[39m
+
+  Name "Rockingham General Hospital Emergency Department (RGH)":
+  [36m<td />[39m
+
+  Name "SJGM Adult Open":
+  [36m<td />[39m
+
+  Name "1h 29m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-318":
+  [36m<td />[39m
+
+  Name "Bed held":
+  [36m<td />[39m
+
+  Name "Joondalup Health Campus Emergency Department (JHC)":
+  [36m<td />[39m
+
+  Name "FRE Adult Open":
+  [36m<td />[39m
+
+  Name "2h 06m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-319":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Peel Health Campus Emergency Department (PEEL)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "2h 43m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-320":
+  [36m<td />[39m
+
+  Name "Moving":
+  [36m<td />[39m
+
+  Name "Royal Perth Hospital Emergency Department (RPH)":
+  [36m<td />[39m
+
+  Name "FSH Older Adult":
+  [36m<td />[39m
+
+  Name "3h 20m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-322":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Fiona Stanley Hospital Emergency Department (FSH)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "4h 34m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-323":
+  [36m<td />[39m
+
+  Name "Destination review":
+  [36m<td />[39m
+
+  Name "Armadale Hospital Emergency Department (ARM)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "5h 11m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-324":
+  [36m<td />[39m
+
+  Name "Accepted, awaiting bed":
+  [36m<td />[39m
+
+  Name "St John of God Midland Emergency Department (SJGM)":
+  [36m<td />[39m
+
+  Name "RPH Older Adult":
+  [36m<td />[39m
+
+  Name "5h 48m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-325":
+  [36m<td />[39m
+
+  Name "Bed held":
+  [36m<td />[39m
+
+  Name "Rockingham General Hospital Emergency Department (RGH)":
+  [36m<td />[39m
+
+  Name "ARM Adult Open":
+  [36m<td />[39m
+
+  Name "6h 25m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-326":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Joondalup Health Campus Emergency Department (JHC)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "7h 02m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-327":
+  [36m<td />[39m
+
+  Name "Moving":
+  [36m<td />[39m
+
+  Name "Peel Health Campus Emergency Department (PEEL)":
+  [36m<td />[39m
+
+  Name "FRE Adult Open":
+  [36m<td />[39m
+
+  Name "7h 39m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  Name "WF-329":
+  [36m<td />[39m
+
+  Name "Placement requested":
+  [36m<td />[39m
+
+  Name "Sir Charles Gairdner Hospital Emergency Department (SCGH)":
+  [36m<td />[39m
+
+  Name "No destination chosen":
+  [36m<td />[39m
+
+  Name "8h 53m waiting":
+  [36m<td />[39m
+
+  Name "Open":
+  [36m<td />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"_screen_b09e9e"[39m
+      [33mdata-testid[39m=[32m"ward-patient-search"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_phoneBar_d20c9a"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"_phoneBrand_d20c9a"[39m
+          [33mhref[39m=[32m"/mockups/ward-flow"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _brandGlyph_d20c9a"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"_phoneBrandName_d20c9a"[39m
+          [36m>[39m
+            [0mWard Flow[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33maria-label[39m=[32m"Open Ward Flow menu"[39m
+          [33mclass[39m=[32m"_menuButton_d20c9a"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-menu"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 5h16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 12h16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M4 19h16"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<aside[39m
+        [33maria-label[39m=[32m"Ward Flow"[39m
+        [33mclass[39m=[32m"_clinicalRail_10f60f"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-label[39m=[32m"Ward Flow home"[39m
+          [33mclass[39m=[32m"_railBrand_10f60f"[39m
+          [33mhref[39m=[32m"/mockups/ward-flow"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _brandGlyph_10f60f"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Expand sidebar"[39m
+          [33mclass[39m=[32m"_railExpand_10f60f"[39m
+          [33mtitle[39m=[32m"Expand sidebar"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"shrink-0 _railExpandBrand_10f60f"[39m
+            [33mfocusable[39m=[32m"false"[39m
+            [33mviewBox[39m=[32m"0 0 48 48"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mfill[39m=[32m"var(--clinical-accent)"[39m
+              [33mheight[39m=[32m"44"[39m
+              [33mrx[39m=[32m"14"[39m
+              [33mwidth[39m=[32m"44"[39m
+              [33mx[39m=[32m"2"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 14v1H2z"[39m
+              [33mfill[39m=[32m"#fff"[39m
+              [33mopacity[39m=[32m"0.08"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M7 26h10.4l2.4-10 4 19 3-9H41"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mstroke[39m=[32m"var(--clinical-accent-contrast)"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"3.3"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-panel-left-open _railExpandIcon_10f60f"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ward-patient-search.dom.test.tsx:72:19
+     70|     // One header row plus one row per open movement.
+     71|     expect(rows.length - 1).toBe(openCount);
+     72|     expect(screen.getByRole("heading", { name: `${openCount} matches` …
+       |                   ^
+     73|   });
+     74|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 79 passed (80)
+      Tests  1 failed | 1205 passed (1206)
+   Start at  03:57:23
+   Duration  50.99s (transform 7.27s, setup 12.57s, import 20.60s, tests 100.36s, environment 49.36s)
+

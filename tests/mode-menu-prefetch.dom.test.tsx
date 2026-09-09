@@ -8,12 +8,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { LAST_APP_MODE_STORAGE_KEY } from "@/components/clinical-dashboard/use-last-app-mode";
 import { appModeSelectionHref, visibleAppModeDefinitionsForSession, type AppModeId } from "@/lib/app-modes";
+import { standaloneModeHomeHref } from "@/lib/search-route-ownership";
 
 /**
- * The shared-home URL the mode picker itself will open for `modeId`.
+ * The destination URL the mode picker itself will open for `modeId`.
  */
 function modeSelectionHref(modeId: AppModeId) {
-  return appModeSelectionHref(modeId);
+  return standaloneModeHomeHref(modeId) ?? appModeSelectionHref(modeId);
 }
 
 const router = vi.hoisted(() => ({
@@ -155,10 +156,10 @@ describe("mode menu destination prefetch", () => {
     render(<MasterSearchHeader {...headerProps()} searchMode="calculators" />);
     await user.click(screen.getByRole("button", { name: "Open calculators options" }));
 
-    const actions = await screen.findByRole("menu", { name: "Useful actions" });
-    expect(within(actions).getByRole("menuitem", { name: "Browse calculators" })).toBeVisible();
-    expect(within(actions).queryByRole("menuitem", { name: "New question" })).toBeNull();
-    expect(within(actions).queryByRole("menuitem", { name: "Add document" })).toBeNull();
+    const actions = await screen.findByRole("group", { name: "Useful actions" });
+    expect(within(actions).getByRole("button", { name: "Browse calculators" })).toBeVisible();
+    expect(within(actions).queryByRole("button", { name: "New question" })).toBeNull();
+    expect(within(actions).queryByRole("button", { name: "Add document" })).toBeNull();
   });
 
   it("prefetches the shared-home selection URL when the user points at a mode", async () => {

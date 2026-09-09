@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "649f837b-62d6-4662-905c-afd76c3c3857",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Every developer hub page renders twice in the browser during development",
+    "detail": "In a dev browser, /mockups/development/test-health and /mockups/development/ingestion each produce two copies of the page in one document - two panel roots and two <main> elements. Confirmed NOT caused by the ingestion work: test-health is already merged to main and doubles identically, and it predates that branch. Confirmed dev-only and not a production defect: curl of both routes returns exactly one <main> each, so the server-rendered output is correct. Two <main> elements would be a real document-structure and accessibility problem if it ever reached a production build, so it is worth establishing the cause rather than leaving it as folklore. Found while live-checking the ingestion panel.",
+    "source": "Ingestion panel live render, 2026-08-25",
+    "issueUlid": "01M0VMANCKZW43ZT7R4E3QN45B"
+  }
+}

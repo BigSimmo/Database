@@ -1,38 +1,26 @@
 "use client";
 
-import Link from "next/link";
-import { memo, useEffect, useRef, useState } from "react";
-import { CircleAlert, ChevronDown, Copy, ExternalLink, Layers, ShieldCheck, Sparkles } from "lucide-react";
+import { Fragment, memo, type ReactNode } from "react";
+import { Copy } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
-import { Sheet } from "@/components/ui/sheet";
-import {
-  chatActionRow,
-  chatAnswerText,
-  chatMicroAction,
-  cn,
-  sourceCapsule,
-  sourceCapsuleCountBadge,
-  sourceCapsuleHit,
-  statusDotMuted,
-  statusDotReady,
-  statusDotReview,
-  subtleStatusPill,
-  textMuted,
-} from "@/components/ui-primitives";
-import { sourceResultHref, logSourceOpen } from "@/components/clinical-dashboard/source-actions";
+import { chatActionRow, chatAnswerText, chatMicroAction, cn } from "@/components/ui-primitives";
 import {
   cleanDisplayTitle,
   comparableAnswerText,
   sanitizeAnswerDisplayText,
-  sourceQuoteDisplayText,
 } from "@/components/clinical-dashboard/display-text";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
-import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
-import { SourcePreviewPopover } from "@/components/clinical-dashboard/source-preview-popover";
+import { AnswerSourceRail } from "@/components/clinical-dashboard/answer-source-rail";
+import { AnswerSourceMark, AnswerSourceMarkOverflow } from "@/components/clinical-dashboard/answer-source-mark";
+import {
+  type AnswerSourceRow,
+  buildAnswerSourceRows,
+  sourceSpokenLabel,
+} from "@/components/clinical-dashboard/answer-source-rows";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
-import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
+import { type ClaimMarkCluster, type SupportedClaim, resolveClaimMarks } from "@/lib/answer-claim-marks";
 import { type SourceLink } from "@/lib/answer-render-policy";
 import type { AnswerSection, AnswerSectionKind, RagAnswer, VisualEvidenceCard } from "@/lib/types";
 import type { ClientBestSourceRecommendation, ClientSearchResult } from "@/lib/answer-client-payload";
@@ -116,281 +104,135 @@ export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTe
   return sanitizeAndStripSyntheticNotice(value, options);
 }
 
-// One compact "Sources" pill in every state: the amber Source-only pill and the
-// "Review source match" banner already carry the verify-first caveat, so the
-// capsule label no longer restates grounding strength.
-// With the compact-citations preference on, the pill drops its text label to
-// icon + count; the "No direct source found" warning always stays worded —
-// compact mode must never hide a missing-source signal.
-export function sourceCapsuleDisplay({ sourceCount, compact = false }: { sourceCount: number; compact?: boolean }): {
-  label: string;
-  showLabelText: boolean;
-  showCountBadge: boolean;
-} {
-  if (sourceCount <= 0) return { label: "No direct source found", showLabelText: true, showCountBadge: false };
-  return { label: "Sources", showLabelText: !compact, showCountBadge: true };
+export type AnswerDisplayFragment = { display: string; raw: string; truncated: boolean };
+
+/** Preserve every verified word; sentence boundaries only attach existing claim marks. */
+export function primaryAnswerDisplayFragments(value: string, options: AnswerDisplayTextOptions = {}): AnswerDisplayFragment[] {
+  const cleaned = primaryAnswerDisplayText(value, options);
+  if (!cleaned) return [];
+  if (options.preformatted) return [{ display: cleaned, raw: cleaned, truncated: false }];
+  return cleaned.split(/(?<=[.!?])\s+(?=[A-Z*])/).map((text) => ({ display: text, raw: text, truncated: false }));
 }
 
-export function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
-  if (!metadata) return statusDotMuted;
-  if (metadata.document_status === "current") return statusDotReady;
-  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") return statusDotReview;
-  return statusDotMuted;
+/**
+ * Splits a sentence at its last word so the word and the whole mark cluster can
+ * be wrapped together — a number stranded alone on the next line reads as a
+ * footnote to nothing.
+ *
+ * Returns `null` when the split is unsafe. Production prose carries server bold,
+ * and the last word can sit inside a `**…**` run that a string split would cut
+ * in half; an odd number of markers in the head is exactly that case, and the
+ * sentence is then rendered whole rather than mangled.
+ */
+export function splitTrailingWord(text: string): { head: string; tail: string } | null {
+  const lastSpace = text.lastIndexOf(" ");
+  if (lastSpace <= 0) return null;
+  const head = text.slice(0, lastSpace);
+  const tail = text.slice(lastSpace + 1);
+  if (!tail) return null;
+  if ((head.match(/\*\*/g)?.length ?? 0) % 2 !== 0) return null;
+  return { head, tail };
 }
 
-type CapsulePreviewSource = {
-  id: string;
-  documentId: string;
-  title: string;
-  fileName?: string;
-  pageNumber: number | null;
-  metadata: ReturnType<typeof normalizeSourceMetadata>;
-  sourceMetadata?: ClientSearchResult["source_metadata"];
-  score: number;
-  href: string;
-  snippet?: string;
-  sourceStrength?:
-    | SourceLink["sourceStrength"]
-    | ClientBestSourceRecommendation["source_strength"]
-    | ClientSearchResult["source_strength"];
-};
-
-function sourceBadgeLabel(index: number) {
-  return `S${index + 1}`;
+/** The accessible name of a mark. Distinct from the drawer pager's "Show source N…". */
+function markLabel(row: AnswerSourceRow | undefined, index: number, support: ClaimMarkCluster["support"]) {
+  const strength = support === "partial" ? "partial support" : "direct support";
+  if (!row) return `${sourceSpokenLabel(index)} — ${strength}`;
+  return `${sourceSpokenLabel(index)}: ${cleanDisplayTitle(row.title)}, page ${row.pageNumber ?? "not available"} — ${strength}`;
 }
 
-function sourceBadgeToneClass(metadata: ReturnType<typeof normalizeSourceMetadata>, index: number) {
-  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") {
-    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-  }
-  if (index === 0) {
-    return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]";
-  }
-  return "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
-}
+/**
+ * The sentence that owns the open source is washed while the drawer is up. The
+ * drawer covers the lower third of a phone, and this is what stops a clinician
+ * losing the sentence they were checking.
+ *
+ * The left rule is not decoration. Backgrounds are remapped under forced-colors,
+ * so colour alone would erase the wash for the readers who most need to keep
+ * their place; the border is painted. `-ml-1`/`pl-1` cancel out, so lighting a
+ * sentence does not move the text.
+ */
+const litClaimClass =
+  "-ml-1 rounded-[var(--radius-xs)] border-l-2 border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] pl-1";
 
-function sourceSupportLabel(source: CapsulePreviewSource, index: number) {
-  if (!source.sourceStrength || source.sourceStrength === "none") return "Unsupported";
-  if (source.sourceStrength === "limited") return "Partial";
-  if (source.sourceStrength === "moderate") return "Partial";
-  if (index === 0 || source.sourceStrength === "strong") return "Direct";
-  return "Partial";
-}
-
-function sourceStatusShortLabel(metadata: ReturnType<typeof normalizeSourceMetadata>) {
-  if (metadata.document_status === "review_due") return "Review due";
-  if (metadata.document_status === "outdated") return "Outdated";
-  if (metadata.document_status === "current") return "Current";
-  return sourceStatusLabel(metadata);
-}
-
-function sourcePreviewPageCountLabel(previewSources: CapsulePreviewSource[]) {
-  const uniquePages = new Set(previewSources.map((source) => source.pageNumber).filter((page) => page !== null));
-  const count = uniquePages.size || previewSources.length;
-  return `${count} page${count === 1 ? "" : "s"}`;
-}
-
-function capsulePreviewSources(
-  bestSource: ClientBestSourceRecommendation | null,
-  sources: ClientSearchResult[],
-  sourceLinks: SourceLink[] = [],
-) {
-  const rows: CapsulePreviewSource[] = [];
-  const seen = new Set<string>();
-  const pushRow = (row: CapsulePreviewSource) => {
-    const key = `${row.id}:${row.title}:${row.pageNumber ?? "n/a"}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    rows.push(row);
-  };
-
-  sourceLinks.slice(0, 5).forEach((source) => {
-    pushRow({
-      id: source.chunk_id,
-      documentId: source.document_id,
-      title: source.title || source.file_name || "Source",
-      fileName: source.file_name,
-      pageNumber: source.page_number,
-      metadata: normalizeSourceMetadata(source.sourceMetadata),
-      sourceMetadata: source.sourceMetadata,
-      score: source.score ?? 0,
-      href: source.href,
-      snippet: source.snippet,
-      sourceStrength: source.sourceStrength,
-    });
-  });
-
-  if (bestSource) {
-    pushRow({
-      id: bestSource.chunk_id,
-      documentId: bestSource.document_id,
-      title: bestSource.title || bestSource.file_name || "Source",
-      fileName: bestSource.file_name,
-      pageNumber: bestSource.page_number,
-      metadata: normalizeSourceMetadata(bestSource.source_metadata),
-      sourceMetadata: bestSource.source_metadata,
-      score: bestSource.score,
-      href: bestSource.viewer_href,
-      sourceStrength: bestSource.source_strength,
-    });
-  }
-
-  sources.slice(0, 5).forEach((source) => {
-    pushRow({
-      id: source.id,
-      documentId: source.document_id,
-      title: source.title || source.file_name || "Source",
-      fileName: source.file_name,
-      pageNumber: source.page_number,
-      metadata: normalizeSourceMetadata(source.source_metadata),
-      sourceMetadata: source.source_metadata,
-      score: source.hybrid_score ?? source.similarity ?? source.lexical_score ?? 0,
-      href: sourceResultHref(source),
-      sourceStrength: source.source_strength,
-    });
-  });
-
-  return rows.slice(0, 4);
-}
-
-function SourcePreviewContent({
-  query,
-  previewSources,
-  quoteText,
-  copiedQuote,
-  onCopyQuote,
-  showHeader = true,
+function AnswerProseSentence({
+  fragment,
+  cluster,
+  rows,
+  openSourceIndex,
+  onOpenSource,
 }: {
-  query?: string;
-  previewSources: CapsulePreviewSource[];
-  quoteText?: string | null;
-  copiedQuote: boolean;
-  onCopyQuote: () => void;
-  showHeader?: boolean;
+  fragment: AnswerDisplayFragment;
+  cluster: ClaimMarkCluster | null;
+  rows: AnswerSourceRow[];
+  openSourceIndex: number | null;
+  onOpenSource?: (index: number, support?: "direct" | "partial") => void;
 }) {
-  const primaryPreviewSource = previewSources[0] ?? null;
+  if (!cluster || !onOpenSource) return <SafeBoldText text={fragment.display} />;
 
-  return (
+  const lit = openSourceIndex !== null && cluster.marks.some((mark) => mark.index === openSourceIndex);
+  const marks = (
     <>
-      {showHeader ? (
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <p className="text-base font-semibold text-[color:var(--text-heading)]">Sources</p>
-              <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
-                {sourcePreviewPageCountLabel(previewSources)}
-              </span>
-            </div>
-            <p className={cn("mt-1 text-xs leading-5", textMuted)}>Check the answer against the cited PDF passage.</p>
-          </div>
-        </div>
-      ) : null}
-      <div
-        className={cn("grid gap-0 divide-y divide-[color:var(--border)]", showHeader ? "mt-3" : "")}
-        role="list"
-        aria-label="Sources behind this answer"
-      >
-        {previewSources.map((source, index) => (
-          <div
-            key={`${source.id}:${index}`}
-            role="listitem"
-            className={cn(
-              "min-w-0 py-2.5",
-              index === 0 &&
-                "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 shadow-[var(--shadow-inset)]",
-            )}
-          >
-            {index === 0 ? (
-              <p className="mb-2 inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
-                <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
-                Best match
-              </p>
-            ) : index === 1 ? (
-              <p className="mb-1.5 text-xs font-semibold text-[color:var(--text-muted)]">Also used</p>
-            ) : null}
-            <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
-              <span
-                className={cn(
-                  "nums grid h-8 min-w-8 place-items-center rounded-md border px-1 text-xs font-bold shadow-[var(--shadow-inset)]",
-                  sourceBadgeToneClass(source.metadata, index),
-                )}
-              >
-                {sourceBadgeLabel(index)}
-              </span>
-              <span className="min-w-0">
-                <Link
-                  href={source.href}
-                  onClick={() => query && logSourceOpen(query, source)}
-                  data-testid="source-capsule-preview-row"
-                  className="flex min-h-12 items-center rounded-md text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label={`Open source ${cleanDisplayTitle(source.title)}, page ${source.pageNumber ?? "not available"}`}
-                >
-                  <span className="line-clamp-2">{cleanDisplayTitle(source.title)}</span>
-                </Link>
-                <span className={cn("mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs", textMuted)}>
-                  <span className="font-mono tabular-nums">p. {source.pageNumber ?? "n/a"}</span>
-                  <span aria-hidden>·</span>
-                  <span>{sourceSupportLabel(source, index)}</span>
-                  <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
-                  <span
-                    className={
-                      source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated"
-                        ? "font-semibold text-[color:var(--warning)]"
-                        : undefined
-                    }
-                  >
-                    {sourceStatusShortLabel(source.metadata)}
-                  </span>
-                </span>
-              </span>
-              <Link
-                href={source.href}
-                onClick={() => query && logSourceOpen(query, source)}
-                className={cn(
-                  index === 0
-                    ? "inline-flex min-h-12 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2.5 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]"
-                    : "grid h-12 w-12 place-items-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]",
-                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                )}
-                aria-label={`Open ${sourceBadgeLabel(index)} source page`}
-              >
-                <ExternalLink aria-hidden="true" className="h-4 w-4" />
-                {index === 0 ? <span>Open</span> : null}
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
-      {quoteText ? (
-        <section className="mt-3" aria-label="Cited passage">
-          <p className={cn("mb-1.5 text-2xs font-semibold uppercase tracking-wide", textMuted)}>Cited passage</p>
-          <blockquote className="border-l-2 border-[color:var(--clinical-accent)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
-            &ldquo;{quoteText}&rdquo;
-          </blockquote>
-        </section>
-      ) : null}
-      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[color:var(--border)] pt-2 sm:flex sm:flex-wrap">
-        {primaryPreviewSource ? (
-          <Link
-            href={primaryPreviewSource.href}
-            onClick={() => query && logSourceOpen(query, primaryPreviewSource)}
-            className={chatMicroAction}
-            aria-label={`Open source page for ${primaryPreviewSource.title}`}
-          >
-            <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
-            View original PDF
-          </Link>
-        ) : null}
-        {quoteText ? (
-          <button type="button" className={chatMicroAction} onClick={onCopyQuote}>
-            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
-            {copiedQuote ? "Copied passage" : "Copy passage"}
-          </button>
-        ) : null}
-      </div>
+      {cluster.marks.map((mark, position) => (
+        <AnswerSourceMark
+          key={`${mark.sourceId}:${mark.index}`}
+          index={mark.index}
+          leading={position === 0}
+          active={openSourceIndex === mark.index}
+          partial={cluster.support === "partial"}
+          label={markLabel(rows[mark.index], mark.index, cluster.support)}
+          onOpen={(index) => onOpenSource(index, cluster.support)}
+        />
+      ))}
+      <AnswerSourceMarkOverflow count={cluster.overflow} />
     </>
   );
+  const split = splitTrailingWord(fragment.display);
+
+  return (
+    <span
+      data-testid="answer-claim"
+      data-claim-lit={lit ? "true" : undefined}
+      className={cn("transition-colors", lit && litClaimClass)}
+    >
+      {split ? (
+        <>
+          <SafeBoldText text={split.head} />{" "}
+          {/* The last word and the whole cluster travel together, so a number
+              cannot fall alone onto the next line as a footnote to nothing. */}
+          <span className="whitespace-nowrap">
+            <SafeBoldText text={split.tail} />
+            {marks}
+          </span>
+        </>
+      ) : (
+        <>
+          {/* The split was refused because a bold run crosses the last space.
+              Only the cluster is held together here — never the whole sentence.
+              An unbreakable sentence is a horizontal-overflow bug on a phone,
+              which is a far worse outcome than a mark that occasionally starts
+              the next line. */}
+          <SafeBoldText text={fragment.display} />
+          <span className="whitespace-nowrap">{marks}</span>
+        </>
+      )}
+    </span>
+  );
 }
+
+/**
+ * The cited-source derivations moved to `answer-source-rows`, which the rail,
+ * the drawer, and this module all read. They are re-exported here so existing
+ * import paths (and the tests that pin them) keep resolving.
+ */
+export {
+  buildAnswerSourceRows,
+  sourceCapsuleDisplay,
+  sourceStatusDotClass,
+  sourceStatusDotTone,
+  sourceStatusShortLabel,
+  type AnswerSourceRow,
+  type CapsulePreviewSource,
+} from "@/components/clinical-dashboard/answer-source-rows";
 
 /**
  * Displays a sanitized clinical answer with source status, source previews, and copy actions.
@@ -398,213 +240,171 @@ function SourcePreviewContent({
  * @param text - The raw answer text to display.
  * @param query - The user's query context for logging.
  * @param preformatted - Whether to preserve the supplied formatting during display processing.
- * @param sourceCount - The number of direct sources associated with the answer.
- * @param sourceOnly - Whether to show a notice that the answer was assembled solely from source passages.
  * @param bestSource - The highest-priority source recommendation, when available.
  * @param sources - Search results used to build the source preview.
  * @param sourceLinks - Source links and snippets associated with the answer.
  * @param copied - Whether the answer has been copied.
  * @param onCopy - Callback invoked to copy the answer with source status.
+ * @param claims - Server-assessed per-sentence support, used to place the numbered source marks.
+ * @param openSourceIndex - Rail row the drawer is currently showing, or `null` while it is closed.
  * @returns The rendered answer section, or `null` when the answer has no displayable text.
  */
 export function NaturalLanguageAnswer({
   text,
   query,
   preformatted = false,
-  sourceCount,
-  sourceOnly,
+  clinicalPoints,
   bestSource,
   sources,
   sourceLinks,
+  claims,
+  railRows,
   copied,
   onCopy,
+  onOpenSource,
+  onOpenRailSource,
+  openSourceIndex = null,
+  showCopyAction = true,
 }: {
   // Raw answer text (server bold intact); this component owns display
   // sanitization so <SafeBoldText> can render the high-yield emphasis.
   text: string;
   query?: string;
   preformatted?: boolean;
-  sourceCount: number;
-  sourceOnly: boolean;
+  sourceCount?: number;
+  sourceOnly?: boolean;
   bestSource: ClientBestSourceRecommendation | null;
   sources: ClientSearchResult[];
+  clinicalPoints?: ReactNode;
   sourceLinks: SourceLink[];
+  /**
+   * `answer.supportedClaims`. Absent on a historical turn and on any answer the
+   * pipeline did not assess, which is the degrade case: prose with no marks and
+   * the rail still carrying every source.
+   */
+  claims?: readonly SupportedClaim[];
+  /**
+   * Pre-built rail rows. The answer surface already derives these (annotated
+   * with which sources carry a table or an image), so it passes them down rather
+   * than leaving this component to derive a second, subtly different list from
+   * the same three inputs.
+   */
+  railRows?: AnswerSourceRow[];
   copied: boolean;
   onCopy: () => void;
+  /**
+   * Opens the source drawer at the given rail row. The drawer is mounted by the
+   * answer surface rather than here, so the rail reports the row and the surface
+   * owns which one is open.
+   */
+  onOpenSource?: (index: number, support?: "direct" | "partial") => void;
+  /**
+   * Opens the drawer from a rail card rather than from a claim. Separate from
+   * `onOpenSource` because the drawer says something different in each case —
+   * a card is a document, a mark is a claim about a document — and defaulting
+   * to `onOpenSource` would have every rail tap assert a claim nobody made.
+   */
+  onOpenRailSource?: (index: number) => void;
+  /** Which rail row the drawer is showing, so the mark and its sentence can light up. */
+  openSourceIndex?: number | null;
+  /** Historical turns keep their local copy action; the live turn renders the combined utility row outside. */
+  showCopyAction?: boolean;
 }) {
-  const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
-  const [sourceOnlyNoticeOpen, setSourceOnlyNoticeOpen] = useState(false);
-  const [copiedSourceQuote, setCopiedSourceQuote] = useState(false);
   const { preferences } = useAppPreferences();
-  const sourceCapsuleRef = useRef<HTMLButtonElement>(null);
-  const copySourceQuoteTimerRef = useRef<number | null>(null);
-  const usePreviewSheet = useMobilePreviewSheet();
-  useEffect(() => {
-    return () => {
-      if (copySourceQuoteTimerRef.current !== null) window.clearTimeout(copySourceQuoteTimerRef.current);
-    };
-  }, []);
-  const cleaned = primaryAnswerDisplayText(text, { preformatted, preserveBold: true });
-  if (!cleaned) return null;
-  const capsuleDisplay = sourceCapsuleDisplay({ sourceCount, compact: preferences.compactCitations });
-  const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
-  const rawQuoteText =
-    sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet || "";
-  const quoteText = sourceQuoteDisplayText(rawQuoteText);
-  const canOpenSourcePreview = previewSources.length > 0;
-  async function copySourceQuote() {
-    if (!quoteText) return;
-    try {
-      await navigator.clipboard.writeText(quoteText);
-      setCopiedSourceQuote(true);
-      if (copySourceQuoteTimerRef.current !== null) window.clearTimeout(copySourceQuoteTimerRef.current);
-      copySourceQuoteTimerRef.current = window.setTimeout(() => setCopiedSourceQuote(false), 1600);
-    } catch {
-      setCopiedSourceQuote(false);
-    }
-  }
-  const sourceCapsuleButton = (
-    <button
-      type="button"
-      ref={sourceCapsuleRef}
-      className={sourceCapsuleHit}
-      aria-label="Open answer sources"
-      aria-expanded={sourcePreviewOpen}
-      onClick={() => {
-        if (canOpenSourcePreview) setSourcePreviewOpen((current) => !current);
-      }}
-    >
-      <span className={sourceCapsule}>
-        <Layers className="h-3 w-3 shrink-0" aria-hidden />
-        {capsuleDisplay.showLabelText ? <span className="min-w-0 truncate">{capsuleDisplay.label}</span> : null}
-        {capsuleDisplay.showCountBadge ? <span className={sourceCapsuleCountBadge}>{sourceCount}</span> : null}
-        {canOpenSourcePreview ? (
-          <ChevronDown
-            className={cn("h-3 w-3 shrink-0 transition-transform", sourcePreviewOpen && "rotate-180")}
-            strokeWidth={2.25}
-            aria-hidden
-          />
-        ) : null}
-      </span>
-    </button>
-  );
-
+  const fragments = primaryAnswerDisplayFragments(text, { preformatted, preserveBold: true });
+  if (!fragments.length) return null;
+  const railSources = railRows ?? buildAnswerSourceRows(bestSource, sources, sourceLinks);
+  /**
+   * Marks may only point at CITED rows: an uncited card carries a dashed em-dash
+   * badge rather than a number, so a mark leading to one would show a number the
+   * rail does not.
+   *
+   * Masked to an empty id rather than filtered out. Filtering would renumber
+   * every row after an uncited one, which is the silent wrong-page attribution
+   * this whole surface exists to prevent — and it would depend on cited rows
+   * happening to sort first, which is true today and is not a contract.
+   */
+  const markableSourceIds = railSources.map((row) => (row.cited === false ? "" : row.id));
+  // A historical turn mounts no drawer, so a mark there would advertise a panel
+  // that never opens. Those turns render the prose unmarked.
+  const clusters = onOpenSource
+    ? resolveClaimMarks({
+        fragments: fragments.map((fragment) => ({ text: fragment.raw, truncated: fragment.truncated })),
+        claims,
+        sourceIds: markableSourceIds,
+      })
+    : fragments.map(() => null);
   return (
     <section
       data-testid="plain-answer-response"
       aria-label="Primary natural-language answer"
-      className="relative grid grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-[color:var(--text-heading)]"
+      /* No assistant badge, and therefore no column reserved for one. The tile
+         was decorative (`aria-hidden`) and its column cost ~2.75rem of every
+         line of a clinical answer on a 390px phone. There are two speakers on
+         this surface, the person's turn is already a right-aligned bubble, and
+         the answer is the one element here that wants the full measure. What
+         identifies the turn instead is the answer's verification/support
+         framing and, for extractive answers, the Source-only disclosure. Those
+         are information rather than decoration. Approved by the owner 2026-08-26
+         against /mockups/answer-chat-perfected-v2; see §12.6 of
+         docs/answer-page-redesign-handover.md. */
+      className="relative rounded-lg bg-transparent py-0.5 text-[color:var(--text-heading)]"
     >
-      <span
-        data-testid="answer-clinical-icon"
-        className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
-        aria-hidden="true"
-      >
-        <ShieldCheck aria-hidden="true" className="size-icon-lg" />
-      </span>
       <div className="min-w-0 space-y-1">
         <p className={chatAnswerText}>
+          {/* One span per sentence, joined by a single space, so the prose's
+              textContent is byte-identical to the un-marked rendering. */}
           <span data-testid="plain-answer-prose">
-            <SafeBoldText text={cleaned} />
+            {fragments.map((fragment, index) => (
+              <Fragment key={`${index}:${fragment.display}`}>
+                {index > 0 ? " " : null}
+                <AnswerProseSentence
+                  fragment={fragment}
+                  cluster={clusters[index]}
+                  rows={railSources}
+                  openSourceIndex={openSourceIndex}
+                  onOpenSource={onOpenSource}
+                />
+              </Fragment>
+            ))}
           </span>
         </p>
-        <div className="space-y-1 -mb-2">
-          {sourceOnly ? (
-            <section
-              data-testid="source-only-disclosure"
-              role="note"
-              className={cn(
-                "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-xs transition-[border-radius] duration-[var(--duration-quick)]",
-                sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
-                textMuted,
-              )}
+        {/* The Source-only pill is NOT here any more (owner decision,
+            2026-09-03). It sat below the prose, apart from the three status
+            chips above it and built from a third disclosure mechanism, so the
+            page carried four warning surfaces before the first cited passage.
+            Its governed wording now leads the Answer limitations disclosure in
+            `answer-result-surface.tsx`, which the chip row opens.
+
+            The stale-evidence banner moved into that same disclosure earlier
+            (2026-09-01) for the same reason: it names WHICH sources are overdue,
+            which is a statement about this answer's evidence.
+
+            Both facts still reach the default view. `VerificationNotice` stays
+            `hidden print:flex` on a source-only answer, so the limitations
+            chip's own label is what carries `Source-only` and `Review due`
+            there. Do not shorten that label to a bare count. */}
+        {clinicalPoints}
+        <AnswerSourceRail
+          sources={railSources}
+          query={query}
+          onOpenSource={onOpenRailSource ?? onOpenSource}
+          activeIndex={openSourceIndex}
+          compact={preferences.compactCitations}
+        />
+        {showCopyAction ? (
+          <div className={cn(chatActionRow, "mt-0.5")} aria-label="Answer actions">
+            <button
+              type="button"
+              onClick={onCopy}
+              className={chatMicroAction}
+              aria-label="Copy answer with source status"
             >
-              <button
-                type="button"
-                onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2.5 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
-                aria-expanded={sourceOnlyNoticeOpen}
-                aria-controls="source-only-disclosure-detail"
-              >
-                <CircleAlert className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
-                <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
-                <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">· verify passages</span>
-                <ChevronDown
-                  className={cn(
-                    "ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition-transform",
-                    sourceOnlyNoticeOpen && "rotate-180",
-                  )}
-                  aria-hidden
-                />
-              </button>
-              {sourceOnlyNoticeOpen ? (
-                <div
-                  id="source-only-disclosure-detail"
-                  className="border-t border-[color:var(--warning)]/15 px-3 py-2 text-2xs leading-5 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
-                >
-                  <p>
-                    This answer was assembled from your documents without the AI model, so it may be less complete.
-                    Verify dose, threshold, route, timing, monitoring, and risk details against the cited passages
-                    below.
-                  </p>
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-          {sourceCapsuleButton}
-        </div>
-        {canOpenSourcePreview && !usePreviewSheet ? (
-          <SourcePreviewPopover
-            open={sourcePreviewOpen}
-            onClose={() => setSourcePreviewOpen(false)}
-            anchorRef={sourceCapsuleRef}
-          >
-            <SourcePreviewContent
-              query={query}
-              previewSources={previewSources}
-              quoteText={quoteText}
-              copiedQuote={copiedSourceQuote}
-              onCopyQuote={copySourceQuote}
-            />
-          </SourcePreviewPopover>
-        ) : null}
-        <Sheet
-          open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}
-          onClose={() => setSourcePreviewOpen(false)}
-          title="Sources"
-          description="Check the answer against the cited PDF passage."
-          titleAccessory={
-            <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
-              {sourcePreviewPageCountLabel(previewSources)}
-            </span>
-          }
-          closeLabel="Close answer sources"
-          contentClassName="sm:max-w-xl"
-          returnFocusRef={sourceCapsuleRef}
-          portal
-        >
-          <div data-testid="source-capsule-preview">
-            <SourcePreviewContent
-              query={query}
-              previewSources={previewSources}
-              quoteText={quoteText}
-              copiedQuote={copiedSourceQuote}
-              onCopyQuote={copySourceQuote}
-              showHeader={false}
-            />
+              <Copy aria-hidden="true" className="h-3.5 w-3.5" />
+              {copied ? "Copied with sources" : "Copy with sources"}
+            </button>
           </div>
-        </Sheet>
-        <div className={cn(chatActionRow, "mt-0.5")} aria-label="Answer actions">
-          <button
-            type="button"
-            onClick={onCopy}
-            className={chatMicroAction}
-            aria-label="Copy answer with source status"
-          >
-            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
-            {copied ? "Copied with sources" : "Copy with sources"}
-          </button>
-        </div>
+        ) : null}
       </div>
     </section>
   );
@@ -620,7 +420,14 @@ export function UserQuestionBubble({ query }: { query: string }) {
         data-testid="user-question-bubble"
         className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)] sm:max-w-[28rem]"
       >
-        <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">{cleaned}</p>
+        <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">
+          {/* Carried over from AnswerCardQueryEcho when the current turn's
+              question moved out of the card header and into this bubble: without
+              it a screen reader reads the question as an unlabelled sentence
+              immediately before the answer. */}
+          <span className="sr-only">Question: </span>
+          {cleaned}
+        </p>
       </div>
     </section>
   );

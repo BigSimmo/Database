@@ -12,6 +12,13 @@ import { ImageLightbox } from "@/components/clinical-dashboard/image-lightbox";
 
 const AUTOMATIC_RETRY_DELAYS_MS = [250, 1_000] as const;
 
+type SharedAutomaticRetry = {
+  timeoutId: number;
+  callbacks: Set<() => void>;
+};
+
+const sharedAutomaticRetries = new Map<string, SharedAutomaticRetry>();
+
 function automaticRetryDelay(failure: SignedImageFailure | null, attempt: number) {
   const baseDelay = AUTOMATIC_RETRY_DELAYS_MS[attempt];
   if (!failure?.retryable || baseDelay === undefined) return null;
@@ -20,6 +27,41 @@ function automaticRetryDelay(failure: SignedImageFailure | null, attempt: number
   // earliest permissible retry, never an optional hint.
   if (failure.status === 429 && failure.retryAfterMs === null) return null;
   return Math.max(baseDelay, failure.retryAfterMs ?? 0);
+}
+
+/**
+ * One timer per endpoint so sibling `SignedImage` mounts retry in the same
+ * macrotask. Separate per-instance timeouts let the first retry settle and
+ * drop the in-flight map before the second timeout fires, which then starts a
+ * second fetch (and exhausts one-shot test mocks).
+ */
+function scheduleSharedAutomaticRetry(endpoint: string, delayMs: number, callback: () => void): () => void {
+  const existing = sharedAutomaticRetries.get(endpoint);
+  if (existing) {
+    existing.callbacks.add(callback);
+    return () => {
+      existing.callbacks.delete(callback);
+      if (existing.callbacks.size === 0) {
+        window.clearTimeout(existing.timeoutId);
+        sharedAutomaticRetries.delete(endpoint);
+      }
+    };
+  }
+
+  const callbacks = new Set<() => void>([callback]);
+  const entry: SharedAutomaticRetry = { callbacks, timeoutId: 0 };
+  entry.timeoutId = window.setTimeout(() => {
+    sharedAutomaticRetries.delete(endpoint);
+    for (const run of callbacks) run();
+  }, delayMs);
+  sharedAutomaticRetries.set(endpoint, entry);
+  return () => {
+    callbacks.delete(callback);
+    if (callbacks.size === 0) {
+      window.clearTimeout(entry.timeoutId);
+      sharedAutomaticRetries.delete(endpoint);
+    }
+  };
 }
 
 /**
@@ -47,6 +89,8 @@ export const SignedImage = memo(function SignedImage({
   aspectRatio,
   priority = false,
   expandLabel,
+  failurePresentation = "message",
+  onSettledFailure,
 }: {
   /** Signed-URL API route, e.g. `/api/images/{id}/signed-url`. */
   endpoint: string;
@@ -86,6 +130,10 @@ export const SignedImage = memo(function SignedImage({
    * unchanged.
    */
   expandLabel?: string;
+  /** Settled failures remain visible by default; optional decoration may hide them. */
+  failurePresentation?: "message" | "hidden";
+  /** Called once when a failure remains after the bounded automatic retry cycle. */
+  onSettledFailure?: (failure: SignedImageFailure) => void;
 }) {
   const [shouldLoad, setShouldLoad] = useState(() => priority || Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
@@ -94,15 +142,18 @@ export const SignedImage = memo(function SignedImage({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [retryDisabled, setRetryDisabled] = useState(false);
   const [automaticRetryCount, setAutomaticRetryCount] = useState(0);
+  const notifiedSettledFailureRef = useRef<SignedImageFailure | null>(null);
   const [seenEndpoint, setSeenEndpoint] = useState(endpoint);
   if (endpoint !== seenEndpoint) {
     setSeenEndpoint(endpoint);
     setAutomaticRetryCount(0);
     setLoaded(false);
+    notifiedSettledFailureRef.current = null;
   }
   const { url, failed, failure, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
   const nextAutomaticRetryDelay = automaticRetryDelay(failure, automaticRetryCount);
   const automaticRetryPending = nextAutomaticRetryDelay !== null;
+  const settledFailure = failed && !automaticRetryPending ? failure : null;
 
   // Defer the request until the frame is near the viewport. A cached URL seeds
   // `shouldLoad` synchronously, so already-fetched images skip the observer.
@@ -135,19 +186,25 @@ export const SignedImage = memo(function SignedImage({
   useEffect(() => {
     if (nextAutomaticRetryDelay === null) return () => undefined;
 
-    const timer = window.setTimeout(() => {
+    return scheduleSharedAutomaticRetry(endpoint, nextAutomaticRetryDelay, () => {
       setLoaded(false);
       setShouldLoad(true);
       setAutomaticRetryCount((current) => current + 1);
       retry();
-    }, nextAutomaticRetryDelay);
-    return () => window.clearTimeout(timer);
-  }, [nextAutomaticRetryDelay, retry]);
+    });
+  }, [endpoint, nextAutomaticRetryDelay, retry]);
+
+  useEffect(() => {
+    if (!settledFailure || notifiedSettledFailureRef.current === settledFailure) return;
+    notifiedSettledFailureRef.current = settledFailure;
+    onSettledFailure?.(settledFailure);
+  }, [onSettledFailure, settledFailure]);
 
   function retryImage() {
     if (retryDisabled) return;
     setRetryDisabled(true);
     setAutomaticRetryCount(0);
+    notifiedSettledFailureRef.current = null;
     setLoaded(false);
     setShouldLoad(true);
     retry();
@@ -159,7 +216,8 @@ export const SignedImage = memo(function SignedImage({
     markFailed();
   }
 
-  if (failed && !automaticRetryPending) {
+  if (settledFailure) {
+    if (failurePresentation === "hidden") return null;
     return (
       <div
         ref={frameRef}
@@ -229,6 +287,7 @@ export const SignedImage = memo(function SignedImage({
           onLoad={() => {
             setLoaded(true);
             setAutomaticRetryCount(0);
+            notifiedSettledFailureRef.current = null;
           }}
           onError={handleImageError}
           className={cn(

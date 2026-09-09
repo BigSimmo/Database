@@ -32,7 +32,7 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   medicationVerdictRingClass,
-  verdictSummaryBadge,
+  PatientVerdictSignal,
 } from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { PatientDetailsDockAction } from "@/components/clinical-dashboard/patient-details-dock-action";
@@ -424,11 +424,11 @@ function MedicationResults({
       const badges = medication ? medicationIdentityBadges(medication, governance?.[medication.slug]) : [];
       const accent = medication?.accent;
       const drugClass = medication?.class || medication?.category || "Other";
-      // Prepend a per-patient verdict badge so the highest-severity signal
-      // surfaces first in the row's badge cluster (priority-sorted by tone).
-      // The verdict folds BOTH engines together — physiology considerations and
-      // interactions against the entered medication list — and degrades a
-      // would-be green to grey whenever either engine left something unassessed.
+      // The dedicated patient verdict band stays separate from match quality and
+      // catalogue metadata. The verdict folds BOTH engines together — physiology
+      // considerations and interactions against the entered medication list —
+      // and degrades a would-be green to grey whenever either engine left
+      // something unassessed.
       if (medication && !profileEmpty) {
         const alerts = evaluatePatientAlerts(medication, profile);
         const interactions = evaluateMedicationInteractions(medication.slug, profile.medications ?? [], medication);
@@ -441,12 +441,11 @@ function MedicationResults({
           unresolvedRowCount: interactions.unresolvedRowCount,
           unreachableCounterpartyCount: interactions.unreachableCounterparties.length,
         });
-        const verdictBadge = verdictSummaryBadge(verdict);
         return {
           result,
           medication,
           drugClass,
-          badges: verdictBadge ? [verdictBadge, ...badges] : badges,
+          badges,
           accent,
           verdict,
         };
@@ -764,7 +763,7 @@ function MedicationResults({
       ) : null}
 
       {!initialCatalogLoading && !catalog.error && resultCount > 0 ? (
-        <div className="hidden overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
+        <div className="hidden overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--e2)] lg:block">
           <div className="grid grid-cols-[minmax(12rem,1.12fr)_minmax(5.5rem,0.46fr)_minmax(7rem,0.66fr)_minmax(12rem,1.15fr)_1.5rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <span>Medication</span>
             <span>Usual dose</span>
@@ -781,7 +780,7 @@ function MedicationResults({
               // outranks "this is the top hit".
               const verdictRing = row.verdict ? medicationVerdictRingClass(row.verdict.tone) : null;
               const rowClassName = cn(
-                "group grid w-full grid-cols-[minmax(12rem,1.12fr)_minmax(5.5rem,0.46fr)_minmax(7rem,0.66fr)_minmax(12rem,1.15fr)_1.5rem] items-start gap-3 px-4 py-3.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
+                "medication-desktop-result group grid w-full grid-cols-[minmax(12rem,1.12fr)_minmax(5.5rem,0.46fr)_minmax(7rem,0.66fr)_minmax(12rem,1.15fr)_1.5rem] items-start gap-3 px-4 py-3.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
                 selected
                   ? cn(
                       "bg-[color:var(--clinical-accent-soft)]/35 shadow-[var(--shadow-rail-active)]",
@@ -803,6 +802,7 @@ function MedicationResults({
                       <span className="mt-0.5 line-clamp-1 break-words text-xs font-medium leading-4 text-[color:var(--text-muted)]">
                         {result.indication}
                       </span>
+                      {row.verdict ? <PatientVerdictSignal verdict={row.verdict} className="mt-2" /> : null}
                       {showMatchBadge || result.match !== "Exact clinical fit" || row.badges.length > 0 ? (
                         <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
                           {showMatchBadge || result.match !== "Exact clinical fit" ? (
@@ -823,7 +823,7 @@ function MedicationResults({
                     data-medication-cell="action"
                     className="flex min-w-0 items-start gap-2 pt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-heading)]"
                   >
-                    <ActionToneIcon tone={result.actionTone} className="mt-[0.1875rem] h-3.5 w-3.5" />
+                    <ActionToneIcon tone={result.actionTone} className="mt-0.5 h-3.5 w-3.5" />
                     <span className="line-clamp-2 min-w-0 break-words">{result.action}</span>
                   </span>
                   {result.href ? (
@@ -845,6 +845,7 @@ function MedicationResults({
                     key={result.id}
                     href={result.href}
                     data-testid={`medication-result-${result.id}-desktop`}
+                    data-verdict={row.verdict?.tone}
                     className={rowClassName}
                   >
                     {rowContent}
@@ -856,6 +857,7 @@ function MedicationResults({
                 <article
                   key={result.id}
                   data-testid={`medication-result-${result.id}-desktop`}
+                  data-verdict={row.verdict?.tone}
                   className={rowClassName}
                 >
                   {rowContent}
@@ -890,6 +892,7 @@ function MedicationResults({
                     {result.indication}
                   </p>
                 </div>
+                {row.verdict ? <PatientVerdictSignal verdict={row.verdict} /> : null}
                 {showMatchBadge || result.match !== "Exact clinical fit" || row.badges.length > 0 ? (
                   <div className="flex max-w-full flex-wrap items-center gap-1.5">
                     {showMatchBadge || result.match !== "Exact clinical fit" ? (
@@ -949,7 +952,7 @@ function MedicationResults({
         })}
       </div>
 
-      <UniversalSearchAlsoMatches modeId="prescribing" query={query} className="medication-also-matches" />
+      <UniversalSearchAlsoMatches modeId="prescribing" query={query} />
 
       <StatusNotice
         realDataReady={realDataReady}

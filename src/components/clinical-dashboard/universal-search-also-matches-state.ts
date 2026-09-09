@@ -1,4 +1,5 @@
 import type { AppModeId } from "@/lib/app-modes";
+import { isSmartLocalOnlyMode, interpretSmartSearch } from "@/lib/smart-search-intent";
 
 /**
  * Answer threads may be restored from session storage on the shared home. The
@@ -9,9 +10,10 @@ import type { AppModeId } from "@/lib/app-modes";
  * mounted there until client-side answer state exists, so allowing it preserves
  * hydration while the client applies the actual URL contract before fetching.
  */
-export function shouldRunUniversalAlsoMatches(modeId: AppModeId, locationSearch: string | null) {
+export function shouldRunUniversalAlsoMatches(modeId: AppModeId, locationSearch: string | null, query = "") {
+  if (isSmartLocalOnlyMode(modeId) && interpretSmartSearch(modeId, query).naturalLanguage) return false;
   if (modeId !== "answer" || locationSearch === null) return true;
   const params = new URLSearchParams(locationSearch);
-  const query = (params.get("q") ?? params.get("query") ?? "").trim();
-  return params.get("run") === "1" && query.length > 0;
+  const submittedQuery = (params.get("q") ?? params.get("query") ?? "").trim();
+  return params.get("run") === "1" && submittedQuery.length > 0;
 }

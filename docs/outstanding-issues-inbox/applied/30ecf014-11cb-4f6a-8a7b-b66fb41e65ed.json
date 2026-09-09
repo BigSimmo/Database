@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "30ecf014-11cb-4f6a-8a7b-b66fb41e65ed",
+  "createdOn": "2026-09-01",
+  "action": "cancel",
+  "payload": {
+    "requestId": "44e5f87c-d30f-4334-9184-75c1544773ef",
+    "reason": "Superseded by c772a1b8-a7c7-4719-9885-2ab3651f3e0e, which closes the same row with a strictly larger outcome. This request was queued 2026-08-27 by PR #2448 and describes only the Therapy Compass relabel. A repo-wide sweep on 2026-09-01 found the same over-claim class live at five further sites, two of them worse than any in the original row: clinical-dashboard/patient-profile-panel.tsx asserted the feature IS 'Decision support, not medical advice' on the surface computing per-patient medication interaction verdicts, and clinical-dashboard/medication-record-page.tsx claimed PsychSift 'provides evidence summaries'. Also lib/differential-detail.ts carried the claim into copied/exported text. Landing this outcome instead of the superseding one would archive #PM9SP1 describing a subset of what was wrong, so a later reader would not learn the prescribing surface had ever over-claimed. No content is lost: the superseding outcome states that Therapy Compass was already corrected before that session."
+  }
+}

@@ -1,11 +1,12 @@
 # Scripts index
 
-Curated map of `scripts/` (275 files) and the `package.json` script surface (268 entries),
+Curated map of `scripts/` (313 files) and the `package.json` script surface (305 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
-Every top-level `.mjs`/`.ts`/`.cjs` script is named below; the remaining files are fixtures, SQL,
-subfolder helpers, and small shared helpers grouped rather than itemised.
+Every top-level `.mjs`/`.ts`/`.cjs` script is named below (the 44 the 2026-09-02 audit found
+uncatalogued were added the same day, in "Also catalogued" lists per section); the remaining files
+are fixtures, SQL, subfolder helpers, and small shared helpers grouped rather than itemised.
 
 > The two counts in the sentence above are generated facts, not prose. Keep them in the exact
 > `(N files)` / `(N entries)` shape — tooling rewrites that sentence by regex.
@@ -36,7 +37,7 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 | `final-merge-audit.mjs`                                                                                                                                                                                                                                                 | Fail-closed local merge-tree audit; explicit provider mode adds PR/check/thread/tree/deployment proof                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `child-process-result.mjs`, `cli-utils.ts`, `productivity-core.mjs`                                                                                                                                                                                                     | Shared helpers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `test-focused.mjs`, `test-run-selection.mjs`, `test-cache-path.mjs`, `test-environment.mjs`                                                                                                                                                                             | Backs `npm run test:focused` — change-scoped selection, cache pathing, env setup; fails closed for deleted files and test infrastructure                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `primary-checkout-lease.mjs`, `test-run-lock.mjs`, `clean-worktree.mjs`                                                                                                                                                                                                 | Cross-worktree lease arbitration for the primary checkout, plus worktree cleanup                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `primary-checkout-lease.mjs`, `test-run-lock.mjs`, `clean-worktree.mjs`, `worktree-inventory.mjs`                                                                                                                                                                       | Cross-worktree lease arbitration for the primary checkout, plus report-only registered-worktree and explicit-root fleet inventory                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `resolve-tsx-cli.mjs`, `register-server-only.mjs`, `enable-server-only-stub.mjs`                                                                                                                                                                                        | tsx CLI resolution and `server-only` import shims                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `check-format-changed.mjs`, `check-base-freshness.mjs`, `check-local-presence.mjs`                                                                                                                                                                                      | Push-time helpers behind `guard-push.mjs`: changed-file formatting, stale-base and local-presence checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `yaml-contract.mjs`, `sensitive-text.mjs`, `design-system-contract-utils.mjs`                                                                                                                                                                                           | Shared parsing/redaction/contract helpers used by the gates                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -49,7 +50,12 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 `check-maintainability-budgets.mjs`, `check-upload-limit-parity.mjs`,
 `check-codebase-index-coverage.mjs`, `check-docs-links.mjs`,
 `check-docs-script-refs.mjs`, `check-bundle-budget.mjs`, `check-type-scale.mjs`,
-`check-icon-scale.mjs`, `check-design-system-contract.mjs`, `check-function-grants.mjs`,
+`check-icon-scale.mjs`, `check-design-system-contract.mjs`,
+`generate-design-system-adoption.mjs` (`npm run design-system:adoption:update` /
+`check:design-system-adoption`), `generate-design-sync-contract.mjs` +
+`check-design-sync-contract.mjs` (`npm run design-system:design-sync:update` /
+`check:design-sync-contract`), `adopt-visual-baselines.mjs`
+(`npm run design-system:baselines:adopt`), `check-function-grants.mjs`,
 `check-owner-scope-api.mjs`, `check-client-bundle-secrets.mjs`, `verify-pr-local.mjs`,
 `verify-release-offline.mjs`, `check-codex-cloud-setup.mjs`. `check-gate-manifest.mjs` cross-checks that every gate in the
 `verify:cheap:internal` chain also runs in CI's `static-pr` job, so the two lists can't drift.
@@ -70,7 +76,36 @@ the runtime pins, install commands, offline defaults, and documentation stay ali
 Programme execution helpers (no retrieval/ranking behaviour change): `rag-phase-launch-check.mjs`,
 `rag-task-brief.mjs`, `check-rag-phase-receipts.mjs`, and `build-rag-plan-packages.mjs`.
 
-For executable phone-chrome changes, use `verify:phone-chrome` before the broad UI gate. It checks installed-lock parity, then selects focused contracts and Playwright owners from the changed paths; shared foundations add `verify:ui` last. Documentation-only scopes run only documentation guards. `audit:final-merge` is local-only unless both `--providers` and `ALLOW_PROVIDER_READS=true` are supplied.
+Also catalogued (2026-09-02), gate and CI helpers:
+
+- `check-clinical-hazard-controls.mjs` (`check:clinical-hazard-controls`) — validates `docs/clinical-hazard-controls.json`: hazards H1–H6 present, every control state one of the four allowed values, the two named decision records present and dated.
+- `check-coverage-inventory.mjs` (`check:coverage-inventory`) + `coverage-contract.mjs` — the post-run LCOV guard that every file in the shared coverage include globs appears in the report, and the shared contract Vitest reads the same globs from.
+- `check-dead-code-candidate.mjs` (`check:dead-code-candidate`) — refuses to call a symbol dead on "nothing imports it" (unchecked plan boxes, fixtures, dynamic references); see `docs/agents/dead-code-deletion.md`.
+- `check-diff-integrity.mjs` (`check:diff-integrity`) — refuses a diff that silently destroys committed content (test-case floors, truncation artefacts; written after `#Y30AXB`); see `docs/agents/test-deletion-guard.md`.
+- `check-ledger-write-discipline.mjs` (`check:ledger-write-discipline`) — enforces the conflict-free ledger architecture at the Git boundary: immutable review records, one serial outstanding-issues reconciliation.
+- `check-mockup-retirement.mjs` (`check:mockups`) — makes the written record in `mockups/README.md`, not a reachability scan, the gate on retiring a mockup.
+- `check-outstanding-issues-snapshot.mjs` (`check:outstanding-issues-snapshot`) + `generate-outstanding-issues-snapshot.mjs` (`snapshot:issues`; also `prebuild`/`postbuild`) — `data/outstanding-issues-snapshot.json` freshness and generation.
+- `check-repo-awareness-snapshot.ts` (`check:repo-awareness-snapshot`) + `generate-repo-awareness-snapshot.ts` (`snapshot:repo-awareness`) — `data/repo-awareness-snapshot.json` (routes, documentation catalogue coverage, review state) freshness and generation.
+- `check-privacy-readiness.mjs` (`check:privacy-readiness`, `check:privacy-readiness:release`) — validates `docs/governance/privacy-readiness.v1.json` required ids and release-blocking states.
+- `check-source-catalogue.ts` (`check:source-catalogue`) — repository source references, providers and coverage issues from `src/lib/sources/repository-providers`.
+- `check-stale-docs.mjs` (`check:stale-docs`) — advisory report of Markdown docs untouched for `--days` and linked from nowhere; refuses shallow clones.
+- `check-playwright-browser-revision.mjs` (`check:playwright-browser-revision`) — fails closed unless the pinned Chromium revision has a launchable binary on disk (`#312`).
+- `playwright-pr-shards.mjs` (`check:playwright-pr-shards`) — duration-aware shard groups for the required Chromium PR journeys.
+- `browser-test-plan.mjs` (`plan:browser`, `check:browser-test-plan`) — chooses the smallest browser gate that still covers a change.
+- `classify-visual-baseline-outcome.mjs` — decides whether a failed `test:e2e:visual` run was pixel drift (advisory) or an infrastructure failure that stays red.
+- `lighthouse-measurement-outcome.mjs`, `lighthouse-time-budget.mjs`, `live-web-vitals-inputs.mjs` — Lighthouse budget runner helpers: whether a cell produced gradeable evidence, bounded-stage timing, and validation of the dispatch-only live Web Vitals matrix.
+- `check-image-content-contract.mjs`, `trivy-image-scan.mjs`, `resolve-oci-image-digest.mjs`, `app-container-smoke.mjs` (`smoke:app-container`) — container CI: final-image hardening assertions, pinned Trivy scan + SBOM, multi-platform digest lookup for pinning base images, and a provider-free boot smoke of the built app image.
+- `check-worker-python-lock.mjs` (`check:worker-python-lock`, `check:worker-python-cloud-lock`, `check:worker-python-locks:static`), `generate-worker-python-lock.mjs` (`generate:worker-python-lock`, `generate:worker-python-cloud-lock`), `worker-python-lock-config.mjs` — the hashed `worker/python/requirements.txt` lock targets.
+- `check-dev-drive-cache.mjs` (`check:dev-drive-cache`) — Windows Dev Drive npm cache registration and Defender trust (`#6SMMB4`).
+
+Also catalogued (2026-09-04):
+
+- `check-chain-mirror-parity.ts` (`check:chain-mirror-parity`) — replays the migration chain and diffs the result against `supabase/schema.sql`, catching drift that "chain applies" and "manifest is not stale" checks both miss.
+- `check-dependency-drift.mjs` (`check:dependency-drift`) — flags a surface whose transitive import closure changed even though the files a staleness check names directly did not.
+- `check-design-drift-ratchet.mjs` (`check:design-drift-ratchet`) — ratchet guard for two design-token drift metrics (bypass-prone inline `style={{ }}` under `src/**`; design-system components with zero product importers).
+- `stamp-service-worker.mjs` (part of `build:internal`) — gives `public/sw.js` a different body on every build so the browser's byte comparison detects an update and fires `updatefound`/`activate`.
+
+use `verify:phone-chrome` before the broad UI gate. It checks installed-lock parity, then selects focused contracts and Playwright owners from the changed paths; shared foundations add `verify:ui` last. Documentation-only scopes run only documentation guards. `audit:final-merge` is local-only unless both `--providers` and `ALLOW_PROVIDER_READS=true` are supplied.
 
 ## Ingestion, indexing & reindex [live]
 
@@ -87,6 +122,14 @@ For executable phone-chrome changes, use `verify:phone-chrome` before the broad 
 `audit-public-document-approvals.ts`, `production-readiness.ts`, `check-supabase-project.ts`,
 `check-default-acl.ts`, `check-drift.ts`, `generate-drift-manifest.ts`,
 `check-migration-history-alignment.ts`.
+
+Also catalogued (2026-09-02): `build-medication-interaction-index.ts` (`medications:interactions` /
+`check:medication-interactions` — builds `data/medication-interaction-index.json` from the catalogue
+snapshot and the curated lexicon), `build-medication-lexicon-report.ts` (`medications:lexicon-report` /
+`check:medication-lexicon-report` — renders the lexicon as the clinician-reviewable
+`docs/medication-interaction-lexicon-review.md`), `probe-corpus-image-encodings.mjs` (reports image
+encoding / stream-filter patterns across the corpus PDFs), and `inspect-shadow-extraction.ts` (reads the
+docling-vs-legacy B4 shadow-extraction measurements; see `docs/worker-deploy-runbook.md`).
 
 ## RAG evaluation [live]
 
@@ -126,14 +169,25 @@ the task before you start.
 
 `seed-registry-records.ts`, `embed-registry-records.ts`, `reconcile-registry-governance.ts`,
 `import-services-export.ts`, `import-differentials-export.ts`, `seed-differential-records.ts`,
-`import-medications-export.ts`, `seed-medication-records.ts`.
+`import-medications-export.ts`, `seed-medication-records.ts`, `review-therapy.mjs`
+(`therapy:review` — report-only by default; qualified-clinician, interactive-TTY sign-off only;
+source and generated bytes roll back together on failure unless a concurrent source edit must be
+preserved, in which case generated assets return to their exact pre-review state and the CLI fails).
+Also catalogued (2026-09-02): `build-mha-act-sections.mjs` (`check:mha-act-sections` — extracts and
+curates the plain-English Mental Health Act 2014 (WA) section summaries the Forms mode cites).
 
 ## Build & assets [live/infra]
 
 `build-worker.mjs`, `build-analyze.mjs`, `build-therapies-index.mjs`,
 `build-cross-mode-differentials-index.mjs`, `build-ranking-snapshot.ts`,
+`build-forms-pdf-manifest.mjs` (`check:forms-pdf-manifest` — derives each committed WA MHA form
+PDF's sha256, size, and whether opening it needs a user password; offline, fails closed),
 `generate-site-map.ts`, `generate-brand-assets.ts`, `generate-sample-documents.ts`,
 `check-sample-extraction.ts`, `optimize-public-images.mjs`.
+Also catalogued (2026-09-02): `generate-gates-figures.mjs` (`design-system:gates-figures:update`;
+part of `check:design-system-contract` — the ratchet-figures block in `docs/design-system/GATES.md`) and
+`token-layer-divergences.mjs` (`design-system:token-divergence:update`; part of
+`check:design-system-contract` — the v1/v2 token-layer divergence contract).
 
 ## Maintenance & ops [live]
 
@@ -141,19 +195,36 @@ the task before you start.
 `promote-query-misses.ts`, `flake-ledger.mjs`, `sweep-branch-ledger.mjs`, `dependency-report.mjs`,
 `set-site-administrator.ts`, `ops-digest.mjs`, `build-clinical-review-queue.ts`,
 `verify-locality-metadata.ts`, `update-docs-inventory.mjs`.
+Also catalogued (2026-09-04), landed without `package.json` wiring yet: `check-ward-data.mjs` —
+reads the Ward Flow prototype's changeable data (bed numbers, hospitals, wards) and reports
+arithmetic that does not add up, in plain words aimed at a non-programmer editor; read-only and
+offline. `run-ward-tests.mjs` — runs a named set of Vitest files and refuses to report success
+unless every file handed in actually produced a result, closing a false-green mode where a crashed
+worker still prints an internally consistent pass count.
 
 ### Review ledger, branches and skills [live]
 
 - `branch-review-ledger.mjs` — the **only** way to read or write `docs/branch-review-ledger.md`
   (`ledger:lookup` / `ledger:append` / `ledger:dedupe` / `ledger:rotate`). Never hand-write a row.
-- `merge-branch-review-ledger.mjs` — the `merge=ledger` union driver from `.gitattributes`;
-  `check-branch-review-ledger.mjs` fails if that protection is lost.
+- `merge-branch-review-ledger.mjs` — historical: the `merge=ledger` union driver it implemented was
+  removed from `.gitattributes` (ledger #133); the script is retained for reference only.
 - `sync-open-pr-branches.mjs` (`sync:pr-branches`), `sync-pr-branches.mjs` (compatibility entry point) — anti-churn sync for stale open PR heads;
   refuses a missing or bot `gh` identity. `sweep-merged-branches.mjs` — merged-branch sweep.
 - `reconciliation-preflight.mjs`, `reconciliation-evidence-pack.mjs` — broad chat/worktree
   reconciliation entry point and its evidence bundle; see `docs/reconciliation-playbook.md`.
 - `list-database-skills.mjs` (`skills` / `check:skills`), `sync-skills.mjs`, `skill-create.mjs` —
   the `.agents/skills/` catalogue.
+- Also catalogued (2026-09-02): `generate-branch-review-index.mjs` (`ledger:index` /
+  `ledger:index:check` — renders `docs/branch-review-index.md`); `ledger-inbox.mjs`
+  (`issues:add` / `issues:update` / `issues:done` / `issues:queue` / `issues:reconcile` and
+  `check:outstanding-issues` — the conflict-free intake for the outstanding-issues ledger);
+  `issue-id.mjs` (ULID / legacy / display issue-id patterns shared by the ledger tooling);
+  `issues-report.mjs` (`issues:report`); `setup-codex-worktree.mjs` (`setup:codex-worktree` —
+  one isolated exact-lock worktree for sweeps); `worktree-cleanup.mjs` (safe orphan-worktree
+  pruning and reporting, `#6GW95D`); `retryable-fs.mjs` (Windows-safe recursive removal retries
+  shared by the worktree tools); `diagnose-codex-cloud.mjs` (`diagnose:codex-cloud`);
+  `rebuild-caring-contacts-sdd-workspace.mjs` (rebuilds the disposable `.superpowers/sdd/`
+  workspace for the Caring Contacts plans from the tracked records).
 
 ### Live/staging verification [live]
 

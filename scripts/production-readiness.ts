@@ -1,5 +1,6 @@
 import { ragAdaptiveAnswerProducerAvailable, ragAdaptiveAnswerRenderAvailable } from "@/lib/rag/rag-versioning";
 import { access, readFile } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
 import { constants } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -135,6 +136,133 @@ export function ragProgrammeReadinessPolicy(
   return failures;
 }
 
+export type ClinicalAskReadinessStatus = "config_present" | "evidence_supplied" | "blocked" | "not_verified";
+export type ClinicalAskReadinessFinding = {
+  area: string;
+  status: ClinicalAskReadinessStatus;
+  message: string;
+};
+
+const acceptedClinicalAskEvidenceStatuses = new Set(["accepted", "applied", "approved", "green", "passed", "verified"]);
+
+function readClinicalAskEvidenceArtifact(filePath: string) {
+  try {
+    return readFileSync(filePath, "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+export function validClinicalAskEvidenceArtifact(content: string | undefined, expectedArea: string) {
+  if (!content?.trim()) return false;
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") return false;
+    const requiredText = (key: "issuer" | "target" | "scope") =>
+      typeof parsed[key] === "string" && parsed[key].trim().length > 0;
+    const date = typeof parsed.date === "string" ? parsed.date.trim() : "";
+    const status = typeof parsed.status === "string" ? parsed.status.trim().toLowerCase() : "";
+    return (
+      parsed.area === expectedArea &&
+      requiredText("issuer") &&
+      requiredText("target") &&
+      requiredText("scope") &&
+      /^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(date) &&
+      Number.isFinite(Date.parse(date)) &&
+      acceptedClinicalAskEvidenceStatuses.has(status)
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function clinicalAskReadinessFindings(
+  environment: Record<string, string | undefined>,
+  fileExists: (filePath: string) => boolean = existsSync,
+  readArtifact: (filePath: string) => string | undefined = readClinicalAskEvidenceArtifact,
+): ClinicalAskReadinessFinding[] {
+  const enabled = environment.CLINICAL_ASK_ENABLED;
+  const external = environment.CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED;
+  const disabledModes = environment.CLINICAL_ASK_DISABLED_MODES;
+  const transcriptionModel = environment.OPENAI_TRANSCRIPTION_MODEL?.trim();
+  const launchRequested = enabled === "true";
+  const configured = (area: string, condition: boolean, message: string): ClinicalAskReadinessFinding => ({
+    area,
+    status: condition ? "config_present" : "blocked",
+    message,
+  });
+  const evidence = (area: string, artifact: string, message: string): ClinicalAskReadinessFinding => {
+    const supplied = fileExists(artifact) && validClinicalAskEvidenceArtifact(readArtifact(artifact), area);
+    return {
+      area,
+      status: supplied ? "evidence_supplied" : "not_verified",
+      message: `${message} (${artifact})`,
+    };
+  };
+
+  return [
+    configured("master flag", enabled === "true" || enabled === "false", "CLINICAL_ASK_ENABLED must be explicit."),
+    configured(
+      "external flag",
+      external === "true" || external === "false",
+      "CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED must be explicit.",
+    ),
+    configured(
+      "emergency denylist",
+      disabledModes !== undefined && (!launchRequested || disabledModes.trim() === ""),
+      "CLINICAL_ASK_DISABLED_MODES must be explicit and empty for a seven-mode launch claim.",
+    ),
+    configured("transcription model", Boolean(transcriptionModel), "OPENAI_TRANSCRIPTION_MODEL must be explicit."),
+    configured(
+      "migration file",
+      fileExists("supabase/migrations/20260822120000_expand_answer_feedback_for_clinical_ask.sql"),
+      "The Clinical Ask feedback migration file must be present.",
+    ),
+    evidence(
+      "hosted migration",
+      ".local/clinical-ask-evidence/hosted-migration.json",
+      "Hosted feedback-migration state is not verified by repository presence.",
+    ),
+    evidence(
+      "authority approval",
+      ".local/clinical-ask-evidence/authority-approval.json",
+      "Authority-registry approval is not verified by code presence.",
+    ),
+    evidence(
+      "synthetic evaluation",
+      ".local/clinical-ask-evidence/synthetic-evaluation.json",
+      "A synthetic seven-mode clinical evaluation artefact is required.",
+    ),
+    evidence(
+      "protected staging canary",
+      ".local/clinical-ask-evidence/protected-staging-canary.json",
+      "A protected-staging live canary artefact is required.",
+    ),
+    evidence(
+      "contractual retention and region",
+      ".local/clinical-ask-evidence/contractual-basis.json",
+      "Provider retention, region, and contractual basis are not verified by application configuration.",
+    ),
+    evidence(
+      "physical iPhone acceptance",
+      ".local/clinical-ask-evidence/physical-iphone-acceptance.json",
+      "Physical iPhone Safari and installed-PWA microphone acceptance is required; Chromium emulation is insufficient.",
+    ),
+  ];
+}
+
+function recordClinicalAskReadiness() {
+  const findings = clinicalAskReadinessFindings(process.env);
+  const launchRequested = process.env.CLINICAL_ASK_ENABLED === "true";
+  for (const finding of findings) {
+    const line = `Clinical Ask ${finding.status.replace("_", " ")} — ${finding.area}: ${finding.message}`;
+    if (finding.status === "config_present" || finding.status === "evidence_supplied") result.passes.push(line);
+    else if (finding.status === "blocked" && !isCiMode && !providerFreeCodexCloud) result.failures.push(line);
+    else if (launchRequested) result.failures.push(line);
+    else result.warnings.push(line);
+  }
+}
+
 async function checkRequiredFile(filePath: string, message: string) {
   try {
     await access(filePath, constants.F_OK);
@@ -214,6 +342,40 @@ function recordAnswerPersistenceProductionCheck() {
   }
 }
 
+/**
+ * #L30: a single public build-time flag (`NEXT_PUBLIC_MOCKUPS_ENABLED=true`),
+ * set alone, used to disable the developer-area administrator gate
+ * (`DeveloperAreaGate`) in production for `/mockups/development`,
+ * `/mockups/caring-contacts/**`, `/mockups/care-plan/**` and
+ * `/mockups/ward-flow/**`. The gate now bypasses in production only under the
+ * exact same double-flag pairing `src/proxy.ts`'s `shouldBlockProductionMockups`
+ * reserves for the isolated Playwright production build
+ * (`developerGateBypassAllowed()` in `src/lib/developer-area/access.ts`). This
+ * still deserves a release-time assertion so a Railway variable set alone in a
+ * real deployment fails readiness instead of silently opening the gate again.
+ */
+export function mockupsGateProductionRisk(
+  environment: Record<string, string | undefined> = process.env,
+): "none" | "playwright-exception" | "unguarded" {
+  const productionLike = environment.NODE_ENV === "production" || environment.VERCEL_ENV === "production";
+  if (!productionLike || environment.NEXT_PUBLIC_MOCKUPS_ENABLED !== "true") return "none";
+  return environment.PLAYWRIGHT_OFFLINE_MODE === "true" ? "playwright-exception" : "unguarded";
+}
+
+function recordMockupsGateProductionCheck() {
+  const risk = mockupsGateProductionRisk();
+  if (risk === "unguarded") {
+    result.failures.push(
+      "NEXT_PUBLIC_MOCKUPS_ENABLED=true is set in a production-like environment without PLAYWRIGHT_OFFLINE_MODE=true. " +
+        "This pairing must stay reserved for the isolated Playwright production build (#L30) — set NEXT_PUBLIC_MOCKUPS_ENABLED=false on a real deployment.",
+    );
+  } else if (risk === "playwright-exception") {
+    result.warnings.push(
+      "NEXT_PUBLIC_MOCKUPS_ENABLED=true with PLAYWRIGHT_OFFLINE_MODE=true bypasses the developer-area administrator gate; confirm this is the isolated Playwright production build, not a real deployment.",
+    );
+  }
+}
+
 async function checkFileForServiceRoleExposure() {
   const envFiles = [".env", ".env.production", ".env.development"];
   for (const fileName of envFiles) {
@@ -273,10 +435,12 @@ async function main() {
     );
   recordNoAuthProductionCheck();
   recordDemoModeProductionCheck();
+  recordMockupsGateProductionCheck();
   recordRawQueryPersistenceProductionCheck();
   recordAnswerPersistenceProductionCheck();
   await checkFileForServiceRoleExposure();
   await checkQueryHashGuardWiring();
+  recordClinicalAskReadiness();
 
   if (!(await checkRequiredFile(path.join(process.cwd(), "package-lock.json"), "package-lock.json is required"))) {
     // keep going so we can show all diagnostics

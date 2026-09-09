@@ -11,7 +11,7 @@ import { THERAPY_CATALOGUE_ASSETS } from "./generated-assets";
 const BASE = "/therapy-compass-data";
 
 type TherapyDataOptions = {
-  catalogue?: "home" | "index" | "full";
+  catalogue?: "index" | "full";
   includePathways?: boolean;
   includeReference?: boolean;
   /** Skip all catalogue I/O for routes whose first paint uses generated summary metadata only. */
@@ -44,7 +44,6 @@ async function fetchJson<T>(path: string): Promise<T> {
 const CATALOGUE_ALIASES = {
   full: "therapies.json",
   index: "therapies-index.json",
-  home: "therapies-home.json",
 } as const;
 
 /**
@@ -55,7 +54,7 @@ const CATALOGUE_ALIASES = {
  * and an error screen on a route it had already loaded once. The alias is the
  * standing answer to that, so use it rather than surfacing a dead catalogue.
  */
-async function fetchCatalogue(catalogue: "home" | "index" | "full"): Promise<Therapy[]> {
+async function fetchCatalogue(catalogue: "index" | "full"): Promise<Therapy[]> {
   try {
     return await fetchJson<Therapy[]>(`${BASE}/${THERAPY_CATALOGUE_ASSETS[catalogue]}`);
   } catch {

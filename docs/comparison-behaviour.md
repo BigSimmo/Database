@@ -4,8 +4,15 @@ This is the shared interaction contract for side-by-side comparison surfaces. It
 selection, state, navigation, and accessibility without standardising the clinical fields or the
 meaning of a comparison.
 
-Existing reference surfaces are differential diagnosis, Services Navigator, and Therapy Compass.
-New comparison work should reuse this behaviour before introducing another interaction model.
+Dictionary (`/dictionary/compare`) is the **selection interaction** reference: empty-first slots,
+a catalogue search sheet (phone sheet / desktop inline panel), starter chips, shareable URL,
+Done/Reset, duplicate blocking, and focus return. Specifiers, Formulation, DSM, Therapy Compass,
+and Differentials reuse that picker primitive (`src/components/compare/`). They do **not** share
+comparison tables, field rows, or clinical copy — those stay mode-owned.
+
+Services Navigator remains a content/shortlist reference, not a catalogue compare route. Therapy
+Compass remains a content reference for multi-column field tables. New comparison work should reuse
+the Dictionary picker behaviour before introducing another interaction model.
 
 ## Selection contract
 
@@ -68,3 +75,22 @@ governance, and safety contracts. Adding a new comparison surface must document:
 Do not create a shared clinical comparison component until at least two modes use the same field
 semantics. Shared selection helpers or layout primitives are acceptable when they preserve each
 mode's content ownership.
+
+## Catalogue picker (Dictionary interaction)
+
+`src/components/compare/` is the shared picker: labelled slots, local filter input (not `SearchField`),
+phone `Sheet` / desktop inline panel, starter chips, live-region announcements, and URL commit helpers
+(`pairCompareHref` / `idsCompareHref`). In-sheet search is a local filter. Record-page Compare links
+may pre-fill one slot and open the picker on the rest. Deep links stay valid.
+
+| Mode            | Record    | Min / max                | URL               | Starter chips                                              |
+| --------------- | --------- | ------------------------ | ----------------- | ---------------------------------------------------------- |
+| Dictionary      | Term      | 2 / 2                    | `?a=` `&` `?b=`   | MSE vs MMSE; delirium vs dementia; mood vs affect          |
+| Specifiers      | Specifier | 2 / 2                    | `?a=` `&` `?b=`   | Anxious distress vs mixed; melancholic vs atypical         |
+| Formulation     | Mechanism | 2 / 2                    | `?a=` `&` `?b=`   | Rumination vs worry; avoidance vs shame                    |
+| DSM             | Diagnosis | 2 / 3                    | `?ids=`           | MDD vs bipolar II vs PDD (chips, not an auto-filled table) |
+| Therapy Compass | Therapy   | 2 / 4                    | `?ids=`           | CBT vs ACT                                                 |
+| Differentials   | Diagnosis | 1+ queue, then workspace | `?ids=` `&` `?q=` | Delirium vs dementia; intoxication vs withdrawal           |
+
+Swap is only offered when exactly two slots are filled. Medications and Tools have no compare route.
+Do not add a second page composer on compare routes.

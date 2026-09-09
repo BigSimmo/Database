@@ -13,21 +13,30 @@ then the plan for the phase being executed.
 
 ## Where the build is
 
-Branch `codex/ward-management-design`, worktree
-`C:/Users/joshs/.codex/worktrees/ward-management-design/Database`. Nothing pushed. No PR.
+Branch `codex/ward-management-design` (PR #2289). Phase 3 is the successor of the #2140 squash on main; constellation remains only as a redirect.
 
-| Phase                                      | Plan                                                                                                       | State                                                                            |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| 1 — the model                              | [`plans/2026-08-18-ward-flow-phase-1-model.md`](./superpowers/plans/2026-08-18-ward-flow-phase-1-model.md) | **Complete.** All 8 tasks reviewed; whole-branch review clean after one fix wave |
-| 2 — coordinator screen                     | not written                                                                                                | Next to plan                                                                     |
-| 3 — ED, ward and transport officer screens | not written                                                                                                |                                                                                  |
-| 4 — specialist boards and escalation       | not written                                                                                                |                                                                                  |
+| Phase                                      | Plan                                                                                                                                 | State                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| 1 — the model                              | [`plans/2026-08-18-ward-flow-phase-1-model.md`](./superpowers/plans/2026-08-18-ward-flow-phase-1-model.md)                           | **Complete.** Landed on main via PR #2140; Phase 3 continues that lineage on PR #2289 |
+| 2 — coordinator screen                     | [`plans/2026-08-18-ward-flow-phase-2-coordinator-screen.md`](./superpowers/plans/2026-08-18-ward-flow-phase-2-coordinator-screen.md) | **Complete.** Live coordinator plus retired constellation (redirect to network)       |
+| 3 — ED, ward and transport officer screens | [`plans/2026-08-19-ward-flow-phase-3-role-screens.md`](./superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md)             | **Complete on this branch.** Live reducer, Form 1A→3B, role screens                   |
+| 4 — specialist boards and escalation       | not written                                                                                                                          | Not started                                                                           |
 
 Phase boundaries are in §18 of the spec.
 
 ## What Phase 1 replaced
 
 One 736-line `synthetic-fixtures.ts` became five focused modules plus a derivations module:
+
+> ℹ️ **CORRECTION — 23 units, 50 movements and 9 bed releases, not 22, 48 and 6.** Measured
+> 2026-09-01: pinned by `tests/ward-flow-provider.dom.test.tsx` (`toHaveTextContent("23")` for
+> units, `toHaveTextContent("50")` for movements, with a comment there noting "48 -> 50 on
+> 2026-08-30: WF-019 and WF-020"), and `bedReleases` in
+> `src/components/ward-management/ward-movements.ts` holds ids `WR-001` through `WR-009` (9
+> entries). This applies to the `ward-sites.ts` and `ward-movements.ts` rows in the table below —
+> a table row cannot carry a banner directly without breaking the table's markdown, so this note is
+> placed immediately above the whole table instead. Those rows are stale; this is a correction of
+> fact, not a reversed decision.
 
 | Module                | Holds                                                                                                                                                                             |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

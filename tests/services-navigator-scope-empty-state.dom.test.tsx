@@ -102,9 +102,9 @@ describe("services scope segment vs the query-empty state", () => {
   });
 
   it("marks a zero-count care lens as unavailable from the active facet set", () => {
-    // The committed catalogue has three General-setting services and none of
-    // them are AOD-specific. The AOD lens would therefore be a dead end.
-    paramsState.search = "setting_flags=general";
+    // The committed catalogue has home-based services but none of them are
+    // AOD-specific. The AOD lens would therefore be a dead end.
+    paramsState.search = "housing_flags=home_based";
     render(<ServicesNavigatorPage />);
 
     fireEvent.click(screen.getByTestId("service-filter-trigger-desktop"));

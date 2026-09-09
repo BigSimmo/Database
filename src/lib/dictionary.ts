@@ -1,4 +1,5 @@
-import { normalizeSearchText } from "@/lib/catalog-search";
+import { includesWholeTerm, normalizeSearchText } from "@/lib/catalog-search";
+import { smartSearchContentTerms } from "@/lib/smart-search-intent";
 import {
   dictionaryComparisonPairs,
   dictionaryEntries,
@@ -30,6 +31,7 @@ export type DictionarySort = "relevance" | "az";
 
 export type DictionaryFilters = {
   q: string;
+  expansions?: readonly string[];
   view: DictionarySearchView;
   topics: readonly string[];
   kinds: readonly DictionaryEntryKind[];
@@ -134,6 +136,23 @@ function entryScore(entry: DictionaryEntry, query: string) {
       reason: exactAlias.alias.kind === "abbreviation" ? `Abbreviation: ${exactAlias.alias.value}` : "Exact alias",
     };
   }
+  // Natural-language catalogue queries often wrap an exact identity in a
+  // sentence. Give a mentioned term or alias the same priority class as a
+  // direct lookup, before broad Smart expansions can tie dozens of incidental
+  // records. Padding both sides keeps a short abbreviation such as MSE from
+  // matching inside another normalized word.
+  const paddedQuery = ` ${normalized} `;
+  if (paddedQuery.includes(` ${term} `)) return { score: 96, reason: "Mentioned term" };
+  const mentionedAlias = aliases.find(({ normalized: value }) => paddedQuery.includes(` ${value} `));
+  if (mentionedAlias) {
+    return {
+      score: mentionedAlias.alias.kind === "abbreviation" ? 95 : 92,
+      reason:
+        mentionedAlias.alias.kind === "abbreviation"
+          ? `Mentioned abbreviation: ${mentionedAlias.alias.value}`
+          : "Mentioned alias",
+    };
+  }
   if (term.startsWith(normalized)) return { score: 88, reason: "Term begins with the search" };
   if (aliases.some(({ normalized: value }) => value.startsWith(normalized))) {
     return { score: 82, reason: "Alias begins with the search" };
@@ -145,6 +164,23 @@ function entryScore(entry: DictionaryEntry, query: string) {
   );
   if (context.includes(normalized)) return { score: 44, reason: "Definition or context match" };
   return null;
+}
+
+function relatedEntryScore(entry: DictionaryEntry, normalizedExpansions: readonly string[]) {
+  if (!normalizedExpansions.length) return null;
+  const identities = [entry.term, ...entry.aliases.map((alias) => alias.value)].map(normalizeSearchText);
+  const searchable = normalizeSearchText(
+    `${entry.term} ${entry.aliases.map((alias) => alias.value).join(" ")} ${entry.definition} ${entry.meaning} ${entry.context.join(" ")} ${dictionaryKindLabel(entry.kind)}`,
+  );
+  const score = normalizedExpansions.reduce((best, term) => {
+    const specificity = term.includes(" ") ? term.split(" ").length : 1;
+    if (identities.some((identity) => identity === term)) return Math.max(best, 43.5 + specificity / 10);
+    if (identities.some((identity) => includesWholeTerm(identity, term)))
+      return Math.max(best, 43.25 + specificity / 10);
+    if (includesWholeTerm(searchable, term)) return Math.max(best, 43 + specificity / 100);
+    return best;
+  }, 0);
+  return score ? { score, reason: "Related search term" } : null;
 }
 
 function abbreviationGroups(entries: readonly DictionaryEntry[]) {
@@ -163,10 +199,11 @@ export function searchDictionary(filters: DictionaryFilters): DictionarySearchHi
   const filteredEntries = allDictionaryEntries.filter((entry) => entryPassesFilters(entry, filters));
   const hits: DictionarySearchHit[] = [];
   const q = filters.q;
+  const normalizedExpansions = filters.expansions?.map(normalizeSearchText).filter(Boolean) ?? [];
 
   if (filters.view === "all" || filters.view === "definitions") {
     for (const entry of filteredEntries) {
-      const match = entryScore(entry, q);
+      const match = entryScore(entry, q) ?? relatedEntryScore(entry, normalizedExpansions);
       if (match) hits.push({ type: "entry", entry, ...match });
     }
   }
@@ -176,18 +213,25 @@ export function searchDictionary(filters: DictionaryFilters): DictionarySearchHi
     for (const [abbreviation, senses] of abbreviationGroups(filteredEntries)) {
       const normalizedAbbreviation = normalizeSearchText(abbreviation);
       const searchable = normalizeSearchText(`${abbreviation} ${senses.map((entry) => entry.term).join(" ")}`);
-      if (!normalizedQuery || searchable.includes(normalizedQuery)) {
+      const relatedMatch = senses.some((entry) => relatedEntryScore(entry, normalizedExpansions));
+      if (!normalizedQuery || searchable.includes(normalizedQuery) || relatedMatch) {
+        const directMatch = !normalizedQuery || searchable.includes(normalizedQuery);
         hits.push({
           type: "abbreviation",
           abbreviation,
           senses,
-          score:
-            normalizedAbbreviation === normalizedQuery
+          score: directMatch
+            ? normalizedAbbreviation === normalizedQuery
               ? 99
               : normalizedAbbreviation.startsWith(normalizedQuery)
                 ? 84
-                : 55,
-          reason: senses.length > 1 ? `${senses.length} recognised meanings` : "Governed abbreviation",
+                : 55
+            : 43,
+          reason: directMatch
+            ? senses.length > 1
+              ? `${senses.length} recognised meanings`
+              : "Governed abbreviation"
+            : "Related search term",
         });
       }
     }
@@ -199,12 +243,14 @@ export function searchDictionary(filters: DictionaryFilters): DictionarySearchHi
     for (const topic of dictionaryTopics) {
       if (!allowedTopics.has(topic.slug)) continue;
       const searchable = normalizeSearchText(`${topic.title} ${topic.description}`);
-      if (!normalizedQuery || searchable.includes(normalizedQuery)) {
+      const relatedMatch = normalizedExpansions.some((term) => includesWholeTerm(searchable, term));
+      if (!normalizedQuery || searchable.includes(normalizedQuery) || relatedMatch) {
+        const directMatch = !normalizedQuery || searchable.includes(normalizedQuery);
         hits.push({
           type: "topic",
           topic,
-          score: normalizeSearchText(topic.title) === normalizedQuery ? 96 : 42,
-          reason: `${topic.entrySlugs.length} governed terms`,
+          score: directMatch ? (normalizeSearchText(topic.title) === normalizedQuery ? 96 : 42) : 43,
+          reason: directMatch ? `${topic.entrySlugs.length} governed terms` : "Related search term",
         });
       }
     }
@@ -250,7 +296,7 @@ export type DictionaryCatalogueSort = "relevance" | "az" | "za";
 export type DictionaryCatalogueParams = {
   q: string;
   scope: DictionaryCatalogueScope;
-  /** `all`, or a single A–Z initial. Ignored while a query runs — see below. */
+  /** `all`, or a single A–Z initial. Always applied: the A–Z control stays on the page. */
   letter: string;
   topics: readonly string[];
   kinds: readonly DictionaryEntryKind[];
@@ -293,44 +339,35 @@ export function parseDictionaryCatalogueParams(params: URLSearchParams): Diction
 }
 
 /**
+ * The URL keys a "clear the search" control has to remove.
+ *
+ * Facets and the letter jump stay: they remain visible on the page after the
+ * query is dismissed, each removable in one tap. Dropping `letter` would reset
+ * an A–Z choice the chip still shows. Anything `dictionaryCatalogue` learns to
+ * ignore while searching belongs in this list; `tests/dictionary-data.test.ts`
+ * pins the pair together.
+ */
+export const dictionaryClearedQueryKeys = ["q", "query", "run"] as const;
+
+/**
  * One selector for the merged catalogue: the query, the scope, the alphabet and
  * the facets all narrow the same list.
  *
- * **The letter is dropped while a query runs.** The alphabetical index stands
- * down mid-search in the UI — an A–Z jump is meaningless against a ranked result
- * set and only competes for phone width — so honouring a stale `letter` here
- * would silently withhold matches with no visible control to explain it. That is
- * exactly the "filter the reader cannot see" failure `docs/filter-contract.md`
- * exists to prevent, so the rule lives with the predicate rather than in the
- * component that happens to hide the chip.
+ * The A–Z control stays visible during a search, so a `letter` in the URL is
+ * never an invisible filter. Honouring it here is what `docs/filter-contract.md`
+ * requires of a control the reader can still see.
  */
-/**
- * The URL keys a "clear the search" control has to remove.
- *
- * `letter` is the one that is easy to miss, and it lives here rather than in the
- * component because it is the direct consequence of the rule below: while a
- * query runs `dictionaryCatalogue` ignores `letter` and the chip that owns it
- * stands down, so a `letter` in the URL is invisible AND inert. Delete only
- * `q`/`query`/`run` and dismissing the search hands the reader back a catalogue
- * silently narrowed to one initial — 6 of 96 entries for `?q=tardive&letter=T`,
- * which is exactly what the Terms tab's own self-link produces — under a control
- * whose accessible name promises the whole catalogue.
- *
- * Anything `dictionaryCatalogue` learns to ignore while searching belongs in
- * this list too; `tests/dictionary-data.test.ts` pins the pair together.
- */
-export const dictionaryClearedQueryKeys = ["q", "query", "run", "letter"] as const;
-
 export function dictionaryCatalogue(params: DictionaryCatalogueParams): DictionarySearchHit[] {
   const filters: DictionaryFilters = {
     q: params.q,
+    expansions: smartSearchContentTerms("dictionary", params.q),
     view: params.scope,
     topics: params.topics,
     kinds: params.kinds,
     sources: params.sources,
     sort: params.sort === "relevance" ? "relevance" : "az",
   };
-  const letter = params.q ? "all" : params.letter;
+  const letter = params.letter;
   let hits = searchDictionary(filters).filter((hit) => {
     if (!letter || letter === "all") return true;
     return dictionaryBrowseLetter(hit) === letter.toLocaleUpperCase();

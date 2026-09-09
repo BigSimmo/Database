@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "63c45fd8-e812-471e-835f-e2713a603dd8",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#1PN5BM",
+    "outcome": "Closed as an intentionally monitored hazard rather than an outstanding implementation task. PR #2053 implemented the selected Option B: document-summary rows carry similarity_origin=document_context, while synthetic_text remains distinguishable. tests/rag-score.test.ts pins the discriminating pair: two document_context citations at or above 0.82 may yield high confidence, while identical synthetic_text scores cap at medium. docs/clinical-hazard-analysis.md H5a retains the unresolved governance question and trigger for revisiting it if measured safety evidence appears; no action is currently required and no behavior was changed for this administrative closure.",
+    "baseRowFingerprint": "ecab68942ebe0680d71a86086db61a38075433d535bf7629310a1acec3d0115f"
+  }
+}

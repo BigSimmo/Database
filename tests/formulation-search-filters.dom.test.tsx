@@ -31,6 +31,12 @@ afterEach(() => {
 });
 
 describe("FormulationHomePage filters", () => {
+  it("clears a failed search to the browsable catalogue route", () => {
+    render(<FormulationHomePage query="qzxvjkplm" autoRunSearch />);
+
+    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute("href", "/formulation/search");
+  });
+
   it("keeps one OR facet while round-tripping domain state in the URL", async () => {
     const user = userEvent.setup();
     const query = "coping";

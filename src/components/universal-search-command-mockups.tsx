@@ -102,7 +102,7 @@ const modeConfigs: Record<CommandMockModeId, ModeConfig> = {
       {
         id: "doc-2",
         title: "Psychotropic medications monitoring handbook",
-        meta: "Clinical KB Repository · v2.1 · p.18",
+        meta: "PsychSift Repository · v2.1 · p.18",
         badge: "Current",
         badgeTone: "success",
         detail: "84%",
@@ -268,7 +268,7 @@ const modeConfigs: Record<CommandMockModeId, ModeConfig> = {
     id: "differentials",
     label: "Differentials",
     icon: BrainCircuit,
-    placeholder: "Ask or search a presentation",
+    placeholder: "Ask or search a presentation...",
     defaultQuery: "confusion",
     examples: ["acute confusion", "first episode psychosis", "catatonia vs NMS"],
     recents: ["confusion", "serotonin syndrome", "alcohol withdrawal"],

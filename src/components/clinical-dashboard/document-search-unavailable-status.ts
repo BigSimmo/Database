@@ -20,7 +20,7 @@ export function deriveDocumentSearchUnavailable(input: {
   if (input.apiUnavailable) {
     return {
       message: input.deployedClinicalKb
-        ? "Clinical KB could not be reached. Check your connection and try again shortly."
+        ? "PsychSift could not be reached. Check your connection and try again shortly."
         : "The local API is unavailable. Check the app server before searching documents.",
       status: "error",
     };

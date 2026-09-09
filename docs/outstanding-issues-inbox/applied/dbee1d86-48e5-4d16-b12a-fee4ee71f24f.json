@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "dbee1d86-48e5-4d16-b12a-fee4ee71f24f",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "2a0a150f-19f5-4c92-8438-90b1806c8830",
+    "reason": "Duplicate of existing pending done request 346c12f3-fbcb-478f-bd86-d0c4aa0436c0 for #RZQQBT."
+  }
+}

@@ -1,47 +1,30 @@
 .modeShell {
-  --ward-blue: var(--clinical-accent);
-  --ward-blue-soft: var(--clinical-accent-soft);
-  --ward-blue-border: var(--clinical-accent-border);
-  --ward-canvas: var(--surface);
-  --ward-chrome: var(--surface-chrome);
-  --ward-subtle: var(--surface-subtle);
-  --ward-border: var(--border);
-  --ward-border-strong: var(--border-strong);
-  --ward-text: var(--text);
-  --ward-heading: var(--text-heading);
-  --ward-muted: var(--text-muted);
-  --ward-success: var(--success-text);
-  --ward-success-soft: var(--success-bg);
-  --ward-warning: var(--warning-text);
-  --ward-warning-soft: var(--warning-bg);
-  --ward-danger: var(--danger-text);
-  --ward-danger-soft: var(--danger-bg);
-  --ward-space-2: 0.125rem;
-  --ward-space-3: 0.1875rem;
-  --ward-space-4: 0.25rem;
-  --ward-space-6: 0.375rem;
-  --ward-space-7: 0.4375rem;
-  --ward-space-8: 0.5rem;
-  --ward-space-10: 0.625rem;
-  --ward-space-12: 0.75rem;
-  --ward-space-14: 0.875rem;
-  --ward-space-16: 1rem;
-  --ward-space-20: 1.25rem;
-  --ward-leading-compact: 1;
-  --ward-leading-tight: 1.2;
-  --ward-leading-body: 1.4;
-  --ward-leading-relaxed: 1.45;
-  --ward-leading-prose: 1.5;
+  composes: descendantKillWithScroll from "./ward-reduced-motion.module.css";
+  composes: wardTokens from "./ward-tokens.module.css";
+  /*
+   * These three are local, not part of the shared layer: nothing outside this file uses them,
+   * and the shared `ward-tokens.module.css` (Task 1) does not declare them. `--ward-leading-*`,
+   * `--ward-border`/`--ward-border-strong` and every other token this rule used to declare now
+   * come from the `wardTokens` compose above — and for `--ward-leading-compact` (was 1, now
+   * 1.1), `--ward-leading-tight` (was 1.2, now 1.15) and `--ward-leading-prose` (was 1.5, now
+   * 1.55) that is a deliberate change: this file had drifted from the other two declarations of
+   * the layer, and the shared file adopts the value the other two agreed on.
+   */
+  --ward-stroke-thin: 0.0625rem;
+  --ward-stroke-accent: 0.1875rem;
   --ward-radius-round: 50%;
-  --ward-z-base: 1;
-  --ward-z-phone: 20;
+
   display: grid;
   height: 100dvh;
   min-height: 44rem;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
-  grid-template-rows: 4rem auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
+  /* Task 9 Ruling 4: the nav row this used to reserve for the horizontal `WardModeNavigation`
+     strip is gone — those eight links now live inside `ClinicalRail` (grid-column 1), so
+     `.modeContent` is the second and last row. */
+  grid-template-rows: 4rem minmax(0, 1fr);
   overflow: hidden;
-  background: var(--ward-canvas);
+  /* The shell owns the ground — do not reintroduce a background here in any spelling
+     (`--ward-canvas`, `--ward-ground`, or otherwise). */
   color: var(--ward-text);
   font-variant-numeric: tabular-nums;
 }
@@ -56,6 +39,25 @@
   gap: var(--ward-space-16);
   border-bottom: 0.0625rem solid var(--ward-border);
   padding: 0 var(--ward-space-20);
+}
+
+/*
+ * The expanded sidebar panel names the prototype at the top of the screen already, so the header
+ * stops saying it a second time six inches to the right. The panel is a preceding sibling of this
+ * header inside the shell grid, which is what makes this expressible in CSS at all — neither
+ * component knows about the other.
+ *
+ * **The 64rem guard is load-bearing, not tidiness.** The panel is MOUNTED whenever the stored
+ * preference is expanded, at every width; below 64rem it is merely `display: none`. Without this
+ * media query the selector still matched that hidden aside on a tablet, so a user who had expanded
+ * the sidebar on a desktop and later opened the same browser at 820px saw the icon rail with the
+ * header brand suppressed — and nothing on screen named the prototype at all. Found in review on
+ * PR #2384; pinned by `tests/ward-sidebar-phone-contract.test.ts`.
+ */
+@media (min-width: 64rem) {
+  :global(aside[aria-label="Ward Flow sidebar"]) ~ .modeHeader .modeBrand {
+    display: none;
+  }
 }
 
 .modeIdentity {
@@ -133,14 +135,6 @@
   outline: 0;
 }
 
-/* The native ring is suppressed above, so the visible shell owns focus. Scoped
-   to the wrapper because the phone layout sets the select to opacity:0 - a ring
-   on the control itself would be invisible there. */
-.roleSelect:has(select:focus-visible) {
-  outline: 0.125rem solid var(--focus);
-  outline-offset: 0.125rem;
-}
-
 .headerMeta {
   display: flex;
   align-items: center;
@@ -151,7 +145,7 @@
 }
 
 .prototypeBadge,
-.aiBadge,
+.reviewBadge,
 .statusGood,
 .statusWarning,
 .statusDanger,
@@ -169,13 +163,13 @@
 }
 
 .prototypeBadge,
-.aiBadge {
+.reviewBadge {
   border-color: var(--ward-blue-border);
   background: var(--ward-blue-soft);
   color: var(--ward-blue);
 }
 
-.aiBadge svg {
+.reviewBadge svg {
   width: 0.875rem;
   height: 0.875rem;
 }
@@ -202,64 +196,34 @@
   color: var(--ward-muted);
 }
 
+/*
+ * Task 9 Ruling 4: `WardModeNavigation` now renders inside `ClinicalRail` (ward-management.module.css's
+ * flex-column `.clinicalRail`), not as a `.modeShell` grid child — this is a flex item within that
+ * column, not a positioned grid row. `flex: 1 1 0` + `min-height: 0` + `overflow-y: auto` means the
+ * eight mode links get their own scrollable region between the pinned app-switcher icons above and
+ * the pinned favourites/settings/avatar block below, so a short viewport scrolls this segment instead
+ * of squeezing or clipping the pinned ones. Individual links reuse `shellStyles.railLink` /
+ * `railLinkActive` directly (same 3rem icon-only tap targets as the app switcher) rather than the
+ * former `.modeLink`/`.modeLinkActive`/`.modeLabel`/`.modeShortLabel` rules, which this replaces.
+ *
+ * Dead: `WardModeNavigation` now uses `shellStyles.railLink` inside `.clinicalRail`.
+ * No TSX imports `styles.modeNavigation`. Keep the rule only as a documented unused
+ * leftover; do not wire it back without a layout owner.
+ */
 .modeNavigation {
   display: flex;
-  min-width: 0;
-  min-height: var(--spacing-tap);
-  align-items: stretch;
-  gap: var(--ward-space-2);
-  overflow-x: auto;
-  border-bottom: 0.0625rem solid var(--ward-border);
-  background: var(--ward-chrome);
-  padding: var(--ward-space-4) var(--ward-space-16);
-  scrollbar-width: thin;
-}
-
-.modeShell > .modeNavigation {
-  grid-column: 2;
-  grid-row: 2;
-}
-
-.modeLink,
-.modeLinkActive {
-  display: inline-flex;
-  min-width: max-content;
+  flex: 1 1 0;
+  min-height: 0;
+  flex-direction: column;
   align-items: center;
-  gap: var(--ward-space-7);
-  border: 0.0625rem solid transparent;
-  border-radius: var(--radius-md);
-  padding: 0 var(--ward-space-12);
-  color: var(--ward-muted);
-  font-size: var(--text-2xs);
-  font-weight: 650;
-}
-
-.modeLink:hover {
-  border-color: var(--ward-border);
-  background: var(--ward-canvas);
-  color: var(--ward-heading);
-}
-
-.modeLinkActive {
-  border-color: var(--ward-blue-border);
-  background: var(--ward-blue-soft);
-  color: var(--ward-blue);
-  box-shadow: var(--shadow-inset);
-}
-
-.modeLink svg,
-.modeLinkActive svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-.modeShortLabel {
-  display: none;
+  gap: var(--ward-space-6);
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .modeContent {
   grid-column: 2;
-  grid-row: 3;
+  grid-row: 2;
   display: grid;
   min-width: 0;
   min-height: 0;
@@ -291,24 +255,14 @@
   color: var(--ward-muted);
 }
 
-.pageGrid,
-.constellationGrid {
+.pageGrid {
   display: grid;
   min-height: 100%;
   gap: var(--ward-space-10);
-}
-
-.pageGrid {
   grid-template-columns: minmax(34rem, 1.55fr) minmax(19rem, 0.75fr);
 }
 
-.constellationGrid {
-  grid-template-columns: 14rem minmax(38rem, 1fr) 22rem;
-}
-
 .panel,
-.panelInset,
-.regionCluster,
 .summaryCard,
 .stageColumn,
 .exceptionRow,
@@ -354,13 +308,6 @@
   font-size: var(--text-2xs);
 }
 
-.compactQueue {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-  overflow: hidden;
-}
-
 .queueList,
 .dataList,
 .exceptionList,
@@ -369,29 +316,6 @@
   min-height: 0;
   gap: var(--ward-space-6);
   overflow: auto;
-}
-
-.queueRow,
-.queueRowSelected {
-  display: grid;
-  min-width: 0;
-  gap: var(--ward-space-6);
-  border: 0.0625rem solid var(--ward-border);
-  border-radius: var(--radius-md);
-  padding: var(--ward-space-10);
-  background: var(--ward-canvas);
-  color: var(--ward-text);
-  text-align: left;
-}
-
-.queueRow:hover {
-  background: var(--ward-subtle);
-}
-
-.queueRowSelected {
-  border-color: var(--ward-blue-border);
-  background: var(--ward-blue-soft);
-  box-shadow: var(--shadow-inset);
 }
 
 .rowTop strong {
@@ -410,156 +334,6 @@
   color: var(--ward-success);
   font-size: var(--text-xs);
   font-weight: 750;
-}
-
-.networkCanvas {
-  display: grid;
-  min-width: 0;
-  min-height: 38rem;
-  grid-template-columns: repeat(2, minmax(15rem, 1fr));
-  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: var(--ward-space-10);
-}
-
-.regionCluster {
-  min-width: 0;
-  padding: var(--ward-space-12);
-}
-
-.regionCluster:nth-of-type(3) {
-  grid-column: 1;
-  grid-row: 3;
-}
-
-.regionCluster:nth-of-type(4) {
-  grid-column: 2;
-  grid-row: 3;
-}
-
-.regionCluster header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ward-space-8);
-  margin-bottom: 0.5rem;
-}
-
-.regionTitle {
-  display: flex;
-  align-items: center;
-  gap: var(--ward-space-8);
-  color: var(--ward-heading);
-}
-
-.regionTitle svg {
-  width: 1rem;
-  height: 1rem;
-  color: var(--ward-blue);
-}
-
-.regionCluster header small {
-  color: var(--ward-muted);
-  font-size: var(--text-3xs);
-}
-
-.hospitalChipGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ward-space-6);
-}
-
-.hospitalChip,
-.hospitalChipSelected {
-  display: grid;
-  min-width: 0;
-  gap: var(--ward-space-4);
-  border: 0.0625rem solid var(--ward-border);
-  border-radius: var(--radius-md);
-  padding: var(--ward-space-8);
-  background: var(--ward-canvas);
-  color: var(--ward-text);
-  text-align: left;
-}
-
-.hospitalChipSelected {
-  border-color: var(--ward-blue);
-  background: var(--ward-blue-soft);
-  box-shadow: var(--shadow-inset);
-}
-
-.hospitalChip strong,
-.hospitalChipSelected strong {
-  overflow: hidden;
-  color: var(--ward-heading);
-  font-size: var(--text-2xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.hospitalState {
-  display: flex;
-  align-items: center;
-  gap: var(--ward-space-4);
-  color: var(--ward-muted);
-  font-size: var(--text-3xs);
-}
-
-.hospitalState b {
-  color: var(--ward-success);
-}
-
-.flowHub {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  display: grid;
-  min-height: 7.25rem;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: var(--ward-space-12);
-  border: 0.0625rem solid var(--ward-blue-border);
-  border-radius: var(--radius-lg);
-  background: var(--ward-blue-soft);
-  padding: var(--ward-space-12) var(--ward-space-16);
-  color: var(--ward-blue);
-}
-
-.flowHub > div:nth-child(2) {
-  min-width: 11rem;
-  text-align: center;
-}
-
-.flowHub strong,
-.flowHub span {
-  display: block;
-}
-
-.flowHub strong {
-  color: var(--ward-heading);
-  font-size: var(--text-sm);
-}
-
-.flowHub span {
-  margin-top: 0.25rem;
-  font-size: var(--text-3xs);
-}
-
-.routeSignal {
-  display: flex;
-  align-items: center;
-  gap: var(--ward-space-6);
-  color: var(--ward-blue);
-  font-size: var(--text-3xs);
-  font-weight: 700;
-}
-
-.routeSignal:last-child {
-  justify-content: flex-end;
-}
-
-.routeSignal svg {
-  width: 1rem;
-  height: 1rem;
-  flex: 0 0 auto;
 }
 
 .decisionPanel {
@@ -622,7 +396,7 @@
   align-items: center;
   gap: var(--ward-space-8);
   border: 0;
-  border-bottom: 0.0625rem solid var(--ward-border);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   background: var(--ward-canvas);
   padding: var(--ward-space-10);
   color: var(--ward-text);
@@ -703,7 +477,7 @@
 
 .dataTable th,
 .dataTable td {
-  border-bottom: 0.0625rem solid var(--ward-border);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   padding: var(--ward-space-10) var(--ward-space-8);
   text-align: left;
   vertical-align: middle;
@@ -738,6 +512,22 @@
 
 .summaryCard {
   padding: var(--ward-space-12);
+  text-decoration: none;
+}
+
+.summaryLinkCard {
+  display: block;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease;
+}
+
+.summaryLinkCard:hover {
+  background: var(--ward-surface-hover, var(--surface-subtle));
+}
+
+.summaryLinkCard:focus-visible {
+  outline: 0.1875rem solid var(--ward-blue);
+  outline-offset: 0.125rem;
 }
 
 .summaryCard span,
@@ -752,17 +542,21 @@
   margin: 0.25rem 0 0.125rem;
   color: var(--ward-heading);
   font-size: var(--text-xl);
+  /* Second-edition binding rule: a figure is monospace and tabular so a reader can compare it
+     down a column without the digits themselves shifting width. */
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .bedStates {
   display: grid;
-  grid-template-columns: repeat(5, minmax(3rem, 1fr));
+  grid-template-columns: repeat(6, minmax(3rem, 1fr));
   gap: var(--ward-space-4);
 }
 
 .bedStates span {
   display: grid;
-  min-height: 2.75rem;
+  min-height: var(--spacing-tap);
   place-items: center;
   border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-sm);
@@ -774,6 +568,19 @@
   display: block;
   color: var(--ward-heading);
   font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A stated absence, never a bare `0` — design language Ruling E2. Compound selector
+   (`.bedStates strong.zero`) deliberately: a bare `.zero` alone is specificity (0,1,0) against
+   `.bedStates strong`'s (0,1,1) and the colour below would silently lose — see
+   `ward-table.module.css`'s own documented lesson on exactly this trap. `font-weight: 400`
+   de-emphasises the word relative to a real count, matching `community-teams-table.module.css`'s
+   `.zero` precedent for the same rule. */
+.bedStates strong.zero {
+  color: var(--ward-muted);
+  font-weight: 400;
 }
 
 .stageBoard {
@@ -796,7 +603,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--ward-space-6);
-  border-bottom: 0.0625rem solid var(--ward-border);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   padding-bottom: var(--ward-space-8);
 }
 
@@ -895,7 +702,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--ward-space-8);
-  border-bottom: 0.0625rem solid var(--ward-border);
+  border-bottom: 0.0625rem solid var(--ward-divider);
   padding: var(--ward-space-8) 0;
   color: var(--ward-text);
   font-size: var(--text-2xs);
@@ -928,28 +735,161 @@
   line-height: var(--ward-leading-prose);
 }
 
+/* Task 7: the excluded-beyond-tonight count. Warning tone (not the blue `.notice` tone) because
+ * this is flagging figures deliberately left out of every headline card above, not a neutral
+ * aside — the point of counting them here is that they must never read as silently dropped. */
+.excludedNotice {
+  margin-bottom: 0.75rem;
+  border-left: 0.1875rem solid var(--ward-warning);
+  background: var(--ward-warning-soft);
+  padding: var(--ward-space-10) var(--ward-space-12);
+  color: var(--ward-text);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+/* Task 7: the coordinator's one action per unit row — the refresh button stacked above its own
+ * "changes no figure" copy, both left-aligned within the table cell. */
+.refreshCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ward-space-6);
+}
+
+/* Task 9 (spec item 7): the not-a-medical-device banner. Same visual language as
+ * coordinator.module.css's own `.governanceBanner` — a bordered strip with the prototype badge
+ * and the shared statement text — expressed with this file's own `--ward-*` tokens. */
+.governanceBanner {
+  display: flex;
+  min-height: var(--spacing-tap);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ward-space-12);
+  border: var(--ward-stroke-thin) solid var(--ward-blue-border);
+  border-radius: var(--radius-lg);
+  background: var(--ward-blue-soft);
+  padding: var(--ward-space-10) var(--ward-space-14);
+  margin-bottom: var(--ward-space-10);
+}
+
+.governanceBanner p {
+  min-width: 0;
+  flex: 1 1 calc(var(--spacing-tap) * 4);
+  margin: 0;
+  color: var(--ward-text);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.governanceBanner strong {
+  color: var(--ward-heading);
+}
+
+/* Explicit-absence note, shared by the change audit's empty state and any other "nothing
+ * recorded yet" panel on this view. */
+.emptyNote {
+  border: var(--ward-stroke-thin) dashed var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-10) var(--ward-space-12);
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.effectivenessList {
+  display: grid;
+  gap: var(--ward-space-10);
+}
+
+.effectivenessList > div {
+  border: var(--ward-stroke-thin) solid var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-10) var(--ward-space-12);
+}
+
+.effectivenessList dt {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-6);
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+}
+
+.effectivenessList dt svg {
+  width: var(--spacing-icon-md);
+  height: var(--spacing-icon-md);
+  color: var(--ward-blue);
+}
+
+.effectivenessList dd {
+  margin-top: var(--ward-space-4);
+}
+
+/* Fix round 1 (Task 9): the figure and its basis are one visual unit, always rendered together —
+ * never a tooltip, never a footnote elsewhere on the page. */
+.effectivenessLine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-2);
+}
+
+.effectivenessValue {
+  color: var(--ward-heading);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.effectivenessValue small {
+  margin-left: var(--ward-space-4);
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+}
+
+.effectivenessUnknown {
+  color: var(--ward-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.effectivenessBasis {
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+  font-weight: 500;
+}
+
+/* The dropped-third-measure notice. Warning tone (not the blue `.notice` tone) because this is
+ * flagging an absence the reader must not mistake for a clean two-out-of-two report. */
+.droppedMeasureNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ward-space-8);
+  margin-top: var(--ward-space-12);
+  border-left: var(--ward-stroke-accent) solid var(--ward-warning);
+  background: var(--ward-warning-soft);
+  padding: var(--ward-space-10) var(--ward-space-12);
+  color: var(--ward-text);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.droppedMeasureNote svg {
+  width: var(--spacing-icon-md);
+  height: var(--spacing-icon-md);
+  flex: 0 0 auto;
+  margin-top: var(--ward-space-2);
+  color: var(--ward-warning);
+}
+
 @media (max-width: 78rem) {
   .headerMeta > span:not(.prototypeBadge) {
     display: none;
   }
-
-  .constellationGrid {
-    grid-template-columns: 12rem minmax(32rem, 1fr) 19rem;
-  }
-
-  .modeLink,
-  .modeLinkActive {
-    padding-inline: var(--ward-space-10);
-  }
 }
 
 @media (max-width: 62rem) {
-  .modeShell {
-    grid-template-columns: 4rem minmax(0, 1fr);
-  }
-
   .modeHeader,
-  .modeShell > .modeNavigation,
   .modeContent {
     display: block;
     grid-column: 2;
@@ -969,20 +909,10 @@
     display: none;
   }
 
-  .modeIdentity span:first-child {
-    display: none;
-  }
-
-  .constellationGrid,
   .pageGrid {
     grid-template-columns: 1fr;
   }
 
-  .constellationGrid {
-    min-width: 48rem;
-  }
-
-  .compactQueue,
   .decisionPanel {
     min-height: 24rem;
   }
@@ -992,22 +922,27 @@
   }
 }
 
+/*
+ * Task 9 Ruling 4: `ClinicalRail` (and the eight mode links it now carries) stays visible and
+ * reachable down to 320px, so `.modeShell` keeps its two-column grid at every width rather than
+ * collapsing to one column and hiding the rail the way this used to. Only the header and content
+ * get the phone-specific sticky/compact treatment below.
+ */
 @media (max-width: 40rem) {
+  /* Reserve the fixed phone bar (ward-sidebar.module.css) and push this shell's own sticky
+     header down below it, rather than letting the bar cover it. */
   .modeShell {
-    display: block;
-    min-height: 100dvh;
-    height: auto;
-    overflow: visible;
+    padding-top: var(--spacing-ward-phone-bar);
   }
 
-  .modeShell > aside {
+  .modeIdentity .modeBrand {
     display: none;
   }
 
   .modeHeader {
     position: sticky;
-    top: 0;
-    z-index: var(--ward-z-phone);
+    top: var(--spacing-ward-phone-bar);
+    z-index: var(--ward-z-phone-header);
     display: grid;
     min-height: 4.25rem;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -1033,54 +968,19 @@
     opacity: 0;
   }
 
-  .modeShell > .modeNavigation {
-    position: sticky;
-    top: 4.25rem;
-    z-index: calc(var(--ward-z-phone) - 1);
-    min-height: 3.25rem;
-    padding-inline: var(--ward-space-8);
-  }
-
-  .modeLink,
-  .modeLinkActive {
-    min-width: 4.25rem;
-    min-height: var(--spacing-tap);
-    justify-content: center;
-    padding: 0 var(--ward-space-8);
-  }
-
-  .modeLabel {
-    display: none;
-  }
-
-  .modeShortLabel {
-    display: inline;
-  }
-
   .modeContent {
-    min-height: calc(100dvh - 7.5rem);
-    overflow: visible;
+    min-height: calc(100dvh - 4.25rem);
+    overflow: auto;
     padding: var(--ward-space-8);
   }
 
-  .pageGrid,
-  .constellationGrid {
+  .pageGrid {
     display: block;
     min-width: 0;
   }
 
-  .pageGrid > *,
-  .constellationGrid > * {
+  .pageGrid > * {
     margin-bottom: 0.5rem;
-  }
-
-  .networkCanvas {
-    min-width: 42rem;
-    min-height: 36rem;
-  }
-
-  .panel:has(.networkCanvas) {
-    overflow-x: auto;
   }
 
   .capacitySummary {
@@ -1115,17 +1015,7 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .modeShell * {
-    scroll-behavior: auto !important;
-    transition: none !important;
-  }
-}
-
 @media (forced-colors: active) {
-  .modeLinkActive,
-  .queueRowSelected,
-  .hospitalChipSelected,
   .candidateRowSelected,
   .primaryButton {
     border: 0.125rem solid Highlight;
@@ -1283,8 +1173,7 @@
   color: var(--ward-success);
 }
 
-/* See serviceCard: selection outline yields to the focus ring. */
-.networkNode[aria-pressed="true"]:not(:focus-visible) {
+.networkNode[aria-pressed="true"] {
   box-shadow: var(--e2);
   outline: 0.1875rem solid var(--ward-blue);
   outline-offset: 0.125rem;
@@ -1389,5 +1278,127 @@
 @media (max-width: 68rem) {
   .networkLayout {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- print ------------------------------------------------------------- *
+ *
+ * THE HEIGHT CAP, released for paper. `.modeShell` is `height: 100dvh; overflow: hidden` — correct
+ * for an app shell whose regions scroll independently, and fatal on paper: the printed document is
+ * exactly one viewport tall and everything past it is CLIPPED rather than paginated. Measured on
+ * the network diagram, whose restored unit nodes exposed it: 16 of the 23 wards printed and the
+ * remaining 7 fell off the bottom of page 1, with page 2 arriving completely blank — no legend, no
+ * WACHS units, and nothing on either sheet to say a reader was holding an incomplete picture. That
+ * is the same class of failure as a missing ward node, and it hides behind the same silence.
+ *
+ * Scrolling boxes have no meaning on paper. This is the substitution the global print reset in
+ * `globals.css` already makes for `main`, `section` and `article`, applied to the two grid boxes
+ * that carry a height here so the workspace paginates instead of being cropped. It is deliberately
+ * the only thing this block does: which content prints, and how it reads, stays each mode's own
+ * decision — see the print blocks in `ward-management-network.module.css` and
+ * `coordinator/coordinator.module.css`.
+ */
+@media print {
+  .modeShell,
+  .modeContent {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+}
+
+/*
+ * ⚠️ `color: CanvasText` IS THE LOAD-BEARING LINE HERE, NOT `color-scheme: light`.
+ *
+ * `.modeShell` sets `color: var(--ward-text)` ON ITSELF (via the `wardTokens` compose above). The
+ * dark ramp is scoped by the CLASS `.ckb-v2.dark.ckb-v2` rather than by a media query, so
+ * `color-scheme: light` cannot make it re-resolve; and `globals.css` resets print colour on
+ * `html, body`, which cannot reach an element that declares the property itself. Printing this
+ * shell from dark mode therefore put pale text on white paper. An ancestor cannot override a
+ * property an element sets on itself, so the reset has to live in the file that made the
+ * declaration.
+ *
+ * ⚠️ THE RESET COVERS EVERY DESCENDANT, NOT JUST THIS ROOT, AND THAT IS DELIBERATE FROM THE START
+ * HERE — never an enumeration. The same "ancestor cannot override" sentence is just as true one
+ * level down: a rule like `.dataTable th { color: var(--ward-muted) }` sets colour on itself too,
+ * and `.modeShell { color: CanvasText }` cannot reach past it either. `board.module.css` tried the
+ * enumeration route — 56 coloured selectors listed across a 250-line print block — and still
+ * missed five content selectors. An enumerated list is the defect regenerating: any new coloured
+ * selector re-opens it, silently, forever. The wildcard `.modeShell *` cannot drift, and it
+ * flattens nothing anybody wanted — a sweep of every existing print block across these seven files
+ * found zero non-`CanvasText` colour declarations inside any of them.
+ *
+ * ⚠️ `!important` IS REQUIRED ON `color` HERE, AND THE WILDCARD ALONE IS NOT ENOUGH — measured
+ * through an actual cascade (jsdom's computed-style engine), not read off the CSS. Specificity is
+ * resolved before source order, so sitting at the end of the file buys nothing: `.modeShell *` is
+ * one class plus the universal selector (specificity 0,1,0; the universal contributes zero), and
+ * any rule combining a class with a type, pseudo-class or attribute selector outranks it — this
+ * file has dozens: `.dataTable th` (0,1,1), every `.networkNode[data-band="…"]` variant (0,2,0),
+ * `.sourceList a` (0,1,1). Confirmed on an equivalent-shaped selector: it computed
+ * `rgb(244, 246, 248)` — still near-white — with the wildcard alone, and `rgb(0, 0, 0)` once
+ * `!important` was added. `color-scheme` needs no `!important`: nothing competes for it.
+ * `coordinator.module.css` already carries `color: CanvasText !important` in its own print
+ * blocks — this file now matches that precedent rather than re-deriving it.
+ *
+ * ⚠️ THE WILDCARD ALONE WOULD HAVE LOOKED FIXED. It corrects every plain element, so a spot-check
+ * on any single-class element prints black and the fix reads as confirmed, while the data table,
+ * the network diagram's banded nodes, and every other compound-selector element stay invisible.
+ * Fix one instance, verify on the instance in front of you, never revisit the siblings: the same
+ * defect recurring at a third level, after file and after selector.
+ *
+ * NOT VERIFIED ON PAPER. This is a jsdom cascade resolution, not an observation of a printout —
+ * `!important` winning over specificity is spec behaviour common to every rendering engine,
+ * including the one that will actually print the page, so the result should carry over.
+ */
+@media print {
+  .modeShell,
+  .modeShell * {
+    color-scheme: light;
+    color: CanvasText !important;
+    /*
+     * 🔴 THE MISSING HALF, AND WITHOUT IT THE LINE ABOVE MAKES THE PAGE WORSE. Measured in
+     * Chromium 151 under print + dark: a themed card kept `rgb(23, 26, 29)` because nothing
+     * resets backgrounds, while the reset forced its text to `rgb(0, 0, 0)`. **Black on a dark
+     * card — gone.** Before the text reset that same text was near-white on the dark card:
+     * wasteful, and READABLE. The fix and the untouched background are each defensible alone
+     * and strictly worse together, and nothing either of us checked would have caught it,
+     * because we were both looking at text colour on a white page.
+     *
+     * ⚠️ `background-color`, NEVER the `background` shorthand. `board.module.css` hatches its
+     * blocked, held and past-date bed states with `background-image: repeating-linear-gradient`.
+     * The shorthand wipes `background-image` and would silently erase the pattern that
+     * distinguishes a blocked bed from an empty one — a state distinction, not decoration.
+     */
+    background-color: Canvas !important;
+  }
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK, AND THAT IS NOT OPTIONAL.
+ *
+ * The border aliases above deliberately SEVER the chain to `--border`. Measured against
+ * `--surface`, the background every one of these screens paints, `--border` sits at 1.21:1 in
+ * light mode and 1.42:1 in dark — far below the 3:1 a boundary needs, so the dividers were very
+ * nearly invisible. `--neutral-500` gives 4.88:1 and 4.98:1; `--text-muted` gives 7.55:1 and
+ * 8.21:1.
+ *
+ * ⚠️ But severing that chain would ALSO cost a high-contrast user the system border colour, which
+ * `globals.css` maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of
+ * users that quietly breaks it for another is not a fix. So under forced colours the aliases point
+ * back at the global tokens and the system decides, exactly as `board.module.css` does.
+ */
+@media (forced-colors: active) {
+  .modeShell {
+    --ward-border: var(--border);
+    --ward-border-strong: var(--border-strong);
+    /* ⚠️ ADDED 2026-09-04 WITH THE FOUR `--ward-divider` RECLASSIFICATIONS, because the comment
+       above says this repoint "is not optional" and four between-row rules had just moved onto a
+       token the block did not name — a stated invariant with a silent hole in it.
+       Honest about what this does and does not do: forced-colors mode overrides `border-color`
+       downstream of custom-property resolution, so it changes nothing anybody can see today, and
+       a claim that it fixes a live contrast defect was made on this branch and measured false.
+       It is here so the block covers every border token this file uses, which is what its own
+       comment promises. */
+    --ward-divider: var(--border);
   }
 }

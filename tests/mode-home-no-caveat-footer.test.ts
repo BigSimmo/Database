@@ -26,19 +26,12 @@ const FOOTER = "ModeHomeVerificationFooter";
 const MODE_HOME_SOURCES = [
   // The shared home at `/`, which is the only home most modes have.
   "src/components/clinical-dashboard/answer-status.tsx",
-  // Standalone mode homes.
-  "src/components/calculators/home-page.tsx",
-  "src/components/dictionary/dictionary-home-page.tsx",
+  // Remaining workspace homes and results shells that still use ModeHomeTemplate.
   "src/components/differentials/differentials-home-page.tsx",
-  "src/components/dsm/dsm-home-page.tsx",
-  "src/components/factsheets/factsheets-home-page.tsx",
-  "src/components/forms/forms-home-page.tsx",
   "src/components/formulation/formulation-home-page.tsx",
-  "src/components/services/services-home-page.tsx",
   "src/components/specifiers/specifiers-home-page.tsx",
   "src/components/clinical-dashboard/differentials-home.tsx",
   "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
-  "src/components/therapy-compass/screens/home-screen.tsx",
 ] as const;
 
 /**

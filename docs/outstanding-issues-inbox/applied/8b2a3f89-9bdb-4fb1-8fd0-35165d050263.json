@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8b2a3f89-9bdb-4fb1-8fd0-35165d050263",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "The answer source-rail card carries three hardcoded pixel measurements, one of them duplicated",
+    "detail": "answer-source-rail.tsx uses h-[22px] min-w-[22px] on the number badge and max-w-[158px] twice on the title and meta clamp. A reviewer asked for @theme tokens; that was declined on 2026-08-25 and the reasoning is worth keeping: no gate flags these (check:design-system-contract passes, and its raw-literal ratchets do not cover width/height), and naming one card's measurements as scale steps misrepresents them as a design vocabulary other surfaces should reach for. Next action, if anything: extract the duplicated 158px into one local constant in that file so the two clamps cannot drift apart. That is the only part with real value — the badge pair is used once. Do NOT convert these to @theme tokens without a second consumer.",
+    "source": "PR #2370 review (CodeRabbit nitpick), declined with reasons 2026-08-25",
+    "issueUlid": "01M0WYCQMZVVA5M289CJVFXCTJ"
+  }
+}

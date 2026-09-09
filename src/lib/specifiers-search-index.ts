@@ -4,12 +4,13 @@
 // imported by server components (detail pages, see specifiers-content.ts). For
 // the client-side instant search on /specifiers we ship a compact, pre-flattened
 // index (data/specifiers-search-index.json, ~240KB) so the browser bundle stays
-// lean. The index is regenerated from the source JSON by scripts/build-specifiers
-// -index (kept in sync with data/specifiers-content.json).
+// lean. The index is regenerated from the source JSON by scripts/build-specifiers-search-index.mjs
+// (kept in sync with data/specifiers-content.json).
 
 import searchIndex from "../../data/specifiers-search-index.json";
 
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 export type SpecifierSourceStatus = "source-verified" | "source-needs-formal-review" | "source-not-applicable";
 export type SpecifierDefinitionStatus = "defined" | "obvious-no-definition" | "needs-manual-or-clinician-verification";
@@ -85,7 +86,11 @@ function applyFilters(items: SpecifierIndexItem[], filters: SpecifierCatalogFilt
  * (src/lib/catalog-search.ts) so tokenization/weighting matches the other modes.
  * With an empty query it returns the filtered catalog in stable (label) order.
  */
-export function searchSpecifierCatalog(query: string, filters: SpecifierCatalogFilters = {}): SpecifierCatalogMatch[] {
+export function searchSpecifierCatalog(
+  query: string,
+  filters: SpecifierCatalogFilters = {},
+  interpretNaturalLanguage = false,
+): SpecifierCatalogMatch[] {
   const items = applyFilters(specifierIndexItems, filters);
   const trimmed = query.trim();
 
@@ -112,5 +117,8 @@ export function searchSpecifierCatalog(query: string, filters: SpecifierCatalogF
     prefixValues: (item) => [normalizeSearchText(item.label)],
     prefixBonus: 3,
     phraseBonus: 5,
+    expandTokens: interpretNaturalLanguage
+      ? (terms) => [...terms, ...smartSearchExpansions("specifiers", trimmed)]
+      : undefined,
   }).map(({ record, score }) => ({ item: record, score }));
 }

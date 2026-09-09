@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, publicErrorResponse } from "@/lib/http";
 import {
   activeIngestionJobColumns,
   buildActiveJobsSafetyResult,
@@ -40,7 +40,8 @@ async function readMode(request: Request) {
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (isDemoMode()) return NextResponse.json({ error: "Reindex is unavailable in demo mode." }, { status: 400 });
+    if (isDemoMode())
+      return publicErrorResponse("Reindex is unavailable in demo mode.", 400, { code: "demo_mode_unavailable" });
 
     const { id: rawId } = await params;
     const { id } = parseRouteParams({ id: rawId }, reindexRouteParamsSchema, "Invalid document id.");
@@ -61,7 +62,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .maybeSingle();
 
     if (documentError) throw new Error(documentError.message);
-    if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    if (!document) return publicErrorResponse("Document not found.", 404, { code: "document_not_found" });
 
     const safety = await checkIngestionMutationSafety({
       supabase,
@@ -83,7 +84,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
       });
       if (enrichmentActive) {
-        return NextResponse.json({ error: "Reindex is paused while enrichment is active." }, { status: 409 });
+        return publicErrorResponse("Reindex is paused while enrichment is active.", 409, { code: "enrichment_active" });
       }
     }
 
@@ -93,10 +94,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         p_owner_id: user.id,
       });
       if (queueError) {
-        return NextResponse.json(
-          { error: "Enrichment is already active or could not be queued safely." },
-          { status: 409 },
-        );
+        return publicErrorResponse("Enrichment is already active or could not be queued safely.", 409, {
+          code: "enrichment_queue_conflict",
+        });
       }
       return NextResponse.json({ mode, queued }, { status: 202 });
     }
@@ -113,15 +113,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const parsedResult = reindexRequestResultSchema.safeParse(reindexResult);
     if (!parsedResult.success) throw new Error("request_ingestion_reindex_if_agent_idle returned an invalid result.");
     if (parsedResult.data.outcome === "not_found") {
-      return NextResponse.json(
-        { error: "Document was deleted while reindexing. Refresh the document list and retry." },
-        { status: 409 },
-      );
+      return publicErrorResponse("Document was deleted while reindexing. Refresh the document list and retry.", 409, {
+        code: "document_deleted_during_reindex",
+      });
     }
     if (parsedResult.data.outcome === "agent_enrichment_active") {
-      return NextResponse.json(
-        { error: "Document has active agent enrichment work. Wait for it to finish before reindexing." },
-        { status: 409 },
+      return publicErrorResponse(
+        "Document has active agent enrichment work. Wait for it to finish before reindexing.",
+        409,
+        { code: "enrichment_active" },
       );
     }
     if (parsedResult.data.outcome === "ingestion_active") {
@@ -141,7 +141,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         );
         return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: 409 });
       }
-      return NextResponse.json({ error: "Document already has active indexing work." }, { status: 409 });
+      return publicErrorResponse("Document already has active indexing work.", 409, { code: "indexing_active" });
     }
     return NextResponse.json({ job: parsedResult.data.job }, { status: 201 });
   } catch (error) {

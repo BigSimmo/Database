@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "4bb27cad-9205-4f58-9eb0-fc7e143c7bc5",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Caring Contacts activation wizard intermittently renders two page roots after a reload, tripping strict mode",
+    "detail": "Reproduce and fix the duplicate page root, or add a narrower guard; do not quarantine on one reproduction (flake policy needs three on the same SHA). Why: tests/ui-caring-contacts-activation.spec.ts:186 ('keeps a typed draft across a page reload') failed once in a full verify:ui run with 'strict mode violation: getByTestId(caring-contacts-plan-wizard) resolved to 2 elements', the second carrying different consent copy - the persistent hidden streamed S: clone signature that docs/search-chrome-behaviour.md invariant 17 describes for duplicate page-root data-testids. Context: seen 2026-09-02 in the chromium-caring-contacts-seeded project during verify:ui on an unrelated Sources branch (649 passed, this 1 failed); the same spec then passed 4/4 on an isolated re-run, and the branch under test touches nothing reachable from /caring-contacts, which lives outside the (search-app) shell. So it is intermittent and pre-existing, not diff-induced. Confidence: high that it is unrelated to that branch, low on root cause - one reproduction, trace captured at test-results/ui-caring-contacts-activat-cc88a--draft-across-a-page-reload-chromium-caring-contacts-seeded/trace.zip but not analysed. Owner: Caring Contacts. Depends on: nothing.",
+    "source": "session 2026-09-02, observed during verify:ui on claude/sources-mode-dropdown-home-mzw4f5",
+    "issueUlid": "01M1H61E5Q57QDCS4QD12E9DCF"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "978a9fa0-a206-4a8e-be82-f98c13e80ccf",
+  "createdOn": "2026-08-24",
+  "action": "cancel",
+  "payload": {
+    "requestId": "d627018c-e5ce-44c9-a9cc-5d798f807c93",
+    "reason": "Correction: the queued repair must identify or establish the canonical manifest generation path before changing a data manifest; direct manifest editing is not an approved implementation path."
+  }
+}

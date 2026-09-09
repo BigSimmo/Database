@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  generateStructuredTextResponse: vi.fn(),
+  generateParsedTextPayload: vi.fn(),
 }));
 
 vi.mock("@/lib/env", () => ({
@@ -10,16 +10,21 @@ vi.mock("@/lib/env", () => ({
   },
 }));
 
-// The source now calls generateStructuredTextResult (object result) so it can observe
-// truncation; wrap the string-returning inner mock so the existing
-// .mockResolvedValue(JSON.stringify(...)) setups and .mock.calls assertions keep working.
+// Parse through the supplied production schema so tests exercise the same strict
+// contract while retaining direct control over rejected, missing, and malformed output.
 vi.mock("@/lib/openai", () => ({
-  generateStructuredTextResult: vi.fn(async (...args: unknown[]) => ({
-    text: await mocks.generateStructuredTextResponse(...args),
-    truncated: false,
-    status: "completed" as const,
-    incompleteReason: undefined,
-  })),
+  generateParsedTextResult: vi.fn(async (...args: unknown[]) => {
+    const schema = args[1] as { parse: (value: unknown) => unknown };
+    const raw = await mocks.generateParsedTextPayload(...args);
+    const candidate = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return {
+      parsed: schema.parse(candidate),
+      text: "",
+      truncated: false,
+      status: "completed" as const,
+      incompleteReason: undefined,
+    };
+  }),
 }));
 
 import { generateDocumentEnrichment, ragEnrichmentVersion, upsertDocumentEnrichment } from "@/lib/document-enrichment";
@@ -108,19 +113,44 @@ function createSupabaseMock() {
   return supabase;
 }
 
+function validClinicalProfile(overrides: Record<string, unknown> = {}) {
+  return {
+    overview: "Source-backed document overview.",
+    applies_to: [],
+    key_clinical_actions: [],
+    medication_dose_monitoring: [],
+    thresholds_timing: [],
+    escalation_risk_warnings: [],
+    required_forms_documentation: [],
+    not_covered: [],
+    important_tables_images: [],
+    best_questions: [],
+    source_quality_notes: [],
+    ...overrides,
+  };
+}
+
+function validClinicalSpecifics(overrides: Record<string, unknown> = {}) {
+  return {
+    profile: validClinicalProfile(),
+    actions: [],
+    thresholds_timing: [],
+    medication_monitoring: [],
+    risk_escalation: [],
+    documentation_forms: [],
+    exceptions_gaps: [],
+    ...overrides,
+  };
+}
+
 describe("document enrichment", () => {
   beforeEach(() => {
-    mocks.generateStructuredTextResponse.mockResolvedValue(
+    mocks.generateParsedTextPayload.mockResolvedValue(
       JSON.stringify({
         summary: "- Use the uploaded source for future-document clinical workflow review.",
-        clinical_specifics: {
+        clinical_specifics: validClinicalSpecifics({
           actions: ["Check the source workflow."],
-          thresholds_timing: [],
-          medication_monitoring: [],
-          risk_escalation: [],
-          documentation_forms: [],
-          exceptions_gaps: [],
-        },
+        }),
         labels: [{ label: "future workflow", label_type: "workflow", confidence: 0.92 }],
       }),
     );
@@ -128,6 +158,7 @@ describe("document enrichment", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("writes the current RAG enrichment version to summaries, labels, and document metadata", async () => {
@@ -187,17 +218,12 @@ describe("document enrichment", () => {
   });
 
   it("cleans noisy generated labels before inserting document labels", async () => {
-    mocks.generateStructuredTextResponse.mockResolvedValueOnce(
+    mocks.generateParsedTextPayload.mockResolvedValueOnce(
       JSON.stringify({
         summary: "- Clozapine monitoring requirements are available for source-backed review.",
-        clinical_specifics: {
+        clinical_specifics: validClinicalSpecifics({
           actions: ["Check clozapine monitoring requirements."],
-          thresholds_timing: [],
-          medication_monitoring: [],
-          risk_escalation: [],
-          documentation_forms: [],
-          exceptions_gaps: [],
-        },
+        }),
         labels: [
           { label: "Document control", label_type: "topic", confidence: 0.99 },
           { label: "Clozapine Monitoring!!", label_type: "topic", confidence: 0.92 },
@@ -264,21 +290,21 @@ describe("document enrichment", () => {
       images: [],
     });
 
-    const prompt = String(mocks.generateStructuredTextResponse.mock.calls.at(-1)?.[0] ?? "");
+    const prompt = String(mocks.generateParsedTextPayload.mock.calls.at(-1)?.[0] ?? "");
     expect(prompt).toContain("Coverage: 60 indexed chunks");
     expect(prompt).toContain("chunk_id: chunk-52");
     expect(prompt).toContain("remain indexed and retrievable");
     expect(prompt).toContain("<<<SOURCE_EXCERPT>>>");
-    expect(mocks.generateStructuredTextResponse.mock.calls.at(-1)?.[2]).toMatchObject({
+    expect(mocks.generateParsedTextPayload.mock.calls.at(-1)?.[2]).toMatchObject({
       promptCacheKey: "clinical-document-enrichment-v1",
     });
   });
 
   it("neutralizes untrusted source instructions in enrichment prompts", async () => {
-    mocks.generateStructuredTextResponse.mockResolvedValueOnce(
+    mocks.generateParsedTextPayload.mockResolvedValueOnce(
       JSON.stringify({
         summary: "Lithium monitoring support.",
-        clinical_specifics: { profile: {} },
+        clinical_specifics: validClinicalSpecifics(),
         labels: [],
       }),
     );
@@ -310,7 +336,7 @@ describe("document enrichment", () => {
       ],
     });
 
-    const prompt = String(mocks.generateStructuredTextResponse.mock.calls.at(-1)?.[0] ?? "");
+    const prompt = String(mocks.generateParsedTextPayload.mock.calls.at(-1)?.[0] ?? "");
     expect(prompt).toContain("[neutralized-instruction:");
     expect(prompt).toContain("<<<SOURCE_EXCERPT>>>");
     expect(prompt).toContain("<<<IMAGE_EVIDENCE>>>");
@@ -321,11 +347,11 @@ describe("document enrichment", () => {
   });
 
   it("returns a cleaned anchored clinical document profile for new summaries", async () => {
-    mocks.generateStructuredTextResponse.mockResolvedValueOnce(
+    mocks.generateParsedTextPayload.mockResolvedValueOnce(
       JSON.stringify({
         summary: "Clinical summary: Lithium monitoring guideline PAE-PRO-0338/16 Page 5 of 5. Use for lithium review.",
-        clinical_specifics: {
-          profile: {
+        clinical_specifics: validClinicalSpecifics({
+          profile: validClinicalProfile({
             overview:
               "Document summary: Lithium monitoring guideline PAE-PRO-0338/16 Page 5 of 5. Use for lithium review.",
             applies_to: [
@@ -378,14 +404,9 @@ describe("document enrichment", () => {
               },
             ],
             source_quality_notes: [],
-          },
+          }),
           actions: ["PAE-PRO-0338/16 Page 5 of 5 Check renal function."],
-          thresholds_timing: [],
-          medication_monitoring: [],
-          risk_escalation: [],
-          documentation_forms: [],
-          exceptions_gaps: [],
-        },
+        }),
         labels: [],
       }),
     );
@@ -442,5 +463,46 @@ describe("document enrichment", () => {
       support: "not_found",
     });
     expect(enrichment.clinical_specifics.actions?.join(" ")).not.toContain("PAE-PRO-0338");
+  });
+
+  it.each([
+    ["provider rejection", () => mocks.generateParsedTextPayload.mockRejectedValueOnce(new Error("refused"))],
+    ["missing parsed output", () => mocks.generateParsedTextPayload.mockResolvedValueOnce(undefined)],
+    ["malformed output", () => mocks.generateParsedTextPayload.mockResolvedValueOnce("{not-json")],
+  ])("uses an observable minimal fallback for %s", async (_case, arrange) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    arrange();
+
+    const enrichment = await generateDocumentEnrichment({
+      document: {
+        title: "Fallback Clinical Protocol",
+        file_name: "fallback-protocol.pdf",
+        source_path: null,
+      },
+      chunks: [
+        {
+          id: "chunk-1",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: "Scope",
+          content: "Source content remains indexed for source-backed review.",
+        },
+      ],
+      images: [],
+    });
+
+    expect(enrichment.summary).toBe(
+      "- Fallback Clinical Protocol: indexed source text is available for source-backed review.",
+    );
+    expect(enrichment.clinical_specifics.profile?.source_quality_notes).toEqual([
+      expect.objectContaining({
+        text: "No model-generated clinical profile was available; inspect the source passages.",
+        support: "partial",
+      }),
+    ]);
+    expect(warn).toHaveBeenCalledWith(
+      "document enrichment structured output rejected",
+      expect.objectContaining({ document: "fallback-protocol.pdf" }),
+    );
   });
 });

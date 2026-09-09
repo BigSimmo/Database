@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c3cf6c59-298b-424e-90bf-9e2cdd9c559e",
+  "createdOn": "2026-08-31",
+  "action": "done",
+  "payload": {
+    "id": "#F5EYAJ",
+    "outcome": "Verified BLOCK_REASON_WORDING in overlay-host.tsx and DOM tests in tests/caring-contacts-overlay-host.dom.test.tsx.",
+    "baseRowFingerprint": "e599f5539a68a3a389052f391957c245716336654656f21193754fcf5bcff444"
+  }
+}

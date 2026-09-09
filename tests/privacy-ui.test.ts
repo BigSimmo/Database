@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import PrivacyPage from "@/app/privacy/page";
+import PrivacyPage, { metadata } from "@/app/privacy/page";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 
 vi.mock("next/navigation", () => ({
@@ -33,8 +33,8 @@ describe("privacy UI", () => {
 
     expect(markup).toContain("<main");
     expect(markup).toContain("<h1");
-    expect(markup).toContain("How Clinical KB handles your data");
-    expect(markup).toContain("Before you use Clinical KB");
+    expect(markup).toContain("How PsychSift handles your data");
+    expect(markup).toContain("Before you use PsychSift");
     expect(markup).not.toContain("Quiet");
     expect(markup).not.toContain("Draft");
     expect(markup).toContain("This is draft product information");
@@ -56,7 +56,7 @@ describe("privacy UI", () => {
     // phrase must be explicit or this renders as "systemand".
     expect(markup).toContain("not a patient-record system</strong> and its provider-backed features");
     expect(markup).toContain("deliberately omits a patient-identifier field");
-    expect(markup).toContain("Safety-plan working content has no Clinical KB retention");
+    expect(markup).toContain("Safety-plan working content has no PsychSift retention");
     expect(markup).toContain("Clipboard, print, and PDF copies are outside the app");
     expect(markup).toContain("Generated answer text is also omitted from durable query logs by default");
     expect(markup).toContain("completed answer threads may also remain in this browser tab for up to 12 hours");
@@ -71,7 +71,11 @@ describe("privacy UI", () => {
 
     // Added sections. Each of these is a claim about configured behaviour that a
     // reader can check against the repository, so the wording is pinned too.
-    expect(markup).toContain("database row-level security restricts reads to that owner");
+    expect(markup).toContain("the server scopes every read to that owner");
+    expect(markup).toContain("row-level security stands behind it");
+    expect(markup).toContain("Uploading documents is an administrator action");
+    expect(markup).toContain("publish the corpus as a whole rather than document by document");
+    expect(markup).toContain("intended to hold guideline and reference material, not patient data");
     expect(markup).toContain("those links expire after ten minutes by default");
     expect(markup).toContain("append-only audit record");
     expect(markup).toContain("Recent searches use per-tab session storage");
@@ -80,19 +84,43 @@ describe("privacy UI", () => {
     expect(markup).toContain("browser session replay is not enabled");
     expect(markup).toContain("rather than validated clinical decision support");
     expect(markup).toContain("degrades to a deterministic source-only answer");
+    expect(markup).toContain("Clinical Ask accepts a typed or dictated question and non-identifying Case Context");
+    expect(markup).toContain("cannot guarantee that text is de-identified");
+    expect(markup).toContain("ephemeral page memory for the current tab");
+    expect(markup).toContain("not placed in the URL or browser history");
+    expect(markup).toContain("not attached to feedback or content-free telemetry");
+    expect(markup).toContain("Clinical Ask audio is held only long enough");
+    expect(markup).toContain("disposed after transcription, cancellation, clear case, account change, or unmount");
+    expect(markup).toContain("external authority search only for an evidence gap");
+    expect(markup).toContain("retains attributable citations and retrieval dates");
+    expect(markup).toContain("not a zero-retention promise");
+    expect(markup).toContain("production readiness must each be verified");
+    expect(markup).toContain("verified the four expected schedules on production and staging");
+    expect(markup).not.toContain("staging evidence, clinical evaluation");
 
     // The provider section states only what the application itself does. A
     // zero-retention or no-training claim is an operator/contractual matter the
     // app cannot observe, and docs/openai-cross-border-basis.md still records it
     // as unresolved — so it must not appear here.
     expect(markup).toContain("a keyed pseudonym is used instead when the operator configures one");
-    expect(markup).toContain("not a deletion deadline");
+    expect(markup).toContain("not that maximum or a deletion deadline");
+    expect(markup).toContain("API data sharing and API call logging disabled");
+    expect(markup).toContain("hosted MCP, web search, file search, image generation, code interpreter");
+    expect(markup).toContain("has submitted a Zero Data Retention request");
+    expect(markup).toContain("OpenAI has not yet approved it");
+    expect(markup).toContain("abuse-monitoring logs for up to 30 days");
+    expect(markup).toContain("prompt-cache data may remain on its local GPU machines for up to 24 hours");
+    expect(markup).toContain("has not yet proved that the production key targets the inspected project");
+    expect(markup).toContain("do not establish Zero Data Retention");
+    expect(markup).toContain("hosted-search path is disabled in the inspected provider project");
     expect(markup).not.toContain("zero-retention arrangement is in place");
     expect(markup).not.toContain("not used for training");
 
     // Status line: describes configured behaviour, never asserts a review.
     expect(markup).toContain("Describes configured behaviour as of");
     expect(markup).not.toContain("Reviewed on");
+    expect(metadata.description).toContain("current provider controls");
+    expect(metadata.description).toContain("pending privacy approvals");
   });
 
   it("exposes every section as a stable anchor so /privacy#retention can be linked", () => {

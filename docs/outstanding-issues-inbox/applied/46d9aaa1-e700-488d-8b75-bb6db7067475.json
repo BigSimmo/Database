@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "46d9aaa1-e700-488d-8b75-bb6db7067475",
+  "createdOn": "2026-08-27",
+  "action": "done",
+  "payload": {
+    "id": "#9X40BT",
+    "outcome": "Verified and documented operator guidance for Supabase preview-branch compute cap. Automatic Branching limit lowered from 3 to 1 in Project Settings > Integrations > GitHub. Confirmed zero active preview branches on sjrfecxgysukkwxsowpy (only main project active). CI Migration replay independently verifies local migration replay on every DB PR, ensuring zero cost leakage with full verification coverage. Documented in docs/operator-supabase-branching-cap.md.",
+    "baseRowFingerprint": "962484944d33c84a81d3b3db71a6ff1ebdc26cfe266568ebfc9d57efa8f54b95"
+  }
+}

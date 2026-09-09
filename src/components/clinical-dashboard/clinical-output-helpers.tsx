@@ -184,13 +184,13 @@ export function AnswerViewModeControl({
             aria-label={`Show ${mode.label.toLowerCase()} answer view`}
             title={mode.label}
             className={cn(
-              "inline-flex min-h-tap min-w-0 flex-1 basis-[4.75rem] items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold transition sm:flex-none sm:basis-auto sm:px-2.5 lg:min-h-9",
+              "inline-flex min-h-tap min-w-0 flex-1 basis-[4.75rem] items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold transition sm:flex-none sm:basis-auto sm:px-2.5 lg:min-h-compact-meta",
               active
                 ? "bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-sm"
                 : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
             )}
           >
-            <Icon className="h-3.5 w-3.5 shrink-0" />
+            <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate sm:hidden">{mode.shortLabel}</span>
             <span className="hidden truncate sm:inline">{mode.label}</span>
           </button>

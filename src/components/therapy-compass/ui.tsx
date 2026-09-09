@@ -2,37 +2,14 @@ import type { ReactNode } from "react";
 import { ShieldCheck, TriangleAlert, type LucideIcon } from "lucide-react";
 
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
-import {
-  cn,
-  EmptyState as SharedEmptyState,
-  LoadingPanel,
-  toneInfo,
-  toneSuccess,
-  toneWarning,
-} from "@/components/ui-primitives";
+import { missingValuePhrase } from "@/components/ui/missing-value";
+import { cn, EmptyState as SharedEmptyState, LoadingPanel } from "@/components/ui-primitives";
 
 import { reviewStatusMeta } from "./data/select";
 
 // ---- tag pill -----------------------------------------------------------
 
 type Tone = "neutral" | "purple" | "info" | "success" | "warning" | "accent";
-
-/**
- * Border + background + text for a filled pill. `info`/`success`/`warning` reuse the
- * shared recipes: `--success` and `--success-soft` are aliases of `--success-text` and
- * `--success-bg`, so these render identically to the tone classes they replace. Therapy
- * additionally needs `purple` (therapy modality) and `accent`, which the shared kit
- * does not carry.
- */
-const TONE_SURFACE: Record<Tone, string> = {
-  neutral: "border-[color:var(--border)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]",
-  purple: "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
-  info: toneInfo,
-  success: toneSuccess,
-  warning: toneWarning,
-  accent:
-    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)]",
-};
 
 /** Text colour only, for the borderless transparent eyebrow. */
 const TONE_TEXT: Record<Tone, string> = {
@@ -114,15 +91,9 @@ export function StatusBadge({ status }: { status: string }) {
   const tone = meta.tone === "success" ? "success" : meta.tone === "warning" ? "warning" : "neutral";
   const Icon = meta.tone === "success" ? ShieldCheck : TriangleAlert;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold",
-        TONE_SURFACE[tone],
-      )}
-    >
-      <Icon size={14} strokeWidth={1.9} aria-hidden="true" />
+    <Chip size="standard" appearance={{ kind: "status", tone }} icon={Icon}>
       {meta.label}
-    </span>
+    </Chip>
   );
 }
 
@@ -185,7 +156,7 @@ export function EmptyState({
 // ---- small building blocks ---------------------------------------------
 
 export function Eyebrow({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
-  return <span className={cn("text-2xs font-bold tracking-eyebrow", TONE_TEXT[tone])}>{children}</span>;
+  return <span className={cn("text-2xs font-bold uppercase tracking-eyebrow", TONE_TEXT[tone])}>{children}</span>;
 }
 
 /**
@@ -215,7 +186,14 @@ export function Meter({ value, label }: { value: number | null; label: string })
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
         <span className="text-2xs text-[color:var(--text-muted)]">{label}</span>
-        <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{value == null ? "—" : `${v}%`}</span>
+        {/* A record whose completeness the generator could not produce: the metric exists, this
+            record does not carry a figure for it, so `Unknown` — never `Not recorded`, which would
+            assert an omission from the record itself. The dash read as 0% beside a meter whose
+            track is empty in exactly that case (SPEC §11). Rendered at the row's own `text-2xs`
+            via the primitive's string form; `MissingValue`'s smallest density is `text-xs`. */}
+        <span className="text-2xs font-semibold text-[color:var(--text-muted)]">
+          {value == null ? missingValuePhrase("unknown") : `${v}%`}
+        </span>
       </div>
       <span
         role={value == null ? undefined : "meter"}

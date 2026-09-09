@@ -32,7 +32,7 @@ function projection(kind: RegistryCorpusKind): RegistryGovernanceProjection {
       registry_record_kind: kind,
       registry_record_id: recordId,
       registry_record_slug: `${kind}-slug`,
-      publisher: "Clinical KB registry",
+      publisher: "PsychSift registry",
       document_status: "current",
       clinical_validation_status: "locally_reviewed",
       clinical_validation_evidence: {

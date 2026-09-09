@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "0d8500fb-3202-4825-930e-3dd9c927dd41",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "a1495b3e-29fb-489a-a261-df3dcb142f51",
+    "reason": "Adversarial review found that route-ownership tests do not pin the unresolved visual owner decision; replace only after recording and testing that decision explicitly."
+  }
+}

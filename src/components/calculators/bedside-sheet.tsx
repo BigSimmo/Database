@@ -177,7 +177,8 @@ export function CalculatorsBedsideSheetMockup() {
                   key={calc.id}
                   href={`#sheet-${calc.id}`}
                   className={cn(
-                    "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-2xs font-bold",
+                    // Compact-meta jump chips (in-sheet nav), not primary CTAs.
+                    "inline-flex min-h-compact-meta shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-2xs font-bold",
                     derived.started
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
@@ -208,7 +209,7 @@ export function CalculatorsBedsideSheetMockup() {
 
       {/* Session summary dock — floats above the site composer */}
       <div className="pointer-events-none fixed inset-x-0 bottom-32 z-20 px-3 sm:bottom-36">
-        <div className="pointer-events-auto mx-auto grid max-w-4xl gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] px-4 py-3 shadow-[var(--shadow-soft)] backdrop-blur-md sm:px-5">
+        <div className="pointer-events-auto mx-auto grid max-w-4xl gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] px-4 py-3 shadow-[var(--e2)] backdrop-blur-md sm:px-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-sm-minus font-extrabold text-[color:var(--text-heading)]">
               <NotebookPen className="size-icon-md text-[color:var(--clinical-accent)]" aria-hidden="true" />
@@ -219,7 +220,7 @@ export function CalculatorsBedsideSheetMockup() {
               onClick={copySession}
               disabled={!startedCalcs.length}
               className={cn(
-                "inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
+                "inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
                 focusRing,
               )}
             >
@@ -238,7 +239,8 @@ export function CalculatorsBedsideSheetMockup() {
                   key={calc.id}
                   href={`#sheet-${calc.id}`}
                   className={cn(
-                    "inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md border px-2.5 text-2xs font-bold text-[color:var(--text-heading)]",
+                    // Compact-meta jump chips (session dock), not primary CTAs.
+                    "inline-flex min-h-compact-meta shrink-0 items-center gap-2 rounded-md border px-2.5 text-2xs font-bold text-[color:var(--text-heading)]",
                     derived.flags.length > 0
                       ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)]",

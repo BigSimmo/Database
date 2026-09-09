@@ -4,6 +4,7 @@ import { AlertTriangle, Info, Stethoscope } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { MissingValue } from "@/components/ui/missing-value";
 
 import { calculators, domainIcons, domainLabels, domainOrder, type CalculatorFixture } from "./calculator-fixtures";
 import {
@@ -129,7 +130,7 @@ export function CalculatorsClinicalConsoleMockup() {
                   aria-pressed={active}
                   onClick={() => setActiveId(entry.id)}
                   className={cn(
-                    "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md border px-3 text-sm-minus font-bold",
+                    "inline-flex min-h-tap shrink-0 items-center gap-2 rounded-md border px-3 text-sm-minus font-bold",
                     active
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                       : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
@@ -196,14 +197,20 @@ export function CalculatorsClinicalConsoleMockup() {
           {/* Sticky live-score ticker */}
           <section
             aria-label="Live result"
-            className="sticky top-2 z-10 grid gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] p-3 shadow-[var(--shadow-soft)] backdrop-blur-md"
+            className="sticky top-2 z-10 grid gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-glass)] p-3 shadow-[var(--e2)] backdrop-blur-md"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-baseline gap-2">
-                <span className="font-mono text-xl font-extrabold tabular-nums text-[color:var(--text-heading)]">
-                  {derived.started ? derived.score : "—"}
-                  <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
-                </span>
+                {/* Unstarted is not a missing score: no score exists yet, so the fraction has no numerator. The scale's own
+                    endpoints stay visible in the ScoreBandBar directly below. */}
+                {derived.started ? (
+                  <span className="font-mono text-xl font-extrabold tabular-nums text-[color:var(--text-heading)]">
+                    {derived.score}
+                    <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
+                  </span>
+                ) : (
+                  <MissingValue reason="not_yet_calculated" />
+                )}
                 <SeverityPill
                   tone={derived.result.tone}
                   label={derived.started ? derived.result.label : "Not started"}
@@ -231,7 +238,7 @@ export function CalculatorsClinicalConsoleMockup() {
               onClick={() => setAnswers({})}
               disabled={!derived.started}
               className={cn(
-                "inline-flex min-h-9 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
+                "inline-flex min-h-tap items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--text)] disabled:pointer-events-none disabled:opacity-40",
                 focusRing,
               )}
             >

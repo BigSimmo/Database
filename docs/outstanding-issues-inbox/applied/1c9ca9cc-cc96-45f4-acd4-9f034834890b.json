@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "1c9ca9cc-cc96-45f4-acd4-9f034834890b",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Form 12A retains generic Authority and Criteria prose despite having a readable approved PDF",
+    "detail": "Form 12A has a form-specific clock of 18 years and an unencrypted committed PDF, but its maker and threshold remain generic. Use the readable approved form and authoritative sources to draft these two claims, then submit them through the existing reviewed clinical-content workflow; do not infer them solely from Act sections.",
+    "source": "data/forms-catalog.json; public/forms-pdf/form-12a.pdf; direct measurement 2026-08-24",
+    "issueUlid": "01M0SJN56TDTSABC6R1T60X1BH"
+  }
+}
