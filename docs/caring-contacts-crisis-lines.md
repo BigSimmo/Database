@@ -3,7 +3,8 @@
 > **Canonical crisis line reference and re-verification cadence across all Care Plan and Caring Contacts surfaces.**
 > Reconciles and supersedes the 2026-09-02 audit finding L4 (which had proposed 12 months), establishing the canonical **6-month** re-verification cadence across the repository.
 
-**Status:** Canonical reference, established 2026-09-07.  
+**Status:** Canonical reference, established 2026-09-07.
+
 **Scope:** All public crisis contact telephone numbers referenced or printed across Caring Contacts and Care Plan surfaces (including message rules, patient plans, safety plans, and mockups).
 
 ---
