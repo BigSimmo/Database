@@ -389,7 +389,7 @@ test.describe("universal search typeahead", () => {
     ).toBe(true);
   });
 
-  test("loads submitted cross-mode matches on phones only after expansion", async ({ page }) => {
+  test("states the phone cross-mode count on the closed header, before any expansion", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const universalRequests: string[] = [];
     page.on("request", (request) => {
@@ -401,10 +401,18 @@ test.describe("universal search typeahead", () => {
     const alsoMatches = page.getByTestId("universal-also-matches");
     await expect(alsoMatches).toBeVisible();
     await expect(alsoMatches).toHaveCount(1);
-    expect(universalRequests).toHaveLength(0);
-
-    await alsoMatches.getByRole("button", { name: /Also matches in other modes/ }).click();
+    // Eager at phone width too. A closed row that says "Tap to open" is a blind
+    // door: it cannot promise the tray holds anything, and the empty tray was
+    // still rendered. The lookup runs on submit so the header states a count.
     await expect.poll(() => universalRequests.length).toBe(1);
+
+    const trigger = alsoMatches.getByRole("button", { name: /Also matches in other modes/ });
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(alsoMatches).not.toContainText("Tap to open");
+    await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeHidden();
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
   });
 

@@ -363,14 +363,18 @@ function CrossModeLinksLine({
             way to say what it held. Resting open, it was naming the cards
             immediately below it. */}
         <span className="h-px min-w-3 flex-1 bg-[color:var(--border)] forced-colors:bg-[CanvasText]" aria-hidden />
-        {/* Visual cue only — the button's accessible name stays the label above,
-            so a screen reader is not read the count twice. */}
+        {/* The visible count is decorative — it is dropped entirely below sm, and
+            `hidden` hides it from assistive tech as well as from the eye. This
+            tray has no live region to carry the number, so without the sr-only
+            copy the count would never reach a screen reader at any width, and
+            the closed control would announce as a door onto an unknown. */}
         <span
           className="hidden shrink-0 text-2xs font-medium tabular-nums text-[color:var(--text-muted)] sm:inline"
           aria-hidden
         >
           {countLabel}
         </span>
+        <span className="sr-only">{countLabel}</span>
         <span
           className={cn(
             "-mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-transform motion-reduce:transition-none",
