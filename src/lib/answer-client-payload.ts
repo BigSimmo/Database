@@ -144,10 +144,6 @@ const answerFieldPolicy = {
   faithfulnessWarning: "client",
 } as const satisfies Record<keyof RagAnswer, "client" | "server">;
 
-type ClientAnswerKey = {
-  [Key in keyof typeof answerFieldPolicy]: (typeof answerFieldPolicy)[Key] extends "client" ? Key : never;
-}[keyof typeof answerFieldPolicy];
-
 type ClientSourceMetadataKey =
   | "source_kind"
   | "registry_record_kind"
@@ -402,31 +398,11 @@ function isClientDocumentLabel(value: unknown): value is ClientDocumentLabel {
   return Boolean(projected) && sameProjection(value, projected as unknown as Record<string, unknown>);
 }
 
-const clientSourceKeys = new Set([
-  "id",
-  "document_id",
-  "title",
-  "file_name",
-  "page_number",
-  "chunk_index",
-  "section_heading",
-  "section_path",
-  "heading_level",
-  "parent_heading",
-  "anchor_id",
-  "content",
-  "retrieval_synopsis",
-  "image_ids",
-  "similarity",
-  "similarity_origin",
-  "text_rank",
-  "hybrid_score",
-  "lexical_score",
-  "rrf_score",
-  "source_strength",
-  "source_metadata",
-  "document_labels",
-]);
+const clientSourceKeys = new Set(
+  Object.entries(sourceFieldPolicy)
+    .filter(([, policy]) => policy === "client")
+    .map(([key]) => key),
+);
 
 export function projectClientSearchResult(value: unknown): ClientSearchResult | null {
   if (!isRecord(value)) return null;
@@ -684,19 +660,11 @@ function isClientSafetyWarning(value: unknown): value is ClientSafetyWarning {
 const clientAnswerPassthroughKeys = Object.keys(clientAnswerFieldsSchema.shape);
 
 const clientAnswerKeys = new Set([
-  "answer",
-  "grounded",
-  "confidence",
-  "citations",
-  "sources",
-  "quoteCards",
-  "bestSource",
-  "safetyWarnings",
-  "scope",
+  ...Object.entries(answerFieldPolicy)
+    .filter(([, policy]) => policy === "client")
+    .map(([key]) => key),
+  // These server fields have explicit public projections or are accepted transport-envelope metadata.
   "degradedMode",
-  "retrievalGateBlocked",
-  "authorityTrustCapRequired",
-  "fallbackReasonCode",
   "interactionId",
   "feedbackToken",
   "demoMode",

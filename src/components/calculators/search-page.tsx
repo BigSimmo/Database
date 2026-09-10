@@ -285,6 +285,13 @@ export function CalculatorsSearchPage({
   const [density, setDensity] = useState<Density>("comfortable");
   const [session, setSession] = useState<SessionAnswers>({});
   const [openId, setOpenId] = useState<string | null>(() => calculatorRecordById(initialCalculatorId)?.id ?? null);
+  const [previousInitialCalculatorId, setPreviousInitialCalculatorId] = useState(initialCalculatorId);
+
+  // Adopt route changes before rendering the dialog, without resetting user actions on ordinary rerenders.
+  if (previousInitialCalculatorId !== initialCalculatorId) {
+    setPreviousInitialCalculatorId(initialCalculatorId);
+    setOpenId(calculatorRecordById(initialCalculatorId)?.id ?? null);
+  }
 
   const records = useMemo(
     () =>
@@ -309,10 +316,6 @@ export function CalculatorsSearchPage({
   const inProgress = useMemo(() => records.filter((record) => record.derived.started), [records]);
   const activeCalc = openId ? calculators.find((calc) => calc.id === openId) : undefined;
   const activeFilterCount = selectedDomains.size + (progress === "all" ? 0 : 1) + (time === "all" ? 0 : 1);
-
-  useEffect(() => {
-    setOpenId(calculatorRecordById(initialCalculatorId)?.id ?? null);
-  }, [initialCalculatorId]);
 
   function openCalculator(calculatorId: string) {
     const calculator = calculatorRecordById(calculatorId);

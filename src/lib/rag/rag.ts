@@ -17,11 +17,7 @@ import { createGenerationDegradationRecorder } from "@/lib/rag/rag-generation-de
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
-import {
-  answerLatencyMetadata,
-  answerScopedEvidenceMetadata,
-  scoreExplanationLogMetadata,
-} from "@/lib/rag/rag-answer-telemetry-metadata";
+import { answerLatencyMetadata, answerScopedEvidenceMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions, adaptiveAnswerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
@@ -84,11 +80,7 @@ import {
   type VerifiedUnit,
 } from "@/lib/answer-preview";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
-import {
-  selectModelContextEvidencePair,
-  selectModelContextResults,
-  summarizeAustralianSourceSelection,
-} from "@/lib/rag/rag-context-selection";
+import { selectModelContextEvidencePair, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
 import { relatedInformationMenuLine } from "@/lib/rag/answer-composition";
 export {
   capPerDocumentCrowding,
@@ -198,10 +190,9 @@ import {
   hasStructuredThresholdEvidence,
   isMedicationDoseEvidenceQuery,
   normalizedClinicalSearchTokens,
-  rankClinicalResults,
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
-import { ragQueryClassifierPromptVersion, ragSummaryPromptVersion } from "@/lib/rag/rag-versioning";
+import { ragSummaryPromptVersion } from "@/lib/rag/rag-versioning";
 import {
   answerPrivacyMetadata,
   answerTextForStorage,
@@ -227,9 +218,6 @@ import { fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import {
-  buildAnswerScoreExplanations,
-  buildIndexingQuality,
-  collectMemoryCards,
   deriveConfidence,
   fallbackReasonFromRouting,
   isProviderGenerationDegraded,
@@ -296,7 +284,6 @@ import {
   hydrateCandidatesWithMetadataAndMemory,
   prepareCoverageGateResults,
   selectRankedRetrievalResults,
-  type DocumentRankingMetadataCache,
 } from "@/lib/rag/rag-hydration";
 export { attachDocumentRankingMetadata, attachPageVisualEvidence } from "@/lib/rag/rag-hydration";
 import { cleanClinicalSummaryText, isLowYieldClinicalText } from "@/lib/source-text-sanitizer";
@@ -306,7 +293,6 @@ import {
   looksLikeJsonArtifact,
   sanitizeAnswerText,
   sanitizeStructuredText,
-  safeRecord,
 } from "@/lib/rag/rag-answer-text";
 import { buildCrossDocumentFusionBrief, buildCrossDocumentSourceGuide } from "@/lib/cross-document-synthesis";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
@@ -323,7 +309,6 @@ import {
 import { resultsHaveReleaseRankScore, stabilizeReleasedSearchOrder } from "@/lib/released-search-order";
 export { stabilizeReleasedSearchOrder } from "@/lib/released-search-order";
 import { semanticRerankIfAmbiguous } from "@/lib/semantic-rerank";
-import { z } from "zod";
 import {
   buildDocumentBreakdown,
   buildEvidenceSummary,
@@ -331,7 +316,6 @@ import {
   buildSourceCoverage,
   buildVisualEvidence,
   detectConflictsOrGaps,
-  extractQuoteCards,
   reconcileQuoteCards,
   selectBestSourceRecommendation,
 } from "@/lib/evidence";

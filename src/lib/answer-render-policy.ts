@@ -10,7 +10,6 @@ import type {
   ClientSearchResult,
   ClientRelatedDocument,
 } from "@/lib/answer-client-payload";
-import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import type { EvidenceRelevance, SourceStrength, VisualEvidenceCard } from "@/lib/types";
 import { formatDisplayedVisualEvidenceForClipboard } from "@/lib/ward-output";
 

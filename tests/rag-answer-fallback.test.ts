@@ -4726,8 +4726,8 @@ describe("RAG structured-output fallback", () => {
       };
     });
 
-    const insertQueryDiagnostics = vi.fn(async (_row: unknown) => ({ error: null }));
-    const insertRetrievalDiagnostics = vi.fn(async (_row: unknown) => ({ error: null }));
+    const insertQueryDiagnostics = vi.fn<(row: unknown) => Promise<{ error: null }>>(async () => ({ error: null }));
+    const insertRetrievalDiagnostics = vi.fn<(row: unknown) => Promise<{ error: null }>>(async () => ({ error: null }));
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => ({
         rpc,

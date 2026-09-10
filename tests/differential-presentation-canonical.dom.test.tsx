@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
 import { differentialPresentations, differentialRecords, type DifferentialRecord } from "@/lib/differentials";
 
-const copyText = vi.hoisted(() => vi.fn(async (_text: string) => undefined));
+const copyText = vi.hoisted(() => vi.fn<(text: string) => Promise<void>>(async () => undefined));
 vi.mock("@/lib/copy-to-clipboard", () => ({ copyTextToClipboard: copyText }));
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (

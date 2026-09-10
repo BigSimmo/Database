@@ -465,6 +465,31 @@ describe("toClientAnswerPayload", () => {
     expect(trimmed.future_server_secret).toBeUndefined();
   });
 
+  it("rejects restored private fields and preserves only projected transport exceptions", () => {
+    const payload = toClientAnswerPayload(answerWith([fullSource()]));
+    for (const key of ["ragDiagnostics", "supportedClaims", "routingReason", "futureServerSecret"]) {
+      expect(projectClientAnswerPayload({ ...payload, [key]: "private" }, true)).toBeNull();
+    }
+    for (const key of ["context_pack_admission", "adjacent_context", "corpus_scope", "future_server_secret"]) {
+      expect(
+        projectClientAnswerPayload({ ...payload, sources: [{ ...payload.sources[0], [key]: "private" }] }, true),
+      ).toBeNull();
+    }
+
+    const restored = projectClientAnswerPayload(
+      {
+        ...payload,
+        interactionId: "transport-interaction",
+        feedbackToken: "transport-feedback",
+        degradedMode: { active: false, reason: null },
+      },
+      true,
+    );
+    expect(restored).toEqual({ ...payload, degradedMode: { active: false, reason: null } });
+    expect(restored).not.toHaveProperty("interactionId");
+    expect(restored).not.toHaveProperty("feedbackToken");
+  });
+
   it("keeps identity, snippet, scoring, and governance fields intact", () => {
     const trimmed = toClientAnswerPayload(answerWith([fullSource()])).sources![0];
     expect(trimmed.id).toBe("chunk-1");
