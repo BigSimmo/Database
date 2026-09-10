@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "0352fe12-97aa-47f5-8c51-882b1cfdba3a",
+  "createdOn": "2026-09-07",
+  "action": "cancel",
+  "payload": {
+    "requestId": "6ec0c564-eabf-48a4-a8ef-504a05248244",
+    "reason": "Duplicate: c4c975a1-eefb-4d93-86b4-e54408b33689 already queues a done request for #5PQRSW against the same baseRowFingerprint, with the fuller outcome (it names the two-tier partition, the UI half in medication-considerations.tsx, and the 28 passing tests). Two pending mutations of one target make the whole batch unreconcilable, so this branch's shorter receipt stands down in favour of the one already on main."
+  }
+}

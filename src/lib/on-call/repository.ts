@@ -4,10 +4,33 @@ import {
   type OnCallEntry,
   type OnCallSection,
 } from "@/lib/on-call/entry-model";
+import { PublicApiError } from "@/lib/http";
+import { withOwnerReadScope } from "@/lib/public-api-access";
 
 export const ON_CALL_MAX_ENTRIES = 1000;
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
+
+export async function assertValidLinkedDocumentIds(
+  supabase: AdminClient,
+  documentIds: readonly string[] | string[],
+  ownerId: string,
+): Promise<void> {
+  const uniqueIds = Array.from(new Set(documentIds));
+  if (uniqueIds.length === 0) return;
+
+  const { data, error } = await withOwnerReadScope(
+    supabase.from("documents").select("id").in("id", uniqueIds),
+    ownerId,
+  );
+  if (error) throw new Error(error.message);
+
+  const existingIds = new Set((data ?? []).map((doc: { id: string }) => doc.id));
+  const allExist = uniqueIds.every((id) => existingIds.has(id));
+  if (!allExist) {
+    throw new PublicApiError("Invalid linked document IDs: one or more documents do not exist.", 400);
+  }
+}
 
 const ROW_COLUMNS =
   "id, section, slug, title, subtitle, body, details, linked_document_ids, tags, is_personal, include_on_card, sort_order, last_verified_at";

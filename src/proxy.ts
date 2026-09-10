@@ -49,7 +49,6 @@ export const PROXY_AUTH_USER_HEADER = "x-proxy-auth-user";
  * redirect as a backstop for anything the matcher misses.
  */
 const staticRouteRedirects: Record<string, string> = {
-  "/mockups/document-search-command": "/documents/search",
   // Dictionary's Search and Browse were one catalogue behind two destinations
   // and are now one route; `view`, `letter`, `topic` and `kind` mean the same
   // thing there, so the query string travels unchanged.
@@ -61,6 +60,12 @@ const staticRouteRedirects: Record<string, string> = {
   // /mockups/ward-flow prefix in the sandbox move (see
   // src/lib/developer-area/headers.ts); the constellation redirect moved with it.
   "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
+  // The one mockup path that still redirects in production rather than 404ing
+  // through `shouldBlockProductionMockups`. `mockups/README.md`, `docs/site-map.md`
+  // and the site-map GENERATOR (`scripts/generate-site-map.ts`, which hardcodes the
+  // sentence) all name this route by hand, so `sitemap:check` cannot notice the entry
+  // going away. Retiring it means moving all four together.
+  "/mockups/document-search-command": "/documents/search",
 };
 
 /**

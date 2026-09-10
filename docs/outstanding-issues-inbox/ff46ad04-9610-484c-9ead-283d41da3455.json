@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ff46ad04-9610-484c-9ead-283d41da3455",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#9ZGNW7",
+    "outcome": "Excluded developer mockups from triggering heavy Lighthouse CI jobs",
+    "baseRowFingerprint": "446efdb48e67c0790fb6b49f7bf108f69787a59d26e31c36ae19232af20b6fd1"
+  }
+}
