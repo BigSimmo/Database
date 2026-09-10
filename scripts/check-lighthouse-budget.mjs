@@ -95,7 +95,6 @@ export function expectedBudgetRuns(budget) {
  * refuse the refresh. Measurement gaps still block.
  */
 export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false } = {}) {
-  const tolerance = { ...DEFAULT_TOLERANCE, ...(budget?.tolerance ?? {}) };
   const baseline = budget?.baseline ?? null;
   const hasBaseline = Boolean(baseline) && Object.keys(baseline).length > 0;
   // A slug collision means two routes write the same report filename, so the second
