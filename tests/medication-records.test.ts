@@ -217,6 +217,18 @@ describe("rowGovernance", () => {
     expect(governance.sourceStatus).toBe("outdated");
   });
 
+  it("re-evaluates outdated status when last_reviewed_at is newer than reference", () => {
+    const row = baseRow({
+      sections: datedSections,
+      source_status: "outdated",
+      last_reviewed_at: "2026-09-05T00:00:00.000Z",
+    });
+    const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
+
+    expect(governance.sourceStatus).toBe("current");
+    expect(governance.lastReviewedAt).toBe("2026-09-05T00:00:00.000Z");
+  });
+
   it("passes validation status and review timestamps through unchanged", () => {
     const row = baseRow({
       sections: datedSections,

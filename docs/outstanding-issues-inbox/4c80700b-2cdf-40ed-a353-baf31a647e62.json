@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4c80700b-2cdf-40ed-a353-baf31a647e62",
+  "createdOn": "2026-09-10",
+  "action": "done",
+  "payload": {
+    "id": "#W1B9RP",
+    "outcome": "Exposed officialPdfEditingRestricted alongside passwordProtected on form detail page and source snapshot card",
+    "baseRowFingerprint": "682f1dbd42ed415005b888b0b34134dcef0878f6c57c856c2298926f677b6bd5"
+  }
+}
