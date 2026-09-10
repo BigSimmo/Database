@@ -25,14 +25,14 @@ import type { CreatePlanInput, WriteContext } from "@/lib/caring-contacts/reposi
 
 describe("caring-contacts plan-store", () => {
   const clock = fixedClock("2026-03-02T10:00:00.000Z");
-  const context: WriteContext = {
+  const context = {
     actor: {
       id: actorId("COORDINATOR-1"),
       teamId: teamId("TEAM-1"),
       roles: ["coordinator"],
     },
     idempotencyKey: idempotencyKey("idemp-test-1"),
-  };
+  } satisfies WriteContext;
 
   describe("validatePatientName", () => {
     it("accepts valid non-blank names and returns trimmed string", () => {
@@ -172,7 +172,6 @@ describe("caring-contacts plan-store", () => {
       const result = await store.createPlan(fullInput, context);
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).not.toHaveProperty("patientDetail");
         expect(result.value).not.toHaveProperty("patientDetail");
         expect(result.value.plan.id).toBe("PLAN-VALID-FULL");
       }
