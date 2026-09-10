@@ -1,4 +1,6 @@
 "use client";
+
+import { useSubmittedModeSearch } from "@/components/clinical-dashboard/use-submitted-mode-search";
 import { useSettingsState } from "./clinical-dashboard/SettingsStateProvider";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -112,6 +114,7 @@ import {
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
+  resultUsable,
   applyRenamedDocumentToAnswer,
   compactScopeFilters,
   hasActiveIndexingWork,
@@ -179,7 +182,6 @@ import { useAppPreferences } from "@/components/clinical-dashboard/use-app-prefe
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
-  answerPayloadIsUsable,
   classifyAnswerError,
   createAnswerRequestWatchdog,
   generateQuerySuggestions,
@@ -343,24 +345,11 @@ function ClinicalDashboardContent({
     (retainTarget = false) => scheduleComposerFocus(composerInputRef, retainTarget),
     [composerInputRef],
   );
-  const [modeSearchSubmitted, setModeSearchSubmittedFlag] = useState(() =>
-    Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
-  );
-  // The query the mode's on-screen results actually belong to, which is NOT `query`:
-  // editing the bottom composer calls `setQuery` alone and leaves both the results and
-  // the submitted flag in place. Anything keyed to the submitted search must read this,
-  // or a paused draft silently replaces it while the primary cards still show the last
-  // submitted search. Null until a submission records one.
-  const [submittedModeQuery, setSubmittedModeQuery] = useState<string | null>(() =>
-    autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools" ? initialQuery.trim() : null,
-  );
-  // Every submission already sets `query` to the text it submitted, so the text is passed
-  // here too rather than read back from state. Clearing the flag clears the query with it.
-  const setModeSearchSubmitted = useCallback((submitted: boolean, submittedText?: string) => {
-    setModeSearchSubmittedFlag(submitted);
-    if (!submitted) setSubmittedModeQuery(null);
-    else if (submittedText !== undefined) setSubmittedModeQuery(submittedText.trim());
-  }, []);
+  const { modeSearchSubmitted, submittedModeQuery, setModeSearchSubmitted } = useSubmittedModeSearch({
+    autoRunSearch,
+    initialQuery,
+    initialSearchMode,
+  });
   // focus=1 means "focus on entry", not "keep the dock focused after results".
   // Suppress autofocus once a mode search/answer has been submitted so hide-on-
   // scroll can reclaim chrome on result views (Answer and other bottom docks).
@@ -1758,13 +1747,6 @@ function ClinicalDashboardContent({
       }
     }
     throw lastError;
-  }
-
-  function resultUsable(payload: SearchResultModePayload) {
-    if (payload.kind === "documents") {
-      return payload.sources.length > 0 || payload.documentMatches.length > 0;
-    }
-    return answerPayloadIsUsable(payload.payload);
   }
 
   // Audit M10: monotonically increasing token identifying the latest search.

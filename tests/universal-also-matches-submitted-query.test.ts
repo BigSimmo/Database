@@ -16,8 +16,13 @@ import { describe, expect, it } from "vitest";
  */
 const DASHBOARD = readFileSync(join(__dirname, "..", "src/components/ClinicalDashboard.tsx"), "utf8");
 
-function sourceOf(pattern: RegExp): string {
-  const match = DASHBOARD.match(pattern);
+const SUBMITTED_SEARCH = readFileSync(
+  join(__dirname, "..", "src/components/clinical-dashboard/use-submitted-mode-search.ts"),
+  "utf8",
+);
+
+function sourceOf(pattern: RegExp, source = DASHBOARD): string {
+  const match = source.match(pattern);
   expect(match, `expected to find ${pattern}`).toBeTruthy();
   return match![0];
 }
@@ -36,12 +41,15 @@ describe("cross-mode also-matches follows the submitted query, not the draft", (
   });
 
   it("holds submittedModeQuery separately from query, so typing cannot move it", () => {
-    expect(DASHBOARD).toMatch(/const \[submittedModeQuery, setSubmittedModeQuery\] = useState<string \| null>/);
+    expect(DASHBOARD).toContain(
+      "const { modeSearchSubmitted, submittedModeQuery, setModeSearchSubmitted } = useSubmittedModeSearch({",
+    );
+    expect(SUBMITTED_SEARCH).toMatch(/const \[submittedModeQuery, setSubmittedModeQuery\] = useState<string \| null>/);
     // Nothing may write the submitted query except the submission wrapper, or a composer edit
     // would reach it after all.
-    const writes = [...DASHBOARD.matchAll(/setSubmittedModeQuery\(/g)];
+    const writes = [...SUBMITTED_SEARCH.matchAll(/setSubmittedModeQuery\(/g)];
     expect(writes.length).toBe(2);
-    const wrapper = sourceOf(/const setModeSearchSubmitted = useCallback\([\s\S]*?\n  \}, \[\]\);/);
+    const wrapper = sourceOf(/const setModeSearchSubmitted = useCallback\([\s\S]*?\n  \}, \[\]\);/, SUBMITTED_SEARCH);
     expect((wrapper.match(/setSubmittedModeQuery\(/g) ?? []).length).toBe(2);
   });
 
@@ -53,12 +61,12 @@ describe("cross-mode also-matches follows the submitted query, not the draft", (
     for (const call of submissions) {
       expect(call, `submission without its query: ${call}`).toMatch(/setModeSearchSubmitted\(true, \S+\)/);
     }
-    const wrapper = sourceOf(/const setModeSearchSubmitted = useCallback\([\s\S]*?\n  \}, \[\]\);/);
+    const wrapper = sourceOf(/const setModeSearchSubmitted = useCallback\([\s\S]*?\n  \}, \[\]\);/, SUBMITTED_SEARCH);
     expect(wrapper).toContain("if (!submitted) setSubmittedModeQuery(null);");
   });
 
   it("seeds the submitted query from an auto-run URL, so a restored result view is not blank", () => {
-    const seed = sourceOf(/const \[submittedModeQuery, setSubmittedModeQuery\][\s\S]*?\);\n/);
+    const seed = sourceOf(/const \[submittedModeQuery, setSubmittedModeQuery\][\s\S]*?\);\n/, SUBMITTED_SEARCH);
     expect(seed).toContain("autoRunSearch");
     expect(seed).toContain("initialQuery.trim()");
     expect(seed).toContain('initialSearchMode !== "tools"');
