@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6fbe61cf-75fc-4c2e-b003-22b51f66a734",
+  "createdOn": "2026-09-09",
+  "action": "update",
+  "payload": {
+    "id": "#G4YPNE",
+    "detail": "Unchanged and unchangeable from inside the project: it requires Aboriginal health practitioners. Recorded here as a Ward Flow gate in its own right rather than relying on the Caring Contacts entry (#1S81R8), because Ward Flow is a separate surface — bed allocation, transport and detention-adjacent legal status — with its own cultural safety questions, and an item filed under another feature will not be found by someone preparing Ward Flow for use. HARD GATE BEFORE ANY REAL-PATIENT USE. Not a blocker on further prototype building. CONFIRMED 2026-09-09 across the design surface as well as the code: neither the Command mockup (artifact d821a155) nor the third-edition design system (artifact e7f7b6f2) contains a rule, a field, a gate or a note on Aboriginal cultural safety, in roughly 27,500 lines between them. The standard is otherwise scrupulous about recording what it has decided and what it has deliberately left out, with a whole section for decisions taken and decisions for the owner, which makes the silence read as nothing having been considered rather than as work owned elsewhere. NEXT ACTION UNCHANGED and still outside this team, but one cheap thing helps now: add a line to the standard's decisions-for-the-owner section recording that the review is a known gate owned by Aboriginal health practitioners, so each of the eighteen mockup migrations does not rediscover the gap independently.",
+    "baseRowFingerprint": "26c3f2f27a4db03535ecb30a81e37bc6cacf4e262dc73d52b8b86a559439e09b"
+  }
+}

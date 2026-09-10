@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d62e303c-9d77-4bf1-9f9d-5404375b714d",
+  "createdOn": "2026-09-09",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Ward Flow: the Command mockup and the shipped reducer give opposite answers on a prior decline",
+    "detail": "FOUND 2026-09-09 by review of artifact d821a155 (Ward Flow Command, third edition) against src/components/ward-management/. THE MOCKUP: prior_decline is one of three ABSOLUTE_GATES, alongside allocatable_bed and specialling. Its fixed sentence, printed on the candidate row, in the disabled override control's tooltip and in the refused-actions register, is 'A recorded reason does not undo a ward's decline.' A declined ward therefore sorts to availability class 'declined' and cannot be chosen at all. THE ENGINE: ward-flow-reducer.ts deliberately places prior_decline in neither the world-fact group nor SUITABILITY_GATES, so eligibilityRefusal never consults it and a re-approach passes with no reason recorded. Its comment gives the reasoning: a ward that declined ninety minutes ago because it had no bed is the commonest thing in bed management, beds free up, and none of the five OVERRIDE_REASONS names a mismatch that exists. It records that enforcing it broke 23 tests across 7 files, almost all re-referrals after a seeded decline. WHY IT MATTERS: this is not a styling difference. The prototype teaches a coordinator that a decline closes that ward to that patient; the engine treats re-approaching as routine and unremarkable. One of the two is wrong and a coordinator trained on the prototype would be wrong in the direction of not ringing a ward that would now say yes. NEXT ACTION: an owner decision, then write it into section 8.4 of the third-edition standard (artifact e7f7b6f2) so the next mockup inherits it, and align whichever side moves. The reducer's own comment already records the question as open.",
+    "source": "Artifact review 2026-09-09 (d821a155 vs ward-flow-reducer.ts)",
+    "issueUlid": "01M22T7W1BFJW91M28CY861QTA"
+  }
+}

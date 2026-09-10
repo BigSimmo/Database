@@ -1,0 +1,1978 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   WARD FLOW SHELL. Third edition, light and dark.
+
+   The universal header (the quiet bar), one rail that is open at 236 px or
+   closed to a strip with hover cards, the Service selector, the three
+   drawers, the search results and the New referral menu. Loads after the
+   third edition stylesheet and speaks its tokens only: no hex, no solid
+   grey line, no size off the seven step scale, no weight that is not
+   loaded, one elevation step, brass as a bar and never a fill, the slate
+   ring for what is selected, thin scrollbars, a focus ring on every
+   control, and no hover that brightens. Every class, id, data attribute
+   and key the shell script reads is kept under its original name.
+
+   The frame classes ride beside the third edition's own: div.app.hApp,
+   div.frame.hFrame, div.scroll.hScroll. The mockup's locked laptop layout
+   keeps working because its rules still match, and the shell only adds
+   the rail width variable, the transition and the one row bar.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ─── layers ────────────────────────────────────────────────────────────
+   Body and panels 0. The rail 20, rising to 32 while the closed strip is
+   hovered or holds focus. The bar 31 with its dropdowns at 20 and the
+   search results at 22 inside it. The hover card 35. The drawer backdrop
+   39 and the drawer 40. The brand stripe 45, above every layer, pointer
+   events off. The skip link 50. ───────────────────────────────────────── */
+body::before {
+  z-index: 45;
+}
+.skip {
+  z-index: 50;
+}
+:root {
+  --railw: 236px;
+  --railw-closed: 76px;
+}
+:root[data-rail="closed"] {
+  --railw: var(--railw-closed);
+}
+
+/* ─── tables and the tap floor: the pieces the drawers depend on ─────── */
+.tableWrap {
+  overflow-x: auto;
+  border-top: 1px solid var(--line);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.tableWrap::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.tableWrap::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 9px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-2);
+}
+.dataTable th {
+  text-align: left;
+  font-size: var(--t-0);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.dataTable td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  vertical-align: top;
+  line-height: 1.45;
+}
+.dataTable td:first-child {
+  color: var(--ink);
+  font-weight: 600;
+}
+.dataTable .n,
+.dataTable th.n {
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dataTable td.n {
+  color: var(--ink);
+}
+/* A nought is a measurement and "none" is a state. */
+.dataTable .zero {
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--muted);
+}
+.dataTable tbody tr:hover td {
+  background: var(--sunk);
+}
+/* The totals row is a different kind of row, not the last of the same kind. */
+.dataTable tr.total td {
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 0;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 600;
+}
+.dataTable tr.total:hover td {
+  background: var(--surface-2);
+}
+/* The tap floor: 3rem where a finger is the pointer or the screen is a phone. Never 44. */
+@media (pointer: coarse), (max-width: 640px) {
+  .menu > summary,
+  .menuItem,
+  .search,
+  .qHit,
+  .taskRow,
+  .toolItem,
+  .pinRow,
+  .seg button,
+  .closeBtn,
+  .railBtn,
+  .clearBtn,
+  .seen {
+    min-height: 3rem;
+  }
+  .seen,
+  .clearBtn,
+  .closeBtn {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* ─── the search field: a secondary control that holds an input ─────── */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 20rem;
+  min-width: 11rem;
+  height: 34px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r2);
+  background: var(--surface);
+  color: var(--muted);
+  transition: border-color 0.12s;
+}
+.search:hover {
+  border-color: var(--ink-soft);
+}
+.search:focus-within {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.search svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--t-2);
+  color: var(--ink);
+  outline: none;
+}
+.search input::placeholder {
+  color: var(--muted);
+}
+.search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.search kbd {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0 5px;
+  line-height: 1.5;
+}
+.search .clearBtn {
+  font-size: var(--t-0);
+  font-weight: 600;
+  color: var(--muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.search .clearBtn:hover,
+.search .clearBtn:active {
+  background: var(--sunk);
+  color: var(--ink);
+}
+
+/* ─── a menu is a details element: the summary is the control, the panel floats beneath.
+   The summary is a secondary button (brief rule 8). Open, it takes the accent-soft fill, the
+   accent border and the slate ring, because open is a selection. ─── */
+.menu {
+  position: relative;
+}
+.menu > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r2);
+  background: var(--surface);
+  font-size: var(--t-2);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu > summary::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-1.5px) rotate(45deg);
+  transition: transform 0.12s;
+}
+.menu > summary:hover,
+.menu > summary:active {
+  background: var(--sunk);
+  border-color: var(--ink-soft);
+}
+.menu[open] > summary {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.menu[open] > summary::after {
+  transform: translateY(1.5px) rotate(-135deg);
+}
+.menu > summary .count {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 500;
+  color: var(--muted);
+}
+.menu[open] > summary .count {
+  color: var(--accent-ink);
+}
+/* The one primary control: the accent fill, the highlight along its top edge, and the darker
+   slate on hover, press and open. It never brightens. */
+.menu > summary.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  box-shadow: inset 0 1px 0 var(--hl-on-accent);
+}
+.menu > summary.primary:hover,
+.menu > summary.primary:active,
+.menu[open] > summary.primary {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+  color: var(--on-accent);
+  box-shadow: inset 0 1px 0 var(--hl-on-accent);
+}
+/* A pop out floats over the page, so it is the one thing beside a panel that takes the
+   elevation step: the hairline, the heavier bottom hairline, the top highlight and the lift.
+   Nothing inside it is lifted again. */
+.menuPanel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 17rem;
+  max-width: min(92vw, 44rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-bottom-color: var(--line-strong);
+  border-radius: var(--r1);
+  box-shadow:
+    var(--lift),
+    inset 0 1px 0 var(--hl);
+  z-index: 20;
+  display: grid;
+  overflow: hidden;
+}
+.menuPanel.left {
+  left: 0;
+  right: auto;
+}
+.menuHead {
+  padding: 10px 12px 4px;
+  font-size: var(--t-0);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.menuHead .count {
+  margin-left: auto;
+  font-family: var(--mono);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+}
+.menuList {
+  display: grid;
+  padding: 4px 6px 6px;
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--r2);
+  font-size: var(--t-2);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.menuItem:hover,
+.menuItem:active {
+  background: var(--sunk);
+}
+/* The chosen row: the accent-soft fill, the slate ring, and the brass bar at its left edge. */
+.menuItem[aria-pressed="true"],
+.menuItem[aria-current="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    inset 3px 0 0 var(--gilt);
+}
+.menuItem small {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.menuItem[aria-pressed="true"] small {
+  color: var(--accent-ink);
+}
+.menuItem[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.menuItem[aria-disabled="true"]:hover {
+  background: transparent;
+}
+.menuNote {
+  padding: 4px 12px 10px;
+  font-size: var(--t-1);
+  color: var(--muted);
+  line-height: 1.45;
+  max-width: 40ch;
+}
+.who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+  padding: 12px 14px 8px;
+  white-space: nowrap;
+}
+.who b {
+  font-size: var(--t-2);
+  font-weight: 600;
+  color: var(--ink);
+}
+.who span {
+  font-size: var(--t-0);
+  color: var(--muted);
+}
+
+/* ─── the quiet bar: one row on every screen ──────────────────────────
+   The title and the mark, universal search, the Service selector, then
+   Activity, Tasks and Tools as matching side drawers, and the one primary
+   action. ─────────────────────────────────────────────────────────────── */
+.hApp {
+  display: grid;
+  grid-template-columns: var(--railw) minmax(0, 1fr);
+  min-height: 100vh;
+  transition: grid-template-columns 0.18s ease;
+}
+.hFrame {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.hdr1 {
+  position: relative;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 20px 8px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.hdr1 .title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  min-width: 0;
+}
+.hdr1 h1 {
+  font-family: var(--display);
+  font-size: var(--t-6);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.hdr1 .end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.hdr1 .menu > summary .lbl {
+  font-weight: 600;
+}
+.glyph {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* The count pill on a bar control: mono on the sunk tone with a hairline ring, and the
+   accent-soft fill with the slate ring while its menu is open (brief rule 9). */
+.badge {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 500;
+  color: var(--ink-soft);
+  background: var(--sunk);
+  border-radius: 999px;
+  padding: 1px 7px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  letter-spacing: 0;
+}
+.menu[open] > summary .badge {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* A dot carries a tone or a service hue. Green breathes while the feed is live. Every dot in a
+   summary is aria-hidden and has a hidden sentence beside it. */
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+.dot[data-tone="danger"] {
+  background: var(--danger);
+}
+.dot[data-tone="good"] {
+  background: var(--good);
+  animation: breathe 2.4s ease-in-out infinite;
+}
+.dot[data-svc="north"] {
+  background: var(--svc-north);
+}
+.dot[data-svc="east"] {
+  background: var(--svc-east);
+}
+.dot[data-svc="south"] {
+  background: var(--svc-south);
+}
+.dot[data-svc="wachs"] {
+  background: var(--svc-wachs);
+}
+.dot[hidden] {
+  display: none;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--good-soft);
+  }
+}
+.fresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ─── universal search: the field and its results ─── */
+.searchWrap {
+  position: relative;
+  flex: 1 1 14rem;
+  max-width: 30rem;
+  min-width: 10rem;
+}
+.searchWrap .search {
+  width: 100%;
+  flex: none;
+  min-width: 0;
+}
+/* The results pop out: the same one elevation step as a menu panel. */
+.qPop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(92vw, 36rem);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-bottom-color: var(--line-strong);
+  border-radius: var(--r1);
+  box-shadow:
+    var(--lift),
+    inset 0 1px 0 var(--hl);
+  z-index: 22;
+  display: none;
+  overflow: hidden;
+}
+.searchWrap[data-open="true"] .qPop {
+  display: grid;
+}
+.qHit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: baseline;
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: var(--r2);
+  text-align: left;
+  color: var(--ink);
+  font-size: var(--t-2);
+  transition: background 0.12s;
+}
+.qHit:hover,
+.qHit:active {
+  background: var(--sunk);
+}
+/* The first result is what Enter picks, so it reads as chosen: the sunk fill and the slate ring. */
+.qHit[data-active="true"] {
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.qHit b {
+  font-weight: 600;
+}
+.qHit small {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.qHit .under {
+  grid-column: 1 / -1;
+  font-size: var(--t-1);
+  color: var(--muted);
+}
+.qHit .under em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--danger);
+}
+.qNone {
+  padding: 10px 12px 12px;
+  font-size: var(--t-1);
+  color: var(--muted);
+  line-height: 1.45;
+  max-width: 44ch;
+}
+
+/* ─── the Service selector ─── */
+.svcMenu > summary .dot {
+  margin-right: 1px;
+}
+.svcMenu .menuItem .lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* ─── the drawers: Activity, Tasks and Tools share one shape ───
+   Fixed to the right edge, a heavier hairline on its left, the lift, and
+   the page shaded behind it with the edge shade token at full strength.
+   ─────────────────────────────────────────────────────────────────── */
+.drawerMenu .menuPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(94vw, 28rem);
+  max-width: none;
+  border-radius: 0;
+  border-width: 0 0 0 1px;
+  border-color: var(--line-strong);
+  grid-template-rows: none;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  z-index: 40;
+}
+.drawerMenu .menuPanel::-webkit-scrollbar {
+  width: 9px;
+}
+.drawerMenu .menuPanel::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 9px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.drawerMenu.wide .menuPanel {
+  width: min(94vw, 36rem);
+}
+.drawerMenu[open]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: var(--edge-shade);
+  z-index: 39;
+}
+/* The head of a drawer is a strip: the second surface tone, a display serif title in accent-ink,
+   the mono count, a secondary Close control, and the freshness line on its own row. */
+.popHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.popHead h2 {
+  font-family: var(--display);
+  font-size: var(--t-3);
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--accent-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.popHead .count {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.popHead .closeBtn {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r2);
+  background: var(--surface);
+  font-size: var(--t-1);
+  font-weight: 600;
+  color: var(--ink-soft);
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.popHead .closeBtn:hover,
+.popHead .closeBtn:active {
+  background: var(--sunk);
+  border-color: var(--ink-soft);
+  color: var(--ink);
+}
+.popHead .fresh {
+  flex-basis: 100%;
+}
+.popFoot {
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: var(--t-1);
+  color: var(--muted);
+  line-height: 1.45;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.popBody {
+  display: grid;
+  align-content: start;
+}
+.popBody > section + section {
+  border-top: 1px solid var(--line);
+}
+/* The two parts of a drawer, one shown at a time. The chosen part sits on the surface with a
+   hairline ring and the brass bar under it, and nothing lifted: the drawer is the elevation. */
+.seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  margin: 10px 14px 4px;
+  border-radius: var(--r2);
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.seg button {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: var(--t-1);
+  font-weight: 500;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.seg button .count {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+}
+.seg button:hover,
+.seg button:active {
+  color: var(--ink);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    inset 0 -2px 0 var(--gilt);
+}
+.seg button[aria-pressed="true"] .count {
+  color: var(--ink-soft);
+}
+.part[hidden] {
+  display: none;
+}
+/* The work open: a figure, the words, a hint. The tone is the dot and the figure. */
+.taskRows {
+  display: grid;
+  padding: 4px 6px 6px;
+}
+.taskRow {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px 7px 10px;
+  border-radius: var(--r2);
+  text-align: left;
+  font-size: var(--t-2);
+  color: var(--ink);
+  transition: background 0.12s;
+}
+.taskRow:hover,
+.taskRow:active {
+  background: var(--sunk);
+}
+.taskRow b {
+  font-family: var(--mono);
+  font-size: var(--t-4);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.taskRow b::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  flex: none;
+}
+.taskRow b i {
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--t-1);
+  color: var(--muted);
+}
+.taskRow[data-tone="danger"] b {
+  color: var(--danger);
+}
+.taskRow[data-tone="danger"] b::before {
+  background: var(--danger);
+}
+.taskRow[data-tone="warn"] b {
+  color: var(--warn);
+}
+.taskRow[data-tone="warn"] b::before {
+  background: var(--warn);
+}
+.taskRow small {
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* The pressed filter: the accent-soft fill, the slate ring, the brass bar. The tone dot stays. */
+.taskRow[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    inset 3px 0 0 var(--gilt);
+}
+.taskRow[aria-pressed="true"] small {
+  color: var(--accent-ink);
+}
+.notices {
+  display: grid;
+  padding: 4px 6px 6px;
+}
+.notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 7px 8px 7px 10px;
+  border-radius: var(--r2);
+  font-size: var(--t-1);
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+.notice time {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* A new notice is not a selection, so it takes the fill without the ring. */
+.notice[data-fresh="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.notice[data-fresh="true"] time {
+  color: var(--accent-ink);
+}
+.notice .seen {
+  font-size: var(--t-0);
+  font-weight: 600;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.notice .seen:hover,
+.notice .seen:active {
+  background: var(--sunk);
+}
+.actSum {
+  padding: 10px 14px 8px;
+  font-size: var(--t-2);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+.actSum b {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--ink);
+}
+.actSum b[data-tone="danger"] {
+  color: var(--danger);
+}
+.feed {
+  display: grid;
+  padding: 2px 6px 6px;
+}
+.feedItem {
+  display: grid;
+  grid-template-columns: 3rem auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 8px 6px 10px;
+  border-radius: var(--r2);
+  font-size: var(--t-1);
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.feedItem time {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+}
+.feedItem .dot {
+  background: var(--line-strong);
+  transform: translateY(-1px);
+  animation: none;
+}
+.feedItem[data-tone="danger"] .dot {
+  background: var(--danger);
+}
+.feedItem[data-tone="warn"] .dot {
+  background: var(--warn);
+}
+.feedItem[data-tone="good"] .dot {
+  background: var(--good);
+}
+.feedItem b {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--ink);
+}
+/* The live tally: core tiles on the second surface tone with a hairline, then the groups. */
+.tally {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px 14px 4px;
+}
+.tile {
+  display: grid;
+  gap: 3px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  background: var(--surface-2);
+}
+.tile small {
+  font-size: var(--t-0);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tile b {
+  font-family: var(--mono);
+  font-size: var(--t-5);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.tile b i {
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--t-1);
+  color: var(--muted);
+}
+.tile[data-tone="danger"] b {
+  color: var(--danger);
+}
+.tile[data-tone="warn"] b {
+  color: var(--warn);
+}
+.figGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.figGrid > section {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.figGrid .dataTable th,
+.figGrid .dataTable td {
+  padding: 4px 8px;
+}
+.figGrid .dataTable th:first-child,
+.figGrid .dataTable td:first-child {
+  padding-left: 14px;
+}
+.figGrid .dataTable th {
+  background: transparent;
+  border-bottom-color: var(--line);
+}
+.figGrid .dataTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+.figGrid .menuHead {
+  padding-left: 14px;
+}
+/* The facts list the live tally uses: a label, and a mono figure at the right. */
+.statsFacts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  padding: 4px 14px 6px;
+  font-size: var(--t-1);
+}
+.statsFacts dt {
+  color: var(--ink-soft);
+}
+.statsFacts dd {
+  font-family: var(--mono);
+  color: var(--ink);
+  text-align: right;
+  white-space: nowrap;
+}
+.statsFacts dd i {
+  font-family: var(--body);
+  font-style: italic;
+  color: var(--muted);
+}
+.statsFacts dd[data-tone="danger"] {
+  color: var(--danger);
+}
+.statsFacts dd[data-tone="warn"] {
+  color: var(--warn);
+}
+/* The foot of a tally: the reconciliation line on the second surface tone. */
+.statsFoot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 14px;
+  background: var(--surface-2);
+  border-top: 1px solid var(--line);
+  font-size: var(--t-1);
+  color: var(--muted);
+  line-height: 1.45;
+}
+/* ─── the tools drawer ─── */
+.toolList {
+  display: grid;
+  padding: 4px 6px 6px;
+}
+.toolItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 8px 8px 10px;
+  border-radius: var(--r2);
+  text-align: left;
+  font-size: var(--t-2);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.toolItem:hover,
+.toolItem:active {
+  background: var(--sunk);
+}
+.toolItem .glyph {
+  color: var(--ink-soft);
+}
+.toolItem span {
+  display: grid;
+  gap: 1px;
+}
+.toolItem span em {
+  font-style: normal;
+  font-size: var(--t-1);
+  color: var(--muted);
+}
+.toolItem small {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* A disabled tool says why in its tooltip and does not light on hover. */
+.toolItem[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.toolItem[aria-disabled="true"]:hover,
+.toolItem[aria-disabled="true"]:active {
+  background: transparent;
+}
+.contacts .dataTable td {
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+.contacts .dataTable td em {
+  display: block;
+  font-style: normal;
+  font-weight: 400;
+  font-size: var(--t-0);
+  color: var(--muted);
+}
+.contacts .dataTable th {
+  padding: 6px 10px;
+}
+.contacts .dataTable td.holder {
+  font-family: var(--mono);
+  color: var(--muted);
+  font-size: var(--t-1);
+}
+.contacts .dataTable td:first-child,
+.contacts .dataTable th:first-child {
+  padding-left: 14px;
+}
+.menuPanel .appearance {
+  margin: 4px 14px 12px;
+}
+
+/* ─── the body: the frame's scrolling region ─── */
+.hScroll {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 24px 24px;
+  display: grid;
+  gap: var(--gap);
+  align-content: start;
+}
+
+/* ─── the rail: one nav, two states ────────────────────────────────────
+   Open at 236 px it carries every screen in three groups with its state
+   under it in words, the shift, the pinned movements and the foot.
+   Closed it is a strip: a glyph and a word per screen, the counts as
+   tags, the shift as a ring, and a card on hover or focus with the
+   screen's state. The bracket key and the control at the foot of each
+   state flip between them, and the choice is remembered for this browser
+   under ward-flow-rail. The state lives on the root as data-rail, set
+   before first paint, so there is no width jump on load. ─────────────── */
+.hApp > .rail {
+  z-index: 20;
+}
+.rail.open {
+  overflow: hidden;
+}
+.rail.closed {
+  overflow: visible;
+}
+/* The closed strip rises above the bar only while it is hovered or holds focus, so a hover card
+   can pass over the bar without the drawers ever sitting under the rail. */
+.rail.closed:hover,
+.rail.closed:focus-within {
+  z-index: 32;
+}
+.railScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  display: flex;
+  flex-direction: column;
+}
+/* The middle fades into the edge it continues past, measured on every render, scroll and resize
+   like the mockup's own lists, so the Pinned group is never hidden without a sign. */
+.railScroll {
+  --fade-top: 0px;
+  --fade-bottom: 0px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent
+  );
+}
+.railScroll::-webkit-scrollbar {
+  width: 9px;
+}
+.railScroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 9px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+/* One service chosen is easy to forget, so the rail carries it as a 3 px bar under the brand. */
+.svcStripe {
+  display: none;
+  height: 3px;
+  border-radius: 2px;
+  margin: -12px 20px 14px;
+}
+.svcStripe[data-svc] {
+  display: block;
+}
+.svcStripe[data-svc="north"] {
+  background: var(--svc-north);
+}
+.svcStripe[data-svc="east"] {
+  background: var(--svc-east);
+}
+.svcStripe[data-svc="south"] {
+  background: var(--svc-south);
+}
+.svcStripe[data-svc="wachs"] {
+  background: var(--svc-wachs);
+}
+/* The shift block: a block on the second surface tone with a hairline, never lifted. The eyebrow
+   carries the shift and the clock, the line under the time to handover carries the date. */
+.railBlock {
+  margin: 0 10px 14px;
+  padding: 10px 10px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  background: var(--surface-2);
+  display: grid;
+  gap: 6px;
+}
+.railBlock .eyebrow {
+  font-size: var(--t-0);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.railBlock .eyebrow .count {
+  font-family: var(--mono);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 500;
+}
+.railBlock .big {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: var(--t-4);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.railBlock .big small {
+  font-family: var(--body);
+  font-size: var(--t-1);
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: 0;
+  white-space: normal;
+}
+.shiftRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.shiftRow > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.shiftRow .big {
+  display: grid;
+  gap: 0;
+}
+.meter {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.meter i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.ring.small {
+  width: 36px;
+  height: 36px;
+}
+.ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.ring .track {
+  stroke: var(--line);
+}
+.ring .arc {
+  stroke: var(--accent);
+  stroke-linecap: round;
+}
+.ring b {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.ring.small b {
+  font-size: var(--t-0);
+  letter-spacing: 0;
+}
+/* The name of a screen and, under it, one line that says how it stands. */
+.railText {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.railText > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.railText em {
+  font-style: normal;
+  font-size: var(--t-0);
+  line-height: 1.35;
+  color: var(--muted);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.railText em b {
+  font-weight: 600;
+}
+.railText em b[data-tone="danger"] {
+  color: var(--danger);
+}
+.railText em b[data-tone="warn"] {
+  color: var(--warn);
+}
+.railLink[aria-current="page"] .railText em {
+  color: var(--accent-ink);
+}
+/* The current item: the accent-soft fill, the slate ring, and the brass bar the base draws. */
+.railLink[aria-current="page"] {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.railLink:active {
+  background: var(--sunk);
+}
+/* A count of none is the italic word with no pill behind it. */
+.tag[data-zero="true"] {
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+.railLink[aria-current="page"] .tag[data-zero="true"] {
+  color: var(--accent-ink);
+  background: transparent;
+  box-shadow: none;
+}
+/* The tone lives on a dot beside the glyph, never on the count: red is a breach, amber is look
+   here. The ring around it is the surface it sits on. */
+.toneDot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.toneDot[data-tone="danger"] {
+  background: var(--danger);
+}
+.toneDot[data-tone="warn"] {
+  background: var(--warn);
+}
+.rail.open .toneDot {
+  left: 20px;
+  top: 5px;
+}
+.rail.open .railLink[aria-current="page"] .toneDot {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.rail.closed .toneDot {
+  left: calc(50% - 16px);
+  top: 6px;
+}
+.rail.closed .railLink[aria-current="page"] .toneDot {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+/* A pinned movement: the tone bar of its queue row at the left, the identifier and the wait in
+   mono. Pressed, it takes the accent-soft fill and the slate ring, and keeps its bar. */
+.pinRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--r2);
+  font-size: var(--t-1);
+  color: var(--ink-soft);
+  text-align: left;
+  position: relative;
+  transition: background 0.12s;
+}
+.pinRow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--line-strong);
+}
+.pinRow[data-tone="danger"]::before {
+  background: var(--danger);
+}
+.pinRow[data-tone="warn"]::before {
+  background: var(--warn);
+}
+.pinRow:hover,
+.pinRow:active {
+  background: var(--sunk);
+}
+.pinRow[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.pinRow .id {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--ink);
+}
+.pinRow .wait {
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  color: var(--muted);
+}
+.pinRow[data-tone="danger"] .wait {
+  color: var(--danger);
+}
+.pinRow b {
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pinRow[aria-pressed="true"] .id,
+.pinRow[aria-pressed="true"] b {
+  color: var(--accent-ink);
+}
+/* The flip control at the foot: a secondary button with the bracket key as a keycap. */
+.railBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 10px 0;
+  padding: 7px 10px;
+  border-radius: var(--r2);
+  font-size: var(--t-1);
+  font-weight: 600;
+  color: var(--ink-soft);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.railBtn:hover,
+.railBtn:active {
+  background: var(--sunk);
+  border-color: var(--ink-soft);
+  color: var(--ink);
+}
+.railBtn .railGlyph {
+  color: var(--ink-soft);
+}
+.railBtn kbd {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 500;
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 0 5px;
+  line-height: 1.5;
+}
+
+/* ─── open: 236 px ─── */
+.rail.open .brand {
+  padding-bottom: 14px;
+}
+.rail.open .railLink {
+  align-items: center;
+  padding: 6px 10px;
+}
+.rail.open .railLink[data-state="true"] {
+  padding: 4px 10px;
+}
+.rail.open .railGroup + .railGroup {
+  margin-top: 10px;
+}
+.rail.open .railBlock {
+  margin-bottom: 12px;
+}
+.rail.open .railLabel {
+  align-items: center;
+}
+.rail.open .railLink .tag {
+  align-self: flex-start;
+  margin-top: 1px;
+}
+.rail.open .railLink:not([data-state="true"]) .tag {
+  align-self: center;
+  margin-top: 0;
+}
+.rail.open .pinGroup {
+  margin-top: 14px;
+}
+.rail.open .railFoot {
+  padding-top: 12px;
+}
+
+/* ─── closed: the strip ─── */
+.rail.closed {
+  padding: 14px 0 12px;
+  align-items: stretch;
+}
+.rail.closed .brand {
+  justify-content: center;
+  padding: 0 0 12px;
+  gap: 0;
+}
+.rail.closed .brand b {
+  font-size: var(--t-5);
+}
+.rail.closed .brand span {
+  display: none;
+}
+.rail.closed .svcStripe {
+  margin: -8px 14px 10px;
+}
+.rail.closed .railGroup {
+  padding: 0 6px;
+  gap: 2px;
+}
+.rail.closed .railGroup + .railGroup {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.rail.closed .railEyebrow {
+  display: none;
+}
+.rail.closed .railLink {
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 2px 6px;
+  position: relative;
+}
+.rail.closed .railLink::before {
+  left: -6px;
+  top: 9px;
+  bottom: 9px;
+}
+.rail.closed .railLabel {
+  flex-direction: column;
+  gap: 4px;
+}
+/* One word under the glyph, at the type floor and never below it. If a word does not fit, the
+   strip widens through --railw-closed; the word never shrinks. */
+.rail.closed .railLabel .word {
+  font-size: var(--t-0);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+.rail.closed .railGlyph {
+  width: 17px;
+  height: 17px;
+  flex-basis: 17px;
+}
+.rail.closed .railLink .tag {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  padding: 0 4px;
+  font-size: var(--t-0);
+  line-height: 1.4;
+}
+.rail.closed .railLink[data-page="handover"] .tag {
+  display: none;
+}
+/* The hover card: floats beside the strip, so it takes the one elevation step. Pointer events
+   off, so it never traps the cursor. Shown on hover and on a visible focus. */
+.flyCard {
+  display: none;
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 2px;
+  width: 15.5rem;
+  padding: 10px 12px 11px;
+  border: 1px solid var(--line);
+  border-bottom-color: var(--line-strong);
+  border-radius: var(--r1);
+  background: var(--surface);
+  box-shadow:
+    var(--lift),
+    inset 0 1px 0 var(--hl);
+  z-index: 35;
+  text-align: left;
+  gap: 3px;
+  font-weight: 400;
+  color: var(--ink);
+  pointer-events: none;
+}
+.flyCard::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 16px;
+  width: 8px;
+  height: 8px;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transform: rotate(45deg);
+}
+.flyCard b {
+  font-size: var(--t-2);
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.flyCard b .tag {
+  position: static;
+  font-size: var(--t-0);
+  line-height: normal;
+  padding: 1px 7px;
+}
+.flyCard b .tag[data-zero="true"] {
+  padding: 0;
+}
+.flyCard em {
+  font-style: normal;
+  font-size: var(--t-1);
+  line-height: 1.4;
+  color: var(--muted);
+}
+.flyCard .stateLine {
+  font-size: var(--t-1);
+  color: var(--ink-soft);
+}
+.flyCard .stateLine b {
+  display: inline;
+  font-size: var(--t-1);
+}
+.flyCard .stateLine b[data-tone="danger"] {
+  color: var(--danger);
+}
+.flyCard .stateLine b[data-tone="warn"] {
+  color: var(--warn);
+}
+.rail.closed .railLink:hover .flyCard,
+.rail.closed .railLink:focus-visible .flyCard {
+  display: grid;
+}
+.rail.closed .railFoot {
+  padding: 10px 0 0;
+  justify-items: center;
+  gap: 8px;
+}
+.rail.closed .railFoot .railUser,
+.rail.closed .railFoot .railNote {
+  display: none;
+}
+/* The strip keeps its words for a reader: the check sentence and the flip control's label are
+   clipped, never removed from the accessible name. */
+.rail.closed .railCheck span,
+.rail.closed .railBtn span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.rail.closed .railCheck {
+  position: relative;
+  gap: 0;
+}
+/* The pinned fly out: a quiet control in the strip, its count as a pill, its panel to the right. */
+.rail.closed .flyMenu {
+  align-self: center;
+}
+.rail.closed .flyMenu > summary {
+  height: 34px;
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-soft);
+  position: relative;
+  box-shadow: none;
+}
+.rail.closed .flyMenu > summary::after {
+  display: none;
+}
+.rail.closed .flyMenu > summary:hover,
+.rail.closed .flyMenu > summary:active {
+  background: var(--sunk);
+  border-color: transparent;
+  color: var(--ink);
+}
+.rail.closed .flyMenu[open] > summary {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.rail.closed .flyMenu > summary .tag {
+  position: absolute;
+  top: -3px;
+  right: -6px;
+  font-family: var(--mono);
+  font-size: var(--t-0);
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink-soft);
+}
+.rail.closed .flyMenu > summary .tag[data-zero="true"] {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  font-family: var(--body);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--muted);
+}
+.rail.closed .flyMenu[open] > summary .tag {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent-ink);
+}
+.rail.closed .flyMenu .menuPanel {
+  left: calc(100% + 10px);
+  right: auto;
+  top: auto;
+  bottom: 0;
+  min-width: 19rem;
+}
+.rail.closed .railBtn {
+  margin: 8px 6px 0;
+  justify-content: center;
+  padding: 6px 0;
+  position: relative;
+}
+.rail.closed .railBtn kbd {
+  display: none;
+}
+.ringRow {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+/* ─── the merged width ladder (RAIL-MAP d.7) ─────────────────────────────
+   1600 and wider: the third edition lock, rail open or closed. 1500: drop
+   "Synthetic". 1400 to 1599: the third edition's outer columns give a rem
+   each. 1300: the chip and the drawer words go, the search basis 10rem.
+   1001 to 1399: two columns. 1000: one column, the rail a wrapping row in
+   the open shape, the header wraps, the search takes its own row, the
+   flip control hidden. 640: the tap floor, one column tally, panels 94vw.
+   The third edition's own rules carry the 1600, 1400 and 1001 steps; the
+   shell adds only what is new. ──────────────────────────────────────── */
+@media (max-width: 1500px) {
+  .chip.mark .long {
+    display: none;
+  }
+}
+@media (max-width: 1300px) {
+  .hdr1 .chip.mark,
+  .hdr1 .menu > summary .lbl.optional {
+    display: none;
+  }
+  .searchWrap {
+    flex-basis: 10rem;
+  }
+}
+@media (max-width: 1000px) {
+  :root,
+  :root[data-rail="closed"] {
+    --railw: 100%;
+  }
+  .hApp {
+    grid-template-columns: 1fr;
+  }
+  .hApp > .rail {
+    position: static;
+    height: auto;
+  }
+  .hScroll {
+    padding: 12px 14px 24px;
+  }
+  .hdr1 {
+    flex-wrap: wrap;
+    padding: 8px 14px;
+  }
+  .hdr1 .end {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+  .searchWrap {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  /* The rail is the third edition's row of chips: the groups flow as one row, and the shell's
+     extras are put away until there is room for them. */
+  .rail.open {
+    overflow: visible;
+  }
+  .railScroll {
+    display: contents;
+  }
+  .rail.open .railBlock,
+  .rail.open .pinGroup,
+  .rail.open .railFoot,
+  .rail.open .railBtn,
+  .rail.open .svcStripe,
+  .rail.open .railText em,
+  .rail.open .toneDot {
+    display: none;
+  }
+  .rail.open .railLink,
+  .rail.open .railLink[data-state="true"] {
+    padding: 6px 10px;
+  }
+  .rail.open .railLink[aria-current="page"] {
+    box-shadow:
+      inset 0 0 0 1px var(--accent),
+      inset 0 -2px 0 var(--gilt);
+  }
+}
+@media (max-width: 640px) {
+  .menuPanel {
+    max-width: 94vw;
+  }
+  .tally {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hApp {
+    transition: none;
+  }
+  .dot[data-tone="good"] {
+    animation: none;
+  }
+}
+@media print {
+  .hdr1 .end,
+  .searchWrap,
+  .menuPanel,
+  .hdr1 .svcMenu,
+  .railBtn,
+  .flyCard,
+  .drawerMenu[open]::before {
+    display: none !important;
+  }
+  .hApp {
+    display: block;
+  }
+  .hdr1 {
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .tableWrap {
+    overflow: visible;
+  }
+  .dataTable tbody tr:hover td {
+    background: transparent;
+  }
+}
+@media (forced-colors: active) {
+  .search,
+  .menu > summary,
+  .menuPanel,
+  .qPop,
+  .badge,
+  .seg,
+  .tile,
+  .railBlock,
+  .flyCard,
+  .pinRow,
+  .railBtn {
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+  .dot,
+  .taskRow b::before,
+  .meter i,
+  .svcStripe,
+  .toneDot {
+    background: CanvasText;
+  }
+  .ring .arc {
+    stroke: CanvasText;
+  }
+}
