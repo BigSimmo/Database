@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-07"
+    "committed_at": "2026-09-08"
   },
   "routes": {
     "modes": [
@@ -910,6 +910,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/dsm-favourites",
+        "file": "src/app/mockups/dsm-favourites/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/therapy-navigation-rail",
         "file": "src/app/mockups/therapy-navigation-rail/page.tsx",
         "area": "mockup"
@@ -1629,6 +1634,11 @@
         "path": "docs/ward-flow-phase-3-rulings.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow/mockups/WARD-FLOW-DESIGN-SYSTEM.md",
+        "section": "ward-flow",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/specs/2026-09-05-ward-flow-merges-1-3-design-lock.md",
@@ -2801,6 +2811,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow/mockups/third-edition-kit/HANDOVER.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/handovers/ward-builder-one-integration-2026-09-02.md",
         "section": "ward-flow",
         "catalogued": false
@@ -3551,6 +3566,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/ward-flow/mockups/third-edition-kit/MERGE-BRIEF.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/sdd-rescued/ward-community-index/task-1-report.md",
         "section": "ward-flow",
         "catalogued": false
@@ -4046,6 +4066,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/SHELL-REVIEW.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-nine-claims-brief.md",
         "section": "ward-flow",
         "catalogued": false
@@ -4384,6 +4409,11 @@
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-11b-brief.md",
         "section": "caring-contacts",
         "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow/mockups/third-edition-kit/fonts/README.md",
+        "section": "ward-flow",
+        "catalogued": false
       },
       {
         "path": "docs/caring-contacts/PROGRESS-LEDGER.md",
@@ -5571,6 +5601,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/audit/codex-cloud-reliability-20260907.md",
+        "section": "audit",
+        "catalogued": false
+      },
+      {
         "path": "docs/prompts/codex-cloud-review/1-codex-full-stack-master-review-prompt.md",
         "section": "prompts",
         "catalogued": true
@@ -5632,6 +5667,11 @@
       },
       {
         "path": "docs/ward-flow/wf-build3-005-ts-test-sweep.md",
+        "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/SHELL-SPEC.md",
         "section": "ward-flow",
         "catalogued": false
       },
@@ -5764,6 +5804,11 @@
         "path": "docs/archive/search-rag-pre-phase-2-diff-classification.md",
         "section": "archive",
         "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow/mockups/third-edition-kit/shell/SHELL-NOTES.md",
+        "section": "ward-flow",
+        "catalogued": false
       },
       {
         "path": "docs/caring-contacts/phase-2b-pr-body.md",
@@ -6139,6 +6184,11 @@
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-report.md",
         "section": "caring-contacts",
         "catalogued": true
+      },
+      {
+        "path": "docs/ward-flow/mockups/third-edition-kit/inputs/RAIL-MAP.md",
+        "section": "ward-flow",
+        "catalogued": false
       }
     ],
     "sections": [
@@ -6423,6 +6473,14 @@
         "scope": "Sitewide design/UX/interactive review (production pages, breakpoints, a11y)",
         "outcome": "CHANGES REQUESTED / findings. No P0. Two confirmed P2 UX defects: (1) mobile presentation Compare tab is a self-link that drops `ids`/`q` and resets selection (1→default 4) + clears Query chip; (2) document “Browse by tag” / `searchByTag` navigates to `/?mode=documents&q=…` without `run=1`, so results do not run. P3: comparison disabled dropdown/filter controls lack `aria-describedby` placeholder contract; bare `/documents` 404 (no inbound links; `/documents/search` is canonical); phone mode-switcher truncates “Differenti…”. Deduped: `/tools` vs `/?mode=tools` remains #007; coming-soon density/favourites/forms remain #010. Phone docks flush `bottom:0` on sampled result routes; no document horizontal overflow at 390/768/1280 across 30 routes.",
         "checks": "`npm run workflow:design-sweep -- --write-evidence`; `npm run ensure` → http://localhost:4461 identity Clinical KB; Playwright HTTP+overflow matrix 30/30 no overflow; live Compare/tag proofs + phone route matrix; `npm run test:e2e:accessibility` 12/12; screenshots under `/opt/cursor/artifacts/screenshots/design-review-2026-07-24/`. No OpenAI/Supabase/GitHub/hosted CI/provider mutations. Added project subagent `.cursor/agents/design-review.md`."
+      },
+      {
+        "date": "2026-09-07",
+        "ref": "PR-2601",
+        "head": "01cfdbd9f314291640e5d39bc698a7fcc418b3b4",
+        "scope": "PR CI and review repair",
+        "outcome": "Fixed three unresolved governance findings and the deterministic forms sorting CI failure; focused calculator checks, lint and typecheck passed.",
+        "checks": "vitest calculators-governance-hardening (8); check:calculator-content; lint; typecheck; verify:pr-local offline stages through unit suite start"
       },
       {
         "date": "2026-07-14",
@@ -7375,6 +7433,14 @@
         "scope": "branch-cleanup",
         "outcome": "exact merged PR #1491 head; un-checked-out local branch archived in verified batch3 bundle",
         "checks": "GitHub merged exact head, branch not checked out, no open PR claim, batch3 bundle verify ok SHA256 48AF30DD07A04703D02F4A2FFBDE65F1E573D081E4660D4C7E240D8DB1079B8C"
+      },
+      {
+        "date": "2026-09-07",
+        "ref": "PR-2628",
+        "head": "0c061ba66d610d6a0ae2ca38cf467cb96191fd54",
+        "scope": "PR merge readiness",
+        "outcome": "Child rollback defect reproduced and corrected locally; RAG behavior classification and live-canary baseline remain merge blockers.",
+        "checks": "44 earlier focused tests and 221 Caring Contacts database tests passed. Revised rollback, both row ceilings, deleted-owner SQL fixtures and transactional migrations passed; regenerated schema manifest."
       },
       {
         "date": "2026-08-15",
@@ -9513,6 +9579,14 @@
         "checks": "Focused Vitest 18/18 pass; `npm run ensure` verified http://localhost:3264; Prettier and diff checks pass; no provider-backed checks run."
       },
       {
+        "date": "2026-09-07",
+        "ref": "PR-2628",
+        "head": "2897742597ee22017bf54d25fe6474f435d546b0",
+        "scope": "PR CI and review repair",
+        "outcome": "Reviewed migration ordering and rollback semantics, synced current main, and fixed deterministic forms sorting CI expectation.",
+        "checks": "vitest corpus-access and migration-history suites (31); focused offline safety suites (43 total); installed-lock parity; merge-tree clean"
+      },
+      {
         "date": "2026-07-24",
         "ref": "PR #1176 / `cursor/pdf-crop-malformed-repro-9b3e`",
         "head": "28c1e2352a7cabb9c73f52d5084ee69f47895c5e",
@@ -10513,6 +10587,14 @@
         "checks": "verify:pr-local (11 completed, 0 failed)"
       },
       {
+        "date": "2026-09-07",
+        "ref": "PR-2702",
+        "head": "3687785ed0b3898d4f179933aab8dc7dab791bb3",
+        "scope": "PR merge readiness",
+        "outcome": "Local repair findings corrected; hosted verification pending.",
+        "checks": "154 focused tests, typecheck, SQL regression fixture and schema replay passed; final publication pending."
+      },
+      {
         "date": "2026-07-30",
         "ref": "codex/review-pr1423",
         "head": "369f9ac809a1a15acb0d7456a782f98a5ea7a297",
@@ -11039,6 +11121,14 @@
         "scope": "Fix calculator regression tests from exact-head CI and merge main d301d8f4",
         "outcome": "fixed",
         "checks": "git diff --check; static ledger guards; focused tests blocked without node_modules"
+      },
+      {
+        "date": "2026-09-07",
+        "ref": "claude/audit-fix-p16",
+        "head": "3c8c48223e38e4c58580df96fb0f3ec2f351303f",
+        "scope": "PR2628 integration of merged PR2702 and schema mirror correction",
+        "outcome": "Integrated main 0177bed184; restored legacy generation function mirror to canonical migration hash; canary baseline still blocks merge.",
+        "checks": "169 focused tests passed; combined Docker schema replay and three SQL fixtures passed; canonical generation function hash 594b1f715fbbfa1df1b1f1183a7fef5a restored; previous head hosted CI passed; new-head CI required; provider canary not dispatched."
       },
       {
         "date": "2026-08-18",
@@ -17441,6 +17531,14 @@
         "checks": "focused current-main state-matrix suite 2 files / 10 tests PASS; outstanding ledger 146 rows / 49 open / 97 archived PASS; branch-review ledger PASS; prior combined-tree verify:cheap 32 gates PASS"
       },
       {
+        "date": "2026-09-07",
+        "ref": "PR-2693",
+        "head": "85aad321b9a67eefa4dac2acb22552b8086df9c5",
+        "scope": "PR CI and review repair",
+        "outcome": "Verified complete 24-request reconciliation and fixed deterministic forms sorting CI expectation.",
+        "checks": "check:outstanding-issues; check:ledger-write-discipline; installed-lock parity; merge-tree clean"
+      },
+      {
         "date": "2026-07-28",
         "ref": "PR #1295 / `fix/audit-remediation-from-main`",
         "head": "862be5a843708360ad0d67239429d1d09405e570",
@@ -18407,6 +18505,14 @@
         "scope": "CI Build flake fix",
         "outcome": "FIXED. Hosted Build failed when a runner reported 7.8 GiB via `os.totalmem` and hit the local Docker RAM floor in `guard-next-build.mjs`. Gate now skips under `CI`/`GITHUB_ACTIONS` (local protection retained). Prior tip motion/Bugbot fixes unchanged.",
         "checks": "CI=true guard exit 0; awaiting exact-head hosted Build; no provider checks."
+      },
+      {
+        "date": "2026-09-07",
+        "ref": "codex/canary-fallback-repair-20260907",
+        "head": "9181d1a78b0e1b02eb34572c83a93aeb18152d61",
+        "scope": "fallback prose recovery",
+        "outcome": "No actionable findings in targeted review; live baseline pending",
+        "checks": "50 focused tests and 630 offline RAG tests passed; typecheck passed; production readiness blocked by six existing governance approvals"
       },
       {
         "date": "2026-08-07",
@@ -21409,6 +21515,14 @@
         "checks": "`git log --right-only --cherry-pick --no-merges origin/main...claude/mobile-search-bar-fix` returned empty."
       },
       {
+        "date": "2026-09-05",
+        "ref": "codex/calculators-governance-hardening (PR #2601)",
+        "head": "b755976a79bb8e0b203fd0ede882685f6804f1eb",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "before: PR required green but BEHIND main, 1 unresolved P2 thread (governance checker wiring test never exercised failure path). after: merged origin/main (clean, no conflicts), added test that runs the real checker script against corrupted fixture data and asserts nonzero exit + diagnostic, thread replied and resolved.",
+        "checks": "npx vitest run tests/calculators-governance-hardening.test.ts (6 passed); npm run typecheck (clean, recorded pass); npx prettier --write (unchanged); git merge-tree confirmed clean before merging origin/main. No provider-backed checks run."
+      },
+      {
         "date": "2026-08-30",
         "ref": "codex/smart-natural-search-current-main",
         "head": "b762e1363b9bbb993f0f74a9e00a2c2ccb1f56be",
@@ -21655,6 +21769,14 @@
         "scope": "ci-testing-review",
         "outcome": "SUPERSEDES the 2026-07-30 db8209be record, which asserted a root cause now REFUTED. That record claimed dragScrollBy clamping made the ui-phone-scroll red; main's #127 carries trace evidence (PR #1404 run 30521269873) that the drag delivered in full (scrollTop 1272 = 552+720) with ~1300px runway spare and a 10s non-flip is a latched state. The change is a diagnostic and guard, NOT a fix, and is now labelled so in the docstring, commit, PR body and #127. Remaining candidates: scrollHidden false vs sharedChromePinned latched; they are indistinguishable from the DOM because only the composite data-scroll-hidden is exposed. Prime suspect in source: composerFocusPinsChrome has a still-the-active-owner guard, headerFocusPinsChrome has none (master-search-header.tsx:397-398). ALSO: this PR ran zero pull_request workflows for ~2h (no CI/Gitleaks/Semgrep, only pull_request_target) because a real conflict blocked refs/pull/1427/merge - issue #116, caught by main's new PR mergeability check. Merging main fixed it and CI ran green first try.",
         "checks": "CI run 30530618838 SUCCESS (13m39). MEASURED shard result, correcting the ~7min prediction: Production UI (1) 121 tests 9m36, (2) 111 tests 6m54, (3) 110 tests 6m20 - per-test cost is NOT uniform, shard 1 holds the slow specs, so the largest shard is 9m36 not the predicted 6.8min. ui-critical-fast 3m14. PR required SUCCESS. verify:cheap on merged tree PASS (434 files / 4563 passed, 4 skipped); prettier --check . PASS; ui-phone-scroll ran locally 1x via PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: 56 passed (5.3m) - three-run protocol NOT completed and not applicable, since this is not a flake fix."
+      },
+      {
+        "date": "2026-09-05",
+        "ref": "claude/audit-fix-p16 (PR #2628)",
+        "head": "ba04794640bd9edf9484d07a530bc5d109fc4537",
+        "scope": "Run PR sweep: CI fix + threads + drift",
+        "outcome": "before: PR required FAILURE (drift-detection test: schema.sql changed without regenerating drift-manifest.json), auto-merge ARMED on a PR carrying a live migration (align_corpus_flip_retrieval_scoped_child_owners). after: regenerated supabase/drift-manifest.json via local disposable Docker Postgres (never touches live project); guard-push correctly refused to push while auto-merge was armed on a migration PR, flagged to the user, user disabled auto-merge, then pushed. Merged origin/main (clean, twice). PR now green and waiting for the user's manual merge inside an approved window — never auto-merged.",
+        "checks": "npm run drift:manifest (local Docker Postgres replay); npx vitest run tests/drift-detection.test.ts (21 passed, twice, before and after the second main merge). No provider-backed / live-Supabase checks run."
       },
       {
         "date": "2026-08-18",
@@ -26031,6 +26153,14 @@
         "scope": "branch-cleanup-deletion-pending",
         "outcome": "redundant exact head merged in PR 1438; removal deferred by primary-dirty lease",
         "checks": "clean status; GitHub merged exact head; zero cherry-pick-unique commits"
+      },
+      {
+        "date": "2026-09-07",
+        "ref": "codex/canary-fallback-repair-20260907",
+        "head": "f13dbc27efd9174c0de5ffcb39a73c791dd0f148",
+        "scope": "fallback prose recovery",
+        "outcome": "Targeted review found no actionable defects; all three original fallbacks pass live; full baseline retains two timing-only failures",
+        "checks": "109 focused tests, 630 offline RAG tests and typecheck passed; live 44 cases: 30/30 substantive, citation/numeric failures zero; two latency rechecks pending; production readiness blocked by six existing approvals"
       },
       {
         "date": "2026-07-11",

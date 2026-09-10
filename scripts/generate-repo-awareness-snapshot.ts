@@ -65,11 +65,12 @@ function dispersalKey(value: string): string {
   return createHash("sha1").update(value).digest("hex");
 }
 
-function byDispersedPath<T extends { path: string; file: string }>(left: T, right: T) {
+function byDispersedPath<T extends { path: string; file: string; target?: string }>(left: T, right: T) {
   return (
     dispersalKey(left.path).localeCompare(dispersalKey(right.path)) ||
     left.path.localeCompare(right.path) ||
-    left.file.localeCompare(right.file)
+    left.file.localeCompare(right.file) ||
+    (left.target ?? "").localeCompare(right.target ?? "")
   );
 }
 
