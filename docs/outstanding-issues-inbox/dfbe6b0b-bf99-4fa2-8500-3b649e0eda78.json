@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "dfbe6b0b-bf99-4fa2-8500-3b649e0eda78",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#NKHVRY",
+    "outcome": "Added ckb-v2 alongside dark on <article> mount in src/components/caring-contacts/mockups/component-state-specimens.tsx:128 so CSS custom properties inherit the v2 dark palette instead of the legacy fallback",
+    "baseRowFingerprint": "9f1ed5ae69a48bbe7dfa4d66522540df7592edaca5886c251e9df27120d883a8"
+  }
+}
