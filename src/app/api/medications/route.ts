@@ -220,7 +220,10 @@ export async function GET(request: Request) {
       })),
       mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
         record: finalRenderPayload as unknown as MedicationRecord,
-        governance: canonicalSiteContentGovernance(canonicalRecord),
+        governance: {
+          ...publicMedicationGovernance(finalRenderPayload as unknown as MedicationRecord),
+          ...canonicalSiteContentGovernance(canonicalRecord),
+        },
       }),
     });
     const fullRecords = canonical.records.map((entry) => entry.record);

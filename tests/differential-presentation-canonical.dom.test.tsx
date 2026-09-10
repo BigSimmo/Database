@@ -81,6 +81,7 @@ describe("published presentation candidate rendering", () => {
     for (const candidate of workflow.candidates) {
       expect(document.querySelector(`[href="/differentials/diagnoses/${candidate.slug}"]`)).toBeNull();
     }
+    expect(document.querySelector('[href^="/differentials/diagnoses/"]')).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "Copy after review" })[0]!);
     await waitFor(() => expect(copyText).toHaveBeenCalledOnce());
     expect(copyText.mock.calls[0]![0]).toContain("Comparison incomplete");

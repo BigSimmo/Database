@@ -47,6 +47,7 @@ describe("canonical publication consumers", () => {
       const response = await runUniversalSearch({
         query: "Publishedneedle",
         domains: ["medications", "services", "forms"],
+        limitPerDomain: 5,
         ownerId,
         supabase: { from } as never,
         demo: false,
@@ -62,6 +63,7 @@ describe("canonical publication consumers", () => {
       const retired = await runUniversalSearch({
         query: "Publishedneedle",
         domains: ["medications", "services", "forms"],
+        limitPerDomain: 5,
         ownerId,
         supabase: { from } as never,
         demo: false,

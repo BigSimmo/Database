@@ -511,12 +511,18 @@ function ReviewPanels({
       <HighestUrgencyPanel workflow={workflow} candidates={candidates} />
       <ReviewPanel workflow={workflow} diagnosisLinks={diagnosisLinks} />
       <CopyAfterReviewPanel text={comparisonCopy(workflow, selectedCandidates)} />
-      <SourceStatusPanel workflow={workflow} />
+      <SourceStatusPanel workflow={workflow} diagnosisLinks={diagnosisLinks} />
     </>
   );
 }
 
-function SourceStatusPanel({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
+function SourceStatusPanel({
+  workflow,
+  diagnosisLinks,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  diagnosisLinks?: ResolveDiagnosisTermOptions;
+}) {
   const status = workflow.sourceStatus;
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
@@ -527,13 +533,15 @@ function SourceStatusPanel({ workflow }: { workflow: DifferentialPresentationWor
       </p>
       <p className="mt-2 text-xs font-semibold text-[color:var(--text-muted)]">{status.version}</p>
       <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">Last updated: {status.lastUpdated}</p>
-      <Link
-        href="/differentials/diagnoses/delirium"
-        className="mt-3 inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
-      >
-        View details
-        <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-      </Link>
+      {!diagnosisLinks || diagnosisLinks.routableSlugs?.has("delirium") ? (
+        <Link
+          href="/differentials/diagnoses/delirium"
+          className="mt-3 inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
+        >
+          View details
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+        </Link>
+      ) : null}
     </section>
   );
 }

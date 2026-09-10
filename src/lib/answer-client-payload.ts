@@ -822,7 +822,7 @@ export function projectClientAnswerPayload(value: unknown, strict = false): Clie
   if (!fields.success) return null;
   if (fields.data.claimMarks) {
     const sourceIds = new Set(sources.map((source) => source.id));
-    const displayed = ` ${normalizeClaimText(primaryAnswerDisplayText(value.answer, { preformatted: fields.data.preformatted }))} `;
+    const displayed = ` ${normalizeClaimText(primaryAnswerDisplayText(value.answer, { preformatted: Boolean(fields.data.preformatted && value.grounded) }))} `;
     const retained = fields.data.claimMarks.filter(
       (claim) =>
         claim.supportingChunkIds.length > 0 &&

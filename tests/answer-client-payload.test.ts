@@ -61,23 +61,57 @@ function answerWith(sources: SearchResult[]): RagAnswer {
 
 describe("toClientAnswerPayload", () => {
   it.each([
-    { answer: "Clinical guidance. Synthetic demo only: Hidden review metadata", hidden: "Hidden review metadata" },
-    { answer: "Source excerpt: Clinical guidance.", hidden: "Source excerpt" },
-  ])("excludes claim metadata removed by primary display sanitization: $hidden", ({ answer, hidden }) => {
-    const mark = { claimId: "hidden", text: hidden, supportStatus: "direct" as const, supportingChunkIds: ["chunk-1"] };
+    {
+      answer: "Clinical guidance. Synthetic demo only: Hidden review metadata",
+      hidden: "Hidden review metadata",
+      grounded: true,
+      preformatted: undefined,
+    },
+    { answer: "Source excerpt: Clinical guidance.", hidden: "Source excerpt", grounded: true, preformatted: undefined },
+    { answer: "Source excerpt: Clinical guidance.", hidden: "Source excerpt", grounded: false, preformatted: true },
+  ])(
+    "excludes hidden claim metadata with grounded=$grounded, preformatted=$preformatted: $hidden",
+    ({ answer, hidden, grounded, preformatted }) => {
+      const mark = {
+        claimId: "hidden",
+        text: hidden,
+        supportStatus: "direct" as const,
+        supportingChunkIds: ["chunk-1"],
+      };
+      const payload = toClientAnswerPayload({
+        ...answerWith([fullSource()]),
+        answer,
+        grounded,
+        preformatted,
+        supportedClaims: [
+          { ...mark, riskClass: "routine" },
+          { ...mark, claimId: "visible", text: "Clinical guidance.", riskClass: "routine" },
+        ],
+      });
+      expect(payload.claimMarks).toEqual([{ ...mark, claimId: "visible", text: "Clinical guidance." }]);
+      expect(projectClientAnswerPayload(payload, true)).toEqual(payload);
+      const poisoned = { ...payload, claimMarks: [...payload.claimMarks!, mark] };
+      expect(projectClientAnswerPayload(poisoned)?.claimMarks).toEqual(payload.claimMarks);
+      expect(projectClientAnswerPayload(poisoned, true)).toBeNull();
+    },
+  );
+
+  it("retains claim text displayed by a grounded preformatted answer", () => {
+    const mark = {
+      claimId: "visible",
+      text: "Source excerpt",
+      supportStatus: "direct" as const,
+      supportingChunkIds: ["chunk-1"],
+    };
     const payload = toClientAnswerPayload({
       ...answerWith([fullSource()]),
-      answer,
-      supportedClaims: [
-        { ...mark, riskClass: "routine" },
-        { ...mark, claimId: "visible", text: "Clinical guidance.", riskClass: "routine" },
-      ],
+      answer: "Source excerpt: Clinical guidance.",
+      grounded: true,
+      preformatted: true,
+      supportedClaims: [{ ...mark, riskClass: "routine" }],
     });
-    expect(payload.claimMarks).toEqual([{ ...mark, claimId: "visible", text: "Clinical guidance." }]);
+    expect(payload.claimMarks).toEqual([mark]);
     expect(projectClientAnswerPayload(payload, true)).toEqual(payload);
-    const poisoned = { ...payload, claimMarks: [...payload.claimMarks!, mark] };
-    expect(projectClientAnswerPayload(poisoned)?.claimMarks).toEqual(payload.claimMarks);
-    expect(projectClientAnswerPayload(poisoned, true)).toBeNull();
   });
 
   it("projects only displayed, retained-source claim marks and a content-free currency warning", () => {

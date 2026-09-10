@@ -189,40 +189,54 @@ afterEach(() => {
 });
 
 describe("medications API", () => {
-  it("serves initialized medication render bytes without raw-row conversion loss", async () => {
-    const renderPayload = {
-      slug: "released-medication",
-      name: "Released medication",
-      class: "Canonical class",
-      subclass: "Canonical subclass",
-      category: "Canonical category",
-      accent: "#123456",
-      tag: "Released",
-      schedule: "S4",
-      stats: [{ label: "Dose", value: "Exact" }],
-      sections: [{ title: "Use", type: "table", rows: [{ key: "Indication", val: "Exact bytes" }] }],
-      quick: [{ label: "Check", value: "Canonical" }],
-    };
-    const client = createSupabaseMock(undefined, {
-      canonicalRows: [
-        {
-          initialized: true,
-          record: { sourceStatus: "current", validationStatus: "locally_reviewed" },
-          render_payload: renderPayload,
-          snapshot: { state: "current" },
-        },
-      ],
-    });
-    mockRuntime(client);
-    const { GET } = await import("../src/app/api/medications/route");
-    const response = await GET(request("/api/medications"));
-    const payload = (await response.json()) as { records: unknown[]; governance: Record<string, unknown> };
-    expect(payload.records).toEqual([renderPayload]);
-    expect(payload.governance[renderPayload.slug]).toMatchObject({
-      sourceStatus: "current",
-      validationStatus: "locally_reviewed",
-    });
-  });
+  it.each([
+    { sourceText: undefined, sourceCheckedAt: null, sourcesRecorded: false },
+    { sourceText: "Recorded source without a checked date", sourceCheckedAt: null, sourcesRecorded: true },
+    { sourceText: "TGA PI checked 2026-05-14", sourceCheckedAt: "2026-05-14", sourcesRecorded: true },
+  ])(
+    "serves initialized medication render bytes and source metadata: $sourceText",
+    async ({ sourceText, sourceCheckedAt, sourcesRecorded }) => {
+      const renderPayload = {
+        slug: "released-medication",
+        name: "Released medication",
+        class: "Canonical class",
+        subclass: "Canonical subclass",
+        category: "Canonical category",
+        accent: "#123456",
+        tag: "Released",
+        schedule: "S4",
+        stats: [{ label: "Dose", value: "Exact" }],
+        sections: [
+          { title: "Use", type: "table", rows: [{ key: "Indication", val: "Exact bytes" }] },
+          ...(sourceText ? [{ title: "Sources", type: "src", rows: [{ key: "Source Review", val: sourceText }] }] : []),
+        ],
+        quick: [{ label: "Check", value: "Canonical" }],
+      };
+      const client = createSupabaseMock(undefined, {
+        canonicalRows: [
+          {
+            initialized: true,
+            record: { sourceStatus: "current", validationStatus: "locally_reviewed" },
+            render_payload: renderPayload,
+            snapshot: { state: "current" },
+          },
+        ],
+      });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/medications/route");
+      const response = await GET(request("/api/medications"));
+      const payload = (await response.json()) as { records: unknown[]; governance: Record<string, unknown> };
+      expect(payload.records).toEqual([renderPayload]);
+      expect(payload.governance[renderPayload.slug]).toEqual({
+        sourceStatus: "current",
+        validationStatus: "locally_reviewed",
+        sourceCheckedAt,
+        sourcesRecorded,
+        lastReviewedAt: null,
+        reviewDueAt: null,
+      });
+    },
+  );
 
   it("serves mock records in demo mode without touching Supabase", async () => {
     const client = createSupabaseMock();
