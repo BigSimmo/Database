@@ -71,6 +71,20 @@ function commitExists(commit) {
   }
 }
 
+function isShallowClone() {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
 function commitIsAncestor(commit) {
   try {
     execFileSync("git", ["merge-base", "--is-ancestor", commit, "HEAD"], { cwd: root, stdio: "ignore" });
@@ -208,10 +222,52 @@ export function validatePrivacyReadiness(
   return errors;
 }
 
+/**
+ * Whether the reviewedCommit checks can be skipped for this run.
+ *
+ * Only in structural mode, and only when the commit is genuinely unreachable in
+ * a genuinely shallow clone. Release mode never skips: `check:privacy-readiness
+ * :release` and `governance:release` are release gates, and the reviewedCommit
+ * ancestry plus evidence-at-commit checks are what bind the register to this
+ * repository. Dropping them to spare a truncated checkout would let a release
+ * print PRIVACY_READINESS_PASS having proved nothing about the reviewed commit.
+ */
+export function shallowSkipDecision({ release, shallow, commitPresent }) {
+  if (!shallow || commitPresent) return { skip: false, blocked: false };
+  if (release) return { skip: false, blocked: true };
+  return { skip: true, blocked: false };
+}
+
 function main() {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const release = process.argv.includes("--release");
-  const errors = validatePrivacyReadiness(manifest, { release });
+  // Same reasoning as check-clinical-hazard-controls.mjs: on a depth-one clone
+  // the reviewedCommit checks report a real commit as missing, which reads as a
+  // corrupt register rather than a truncated checkout. Say what was skipped.
+  // CI's static-pr job checks out with fetch-depth 0, where the checks do run.
+  const { skip, blocked } = shallowSkipDecision({
+    release,
+    shallow: isShallowClone(),
+    commitPresent: commitExists(manifest?.reviewedCommit ?? ""),
+  });
+  if (blocked) {
+    console.error("PRIVACY_READINESS_FAIL mode=release");
+    console.error(
+      `- reviewedCommit ${manifest?.reviewedCommit ?? "(unset)"} is unreachable in this shallow clone, and ` +
+        "release mode will not skip the ancestry and evidence-at-commit checks that bind this register to the " +
+        "repository. Re-run on a full-history checkout: git fetch --unshallow (or git fetch --deepen=2000).",
+    );
+    process.exit(1);
+  }
+  if (skip) {
+    console.warn(
+      "PRIVACY_READINESS_SHALLOW_CLONE: this is a shallow git clone and reviewedCommit is not present, " +
+        "so the reviewedCommit existence/ancestry and evidence-at-commit checks were skipped. Run on a " +
+        "full-history checkout (git fetch --unshallow) to prove them; every other check below still ran. " +
+        "Release mode does not skip them.",
+    );
+  }
+  const errors = validatePrivacyReadiness(manifest, { release, checkGit: !skip });
   if (errors.length) {
     console.error(`PRIVACY_READINESS_FAIL mode=${release ? "release" : "structural"}`);
     for (const error of errors) console.error(`- ${error}`);

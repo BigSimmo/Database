@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
+import { shallowSkipDecision, validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
 import { resolveReviewedCommitHistory, warnReviewedCommitSkipped } from "./helpers/reviewed-commit-history";
 
 const manifest = JSON.parse(
@@ -21,6 +21,30 @@ describe("privacy readiness contract", () => {
     const { checkGit, skipReason } = resolveReviewedCommitHistory(manifest.reviewedCommit);
     if (skipReason) warnReviewedCommitSkipped("privacy readiness", skipReason);
     expect(validatePrivacyReadiness(manifest, { checkGit })).toEqual([]);
+  });
+
+  it("never skips the reviewedCommit checks in release mode, however shallow the checkout", () => {
+    // The release gate's repository binding is exactly these checks, so a
+    // truncated checkout must block the release rather than quietly pass it.
+    expect(shallowSkipDecision({ release: false, shallow: true, commitPresent: false })).toEqual({
+      skip: true,
+      blocked: false,
+    });
+    expect(shallowSkipDecision({ release: true, shallow: true, commitPresent: false })).toEqual({
+      skip: false,
+      blocked: true,
+    });
+    // A reachable commit or a full clone is proved, not skipped, in either mode.
+    for (const release of [false, true]) {
+      expect(shallowSkipDecision({ release, shallow: true, commitPresent: true })).toEqual({
+        skip: false,
+        blocked: false,
+      });
+      expect(shallowSkipDecision({ release, shallow: false, commitPresent: false })).toEqual({
+        skip: false,
+        blocked: false,
+      });
+    }
   });
 
   it("keeps Railway processor evidence linked to the privacy impact assessment", () => {
