@@ -494,10 +494,15 @@ export async function readCanonicalSiteContentRecords<T>(input: {
     finalRenderPayload: Record<string, unknown>;
   }) => T;
 }): Promise<{ records: T[]; source: "canonical_public" | "seed_uninitialized"; snapshot: unknown | null }> {
-  const { data, error } = await callRpc(input.supabase as RpcClient, "read_site_content_public_records", {
-    p_kind: input.kind,
-    p_slug: input.slug,
-  }, input.signal);
+  const { data, error } = await callRpc(
+    input.supabase as RpcClient,
+    "read_site_content_public_records",
+    {
+      p_kind: input.kind,
+      p_slug: input.slug,
+    },
+    input.signal,
+  );
   if (error) throw new Error(`Canonical site-content read failed: ${error.message}`);
   if (!Array.isArray(data)) throw new Error("Canonical site-content read failed: invalid RPC response.");
   const rows = data as Array<Record<string, unknown>>;

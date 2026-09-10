@@ -10,7 +10,6 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { defaultMedicationRecords } from "@/lib/medication-seed";
-import { medicationSourceStatus, medicationValidationStatus } from "@/lib/medication-records";
 import { medicationAliasesForEntity } from "@/lib/medication-entities";
 import { publicMedicationGovernance } from "@/lib/medication-records";
 import { medicationCatalogInterpretation, searchMedicationCatalog } from "@/lib/medication-query";
@@ -217,10 +216,7 @@ export async function GET(request: Request) {
       slug: null,
       seeds: seedRecords.map((record) => ({
         record,
-        governance: {
-          sourceStatus: medicationSourceStatus("current"),
-          validationStatus: medicationValidationStatus("locally_reviewed"),
-        },
+        governance: publicMedicationGovernance(record),
       })),
       mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
         record: finalRenderPayload as unknown as MedicationRecord,

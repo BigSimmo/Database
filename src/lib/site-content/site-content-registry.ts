@@ -264,6 +264,20 @@ export const siteContentModeExclusions = [
     reviewed: true,
     reviewOwner: "clinical_content_governance",
   },
+  {
+    modeId: "sources",
+    reason: "corpus_consumer",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    modeId: "on-call",
+    reason: "private_user_state",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
 ] as const satisfies readonly SiteContentModeExclusion[];
 
 const producerByMode = new Map(siteContentProducerRegistry.map((entry) => [entry.modeId, entry] as const));

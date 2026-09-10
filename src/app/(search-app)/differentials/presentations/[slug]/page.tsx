@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
 import { presentationStaticParams } from "@/lib/differentials";
-import { readPresentationPageRecord } from "@/lib/site-content/differential-page-records";
+import {
+  readPresentationPageRecord,
+  readPresentationCandidateRecords,
+} from "@/lib/site-content/differential-page-records";
 
 type DifferentialPresentationRouteProps = {
   params: Promise<{ slug: string }>;
@@ -35,6 +38,9 @@ export default async function DifferentialPresentationRoute({
   const { slug } = await params;
   const workflow = await readPresentationPageRecord(slug);
   if (!workflow) notFound();
+  const candidateRecords = await readPresentationCandidateRecords(
+    workflow.candidates.map((candidate) => candidate.slug),
+  );
 
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const query = firstSearchParam(resolvedSearchParams.query ?? resolvedSearchParams.q)?.trim() ?? "";
@@ -43,5 +49,13 @@ export default async function DifferentialPresentationRoute({
     .map((value) => value.trim())
     .filter(Boolean);
 
-  return <DifferentialPresentationWorkflowPage query={query} presentationSlug={slug} selectedIds={selectedIds} workflow={workflow} />;
+  return (
+    <DifferentialPresentationWorkflowPage
+      query={query}
+      presentationSlug={slug}
+      selectedIds={selectedIds}
+      workflow={workflow}
+      candidateRecords={candidateRecords}
+    />
+  );
 }

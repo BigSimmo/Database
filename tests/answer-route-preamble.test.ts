@@ -126,17 +126,23 @@ afterEach(() => {
 });
 
 describe("/api/answer preamble", () => {
-  it.each(["shadow", "canary"] as const)("preserves the resolved %s observation at the JSON response boundary", async (rolloutMode) => {
-    consumeSubjectApiRateLimit.mockResolvedValue(rateLimitDecision(false));
-    resolveSearchScope.mockResolvedValue({ documentIds: undefined, filters: {}, activeFilterCount: 0, warnings: [] });
-    const { observeRagAnswer, ragProgrammeTelemetryForAnswer } = await import("@/lib/rag/rag-programme-telemetry");
-    const answer = observeRagAnswer({ answer: "Use the cited source.", grounded: false, confidence: "unsupported", citations: [], sources: [] }, { interactionId: "resolved-interaction", rolloutMode });
-    answerQuestionWithScope.mockResolvedValue(answer);
-    const { POST } = await import("../src/app/api/answer/route");
-    expect((await POST(answerRequest())).status).toBe(200);
-    expect(ragProgrammeTelemetryForAnswer(answer)?.rollout_mode).toBe(rolloutMode);
-    expect(ragProgrammeTelemetryForAnswer(answer)?.interaction_id).toBe("resolved-interaction");
-  });
+  it.each(["shadow", "canary"] as const)(
+    "preserves the resolved %s observation at the JSON response boundary",
+    async (rolloutMode) => {
+      consumeSubjectApiRateLimit.mockResolvedValue(rateLimitDecision(false));
+      resolveSearchScope.mockResolvedValue({ documentIds: undefined, filters: {}, activeFilterCount: 0, warnings: [] });
+      const { observeRagAnswer, ragProgrammeTelemetryForAnswer } = await import("@/lib/rag/rag-programme-telemetry");
+      const answer = observeRagAnswer(
+        { answer: "Use the cited source.", grounded: false, confidence: "unsupported", citations: [], sources: [] },
+        { interactionId: "b460aaf8-e955-48cb-955c-547f494ad428", rolloutMode },
+      );
+      answerQuestionWithScope.mockResolvedValue(answer);
+      const { POST } = await import("../src/app/api/answer/route");
+      expect((await POST(answerRequest())).status).toBe(200);
+      expect(ragProgrammeTelemetryForAnswer(answer)?.rollout_mode).toBe(rolloutMode);
+      expect(ragProgrammeTelemetryForAnswer(answer)?.interaction_id).toBe("b460aaf8-e955-48cb-955c-547f494ad428");
+    },
+  );
   it("does not begin scope resolution until the limiter has admitted the request", async () => {
     const limiter = deferred<ReturnType<typeof rateLimitDecision>>();
     consumeSubjectApiRateLimit.mockReturnValue(limiter.promise);

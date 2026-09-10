@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-07T09:50:06.662Z",
+  "generated_at": "2026-09-09T14:22:59.886Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "a93ea5f3be45300d3adfabd6cd33dbdf01f07c8ef5924b9cf067223669474ffa",
-  "replay_seconds": 14,
+  "schema_sha256": "5734b5723242921b093855e0027cf4fbd4972eb2bd84334cee3d3f03abf986fb",
+  "replay_seconds": 21,
   "snapshot": {
     "views": [
       {
@@ -2227,7 +2227,31 @@
             "generated": ""
           },
           {
+            "name": "reviewed_index_generation_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "reviewed_state_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "source_catalogue_key",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "source_policy_version",
             "type": "text",
             "default": null,
             "identity": "",
@@ -3755,6 +3779,692 @@
             "name": "updated_at",
             "type": "timestamp with time zone",
             "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=r/postgres"
+        ],
+        "name": "public_source_activation_events",
+        "columns": [
+          {
+            "name": "activation_sequence",
+            "type": "bigint",
+            "default": null,
+            "identity": "a",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "decision",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "evidence_references",
+            "type": "text[]",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "manifest_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "operator_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "policy_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "policy_version",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reason",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "source_catalogue_key",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres"
+        ],
+        "name": "public_source_activation_guards",
+        "columns": [
+          {
+            "name": "backend_pid",
+            "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "token",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "transaction_id",
+            "type": "bigint",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "version_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres"
+        ],
+        "name": "public_source_cleanup_mutation_guards",
+        "columns": [
+          {
+            "name": "backend_pid",
+            "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "operation",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "public_source_reservation_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "public_source_upload_attempt_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "token",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "transaction_id",
+            "type": "bigint",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=r/postgres"
+        ],
+        "name": "public_source_policy_entries",
+        "columns": [
+          {
+            "name": "canonical_host",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "canonical_url",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "content_mode",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "exact_document_licence",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "lifecycle",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "policy_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "policy_version",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "source_catalogue_key",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=r/postgres"
+        ],
+        "name": "public_source_upload_attempts",
+        "columns": [
+          {
+            "name": "claim_expires_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "claim_token",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "cleanup_not_before",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "clock_timestamp()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "signed_authority_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "signed_authority_expires_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "state",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "storage_bucket",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "storage_path",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "clock_timestamp()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "version_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=r/postgres"
+        ],
+        "name": "public_source_versions",
+        "columns": [
+          {
+            "name": "activation_event_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "activation_sequence",
+            "type": "bigint",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "content_hash",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "current_upload_attempt_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "exact_canonical_url",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "exact_version",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "exact_version_url",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "extraction_index_generation_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "finalized_upload_attempt_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "intended_disposition",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "licence_evidence_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "lifecycle",
+            "type": "text",
+            "default": "'discovered'::text",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "raw_response_byte_count",
+            "type": "bigint",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "raw_response_hash",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reservation_key",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reserved_document_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reserved_storage_path",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "retrieved_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "review_queued_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "review_reason",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "source_catalogue_key",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "source_policy_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "source_policy_version",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "staging_document_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "steward_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "storage_bucket",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "supersedes_version_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "upload_lease_expires_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "upload_lease_token",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "upload_state",
+            "type": "text",
+            "default": "'reserved'::text",
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -6110,6 +6820,62 @@
             "generated": ""
           },
           {
+            "name": "public_source_claim_expires_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "public_source_claim_token",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "public_source_cleanup_not_before",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "public_source_reservation_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "public_source_storage_bucket",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "public_source_storage_path",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "public_source_upload_attempt_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "status",
             "type": "text",
             "default": "'pending'::text",
@@ -7375,6 +8141,126 @@
         "def_hash": "612b87e75d23e32ba9345b650231b734"
       },
       {
+        "def": "CREATE UNIQUE INDEX public_source_activation_events_activation_sequence_key ON public.public_source_activation_events USING btree (activation_sequence)",
+        "name": "public_source_activation_events_activation_sequence_key",
+        "table": "public_source_activation_events",
+        "def_hash": "27b0f748e1368af66517850dc6dc5ffa"
+      },
+      {
+        "def": "CREATE INDEX public_source_activation_events_latest_idx ON public.public_source_activation_events USING btree (source_catalogue_key, activation_sequence DESC)",
+        "name": "public_source_activation_events_latest_idx",
+        "table": "public_source_activation_events",
+        "def_hash": "a52c2084175f8f5bbf4387388eb3559b"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_activation_events_manifest_digest_key ON public.public_source_activation_events USING btree (manifest_digest)",
+        "name": "public_source_activation_events_manifest_digest_key",
+        "table": "public_source_activation_events",
+        "def_hash": "7a9c4789f0ee2e8e91902abbd0382971"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_activation_events_pkey ON public.public_source_activation_events USING btree (id)",
+        "name": "public_source_activation_events_pkey",
+        "table": "public_source_activation_events",
+        "def_hash": "216ea1d127eee8c931c8982a4d102fe4"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_activation_guards_pkey ON public.public_source_activation_guards USING btree (token)",
+        "name": "public_source_activation_guards_pkey",
+        "table": "public_source_activation_guards",
+        "def_hash": "19c2bd888ab50ab72b777ecd18a2c1f5"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_cleanup_bucket_path_idx ON public.storage_cleanup_jobs USING btree (public_source_storage_bucket, public_source_storage_path) WHERE (public_source_reservation_id IS NOT NULL)",
+        "name": "public_source_cleanup_bucket_path_idx",
+        "table": "storage_cleanup_jobs",
+        "def_hash": "8ea3de218a5de5a72402028624725d7e"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_cleanup_mutation_guards_pkey ON public.public_source_cleanup_mutation_guards USING btree (token)",
+        "name": "public_source_cleanup_mutation_guards_pkey",
+        "table": "public_source_cleanup_mutation_guards",
+        "def_hash": "477fa6782b98c06f3a92f23a95809cc6"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_policy_entries_pkey ON public.public_source_policy_entries USING btree (source_catalogue_key)",
+        "name": "public_source_policy_entries_pkey",
+        "table": "public_source_policy_entries",
+        "def_hash": "64aaca53b93c57ae8743ba1242e03245"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_upload_attempts_claim_token_key ON public.public_source_upload_attempts USING btree (claim_token)",
+        "name": "public_source_upload_attempts_claim_token_key",
+        "table": "public_source_upload_attempts",
+        "def_hash": "b285473d3c44ec071ead4d71c4812285"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_upload_attempts_pkey ON public.public_source_upload_attempts USING btree (id)",
+        "name": "public_source_upload_attempts_pkey",
+        "table": "public_source_upload_attempts",
+        "def_hash": "851aa97b479e180de176349ab30b126c"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_upload_attempts_storage_bucket_storage_path_key ON public.public_source_upload_attempts USING btree (storage_bucket, storage_path)",
+        "name": "public_source_upload_attempts_storage_bucket_storage_path_key",
+        "table": "public_source_upload_attempts",
+        "def_hash": "b7d747395961dc377055b5de5c3a4b9b"
+      },
+      {
+        "def": "CREATE INDEX public_source_upload_attempts_version_state_idx ON public.public_source_upload_attempts USING btree (version_id, state, created_at DESC)",
+        "name": "public_source_upload_attempts_version_state_idx",
+        "table": "public_source_upload_attempts",
+        "def_hash": "47500c70aae48c0bb78ef9aa2a222ff0"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_versions_catalogue_hash_live_idx ON public.public_source_versions USING btree (source_catalogue_key, content_hash) WHERE (lifecycle <> 'abandoned'::text)",
+        "name": "public_source_versions_catalogue_hash_live_idx",
+        "table": "public_source_versions",
+        "def_hash": "b813292fa38e4f107ba435af9822937d"
+      },
+      {
+        "def": "CREATE INDEX public_source_versions_catalogue_lifecycle_idx ON public.public_source_versions USING btree (source_catalogue_key, lifecycle, retrieved_at DESC, id DESC)",
+        "name": "public_source_versions_catalogue_lifecycle_idx",
+        "table": "public_source_versions",
+        "def_hash": "90012d8afb8768d96763f1f7ed8a660b"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_versions_one_active_per_catalogue_idx ON public.public_source_versions USING btree (source_catalogue_key) WHERE (lifecycle = 'active'::text)",
+        "name": "public_source_versions_one_active_per_catalogue_idx",
+        "table": "public_source_versions",
+        "def_hash": "c974c3040b357688a766a088ba9eed2b"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_versions_pkey ON public.public_source_versions USING btree (id)",
+        "name": "public_source_versions_pkey",
+        "table": "public_source_versions",
+        "def_hash": "96ed488262f568ca060e74e3966387ab"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_versions_reservation_key_live_idx ON public.public_source_versions USING btree (reservation_key) WHERE (lifecycle <> 'abandoned'::text)",
+        "name": "public_source_versions_reservation_key_live_idx",
+        "table": "public_source_versions",
+        "def_hash": "fb678b68e96043a8d1d95ca941b8ac92"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_versions_reserved_document_id_key ON public.public_source_versions USING btree (reserved_document_id)",
+        "name": "public_source_versions_reserved_document_id_key",
+        "table": "public_source_versions",
+        "def_hash": "6e3240bcae8560597f66c45532b9c18a"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_versions_reserved_storage_path_key ON public.public_source_versions USING btree (reserved_storage_path)",
+        "name": "public_source_versions_reserved_storage_path_key",
+        "table": "public_source_versions",
+        "def_hash": "71504404569654781585daa31bb840fa"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX public_source_versions_staging_document_id_key ON public.public_source_versions USING btree (staging_document_id)",
+        "name": "public_source_versions_staging_document_id_key",
+        "table": "public_source_versions",
+        "def_hash": "7e4be16a3ea7291a23a212de98ef9b62"
+      },
+      {
         "def": "CREATE INDEX rag_aliases_alias_trgm_idx ON public.rag_aliases USING gin (lower(alias) extensions.gin_trgm_ops)",
         "name": "rag_aliases_alias_trgm_idx",
         "table": "rag_aliases",
@@ -7757,6 +8643,12 @@
         "name": "storage_cleanup_jobs_pkey",
         "table": "storage_cleanup_jobs",
         "def_hash": "77fff7a3fb73bfb90616664eafa2682e"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX storage_cleanup_jobs_public_source_attempt_unique ON public.storage_cleanup_jobs USING btree (public_source_upload_attempt_id)",
+        "name": "storage_cleanup_jobs_public_source_attempt_unique",
+        "table": "storage_cleanup_jobs",
+        "def_hash": "78aae00d7f94059ae1374e25a3d96567"
       },
       {
         "def": "CREATE INDEX storage_cleanup_jobs_status_created_idx ON public.storage_cleanup_jobs USING btree (status, created_at) WHERE (status = ANY (ARRAY['pending'::text, 'failed'::text]))",
@@ -8170,6 +9062,54 @@
       },
       {
         "cmd": "SELECT",
+        "name": "public source activation events service role",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "public_source_activation_events",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "name": "public source policy entries service role",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "public_source_policy_entries",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "name": "public source upload attempts service role",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "public_source_upload_attempts",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
+        "name": "public source versions service role",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "public_source_versions",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "SELECT",
         "name": "rag aliases owner read",
         "qual": "((owner_id IS NULL) OR (owner_id = ( SELECT auth.uid() AS uid)))",
         "roles": [
@@ -8514,8 +9454,18 @@
         "table": "document_title_words"
       },
       {
+        "def": "CREATE TRIGGER documents_guard_public_source_identity BEFORE INSERT OR UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.guard_public_source_document_identity()",
+        "name": "documents_guard_public_source_identity",
+        "table": "documents"
+      },
+      {
         "def": "CREATE TRIGGER documents_ingestion_webhook AFTER UPDATE OF metadata ON public.documents FOR EACH ROW EXECUTE FUNCTION public.notify_document_change_ingestion_webhook()",
         "name": "documents_ingestion_webhook",
+        "table": "documents"
+      },
+      {
+        "def": "CREATE TRIGGER documents_require_australian_source_activation AFTER UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.guard_australian_source_activation()",
+        "name": "documents_require_australian_source_activation",
         "table": "documents"
       },
       {
@@ -8562,6 +9512,21 @@
         "def": "CREATE TRIGGER on_call_entries_updated_at BEFORE UPDATE ON public.on_call_entries FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "on_call_entries_updated_at",
         "table": "on_call_entries"
+      },
+      {
+        "def": "CREATE TRIGGER public_source_activation_events_append_only BEFORE DELETE OR UPDATE ON public.public_source_activation_events FOR EACH ROW EXECUTE FUNCTION public.prevent_public_source_control_plane_mutation()",
+        "name": "public_source_activation_events_append_only",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "CREATE TRIGGER public_source_policy_entries_immutable BEFORE DELETE OR UPDATE ON public.public_source_policy_entries FOR EACH ROW EXECUTE FUNCTION public.prevent_public_source_control_plane_mutation()",
+        "name": "public_source_policy_entries_immutable",
+        "table": "public_source_policy_entries"
+      },
+      {
+        "def": "CREATE TRIGGER public_source_versions_guard_mutation BEFORE DELETE OR UPDATE ON public.public_source_versions FOR EACH ROW EXECUTE FUNCTION public.guard_public_source_version_mutation()",
+        "name": "public_source_versions_guard_mutation",
+        "table": "public_source_versions"
       },
       {
         "def": "CREATE TRIGGER rag_aliases_updated_at BEFORE UPDATE ON public.rag_aliases FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
@@ -8629,12 +9594,41 @@
         "table": "source_review_events"
       },
       {
+        "def": "CREATE TRIGGER storage_cleanup_jobs_guard_public_source_identity BEFORE INSERT OR DELETE OR UPDATE ON public.storage_cleanup_jobs FOR EACH ROW EXECUTE FUNCTION public.guard_public_source_cleanup_job_identity()",
+        "name": "storage_cleanup_jobs_guard_public_source_identity",
+        "table": "storage_cleanup_jobs"
+      },
+      {
         "def": "CREATE TRIGGER storage_cleanup_jobs_updated_at BEFORE UPDATE ON public.storage_cleanup_jobs FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "storage_cleanup_jobs_updated_at",
         "table": "storage_cleanup_jobs"
       }
     ],
     "functions": [
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "f37da02c80f62314737b415e297918f4",
+        "signature": "public.abandon_public_source_reservation(jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "3ce73d1adf0414e99b094beedb3acd36",
+        "signature": "public.activate_approved_public_documents(jsonb,text,uuid[])"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "06fef0a2f3de040d381f046b38ac2b99",
+        "signature": "public.activate_public_source_version(uuid,uuid,jsonb,text,uuid[])"
+      },
       {
         "acl": [
           "postgres=X/postgres",
@@ -8664,8 +9658,32 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "b487d193e68953e1dd716fa9572426cd",
+        "signature": "public.assert_public_source_document_governance(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "a60b509cbfa5d9753a4e2a51c471db58",
+        "signature": "public.authorize_public_source_upload(jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "2edbe5e02d8585898df0f3fd8f2ade8a",
         "signature": "public.backfill_legacy_index_health_batch(integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "f02e0c8d223bb2621468b958df75f1f1",
+        "signature": "public.bind_public_source_upload_authority(jsonb)"
       },
       {
         "acl": [
@@ -8688,8 +9706,16 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "d15147f6f3763c5642b6c4af63d50c67",
+        "def_hash": "be510041f30bafd1472440c7e3076716",
         "signature": "public.claim_ingestion_jobs(text,integer,integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "774217dc034b3beb170f293164d5589a",
+        "signature": "public.claim_public_source_cleanup_job(integer)"
       },
       {
         "acl": [
@@ -8727,7 +9753,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "eb9926823dccb2d5d91c01a664f049d7",
+        "def_hash": "efcde25889974dc92277e2cfe9d1534c",
         "signature": "public.commit_document_index_generation(uuid,text,uuid,uuid,text,integer,integer,integer,jsonb,jsonb,jsonb)"
       },
       {
@@ -8744,6 +9770,14 @@
         ],
         "def_hash": "6406ade971963fa9b6d952765a697bd9",
         "signature": "public.complete_ingestion_job(uuid,uuid,uuid,text,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "7003502b497f205939a8a7259e7d6cfa",
+        "signature": "public.complete_public_source_cleanup_job(uuid,uuid,integer)"
       },
       {
         "acl": [
@@ -8893,6 +9927,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "4fd6d14bca865dbd72b26e69a27a3c2a",
+        "signature": "public.finalize_public_source_version(jsonb,integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "8bc8a230f147790d5ffb77345627d4da",
         "signature": "public.get_related_document_metadata_v2(uuid[],uuid,boolean)"
       },
@@ -8917,8 +9959,39 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "baa4902eb42ad6438e48517450c6cc46",
+        "signature": "public.guard_australian_source_activation()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "248e7a470031632101db7d22b1dbd006",
         "signature": "public.guard_document_publication_transition()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "493877f6982dea05c5912a2d28721e4d",
+        "signature": "public.guard_public_source_cleanup_job_identity()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "a034a5c49988f1f61f6fe14e3faabb45",
+        "signature": "public.guard_public_source_document_identity()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "04ac38dd377b2b8ac8b1d5f8e533c4dc",
+        "signature": "public.guard_public_source_version_mutation()"
       },
       {
         "acl": [
@@ -9233,8 +10306,24 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "d89bcd39f927acf0bf8e6560d5202371",
+        "signature": "public.preflight_public_source_acquisition(jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "b0947f8a0d37d0d8dda4185008c0d51a",
         "signature": "public.prevent_document_publication_approval_mutation()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "cac4ec7b389642512ddb7671be027fe2",
+        "signature": "public.prevent_public_source_control_plane_mutation()"
       },
       {
         "acl": [
@@ -9297,14 +10386,6 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "758192017ba316c760764ba3afa12aaa",
-        "signature": "public.record_clinical_quality_feedback_triage(uuid,text,uuid,text,text,uuid,text,text)"
-      },
-      {
-        "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
-        ],
         "def_hash": "9c7d5cbead3d5480142654a396083eb6",
         "signature": "public.read_site_content_health()"
       },
@@ -9325,6 +10406,30 @@
         ],
         "def_hash": "9709a85bb31dfadac4c9b768d1758434",
         "signature": "public.read_site_content_sync_event_plan(bigint,uuid,uuid,bigint)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "3a50288dd4dffc1e4ddafb19dcafef84",
+        "signature": "public.reap_expired_public_source_upload_attempts(integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "758192017ba316c760764ba3afa12aaa",
+        "signature": "public.record_clinical_quality_feedback_triage(uuid,text,uuid,text,text,uuid,text,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "943e3fdf5c7f411db53b6f2fcd8ad199",
+        "signature": "public.record_public_source_activation(jsonb)"
       },
       {
         "acl": [
@@ -9379,6 +10484,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "d7f732832d4f42cbe2bf7e8d4e7a5706",
+        "signature": "public.release_public_source_cleanup_job(uuid,uuid,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "1751faae973884f6d53197e402979787",
         "signature": "public.reorder_user_favourite(uuid,text,text,text)"
       },
@@ -9419,8 +10532,16 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "a574c83b93f318a8ca10867dfc86941c",
+        "def_hash": "fcd9ca1a5c7fb9a73f8c6b2793f98dac",
         "signature": "public.require_document_publication_approval_state_digest()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "f4e907986b31bb6b80e77c3a502d0afe",
+        "signature": "public.reserve_public_source_version(jsonb)"
       },
       {
         "acl": [
@@ -9429,6 +10550,13 @@
         ],
         "def_hash": "243f3960a32db0192d1cce2ebd050004",
         "signature": "public.reset_document_index(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "4a60ce4d039995e10eaff45c82e1ba74",
+        "signature": "public.restore_public_source_document_to_steward(uuid,uuid,text)"
       },
       {
         "acl": [
@@ -9485,6 +10613,13 @@
         ],
         "def_hash": "c0b5662d2c6f63ff05a7ed05573845fe",
         "signature": "public.run_visual_eval_case(uuid,integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "680eb3c3ead859ba5dc3989be9f6efc8",
+        "signature": "public.schedule_public_source_upload_attempt_cleanup(uuid)"
       },
       {
         "acl": [
@@ -9780,8 +10915,24 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "de304c337e9507e1cdfc782a56897118",
+        "signature": "public.transition_public_source_version(uuid,text,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "c5fafb6bc7cc303cb1199895b777d6a6",
         "signature": "public.update_indexing_v3_agent_job_status(uuid,text,text,timestamp with time zone)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "d354c856a77f9249398d4768d2e27d8d",
+        "signature": "public.withdraw_public_source_version(uuid,uuid,text)"
       }
     ],
     "extensions": [
@@ -10357,6 +11508,21 @@
         "table": "document_publication_approvals"
       },
       {
+        "def": "CHECK (((source_catalogue_key IS NULL) OR ((char_length(TRIM(BOTH FROM source_catalogue_key)) >= 1) AND (char_length(TRIM(BOTH FROM source_catalogue_key)) <= 100))))",
+        "name": "document_publication_approvals_source_catalogue_key_format",
+        "table": "document_publication_approvals"
+      },
+      {
+        "def": "CHECK (((source_policy_version IS NULL) OR (source_policy_version = 'australian-source-policy-v1'::text)))",
+        "name": "document_publication_approvals_source_policy_version",
+        "table": "document_publication_approvals"
+      },
+      {
+        "def": "CHECK ((((source_catalogue_key IS NULL) AND (source_policy_version IS NULL) AND (reviewed_index_generation_id IS NULL)) OR ((source_catalogue_key IS NOT NULL) AND (source_policy_version IS NOT NULL) AND (reviewed_index_generation_id IS NOT NULL))))",
+        "name": "document_publication_approvals_v2_fields_coherent",
+        "table": "document_publication_approvals"
+      },
+      {
         "def": "FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE",
         "name": "document_sections_document_id_fkey",
         "table": "document_sections"
@@ -10625,6 +11791,316 @@
         "def": "CHECK ((btrim(title) <> ''::text))",
         "name": "on_call_entries_title_check",
         "table": "on_call_entries"
+      },
+      {
+        "def": "UNIQUE (activation_sequence)",
+        "name": "public_source_activation_events_activation_sequence_key",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "CHECK ((decision = ANY (ARRAY['activate'::text, 'quarantine'::text, 'retire'::text])))",
+        "name": "public_source_activation_events_decision_check",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "CHECK (((cardinality(evidence_references) >= 1) AND (cardinality(evidence_references) <= 50)))",
+        "name": "public_source_activation_events_evidence_references_check",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "CHECK ((manifest_digest ~ '^[0-9a-f]{64}$'::text))",
+        "name": "public_source_activation_events_manifest_digest_check",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "UNIQUE (manifest_digest)",
+        "name": "public_source_activation_events_manifest_digest_key",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "public_source_activation_events_pkey",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "CHECK ((policy_digest = '93b99a99f19ac2ae7f316e4b7b4aba24bc756e62c9c9cd51f113df996d517a3f'::text))",
+        "name": "public_source_activation_events_policy_digest_check",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "CHECK ((policy_version = 'australian-source-policy-v1'::text))",
+        "name": "public_source_activation_events_policy_version_check",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "CHECK (((char_length(TRIM(BOTH FROM reason)) >= 3) AND (char_length(TRIM(BOTH FROM reason)) <= 2000)))",
+        "name": "public_source_activation_events_reason_check",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "CHECK (((char_length(TRIM(BOTH FROM source_catalogue_key)) >= 1) AND (char_length(TRIM(BOTH FROM source_catalogue_key)) <= 100)))",
+        "name": "public_source_activation_events_source_catalogue_key_check",
+        "table": "public_source_activation_events"
+      },
+      {
+        "def": "PRIMARY KEY (token)",
+        "name": "public_source_activation_guards_pkey",
+        "table": "public_source_activation_guards"
+      },
+      {
+        "def": "FOREIGN KEY (version_id) REFERENCES public.public_source_versions(id) ON DELETE CASCADE",
+        "name": "public_source_activation_guards_version_id_fkey",
+        "table": "public_source_activation_guards"
+      },
+      {
+        "def": "FOREIGN KEY (public_source_reservation_id) REFERENCES public.public_source_versions(id) ON DELETE CASCADE",
+        "name": "public_source_cleanup_mutatio_public_source_reservation_id_fkey",
+        "table": "public_source_cleanup_mutation_guards"
+      },
+      {
+        "def": "FOREIGN KEY (public_source_upload_attempt_id) REFERENCES public.public_source_upload_attempts(id) ON DELETE CASCADE",
+        "name": "public_source_cleanup_mutatio_public_source_upload_attempt_fkey",
+        "table": "public_source_cleanup_mutation_guards"
+      },
+      {
+        "def": "CHECK ((operation = ANY (ARRAY['upsert'::text, 'claim'::text, 'complete'::text, 'release'::text])))",
+        "name": "public_source_cleanup_mutation_guards_operation_check",
+        "table": "public_source_cleanup_mutation_guards"
+      },
+      {
+        "def": "PRIMARY KEY (token)",
+        "name": "public_source_cleanup_mutation_guards_pkey",
+        "table": "public_source_cleanup_mutation_guards"
+      },
+      {
+        "def": "CHECK ((canonical_host ~ '^[a-z0-9.-]+$'::text))",
+        "name": "public_source_policy_entries_canonical_host_check",
+        "table": "public_source_policy_entries"
+      },
+      {
+        "def": "CHECK ((canonical_url ~ '^https://'::text))",
+        "name": "public_source_policy_entries_canonical_url_check",
+        "table": "public_source_policy_entries"
+      },
+      {
+        "def": "CHECK ((content_mode = 'indexed_content'::text))",
+        "name": "public_source_policy_entries_content_mode_check",
+        "table": "public_source_policy_entries"
+      },
+      {
+        "def": "CHECK ((exact_document_licence = 'public_index_permitted'::text))",
+        "name": "public_source_policy_entries_exact_document_licence_check",
+        "table": "public_source_policy_entries"
+      },
+      {
+        "def": "CHECK ((lifecycle = 'active'::text))",
+        "name": "public_source_policy_entries_lifecycle_check",
+        "table": "public_source_policy_entries"
+      },
+      {
+        "def": "PRIMARY KEY (source_catalogue_key)",
+        "name": "public_source_policy_entries_pkey",
+        "table": "public_source_policy_entries"
+      },
+      {
+        "def": "CHECK ((policy_digest = '93b99a99f19ac2ae7f316e4b7b4aba24bc756e62c9c9cd51f113df996d517a3f'::text))",
+        "name": "public_source_policy_entries_policy_digest_check",
+        "table": "public_source_policy_entries"
+      },
+      {
+        "def": "CHECK ((policy_version = 'australian-source-policy-v1'::text))",
+        "name": "public_source_policy_entries_policy_version_check",
+        "table": "public_source_policy_entries"
+      },
+      {
+        "def": "CHECK (((signed_authority_digest IS NULL) = (signed_authority_expires_at IS NULL)))",
+        "name": "public_source_upload_attempts_check",
+        "table": "public_source_upload_attempts"
+      },
+      {
+        "def": "CHECK (((signed_authority_expires_at IS NULL) OR (cleanup_not_before = ((signed_authority_expires_at + '00:01:00'::interval) + '00:05:00'::interval))))",
+        "name": "public_source_upload_attempts_check1",
+        "table": "public_source_upload_attempts"
+      },
+      {
+        "def": "UNIQUE (claim_token)",
+        "name": "public_source_upload_attempts_claim_token_key",
+        "table": "public_source_upload_attempts"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "public_source_upload_attempts_pkey",
+        "table": "public_source_upload_attempts"
+      },
+      {
+        "def": "CHECK ((signed_authority_digest ~ '^[0-9a-f]{64}$'::text))",
+        "name": "public_source_upload_attempts_signed_authority_digest_check",
+        "table": "public_source_upload_attempts"
+      },
+      {
+        "def": "CHECK ((state = ANY (ARRAY['authorized'::text, 'bound'::text, 'cleanup_pending'::text, 'finalized'::text, 'cleaned'::text])))",
+        "name": "public_source_upload_attempts_state_check",
+        "table": "public_source_upload_attempts"
+      },
+      {
+        "def": "CHECK ((storage_bucket ~ '^[a-z0-9][a-z0-9._-]{0,62}$'::text))",
+        "name": "public_source_upload_attempts_storage_bucket_check",
+        "table": "public_source_upload_attempts"
+      },
+      {
+        "def": "UNIQUE (storage_bucket, storage_path)",
+        "name": "public_source_upload_attempts_storage_bucket_storage_path_key",
+        "table": "public_source_upload_attempts"
+      },
+      {
+        "def": "CHECK (((char_length(storage_path) >= 1) AND (char_length(storage_path) <= 1024)))",
+        "name": "public_source_upload_attempts_storage_path_check",
+        "table": "public_source_upload_attempts"
+      },
+      {
+        "def": "FOREIGN KEY (version_id) REFERENCES public.public_source_versions(id) ON DELETE RESTRICT",
+        "name": "public_source_upload_attempts_version_id_fkey",
+        "table": "public_source_upload_attempts"
+      },
+      {
+        "def": "FOREIGN KEY (activation_event_id) REFERENCES public.public_source_activation_events(id) ON DELETE RESTRICT",
+        "name": "public_source_versions_activation_event_id_fkey",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK (((supersedes_version_id IS NULL) OR (supersedes_version_id <> id)))",
+        "name": "public_source_versions_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK (((staging_document_id IS NULL) OR (staging_document_id = reserved_document_id)))",
+        "name": "public_source_versions_check1",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((content_hash ~ '^[0-9a-f]{64}$'::text))",
+        "name": "public_source_versions_content_hash_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "FOREIGN KEY (current_upload_attempt_id) REFERENCES public.public_source_upload_attempts(id) ON DELETE RESTRICT",
+        "name": "public_source_versions_current_upload_attempt_id_fkey",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((exact_canonical_url ~ '^https://'::text))",
+        "name": "public_source_versions_exact_canonical_url_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK (((char_length(TRIM(BOTH FROM exact_version)) >= 1) AND (char_length(TRIM(BOTH FROM exact_version)) <= 200)))",
+        "name": "public_source_versions_exact_version_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((exact_version_url ~ '^https://'::text))",
+        "name": "public_source_versions_exact_version_url_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "FOREIGN KEY (finalized_upload_attempt_id) REFERENCES public.public_source_upload_attempts(id) ON DELETE RESTRICT",
+        "name": "public_source_versions_finalized_upload_attempt_id_fkey",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((intended_disposition = ANY (ARRAY['shadow'::text, 'quarantined'::text])))",
+        "name": "public_source_versions_intended_disposition_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((licence_evidence_digest ~ '^[0-9a-f]{64}$'::text))",
+        "name": "public_source_versions_licence_evidence_digest_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((lifecycle = ANY (ARRAY['discovered'::text, 'shadow'::text, 'approved'::text, 'active'::text, 'quarantined'::text, 'tombstoned'::text, 'abandoned'::text])))",
+        "name": "public_source_versions_lifecycle_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "public_source_versions_pkey",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((raw_response_byte_count >= 0))",
+        "name": "public_source_versions_raw_response_byte_count_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((raw_response_hash ~ '^[0-9a-f]{64}$'::text))",
+        "name": "public_source_versions_raw_response_hash_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((reservation_key ~ '^[0-9a-f]{64}$'::text))",
+        "name": "public_source_versions_reservation_key_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "UNIQUE (reserved_document_id)",
+        "name": "public_source_versions_reserved_document_id_key",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "UNIQUE (reserved_storage_path)",
+        "name": "public_source_versions_reserved_storage_path_key",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK (((review_reason IS NULL) OR ((char_length(TRIM(BOTH FROM review_reason)) >= 3) AND (char_length(TRIM(BOTH FROM review_reason)) <= 2000))))",
+        "name": "public_source_versions_review_reason_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "FOREIGN KEY (source_catalogue_key) REFERENCES public.public_source_policy_entries(source_catalogue_key)",
+        "name": "public_source_versions_source_catalogue_key_fkey",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((source_policy_digest = '93b99a99f19ac2ae7f316e4b7b4aba24bc756e62c9c9cd51f113df996d517a3f'::text))",
+        "name": "public_source_versions_source_policy_digest_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((source_policy_version = 'australian-source-policy-v1'::text))",
+        "name": "public_source_versions_source_policy_version_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "FOREIGN KEY (staging_document_id) REFERENCES public.documents(id) ON DELETE RESTRICT",
+        "name": "public_source_versions_staging_document_id_fkey",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "UNIQUE (staging_document_id)",
+        "name": "public_source_versions_staging_document_id_key",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "FOREIGN KEY (steward_id) REFERENCES auth.users(id) ON DELETE RESTRICT",
+        "name": "public_source_versions_steward_id_fkey",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((storage_bucket ~ '^[a-z0-9][a-z0-9._-]{0,62}$'::text))",
+        "name": "public_source_versions_storage_bucket_check",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "FOREIGN KEY (supersedes_version_id) REFERENCES public.public_source_versions(id) ON DELETE RESTRICT",
+        "name": "public_source_versions_supersedes_version_id_fkey",
+        "table": "public_source_versions"
+      },
+      {
+        "def": "CHECK ((upload_state = ANY (ARRAY['reserved'::text, 'uploading'::text, 'finalized'::text, 'cleanup_pending'::text])))",
+        "name": "public_source_versions_upload_state_check",
+        "table": "public_source_versions"
       },
       {
         "def": "CHECK ((btrim(alias) <> ''::text))",
@@ -11227,7 +12703,27 @@
         "table": "storage_cleanup_jobs"
       },
       {
-        "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text])))",
+        "def": "UNIQUE (public_source_upload_attempt_id)",
+        "name": "storage_cleanup_jobs_public_source_attempt_unique",
+        "table": "storage_cleanup_jobs"
+      },
+      {
+        "def": "CHECK ((((public_source_reservation_id IS NULL) AND (public_source_upload_attempt_id IS NULL) AND (public_source_storage_bucket IS NULL) AND (public_source_storage_path IS NULL) AND (public_source_cleanup_not_before IS NULL)) OR ((public_source_reservation_id IS NOT NULL) AND (public_source_upload_attempt_id IS NOT NULL) AND (public_source_storage_bucket ~ '^[a-z0-9][a-z0-9._-]{0,62}$'::text) AND ((char_length(public_source_storage_path) >= 1) AND (char_length(public_source_storage_path) <= 1024)) AND (public_source_cleanup_not_before IS NOT NULL))))",
+        "name": "storage_cleanup_jobs_public_source_identity_check",
+        "table": "storage_cleanup_jobs"
+      },
+      {
+        "def": "FOREIGN KEY (public_source_reservation_id) REFERENCES public.public_source_versions(id) ON DELETE RESTRICT",
+        "name": "storage_cleanup_jobs_public_source_reservation_id_fkey",
+        "table": "storage_cleanup_jobs"
+      },
+      {
+        "def": "FOREIGN KEY (public_source_upload_attempt_id) REFERENCES public.public_source_upload_attempts(id) ON DELETE RESTRICT",
+        "name": "storage_cleanup_jobs_public_source_upload_attempt_id_fkey",
+        "table": "storage_cleanup_jobs"
+      },
+      {
+        "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'completed'::text, 'failed'::text])))",
         "name": "storage_cleanup_jobs_status_check",
         "table": "storage_cleanup_jobs"
       },

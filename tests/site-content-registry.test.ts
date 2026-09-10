@@ -290,7 +290,7 @@ describe("site content producer registry", () => {
       `/formulation/${formulationMechanisms[0]!.id}`,
     );
     expect(siteContentProducerForMode("prescribing")?.routeBuilder("lithium")).toBe("/medications/lithium");
-    expect(siteContentProducerForMode("tools")?.routeBuilder("clinical-dictionary")).toBe("/dictionary");
+    expect(siteContentProducerForMode("tools")?.routeBuilder("clinical-dictionary")).toBe("/?mode=dictionary");
     expect(siteContentProducerForMode("calculators")?.routeBuilder(calculators[0]!.id)).toBe(
       calculatorRecordHref(calculators[0]!.id),
     );
@@ -320,6 +320,8 @@ describe("site content producer registry", () => {
         reviewed: true,
       }),
       expect.objectContaining({ modeId: "favourites", reason: "private_user_state", permanent: true, reviewed: true }),
+      expect.objectContaining({ modeId: "sources", reason: "corpus_consumer", permanent: true, reviewed: true }),
+      expect.objectContaining({ modeId: "on-call", reason: "private_user_state", permanent: true, reviewed: true }),
     ]);
     expect(siteContentModeCoverage([...appModeIds, "future-mode"])).toEqual({
       complete: false,
@@ -488,7 +490,11 @@ describe("site content eligibility and authority", () => {
       "favourites",
     ] as const;
 
-    expect(toolCatalogRecords.map((record) => record.id)).toEqual(expect.arrayContaining([...forbiddenIds]));
+    expect(toolCatalogRecords.map((record) => record.id)).toEqual(
+      expect.arrayContaining(forbiddenIds.filter((id) => id !== "ward-management")),
+    );
+    // Removed launcher IDs must remain inadmissible if encountered in historical records.
+    expect(toolCatalogRecords.some((record) => String(record.id) === "ward-management")).toBe(false);
     expect(eligibleIds).not.toEqual(expect.arrayContaining([...forbiddenIds]));
     for (const producerRecordId of forbiddenIds) {
       expect(evaluateSiteContentRegistration({ ...eligibleCandidate, modeId: "tools", producerRecordId })).toEqual({

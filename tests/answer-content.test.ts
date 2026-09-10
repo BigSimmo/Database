@@ -219,8 +219,14 @@ describe("primaryAnswerDisplayFragments", () => {
   });
 
   it("keeps a long finalized sentence complete without a display word budget", () => {
-    const long = `${Array.from({ length: 120 }, (_, index) => `detail${index + 1}`).join(" ")}.`;
+    // Avoid word-attached digits: the prose sanitizer treats those as citation markers.
+    const long = `${Array.from({ length: 120 }, () => "detail").join(" ")}.`;
     expect(primaryAnswerDisplayFragments(long)).toEqual([{ display: long, raw: long, truncated: false }]);
+  });
+
+  it("preserves dose and monitoring numbers when attaching source marks", () => {
+    const answer = "Review the prescribed 25 mg dose after 12 hours and record the 2 monitoring results.";
+    expect(primaryAnswerDisplayFragments(answer)).toEqual([{ display: answer, raw: answer, truncated: false }]);
   });
 });
 

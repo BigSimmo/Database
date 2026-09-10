@@ -20,7 +20,12 @@ import { CopyAfterReviewButton } from "@/components/differentials/differential-p
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
 import { cn } from "@/components/ui-primitives";
-import { isClinicalHingeLabel, resolveDiagnosisTermSegments } from "@/lib/differential-diagnosis-links";
+import {
+  buildDiagnosisTitleSlugMap,
+  isClinicalHingeLabel,
+  resolveDiagnosisTermSegments,
+  type ResolveDiagnosisTermOptions,
+} from "@/lib/differential-diagnosis-links";
 import {
   AD_HOC_DIFFERENTIAL_COMPARE_ID,
   acuteConfusionPresentationWorkflow,
@@ -36,11 +41,19 @@ import { differentialCompareSearchHref } from "@/lib/differentials-navigation";
 /** Criteria whose cells are typically diagnosis-name lists rather than free prose. */
 const DIAGNOSIS_NAME_LIST_CRITERIA = new Set(["mimics-overlap", "what-argues-against", "must-not-miss"]);
 
-function ComparisonCellContent({ criterionId, value }: { criterionId: string; value: string }) {
+function ComparisonCellContent({
+  criterionId,
+  value,
+  diagnosisLinks,
+}: {
+  criterionId: string;
+  value: string;
+  diagnosisLinks?: ResolveDiagnosisTermOptions;
+}) {
   if (!DIAGNOSIS_NAME_LIST_CRITERIA.has(criterionId)) {
     return <>{value}</>;
   }
-  const segments = resolveDiagnosisTermSegments(value);
+  const segments = resolveDiagnosisTermSegments(value, diagnosisLinks);
   if (segments.length === 0) return <>{value}</>;
   if (segments.length === 1 && !segments[0]?.slug) return <>{value}</>;
   return <DiagnosisTermInlineList segments={segments} />;
@@ -114,14 +127,20 @@ function comparisonCopy(workflow: DifferentialPresentationWorkflow, candidates: 
       .map((candidate) => {
         const mustNotMiss = candidate.comparison["must-not-miss"] ?? "Review must-not-miss risks.";
         const action = candidate.comparison["immediate-action"] ?? "Review immediate action.";
-        return `${candidate.record.title}: ${mustNotMiss} Immediate action: ${action}`;
+        return `${candidate.record.title} (${statusLabel(candidate.record.status)}): ${mustNotMiss} Immediate action: ${action}`;
       }),
   ].join("\n");
 }
 
-function getCandidates(workflow: DifferentialPresentationWorkflow): CandidateView[] {
+function getCandidates(
+  workflow: DifferentialPresentationWorkflow,
+  records?: readonly DifferentialRecord[],
+): CandidateView[] {
   return workflow.candidates.flatMap((candidate) => {
-    const record = getDifferentialRecord(candidate.slug);
+    const record =
+      records === undefined
+        ? getDifferentialRecord(candidate.slug)
+        : records.find((record) => record.slug === candidate.slug);
     if (!record) return [];
     return [
       {
@@ -182,10 +201,12 @@ function CandidateHeader({ candidate }: { candidate: CandidateView }) {
 
 function DesktopComparisonTable({
   workflow,
+  diagnosisLinks,
   candidates,
   editSelectionHref,
 }: {
   workflow: DifferentialPresentationWorkflow;
+  diagnosisLinks?: ResolveDiagnosisTermOptions;
   candidates: CandidateView[];
   editSelectionHref: string;
 }) {
@@ -260,6 +281,7 @@ function DesktopComparisonTable({
                     )}
                   >
                     <ComparisonCellContent
+                      diagnosisLinks={diagnosisLinks}
                       criterionId={criterion.id}
                       value={candidate.comparison[criterion.id] ?? "Review locally."}
                     />
@@ -278,7 +300,13 @@ function DesktopComparisonTable({
   );
 }
 
-function SafetySnapshot({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
+function SafetySnapshot({
+  workflow,
+  diagnosisLinks,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  diagnosisLinks?: ResolveDiagnosisTermOptions;
+}) {
   return (
     <section
       className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/85 p-3 shadow-[var(--shadow-inset)] xl:p-4"
@@ -308,7 +336,7 @@ function SafetySnapshot({ workflow }: { workflow: DifferentialPresentationWorkfl
                   </span>
                 );
               }
-              const segments = resolveDiagnosisTermSegments(tag);
+              const segments = resolveDiagnosisTermSegments(tag, diagnosisLinks);
               return (
                 <Fragment key={tag}>
                   {segments.map((segment, index) => (
@@ -421,7 +449,13 @@ function HighestUrgencyPanel({
   );
 }
 
-function ReviewPanel({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
+function ReviewPanel({
+  workflow,
+  diagnosisLinks,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  diagnosisLinks?: ResolveDiagnosisTermOptions;
+}) {
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Review & handoff</h2>
@@ -433,13 +467,15 @@ function ReviewPanel({ workflow }: { workflow: DifferentialPresentationWorkflow 
           </li>
         ))}
       </ul>
-      <Link
-        href="/differentials/diagnoses/delirium"
-        className="mt-3 inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
-      >
-        View handoff template
-        <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-      </Link>
+      {!diagnosisLinks || diagnosisLinks.routableSlugs?.has("delirium") ? (
+        <Link
+          href="/differentials/diagnoses/delirium"
+          className="mt-3 inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
+        >
+          View handoff template
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+        </Link>
+      ) : null}
     </section>
   );
 }
@@ -461,9 +497,11 @@ function CopyAfterReviewPanel({ text }: { text: string }) {
  *  separately so it can lead each layout. */
 function ReviewPanels({
   workflow,
+  diagnosisLinks,
   candidates,
 }: {
   workflow: DifferentialPresentationWorkflow;
+  diagnosisLinks?: ResolveDiagnosisTermOptions;
   candidates: CandidateView[];
 }) {
   const selectedCandidates = candidates.filter((candidate) => candidate.selected);
@@ -471,7 +509,7 @@ function ReviewPanels({
     <>
       <SelectedDifferentialsPanel workflow={workflow} candidates={candidates} />
       <HighestUrgencyPanel workflow={workflow} candidates={candidates} />
-      <ReviewPanel workflow={workflow} />
+      <ReviewPanel workflow={workflow} diagnosisLinks={diagnosisLinks} />
       <CopyAfterReviewPanel text={comparisonCopy(workflow, selectedCandidates)} />
       <SourceStatusPanel workflow={workflow} />
     </>
@@ -502,10 +540,12 @@ function SourceStatusPanel({ workflow }: { workflow: DifferentialPresentationWor
 
 function MobileCandidateCard({
   workflow,
+  diagnosisLinks,
   candidate,
   index,
 }: {
   workflow: DifferentialPresentationWorkflow;
+  diagnosisLinks?: ResolveDiagnosisTermOptions;
   candidate: CandidateView;
   index: number;
 }) {
@@ -555,6 +595,7 @@ function MobileCandidateCard({
                 <h3 className="text-sm-minus font-extrabold text-[color:var(--text-heading)]">{criterion.title}</h3>
                 <p className="mt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
                   <ComparisonCellContent
+                    diagnosisLinks={diagnosisLinks}
                     criterionId={criterion.id}
                     value={candidate.comparison[criterion.id] ?? "Review locally."}
                   />
@@ -570,10 +611,12 @@ function MobileCandidateCard({
 
 function MobileComparison({
   workflow,
+  diagnosisLinks,
   candidates,
   editSelectionHref,
 }: {
   workflow: DifferentialPresentationWorkflow;
+  diagnosisLinks?: ResolveDiagnosisTermOptions;
   candidates: CandidateView[];
   editSelectionHref: string;
 }) {
@@ -597,10 +640,16 @@ function MobileComparison({
           <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
       </div>
-      <SafetySnapshot workflow={workflow} />
+      <SafetySnapshot workflow={workflow} diagnosisLinks={diagnosisLinks} />
       <div className="grid gap-3">
         {selected.map((candidate, index) => (
-          <MobileCandidateCard key={candidate.record.slug} workflow={workflow} candidate={candidate} index={index} />
+          <MobileCandidateCard
+            key={candidate.record.slug}
+            workflow={workflow}
+            candidate={candidate}
+            index={index}
+            diagnosisLinks={diagnosisLinks}
+          />
         ))}
       </div>
       <PhoneFooterLayerPortal>
@@ -632,18 +681,21 @@ export function DifferentialPresentationWorkflowPage({
   presentationSlug = "acute-confusion-encephalopathy",
   selectedIds = [],
   workflow: workflowOverride,
+  candidateRecords,
 }: {
   query?: string;
   presentationSlug?: string;
   selectedIds?: string[];
   /** Prebuilt workflow (ad-hoc or already resolved). When set, skips catalogue slug lookup. */
   workflow?: DifferentialPresentationWorkflow;
+  /** Resolved public records. An empty collection never falls back to bundled diagnoses. */
+  candidateRecords?: readonly DifferentialRecord[];
 }) {
   const baseWorkflow =
     workflowOverride ?? getPresentationWorkflow(presentationSlug) ?? acuteConfusionPresentationWorkflow;
   const requestedIds = new Set(selectedIds.map((id) => id.trim().toLowerCase()).filter(Boolean));
   // Ad-hoc workflows already encode selection; overlay only applies to catalogue presentations.
-  const workflow =
+  const selectedWorkflow =
     workflowOverride?.id === AD_HOC_DIFFERENTIAL_COMPARE_ID
       ? workflowOverride
       : requestedIds.size
@@ -657,7 +709,27 @@ export function DifferentialPresentationWorkflowPage({
             return { ...baseWorkflow, candidates, selectedCount };
           })()
         : baseWorkflow;
-  const candidates = getCandidates(workflow);
+  const candidates = getCandidates(selectedWorkflow, candidateRecords);
+  const diagnosisLinks =
+    candidateRecords === undefined
+      ? undefined
+      : {
+          titleMap: buildDiagnosisTitleSlugMap(candidateRecords),
+          routableSlugs: new Set(candidateRecords.map((record) => record.slug)),
+        };
+  const missingCandidateCount = selectedWorkflow.candidates.length - candidates.length;
+  const workflow =
+    missingCandidateCount > 0
+      ? {
+          ...selectedWorkflow,
+          selectedCount: candidates.filter((candidate) => candidate.selected).length,
+          totalCount: candidates.length,
+          safetySnapshot: {
+            ...selectedWorkflow.safetySnapshot,
+            summary: `${selectedWorkflow.safetySnapshot.summary} Comparison incomplete: ${missingCandidateCount} diagnosis record(s) are unavailable in the current public catalogue.`,
+          },
+        }
+      : selectedWorkflow;
   const selectedCandidateIds = candidates
     .filter((candidate) => candidate.selected)
     .map((candidate) => candidate.record.slug);
@@ -711,21 +783,41 @@ export function DifferentialPresentationWorkflowPage({
               </div>
             </section>
 
+            {missingCandidateCount > 0 ? (
+              <p
+                role="status"
+                className="mb-4 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] p-3 text-sm"
+              >
+                Comparison incomplete: {missingCandidateCount} diagnosis record(s) are unavailable in the current public
+                catalogue. Review the selection before use.
+              </p>
+            ) : null}
+
             {/* Tablet / mid (md–lg): safety leads, then the scrollable table, then
               the review panels reflow into a grid below — no fixed side rail. */}
             <div className="mb-4 hidden md:block xl:hidden">
-              <SafetySnapshot workflow={workflow} />
+              <SafetySnapshot workflow={workflow} diagnosisLinks={diagnosisLinks} />
             </div>
-            <DesktopComparisonTable workflow={workflow} candidates={candidates} editSelectionHref={editSelectionHref} />
-            <MobileComparison workflow={workflow} candidates={candidates} editSelectionHref={editSelectionHref} />
+            <DesktopComparisonTable
+              workflow={workflow}
+              candidates={candidates}
+              editSelectionHref={editSelectionHref}
+              diagnosisLinks={diagnosisLinks}
+            />
+            <MobileComparison
+              workflow={workflow}
+              candidates={candidates}
+              editSelectionHref={editSelectionHref}
+              diagnosisLinks={diagnosisLinks}
+            />
             <div className="mt-4 hidden items-start gap-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:hidden">
-              <ReviewPanels workflow={workflow} candidates={candidates} />
+              <ReviewPanels workflow={workflow} candidates={candidates} diagnosisLinks={diagnosisLinks} />
             </div>
           </div>
 
           <aside className="hidden min-w-0 gap-4 xl:grid" aria-label="Differential review sidebar">
-            <SafetySnapshot workflow={workflow} />
-            <ReviewPanels workflow={workflow} candidates={candidates} />
+            <SafetySnapshot workflow={workflow} diagnosisLinks={diagnosisLinks} />
+            <ReviewPanels workflow={workflow} candidates={candidates} diagnosisLinks={diagnosisLinks} />
           </aside>
         </div>
 

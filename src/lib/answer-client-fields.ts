@@ -145,12 +145,17 @@ const visualEvidence = z.object({
 });
 
 export const clientAnswerFieldsSchema = z.object({
-  claimMarks: z.array(z.object({
-    claimId: id,
-    text,
-    supportStatus: z.enum(["direct", "partial"]),
-    supportingChunkIds: ids,
-  })).max(100).optional(),
+  claimMarks: z
+    .array(
+      z.object({
+        claimId: id,
+        text,
+        supportStatus: z.enum(["direct", "partial"]),
+        supportingChunkIds: ids,
+      }),
+    )
+    .max(100)
+    .optional(),
   sourceCurrencyWarning: z.enum(["supporting", "retrieved"]).optional(),
   answerContractVersion: z.literal(ragAdaptiveAnswerPromptVersion).optional(),
   renderAdaptiveAnswer: z.boolean().optional(),

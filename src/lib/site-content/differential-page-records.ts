@@ -2,10 +2,23 @@ import "server-only";
 
 import { connection } from "next/server";
 import { cache } from "react";
-import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
+import { differentialRecords, getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
+
+export const readPresentationCandidateRecords = cache(async (slugs: readonly string[]) => {
+  const requested = new Set(slugs);
+  if (isDemoMode() || isLocalNoAuthMode()) return differentialRecords.filter((record) => requested.has(record.slug));
+  await connection();
+  const { records } = await readCanonicalSiteContentRecords({
+    supabase: createAdminClient(),
+    kind: "differential",
+    slug: null,
+    seeds: differentialRecords,
+  });
+  return records.filter((record) => requested.has(record.slug));
+});
 
 /** A page and its metadata read the same public publication within one request. */
 export const readDifferentialPageRecord = cache(async (slug: string) => {

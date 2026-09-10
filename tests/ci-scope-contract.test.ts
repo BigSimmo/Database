@@ -23,6 +23,8 @@ function classify(file: string): string {
 function runSelectorWithInjectedOwner(owner: string, cwd = process.cwd()): void {
   const temporaryDirectory = mkdtempSync(join(tmpdir(), "site-content-ci-owner-"));
   const temporaryScript = join(temporaryDirectory, "ci-change-scope.mjs");
+  // Main derives advisory owners from the checked-in Playwright config.
+  if (cwd !== process.cwd()) writeFileSync(join(cwd, "playwright.config.ts"), readFileSync("playwright.config.ts"));
   try {
     const source = readFileSync("scripts/ci-change-scope.mjs", "utf8");
     const injected = source.replace(
@@ -190,7 +192,7 @@ describe("site-content CI owner contract", () => {
 
   it("still triggers for canonical exact and glob owner paths", () => {
     expect(classify("src/lib/dictionary-data.ts")).toContain("site_content_changed=true");
-    expect(classify("public/therapy-compass-data/therapies.d0358686e452b00b.json")).toContain(
+    expect(classify("public/therapy-compass-data/therapies.16552a934ddd9846.json")).toContain(
       "site_content_changed=true",
     );
   });

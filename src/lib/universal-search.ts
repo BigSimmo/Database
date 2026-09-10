@@ -212,11 +212,18 @@ function formItem(record: FormRecord, score: number): UniversalSearchItem {
 }
 
 async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  const records = !args.demo && args.supabase
-    ? (await readCanonicalSiteContentRecords({
-        supabase: args.supabase, kind: "medication", slug: null, seeds: defaultMedicationRecords(), signal: args.signal,
-      })).records
-    : defaultMedicationRecords();
+  const records =
+    !args.demo && args.supabase
+      ? (
+          await readCanonicalSiteContentRecords({
+            supabase: args.supabase,
+            kind: "medication",
+            slug: null,
+            seeds: defaultMedicationRecords(),
+            signal: args.signal,
+          })
+        ).records
+      : defaultMedicationRecords();
   // Catalog-local typo/brand understanding (not clinical-search / RAG analysis).
   // Prefer catalog corrections when they change the query; otherwise keep the
   // shared clinical-search correction (e.g. monitring → monitoring) and its
@@ -235,22 +242,36 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
 }
 
 async function searchServicesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  const records = !args.demo && args.supabase
-    ? (await readCanonicalSiteContentRecords({
-        supabase: args.supabase, kind: "service", slug: null, seeds: serviceRecords, signal: args.signal,
-      })).records
-    : serviceRecords;
+  const records =
+    !args.demo && args.supabase
+      ? (
+          await readCanonicalSiteContentRecords({
+            supabase: args.supabase,
+            kind: "service",
+            slug: null,
+            seeds: serviceRecords,
+            signal: args.signal,
+          })
+        ).records
+      : serviceRecords;
   return rankServiceRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     serviceItem(match.service, match.score),
   );
 }
 
 async function searchFormsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  const records = !args.demo && args.supabase
-    ? (await readCanonicalSiteContentRecords({
-        supabase: args.supabase, kind: "form", slug: null, seeds: formRecords, signal: args.signal,
-      })).records
-    : formRecords;
+  const records =
+    !args.demo && args.supabase
+      ? (
+          await readCanonicalSiteContentRecords({
+            supabase: args.supabase,
+            kind: "form",
+            slug: null,
+            seeds: formRecords,
+            signal: args.signal,
+          })
+        ).records
+      : formRecords;
   return rankFormRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     formItem(match.service, match.score),
   );

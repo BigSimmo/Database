@@ -1063,7 +1063,14 @@ export async function setCachedSearch(
     if (!oldestKey) break;
     searchCache.delete(oldestKey);
   }
-  setSharedCachedSearch(args, clonedResults, cacheTelemetry, indexingVersion, queryVariants, options?.publicCacheWriteProof);
+  setSharedCachedSearch(
+    args,
+    clonedResults,
+    cacheTelemetry,
+    indexingVersion,
+    queryVariants,
+    options?.publicCacheWriteProof,
+  );
 }
 
 type SharedCacheKind = "search" | "answer";

@@ -3,7 +3,10 @@ import { sourceResultHref } from "@/components/clinical-dashboard/source-actions
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { type CanonicalAnswerTableRecord, type SourceLink } from "@/lib/answer-render-policy";
 import type { VisualEvidenceCard } from "@/lib/types";
-import type { ClientBestSourceRecommendation as BestSourceRecommendation, ClientSearchResult as SearchResult } from "@/lib/answer-client-payload";
+import type {
+  ClientBestSourceRecommendation as BestSourceRecommendation,
+  ClientSearchResult as SearchResult,
+} from "@/lib/answer-client-payload";
 
 /**
  * One cited document as the answer surface shows it: the shape the source rail

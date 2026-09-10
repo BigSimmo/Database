@@ -423,8 +423,12 @@ function buildWarnings(answer: ClientRagAnswerPayload | RagAnswer, trust: Answer
   for (const warning of answer.sourceGovernanceWarnings ?? []) {
     if (warning.message) warnings.push(warning.message);
   }
-  const currencyWarning = "sourceCurrencyWarning" in answer ? answer.sourceCurrencyWarning
-    : "evidenceAssessments" in answer ? sourceCurrencyWarningForAnswer(answer) : undefined;
+  const currencyWarning =
+    "sourceCurrencyWarning" in answer
+      ? answer.sourceCurrencyWarning
+      : "evidenceAssessments" in answer
+        ? sourceCurrencyWarningForAnswer(answer)
+        : undefined;
   if (currencyWarning === "supporting") {
     warnings.push(currencyReviewWarnings.supporting);
   } else if (currencyWarning === "retrieved") {

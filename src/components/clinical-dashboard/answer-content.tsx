@@ -1,15 +1,13 @@
 "use client";
 
+import { primaryAnswerDisplayText as canonicalPrimaryAnswerDisplayText } from "@/lib/answer-display-text";
+
 import { Fragment, memo, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { chatActionRow, chatAnswerText, chatMicroAction, cn } from "@/components/ui-primitives";
-import {
-  cleanDisplayTitle,
-  comparableAnswerText,
-  sanitizeAnswerDisplayText,
-} from "@/components/clinical-dashboard/display-text";
+import { cleanDisplayTitle, comparableAnswerText } from "@/components/clinical-dashboard/display-text";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { AnswerSourceRail } from "@/components/clinical-dashboard/answer-source-rail";
 import { AnswerSourceMark, AnswerSourceMarkOverflow } from "@/components/clinical-dashboard/answer-source-mark";
@@ -69,16 +67,8 @@ export function isPreformattedGroundedAnswer(answer: Pick<RagAnswer, "preformatt
 // synthetic-demo notice both plainAnswerText and primaryAnswerDisplayText need
 // removed before the text reaches the screen.
 function sanitizeAndStripSyntheticNotice(value: string, options: AnswerDisplayTextOptions) {
-  return sanitizeAnswerDisplayText(value, {
-    minLength: 8,
-    minTokens: 2,
-    preformatted: options.preformatted,
-    preserveBold: options.preserveBold,
-  })
-    .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
-    .trim();
+  return canonicalPrimaryAnswerDisplayText(value, options);
 }
-
 /**
  * Produces sanitized, display-ready text for an answer.
  *
@@ -107,7 +97,10 @@ export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTe
 export type AnswerDisplayFragment = { display: string; raw: string; truncated: boolean };
 
 /** Preserve every verified word; sentence boundaries only attach existing claim marks. */
-export function primaryAnswerDisplayFragments(value: string, options: AnswerDisplayTextOptions = {}): AnswerDisplayFragment[] {
+export function primaryAnswerDisplayFragments(
+  value: string,
+  options: AnswerDisplayTextOptions = {},
+): AnswerDisplayFragment[] {
   const cleaned = primaryAnswerDisplayText(value, options);
   if (!cleaned) return [];
   if (options.preformatted) return [{ display: cleaned, raw: cleaned, truncated: false }];

@@ -60,21 +60,67 @@ function answerWith(sources: SearchResult[]): RagAnswer {
 }
 
 describe("toClientAnswerPayload", () => {
+  it.each([
+    { answer: "Clinical guidance. Synthetic demo only: Hidden review metadata", hidden: "Hidden review metadata" },
+    { answer: "Source excerpt: Clinical guidance.", hidden: "Source excerpt" },
+  ])("excludes claim metadata removed by primary display sanitization: $hidden", ({ answer, hidden }) => {
+    const mark = { claimId: "hidden", text: hidden, supportStatus: "direct" as const, supportingChunkIds: ["chunk-1"] };
+    const payload = toClientAnswerPayload({
+      ...answerWith([fullSource()]),
+      answer,
+      supportedClaims: [
+        { ...mark, riskClass: "routine" },
+        { ...mark, claimId: "visible", text: "Clinical guidance.", riskClass: "routine" },
+      ],
+    });
+    expect(payload.claimMarks).toEqual([{ ...mark, claimId: "visible", text: "Clinical guidance." }]);
+    expect(projectClientAnswerPayload(payload, true)).toEqual(payload);
+    const poisoned = { ...payload, claimMarks: [...payload.claimMarks!, mark] };
+    expect(projectClientAnswerPayload(poisoned)?.claimMarks).toEqual(payload.claimMarks);
+    expect(projectClientAnswerPayload(poisoned, true)).toBeNull();
+  });
+
   it("projects only displayed, retained-source claim marks and a content-free currency warning", () => {
     const input: RagAnswer = {
       ...answerWith([fullSource()]),
       answer: "Use the cited source.",
       supportedClaims: [
-        { claimId: "visible", text: "Use the cited source.", riskClass: "routine", supportStatus: "direct", supportingChunkIds: ["chunk-1"] },
-        { claimId: "private", text: "PRIVATE_UNDISPLAYED_CLAIM", riskClass: "routine", supportStatus: "direct", supportingChunkIds: ["chunk-1"] },
-        { claimId: "foreign", text: "Use the cited source.", riskClass: "routine", supportStatus: "direct", supportingChunkIds: ["private-chunk"] },
+        {
+          claimId: "visible",
+          text: "Use the cited source.",
+          riskClass: "routine",
+          supportStatus: "direct",
+          supportingChunkIds: ["chunk-1"],
+        },
+        {
+          claimId: "private",
+          text: "PRIVATE_UNDISPLAYED_CLAIM",
+          riskClass: "routine",
+          supportStatus: "direct",
+          supportingChunkIds: ["chunk-1"],
+        },
+        {
+          claimId: "foreign",
+          text: "Use the cited source.",
+          riskClass: "routine",
+          supportStatus: "direct",
+          supportingChunkIds: ["private-chunk"],
+        },
       ],
       evidenceAssessments: {
-        "chunk-1": { relevance: "direct", claimSupport: "direct", authority: "approved", currency: "review_due", extractionQuality: "good" },
+        "chunk-1": {
+          relevance: "direct",
+          claimSupport: "direct",
+          authority: "approved",
+          currency: "review_due",
+          extractionQuality: "good",
+        },
       },
     };
     const payload = toClientAnswerPayload(input);
-    expect(payload.claimMarks).toEqual([{ claimId: "visible", text: "Use the cited source.", supportStatus: "direct", supportingChunkIds: ["chunk-1"] }]);
+    expect(payload.claimMarks).toEqual([
+      { claimId: "visible", text: "Use the cited source.", supportStatus: "direct", supportingChunkIds: ["chunk-1"] },
+    ]);
     expect(payload.sourceCurrencyWarning).toBe("supporting");
     expect(payload).not.toHaveProperty("supportedClaims");
     expect(payload).not.toHaveProperty("evidenceAssessments");
@@ -83,7 +129,12 @@ describe("toClientAnswerPayload", () => {
     const poisoned = { ...payload, claimMarks: [{ ...payload.claimMarks![0], supportingChunkIds: ["private-chunk"] }] };
     expect(projectClientAnswerPayload(poisoned, true)).toBeNull();
     expect(projectClientAnswerPayload(poisoned)?.claimMarks).toEqual([]);
-    expect(projectClientAnswerPayload({ ...payload, claimMarks: [{ ...payload.claimMarks![0], privateOwner: "secret" }] }, true)).toBeNull();
+    expect(
+      projectClientAnswerPayload(
+        { ...payload, claimMarks: [{ ...payload.claimMarks![0], privateOwner: "secret" }] },
+        true,
+      ),
+    ).toBeNull();
   });
   it("P12A R1 accepts exact source_conflict vocabulary while rejecting unknown section kinds", () => {
     const section = {

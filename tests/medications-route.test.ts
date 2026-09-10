@@ -129,11 +129,7 @@ function createSupabaseMock(
           ],
           error: null,
         }
-      : ok(
-          options.canonicalRows ?? [
-            { initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } },
-          ],
-        ),
+      : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
   );
   return {
     calls,
@@ -537,7 +533,7 @@ describe("medications API", () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("serves a seeded medication detail when registry corpus embedding fails after the row upsert", async () => {
+  it("serves an uninitialized public medication detail without owner writes during a corpus embedding outage", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     let stored: Array<Record<string, unknown>> = [];
     const client = createSupabaseMock((call) => {

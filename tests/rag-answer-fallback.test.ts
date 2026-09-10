@@ -3292,7 +3292,7 @@ describe("RAG structured-output fallback", () => {
         }));
       });
 
-    it("withholds a valid reviewed uploaded-local conflict pair at the actual governed admission boundary before P16", async () => {
+    it("withholds the uploaded-local conflict pair while retaining admitted Australian evidence before P16", async () => {
       const { local, australian, conflict } = policyFixture();
       const load = reviewedLoader([{ local, australian, conflict }]);
       const capturedInputs: string[] = [];
@@ -3301,10 +3301,16 @@ describe("RAG structured-output fallback", () => {
         captureInput: (input) => capturedInputs.push(input),
       });
       expect(load).toHaveBeenCalledTimes(1);
-      expect(answer.ragDiagnostics?.reviewed_input_state).toBe("reviewed");
-      expect(answer.routingReason).toContain("no_retrieved_sources");
-      expect(answer.sources).toEqual([]);
-      expect(answer.citations).toEqual([]);
+      // The pair is unavailable once its uploaded-local member is withheld; the
+      // independently admitted Australian source can still support an answer.
+      expect(answer.ragDiagnostics?.reviewed_input_state).toBe("unavailable");
+      expect(answer.routingReason).toBe("high_confidence_extractive_retrieval");
+      expect(answer.sources.map((row) => row.id)).toEqual([australian.id]);
+      expect(answer.citations.map((row) => row.chunk_id)).toEqual([australian.id]);
+      expect(answer.grounded).toBe(true);
+      expect(answer.answer).toBe(australian.content);
+      expect(answer.answer).not.toContain("six months");
+      expect(answer.sources.some((row) => row.id === local.id)).toBe(false);
       expect(answer.conflictsOrGaps?.filter((item) => item.type === "conflict") ?? []).toEqual([]);
       expect(capturedInputs).toEqual([]);
       expect(JSON.stringify(answer)).not.toContain("REVIEW_AUDIT_ONLY_CANARY");

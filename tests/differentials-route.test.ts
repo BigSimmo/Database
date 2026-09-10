@@ -99,11 +99,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { ca
     rpc: vi.fn(async (name: string) =>
       name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
         ? ok([{ limited: false, limit_value: 120, remaining: 119, retry_after_seconds: 60 }])
-        : ok(
-            options.canonicalRows ?? [
-              { initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } },
-            ],
-          ),
+        : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
     ),
   };
 }

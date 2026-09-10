@@ -1,5 +1,6 @@
 import { adaptiveAnswerLimits, answerWithinLimits } from "@/lib/rag/rag-answer-contract-limits";
 import { normalizeClaimText } from "@/lib/answer-claim-marks";
+import { primaryAnswerDisplayText } from "@/lib/answer-display-text";
 import { ragAdaptiveAnswerPromptVersion } from "@/lib/rag/rag-versioning";
 import {
   clientAnswerFieldsSchema,
@@ -821,12 +822,13 @@ export function projectClientAnswerPayload(value: unknown, strict = false): Clie
   if (!fields.success) return null;
   if (fields.data.claimMarks) {
     const sourceIds = new Set(sources.map((source) => source.id));
-    const displayed = ` ${normalizeClaimText(value.answer)} `;
-    const retained = fields.data.claimMarks.filter((claim) =>
-      claim.supportingChunkIds.length > 0 &&
-      claim.supportingChunkIds.every((id) => sourceIds.has(id)) &&
-      normalizeClaimText(claim.text).length > 0 &&
-      displayed.includes(` ${normalizeClaimText(claim.text)} `),
+    const displayed = ` ${normalizeClaimText(primaryAnswerDisplayText(value.answer, { preformatted: fields.data.preformatted }))} `;
+    const retained = fields.data.claimMarks.filter(
+      (claim) =>
+        claim.supportingChunkIds.length > 0 &&
+        claim.supportingChunkIds.every((id) => sourceIds.has(id)) &&
+        normalizeClaimText(claim.text).length > 0 &&
+        displayed.includes(` ${normalizeClaimText(claim.text)} `),
     );
     if (strict && retained.length !== fields.data.claimMarks.length) return null;
     fields.data.claimMarks = retained;
@@ -953,16 +955,18 @@ function directSupportingBestSource(answer: RagAnswer): BestSourceRecommendation
 }
 
 export function sourceCurrencyWarningForAnswer(answer: RagAnswer): "supporting" | "retrieved" | undefined {
-  const materialIds = new Set((answer.supportedClaims ?? [])
-    .filter((claim) => claim.supportStatus === "direct")
-    .flatMap((claim) => claim.supportingChunkIds));
+  const materialIds = new Set(
+    (answer.supportedClaims ?? [])
+      .filter((claim) => claim.supportStatus === "direct")
+      .flatMap((claim) => claim.supportingChunkIds),
+  );
   const assessments = Object.entries(answer.evidenceAssessments ?? {});
-  return assessments.some(([id, assessment]) =>
-    materialIds.has(id) && assessment.currency === "review_due")
+  return assessments.some(([id, assessment]) => materialIds.has(id) && assessment.currency === "review_due")
     ? "supporting"
-    : materialIds.size === 0 && assessments.some(([, assessment]) =>
-      assessment.currency === "review_due" && assessment.relevance !== "none")
-      ? "retrieved" : undefined;
+    : materialIds.size === 0 &&
+        assessments.some(([, assessment]) => assessment.currency === "review_due" && assessment.relevance !== "none")
+      ? "retrieved"
+      : undefined;
 }
 
 export function toClientAnswerPayload(answer: RagAnswer): ClientRagAnswerPayload {

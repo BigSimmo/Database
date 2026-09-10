@@ -17,7 +17,11 @@ import { createGenerationDegradationRecorder } from "@/lib/rag/rag-generation-de
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
-import { answerLatencyMetadata, answerScopedEvidenceMetadata, scoreExplanationLogMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
+import {
+  answerLatencyMetadata,
+  answerScopedEvidenceMetadata,
+  scoreExplanationLogMetadata,
+} from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions, adaptiveAnswerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
@@ -44,11 +48,7 @@ export {
   searchGovernedCorpora,
 } from "@/lib/rag/rag-candidate-sources";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import {
-  embedTextWithTelemetry,
-  generateStructuredTextResult,
-  openAISafetyIdentifier,
-} from "@/lib/openai";
+import { embedTextWithTelemetry, generateStructuredTextResult, openAISafetyIdentifier } from "@/lib/openai";
 import { embeddingTelemetryFields, prefetchEmbedding } from "@/lib/rag/rag-embedding-prefetch";
 import {
   SOURCE_ONLY_EMBEDDING_SKIP_REASON,

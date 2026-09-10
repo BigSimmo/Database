@@ -19,7 +19,8 @@
       "src/lib/registry-corpus-links.ts",
       "src/lib/registry-corpus.ts",
       "src/lib/registry-seed.ts",
-      "src/lib/site-content/adapters/registry.ts"
+      "src/lib/site-content/adapters/registry.ts",
+      "src/lib/site-content/differential-page-records.ts"
     ],
     "dsm": ["src/data/dsm-clinical-content.json", "src/lib/dsm.ts"],
     "factsheets": ["src/components/factsheets/factsheets-data.ts"],
@@ -76,7 +77,8 @@
     ],
     "therapy-compass": [
       "public/therapy-compass-data/**",
-      "public/therapy-compass-data/therapies.09b25b0fff3a2b44.json",
+      "public/therapy-compass-data/therapies-index.efb2b0703a124d70.json",
+      "public/therapy-compass-data/therapies.16552a934ddd9846.json",
       "src/components/therapy-compass/data/generated-assets.ts",
       "src/lib/therapies.ts"
     ],
