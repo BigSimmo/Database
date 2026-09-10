@@ -480,6 +480,7 @@ const CKB_V2_HCM_EXPECTED: Record<string, string> = {
   "--disabled": "GrayText",
   "--success": "CanvasText",
   "--warning": "CanvasText",
+  "--danger": "CanvasText",
   "--e2": "none",
   "--e4": "none",
   "--glow-primary": "none",

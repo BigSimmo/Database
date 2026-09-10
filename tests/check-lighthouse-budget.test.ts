@@ -325,6 +325,20 @@ describe("gradeRun", () => {
 });
 
 describe("compareToLighthouseBudget", () => {
+  it("rejects a missing configured metric in reports or baseline rows", () => {
+    const rows = completeRows();
+    const baseline = baselineFromRows(rows);
+    const config = budget({ baseline, tolerance: { performanceScore: { absolute: 0.02 } } });
+    const missingReport = rows.map((entry: Row) => ({ ...entry, performanceScore: undefined }));
+    const reportResult = compareToLighthouseBudget(missingReport, config);
+    expect(reportResult.status).toBe("fail");
+    expect(reportResult.incomplete).toContain("mobile-root: report has no valid performanceScore number");
+    const missingBaseline = Object.fromEntries(
+      Object.entries(baseline).map(([run, entry]) => [run, { ...(entry as object), performanceScore: undefined }]),
+    );
+    expect(compareToLighthouseBudget(rows, { ...config, baseline: missingBaseline }).status).toBe("fail");
+  });
+
   const baseline = baselineFromRows(completeRows());
 
   it("warns rather than failing when no baseline is recorded yet", () => {

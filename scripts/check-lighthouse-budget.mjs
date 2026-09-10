@@ -62,6 +62,10 @@ export const DEFAULT_TOLERANCE = Object.freeze({
 const BASELINE_METRICS = Object.freeze(["lcpMs", "cls", "tbtMs", "fcpMs"]);
 const HEADLESS_CHROME_VERSION = /\bHeadlessChrome\/\d+(?:\.\d+){0,3}\b/;
 
+function requiredBudgetMetrics(budget) {
+  return new Set([...BASELINE_METRICS, ...Object.keys({ ...DEFAULT_TOLERANCE, ...(budget?.tolerance ?? {}) })]);
+}
+
 function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -152,7 +156,7 @@ export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false 
     // `hasUsableMetrics` checks for ledger #017. This budget also grades TBT, so a
     // report missing it would otherwise pass completeness and then have TBT silently
     // skipped by gradeRun.
-    for (const metric of BASELINE_METRICS) {
+    for (const metric of requiredBudgetMetrics(budget)) {
       if (!Number.isFinite(row[metric]) || row[metric] < 0) {
         problems.add(`${run}: report has no valid ${metric} number`);
       }
@@ -436,7 +440,7 @@ export function validateLighthouseBaseline(budget) {
       errors.push(`${run}: baseline row is not an object`);
       continue;
     }
-    for (const metric of BASELINE_METRICS) {
+    for (const metric of requiredBudgetMetrics(budget)) {
       const value = row[metric];
       if (!Number.isFinite(value) || value < 0) {
         errors.push(`${run}: baseline ${metric} must be a finite non-negative number`);
