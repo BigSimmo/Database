@@ -1525,6 +1525,28 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(csp).toContain("https://*.supabase.co");
   });
 
+  /*
+   * The Documents half of the same defect. `/documents` redirects to the shared
+   * home, and `documents/page.tsx` records the idle Documents view as deliberately
+   * retired — but clearing the composer on a submitted search left `run=1` in the
+   * URL, so the shared home stayed suppressed and DocumentSearchResultsPanel fell
+   * back to that retired "Start here" home (`document-search-empty-state`).
+   */
+  test("clearing a documents search returns the shared home, never the retired Start here view", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
+
+    await page
+      .getByRole("button", { name: /clear search question|clear search/i })
+      .first()
+      .click();
+
+    await expect(page).toHaveURL(/\/\?mode=documents&focus=1$/);
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await expect(page.getByTestId("document-search-empty-state")).toHaveCount(0);
+  });
+
   test("static agent guidance is available and documents mode avoids the app error boundary", async ({ page }) => {
     const llms = await page.request.get("/llms.txt");
     expect(llms.status()).toBe(200);
@@ -3993,22 +4015,29 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/dsm\/search\?q=major\+depressive&focus=1&run=1$/, {
       timeout: 30_000,
     });
-    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
-    const queryRibbon = page.getByTestId("search-query-ribbon");
+    // Own the visible page root and derive every in-page locator from it (#093).
+    // Scoping only the root assertion still leaves the ribbon and result rows
+    // resolving across both copies once a hidden streaming twin exists.
+    const dsmPage = visibleByTestId(page, "dsm-search-page");
+    await expect(dsmPage).toBeVisible();
+    const queryRibbon = dsmPage.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "major depressive" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter diagnoses by category" })).toBeVisible();
 
-    const result = page.getByTestId("dsm-search-result").filter({ hasText: "Major depressive disorder" });
+    const result = dsmPage.getByTestId("dsm-search-result").filter({ hasText: "Major depressive disorder" });
     await expect(result).toBeVisible();
     await expectMinTouchTarget(result.getByRole("button", { name: "Add Major depressive disorder to comparison" }));
     await expectMinTouchTarget(result.getByRole("link", { name: "Open Major depressive disorder" }));
 
     await result.getByRole("link", { name: "Open Major depressive disorder" }).click();
     await expect(page).toHaveURL(/\/dsm\/diagnoses\/major-depressive-disorder$/, { timeout: 30_000 });
-    await expect(page.getByTestId("dsm-diagnosis-page")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
+    const diagnosisPage = visibleByTestId(page, "dsm-diagnosis-page");
+    await expect(diagnosisPage).toBeVisible({ timeout: 30_000 });
+    await expect(diagnosisPage.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
     // The breadcrumb row went with the in-page header: its back control is the
     // one route out to the DSM search catalogue, not the shared home composer.
+    // It stays page-scoped because that header portals out of the page root,
+    // the same reason the filter panel below is not scoped either.
     await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm/search");
     await expectNoPageHorizontalOverflow(page);
   });
@@ -4054,8 +4083,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/dsm/search?q=depression");
 
-    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
-    const trigger = page.getByTestId("dsm-category-filter-desktop");
+    const dsmPage = visibleByTestId(page, "dsm-search-page");
+    await expect(dsmPage).toBeVisible();
+    // The trigger is rendered inside the page root, so it needs the same owner.
+    // The panel below deliberately stays page-scoped: `ResultFilterSheet`
+    // renders through `OverlayPortal`, so it lives outside this subtree.
+    const trigger = dsmPage.getByTestId("dsm-category-filter-desktop");
     await trigger.focus();
     await page.keyboard.press("Enter");
     const panel = page.getByTestId("dsm-category-filter-panel");
@@ -5109,28 +5142,27 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(requestCounts.quality).toBe(0);
   });
 
-  test("tools mode searches the existing applications registry inside the dashboard", async ({ page }) => {
+  // The legacy `/?mode=tools` URL used to render a second, hub-shaped launcher. It now
+  // redirects to `/tools`, so the query it carries has to survive the hop and land on
+  // the one tools directory with the same registry search behind it.
+  test("the legacy tools URL carries its query to the tools directory", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/?mode=tools&q=medications&focus=1&run=1");
 
+    await page.waitForURL(/\/tools\?/);
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
-    await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medications");
-    await expect(page.getByTestId("tools-hub")).toBeVisible();
-    const queryRibbon = page.getByTestId("tools-hub").getByTestId("search-query-ribbon");
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results).toBeVisible();
+    const queryRibbon = results.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "medications" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
-    await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toContainText(
-      "Medication Prescribing",
-    );
-    await expect(page.getByTestId("tools-hub").getByText("Selected tool")).toHaveCount(0);
-    const detailsButton = page
-      .getByTestId("tools-hub")
-      .getByRole("button", { name: "View details for Medication Prescribing" });
-    await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
-    await detailsButton.click();
+    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
+    // The verb shortcut row is for an unqueried catalogue, so a running query hides it.
+    await expect(page.getByTestId("tools-shortcuts")).toHaveCount(0);
+    await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
     await expect(
-      page.getByRole("dialog", { name: "Medication Prescribing" }).locator('a[href="/medications"]').first(),
+      results.getByRole("complementary", { name: "Medication Prescribing" }).locator('a[href="/medications"]').first(),
     ).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });

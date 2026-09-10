@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   githubShellAccess,
+  githubShellAuthentication,
   providerAccessAuthorized,
   runWithTransientRetry,
   shellRun,
@@ -168,6 +169,24 @@ function fixtureRun(options: FixtureOptions = {}) {
 }
 
 describe("GitHub shell control-plane acceptance", () => {
+  it("checks authentication before any repository, PR, Actions or push probe", () => {
+    const commands: string[] = [];
+    const fixture = fixtureRun();
+    const result = githubShellAuthentication((command: string, args: string[]) => {
+      commands.push(`${command} ${args.join(" ")}`);
+      return fixture(command, args);
+    });
+    expect(result).toMatchObject({ ok: true, outcome: "GH_AUTHENTICATION_READY", identity: "BigSimmo" });
+    expect(commands).toEqual(["gh --version", "gh auth status --hostname github.com --json hosts"]);
+  });
+
+  it("rejects an insufficient token at authentication preflight", () => {
+    expect(githubShellAuthentication(fixtureRun({ scopes: "repo" }))).toEqual({
+      ok: false,
+      outcome: "GH_REQUIRED_SCOPES_MISSING",
+    });
+  });
+
   it("verifies every read and non-mutating write capability", () => {
     expect(githubShellAccess(fixtureRun())).toEqual({
       ok: true,

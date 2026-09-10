@@ -475,42 +475,47 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     { name: "mobile", width: 390, height: 820 },
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
-    test(`tools launcher is usable at ${viewport.name}`, async ({ page }) => {
+    /**
+     * This case used to load `/?mode=tools`, the hub that was one of two Tools
+     * surfaces. That alias now redirects to the directory, so the same contract is
+     * asserted here on the single surface: the verb shortcut row ported over from
+     * the hub, the category filter, the detail sheet with a real launch link, and no
+     * shared search chrome on a route that owns its own filtering.
+     */
+    test(`the tools directory is usable at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await gotoLauncher(page, "/?mode=tools");
+      await gotoLauncher(page, "/tools");
 
-      await expect(page.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
-      await expect(page.getByRole("region", { name: "Quick tool shortcuts" })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "All tools" })).toBeVisible();
-      await expect(page.locator("#launcher-results-panel")).toHaveAttribute("role", "group");
-      await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "All tools");
+      const results = visibleByTestId(page, "tools-search-results-page");
+      await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Quick tool shortcuts" }).first()).toBeVisible();
+      await expect(results.getByRole("region", { name: "Tool results" })).toBeVisible();
       if (viewport.name === "mobile") {
-        const categoryTrigger = page.getByTestId("tool-filter-trigger-phone");
+        const categoryTrigger = results.getByTestId("tools-search-filter-trigger-phone");
         await expect(categoryTrigger).toBeVisible();
-        await expect(categoryTrigger).toHaveAccessibleName(/No filters active/);
         await categoryTrigger.click();
-        await page.getByRole("radiogroup", { name: "Category" }).getByRole("radio", { name: "Assess" }).click();
-        await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "Assess tools");
-        await expect(categoryTrigger).toHaveAccessibleName(/1 filter active/);
+        const filterSheet = page.locator('[data-testid="tools-search-filter-sheet"]:visible');
+        await filterSheet.getByRole("radio", { name: /Assess/ }).click();
+        await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
+        await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" })).toHaveCount(0);
         await categoryTrigger.click();
-        await page.getByRole("radiogroup", { name: "Category" }).getByRole("radio", { name: "All tools" }).click();
-        await page.getByTestId("application-row-medication-prescribing").click();
-        const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });
-        await expect(selectedSheet).toBeVisible();
-        await expect(selectedSheet.getByRole("heading", { name: "Medication Prescribing" })).toBeVisible();
-        const mobileLaunchLink = selectedSheet.locator('a[href="/medications"]').first();
+        await filterSheet.getByRole("radio", { name: /All tools/ }).click();
+        await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
+
+        await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
+        const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
+        await expect(detailSheet.getByRole("heading", { name: "Medication Prescribing" })).toBeVisible();
+        const mobileLaunchLink = detailSheet.locator('a[href="/medications"]').first();
         await expect(mobileLaunchLink).toBeVisible();
-        await expect(mobileLaunchLink).toHaveAttribute("href", "/medications");
         await expect(mobileLaunchLink).not.toHaveAttribute("target", "_blank");
-        await page.getByRole("button", { name: "Close Medication Prescribing" }).click();
-        await expect(selectedSheet).toBeHidden();
+        await detailSheet.getByRole("button", { name: "Close Medication Prescribing" }).click();
+        await expect(detailSheet).toHaveCount(0);
       } else {
-        await expect(page.getByRole("button", { name: "View details for PsychSift Search" })).toBeVisible();
+        await expect(results.getByRole("button", { name: "View details for PsychSift Search" })).toBeVisible();
       }
-      await expect(page.getByLabel("Mode Tools")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
       await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
-      await expect(page.getByTestId("tools-local-search-input")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
@@ -531,7 +536,10 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     );
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
-    await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
+    // The route owns its filtering, so it has its own in-flow box and no shared
+    // composer. This box came here from the retired `/?mode=tools` hub, which was
+    // the only place a tools search could be typed until that alias redirected.
+    await expect(page.getByTestId("tools-local-search-input")).toBeVisible();
 
     const categories = results.getByRole("radiogroup", { name: "Tool category" });
     await categories.getByRole("radio", { name: /Treat/ }).click();
@@ -668,10 +676,14 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("launcher links point to the expected in-app modes", async ({ page }) => {
+  // Moved off `/?mode=tools` when that alias started redirecting here. The hrefs are
+  // the point of the case and are unchanged: both surfaces read them from the same
+  // tools catalogue, so the directory proves the same contract the hub used to.
+  test("tool links point to the expected in-app modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page, "/?mode=tools");
+    await gotoLauncher(page, "/tools");
 
+    const results = visibleByTestId(page, "tools-search-results-page");
     for (const [title, href] of [
       ["Medication Prescribing", "/medications"],
       ["Documents", "/documents"],
@@ -680,12 +692,10 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
       ["Saved workflows", "/favourites"],
       ["PsychSift Search", "/?mode=answer"],
     ] as const) {
-      const detailsButton = page.getByRole("button", { name: `View details for ${title}` });
-      await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
-      await detailsButton.click();
-      const dialog = page.getByRole("dialog", { name: title });
-      await expect(dialog.locator(`a[href="${href}"]`).first()).toBeVisible();
-      await page.getByRole("button", { name: `Close ${title}` }).click();
+      await expect(results.getByRole("link", { name: `Open ${title}` })).toHaveAttribute("href", href);
+      await results.getByRole("button", { name: `View details for ${title}` }).click();
+      const detail = results.getByRole("complementary", { name: title });
+      await expect(detail.locator(`a[href="${href}"]`).first()).toBeVisible();
     }
     // External companion-app launchers were removed; no localhost links should remain.
     await expect(page.locator('a[href^="http://localhost"], a[href^="http://127.0.0.1"]')).toHaveCount(0);
@@ -1317,11 +1327,12 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     }
   });
 
-  test("tablet legacy Tools alias uses its local filter without shared search chrome", async ({ page }) => {
+  test("tablet legacy Tools alias redirects to the directory without shared search chrome", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await gotoLauncher(page, "/?mode=tools");
 
-    await expect(page.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
+    await page.waitForURL(/\/tools$/);
+    await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
     await expect(page.getByTestId("tools-local-search-input")).toBeVisible();
@@ -3293,6 +3304,28 @@ test.describe("Responsive layout guards", () => {
   // click/query assertions have nothing left to click. The still-live half of
   // the second test — the submitted-search results view — survives below,
   // reached directly instead of via a pill click.
+  /*
+   * Clearing the composer used to empty the React query while leaving `q` and
+   * `run=1` in the URL. `showSharedHome` reads `run=1` off the URL, so it stayed
+   * suppressed while MedicationPrescribingWorkspace, now seeing no query, fell back
+   * to `medication-home` — the Dose/Safety/Monitoring tiles `/medications` was
+   * consolidated away from, and which this file's own note above calls "retired and
+   * no longer reachable from any route". It was reachable, by this exact click.
+   */
+  test("clearing a prescribing search returns the shared home, never the retired medication home", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
+
+    await page
+      .getByRole("button", { name: /clear search question|clear search/i })
+      .first()
+      .click();
+
+    await expect(page).toHaveURL(/\/\?mode=prescribing&focus=1$/);
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await expect(page.getByTestId("medication-home")).toHaveCount(0);
+  });
+
   test("prescribing submitted search keeps results above the phone bottom dock", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 760 });
     await mockAnswerDashboardApi(page);

@@ -3014,11 +3014,10 @@ function ClinicalDashboardContent({
         activeModeResultKind === "services" ||
         activeModeResultKind === "forms") &&
         modeSearchSubmitted));
-  // `/tools` owns the tools catalogue, but the legacy `/?mode=tools` entry
-  // still renders this dashboard path. Keep both entry points composer-free so
-  // the alias cannot mount a second ownership model (hero/page/dock) behind
-  // the canonical route's no-composer contract. Modes that only borrow the
-  // `tools` result kind remain on the shared home and are intentionally exempt.
+  // `/tools` owns the tools catalogue and stays composer-free, so a dashboard
+  // path reaching the tools result kind must not mount a second ownership model
+  // (hero/page/dock) behind it. Modes that only borrow the `tools` result kind
+  // remain on the shared home and are intentionally exempt.
   const toolsDirectoryWithoutComposer = activeModeResultKind === "tools" && !showSharedHome;
   const showDesktopHomeComposer =
     !error &&
@@ -3317,7 +3316,24 @@ function ClinicalDashboardContent({
           onAsk={ask}
           onClearQuery={() => {
             setQuery("");
-            if (!answer) setModeSearchSubmitted(false);
+            if (answer) return;
+            // Clearing an initial Answer request must invalidate and abort it
+            // before navigation. Otherwise its late result can repaint the
+            // answer and restore the submitted URL after the shared home opens.
+            if (loading) stopSearch();
+            setModeSearchSubmitted(false);
+            // Clear the URL too, or `showSharedHome` (which reads `run=1` off the URL)
+            // stays suppressed while the mode branch, now query-less, falls back to the
+            // retired home its route was consolidated away from — `medication-home` and
+            // `document-search-empty-state`, both pinned by browser cases.
+            // `appModeSelectionHref`, not `appModeHomeHref`: these modes are all
+            // dashboard-owned, and `appModeHomeHref("prescribing")` answers
+            // `/medications`, which only 307s back here.
+            if (submittedUrlRunRequested) {
+              router.replace(appModeSelectionHref(searchMode, { focus: true, queryMode, scopeFilters }), {
+                scroll: false,
+              });
+            }
           }}
           onClearScope={() => setSelectedDocumentIds([])}
           onQueryModeChange={setQueryMode}
