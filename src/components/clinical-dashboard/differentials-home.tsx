@@ -872,20 +872,12 @@ function SourceStatusBanner({
 }
 
 /**
- * The two cards read different lists on purpose. Highest urgency is a safety net
- * over the whole result set, so a result-type or urgency lens must not hide an
- * emergent differential from it. Check next describes the list the clinician is
- * actually reading, so it follows the lens.
+ * Both cards read the filtered result set, so the rail always describes the list
+ * the clinician is actually looking at rather than a wider one they cannot see.
+ * A lens that hides every emergent differential therefore empties the urgency
+ * card too — the applied-filter chips above the results say why it is gone.
  */
-function InterpretationRail({
-  best,
-  results,
-  filteredResults,
-}: {
-  best: DifferentialResult;
-  results: DifferentialResult[];
-  filteredResults: DifferentialResult[];
-}) {
+function InterpretationRail({ best, results }: { best: DifferentialResult; results: DifferentialResult[] }) {
   return (
     <aside className="hidden min-w-0 gap-3 lg:grid" aria-label="Differential interpretation">
       <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
@@ -894,7 +886,7 @@ function InterpretationRail({
       </h2>
       {best.kind === "presentation" ? <LikelyPresentationCard lead={best} /> : null}
       <UrgencyCard results={results} />
-      <NextStepsCard results={filteredResults} />
+      <NextStepsCard results={results} />
     </aside>
   );
 }
@@ -1431,7 +1423,7 @@ function SearchResultsView({
               )}
             </section>
 
-            <InterpretationRail best={best} results={results} filteredResults={relevanceResults} />
+            <InterpretationRail best={best} results={relevanceResults} />
           </div>
         </div>
       )}

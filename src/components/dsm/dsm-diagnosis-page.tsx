@@ -22,6 +22,7 @@ import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 import {
   dsmCriteria,
+  dsmDifferentialParts,
   dsmSpecifierSplit,
   resolveDsmDifferential,
   type DsmDiagnosis,
@@ -133,6 +134,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
           title={diagnosis.title}
           description="Core diagnostic criteria, specifiers, differential considerations, and documentation support in one open, scan-friendly view."
           code={diagnosis.icd_code}
+          copyCode
           category={diagnosis.category.label}
           breadcrumb={false}
         />
@@ -306,24 +308,63 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
                 <ul className="divide-y divide-[color:var(--border)]">
                   {sidebarDifferentials.map((differential) => {
                     const match = resolveDsmDifferential(differential);
+                    const { name, discriminator } = dsmDifferentialParts(differential);
+
+                    /*
+                     * Every row is actionable, which it was not before. Rows that
+                     * resolve to a record open it; the rest — "Medical cause
+                     * (cardiac, respiratory, endocrine)" and its kind, which name
+                     * a category rather than a DSM record — search for the name.
+                     * Previously those rendered as inert text beside linked
+                     * siblings with nothing to explain the difference, so the
+                     * list looked half-broken rather than deliberate.
+                     */
+                    const href = match
+                      ? `/dsm/diagnoses/${match.slug}`
+                      : `/dsm/search?q=${encodeURIComponent(name)}&run=1`;
+
                     return (
                       <li key={differential} className="px-3 py-2.5">
-                        {match ? (
+                        <div className="flex items-start gap-1.5">
                           <Link
-                            href={`/dsm/diagnoses/${match.slug}`}
-                            className="group flex items-start justify-between gap-2 text-xs font-semibold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)]"
+                            href={href}
+                            className="group min-w-0 flex-1 text-xs font-semibold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)]"
                           >
-                            <span>{differential}</span>
-                            <ChevronRight
-                              className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] group-hover:text-[color:var(--clinical-accent)]"
-                              aria-hidden
-                            />
+                            <span className="flex items-start justify-between gap-2">
+                              <span className="min-w-0">{name}</span>
+                              {match ? (
+                                <ChevronRight
+                                  className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] group-hover:text-[color:var(--clinical-accent)]"
+                                  aria-hidden
+                                />
+                              ) : (
+                                <Search
+                                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)] group-hover:text-[color:var(--clinical-accent)]"
+                                  aria-hidden
+                                />
+                              )}
+                            </span>
+                            {discriminator ? (
+                              <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+                                {discriminator}
+                              </span>
+                            ) : null}
                           </Link>
-                        ) : (
-                          <span className="text-xs font-semibold leading-5 text-[color:var(--text-heading)]">
-                            {differential}
-                          </span>
-                        )}
+                          {match ? (
+                            <Link
+                              href={`/dsm/compare?ids=${encodeURIComponent(diagnosis.slug)},${encodeURIComponent(match.slug)}`}
+                              aria-label={`Compare ${diagnosis.title} with ${name}`}
+                              title={`Compare with ${name}`}
+                              // A full tap target, not a 28px icon box: this is a
+                              // phone control in a dense list, where the row above
+                              // and below are other diagnoses. The glyph stays
+                              // small; the hit area is what has to be 48px.
+                              className="grid min-h-tap min-w-tap shrink-0 place-items-center rounded-md text-[color:var(--decoration-soft)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]"
+                            >
+                              <GitCompareArrows className="h-3.5 w-3.5" aria-hidden />
+                            </Link>
+                          ) : null}
+                        </div>
                       </li>
                     );
                   })}

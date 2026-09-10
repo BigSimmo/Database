@@ -213,9 +213,11 @@ export function ModeHomeMain({
 // themselves. Hierarchy comes from weight alone, so the label half (capability)
 // carries the emphasis rather than the body half (caveat).
 //
-// No mode home renders this any more: the line under the composer was removed
-// from every home page. The sole remaining call site is the therapy-compass
-// page footer, which sits at the bottom of the sub-routes and is explicitly not
+// Architectural decision (#MPZTBR): the scope line was permanently removed from
+// all mode homes because every clinical surface already carries its own scope
+// line, so the footer remains permanently off mode homes to avoid future
+// re-introduction. The sole remaining call site is the therapy-compass page
+// footer, which sits at the bottom of the sub-routes and is explicitly not
 // rendered on the therapy home (`showFooter={!isHome}` in workspace.tsx).
 export function ModeHomeVerificationFooter({ label, body }: { label: string; body: string }) {
   return (
