@@ -364,12 +364,13 @@ function considerationBadges(consideration: MedicationConsideration): ClinicalBa
 }
 
 /**
- * Serial list for the advisory sentence: "eGFR", "eGFR and QTc", "eGFR, QTc and
- * hepatic status". The sentence continues into a relative clause immediately
- * after the list, so a bare comma join ("use eGFR, QTc, which this profile does
- * not include") reads as one run-on and hides where the list ends.
+ * Serial list for contraindication and advisory missing input lists: "eGFR",
+ * "eGFR and QTc", "eGFR, QTc and hepatic status". The sentence continues into a
+ * relative clause immediately after the list, so a bare comma join ("use eGFR,
+ * QTc, which this profile does not include") reads as one run-on and hides where
+ * the list ends. Formatted with serial "and" / Oxford conjunction.
  */
-function formatInputList(items: readonly string[]): string {
+export function formatInputList(items: readonly string[]): string {
   if (items.length <= 1) return items.join("");
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
@@ -443,7 +444,7 @@ export function MedicationConsiderations({ record, className }: { record: Medica
           gap being folded into the other — or into the all-clear above. */}
       {!isEmpty && result.unassessed.length > 0 ? (
         <InlineNotice tone="info">
-          Not assessed. Contraindication checks for this medication use {result.unassessed.join(", ")}, which this
+          Not assessed. Contraindication checks for this medication use {formatInputList(result.unassessed)}, which this
           profile does not include. Enter {result.unassessed.length === 1 ? "it" : "them"}, or check the source, before
           treating this panel as complete.
         </InlineNotice>

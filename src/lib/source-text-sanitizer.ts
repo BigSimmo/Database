@@ -58,7 +58,7 @@ const answerMetaIntroPattern =
 const provenanceNoiseTermPattern =
   /\b(?:guideline|procedure|protocol|policy|appendix|source|evidence|document|file|page|scale|lunsers|liverpool university|rating scale|retrieved|excerpt|passage)\b/gi;
 const concreteClinicalActionPattern =
-  /\b(?:administer|arrange|assess|cease|check|complete|contact|document|escalat|follow\s*up|monitor|notify|record|refer|report|review|stop|withhold|dose|prescrib|titrate)\b/i;
+  /\b(?:administer|arrange|assess|cease|check|complete|contact|document|escalat|follow\s*up|monitor|notify|record|refer|report|review|stop|withhold|dose|prescrib|titrate|(?:must|should|will)\s+be\s+(?:completed|recorded|documented))\b/i;
 // Audit H2: threshold-bearing numerics (unit-bearing figures, ranges,
 // comparatives like "8 or below", decimals) mark a fragment as carrying
 // clinical VALUES. The noise heuristics below must never drop such a fragment:

@@ -228,11 +228,13 @@ that means _type something_. Meanwhile `/formulation` itself is a redirect stub,
 redirect logic needs a legacy `?query=` alias and a `run=1` check to stop old bookmarks landing
 somewhere useless — the file says so.
 
-**The consolidation also quietly cost you two safety-shaped things.** The scope caveat under the
+**The consolidation also quietly affected two safety-shaped things.** The scope caveat under the
 composer ("clinical reference, not validated decision support") was removed from every mode
 home, and there is now a purpose-built test, `tests/mode-home-no-caveat-footer.test.ts`, whose
-job is to keep it removed — your own ledger item `#MPZTBR` flags that an audit says the
-opposite. And `bundle-budget.json` still describes itself as guarding "the five Lighthouse
+job is to keep it removed — the contradiction flagged in `#MPZTBR` is resolved by confirming the
+footer remains permanently off mode homes (backed by `tests/mode-home-no-caveat-footer.test.ts`),
+since every clinical surface carrying retrieved clinical content already carries its own scope
+line. And `bundle-budget.json` still describes itself as guarding "the five Lighthouse
 journeys" while listing only two routes, `/` and `/documents/search`. Fourteen surfaces have no
 per-page weight guard.
 
@@ -619,12 +621,12 @@ branch. Nothing keeps the pair in step. Favourites, by contrast, has one home: `
 **Code kept alive only by its own test.** One DSM component has no user of any kind except the
 test that imports it. One Dictionary page of 267 lines is unreachable.
 
-**One open question already on your list.** Ledger item `#MPZTBR` records that the scope
-caveat under the search box ("clinical reference, not validated decision support") was
-deliberately removed from every mode home, and that a separate audit says it should be mounted
-on every mode home. There is now a purpose-built test whose job is to keep it removed. That
-contradiction is unresolved and is more urgent than the mode question, because it concerns
-what the app tells you about its own limits.
+**One open question resolved.** Ledger item `#MPZTBR` recorded that the scope caveat
+under the search box ("clinical reference, not validated decision support") was deliberately
+removed from every mode home, alongside a separate audit note suggesting it should be mounted
+on every mode home. That contradiction is resolved by confirming the footer remains permanently
+off mode homes (backed by `tests/mode-home-no-caveat-footer.test.ts`), since every clinical
+surface carrying retrieved clinical content already carries its own scope line.
 
 ---
 
