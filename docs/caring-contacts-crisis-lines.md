@@ -10,7 +10,7 @@
 
 ## Crisis Lines Reference
 
-The following real public crisis lines are utilised across Caring Contacts and Care Plan surfaces. These are real, active clinical and emergency services and must never be classified among synthetic or fictional numbers.
+The following real public crisis lines are utilised across Caring Contacts and Care Plan surfaces. The table records the repository's intended public-service contact values, not synthetic patient contacts. Numbers and availability have not been independently re-verified for this consolidation; confirm them against the official sources and record the verification dates before treating this table as current clinical evidence.
 
 | Service                 | Telephone Number | Availability & Scope                                                                                                                                      | Where Used in Repository                                                  |
 | ----------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |

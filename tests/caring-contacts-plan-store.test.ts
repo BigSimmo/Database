@@ -50,26 +50,31 @@ describe("caring-contacts plan-store", () => {
 
   describe("createPlan negative test for blank patient name", () => {
     it("rejects createPlan({ patientName: '   ' })", async () => {
-      await expect(createPlan({ patientName: "   " })).rejects.toThrow(
+      await expect(createPlan({ patientName: "   " }, context)).rejects.toThrow(
         "Validation error: patient name must not be blank",
       );
     });
 
     it("rejects createPlan({ patientName: '' })", async () => {
-      await expect(createPlan({ patientName: "" })).rejects.toThrow("Validation error: patient name must not be blank");
+      await expect(createPlan({ patientName: "" }, context)).rejects.toThrow(
+        "Validation error: patient name must not be blank",
+      );
     });
 
     it("rejects createPlan with blank name inside patientDetail", async () => {
       await expect(
-        createPlan({
-          patientDetail: { patientName: "   " },
-        } as unknown as PlanCreationInput),
+        createPlan(
+          {
+            patientDetail: { patientName: "   " },
+          } as unknown as PlanCreationInput,
+          context,
+        ),
       ).rejects.toThrow("Validation error: patient name must not be blank");
     });
 
     it("rejects blank patient name on adapted store instance", async () => {
       const store = createPlanStore();
-      await expect(store.createPlan({ patientName: "   " })).rejects.toThrow(
+      await expect(store.createPlan({ patientName: "   " }, context)).rejects.toThrow(
         "Validation error: patient name must not be blank",
       );
     });
@@ -99,24 +104,47 @@ describe("caring-contacts plan-store", () => {
     });
   });
 
+  describe("createPlan trust boundaries", () => {
+    it("requires caller-supplied assurances", async () => {
+      const store = createPlanStore();
+      await expect(store.createPlan({ patientName: "Alex Taylor" }, context)).rejects.toThrow(
+        "explicit plan assurances are required",
+      );
+    });
+
+    it("does not invent an actor when write context is missing", async () => {
+      const store = createPlanStore();
+      await expect(
+        store.createPlan(
+          { patientName: "Alex Taylor", assurances: [...PLAN_ASSURANCE_VALUES] },
+          undefined as unknown as WriteContext,
+        ),
+      ).rejects.toThrow("authenticated write context is required");
+      expect(await store.listPlans(context)).toEqual([]);
+    });
+  });
+
   describe("createPlan with valid inputs", () => {
     it("creates a plan with simplified input { patientName: 'Jane Doe' }", async () => {
       const repo = createInMemoryRepository(clock);
       const store = adaptPlanStore(repo);
 
-      const result = await store.createPlan({ patientName: "Jane Doe" });
+      const result = await store.createPlan(
+        { patientName: "Jane Doe", assurances: [...PLAN_ASSURANCE_VALUES] },
+        context,
+      );
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value.patientDetail.patientName).toBe("Jane Doe");
+        expect(result.value).not.toHaveProperty("patientDetail");
         expect(result.value.plan.state).toBe("draft");
       }
     });
 
     it("creates a plan with top-level createPlan function", async () => {
-      const result = await createPlan({ patientName: "Alex Taylor" });
+      const result = await createPlan({ patientName: "Alex Taylor", assurances: [...PLAN_ASSURANCE_VALUES] }, context);
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value.patientDetail.patientName).toBe("Alex Taylor");
+        expect(result.value).not.toHaveProperty("patientDetail");
       }
     });
 
@@ -144,8 +172,8 @@ describe("caring-contacts plan-store", () => {
       const result = await store.createPlan(fullInput, context);
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value.patientDetail.patientName).toBe("Jordan Nguyen");
-        expect(result.value.patientDetail.preferredName).toBe("Jordy");
+        expect(result.value).not.toHaveProperty("patientDetail");
+        expect(result.value).not.toHaveProperty("patientDetail");
         expect(result.value.plan.id).toBe("PLAN-VALID-FULL");
       }
     });

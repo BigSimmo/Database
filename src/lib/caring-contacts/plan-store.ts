@@ -4,16 +4,14 @@
 // Enforces that patient name is non-blank (name.trim().length > 0),
 // throwing a validation error if blank.
 
-import { PLAN_ASSURANCE_VALUES, type PlanAssurance } from "./assurances";
+import { type PlanAssurance } from "./assurances";
 import { systemClock, type Clock } from "./clock";
 import {
-  actorId,
   idempotencyKey,
   pathwayVersionId,
   patientId,
   planId,
   referralId,
-  teamId,
   type PathwayVersionId,
   type PatientId,
   type PlanId,
@@ -51,13 +49,11 @@ export interface PlanStoreInput {
 
 export type PlanCreationInput = CreatePlanInput | PlanStoreInput;
 
-export type AdaptedPlanRecord = PlanRecord & {
-  patientDetail: EpisodePatientDetail;
-};
+export type AdaptedPlanRecord = PlanRecord;
 
 export interface PlanStore {
   readonly repository: CaringContactRepository;
-  createPlan(input: PlanCreationInput, context?: WriteContext): Promise<TransitionResult<AdaptedPlanRecord>>;
+  createPlan(input: PlanCreationInput, context: WriteContext): Promise<TransitionResult<AdaptedPlanRecord>>;
   getPlan(id: PlanId, context: { actor: Actor }): Promise<PlanRecord | null>;
   listPlans(context: { actor: Actor }): Promise<readonly PlanRecord[]>;
 }
@@ -81,6 +77,9 @@ export function adaptPlanInput(input: PlanCreationInput): CreatePlanInput {
   const validName = validatePatientName(rawName);
 
   const planInput = input as Partial<CreatePlanInput> & Partial<PlanStoreInput>;
+  if (!Array.isArray(planInput.assurances)) {
+    throw new Error("Validation error: explicit plan assurances are required");
+  }
 
   const defaultId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const pId = planInput.planId ? planId(String(planInput.planId)) : planId(`PLAN-${defaultId}`);
@@ -110,18 +109,16 @@ export function adaptPlanInput(input: PlanCreationInput): CreatePlanInput {
     firstContactDate: planInput.firstContactDate,
     firstContactReason: planInput.firstContactReason,
     patientDetail: detail,
-    assurances: planInput.assurances ?? [...PLAN_ASSURANCE_VALUES],
+    assurances: planInput.assurances,
   };
 }
 
-export function defaultWriteContext(actorParam?: Partial<Actor>): WriteContext {
-  const actor: Actor = {
-    id: actorParam?.id ?? actorId("COORDINATOR-DEFAULT"),
-    teamId: actorParam?.teamId ?? teamId("TEAM-DEFAULT"),
-    roles: actorParam?.roles ?? ["coordinator"],
-  };
+export function defaultWriteContext(actorParam: Actor): WriteContext {
+  if (!actorParam?.id || !actorParam.teamId || !Array.isArray(actorParam.roles)) {
+    throw new Error("Validation error: authenticated actor is required");
+  }
   return {
-    actor,
+    actor: actorParam,
     idempotencyKey: idempotencyKey(`key-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`),
   };
 }
@@ -129,18 +126,12 @@ export function defaultWriteContext(actorParam?: Partial<Actor>): WriteContext {
 export function adaptPlanStore(repository: CaringContactRepository): PlanStore {
   return {
     repository,
-    async createPlan(input: PlanCreationInput, context?: WriteContext): Promise<TransitionResult<AdaptedPlanRecord>> {
+    async createPlan(input: PlanCreationInput, context: WriteContext): Promise<TransitionResult<AdaptedPlanRecord>> {
       const fullInput = adaptPlanInput(input);
-      const ctx = context ?? defaultWriteContext();
-      const res = await repository.createPlan(fullInput, ctx);
-      if (!res.ok) return res;
-      return {
-        ok: true,
-        value: {
-          ...res.value,
-          patientDetail: fullInput.patientDetail,
-        },
-      };
+      if (!context?.actor?.id || !context.actor.teamId || !context.idempotencyKey) {
+        throw new Error("Validation error: authenticated write context is required");
+      }
+      return repository.createPlan(fullInput, context);
     },
     async getPlan(id: PlanId, context: { actor: Actor }): Promise<PlanRecord | null> {
       return repository.getPlan(id, context);
@@ -166,7 +157,7 @@ function getOrCreateDefaultStore(): PlanStore {
 
 export async function createPlan(
   input: PlanCreationInput,
-  context?: WriteContext,
+  context: WriteContext,
   repository?: CaringContactRepository,
 ): Promise<TransitionResult<AdaptedPlanRecord>> {
   const rawName =
