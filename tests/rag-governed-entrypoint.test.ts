@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RagContextSnapshotInput } from "../src/lib/rag/rag-context-snapshot";
 import type { ClinicalSourceMetadata, SearchResult, SourceCorpusScope } from "../src/lib/types";
 
-const RELEASE_ID = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
+const RELEASE_ID = "e4a1dd29-14f6-556c-8fb7-f4f947d8b846";
 const STATIC_DIGEST = "a".repeat(64);
 const DYNAMIC_DIGEST = "b".repeat(64);
 const RELEASE_DIGEST = "c".repeat(64);

@@ -13,6 +13,10 @@ import { answerSurface, cn, textMuted } from "@/components/ui-primitives";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { AnswerInlineSections } from "@/components/clinical-dashboard/answer-inline-sections";
 import {
+  buildAnswerSourceRows,
+  citedSourceIdsForAnswerProjection,
+} from "@/components/clinical-dashboard/answer-source-rows";
+import {
   answerUsesAdaptiveMainSurface,
   projectAnswerForMainSurface,
 } from "@/components/clinical-dashboard/answer-section-projector";
@@ -72,6 +76,14 @@ export function PriorAnswerTurnSurface({
     [turn.answer, turn.sources, turnPreformatted],
   );
   const renderAdaptiveAnswer = answerUsesAdaptiveMainSurface(turn.answer);
+  const citedSourceIds = useMemo(
+    () => (renderAdaptiveAnswer ? citedSourceIdsForAnswerProjection(projectedAnswer) : undefined),
+    [projectedAnswer, renderAdaptiveAnswer],
+  );
+  const railSources = useMemo(
+    () => buildAnswerSourceRows(renderModel.bestSource, turn.sources, renderModel.primarySources, citedSourceIds),
+    [citedSourceIds, renderModel.bestSource, renderModel.primarySources, turn.sources],
+  );
   const legacySourceCount =
     renderModel.primarySources.length ||
     turn.sources.length ||
@@ -135,6 +147,7 @@ export function PriorAnswerTurnSurface({
               bestSource={leadBestSource}
               sources={projectedAnswer.leadCitationSources}
               sourceLinks={leadSourceLinks}
+              railRows={railSources}
               copied={copied}
               onCopy={() =>
                 onCopy(

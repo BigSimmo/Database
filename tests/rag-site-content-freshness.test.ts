@@ -2,8 +2,6 @@ import { createHash } from "node:crypto";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { buildClinicalTextSearchQuery } from "../src/lib/clinical-search";
-import { queryCacheKeyForStorage } from "../src/lib/query-privacy";
 import type {
   RagContextSnapshot,
   RagContextSnapshotInput,
@@ -17,8 +15,8 @@ const STATIC_DIGEST = "a".repeat(64);
 const DYNAMIC_DIGEST = "b".repeat(64);
 const RELEASE_DIGEST = "c".repeat(64);
 const RELEASE_ID = "11111111-1111-5111-8111-111111111111";
-const RETAINED_BOOTSTRAP_RELEASE_ID = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
-const RETAINED_BOOTSTRAP_DIGEST = "8a2edbdfe117338cc0323036ba3a68590744950ad89b9ce177415685a7115757";
+const RETAINED_BOOTSTRAP_RELEASE_ID = "e4a1dd29-14f6-556c-8fb7-f4f947d8b846";
+const RETAINED_BOOTSTRAP_DIGEST = "57f6ec90225fc4341b446705f50a48b132f2872172d8f93888bf921fe7bfa1bc";
 
 const activeRelease: ActiveSiteContentRelease = {
   version: "clinical-kb-site-release-v1",
@@ -670,7 +668,7 @@ describe("RAG request site-content snapshot", () => {
     expect(excessCanaries).not.toHaveProperty("actorId");
   });
 
-  it("binds disabled legacy cache identities to the v21 query-plan namespace", async () => {
+  it("hashes disabled legacy cache identities while binding query-plan and generation semantics", async () => {
     const {
       snapshot: { withRagRequestContext },
       cache: ragCacheModule,
@@ -680,23 +678,22 @@ describe("RAG request site-content snapshot", () => {
 
     expect(legacy.ragRequestContext.snapshot.publicSiteContent.state).toBe("disabled");
     expect(legacy.ragRequestContext.snapshotCacheKey).toBe("");
-    expect(ragCacheModule.scopedAnswerCacheKey(legacy)).toBe(
-      `rag-cache-v23|owner:owner-a+public|all-documents|auto|queryPlan:rag-query-plan-v1|queryPlanMode:legacy|generation:${generation}|clozapine monitoring|corpora`,
+    const answerKey = ragCacheModule.scopedAnswerCacheKey(legacy);
+    expect(answerKey).toMatch(/^rag-cache-v24\|[0-9a-f]{64}\|answer-owner:[0-9a-f]{64}\|answer-request:[0-9a-f]{64}$/);
+    for (const privateValue of ["owner-a", "clozapine monitoring", generation]) {
+      expect(answerKey).not.toContain(privateValue);
+    }
+    expect(ragCacheModule.scopedAnswerCacheKey({ ...legacy, ragQueryPlanVersion: "rag-query-plan-next" })).not.toBe(
+      answerKey,
     );
+    expect(ragCacheModule.scopedAnswerCacheKey({ ...legacy, query: "Clozapine titration" })).not.toBe(answerKey);
     expect(ragCacheModule.retrievalPlanCacheQuery(legacy, "table_threshold", ["clozapine anc"])).toBe(
       "redacted-cache:1de2f7b951c4ddf8ca480b93420c38820db35d9acb051c0a71c0364b2dba8188",
     );
     const cache = ragCacheModule as CacheModule;
     expect(cache.sharedAnswerNormalizedQuery).toBeTypeOf("function");
-    const normalizedSharedQuery = buildClinicalTextSearchQuery("auto Clozapine monitoring")
-      .toLowerCase()
-      .replace(/\s+/g, " ")
-      .trim();
-    expect(cache.sharedAnswerNormalizedQuery?.(legacy)).toBe(
-      queryCacheKeyForStorage(
-        `${normalizedSharedQuery}|generation:${generation}|queryPlan:rag-query-plan-v1|queryPlanMode:legacy`,
-      ),
-    );
+    expect(cache.sharedAnswerNormalizedQuery?.(legacy)).toMatch(/^answer-request:[0-9a-f]{64}$/);
+    expect(answerKey.endsWith(`|${cache.sharedAnswerNormalizedQuery?.(legacy)}`)).toBe(true);
   });
 });
 
@@ -1180,7 +1177,7 @@ describe("site-aware RAG cache isolation", () => {
       scope_key: "public-only|document-original",
       normalized_query: expectedSharedQuery,
       indexing_version: "test-rag-version:document-original:2026-08-29T00:00:00.000Z:",
-      dependency_version: "rag-cache-v23",
+      dependency_version: "rag-cache-v24",
       payload: {
         results: [
           expect.objectContaining({

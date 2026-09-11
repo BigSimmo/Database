@@ -127,7 +127,7 @@ insert into public.site_content_releases (
   expected_tombstone_count,must_pass_checks,activated_at
 ) values (
   '70000000-0000-5000-8000-000000000001'::uuid,'active',1,
-  'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid,'control-plane-fixture-v1',repeat('1',64),
+  'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid,'control-plane-fixture-v1',repeat('1',64),
   repeat('2',64),repeat('3',64),'control-plane-fixture-v1',repeat('4',64),null,
   0,0,0,0,0,true,pg_catalog.statement_timestamp()
 );
@@ -141,11 +141,11 @@ with fields as (
     'resource',jsonb_build_object(
       'kind','site_release','siteReleaseId','70000000-0000-5000-8000-000000000001',
       'siteReleaseDigest',repeat('3',64),
-      'previousSiteReleaseId','c0f6c316-b6f8-5c55-87ce-6b486032af03',
+      'previousSiteReleaseId','e4a1dd29-14f6-556c-8fb7-f4f947d8b846',
       'previousSiteReleaseDigest',bootstrap.release_digest)
   ) receipt
   from public.site_content_releases bootstrap
-  where bootstrap.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+  where bootstrap.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
 ), complete as (
   select receipt || jsonb_build_object('receiptId','sha256:' || encode(extensions.digest(convert_to(
     'activation-receipt-identity-v1' || E'\n' || public.site_content_canonical_json(receipt),'UTF8'),'sha256'),'hex')) receipt
@@ -156,7 +156,7 @@ select public.guard_site_content_receipt_shape(receipt,'activation','70000000-00
 from complete;
 
 update public.site_content_releases set state = 'superseded'
-where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid;
 update public.site_content_sync_state
 set change_epoch = 1, served_change_epoch = 1,
   active_release_id = '70000000-0000-5000-8000-000000000001'::uuid,
@@ -193,11 +193,11 @@ begin
       'rolledBackAt',to_char(pg_catalog.statement_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
       'method','retained_previous','requiresReconstruction',false,'outcome','succeeded',
       'target',jsonb_build_object(
-        'kind','site_release','siteReleaseId','c0f6c316-b6f8-5c55-87ce-6b486032af03',
+        'kind','site_release','siteReleaseId','e4a1dd29-14f6-556c-8fb7-f4f947d8b846',
         'siteReleaseDigest',bootstrap.release_digest)
     ) receipt
     from activation cross join public.site_content_releases bootstrap
-    where bootstrap.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+    where bootstrap.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
   )
   select receipt || jsonb_build_object('receiptId','sha256:' || encode(extensions.digest(convert_to(
     'rollback-receipt-identity-v1' || E'\n' || public.site_content_canonical_json(receipt),'UTF8'),'sha256'),'hex'))
@@ -205,7 +205,7 @@ begin
 
   if not public.rollback_site_content_release(
     '70000000-0000-5000-8000-000000000001'::uuid,
-    'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid,
+    'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid,
     repeat('6',64),
     v_receipt
   ) then
@@ -229,7 +229,7 @@ begin
   select public.read_site_content_health() into v_health;
   if v_health->>'publicSiteChangeEpoch' <> '1'
     or v_health->>'rollbackAvailable' <> 'false'
-    or v_health->'activePublicSiteRelease'->>'releaseId' <> 'c0f6c316-b6f8-5c55-87ce-6b486032af03' then
+    or v_health->'activePublicSiteRelease'->>'releaseId' <> 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846' then
     raise exception 'control_plane_rollback_health_invalid';
   end if;
   select * into strict v_reader from public.read_site_content_public_records('service', null) limit 1;
@@ -243,7 +243,7 @@ $$;
 
 with source as (
   select rr.* from public.site_content_release_records rr
-  where rr.release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+  where rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
     and rr.logical_id like 'services:%'
   order by rr.logical_id limit 1
 ), publication as (

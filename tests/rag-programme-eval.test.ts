@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import rawProgrammeFixture from "../scripts/fixtures/rag-programme-failures.v1.json";
+import rawProgrammeFixture from "../src/data/rag-programme-failures.v1.json";
 import {
   RAG_PROGRAMME_GATE_POLICY,
   compareRagProgrammeRuns,

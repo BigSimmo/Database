@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 
-import { calculators } from "@/components/calculators/calculator-fixtures";
-import { factsheets } from "@/components/factsheets/factsheets-data";
-import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
-import type { Therapy } from "@/components/therapy-compass/data/types";
+import { calculators } from "@/lib/calculators/calculator-fixtures";
+import { factsheets } from "@/lib/factsheets-data";
+import { THERAPY_CATALOGUE_ASSETS } from "@/data/therapy-catalogue-assets";
+import type { Therapy } from "@/lib/therapy-compass-types";
 import { dictionaryEntries, dictionarySource } from "@/lib/dictionary-data";
 import { dsmDiagnoses } from "@/lib/dsm";
 import type { DifferentialRecordRow } from "@/lib/differential-records";

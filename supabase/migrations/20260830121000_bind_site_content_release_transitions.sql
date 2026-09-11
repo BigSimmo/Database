@@ -128,7 +128,7 @@ security definer
 set search_path = ''
 as $$
   select coalesce((
-    select r.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+    select r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
       and r.target_change_epoch = 0
       and r.previous_release_id is null
       and r.registry_version = 'site-content-bootstrap-public-release-v1'
@@ -234,7 +234,7 @@ set search_path = ''
 as $$
   select case
     when not p_initialized and p_receipt_id is null
-      and p_active_release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+      and p_active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
       and p_served_change_epoch = 0
       and public.site_content_retained_bootstrap_valid(p_active_release_id, p_active_release_digest)
       then 'bootstrap'
@@ -360,7 +360,7 @@ begin
   end if;
 
   if not v_state.initialized
-    and v_active.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+    and v_active.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
     and v_active.state = 'active'
     and public.site_content_retained_bootstrap_valid(v_active.id, v_state.active_release_digest)
     and v_state.change_epoch = 0 and v_state.served_change_epoch = 0
@@ -374,7 +374,7 @@ begin
   end if;
 
   if not v_state.initialized
-    and v_active.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+    and v_active.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
     and v_active.state = 'active'
     and public.site_content_retained_bootstrap_valid(v_active.id, v_state.active_release_digest)
     and v_state.served_change_epoch = 0 and v_state.change_epoch > 0
@@ -397,7 +397,7 @@ begin
   select min(tr.receipt_id), count(*) into v_activation_id, v_activation_count
   from public.site_content_release_receipts tr
   left join public.site_content_releases previous on previous.id = v_active.previous_release_id
-  where v_state.initialized and v_active.id <> 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+  where v_state.initialized and v_active.id <> 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
     and v_active.state = 'active' and tr.release_id = v_active.id and tr.receipt_kind = 'activation'
     and v_state.served_change_epoch = v_active.target_change_epoch
     and v_active.target_change_epoch <= v_state.change_epoch
@@ -517,7 +517,7 @@ $$;
 alter table public.site_content_sync_state
   add constraint site_content_sync_state_transition_pointer_check check (
     (not initialized
-      and active_release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+      and active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
       and served_change_epoch = 0
       and active_transition_receipt_id is null)
     or (initialized and active_transition_receipt_id is not null)
@@ -586,7 +586,7 @@ as $$
       coalesce(r.state = 'active' and r.release_digest = s.active_release_digest and (
         s.transition_kind in ('activation','rollback')
         or (s.transition_kind = 'bootstrap'
-          and r.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+          and r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
           and r.target_change_epoch = 0
           and r.release_digest = public.site_content_bootstrap_digest(r.id))
       ), false) valid
@@ -617,7 +617,7 @@ as $$
     left join public.site_content_publications p on p.id = rr.target_publication_id and p.logical_id = rr.logical_id
     where rr.public_visible and not rr.tombstone
       and (rr.target_publication_id is not null or
-        (rr.release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid and rr.target_publication_id is null))
+        (rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid and rr.target_publication_id is null))
   ), requested as (
     select c.logical_id, c.record, c.render_payload
     from classified c
@@ -641,7 +641,7 @@ as $$
       'state', case
         when not s.valid then 'unavailable'
         when not s.initialized then 'unavailable'
-        when s.active_release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid then 'unavailable'
+        when s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid then 'unavailable'
         when exists (select 1 from outstanding) then 'updating'
         else 'current'
       end
@@ -683,7 +683,7 @@ begin
       v_transition_kind <> 'bootstrap'
       or v_state.active_transition_receipt_id is not null
       or v_state.served_change_epoch <> 0
-      or v_state.active_release_id <> 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid))
+      or v_state.active_release_id <> 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid))
   then return false; end if;
   if not found or v_release.state <> 'candidate'
     or v_release.release_digest is distinct from p_expected_release_digest
@@ -874,7 +874,7 @@ begin
     or p_rollback_receipt#>>'{target,siteReleaseId}' is distinct from p_target_release_id::text
     or p_rollback_receipt#>>'{target,siteReleaseDigest}' is distinct from v_target.release_digest then return false; end if;
   if v_target.target_change_epoch = 0 and (
-    v_target.id is distinct from 'c0f6c316-b6f8-5c55-87ce-6b486032af03'
+    v_target.id is distinct from 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'
     or v_target.registry_version is distinct from 'site-content-bootstrap-public-release-v1'
     or v_target.generation_id is distinct from 'bootstrap-v1'
     or v_target.id is distinct from public.site_content_release_id(v_target.release_digest, 0, 'bootstrap-v1')
@@ -900,7 +900,7 @@ begin
   ) then return false;
   elsif v_target.target_change_epoch = 0 then
     null;
-  elsif v_target.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03' then
+  elsif v_target.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846' then
     return false;
   end if;
   v_receipt_id := public.guard_site_content_receipt_shape(

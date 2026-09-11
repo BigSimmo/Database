@@ -550,7 +550,7 @@ describe("recovery readiness evidence CLI", () => {
       ).toBe(1);
       expect([...stdout, ...stderr].join("\n")).not.toContain(manifestPath);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 
@@ -604,7 +604,7 @@ describe("recovery readiness evidence CLI", () => {
         }),
       ).toBe(0);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 
@@ -619,7 +619,7 @@ describe("recovery readiness evidence CLI", () => {
       expect(() => readBoundedUtf8File(oversizedPath)).toThrow(/too large/i);
       expect(() => readBoundedUtf8File(invalidUtf8Path)).toThrow(/utf-?8/i);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 });

@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.112.2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.112.2";
 
 import { withServiceRoleAuthorization } from "./auth.ts";
 
@@ -24,7 +24,7 @@ type InvocationPhase = "started" | "succeeded" | "failed";
 type InvocationOutcome = null | "idle" | "ready" | "claim_failed" | "event_failed" | "lease_lost" | "worker_failed";
 
 async function recordInvocation(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   workerId: string,
   invocationId: string,
   phase: InvocationPhase,
@@ -132,7 +132,7 @@ async function embedChangedRecords(plan: SyncPlan, records: PlanItem[]) {
 }
 
 async function failEvent(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   event: ClaimedEvent,
   errorCode: "provider_failure" | "poison_payload" | "staging_failure",
 ) {
@@ -145,7 +145,7 @@ async function failEvent(
   });
 }
 
-async function processEvent(supabase: ReturnType<typeof createClient>, event: ClaimedEvent) {
+async function processEvent(supabase: SupabaseClient, event: ClaimedEvent) {
   const heartbeat = () =>
     supabase.rpc("heartbeat_site_content_sync_event", {
       p_event_sequence: event.event_sequence,
@@ -196,7 +196,7 @@ async function processEvent(supabase: ReturnType<typeof createClient>, event: Cl
     let heartbeatFailed = false;
     const providerHeartbeatTimer = setInterval(
       () => {
-        void heartbeat()
+        void Promise.resolve(heartbeat())
           .then((result) => {
             if (result.error || result.data !== true) heartbeatFailed = true;
           })

@@ -39,6 +39,8 @@ const API_DIR = join(SRC_DIR, "app", "api");
 // directly by API route modules today. Adding a new owner-scoped table to an API
 // handler must also add it here so the tenancy boundary remains reviewable.
 const OWNER_SCOPED_API_TABLES = new Set([
+  "clinical_registry_record_sources",
+  "clinical_registry_records",
   "document_index_quality",
   "document_labels",
   "document_summaries",

@@ -330,9 +330,9 @@ describe("site-content Task 4 health schema", () => {
     expect(siteContentHealthMigration).toContain("not exists (select 1 from live_events e where not exists");
     expect(siteContentHealthMigration).toContain("receipt.receipt#>>'{resource,kind}' = 'site_release'");
     expect(siteContentHealthMigration).toContain(
-      "p.target_change_epoch = 0 and p.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid",
+      "p.target_change_epoch = 0 and p.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid",
     );
-    expect(siteContentHealthMigration).toContain("p.expected_record_count = 833 and p.expected_tombstone_count = 0");
+    expect(siteContentHealthMigration).toContain("p.expected_record_count = 843 and p.expected_tombstone_count = 0");
     expect(siteContentHealthMigration).not.toContain("(select state from bootstrap) = 'valid_retained'");
     const healthStart = siteContentHealthMigration.indexOf(
       "create or replace function public.read_site_content_health()",

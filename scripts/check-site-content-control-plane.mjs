@@ -489,7 +489,7 @@ export async function main() {
           or not exists (
             select 1 from public.site_content_sync_state s
             join public.site_content_releases r on r.id = s.active_release_id
-            where r.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+            where r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
               and r.state = 'active' and r.release_digest = s.active_release_digest
               and r.release_digest = public.site_content_bootstrap_digest(r.id))
         then raise exception 'initial_adoption_multi_bootstrap_invalid'; end if;
@@ -619,7 +619,7 @@ export async function main() {
       "site_content_extra_active_release",
       `update public.site_content_releases
        set state = 'active'
-       where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;`,
+       where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid;`,
     );
     psql("site_content_extra_active_release", transition, {
       expectFailure: "site_content_transition_backfill_unprovable",
@@ -823,7 +823,7 @@ export async function main() {
           'activatedAt','2026-08-30T00:00:00.000Z',
           'resource',jsonb_build_object(
             'kind','site_release','siteReleaseId',active_id::text,'siteReleaseDigest',null,
-            'previousSiteReleaseId','c0f6c316-b6f8-5c55-87ce-6b486032af03',
+            'previousSiteReleaseId','e4a1dd29-14f6-556c-8fb7-f4f947d8b846',
             'previousSiteReleaseDigest',repeat('0',64)));
         rid := 'sha256:' || encode(extensions.digest(convert_to(
           'activation-receipt-identity-v1' || E'\\n' || public.site_content_canonical_json(f),

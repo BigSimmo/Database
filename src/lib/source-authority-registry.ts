@@ -444,6 +444,40 @@ export function sourceAuthorityForPublisher(publisher: string | null | undefined
   return authorityEntry && sourceAuthorityIsRuntimeClassifiable(authorityEntry) ? authorityEntry : null;
 }
 
+type SourceCatalogueIdentityInput = {
+  publisherCode: string | null;
+  publisher: string | null;
+  jurisdiction: string | null;
+};
+
+function compatibleSourceCatalogueIdentity(input: SourceCatalogueIdentityInput) {
+  const code = normalizePublisherCode(input.publisherCode);
+  const byCode = sourceAuthorityIdentityForPublisherCode(code);
+  if (code && !byCode) return null;
+  const byPublisher = authorityByPublisher.get(normalizeSourceAuthorityText(input.publisher)) ?? null;
+  const identity = byCode ?? byPublisher;
+  if (!identity) return null;
+  if (input.publisher && !publisherCompatible(identity, input.publisher)) return null;
+  if (input.jurisdiction && !jurisdictionCompatible(identity, input.jurisdiction)) return null;
+  return identity;
+}
+
+/** Descriptive catalogue geography only; this never grants retrieval eligibility or trust. */
+export function sourceCatalogueGeographyScope(input: SourceCatalogueIdentityInput) {
+  return compatibleSourceCatalogueIdentity(input)?.scope ?? null;
+}
+
+/** Registered catalogue designation for source ratings, never runtime admission or ranking. */
+export function sourceCatalogueDesignation(input: SourceCatalogueIdentityInput): SourceDesignation {
+  const identity = compatibleSourceCatalogueIdentity(input);
+  // As at the runtime designation boundary, a publisher alias without a code
+  // needs a jurisdiction before it can identify an authority for a rating.
+  if (!identity || (!normalizePublisherCode(input.publisherCode) && !input.jurisdiction?.trim())) {
+    return "unclassified";
+  }
+  return identity.designation;
+}
+
 function publisherCompatible(authorityEntry: SourceAuthorityDefinition, publisher: string) {
   const normalizedPublisher = normalizeSourceAuthorityText(publisher);
   if (!normalizedPublisher) return true;

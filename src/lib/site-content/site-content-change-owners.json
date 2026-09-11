@@ -3,7 +3,10 @@
   "producers": {
     "calculators": [
       "src/components/calculators/calculator-fixtures.ts",
-      "src/components/calculators/calculator-routes.ts"
+      "src/components/calculators/calculator-routes.ts",
+      "src/lib/calculators/calculator-evidence.ts",
+      "src/lib/calculators/calculator-fixtures.ts",
+      "src/lib/calculators/calculator-routes.ts"
     ],
     "dictionary": ["src/lib/dictionary-data.ts"],
     "differentials": [
@@ -23,7 +26,7 @@
       "src/lib/site-content/differential-page-records.ts"
     ],
     "dsm": ["src/data/dsm-clinical-content.json", "src/lib/dsm.ts"],
-    "factsheets": ["src/components/factsheets/factsheets-data.ts"],
+    "factsheets": ["src/components/factsheets/factsheets-data.ts", "src/lib/factsheets-data.ts"],
     "forms": [
       "data/forms-act-section-cues.json",
       "data/forms-catalog.json",
@@ -80,7 +83,9 @@
       "public/therapy-compass-data/therapies-index.efb2b0703a124d70.json",
       "public/therapy-compass-data/therapies.16552a934ddd9846.json",
       "src/components/therapy-compass/data/generated-assets.ts",
-      "src/lib/therapies.ts"
+      "src/data/therapy-catalogue-assets.ts",
+      "src/lib/therapies.ts",
+      "src/lib/therapy-compass-types.ts"
     ],
     "tools": ["src/lib/tools-catalog.ts"]
   }

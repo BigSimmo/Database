@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { PriorAnswerTurnSurface, type AnswerTurn } from "@/components/clinical-dashboard/answer-thread-turn";
+import { projectAnswerForMainSurface } from "@/components/clinical-dashboard/answer-section-projector";
 import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
 
 vi.mock("next/navigation", () => ({
@@ -125,9 +126,15 @@ function turn(renderAdaptiveAnswer: boolean): AnswerTurn {
 describe("prior adaptive answer turn", () => {
   it("renders the complete ordered v20 answer and copies it through the canonical payload", async () => {
     const onCopy = vi.fn();
+    const priorTurn = turn(true);
+    const projection = projectAnswerForMainSurface({
+      answer: priorTurn.answer,
+      sources: priorTurn.sources,
+      preformatted: false,
+    });
     render(
       <PriorAnswerTurnSurface
-        turn={turn(true)}
+        turn={priorTurn}
         copied={false}
         collapsed={false}
         onToggleCollapsed={() => {}}
@@ -138,13 +145,15 @@ describe("prior adaptive answer turn", () => {
     expect(screen.getAllByText("Review the prior plan.")).toHaveLength(1);
     expect(screen.getAllByText("Review observations every three months.")).toHaveLength(1);
     expect(screen.getAllByText("Route: the active sources support only part of this question.")).toHaveLength(1);
-    const leadSourceCapsule = screen.getByRole("button", { name: "Open answer sources" });
-    expect(leadSourceCapsule).toHaveTextContent(/Sources\s*1/);
-    await userEvent.click(leadSourceCapsule);
-    const leadSourceRows = screen.getAllByTestId("source-capsule-preview-row");
-    expect(leadSourceRows).toHaveLength(1);
-    expect(leadSourceRows[0]).toHaveAttribute("href", "/documents/doc-prior?page=7&chunk=chunk-prior");
-    expect(screen.queryByRole("link", { name: /Open source Section-only source/i })).not.toBeInTheDocument();
+    expect(projection.leadCitationSources.map((source) => source.id)).toEqual([source.id]);
+    const leadSourceRows = screen.getAllByTestId("answer-source-rail-row");
+    expect(leadSourceRows).toHaveLength(2);
+    expect(leadSourceRows[0]?.tagName).toBe("A");
+    expect(leadSourceRows[0]).toHaveAttribute("href", "/documents/doc-section-only?page=9&chunk=chunk-section-only");
+    expect(leadSourceRows[0]).toHaveAccessibleName(/Source 1: Section-only source/i);
+    expect(leadSourceRows[1]?.tagName).toBe("A");
+    expect(leadSourceRows[1]).toHaveAttribute("href", "/documents/doc-prior?page=7&chunk=chunk-prior");
+    expect(leadSourceRows[1]).toHaveAccessibleName(/Source 2: Prior source/i);
     expect(
       screen.getByText("Prior source difference").closest('[data-testid="adaptive-answer-section"]'),
     ).toContainElement(screen.getByRole("button", { name: /Section-only source, p\. 9/i }));
@@ -175,7 +184,7 @@ describe("prior adaptive answer turn", () => {
     expect(onCopy.mock.calls[0]?.[0]).toContain("Review observations every three months.");
   });
 
-  it("keeps the first four of five low-trust prior lead citations in final order before the capsule cap", async () => {
+  it("keeps low-trust prior citation order and provenance within the six-row rail cap", () => {
     const fifth = orderedLeadSources[4]!;
     const lowTrustAnswer: ClientRagAnswerPayload = {
       ...answer(true),
@@ -208,6 +217,11 @@ describe("prior adaptive answer turn", () => {
         },
       ],
     };
+    const projection = projectAnswerForMainSurface({
+      answer: lowTrustAnswer,
+      sources: lowTrustAnswer.sources,
+      preformatted: false,
+    });
     render(
       <PriorAnswerTurnSurface
         turn={{
@@ -223,15 +237,19 @@ describe("prior adaptive answer turn", () => {
       />,
     );
 
-    const capsule = screen.getByRole("button", { name: "Open answer sources" });
-    expect(capsule).toHaveTextContent(/Sources\s*5/);
-    await userEvent.click(capsule);
-    expect(screen.getAllByTestId("source-capsule-preview-row").map((row) => row.getAttribute("href"))).toEqual(
-      orderedLeadSources
-        .slice(0, 4)
-        .map((item) => `/documents/${item.document_id}?page=${item.page_number}&chunk=${item.id}`),
+    const sourceRows = screen.getAllByTestId("answer-source-rail-row");
+    expect(sourceRows).toHaveLength(6);
+    expect(projection.leadCitationSources.map((source) => source.id)).toEqual(
+      orderedLeadSources.map((source) => source.id),
     );
-    expect(screen.queryByRole("link", { name: /Open source Prior lead source E/i })).not.toBeInTheDocument();
+    const wholeAnswerOrder = [orderedLeadSources[4]!, ...orderedLeadSources.slice(0, 4), sectionSource];
+    expect(sourceRows.map((row) => row.getAttribute("href"))).toEqual([
+      ...wholeAnswerOrder.map((item) => `/documents/${item.document_id}?page=${item.page_number}&chunk=${item.id}`),
+    ]);
+    sourceRows.forEach((row, index) => {
+      expect(row.tagName).toBe("A");
+      expect(row).toHaveAccessibleName(new RegExp(`Source ${index + 1}: ${wholeAnswerOrder[index]!.title}`));
+    });
     expect(
       screen.getByText("Prior section-only difference").closest('[data-testid="adaptive-answer-section"]'),
     ).toContainElement(screen.getByRole("button", { name: /Section-only source, p\. 9/i }));

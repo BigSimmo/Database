@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { jsonError } from "@/lib/http";
+import { jsonError, publicErrorResponse } from "@/lib/http";
 import {
   publishSiteContentCommand,
   recordSiteContentReconciliationPlan,
@@ -58,11 +58,11 @@ export async function POST(request: Request) {
     try {
       json = await request.json();
     } catch {
-      return NextResponse.json({ error: "Invalid site-content publication command." }, { status: 400 });
+      return publicErrorResponse("Invalid site-content publication command.", 400);
     }
     const parsed = commandSchema.safeParse(json);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid site-content publication command." }, { status: 400 });
+      return publicErrorResponse("Invalid site-content publication command.", 400);
     }
     const result =
       parsed.data.action === "record_reconciliation"
@@ -76,10 +76,7 @@ export async function POST(request: Request) {
             command: parsed.data,
           });
     if (result.outcome === "conflict") {
-      return NextResponse.json(
-        { error: "Site-content publication conflict or no-op." },
-        { status: 409, headers: { "Cache-Control": "private, no-store" } },
-      );
+      return publicErrorResponse("Site-content publication conflict or no-op.", 409);
     }
     return NextResponse.json({ result }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {

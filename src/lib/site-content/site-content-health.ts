@@ -12,7 +12,7 @@ const RELEASE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 const CHANGE_EPOCH = /^(?:0|[1-9][0-9]*)$/;
 const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|([+-])(\d{2}):(\d{2}))$/;
 const INVALID_EVIDENCE = "SITE_CONTENT_RELEASE_EVIDENCE_INVALID";
-const RETAINED_BOOTSTRAP_RELEASE_ID = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
+const RETAINED_BOOTSTRAP_RELEASE_ID = "e4a1dd29-14f6-556c-8fb7-f4f947d8b846";
 const RETAINED_BOOTSTRAP_REGISTRY_VERSION = "site-content-bootstrap-public-release-v1";
 const RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST = "0".repeat(64);
 

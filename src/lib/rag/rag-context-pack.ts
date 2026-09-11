@@ -332,14 +332,14 @@ export function packClaimOrientedContext(input: ClaimOrientedContextPackInput): 
 
   const candidates = groups.map(refreshGroup);
   const units: PackedEvidenceGroup[][] = [];
-  const unitById = new Map<string, PackedEvidenceGroup[]>();
+  const admissionGroupsById = new Map<string, PackedEvidenceGroup[]>();
   for (const candidate of candidates) {
     const unitId = candidate.admissionUnitId ?? candidate.id;
-    const unit = unitById.get(unitId);
+    const unit = admissionGroupsById.get(unitId);
     if (unit) unit.push(candidate);
     else {
       const created = [candidate];
-      unitById.set(unitId, created);
+      admissionGroupsById.set(unitId, created);
       units.push(created);
     }
   }

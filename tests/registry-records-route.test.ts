@@ -141,11 +141,7 @@ function createSupabaseMock(
           ],
           error: null,
         }
-      : ok(
-          options.canonicalRows ?? [
-            { initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } },
-          ],
-        ),
+      : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
   );
   return {
     calls,

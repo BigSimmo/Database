@@ -320,7 +320,7 @@ describe("site-content manifest CLI integrity", () => {
         expect(result.status, `${label}: ${result.stdout}\n${result.stderr}`).not.toBe(0);
       }
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   }, 120_000);
 
@@ -343,7 +343,7 @@ describe("site-content manifest CLI integrity", () => {
         expect(readFileSync(output, "utf8")).toBe(sentinel);
       }
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 
@@ -360,7 +360,7 @@ describe("site-content manifest CLI integrity", () => {
       expect(result.status, `${result.stdout}\n${result.stderr}`).not.toBe(0);
       expect(readdirSync(realParent)).toEqual([]);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 
@@ -379,7 +379,7 @@ describe("site-content manifest CLI integrity", () => {
       expect(readFileSync(output, "utf8")).toBe(sentinel);
       expect(readFileSync(diff, "utf8")).toBe(sentinel);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 
@@ -406,7 +406,7 @@ describe("site-content manifest CLI integrity", () => {
       expect(readFileSync(output, "utf8")).toBe(sentinel);
       expect(readdirSync(directory)).toEqual(["output.json"]);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 });

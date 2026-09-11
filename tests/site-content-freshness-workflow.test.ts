@@ -18,7 +18,7 @@ function runWithIdentitySets(logicalIds: string[], publishedLogicalIds: string[]
       { encoding: "utf8" },
     );
   } finally {
-    rmSync(directory, { recursive: true, force: true });
+    rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 }
 

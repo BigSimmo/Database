@@ -87,6 +87,7 @@ async function runLexicalSearch(
   rolloutModes: RagProgrammeMode[] = ["legacy"],
   query = multiVariantQuery,
   chunkResultsForQuery?: (queryText: string) => SearchResult[],
+  shadowCandidateResults: SearchResult[] = chunkResults,
 ) {
   vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
   vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
@@ -113,10 +114,19 @@ async function runLexicalSearch(
     embedTextWithTelemetry: providerCalls,
     generateParsedTextResult: providerCalls,
   }));
+  // Shadow retrieval is a separately governed, bounded lane. It cannot change
+  // the served lexical RPCs, and never needs provider work in these fixtures.
+  const candidateSearch = vi.fn(async () => shadowCandidateResults);
+  vi.doMock("@/lib/rag/rag-candidate-sources", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/rag/rag-candidate-sources")>()),
+    searchGovernedCorpora: candidateSearch,
+  }));
 
   const { searchChunksWithTelemetry } = await import("@/lib/rag/rag");
+  const { env } = await import("@/lib/env");
   const results = [];
   for (const rolloutMode of rolloutModes) {
+    env.RAG_PROGRAMME_MODE = rolloutMode;
     results.push(
       await searchChunksWithTelemetry({
         query,
@@ -130,12 +140,21 @@ async function runLexicalSearch(
   const chunkTextCalls = rpc.mock.calls.filter(
     ([name]) => retrievalRpcBaseName(name as string) === "match_document_chunks_text",
   );
-  return { chunkTextCalls, from, providerCalls, result: results[0]!, results, telemetry: results[0]!.telemetry };
+  return {
+    candidateSearch,
+    chunkTextCalls,
+    from,
+    providerCalls,
+    result: results[0]!,
+    results,
+    telemetry: results[0]!.telemetry,
+  };
 }
 
 afterEach(() => {
   vi.doUnmock("@/lib/supabase/admin");
   vi.doUnmock("@/lib/openai");
+  vi.doUnmock("@/lib/rag/rag-candidate-sources");
   vi.resetModules();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -151,11 +170,20 @@ describe("lexical variant early-exit (PT-02)", () => {
       content: "Catatonia clinical presentation overview.",
       corpus_scope: "uploaded_local" as const,
     };
-    const { results } = await runLexicalSearch([primaryOnly], ["legacy", "shadow"], query);
+    const { results, candidateSearch, providerCalls } = await runLexicalSearch(
+      [primaryOnly],
+      ["legacy", "shadow"],
+      query,
+    );
     const [legacy, shadow] = results;
 
     expect(shadow!.results.map(({ id }) => id)).toEqual(legacy!.results.map(({ id }) => id));
     expect(legacy!.telemetry.candidate_match_counts).toBeUndefined();
+    expect(shadow!.telemetry.shadow_retrieval_state).toBe("completed");
+    expect(candidateSearch).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ queryVariants: [query], maxRpcCalls: 1, retrievalMode: "text" }),
+    );
+    expect(providerCalls).not.toHaveBeenCalled();
     expect(shadow!.telemetry.candidate_match_counts).toEqual({ matched: 0, partial_match: 1, absent: 3 });
     expect(Object.values(shadow!.telemetry.candidate_match_counts!).reduce((sum, count) => sum + count, 0)).toBe(4);
 
@@ -207,11 +235,12 @@ describe("lexical variant early-exit (PT-02)", () => {
     const candidatePoison = chunk(999, 0.99);
     const resultsForQuery = (queryText: string) =>
       candidateOnly.includes(queryText) ? [candidatePoison] : (servedResults.get(queryText) ?? []);
-    const { chunkTextCalls, providerCalls, results } = await runLexicalSearch(
+    const { candidateSearch, chunkTextCalls, providerCalls, results } = await runLexicalSearch(
       [],
       ["legacy", "shadow"],
       query,
       resultsForQuery,
+      [candidatePoison],
     );
     const [legacy, shadow] = results;
     const issuedQueryTexts = chunkTextCalls.map(([, args]) => (args as { query_text: string }).query_text);
@@ -225,7 +254,11 @@ describe("lexical variant early-exit (PT-02)", () => {
     expect(issuedQueryTexts).toEqual([...legacyPlan.servedVariants, ...legacyPlan.servedVariants]);
     expect(issuedQueryTexts).toEqual(expect.not.arrayContaining(candidateOnly));
     expect(legacy!.telemetry.candidate_retrieval_query_variant_count).toBeUndefined();
-    expect(shadow!.telemetry.candidate_retrieval_query_variant_count).toBe(shadowPlan.candidateVariants.length);
+    expect(shadow!.telemetry.candidate_retrieval_query_variant_count).toBeUndefined();
+    expect(shadow!.telemetry.shadow_retrieval_state).toBe("completed");
+    expect(candidateSearch).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ queryVariants: [query], maxRpcCalls: 1, retrievalMode: "text" }),
+    );
     expect(providerCalls).not.toHaveBeenCalled();
     expect(JSON.stringify(shadow!.telemetry)).not.toContain(query);
     candidateOnly.forEach((variant) => expect(JSON.stringify(shadow!.telemetry)).not.toContain(variant));
@@ -235,13 +268,21 @@ describe("lexical variant early-exit (PT-02)", () => {
 
   it("returns byte-identical legacy/shadow IDs and order without candidate retrieval fanout", async () => {
     const pool = Array.from({ length: 48 }, (_, index) => chunk(index, index === 0 ? 0.9 : 0.2));
-    const { chunkTextCalls, results } = await runLexicalSearch(pool, ["legacy", "shadow"]);
+    const { candidateSearch, chunkTextCalls, providerCalls, results } = await runLexicalSearch(pool, [
+      "legacy",
+      "shadow",
+    ]);
     const [legacy, shadow] = results;
 
     expect(shadow!.results.map(({ id }) => id)).toEqual(legacy!.results.map(({ id }) => id));
     expect(shadow!.telemetry.retrieval_query_variant_count).toBe(legacy!.telemetry.retrieval_query_variant_count);
     expect(legacy!.telemetry.candidate_retrieval_query_variant_count).toBeUndefined();
-    expect(shadow!.telemetry.candidate_retrieval_query_variant_count).toBeGreaterThan(0);
+    expect(shadow!.telemetry.candidate_retrieval_query_variant_count).toBeUndefined();
+    expect(shadow!.telemetry.shadow_retrieval_state).toBe("completed");
+    expect(candidateSearch).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ queryVariants: [multiVariantQuery], maxRpcCalls: 1, retrievalMode: "text" }),
+    );
+    expect(providerCalls).not.toHaveBeenCalled();
     expect(chunkTextCalls).toHaveLength(2);
     expect(JSON.stringify(shadow!.telemetry)).not.toContain(multiVariantQuery);
   });

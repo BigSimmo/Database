@@ -82,7 +82,7 @@ const contractTestsPath = "scripts/fixtures/rag-offline-contract-tests.json";
 const contractTests = JSON.parse(readFileSync(contractTestsPath, "utf8"));
 failures.push(...validateOfflineContractTests(contractTests));
 
-const programmePath = "scripts/fixtures/rag-programme-failures.v1.json";
+const programmePath = "src/data/rag-programme-failures.v1.json";
 const programme = JSON.parse(readFileSync(programmePath, "utf8"));
 const protectedProgrammeCaseIds = [
   "direct-evidence-generic-refusal",

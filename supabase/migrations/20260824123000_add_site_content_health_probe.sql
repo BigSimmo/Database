@@ -362,14 +362,14 @@ as $$
   ),
   bootstrap as (
     select case
-      when not s.initialized and r.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+      when not s.initialized and r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
         and r.target_change_epoch = 0 and s.change_epoch = 0 and s.served_change_epoch = 0
         and r.registry_version = 'site-content-bootstrap-public-release-v1' and r.generation_id = 'bootstrap-v1'
         and r.previous_release_id is null and r.static_manifest_digest = repeat('0', 64)
         and r.id = public.site_content_release_id(r.release_digest, 0, 'bootstrap-v1')
         and r.state = 'active' and s.active_release_digest = r.release_digest
-        and r.expected_record_count = 833 and r.expected_tombstone_count = 0
-        and (select count(*) from active_records) = 833
+        and r.expected_record_count = 843 and r.expected_tombstone_count = 0
+        and (select count(*) from active_records) = 843
         and r.release_digest = public.site_content_bootstrap_digest(r.id)
         and r.dynamic_state_digest = public.site_content_bootstrap_digest(r.id)
         and not exists (select 1 from active_records rr where rr.target_publication_id is not null
@@ -385,7 +385,7 @@ as $$
         and not exists (select 1 from live_events)
         and (select quarantined_count = 0 and expired_lease_count = 0 from queue)
         then 'valid_retained'
-      when not s.initialized or r.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid or r.target_change_epoch = 0
+      when not s.initialized or r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or r.target_change_epoch = 0
         then 'invalid'
       else 'not_applicable'
     end state
@@ -462,15 +462,15 @@ as $$
       and receipt.receipt#>>'{resource,previousSiteReleaseId}' = p.id::text
       and receipt.receipt#>>'{resource,previousSiteReleaseDigest}' = p.release_digest
       and (
-        (p.target_change_epoch <> 0 and p.id <> 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid)
+        (p.target_change_epoch <> 0 and p.id <> 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid)
         or (p.target_change_epoch = 0
-          and p.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+          and p.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
           and p.registry_version = 'site-content-bootstrap-public-release-v1'
           and p.generation_id = 'bootstrap-v1' and p.previous_release_id is null
           and p.static_manifest_digest = repeat('0', 64)
           and p.id = public.site_content_release_id(p.release_digest, 0, 'bootstrap-v1')
-          and p.expected_record_count = 833 and p.expected_tombstone_count = 0
-          and (select count(*) from public.site_content_release_records rr where rr.release_id = p.id) = 833
+          and p.expected_record_count = 843 and p.expected_tombstone_count = 0
+          and (select count(*) from public.site_content_release_records rr where rr.release_id = p.id) = 843
           and p.release_digest = public.site_content_bootstrap_digest(p.id)
           and p.dynamic_state_digest = public.site_content_bootstrap_digest(p.id)
           and not exists (select 1 from public.site_content_release_records rr

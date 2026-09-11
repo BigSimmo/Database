@@ -32,7 +32,7 @@ set dynamic_state_digest = case
   when dynamic_state_digest = repeat('f', 64) then repeat('e', 64)
   else repeat('f', 64)
 end
-where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid;
 
 with evidence as (select public.read_site_content_health() value)
 select
@@ -54,7 +54,7 @@ savepoint task4_epoch_zero_dynamic_digest;
 
 update public.site_content_releases
 set state = 'superseded'
-where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid;
 
 insert into public.site_content_releases (
   id, state, target_change_epoch, previous_release_id, registry_version,
@@ -66,7 +66,7 @@ insert into public.site_content_releases (
   '60000000-0000-5000-8000-000000000001'::uuid,
   'active',
   1,
-  'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid,
+  'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid,
   'task4-epoch-zero-dynamic-digest-v1',
   repeat('1', 64),
   repeat('2', 64),
@@ -106,7 +106,7 @@ with receipt_fields as (
     )
   ) receipt
 from public.site_content_releases bootstrap
-where bootstrap.id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+where bootstrap.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
 ), receipt as (
   select fields.receipt || jsonb_build_object(
     'receiptId',
@@ -164,7 +164,7 @@ set dynamic_state_digest = case
   when dynamic_state_digest = repeat('f', 64) then repeat('e', 64)
   else repeat('f', 64)
 end
-where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid;
 
 with evidence as (select public.read_site_content_health() value)
 select
@@ -201,7 +201,7 @@ begin
   foreach v_state in array array['candidate', 'superseded', 'abandoned', 'rolled_back'] loop
     update public.site_content_releases
     set state = v_state
-    where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+    where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid;
 
     v_evidence := public.read_site_content_health();
     if v_evidence->'activePublicSiteRelease' is distinct from 'null'::jsonb
@@ -214,7 +214,7 @@ begin
 
   update public.site_content_releases
   set state = 'active'
-  where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+  where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid;
 end;
 $$;
 
@@ -443,13 +443,13 @@ select
   pg_catalog.clock_timestamp(),
   'site-content-admin-authorization-v1'
 from public.site_content_release_records rr
-where rr.release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+where rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
 order by rr.logical_id
 limit 1;
 
 update public.site_content_releases
 set state = 'superseded'
-where id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid;
+where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid;
 
 insert into public.site_content_releases (
   id, state, target_change_epoch, previous_release_id, registry_version,
@@ -461,7 +461,7 @@ insert into public.site_content_releases (
   '20000000-0000-5000-8000-000000000005'::uuid,
   'active',
   1,
-  'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid,
+  'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid,
   'task4-missing-public-head-v1',
   repeat('1', 64),
   repeat('2', 64),
@@ -507,7 +507,7 @@ select
   false,
   true
 from public.site_content_release_records rr
-where rr.release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid
+where rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
 order by rr.logical_id
 limit 1;
 

@@ -67,6 +67,13 @@ function input(dynamicRecords: SiteContentSyncSourceRecord[]) {
 
 describe("site-content synchronization planning", () => {
   it("keeps the CLI offline-by-default and byte-deterministic for equal inputs", () => {
+    const baseline = JSON.parse(readFileSync("tests/fixtures/site-content/static-manifest-baseline.json", "utf8")) as {
+      records: Array<{ logicalId: string }>;
+    };
+    const baselineIds = baseline.records.map((record) => record.logicalId);
+    expect(baselineIds).not.toEqual(
+      expect.arrayContaining(["calculators:mdq", "calculators:sadpersons", "calculators:ybocs"]),
+    );
     const args = [
       "scripts/run-tsx.mjs",
       "scripts/sync-site-content-corpus.ts",
@@ -82,7 +89,7 @@ describe("site-content synchronization planning", () => {
     expect(JSON.parse(first)).toMatchObject({
       version: "site-content-sync-plan-v1",
       dryRun: true,
-      counts: { added: 1079, changed: 0, tombstones: 0 },
+      counts: { added: baseline.records.length, changed: 0, tombstones: 0 },
     });
   });
 
@@ -284,7 +291,7 @@ describe("site-content synchronization planning", () => {
       expect(result.stderr).toMatch(/confirm-project-ref|guarded write authorization/i);
       expect(existsSync(output)).toBe(false);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 
@@ -432,7 +439,7 @@ describe("site-content synchronization planning", () => {
       expect(postAdoptionArtifact.status).toBe(1);
       expect(postAdoptionArtifact.stderr).toMatch(/post-adoption.*omit reconciliation/i);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 

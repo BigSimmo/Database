@@ -25,7 +25,11 @@ import { AnswerUtilityActions, SafetyFindingsListContent } from "@/components/cl
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
 import { useAnswerSourceSelection } from "@/components/clinical-dashboard/use-answer-source-selection";
 import { CanonicalAnswerTables } from "@/components/clinical-dashboard/visual-evidence";
-import { annotateSourceAttachments, buildAnswerSourceRows } from "@/components/clinical-dashboard/answer-source-rows";
+import {
+  annotateSourceAttachments,
+  buildAnswerSourceRows,
+  citedSourceIdsForAnswerProjection,
+} from "@/components/clinical-dashboard/answer-source-rows";
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { AnswerCard, type AnswerSupportStrength } from "@/components/ui/answer-card";
 import { answerUsesDegradedMode, answerUsesSourceOnlyProvenance } from "@/components/ui/answer-state";
@@ -162,6 +166,10 @@ function StagedAnswerResultSurfaceImpl({
     [answer, preformatted, sources],
   );
   const renderAdaptiveAnswer = answerUsesAdaptiveMainSurface(answer);
+  const citedSourceIds = useMemo(
+    () => (renderAdaptiveAnswer ? citedSourceIdsForAnswerProjection(projectedAnswer) : undefined),
+    [projectedAnswer, renderAdaptiveAnswer],
+  );
   const legacySourceCount =
     renderModel.primarySources.length ||
     sourceSummary?.total_sources ||
@@ -182,11 +190,14 @@ function StagedAnswerResultSurfaceImpl({
    */
   const railSources = useMemo(
     () =>
-      annotateSourceAttachments(buildAnswerSourceRows(bestSource, sources, renderModel.primarySources), {
-        tables: renderModel.tables,
-        visualEvidence: renderModel.visualEvidence,
-      }),
-    [bestSource, sources, renderModel.primarySources, renderModel.tables, renderModel.visualEvidence],
+      annotateSourceAttachments(
+        buildAnswerSourceRows(bestSource, sources, renderModel.primarySources, citedSourceIds),
+        {
+          tables: renderModel.tables,
+          visualEvidence: renderModel.visualEvidence,
+        },
+      ),
+    [bestSource, citedSourceIds, sources, renderModel.primarySources, renderModel.tables, renderModel.visualEvidence],
   );
   // `trust` already distinguishes these; until now only a conditionally-rendered
   // side card ever showed the difference, so a "medium" answer - which includes

@@ -1,5 +1,8 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
+import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
+import { normalizeSourceMetadata } from "../src/lib/source-metadata";
+import type { SearchResult } from "../src/lib/types";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -113,7 +116,7 @@ async function mockDashboardApis(page: Page) {
 }
 
 async function installTimedAnswerStream(page: Page) {
-  const finalAnswer = { ...demoAnswer("Lithium dosing"), demoMode: true };
+  const finalAnswer = { ...toClientAnswerPayload(demoAnswer("Lithium dosing")), demoMode: true };
   await page.addInitScript(
     ({ answer }) => {
       const originalFetch = window.fetch.bind(window);
@@ -231,7 +234,7 @@ async function installHoldingAnswerStream(page: Page) {
  * rather than to a convenient shape. Eight sources are sent to prove the rail's six-card cap
  * and the line that counts it.
  */
-function previewSource(index: number) {
+function previewSource(index: number): SearchResult {
   return {
     id: `chunk-${index + 1}`,
     document_id: `doc-${index + 1}`,
@@ -244,13 +247,21 @@ function previewSource(index: number) {
     image_ids: [],
     similarity: 0.8 - index * 0.01,
     images: [],
-    source_metadata: { document_status: "current", clinical_validation_status: "unverified" },
+    source_metadata: normalizeSourceMetadata({
+      document_status: "current",
+      clinical_validation_status: "unverified",
+    }),
   };
 }
 
 async function installEvidencePreviewAnswerStream(page: Page) {
-  const finalAnswer = { ...demoAnswer("Lithium dosing"), demoMode: true };
+  const serverAnswer = demoAnswer("Lithium dosing");
   const sources = Array.from({ length: 8 }, (_, index) => previewSource(index));
+  const finalAnswer = {
+    ...toClientAnswerPayload({ ...serverAnswer, sources: [...sources, ...serverAnswer.sources] }),
+    demoMode: true,
+  };
+  const previewSources = finalAnswer.sources.slice(0, 8);
   await page.addInitScript(
     ({ answer, previewSources }) => {
       const originalFetch = window.fetch.bind(window);
@@ -301,12 +312,12 @@ async function installEvidencePreviewAnswerStream(page: Page) {
         );
       };
     },
-    { answer: finalAnswer, previewSources: sources },
+    { answer: finalAnswer, previewSources },
   );
 }
 
 async function installSuccessfulThenInvalidAnswerStreams(page: Page) {
-  const firstAnswer = { ...demoAnswer("Lithium dosing"), demoMode: true };
+  const firstAnswer = { ...toClientAnswerPayload(demoAnswer("Lithium dosing")), demoMode: true };
   await page.addInitScript(
     ({ answer }) => {
       const originalFetch = window.fetch.bind(window);
@@ -359,7 +370,7 @@ async function installSuccessfulThenInvalidAnswerStreams(page: Page) {
 }
 
 async function installSuccessfulThenHoldingAnswerStreams(page: Page) {
-  const firstAnswer = { ...demoAnswer("Lithium dosing"), demoMode: true };
+  const firstAnswer = { ...toClientAnswerPayload(demoAnswer("Lithium dosing")), demoMode: true };
   await page.addInitScript(
     ({ answer }) => {
       const originalFetch = window.fetch.bind(window);

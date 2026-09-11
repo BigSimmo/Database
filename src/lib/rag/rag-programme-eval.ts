@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import rawProgrammeFixture from "../../../scripts/fixtures/rag-programme-failures.v1.json";
+import rawProgrammeFixture from "@/data/rag-programme-failures.v1.json";
 import type {
   AdaptiveAnswerShape,
   ClinicalSourceRole,

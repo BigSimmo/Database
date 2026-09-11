@@ -248,6 +248,8 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Clinical product data
 
+`src/lib/calculators/` owns calculator definitions, evidence metadata, and route helpers shared by the UI and governed site-content catalogue. Component-layer modules re-export these neutral data owners for compatibility.
+
 | Module                                                               | Role                                                                                                                                                                                                                                                                                                                                                                                                      |
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Shared catalogue content with optional owner overrides                                                                                                                                                                                                                                                                                                                                                    |

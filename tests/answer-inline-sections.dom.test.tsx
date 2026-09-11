@@ -193,6 +193,7 @@ describe("adaptive answer inline sections", () => {
           : {},
       );
       const renderModel = buildAnswerRenderModel(answer);
+      const projection = projectAnswerForMainSurface({ answer, sources: answer.sources, preformatted: false });
       render(
         <StagedAnswerResultSurface
           answer={answer}
@@ -223,15 +224,22 @@ describe("adaptive answer inline sections", () => {
       ).toHaveLength(1);
       expect(screen.getAllByText(/Uploaded local protocol \(primary for this patient\)/)).toHaveLength(1);
       expect(screen.getAllByText("Monitoring frequency: not covered by the active sources.")).toHaveLength(1);
+      expect(projection.leadCitationSources.map((source) => source.id)).toEqual([local.id]);
       const answerSurface = screen.getByTestId("plain-answer-response");
-      const leadSourceCapsule = within(answerSurface).getByRole("button", { name: "Open answer sources" });
-      expect(leadSourceCapsule).toHaveTextContent(/Sources\s*1/);
-      await userEvent.click(leadSourceCapsule);
-      const leadSourceRows = screen.getAllByTestId("source-capsule-preview-row");
-      expect(leadSourceRows).toHaveLength(1);
-      expect(leadSourceRows[0]).toHaveAttribute("href", "/documents/doc-local?page=4&chunk=chunk-local");
-      expect(leadSourceRows[0]).toHaveAccessibleName(/Uploaded local protocol/i);
-      expect(screen.queryByRole("link", { name: /Open source WA clinical guideline/i })).not.toBeInTheDocument();
+      const sourceRows = within(within(answerSurface).getByTestId("answer-source-rail")).getAllByTestId(
+        "answer-source-rail-row",
+      );
+      expect(sourceRows).toHaveLength(3);
+      expect(sourceRows[0]).toHaveAttribute("data-cited", "true");
+      expect(sourceRows[0]).toHaveAccessibleName(/Source 1: WA clinical guideline/i);
+      expect(sourceRows[1]).toHaveAttribute("data-cited", "true");
+      expect(sourceRows[1]).toHaveAccessibleName(/Source 2: Uploaded local protocol/i);
+      expect(sourceRows[2]).toHaveAttribute("data-cited", "false");
+      expect(sourceRows[2]).toHaveAccessibleName(/Also found: Uncited retrieval/i);
+      await userEvent.click(sourceRows[1]!);
+      expect(
+        within(screen.getByTestId("answer-source-drawer")).getByRole("link", { name: "View original PDF" }),
+      ).toHaveAttribute("href", "/documents/doc-local?page=4&chunk=chunk-local");
       expect(within(screen.getAllByTestId("adaptive-answer-section")[1]!).getAllByTestId("citation")).toHaveLength(2);
       expect(screen.queryByText("No source covers this gap.")).not.toBeInTheDocument();
       expect(screen.queryByText("No source supports this statement.")).not.toBeInTheDocument();
@@ -244,6 +252,7 @@ describe("adaptive answer inline sections", () => {
   it("does not borrow section or recommended sources when the v20 lead has no citations", () => {
     const answer = adaptiveAnswer({ citations: [] });
     const renderModel = buildAnswerRenderModel(answer);
+    const projection = projectAnswerForMainSurface({ answer, sources: answer.sources, preformatted: false });
     render(
       <StagedAnswerResultSurface
         answer={answer}
@@ -266,14 +275,21 @@ describe("adaptive answer inline sections", () => {
     );
 
     const answerSurface = screen.getByTestId("plain-answer-response");
-    expect(within(answerSurface).getByRole("button", { name: "Open answer sources" })).toHaveTextContent(
-      "No direct source found",
+    expect(projection.leadCitationSources).toEqual([]);
+    const sourceRows = within(within(answerSurface).getByTestId("answer-source-rail")).getAllByTestId(
+      "answer-source-rail-row",
     );
-    expect(screen.queryByTestId("source-capsule-preview-row")).not.toBeInTheDocument();
+    expect(sourceRows).toHaveLength(3);
+    expect(sourceRows[0]).toHaveAttribute("data-cited", "true");
+    expect(sourceRows[0]).toHaveAccessibleName(/Source 1: WA clinical guideline/i);
+    expect(sourceRows[1]).toHaveAttribute("data-cited", "true");
+    expect(sourceRows[1]).toHaveAccessibleName(/Source 2: Uploaded local protocol/i);
+    expect(sourceRows[2]).toHaveAttribute("data-cited", "false");
+    expect(sourceRows[2]).toHaveAccessibleName(/Also found: Uncited retrieval/i);
     expect(within(screen.getAllByTestId("adaptive-answer-section")[1]!).getAllByTestId("citation")).toHaveLength(2);
   });
 
-  it("keeps the first four of five low-trust lead citations in final order before the capsule cap", async () => {
+  it("keeps low-trust lead citation order and provenance within the six-row rail cap", async () => {
     const answer = adaptiveAnswer({
       confidence: "low",
       citations: orderedLeadSources.map(citation),
@@ -297,6 +313,7 @@ describe("adaptive answer inline sections", () => {
       ],
     });
     const renderModel = buildAnswerRenderModel(answer);
+    const projection = projectAnswerForMainSurface({ answer, sources: answer.sources, preformatted: false });
     render(
       <StagedAnswerResultSurface
         answer={answer}
@@ -318,17 +335,22 @@ describe("adaptive answer inline sections", () => {
       />,
     );
 
-    const capsule = within(screen.getByTestId("plain-answer-response")).getByRole("button", {
-      name: "Open answer sources",
-    });
-    expect(capsule).toHaveTextContent(/Sources\s*5/);
-    await userEvent.click(capsule);
-    expect(screen.getAllByTestId("source-capsule-preview-row").map((row) => row.getAttribute("href"))).toEqual(
-      orderedLeadSources
-        .slice(0, 4)
-        .map((item) => `/documents/${item.document_id}?page=${item.page_number}&chunk=${item.id}`),
+    const sourceRows = within(
+      within(screen.getByTestId("plain-answer-response")).getByTestId("answer-source-rail"),
+    ).getAllByTestId("answer-source-rail-row");
+    expect(sourceRows).toHaveLength(6);
+    expect(projection.leadCitationSources.map((source) => source.id)).toEqual(
+      orderedLeadSources.map((source) => source.id),
     );
-    expect(screen.queryByRole("link", { name: /Open source Lead source E/i })).not.toBeInTheDocument();
+    const wholeAnswerOrder = [orderedLeadSources[4]!, ...orderedLeadSources.slice(0, 4), wa];
+    wholeAnswerOrder.forEach((item, index) => {
+      expect(sourceRows[index]).toHaveAttribute("data-cited", "true");
+      expect(sourceRows[index]).toHaveAccessibleName(new RegExp(`Source ${index + 1}: ${item.title}`));
+    });
+    await userEvent.click(sourceRows[0]!);
+    expect(
+      within(screen.getByTestId("answer-source-drawer")).getByRole("link", { name: "View original PDF" }),
+    ).toHaveAttribute("href", "/documents/doc-lead-e?page=5&chunk=chunk-lead-e");
     expect(
       screen.getByText("Section-only difference").closest('[data-testid="adaptive-answer-section"]'),
     ).toContainElement(screen.getByRole("button", { name: /WA clinical guideline, p\. 9/i }));

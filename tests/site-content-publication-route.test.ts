@@ -76,6 +76,13 @@ function assertNoPrivateKeys(value: unknown) {
   }
 }
 
+function requireObjectFixture(value: unknown, label: string): asserts value is Record<string, unknown> {
+  expect(value, `${label} fixture must be present`).toBeDefined();
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} fixture must be an object.`);
+  }
+}
+
 function mockRuntime() {
   vi.resetModules();
   vi.doMock("@/lib/supabase/admin", () => ({
@@ -346,7 +353,7 @@ describe("canonical dynamic public projection", () => {
     ).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("matches every P03 converter and preserves each rendered public fixture without audit identifiers", () => {
+  it("matches every P03 converter and preserves the approved public fixture fields without audit identifiers", () => {
     const serviceRow = {
       ...registryToRow(serviceRecords[0]!, ownerId, "service"),
       ...rowAudit,
@@ -380,7 +387,68 @@ describe("canonical dynamic public projection", () => {
       });
       const projected = canonicalDynamicSiteContentProjection(kind, row);
       expect(projected.record).toEqual(registryEntryToSiteContentRecord(entry, { logicalId, sourceLineage: [] }));
-      expect(projected.renderPayload).toEqual(JSON.parse(JSON.stringify(render)));
+      expect(projected.renderPayload).toMatchObject({
+        slug: render.slug,
+        title: render.title,
+        subtitle: render.subtitle,
+        route: render.route,
+        eligibility: render.eligibility,
+        cost: render.cost,
+        referral: render.referral,
+        location: render.location,
+        bestUse: render.bestUse,
+        catchments: render.catchments,
+        catalogueLabel: render.catalogueLabel,
+        navigatorQuery: render.navigatorQuery,
+      });
+      requireObjectFixture(render.verification, `${kind} verification`);
+      expect(projected.renderPayload.verification).toMatchObject({
+        locallyVerified: render.verification.locallyVerified,
+        confidence: render.verification.confidence,
+        notes: render.verification.notes,
+      });
+      requireObjectFixture(render.source, `${kind} source`);
+      expect(projected.renderPayload.source).toMatchObject({
+        label: render.source.label,
+        status: render.source.status,
+        ...(render.source.url === undefined ? {} : { url: render.source.url }),
+        ...(render.source.published === undefined ? {} : { published: render.source.published }),
+        reviewed: render.source.reviewed,
+        notes: render.source.notes,
+      });
+      requireObjectFixture(render.catalogPayload, `${kind} catalogue payload`);
+      if (kind === "service") {
+        const tags = render.catalogPayload.tags;
+        requireObjectFixture(tags, "service catalogue tags");
+        expect(projected.renderPayload.catalogPayload).toMatchObject({
+          tags: {
+            catchments: tags.catchments,
+            age_groups: tags.age_groups,
+            setting_flags: tags.setting_flags,
+            acuity_flags: tags.acuity_flags,
+            substance_flags: tags.substance_flags,
+            housing_flags: tags.housing_flags,
+          },
+        });
+      } else {
+        const actSections = render.catalogPayload.actSections;
+        if (actSections === undefined) {
+          expect(projected.renderPayload.catalogPayload).not.toHaveProperty("actSections");
+        } else {
+          expect(projected.renderPayload.catalogPayload).toMatchObject({ actSections });
+        }
+      }
+      for (const auditPath of [
+        "verification.availabilityStatus",
+        "verification.lastVerifiedAt",
+        "verification.nextReviewAt",
+        "verification.reviewer",
+        "verification.unresolvedIssues",
+        "catalogPayload.tags.availability_flags",
+        "catalogPayload.tags.specialist_groups",
+      ]) {
+        expect(projected.renderPayload).not.toHaveProperty(auditPath);
+      }
       assertNoPrivateKeys(projected.renderPayload);
     }
 

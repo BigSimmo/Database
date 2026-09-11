@@ -42,7 +42,7 @@ function runSelectorWithInjectedOwner(owner: string, cwd = process.cwd()): void 
       stdio: ["ignore", "pipe", "pipe"],
     });
   } finally {
-    rmSync(temporaryDirectory, { recursive: true, force: true });
+    rmSync(temporaryDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 }
 
@@ -153,8 +153,8 @@ describe("site-content CI owner contract", () => {
       );
     } finally {
       if (existsSync(linkedDirectory)) unlinkSync(linkedDirectory);
-      rmSync(repositoryDirectory, { recursive: true, force: true });
-      rmSync(outsideDirectory, { recursive: true, force: true });
+      rmSync(repositoryDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+      rmSync(outsideDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 
@@ -186,7 +186,7 @@ describe("site-content CI owner contract", () => {
       expect(linkedOwnerResults).toEqual(["rejected", "rejected"]);
     } finally {
       if (existsSync(linkedDirectory)) unlinkSync(linkedDirectory);
-      rmSync(repositoryDirectory, { recursive: true, force: true });
+      rmSync(repositoryDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
     }
   });
 

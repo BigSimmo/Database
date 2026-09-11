@@ -329,6 +329,7 @@ describe("GET /api/health/ready", () => {
     vi.useFakeTimers();
     try {
       mockEnv({ configured: true });
+      mockHealthySiteContent();
       const probeSupabaseHealth = vi.fn(async () => ({
         ok: true,
         checkedAt: "2026-07-22T00:00:00.000Z",

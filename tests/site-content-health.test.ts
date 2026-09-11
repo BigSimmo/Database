@@ -15,8 +15,8 @@ const staticDigest = "a".repeat(64);
 const dynamicDigest = "b".repeat(64);
 const releaseDigest = "c".repeat(64);
 const releaseId = "11111111-1111-5111-8111-111111111111";
-const retainedBootstrapReleaseId = "c0f6c316-b6f8-5c55-87ce-6b486032af03";
-const retainedBootstrapDigest = "8a2edbdfe117338cc0323036ba3a68590744950ad89b9ce177415685a7115757";
+const retainedBootstrapReleaseId = "e4a1dd29-14f6-556c-8fb7-f4f947d8b846";
+const retainedBootstrapDigest = "57f6ec90225fc4341b446705f50a48b132f2872172d8f93888bf921fe7bfa1bc";
 
 const release = {
   version: "clinical-kb-site-release-v1" as const,

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-11T09:59:58.516Z",
+  "generated_at": "2026-09-11T10:53:28.348Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "8314606c6179e4fe1eb8eac73d5d8c1dc2e995e8c93a23d959218b1401eec2c7",
-  "replay_seconds": 170,
+  "schema_sha256": "3e4fd56dd8363c0465ba2eb801c70b104cc90525e7692de447098359f28bb0be",
+  "replay_seconds": 56,
   "snapshot": {
     "views": [
       {
@@ -9634,7 +9634,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "bac2cbdd247bb60929cd21c1de068b5e",
+        "def_hash": "02b808d7dc7092a601dcd244892d3712",
         "signature": "public.activate_site_content_release(uuid,text,bigint,text,jsonb)"
       },
       {
@@ -10396,7 +10396,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "d82b8d8185f90684b738bc298b944d5e",
+        "def_hash": "994986f7e9dd6a52f6d2961dad5f2b89",
         "signature": "public.read_site_content_public_records(text,text)"
       },
       {
@@ -10595,7 +10595,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "51959e4a9ccf1879ed87d4ae7271593e",
+        "def_hash": "769431753f1af0b4db79c6d5a6eeffb4",
         "signature": "public.rollback_site_content_release(uuid,uuid,text,jsonb)"
       },
       {
@@ -10709,7 +10709,7 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "8e4f9dd9463b4ece72fc951ead094433",
+        "def_hash": "5d0de47092f2fe38ac3ab6f56ae67013",
         "signature": "public.site_content_current_transition_kind(text,uuid,text,boolean,bigint)"
       },
       {
@@ -10744,7 +10744,7 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "3685f34006254cf11ce5764b6995beb7",
+        "def_hash": "dd865d684427b09966e35da08b20d190",
         "signature": "public.site_content_health_operational_base()"
       },
       {
@@ -10856,7 +10856,7 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "dcf88e7a9118deaf3fc83a56213d4e55",
+        "def_hash": "0609094a4c98866bb61fccb89c93c011",
         "signature": "public.site_content_retained_bootstrap_valid(uuid,text)"
       },
       {
@@ -12408,7 +12408,7 @@
         "table": "site_content_release_records"
       },
       {
-        "def": "CHECK ((((target_publication_id IS NULL) AND (release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text)) OR ((target_publication_id IS NOT NULL) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text))))",
+        "def": "CHECK ((((target_publication_id IS NULL) AND (release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text)) OR ((target_publication_id IS NOT NULL) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text))))",
         "name": "site_content_release_records_check1",
         "table": "site_content_release_records"
       },
@@ -12638,7 +12638,7 @@
         "table": "site_content_sync_state"
       },
       {
-        "def": "CHECK ((((NOT initialized) AND (active_release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid) AND (served_change_epoch = 0) AND (active_transition_receipt_id IS NULL)) OR (initialized AND (active_transition_receipt_id IS NOT NULL))))",
+        "def": "CHECK ((((NOT initialized) AND (active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid) AND (served_change_epoch = 0) AND (active_transition_receipt_id IS NULL)) OR (initialized AND (active_transition_receipt_id IS NOT NULL))))",
         "name": "site_content_sync_state_transition_pointer_check",
         "table": "site_content_sync_state"
       },

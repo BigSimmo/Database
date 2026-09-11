@@ -1,6 +1,6 @@
 import type { AppModeId } from "@/lib/app-modes";
-import { calculatorRecordHref } from "@/components/calculators/calculator-routes";
-import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
+import { calculatorRecordHref } from "@/lib/calculators/calculator-routes";
+import { THERAPY_CATALOGUE_ASSETS } from "@/data/therapy-catalogue-assets";
 import type {
   ActiveSiteContentRelease,
   SiteContentCorpusScope,

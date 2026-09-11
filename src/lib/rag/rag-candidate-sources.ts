@@ -128,7 +128,15 @@ export async function callGovernedRetrievalRpc<T extends unknown[] = unknown[]>(
 ): Promise<{ data: T | null; error: SupabaseRpcError }> {
   throwIfAborted(signal);
   const client = supabase as unknown as SupabaseRpcClient;
-  const pending = client.rpc(name, args) as AbortableRpc<T>;
+  // Keep the finite v3 surface explicit so tenancy scans can inspect every RPC.
+  // These calls must never enter the versioned dispatcher's legacy fallback.
+  const pending = (
+    name === "match_document_chunks_text_v3"
+      ? client.rpc("match_document_chunks_text_v3", args)
+      : name === "match_document_chunks_hybrid_v3"
+        ? client.rpc("match_document_chunks_hybrid_v3", args)
+        : client.rpc("match_document_chunks_v3", args)
+  ) as AbortableRpc<T>;
   const result = await (signal && typeof pending.abortSignal === "function" ? pending.abortSignal(signal) : pending);
   throwIfAborted(signal);
   if (isMissingRetrievalRpcError(result.error)) return { data: [] as unknown as T, error: null };

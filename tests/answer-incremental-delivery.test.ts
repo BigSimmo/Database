@@ -21,7 +21,7 @@ import {
   isDeliverableVerifiedUnit,
   type VerifiedEvidencePreviewUnit,
 } from "../src/lib/answer-stream-contract";
-import type { SearchResult } from "../src/lib/types";
+import type { DocumentLabel, SearchResult } from "../src/lib/types";
 
 function makeSource(overrides: Partial<SearchResult> = {}): SearchResult {
   return {
@@ -420,7 +420,22 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
     // and the wait showed no sources at all, on exactly the strong-route answers where the
     // wait is longest. Fast routine answers select four passages and never hit it, which is
     // why the browser proof (small synthetic sources) stayed green throughout.
-    const results = Array.from({ length: 12 }, (_, index) => makeProductionSizedSource(index));
+    const results = Array.from({ length: 12 }, (_, index): SearchResult => {
+      const source = makeProductionSizedSource(index);
+      return {
+        ...source,
+        // Only public allowlisted fields count toward the wire-size budget. Server
+        // ranking diagnostics and private metadata are deliberately projected out.
+        document_labels: Array.from({ length: 8 }, (_, labelIndex): DocumentLabel => ({
+          id: `lbl-${index}-${labelIndex}`,
+          document_id: source.document_id,
+          label: `Clinical topic ${labelIndex}: ${"monitoring context ".repeat(14)}`,
+          label_type: "topic",
+          source: "manual",
+          confidence: 1,
+        })),
+      };
+    });
     const oversized = JSON.stringify({
       schemaVersion: 1,
       kind: "evidence_preview",
