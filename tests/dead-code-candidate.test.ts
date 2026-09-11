@@ -225,13 +225,32 @@ describe("dead-code candidate CLI", () => {
   });
 
   it("runs the default gate path instead of exiting silently", () => {
+    const root = createFixture();
+    for (const args of [
+      ["init"],
+      ["add", "--all"],
+      [
+        "-c",
+        "user.name=Dead Code Candidate Test",
+        "-c",
+        "user.email=dead-code-candidate@example.invalid",
+        "-c",
+        "commit.gpgSign=false",
+        "commit",
+        "-m",
+        "fixture",
+      ],
+      ["update-ref", "refs/remotes/origin/main", "HEAD"],
+    ])
+      execFileSync("git", args, { cwd: root, stdio: "ignore" });
+
     const result = spawnSync(process.execPath, [SCRIPT], {
-      cwd: REPOSITORY_ROOT,
+      cwd: root,
       encoding: "utf8",
     });
 
-    expect([0, 1]).toContain(result.status);
-    expect(result.stdout).toContain("[dead-code]");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("[dead-code] no removed declarations to assess.");
   });
 
   it("refuses when git diff fails instead of reporting zero candidates", () => {

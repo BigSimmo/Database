@@ -20,7 +20,9 @@ Installing it locally does not publish or activate the GitHub runner.
 ## Activation
 
 After separately authorizing activation, verify the repository's current rules,
-the intended human `GH_TOKEN` identity (`BigSimmo`), and `OPENAI_API_KEY` availability.
+the intended human `GH_TOKEN` identity (`BigSimmo`), `OPENAI_API_KEY` availability,
+and a repository secret named `PR_BATCH_STATE_SIGNING_KEY` containing at least
+32 bytes of cryptographically random material.
 The human token needs the existing operator permissions plus repository variable
 reads, Actions dispatch/rerun, and Git data writes for the state branch. Never put
 credentials in dispatch inputs or the state branch.
@@ -34,16 +36,19 @@ not create a merge queue, change rules, approve reviews, or bypass protection.
 1. From Actions, launch **PR batch runner** on `main` with `operation: dry-run`.
    This reads GitHub metadata and reports eligible/excluded candidates. It does
    not create the state branch, start Codex, update branches, or arm a merge.
-2. Set repository variable `PR_BATCH_ENABLED` to the literal `true` only after
+2. Configure `PR_BATCH_STATE_SIGNING_KEY` before any `start` dispatch. The key
+   authenticates `state.json`; keep it out of workflow inputs, logs, artifacts,
+   and the state branch.
+3. Set repository variable `PR_BATCH_ENABLED` to the literal `true` only after
    approval. The absence of this variable is the default disabled state.
-3. Start one low-risk docs PR using `operation: start`, `pr_numbers: <number>`,
+4. Start one low-risk docs PR using `operation: start`, `pr_numbers: <number>`,
    and a genuine desktop `codex://threads/<UUID>` or supported cloud Codex task
    URL in `authorization`. The URL is an audit reference, not authentication.
-4. Enter the exact confirmation:
+5. Enter the exact confirmation:
 
    `Authorize this batch: repairs, GitHub writes, protected merges and Railway deployments`
 
-5. Verify the actual merge and audit state before starting a larger batch.
+6. Verify the actual merge and audit state before starting a larger batch.
 
 Launching the batch explicitly authorizes feature-branch commits and updates,
 review replies/resolution, bounded failed-job reruns, Codex API repairs, protected
@@ -119,7 +124,9 @@ cannot manufacture the missing approval.
 ## Recovery and reporting
 
 State lives on `codex/pr-batch-state`, an orphan JSON-only branch, separate from
-application code and deployment triggers. Its manifest is immutable. Each
+application code and deployment triggers. `state-auth.json` authenticates every
+`state.json` revision with the repository-only signing secret, so an ordinary
+repository writer cannot forge executable batch authority. Its manifest is immutable. Each
 transition creates a state commit and a new event JSON record; updates are
 fast-forward against the observed parent. Do not edit, force-push, merge, or delete
 this branch as part of normal queue operation.

@@ -20,6 +20,7 @@ export function prBatchWorkflowFailures(root) {
     "persist-credentials: false",
     "github-token: ${{ secrets.GH_TOKEN }}",
     "GH_TOKEN: ${{ secrets.GH_TOKEN }}",
+    "PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}",
     "workflowMain({ github, context, core",
   ])
     if (!workflow.includes(required)) failures.push(`PR batch workflow missing required boundary: ${required}`);
@@ -30,6 +31,8 @@ export function prBatchWorkflowFailures(root) {
     "await this.assertMutation(state, pending)",
     "force: false",
     'loaded.state?.status !== "running"',
+    "state-auth.json",
+    "createHmac",
   ])
     if (!adapter.includes(required)) failures.push(`PR batch adapter missing required boundary: ${required}`);
   if (!/"--match-head-commit",\s*pending\.head/.test(adapter))

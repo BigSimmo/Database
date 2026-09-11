@@ -4,6 +4,11 @@ import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(new URL("../.github/workflows/codex-run-pr-operator.yml", import.meta.url), "utf8");
 
+it("authenticates batch state and uses only supported concurrency keys", () => {
+  expect(workflow).toContain("PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}");
+  expect(workflow).not.toContain("queue: max");
+});
+
 function job(name: string, nextName?: string) {
   const start = workflow.indexOf(`  ${name}:`);
   expect(start).toBeGreaterThan(-1);

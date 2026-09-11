@@ -6,6 +6,7 @@ const summarizeDocument = vi.fn(async () => ({
   grounded: true,
   confidence: "high",
   citations: [],
+  sources: [],
   smartPanel: { query: "summary" },
   smartApiPlan: { displayMode: "direct" },
 }));
@@ -37,7 +38,7 @@ vi.mock("@/lib/answer-response", () => ({
 }));
 
 vi.mock("@/lib/answer-telemetry", () => ({
-  logAnswerDiagnostics: vi.fn(),
+  persistAnswerDiagnostics: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/answer-feedback-token", () => ({

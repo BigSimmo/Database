@@ -1,5 +1,6 @@
 import { classifySourceAuthority, type AustralianSourceTier } from "@/lib/source-authority-registry";
-import type { SearchResult } from "@/lib/types";
+import { searchResultEligibilityForClaim } from "@/lib/source-role-policy";
+import type { ClinicalClaimRole, SearchResult } from "@/lib/types";
 
 export type { AustralianSourceTier, SourceAuthorityClassification } from "@/lib/source-authority-registry";
 
@@ -35,6 +36,13 @@ export function australianSourceClassification(result: Pick<SearchResult, "sourc
 
 export function australianSourceTier(result: Pick<SearchResult, "source_metadata">): AustralianSourceTier {
   return australianSourceClassification(result).tier;
+}
+
+export function compareAustralianSourcesWithinRelevanceBand(
+  left: Pick<SearchResult, "source_metadata">,
+  right: Pick<SearchResult, "source_metadata">,
+) {
+  return tierRank[australianSourceTier(left)] - tierRank[australianSourceTier(right)];
 }
 
 export function isAustralianSourceTier(tier: AustralianSourceTier) {
@@ -85,6 +93,8 @@ export function selectAustralianClinicalContext(
     maxPerDocument?: number;
     sufficientAustralianChunks?: number;
     omitSupplementaryPadding?: boolean;
+    claimRole?: ClinicalClaimRole;
+    preserveInputPolicyOrder?: boolean;
   } = {},
 ) {
   const limit = options.limit ?? 6;
@@ -92,12 +102,23 @@ export function selectAustralianClinicalContext(
   const sufficientAustralianChunks = options.sufficientAustralianChunks ?? 4;
   const omitSupplementaryPadding = options.omitSupplementaryPadding ?? true;
   const ranked = results
+    .filter((result) => !options.claimRole || searchResultEligibilityForClaim(result, options.claimRole).eligible)
     .map((result, index) => ({ result, index, tier: australianSourceTier(result) }))
     .filter(({ result }) => result.relevance?.verdict !== "none")
     .sort((left, right) => {
+      if (options.preserveInputPolicyOrder) return left.index - right.index;
       const leftRelevance = resultRelevanceRank(left.result);
       const rightRelevance = resultRelevanceRank(right.result);
-      return leftRelevance - rightRelevance || tierRank[left.tier] - tierRank[right.tier] || left.index - right.index;
+      const leftCorpus = left.result.source_metadata?.corpus_scope ?? left.result.corpus_scope;
+      const rightCorpus = right.result.source_metadata?.corpus_scope ?? right.result.corpus_scope;
+      if (leftCorpus && leftCorpus === rightCorpus && leftCorpus !== "australian_public") {
+        return leftRelevance - rightRelevance || left.index - right.index;
+      }
+      return (
+        leftRelevance - rightRelevance ||
+        compareAustralianSourcesWithinRelevanceBand(left.result, right.result) ||
+        left.index - right.index
+      );
     });
   const withoutSupplementaryPadding = omitSupplementaryPadding
     ? ranked.filter((candidate) => !isSupplementaryPadding({ candidate, ranked, sufficientAustralianChunks }))

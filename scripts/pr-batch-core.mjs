@@ -15,12 +15,15 @@ export const validTaskReference = (value) =>
 // Shared by launch classification and the trusted repair publisher. PR declarations
 // cannot grant permission to modify the controller, credentials, or clinical data.
 export function protectedPath(path) {
+  const segments = path.split(/[\\/]/u);
   return (
     /^(?:\.github\/|\.codex\/|\.claude\/|\.agents\/|AGENTS\.md$|CLAUDE\.md$|supabase\/|Dockerfile|railway[./]|\.env(?:\.|$)|docs\/agents\/|docs\/codex-review-protocol\.md$|scripts\/(?:pr-batch|check-github-action|check-codex|pr-policy|guard-push|sync.*pr))/i.test(
       path,
     ) ||
-    /(?:^|\/)(?:[^/]*(?:auth|permission|security-policy|credential|secret)[^/]*|\.npmrc|\.netrc|\.gitmodules|[^/]*\.(?:pem|key|p12|pfx|keystore))$/i.test(
-      path,
+    segments.some((segment) =>
+      /^(?:[^/]*(?:auth|permission|security|credential|secret)[^/]*|\.npmrc|\.netrc|\.gitmodules|[^/]*\.(?:pem|key|p12|pfx|keystore))$/i.test(
+        segment,
+      ),
     ) ||
     /^src\/lib\/(?:env|client-env|security-headers)\./i.test(path)
   );

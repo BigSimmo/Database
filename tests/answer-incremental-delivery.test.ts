@@ -21,7 +21,7 @@ import {
   isDeliverableVerifiedUnit,
   type VerifiedEvidencePreviewUnit,
 } from "../src/lib/answer-stream-contract";
-import type { SearchResult } from "../src/lib/types";
+import type { DocumentLabel, SearchResult } from "../src/lib/types";
 
 function makeSource(overrides: Partial<SearchResult> = {}): SearchResult {
   return {
@@ -75,6 +75,48 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
   it("accepts well-formed evidence and section previews", () => {
     expect(isDeliverableVerifiedUnit(previewUnit())).toBe(true);
     expect(isDeliverableVerifiedUnit(sectionUnit(), 1)).toBe(true);
+  });
+
+  it.each([
+    ["source_conflict", "Current sources differ; review both."],
+    ["source_gap", "Monitoring frequency is not covered by the active sources."],
+  ] as const)("P12B Task4 accepts the canonical %s section kind", (kind, body) => {
+    expect(
+      isDeliverableVerifiedUnit(
+        {
+          ...sectionUnit(),
+          section: {
+            ...sectionUnit().section,
+            kind,
+            body,
+            supportLevel: kind === "source_gap" ? "unsupported" : "direct",
+          },
+          supportLevel: kind === "source_gap" ? "unsupported" : "direct",
+        },
+        1,
+      ),
+    ).toBe(true);
+  });
+
+  it("P12B Task4 applies strict canonical keys and shared adaptive section bounds", () => {
+    expect(
+      isDeliverableVerifiedUnit({
+        ...sectionUnit(),
+        section: { ...sectionUnit().section, body: "x".repeat(2401) },
+      }),
+    ).toBe(false);
+    expect(
+      isDeliverableVerifiedUnit({
+        ...sectionUnit(),
+        section: { ...sectionUnit().section, heading: "h".repeat(49) },
+      }),
+    ).toBe(false);
+    expect(
+      isDeliverableVerifiedUnit({
+        ...sectionUnit(),
+        section: { ...sectionUnit().section, privateEvidence: "must not cross the stream" },
+      }),
+    ).toBe(false);
   });
 
   it("rejects unknown schema versions and kinds", () => {
@@ -134,7 +176,12 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
     expect(
       isDeliverableVerifiedUnit({
         ...previewUnit(),
-        sources: [trimSourceForClient(makeSource({ similarity_origin: "made_up_origin" as never }))],
+        sources: [
+          {
+            ...trimSourceForClient(makeSource()),
+            similarity_origin: "made_up_origin",
+          },
+        ],
       }),
     ).toBe(false);
   });
@@ -154,6 +201,58 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
     ).toBe(false);
   });
 
+  it("rejects nested source and citation fields outside the recursive client allowlist", () => {
+    const source = previewUnit().sources[0];
+    expect(
+      isDeliverableVerifiedUnit({
+        ...previewUnit(),
+        sources: [
+          {
+            ...source,
+            source_metadata: {
+              document_status: "current",
+              uploaded_by: "private-uploader-id",
+              clinical_validation_evidence: { reviewer_id: "private-reviewer-id" },
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isDeliverableVerifiedUnit(
+        {
+          ...sectionUnit(),
+          citations: [
+            {
+              ...sectionUnit().citations[0],
+              source_metadata: { document_status: "current", content_hash: "a".repeat(64) },
+            },
+          ],
+        },
+        1,
+      ),
+    ).toBe(false);
+    expect(
+      isDeliverableVerifiedUnit({
+        ...previewUnit(),
+        sources: [
+          {
+            ...source,
+            document_labels: [
+              {
+                label: "clozapine",
+                label_type: "medication",
+                source: "manual",
+                confidence: 0.9,
+                owner_id: "private-owner-id",
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
   it("rejects malformed answer sections, citations, and support levels", () => {
     const valid = sectionUnit();
     expect(isDeliverableVerifiedUnit({ ...valid, section: { heading: "Monitoring", content: "wrong field" } }, 1)).toBe(
@@ -169,15 +268,15 @@ describe("verified-unit stream contract (#100 Phase 0)", () => {
   it("rejects unbounded payloads", () => {
     const oversized = {
       ...previewUnit(),
-      sources: Array.from({ length: 12 }, (_, index) =>
-        trimSourceForClient(
+      sources: Array.from({ length: 12 }, (_, index) => ({
+        ...trimSourceForClient(
           makeSource({
             id: `chunk-${index}`,
             content: "x".repeat(900),
-            match_explanation: { reasons: ["y".repeat(5_000)] },
           }),
         ),
-      ),
+        section_path: Array.from({ length: 16 }, () => "y".repeat(400)),
+      })),
       selectedContextCount: 12,
     };
     expect(isDeliverableVerifiedUnit(oversized)).toBe(false);
@@ -291,13 +390,19 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
     expect(source.memory_cards).toBeUndefined();
     expect(source.table_facts).toBeUndefined();
     expect(source.document_summary).toBeUndefined();
-    expect(source.images).toEqual([]);
+    expect(source.images).toBeUndefined();
   });
 
   it("is byte-identical to the final payload's trim of the same sources", () => {
     const results = [makeSource(), makeSource({ id: "chunk-2", content: "y".repeat(2000) })];
     const unit = buildEvidencePreviewUnit({ results });
-    const finalPayload = toClientAnswerPayload({ sources: results });
+    const finalPayload = toClientAnswerPayload({
+      answer: "Source preview fixture.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: results,
+    });
     expect(JSON.stringify(unit!.sources)).toBe(JSON.stringify(finalPayload.sources));
   });
 
@@ -315,7 +420,22 @@ describe("evidence preview builder (#100 Phase 1 server gate)", () => {
     // and the wait showed no sources at all, on exactly the strong-route answers where the
     // wait is longest. Fast routine answers select four passages and never hit it, which is
     // why the browser proof (small synthetic sources) stayed green throughout.
-    const results = Array.from({ length: 12 }, (_, index) => makeProductionSizedSource(index));
+    const results = Array.from({ length: 12 }, (_, index): SearchResult => {
+      const source = makeProductionSizedSource(index);
+      return {
+        ...source,
+        // Only public allowlisted fields count toward the wire-size budget. Server
+        // ranking diagnostics and private metadata are deliberately projected out.
+        document_labels: Array.from({ length: 8 }, (_, labelIndex): DocumentLabel => ({
+          id: `lbl-${index}-${labelIndex}`,
+          document_id: source.document_id,
+          label: `Clinical topic ${labelIndex}: ${"monitoring context ".repeat(14)}`,
+          label_type: "topic",
+          source: "manual",
+          confidence: 1,
+        })),
+      };
+    });
     const oversized = JSON.stringify({
       schemaVersion: 1,
       kind: "evidence_preview",

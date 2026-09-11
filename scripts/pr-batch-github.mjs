@@ -1,4 +1,5 @@
 import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -19,6 +20,8 @@ export const CONTROL_FILES = [
   "scripts/pr-batch-policy.mjs",
   "scripts/pr-policy.mjs",
   ".github/workflows/pr-batch-runner.yml",
+  ".github/workflows/pr-batch-review-wake.yml",
+  ".github/workflows/codex-autofix-review-comments.yml",
   ".github/workflows/codex-run-pr-operator.yml",
   ".github/codex/prompts/run-pr-operator.md",
   ".github/codex/run-pr-result.schema.json",
@@ -35,14 +38,52 @@ const failures = new Set(["failure", "timed_out", "cancelled", "action_required"
 const internal = /^(?:PR batch runner|PR batch review wake|Codex Run PR operator|Codex auto-resolve review comments)$/;
 const provider =
   /^(?:eval-canary|authenticated-live-tests|live-drift|staging-tenancy|ingestion-autopilot|reindex-reaper|live-domain-monitor|live-web-vitals)\.yml$/;
+const stateAuthenticationDomain = "pr-batch-state:v1";
+
+function signingKey(value) {
+  if (typeof value !== "string" || Buffer.byteLength(value, "utf8") < 32)
+    throw new Error("PR batch state signing key is missing or too short");
+  return value;
+}
+
+export function stateAuthentication(state, key, repo) {
+  const stateDigest = digest(state);
+  const signature = createHmac("sha256", signingKey(key))
+    .update(`${stateAuthenticationDomain}\n${repo.owner}/${repo.repo}\n${STATE_BRANCH}\n${stateDigest}`)
+    .digest("hex");
+  return { version: 1, algorithm: "hmac-sha256", stateDigest, signature };
+}
+
+function authenticateState(state, authentication, key, repo) {
+  const expected = stateAuthentication(state, key, repo);
+  if (
+    authentication?.version !== expected.version ||
+    authentication.algorithm !== expected.algorithm ||
+    authentication.stateDigest !== expected.stateDigest ||
+    !/^[a-f0-9]{64}$/u.test(authentication.signature ?? "") ||
+    !timingSafeEqual(Buffer.from(authentication.signature, "hex"), Buffer.from(expected.signature, "hex"))
+  )
+    throw new Error("PR batch state authentication failed");
+}
 
 export class GitHubBatch {
-  constructor(github, { owner, repo, runId, actor, now = () => new Date().toISOString() }) {
+  constructor(
+    github,
+    {
+      owner,
+      repo,
+      runId,
+      actor,
+      now = () => new Date().toISOString(),
+      stateSigningKey = process.env.PR_BATCH_STATE_SIGNING_KEY,
+    },
+  ) {
     this.gh = github;
     this.repo = { owner, repo };
     this.runId = Number(runId);
     this.actor = actor;
     this.now = now;
+    this.stateSigningKey = stateSigningKey;
     this.canaryCache = new Map();
     this.activeWorkers = null;
   }
@@ -78,9 +119,15 @@ export class GitHubBatch {
     if (tree.truncated || tree.tree.some((item) => item.type === "blob" && !item.path.endsWith(".json")))
       throw new Error("Unsafe state branch tree");
     const entry = tree.tree.find((item) => item.path === "state.json" && item.type === "blob");
-    if (!entry) throw new Error("Missing state.json on existing state branch");
-    const blob = (await this.gh.rest.git.getBlob({ ...this.repo, file_sha: entry.sha })).data;
-    const state = validateState(JSON.parse(Buffer.from(blob.content, "base64").toString("utf8")));
+    const authenticationEntry = tree.tree.find((item) => item.path === "state-auth.json" && item.type === "blob");
+    if (!entry || !authenticationEntry) throw new Error("Missing authenticated state on existing state branch");
+    const [blob, authenticationBlob] = await Promise.all([
+      this.gh.rest.git.getBlob({ ...this.repo, file_sha: entry.sha }),
+      this.gh.rest.git.getBlob({ ...this.repo, file_sha: authenticationEntry.sha }),
+    ]);
+    const state = validateState(JSON.parse(Buffer.from(blob.data.content, "base64").toString("utf8")));
+    const authentication = JSON.parse(Buffer.from(authenticationBlob.data.content, "base64").toString("utf8"));
+    authenticateState(state, authentication, this.stateSigningKey, this.repo);
     return {
       sha: ref.object.sha,
       tree: commit.tree.sha,
@@ -95,7 +142,15 @@ export class GitHubBatch {
     if (previous.state?.manifest.id === state.manifest.id && previous.state.manifestDigest !== state.manifestDigest)
       throw new Error("Immutable manifest changed");
     const content = (value) => `${JSON.stringify(value, null, 2)}\n`;
-    const entries = [{ path: "state.json", mode: "100644", type: "blob", content: content(state) }];
+    const entries = [
+      { path: "state.json", mode: "100644", type: "blob", content: content(state) },
+      {
+        path: "state-auth.json",
+        mode: "100644",
+        type: "blob",
+        content: content(stateAuthentication(state, this.stateSigningKey, this.repo)),
+      },
+    ];
     if (previous.state?.manifest.id !== state.manifest.id)
       entries.push({
         path: `manifests/${state.manifest.id}.json`,

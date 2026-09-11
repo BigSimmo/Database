@@ -37,14 +37,14 @@
  *
  * PROVENANCE
  * ----------
- * Only `sha256`, `bytes` and `passwordProtected` are derived. `code`, `localPath`,
- * `officialPdfUrl`, the entry order, and the top-level `generatedAt` /
- * `sourceRegisterUrl` are carried over verbatim from the committed manifest. This script
- * is fully offline and must never fetch anything: it cannot know a form's official
- * publisher URL, so a PDF on disk with no existing manifest entry is a hard error rather
- * than an invention. `--check` likewise fails on any disagreement instead of
- * auto-correcting — the manifest also carries the sha256 provenance record, and silently
- * rewriting it would erase the evidence that the file on disk changed.
+ * Only `sha256`, `bytes`, `passwordProtected` and `editingRestricted` are derived.
+ * `code`, `localPath`, `officialPdfUrl`, the entry order, and the top-level
+ * `generatedAt` / `sourceRegisterUrl` are carried over verbatim from the committed
+ * manifest. This script is fully offline and must never fetch anything: it cannot know a
+ * form's official publisher URL, so a PDF on disk with no existing manifest entry is a
+ * hard error rather than an invention. `--check` likewise fails on any disagreement
+ * instead of auto-correcting — the manifest also carries the sha256 provenance record,
+ * and silently rewriting it would erase the evidence that the file on disk changed.
  */
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -101,6 +101,49 @@ export async function derivePdfPasswordProtection(bytes, label) {
     // cannot leave pdf.js work pending and hang the process.
     await task.destroy().catch(() => {});
   }
+}
+
+/**
+ * Parse permissions integer from PDF bytes, looking for `/P\s+(-?\d+)` in the
+ * encryption dictionary.
+ *
+ * Returns the parsed integer, or `null` if no `/P` entry is present (unencrypted PDF).
+ */
+export function parsePdfPermissions(bytes) {
+  const text = Buffer.from(bytes).toString("latin1");
+  const match = text.match(/\/P\s+(-?\d+)/);
+  if (!match) return null;
+  return parseInt(match[1], 10);
+}
+
+/**
+ * Does this PDF restrict editing or modification?
+ *
+ * In PDF 1.7 Table 22 ("User access permissions"):
+ * - Bit 4 (bitmask 1 << 3 = 8): modify contents of the document
+ * - Bit 11 (bitmask 1 << 10 = 1024): assemble the document (insert/rotate/delete pages)
+ *
+ * In public/forms-pdf/*.pdf, 50 of 51 files carry `/P -1084` (0xFFFFFBC4) in their
+ * encryption dictionary; form-12a.pdf is the only one with no `/P`.
+ *
+ * Permissions integer is parsed from `/P\s+(-?\d+)`. If `/P` is negative, or restricts
+ * modify contents (bit 4 is 0), or assemble (bit 11 is 0), or `/P === -1084`,
+ * editing is restricted (`editingRestricted: true`). For files without `/P` (like
+ * form-12a.pdf), editing is permitted (`editingRestricted: false`).
+ */
+export function derivePdfPermissions(bytes) {
+  const permissions = parsePdfPermissions(bytes);
+  if (permissions === null) {
+    return { editingRestricted: false, permissions: null };
+  }
+  const bit4 = (permissions & (1 << 3)) !== 0;
+  const bit11 = (permissions & (1 << 10)) !== 0;
+  const editingRestricted = permissions === -1084 || permissions < 0 || !bit4 || !bit11;
+  return { editingRestricted, permissions };
+}
+
+export function derivePdfEditingRestricted(bytes) {
+  return derivePdfPermissions(bytes).editingRestricted;
 }
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -173,12 +216,13 @@ export async function buildManifest(existing) {
       failures.push(
         `Form ${asset.code}: cannot read ${asset.localPath} (${error instanceof Error ? error.message : String(error)}).`,
       );
-      assets.push({ ...asset, sha256: "", bytes: 0, passwordProtected: true });
+      assets.push({ ...asset, sha256: "", bytes: 0, passwordProtected: true, editingRestricted: true });
       continue;
     }
     const { passwordProtected, failure } = await derivePdfPasswordProtection(bytes, `Form ${asset.code}`);
     if (failure) failures.push(failure);
-    // Spread first, then override ONLY the three derived fields. Enumerating the
+    const { editingRestricted } = derivePdfPermissions(bytes);
+    // Spread first, then override ONLY the four derived fields. Enumerating the
     // known keys instead would silently drop any other field an asset carries, and
     // the drop would be invisible until it mattered: `--check` would report drift,
     // and the regeneration it tells the operator to run would erase the field for
@@ -190,6 +234,7 @@ export async function buildManifest(existing) {
       sha256: sha256(bytes),
       bytes: bytes.byteLength,
       passwordProtected,
+      editingRestricted,
     });
   }
 
@@ -211,6 +256,7 @@ async function run({ checkOnly }) {
   }
   const expected = serializeManifest(manifest);
   const protectedCount = manifest.assets.filter((asset) => asset.passwordProtected).length;
+  const restrictedCount = manifest.assets.filter((asset) => asset.editingRestricted).length;
 
   if (checkOnly) {
     if (expected !== currentText) {
@@ -221,7 +267,7 @@ async function run({ checkOnly }) {
       );
     }
     process.stdout.write(
-      `Forms PDF manifest is current (${manifest.assets.length} PDFs, ${protectedCount} require a user password).\n`,
+      `Forms PDF manifest is current (${manifest.assets.length} PDFs, ${protectedCount} require a user password, ${restrictedCount} editing-restricted).\n`,
     );
     return;
   }
@@ -229,7 +275,7 @@ async function run({ checkOnly }) {
   writeFileSync(manifestPath, expected);
   process.stdout.write(
     `Wrote ${manifest.assets.length} entries to data/forms-pdf-manifest.json ` +
-      `(${protectedCount} require a user password).\n`,
+      `(${protectedCount} require a user password, ${restrictedCount} editing-restricted).\n`,
   );
 }
 

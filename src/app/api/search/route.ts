@@ -489,7 +489,7 @@ function candidatePromotions(query: string, results: SearchResult[]) {
       document_id: label.document_id,
       confidence: label.confidence,
     }));
-  const rawTokens = queryDerivedTokensForStorage(Array.from(new Set(queryTerms)).slice(0, 10));
+  const rawTokens = queryDerivedTokensForStorage(Array.from(new Set(queryTerms)).slice(0, 10), query);
   return {
     // With raw retention off, fall back to curated clinical-vocabulary matches — output text
     // comes from the fixed vocabulary table, never the query, so it is RET-H4 safe and keeps

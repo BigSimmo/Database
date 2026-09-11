@@ -157,12 +157,26 @@ const requiredConcurrencyChecks = [
   "    concurrency:",
   "      group: pr-batch-mutation",
   "      cancel-in-progress: false",
-  "      queue: max",
 ];
 
 for (const requiredCheck of requiredConcurrencyChecks) {
   if (!workflow.includes(requiredCheck)) {
     failures.push(`Codex auto-resolve workflow is missing authorized job concurrency check: ${requiredCheck}`);
+  }
+}
+
+if (workflow.includes("queue: max")) {
+  failures.push("Codex auto-resolve workflow uses the unsupported concurrency key: queue");
+}
+
+for (const requiredCheck of [
+  "PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}",
+  "state-auth.json",
+  "createHmac('sha256', key)",
+  "timingSafeEqual",
+]) {
+  if (!workflow.includes(requiredCheck)) {
+    failures.push(`Codex auto-resolve workflow is missing authenticated batch state handling: ${requiredCheck}`);
   }
 }
 

@@ -45,7 +45,6 @@ jobs:
     concurrency:
       group: pr-batch-mutation
       cancel-in-progress: false
-      queue: max
     outputs:
       pr_number: ${{ steps.context.outputs.pr_number }}
       expected_head: ${{ steps.context.outputs.expected_head }}
@@ -78,6 +77,8 @@ jobs:
       - name: Validate target and collect bounded context
         id: context
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           script: |
@@ -706,7 +707,6 @@ jobs:
     concurrency:
       group: pr-batch-mutation
       cancel-in-progress: false
-      queue: max
     permissions:
       contents: read
     outputs:
@@ -788,6 +788,7 @@ jobs:
       - name: Verify ownership and journal the candidate before publication
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
+          PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}
           RESULT_SHA: ${{ steps.verify.outputs.result_sha }}
         with:
           github-token: ${{ secrets.GH_TOKEN }}
@@ -851,7 +852,6 @@ jobs:
     concurrency:
       group: pr-batch-mutation
       cancel-in-progress: false
-      queue: max
     permissions:
       contents: read
     steps:
@@ -870,6 +870,7 @@ jobs:
         if: inputs.batch_id != ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
+          PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}
           PUBLISHED_SHA: ${{ needs.publish.outputs.published_sha }}
           CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}
         with:
@@ -885,6 +886,8 @@ jobs:
       - name: Recheck standalone mutation ownership
         if: inputs.batch_id == ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           script: |

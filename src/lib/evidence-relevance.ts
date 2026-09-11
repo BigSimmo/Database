@@ -1,5 +1,11 @@
-import { hasDoseEvidenceSupport, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
+import {
+  hasDoseEvidenceSupport,
+  normalizedClinicalSearchTokens,
+  medicationDoseEvidenceQueryIntent,
+} from "@/lib/clinical-search";
 import { sourceTextForDisplay } from "@/lib/source-text-sanitizer";
+import { hasClinicalActionSignal, hasClinicalPopulationSignal } from "@/lib/rag/rag-clinical-language-signals";
+import { parseAnswerRequestContext } from "@/lib/answer-request-context";
 import type {
   DocumentMatch,
   EvidenceRelevance,
@@ -10,6 +16,7 @@ import type {
 } from "@/lib/types";
 
 const genericQueryTerms = new Set([
+  "and",
   "answer",
   "available",
   "because",
@@ -101,9 +108,32 @@ function normalizeTerm(term: string) {
   return cleaned;
 }
 
+// Only this interrogative scaffold becomes a semantic cadence requirement.
+const monitoringFrequencyQuestion =
+  /\bHow often (?:is|are) ([^?.]+?) (?:checked|monitored|measured|reviewed)(?=[?.]|$|\s+(?:in|for|with|without|among)\b)/i;
+const physiologicalMeasurementNouns = ["blood pressure", "renal function", "thyroid function"];
+const monitoringMeasurementPattern = new RegExp(
+  `\\b(?:levels?|concentrations?|${physiologicalMeasurementNouns.join("|")})\\b`,
+  "i",
+);
+
 export function queryCoreTerms(query: string) {
-  const normalized = normalizedClinicalSearchTokens(query).map(normalizeTerm).filter(Boolean);
-  const raw = (query.toLowerCase().match(/[a-z0-9]+/g) ?? []).map(normalizeTerm).filter(Boolean);
+  const context = parseAnswerRequestContext(query);
+  const request = context
+    ? [
+        context.subject,
+        ...context.constraints,
+        context.latestRequest.replace(/^(?:please\s+)?elaborate[.!?]*$/i, ""),
+      ].join(" ")
+    : query;
+  // Planner wording is not an evidence requirement. Keep the facet after the
+  // exact scaffold, and keep clinical uses of "focus" and "apply" elsewhere.
+  const semanticQuery = request
+    .replace(/\bFocus on the requested\s+/g, "")
+    .replace(/\b(What|Which)\b([^?.]*?)\bappl(?:y|ies) to\b/gi, "$1$2for")
+    .replace(monitoringFrequencyQuestion, "$1 frequency");
+  const normalized = normalizedClinicalSearchTokens(semanticQuery).map(normalizeTerm).filter(Boolean);
+  const raw = (semanticQuery.toLowerCase().match(/[a-z0-9]+/g) ?? []).map(normalizeTerm).filter(Boolean);
   const candidates = uniq([...normalized, ...raw], 14);
   const specific = candidates.filter((term) => term.length >= 3 && !genericQueryTerms.has(term));
   return specific.length ? specific.slice(0, 10) : candidates.filter((term) => term.length >= 3).slice(0, 10);
@@ -119,6 +149,195 @@ function normalizeSearchText(value: string) {
   return sourceTextForDisplay(value)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ");
+}
+
+const coordinatedSupportNounPattern = /^\s+(?:needs?|requirements?)\b/i;
+
+function hasCoordinatedClinicalPredicate(value: string) {
+  const match = value.match(/^\s*(?:(?:also|please|should|must|may|can|will|be)\s+){0,3}([a-z]+)\b(.*)$/i);
+  const head = match?.[1];
+  if (!head) return false;
+  if (head.toLowerCase() === "support" && coordinatedSupportNounPattern.test(match?.[2] ?? "")) return false;
+  return hasClinicalActionSignal(head);
+}
+
+function boundMonitoringCadencePredicates(text: string, requestedSubject?: string) {
+  // Classify cadence attachment only; source authority and clinical support are separate gates.
+  // Require recurrence, not a baseline, deadline or course duration. Context such
+  // as "during daily treatment" cannot lend its cadence to the monitoring action.
+  const clauses = text.split(
+    /[.!?;]|\b(?:but|while|during|before|after|until|when|with|without|alongside|throughout|using|as|for)\b/i,
+  );
+  const action =
+    /\b(?:monitor(?:ed|s|ing)?|check(?:ed|s|ing)?|measur(?:e|ed|es|ing)|review(?:ed|s|ing)?|follow[- ]?up|blood tests?)\b/gi;
+  const cadence =
+    /\b(?:every\s+(?:(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+)?(?:hours?|days?|weeks?|months?|years?)|(?:once|twice|three times)\s+(?:a|per|each)\s+(?:hour|day|week|month|year)|(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[ -](?:hour|day|week|month|year)(?:ly)?\s+intervals|hourly|daily|weekly|fortnightly|monthly|quarterly|annual(?:ly)?|yearly)\b/gi;
+  const otherAction =
+    /\b(?:start\w*|commenc\w*|continu\w*|tak(?:e|es|en|ing)|giv(?:e|es|en|ing)|administer\w*|prescrib\w*|receiv\w*|treat(?:s|ed|ing)?|dos(?:e|es|ing))\b|\band\b[^,;]*\b(?:treatment|therapy|regimen)\b/i;
+  const predicates: Array<{ text: string; populationText: string; subjectText: string; contextText: string }> = [];
+  const requestedNoun = requestedSubject ? normalizeSearchText(requestedSubject).trim() : null;
+  const isMeasurementNoun = (value: string) => {
+    const noun = normalizeSearchText(value).trim();
+    if (noun === requestedNoun || physiologicalMeasurementNouns.includes(noun)) return true;
+    const medicationMeasurement = noun.match(/^([a-z]+) (?:levels?|concentrations?)$/);
+    return Boolean(medicationMeasurement && namedMedicationTerms.has(medicationMeasurement[1]));
+  };
+  const beforeNextPredicate = (value: string) => {
+    for (const conjunction of value.matchAll(/\b(?:and|or|then)\b/gi)) {
+      if (hasCoordinatedClinicalPredicate(value.slice(conjunction.index + conjunction[0].length)))
+        return value.slice(0, conjunction.index);
+    }
+    return value;
+  };
+  const addPredicate = (text: string, object: string, subjectText = text, contextText = text) => {
+    // The shared population vocabulary includes renal/hepatic. A plain function
+    // measurement in this action's object list is not a patient restriction.
+    // Qualifying words (e.g. impairment), prepositions and other predicates stay.
+    const populationObject = object.replace(
+      /(^|\b(?:and|or)\b)\s*(?:renal|hepatic) function\s*(?=\b(?:and|or)\b|$)/gi,
+      "$1 ",
+    );
+    predicates.push({ text, populationText: text.replace(object, populationObject), subjectText, contextText });
+  };
+  for (const clause of clauses) {
+    for (const schedule of clause.matchAll(cadence)) {
+      const before = clause.slice(0, schedule.index);
+      const after = clause.slice(schedule.index + schedule[0].length);
+      const monitoring = [...before.matchAll(action)].at(-1);
+      // A trailing adverb/interval modifies the monitoring predicate only if no
+      // intervening action, context preposition or comma makes attachment unclear.
+      if (monitoring) {
+        const object = before.slice(monitoring.index + monitoring[0].length).replace(/\bon\s+(?:an?\s+)?$/i, "");
+        // Consult the shared vocabulary only at a coordinated predicate head.
+        // Scanning whole objects would mistake "medication use" or "family
+        // support" for separate actions. An action following "and also" still
+        // owns its own cadence; ordinary coordinated monitored nouns do not.
+        const competingPredicate = object
+          .split(/\b(?:and|or|then)\b/i)
+          .slice(1)
+          .some(hasCoordinatedClinicalPredicate);
+        if (
+          !/[,;]|\b(?:on|to)\b/i.test(object) &&
+          !otherAction.test(object) &&
+          !competingPredicate &&
+          /^\s*(?:basis|intervals)?\s*(?:(?:and|then)\b|$)/i.test(after)
+        ) {
+          // Bind the interval to its own predicate and objects. Earlier actions
+          // in this sentence cannot supply this predicate's requested subject.
+          const passive = /\b(?:(?:has|have|had)\s+)?(?:(?:is|are|was|were|be|been|being)\s*)+$/i.exec(
+            before.slice(0, monitoring.index),
+          );
+          let start = monitoring.index;
+          let passiveSubject: string | undefined;
+          if (passive) {
+            const prefix = before.slice(0, passive.index);
+            const joins = [...prefix.matchAll(/\b(?:and|or|then)\b/gi)];
+            start = passive.index;
+            passiveSubject = "";
+            // Extend only across a contiguous suffix of demonstrated measurement
+            // nouns. Unknown/descriptive conjuncts stop the subject, even when
+            // an earlier conjunct contains the requested medicine/measurement.
+            for (let index = joins.length; index >= 0; index -= 1) {
+              const previousJoin = joins[index - 1];
+              const nextJoin = joins[index];
+              const nounStart = previousJoin ? previousJoin.index + previousJoin[0].length : 0;
+              const nounEnd = nextJoin?.index ?? prefix.length;
+              if (!isMeasurementNoun(prefix.slice(nounStart, nounEnd))) break;
+              start = nounStart;
+              passiveSubject = prefix.slice(start).trim();
+            }
+          }
+          // Context between this action and its interval belongs to this
+          // monitoring predicate; later predicates cannot supply its qualifiers.
+          addPredicate(beforeNextPredicate(clause.slice(start)), passiveSubject ?? object, passiveSubject, object);
+        }
+      }
+      // Also retain an explicit preposed schedule: "Monthly monitoring ..." or
+      // "Every three months, monitor ...". It must introduce the action itself.
+      if (
+        !before.trim() &&
+        /^\s*,?\s*(?:monitor(?:ed|s|ing)?|check(?:ed|s|ing)?|review(?:ed|s|ing)?|follow[- ]?up|blood tests?)\b/i.test(
+          after,
+        )
+      ) {
+        const predicate = beforeNextPredicate(after);
+        const monitoring = [...predicate.matchAll(action)][0]!;
+        addPredicate(predicate, predicate.slice(monitoring.index + monitoring[0].length));
+      }
+    }
+  }
+  return predicates;
+}
+
+export function hasBoundMonitoringCadence(text: string) {
+  return boundMonitoringCadencePredicates(text).length > 0;
+}
+
+export function isBoundMonitoringFrequencyQuestion(query: string) {
+  const match = query
+    .trim()
+    .match(
+      /^How often (?:is|are) ([^?.]+?) (?:checked|monitored|measured|reviewed)(?:\s+(?:in|for|with|without|among)\b[^?.]*)?[?.]?$/i,
+    );
+  const doseIntent = medicationDoseEvidenceQueryIntent(query);
+  return Boolean(
+    match &&
+    monitoringMeasurementPattern.test(match[1]) &&
+    !doseIntent.asksAmount &&
+    !doseIntent.asksRoute &&
+    !/\b(?:doses?|dosing|administer\w*|prescrib\w*|increas\w*)\b/i.test(query),
+  );
+}
+
+/** Predicate-local measurement, subject and cadence binding; authority is checked separately. */
+export function requestedMonitoringCadence(query: string, prose: string) {
+  const requestedSubject = query.match(monitoringFrequencyQuestion)?.[1];
+  if (!requestedSubject) return false;
+  const subjectTerms = queryCoreTerms(requestedSubject);
+  const contextTerms = queryCoreTerms(query).filter((term) => term !== "frequency" && !subjectTerms.includes(term));
+  // Do not borrow a neighbouring measurement or population's interval.
+  const queryTokens = new Set(normalizedClinicalSearchTokens(query));
+  const sourceConstraintsMatch = (sentence: string) => {
+    const constraint = sentence.match(
+      /\b(?:with|without|in|among|during|before|after|aged|for|only|unless|if|when)\b(.+?)(?=\bevery\b|$)/i,
+    )?.[0];
+    return !constraint || normalizedClinicalSearchTokens(constraint).every((term) => queryTokens.has(term));
+  };
+  return prose.split(/[.!?;]/).some((sentence) =>
+    boundMonitoringCadencePredicates(sentence, requestedSubject).some(
+      (predicate) =>
+        subjectTerms.every((term) => textIncludesTerm(normalizeSearchText(predicate.subjectText), term)) &&
+        contextTerms.every((term) => textIncludesTerm(normalizeSearchText(predicate.contextText), term)) &&
+        sourceConstraintsMatch(sentence) &&
+        normalizedClinicalSearchTokens(sentence.replace(predicate.text, predicate.populationText))
+          .filter(hasClinicalPopulationSignal)
+          .every((term) => queryTokens.has(term)) &&
+        ["not", "never", "without"].every(
+          (term) => !new RegExp(`\\b${term}\\b`, "i").test(sentence) || queryTokens.has(term),
+        ),
+    ),
+  );
+}
+
+/** Content-only completeness signal for already verified delivered prose; never source or clinical support. */
+export function deliveredProseRelevance(query: string, prose: string) {
+  const coreTerms = queryCoreTerms(query);
+  const normalized = normalizeSearchText(prose);
+  const matchedTerms = coreTerms.filter((term) =>
+    term === "frequency" && monitoringFrequencyQuestion.test(query)
+      ? requestedMonitoringCadence(query, prose)
+      : textIncludesTerm(normalized, term),
+  );
+  const missingTerms = coreTerms.filter((term) => !matchedTerms.includes(term));
+  return {
+    coreTerms,
+    matchedTerms,
+    missingTerms,
+    direct:
+      coreTerms.length > 0 &&
+      matchedTerms.length / coreTerms.length >= 0.72 &&
+      matchedTerms.length >= Math.min(2, Math.max(1, coreTerms.length)),
+  };
 }
 
 function labelsText(labels?: Array<{ label?: string | null; label_type?: string | null }>) {
@@ -247,13 +466,53 @@ function relevanceChips(relevance: Pick<SourceEvidenceRelevance, "verdict" | "ma
   return chips.slice(0, 4);
 }
 
+function hasStructuredThresholdComparisonInput(query: string, source: SearchResult, coreTerms: readonly string[]) {
+  if (!/^\s*(?:compare|reconcile)\b/i.test(query) || !/\bthresholds?\b/i.test(query)) return false;
+  const comparisonIntent = new Set(["compare", "comparison", "reconcile", "implication"]);
+  const factualTerms = coreTerms.filter((term) => !comparisonIntent.has(term));
+  if (!factualTerms.length) return false;
+  const constraint = query.match(
+    /\b(?:before|after|until|unless|if|when|without|not|only|with|in|among)\b[^?.]*/i,
+  )?.[0];
+  return (source.table_facts ?? []).some((fact) => {
+    if (
+      fact.document_id !== source.document_id ||
+      fact.source_chunk_id !== source.id ||
+      !fact.clinical_parameter?.trim() ||
+      !/\d/.test(fact.threshold_value ?? "") ||
+      !fact.action?.trim() ||
+      !hasClinicalActionSignal(fact.action)
+    )
+      return false;
+    const parameterTerms = normalizedClinicalSearchTokens(fact.clinical_parameter).map(normalizeTerm);
+    if (!parameterTerms.length || !parameterTerms.every((term) => coreTerms.includes(term))) return false;
+    // Only the matching, identity-bound fact can supply the requested factual
+    // comparison inputs. Other rows cannot lend a parameter, threshold or action.
+    const factText = normalizeSearchText(
+      [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action].join(" "),
+    );
+    if (!factualTerms.every((term) => textIncludesTerm(factText, term))) return false;
+    return !constraint || factText.includes(normalizeSearchText(constraint).trim());
+  });
+}
+
 export function buildSourceRelevance(query: string, source: SearchResult): SourceEvidenceRelevance {
   const coreTerms = queryCoreTerms(query);
   const medicationTerms = coreTerms.filter((term) => namedMedicationTerms.has(term));
   const blocks = sourceTextBlocks(source);
-  const titleMatchedTerms = coreTerms.filter((term) => textIncludesTerm(blocks.title, term));
-  const contentMatchedTerms = coreTerms.filter((term) => textIncludesTerm(blocks.content, term));
-  const metadataMatchedTerms = coreTerms.filter((term) => textIncludesTerm(blocks.metadata, term));
+  const titleMatchedTerms = coreTerms.filter(
+    (term) =>
+      !(term === "frequency" && monitoringFrequencyQuestion.test(query)) && textIncludesTerm(blocks.title, term),
+  );
+  const contentMatchedTerms = coreTerms.filter((term) =>
+    term === "frequency" && monitoringFrequencyQuestion.test(query)
+      ? requestedMonitoringCadence(query, source.content)
+      : textIncludesTerm(blocks.content, term),
+  );
+  const metadataMatchedTerms = coreTerms.filter(
+    (term) =>
+      !(term === "frequency" && monitoringFrequencyQuestion.test(query)) && textIncludesTerm(blocks.metadata, term),
+  );
   const matchedTerms = uniq([...contentMatchedTerms, ...titleMatchedTerms, ...metadataMatchedTerms], 10);
   const missingTerms = coreTerms.filter((term) => !matchedTerms.includes(term));
   const coverageScore = coreTerms.length ? matchedTerms.length / coreTerms.length : 0;
@@ -263,7 +522,7 @@ export function buildSourceRelevance(query: string, source: SearchResult): Sourc
     /\b(?:dose|dosing|dosage|mg|mcg|microgram|route|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|titrate|titration|maximum)\b/i.test(
       query,
     );
-  const verdict = directnessVerdict({
+  const lexicalVerdict = directnessVerdict({
     coreTerms,
     medicationTerms,
     matchedTerms,
@@ -274,6 +533,13 @@ export function buildSourceRelevance(query: string, source: SearchResult): Sourc
     doseQuery,
     hasDoseEvidence: hasDoseEvidenceSupport(source),
   });
+  // Preserve the missing comparison/reconciliation/implication intent. This
+  // admits factual inputs as partial; it cannot establish a complete answer.
+  const verdict =
+    (lexicalVerdict === "nearby" || lexicalVerdict === "none") &&
+    hasStructuredThresholdComparisonInput(query, source, coreTerms)
+      ? "partial"
+      : lexicalVerdict;
   const score = clamp(
     coverageScore * 0.52 + contentCoverage * 0.23 + rankScore * 0.2 + sourceStrengthBonus(source.source_strength),
   );

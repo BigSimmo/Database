@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
+import type { RagFallbackReasonCode } from "@/lib/types";
 
 export type RagProviderMode = "auto" | "openai" | "offline";
 
@@ -45,7 +46,7 @@ export type ProviderFailureKind =
 /**
  * Classify why an OpenAI call failed, for telemetry and user-facing fallback messaging.
  * Works on both raw provider errors and the PublicApiError produced by mapOpenAIError.
- * Never returns provider internals — only a stable, coarse kind.
+ * Never returns provider internals â€” only a stable, coarse kind.
  */
 export function classifyProviderFailure(error: unknown): ProviderFailureKind {
   const status =
@@ -63,12 +64,39 @@ export function classifyProviderFailure(error: unknown): ProviderFailureKind {
   const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
 
   if (code === "insufficient_quota" || /quota|billing/.test(message)) return "quota_exhausted";
-  if (status === 401 || status === 403 || /authentication|unauthori[sz]ed|api key/.test(message)) {
+  if (
+    code === "openai_invalid_api_key" ||
+    code === "openai_access_denied" ||
+    status === 401 ||
+    status === 403 ||
+    /authentication|unauthori[sz]ed|api key/.test(message)
+  ) {
     return "auth_failed";
   }
   if (code === "rate_limit_exceeded" || (status === 429 && /rate limit/.test(message))) return "rate_limited";
-  if (status === 408 || status === 504 || /timed out|timeout|aborted/.test(message)) return "timeout";
+  if (
+    code === "openai_timeout" ||
+    code === "ETIMEDOUT" ||
+    status === 408 ||
+    status === 504 ||
+    /timed out|timeout|aborted/.test(message)
+  )
+    return "timeout";
   return "provider_failed";
+}
+
+const providerFallbackCodes: Record<ProviderFailureKind, RagFallbackReasonCode> = {
+  missing_key: "provider_missing_key",
+  auth_failed: "provider_auth",
+  quota_exhausted: "provider_quota",
+  rate_limited: "provider_rate_limit",
+  timeout: "provider_timeout",
+  provider_failed: "provider_failure",
+};
+
+export function providerFallbackReasonCode(error?: unknown): RagFallbackReasonCode {
+  if (error !== undefined) return providerFallbackCodes[classifyProviderFailure(error)];
+  return ragProviderMode() === "offline" ? "provider_offline" : "provider_missing_key";
 }
 
 /**
@@ -85,3 +113,103 @@ export function sourceOnlyReason(error?: unknown): string {
 
 /** Telemetry skip reason set on retrieval when embeddings are bypassed for provider reasons. */
 export const SOURCE_ONLY_EMBEDDING_SKIP_REASON = "provider_source_only";
+
+/** One existing answer attempt, with request-local observations; this helper never retries. */
+export function createObservedAnswerGenerator<T>(args: {
+  generate: typeof import("@/lib/openai").generateStructuredTextResult;
+  buildInput: (context: T) => string;
+  schemaFor: (context: T) => Parameters<typeof import("@/lib/openai").generateStructuredTextResult>[1];
+  deadline: import("@/lib/rag/rag-route-budget").AnswerRouteDeadline;
+  callerSignal?: AbortSignal;
+  recorder: import("@/lib/rag/rag-generation-degradation").GenerationDegradationRecorder;
+  contextObservation: (
+    context: T,
+  ) => Pick<
+    import("@/lib/rag/rag-generation-degradation").GenerationAttempt,
+    "retrievalHealthy" | "coverage" | "contextCount"
+  >;
+  instructions: string;
+  promptCacheKey: string;
+  safetyIdentifier?: string;
+  fastReasoningEffort: import("@/lib/openai").OpenAIReasoningEffort;
+  strongReasoningEffort: import("@/lib/openai").OpenAIReasoningEffort;
+  onResult: (result: import("@/lib/openai").OpenAITextResult) => void;
+  onLatency: (latencyMs: number) => void;
+}) {
+  return async (
+    model: string,
+    context: T,
+    options?: { strong?: boolean; qualityRetryInstruction?: string; maxOutputTokensOverride?: number },
+  ) => {
+    const input = options?.qualityRetryInstruction
+      ? `${args.buildInput(context)}\n\nQuality retry instruction:\n${options.qualityRetryInstruction}`
+      : args.buildInput(context);
+    const startedAt = Date.now();
+    let attempted = false;
+    try {
+      const timeoutMs = args.deadline.generationRequestTimeoutMs(env.OPENAI_ANSWER_TIMEOUT_MS);
+      if (args.recorder.enabled)
+        args.recorder.start({
+          ...args.contextObservation(context),
+          route: options?.strong ? "strong" : "fast",
+          timeoutMs,
+          outputBudget: options?.maxOutputTokensOverride ? "recovery" : "standard",
+        });
+      attempted = true;
+      const result = await args.deadline.race(
+        args.generate(input, args.schemaFor(context), {
+          model,
+          maxOutputTokens: options?.maxOutputTokensOverride ?? env.OPENAI_MAX_OUTPUT_TOKENS,
+          operation: "answer",
+          schemaName: "clinical_rag_answer",
+          instructions: args.instructions,
+          promptCacheKey: args.promptCacheKey,
+          timeoutMs,
+          maxRetries: 0,
+          reasoningEffort: options?.strong ? args.strongReasoningEffort : args.fastReasoningEffort,
+          signal: args.deadline.signal,
+          safetyIdentifier: args.safetyIdentifier,
+        }),
+      );
+      args.recorder.respond(
+        result,
+        Date.now() - startedAt,
+        result.truncated
+          ? result.incompleteReason === "max_output_tokens"
+            ? "incomplete_max_output_tokens"
+            : "incomplete_other"
+          : "completed",
+      );
+      args.onResult(result);
+      return result;
+    } catch (error) {
+      if (attempted)
+        args.recorder.fail(
+          classifyGenerationAttemptFailure(error, args.callerSignal, args.deadline.deadlineExceeded),
+          Date.now() - startedAt,
+        );
+      throw error;
+    } finally {
+      args.onLatency(Date.now() - startedAt);
+    }
+  };
+}
+
+/** Caller cancellation is provenance, never inferred from the coarse timeout message. */
+export function classifyGenerationAttemptFailure(
+  error: unknown,
+  callerSignal?: AbortSignal,
+  deadlineExceeded = false,
+): "caller_aborted" | "timeout" | "provider_failed" {
+  if (callerSignal?.aborted || (error instanceof DOMException && error.name === "AbortError" && !deadlineExceeded))
+    return "caller_aborted";
+  return classifyProviderFailure(error) === "timeout" || deadlineExceeded ? "timeout" : "provider_failed";
+}
+
+export function generationIncompleteReason(result: import("@/lib/openai").OpenAITextResult) {
+  return result.incompleteReason ?? (result.status === "incomplete" ? "incomplete" : "unknown");
+}
+export function generationRetryReason(prefix: string, result: import("@/lib/openai").OpenAITextResult) {
+  const reason = generationIncompleteReason(result);
+  return reason === "max_output_tokens" ? `${prefix}_max_output_tokens` : `${prefix}_incomplete_${reason}`;
+}

@@ -11,7 +11,14 @@ import { prBatchWorkflowFailures } from "../scripts/pr-batch-policy.mjs";
 const head = "a".repeat(40),
   base = "b".repeat(40),
   now = "2026-09-09T00:00:00Z";
-const repo = { owner: "BigSimmo", repo: "Database", actor: "BigSimmo", runId: 42, now: () => now };
+const repo = {
+  owner: "BigSimmo",
+  repo: "Database",
+  actor: "BigSimmo",
+  runId: 42,
+  now: () => now,
+  stateSigningKey: "test-only-state-signing-key-that-is-at-least-32-bytes",
+};
 function initial() {
   return createBatch({
     prs: [
@@ -108,10 +115,48 @@ describe("GitHub state and safety adapter", () => {
     expect(createCommit.mock.calls[0][0].parents).toEqual([]);
     expect(createTree.mock.calls[0][0].tree.map((item) => item.path)).toEqual([
       "state.json",
+      "state-auth.json",
       "manifests/batch-42.json",
       "events/batch-42/000001.json",
     ]);
     expect(createRef.mock.calls[0][0].ref).toBe("refs/heads/codex/pr-batch-state");
+  });
+  it("rejects state that is not authenticated by the trusted signing key", async () => {
+    const state = initial();
+    transition(state, now, "launched");
+    const getBlob = vi.fn(async ({ file_sha }: { file_sha: string }) => ({
+      data: {
+        content: Buffer.from(
+          JSON.stringify(
+            file_sha === "state"
+              ? state
+              : { version: 1, algorithm: "hmac-sha256", stateDigest: "0".repeat(64), signature: "0".repeat(64) },
+          ),
+        ).toString("base64"),
+      },
+    }));
+    const api = new GitHubBatch(
+      {
+        rest: {
+          git: {
+            getRef: async () => ({ data: { object: { sha: "commit" } } }),
+            getCommit: async () => ({ data: { tree: { sha: "tree" } } }),
+            getTree: async () => ({
+              data: {
+                truncated: false,
+                tree: [
+                  { path: "state.json", type: "blob", sha: "state" },
+                  { path: "state-auth.json", type: "blob", sha: "authentication" },
+                ],
+              },
+            }),
+            getBlob,
+          },
+        },
+      },
+      repo,
+    );
+    await expect(api.load()).rejects.toThrow("authentication failed");
   });
   it("uses a normal child commit and refuses competing state writers", async () => {
     const createTree = vi
@@ -173,7 +218,17 @@ describe("GitHub state and safety adapter", () => {
     const workflow = readFileSync(".github/workflows/pr-batch-runner.yml", "utf8");
     expect(workflow).not.toContain("pull_request_review:");
     expect(workflow).not.toContain("codex-action@");
+    expect(workflow).not.toContain("queue: max");
+    expect(workflow).toContain("PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}");
     expect(workflow).toContain("github.event.repository.default_branch");
+    for (const path of [
+      ".github/workflows/codex-run-pr-operator.yml",
+      ".github/workflows/codex-autofix-review-comments.yml",
+    ]) {
+      const integrated = readFileSync(path, "utf8");
+      expect(integrated).not.toContain("queue: max");
+      expect(integrated).toContain("PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}");
+    }
     const relay = readFileSync(".github/workflows/pr-batch-review-wake.yml", "utf8");
     expect(relay).not.toContain("secrets.");
     expect(relay).not.toContain("actions/checkout");

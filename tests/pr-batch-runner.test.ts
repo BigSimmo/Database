@@ -131,6 +131,8 @@ describe("PR batch decisions", () => {
     [{ labels: ["hold"] }, "opt-out"],
     [{ files: ["supabase/migrations/x.sql"] }, "protected-surface"],
     [{ files: [".github/workflows/ci.yml"] }, "protected-surface"],
+    [{ files: ["src/app/auth/callback/route.ts"] }, "protected-surface"],
+    [{ files: ["src/security/policy.ts"] }, "protected-surface"],
     [{ files: ["scripts/pr-batch-core.mjs"] }, "protected-surface"],
     [{ filesComplete: false }, "incomplete-file-evidence"],
     [{ files: ["src/lib/rag/rag.ts"] }, "rag-evidence-required"],

@@ -92,7 +92,8 @@ its existing maintenance-only authority.
 Procedure:
 
 1. Verify the Git remote is `BigSimmo/Database`, the authenticated human is
-   `BigSimmo`, and the trusted workflow is installed on `main`. Read current batch
+   `BigSimmo`, the `PR_BATCH_STATE_SIGNING_KEY` repository secret is configured,
+   and the trusted workflow is installed on `main`. Read current batch
    state from `codex/pr-batch-state` and `PR_BATCH_ENABLED`. A confirmed absent
    state branch means no prior batch; other read/authentication failures are
    errors, not an empty queue. Reuse authenticated tooling; never print credentials.
