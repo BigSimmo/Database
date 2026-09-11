@@ -241,7 +241,7 @@ export async function logAnswerDiagnostics(args: AnswerDiagnosticsArgs) {
       if (result.status === "rejected") throw result.reason;
       if (result.value.error) throw result.value.error;
     }
-  } catch (error) {
+  } catch {
     answerLogFailureCount += 1;
     if (answerLogFailureCount <= 3 || answerLogFailureCount % 25 === 0) {
       console.warn("RAG answer telemetry insert failed", {

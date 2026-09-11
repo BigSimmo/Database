@@ -162,7 +162,11 @@ describe("site-content synchronization worker", () => {
         ]),
     );
     const heartbeat = vi.fn(async () => true);
-    const stage = vi.fn(async (_syncPlan: SiteContentSyncPlan, _records: SiteContentSyncPlanItem[]) => true);
+    const stage = vi.fn(async (_syncPlan: SiteContentSyncPlan, _records: SiteContentSyncPlanItem[]) => {
+      void _syncPlan;
+      void _records;
+      return true;
+    });
     const fail = vi.fn(async () => true);
 
     const result = await runSiteContentSync(

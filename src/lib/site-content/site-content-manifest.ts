@@ -173,6 +173,8 @@ function publicationVersionFor(record: SiteContentPublicationProjection | SiteCo
     publicationVersion: _publicationVersion,
     ...projection
   } = record as SiteContentRecord;
+  void _contentHash;
+  void _publicationVersion;
   return siteContentValueHash(projection);
 }
 

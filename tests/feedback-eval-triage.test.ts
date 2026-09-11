@@ -402,6 +402,7 @@ describe("bounded action-specific read approval", () => {
 
   it("refuses changed projection approvals before configuration or client creation", async () => {
     const { planDigest: _digest, ...changed } = plan();
+    void _digest;
     changed.joins[0]!.projection += ",metadata";
     const dependencies = deps({
       ...receipt(),

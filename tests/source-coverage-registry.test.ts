@@ -226,7 +226,10 @@ describe("expected source coverage", () => {
   it("rejects duplicate identities, missing owners, bad case-document mappings, and active link-only sources", () => {
     const valid = {
       schemaVersion: 1,
-      records: expectedCoverageFixture().map(({ caseExpectations: _caseExpectations, ...record }) => record),
+      records: expectedCoverageFixture().map(({ caseExpectations: _caseExpectations, ...record }) => {
+        void _caseExpectations;
+        return record;
+      }),
     };
     const catalogue = australianSourceCatalogue.filter(({ key }) => key === "wa-health");
     const evaluationCases = [{ id: "must-pass-1", expectedDocuments: ["expected-doc"] }];
