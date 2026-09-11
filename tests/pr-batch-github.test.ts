@@ -90,7 +90,7 @@ describe("GitHub state and safety adapter", () => {
     } finally {
       if (!path.resolve(directory).startsWith(`${path.resolve(tmpdir())}${path.sep}`))
         throw new Error("Unsafe fixture cleanup path");
-      rmSync(directory, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true, maxRetries: 5 });
     }
   });
   it("writes orphan JSON state and records an immutable manifest/event", async () => {
