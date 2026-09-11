@@ -249,6 +249,118 @@ describe("source authority classification", () => {
   });
 
   it.each([
+    ["HealthyWA", "HEALTHYWA", "HealthyWA", "Australia/WA", "wa_validated", "healthywa"],
+    [
+      "Mental Health Commission WA",
+      "MHCWA",
+      "Mental Health Commission WA",
+      "Australia/WA",
+      "wa_validated",
+      "mental-health-commission-wa",
+    ],
+    [
+      "Australian Institute of Health and Welfare",
+      "AIHW",
+      "Australian Institute of Health and Welfare",
+      "Australia/National",
+      "australian_national",
+      "aihw",
+    ],
+    [
+      "Australian Medicines Handbook",
+      "AMH",
+      "Australian Medicines Handbook",
+      "Australia/National",
+      "australian_national",
+      "australian-medicines-handbook",
+    ],
+    [
+      "Australian Prescriber",
+      "AUSTPRESC",
+      "Australian Prescriber",
+      "Australia/National",
+      "australian_national",
+      "australian-prescriber",
+    ],
+    [
+      "Healthdirect Australia",
+      "HEALTHDIRECT",
+      "Healthdirect Australia",
+      "Australia/National",
+      "australian_national",
+      "healthdirect-australia",
+    ],
+    [
+      "Royal Australasian College of Physicians",
+      "RACP",
+      "Royal Australasian College of Physicians",
+      "Australia/National",
+      "australian_national",
+      "racp",
+    ],
+    [
+      "Therapeutic Guidelines",
+      "TG",
+      "Therapeutic Guidelines",
+      "Australia/National",
+      "australian_national",
+      "therapeutic-guidelines",
+    ],
+    ["Cochrane", "COCHRANE", "Cochrane", "International", "supplementary", "cochrane"],
+  ] as const)(
+    "classifies registered %s from code-backed metadata",
+    (label, publisherCode, publisher, jurisdiction, tier, authorityKey) => {
+      // This would fail if a publisher were removed, assigned the wrong tier, or associated with a
+      // different authority. The expected values are deliberately literal rather than derived from
+      // the registry under test.
+      expect(
+        classifySourceAuthority({
+          ...usable,
+          publisher_code: publisherCode,
+          publisher,
+          jurisdiction,
+        }),
+      ).toMatchObject({ authorityKey, tier, matchedBy: "publisher_code", conflict: false });
+    },
+  );
+
+  it.each([
+    ["Healthy WA", "Australia/WA", "healthywa", "wa_validated"],
+    ["Mental Health Commission Western Australia", "Australia/WA", "mental-health-commission-wa", "wa_validated"],
+    [
+      "Australian Medicines Handbook Pty Ltd",
+      "Australia/National",
+      "australian-medicines-handbook",
+      "australian_national",
+    ],
+    ["healthdirect", "Australia/National", "healthdirect-australia", "australian_national"],
+    ["Therapeutic Guidelines Ltd", "Australia/National", "therapeutic-guidelines", "australian_national"],
+    ["Cochrane Library", "International", "cochrane", "supplementary"],
+  ] as const)(
+    "classifies registered %s from a jurisdiction-bound alias",
+    (publisher, jurisdiction, authorityKey, tier) => {
+      expect(classifySourceAuthority({ ...usable, publisher, jurisdiction })).toMatchObject({
+        authorityKey,
+        tier,
+        matchedBy: "publisher_alias",
+        conflict: false,
+      });
+    },
+  );
+
+  it("keeps an unvalidated HealthyWA source supplementary", () => {
+    expect(
+      classifySourceAuthority({
+        ...usable,
+        publisher_code: "HEALTHYWA",
+        publisher: "HealthyWA",
+        jurisdiction: "Australia/WA",
+        clinical_validation_status: "unverified",
+      }),
+    ).toMatchObject({ tier: "supplementary", authorityKey: "healthywa" });
+  });
+
+  it.each([
     {
       label: "international code with WA jurisdiction",
       metadata: {

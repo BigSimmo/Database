@@ -272,6 +272,50 @@ describe("RAG model context budgeting", () => {
     expect(selected.map((result) => result.id)).toEqual(["chunk-1", "chunk-2", "chunk-3", "chunk-4"]);
   });
 
+  it("orders newly registered WA and national publishers ahead of equally relevant supplementary context", () => {
+    const selected = selectModelContextResults({
+      routeMode: "strong",
+      queryClass: "medication_dose_risk",
+      crossDocument: false,
+      results: [
+        withRelevance(bmjSupplementarySource(1), "direct"),
+        withRelevance(
+          governedSource(2, {
+            documentId: "tg-doc",
+            publisherCode: "TG",
+            publisher: "Therapeutic Guidelines",
+            jurisdiction: "Australia/National",
+            validation: "unverified",
+          }),
+          "direct",
+        ),
+        withRelevance(
+          governedSource(3, {
+            documentId: "healthywa-doc",
+            publisherCode: "HEALTHYWA",
+            publisher: "HealthyWA",
+            jurisdiction: "Australia/WA",
+          }),
+          "direct",
+        ),
+        withRelevance(
+          governedSource(4, {
+            documentId: "cochrane-doc",
+            publisherCode: "COCHRANE",
+            publisher: "Cochrane",
+            jurisdiction: "International",
+            validation: "unverified",
+          }),
+          "direct",
+        ),
+      ],
+    });
+
+    // Registration changes only same-relevance context ordering: HealthyWA is WA-validated,
+    // Therapeutic Guidelines is Australian national, while Cochrane remains supplementary.
+    expect(selected.map((result) => result.id)).toEqual(["chunk-3", "chunk-2", "chunk-1", "chunk-4"]);
+  });
+
   it("keeps supplementary evidence when authoritative Australian coverage is not sufficient", () => {
     const selected = selectModelContextResults({
       routeMode: "strong",
