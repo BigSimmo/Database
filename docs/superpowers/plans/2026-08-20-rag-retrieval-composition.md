@@ -1,5 +1,7 @@
 # RAG query planning, combined retrieval, and fallback — Implementation Plan
 
+**2026-09-07 binding amendment:** Read the package execution-order.md section “Answer-quality amendment — 2026-09-07” (editable owner: docs/superpowers/rag-upgrade/canonical/execution-order.md). It contains the single F01–F21/M01–M07 disposition map and M1–M3 acceptance policy. The task-local amendments below take precedence over superseded examples; unchanged accepted task evidence remains valid. Product implementation is paused pending separate authorization.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Use one implementer at a time and obtain a task-reviewer verdict on specification compliance and code quality before continuing. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stop false “not enough information” answers by decomposing only genuinely broad questions, searching shared uploaded guidance, current approved public Clinical KB site domains, and approved Australian corpora under one bounded plan, measuring support per subquestion, and returning typed, useful partial/fallback outcomes.
@@ -93,6 +95,8 @@ Report separately:
 ---
 
 ### Task 1: Define query-plan, coverage, and fallback contracts
+
+**Amended acceptance (2026-09-07):** F11–F14: extend the accepted query contract with bounded resolved subject/constraints/latest request, explicit requested parts and depth, required safety dependencies versus optional enrichment, and explicit only-this-source versus primary-plus-approved-supplements policy. Inferred domain hints are preferences, not hard restrictions. Implement the bounded accepted-contract amendments with Task 8; do not reopen unrelated P07 acceptance. Prove two successive short follow-ups, elaboration/topic reset, population/negation changes and restriction safety without a second classifier or unbounded history.
 
 **Files:**
 
@@ -337,6 +341,8 @@ Omit any file that did not change.
 
 ### Task 3: Search shared uploaded, current first-party site, and public corpora under one explicit public scope
 
+**Amended acceptance (2026-09-07):** F13–F14: preserve explicit document/access restrictions; inferred domains may prefer or allow bounded cross-domain material-gap fallback under the existing shared budget. Existing explicit document_filters remain restrictive unless an explicit primary-plus-approved-supplements policy is selected. Test primary-complete, primary-partial, restricted and supplements-disabled paths, including no unnecessary supplementary call. Integrate this bounded P08A amendment with Task 8.
+
 **Files:**
 
 - Modify: `src/lib/owner-scope.ts`
@@ -472,6 +478,8 @@ git commit -m "feat(rag): orchestrate governed public retrieval"
 
 ### Task 4: Merge by relevance, role, local priority, and subquestion coverage
 
+**Amended acceptance (2026-09-07):** F12–F14: rank and allocate required asked parts and material safety dependencies before optional enrichment; coverage is passage/claim-derived rather than a mandatory primary/actions/monitoring/risk template. Preserve relevant local authority and Task 5 packing parity. Use cross-domain answerable and restriction-negative fixtures; do not increase fanout to mask poor coverage.
+
 **Files:**
 
 - Modify: `src/lib/rag/rag-coverage.ts`
@@ -588,6 +596,8 @@ The reviewer must trace a broad case and a numeric exception case from retrieved
 
 ### Task 6: Expose exact fallback reasons and retain conservative timeout behaviour
 
+**Amended acceptance (2026-09-07):** F01–F07 and M04–M05: the amended R3 brief preserves all seven original obligations and additionally pins authoritative bestSource:null withdrawal and field-specific DTO semantic/nullability validation. Close actual JSON/SSE/consumer/storage producer paths, safety derivation, typed provider causes through reconstruction, exact current/prior/copy explanations and bounded whole-subject matching. Preserve accepted Task 5; no Critical/Important remains before formal xhigh specification/quality acceptance. Historical R2 passes do not validate dirty R3. The task-specific rag.ts ceiling is 4,293, not the older 4,362 programme ceiling.
+
 **Files:**
 
 - Modify: `src/lib/rag/rag-fallback-reason.ts`
@@ -648,6 +658,8 @@ git commit -m "feat(rag): expose typed fallback and gap reasons"
 
 ### Task 7: Diagnose and remediate healthy-retrieval generation degradation
 
+**Amended acceptance (2026-09-07):** F03/F19 and M02: preserve already-landed R1 retry admission/removal of the unreachable guard (e1430aa5e6dcdac1caf2a950848803cee6d01fa2); do not recreate its RED. Diagnose zero-response initial timeout separately from response-bearing retry exhaustion with ordered content-free stage/attempt outcomes and useful completed-output metrics. Offline acceptance may defer provider comparison; activation still needs approved measured positive benefit and unchanged budget/safety evidence.
+
 **Files:**
 
 - Inspect: `docs/rag-improvement/231-diagnosis-2026-08-22.md`
@@ -692,6 +704,8 @@ The reviewer must reject blind retries, unbounded timeouts, changed evidence, we
 ---
 
 ### Task 8: Cache isolation, privacy-safe telemetry, and domain handoff
+
+**Amended acceptance (2026-09-07):** F08–F14/F17: own the early integrated inherited-defect correction. Hash the FULL canonical answer request (population, negation, source mode/filters, requested parts/depth/output version and bounded resolved follow-up context), keeping lossy search normalization retrieval-only. Version/invalidate old answers; test cold/warm local/shared/coalesced collisions beyond term 14 and context/source-policy isolation. Integrate the bounded Task 1/3/4 amendments, and load/revalidate reviewed conflict inputs against current access/version/expiry; absent reviewed input is not proof of no conflict. Coordinate adaptive Tasks 2–3 corrective F09/F10 proof before expanded-output work; those slices do not prematurely accept adaptive tasks. Extend existing content-free diagnostics with required-part loss accounting; never persist raw query/context/claim content.
 
 **Files:**
 

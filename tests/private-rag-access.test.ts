@@ -220,9 +220,9 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
   }));
   vi.doMock("@/lib/smart-rag-api", () => ({
     buildSmartRagApiPlan: vi.fn(() => ({
-      intent: "answer",
-      responseMode: "clinical_answer",
-      displayMode: "clinical_answer",
+      intent: "find_document",
+      responseMode: "document_lookup",
+      displayMode: "document_lookup",
       sourceLinkCount: 0,
     })),
   }));

@@ -7,6 +7,22 @@ afterEach(() => {
 });
 
 describe("privacy-safe logging helpers", () => {
+  it("P08C never persists resolved context even when ordinary raw query retention is enabled", async () => {
+    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: true } }));
+    const { queryTextForStorage, normalizedQueryTextForStorage, queryPrivacyMetadata } =
+      await import("../src/lib/query-privacy");
+    for (const query of [
+      'Follow-up to "PRIVATE_CONTEXT_CANARY": explain this',
+      'Follow-up context v1: {"subject":"PRIVATE_CONTEXT_CANARY"}',
+      "Follow-up context v2: PRIVATE_CONTEXT_CANARY",
+    ]) {
+      expect(queryTextForStorage(query)).not.toContain("PRIVATE_CONTEXT_CANARY");
+      expect(normalizedQueryTextForStorage(query)).not.toContain("private_context_canary");
+      expect(queryPrivacyMetadata(query).raw_query_retained).toBe(false);
+    }
+    expect(queryTextForStorage("ordinary authorized query")).toBe("ordinary authorized query");
+  });
+
   it("logs ingestion jobs by job id without document filenames", () => {
     const message = safeIngestionJobLog("job-123");
 

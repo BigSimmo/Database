@@ -10,7 +10,8 @@ import { buildClinicalTextSearchQuery, normalizedClinicalSearchTokens, queriedZo
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import type { SearchChunksArgs } from "@/lib/rag/rag-contracts";
 import { shouldShortCircuitUnsupportedSearch } from "@/lib/rag/rag-query-guard";
-import type { ClinicalQueryAnalysis, RagQueryClass, SearchResult } from "@/lib/types";
+import type { RagProgrammeMode } from "@/lib/rag/rag-programme-eval";
+import type { ClinicalQueryAnalysis, RagQueryClass, RagQueryPlan, SearchResult } from "@/lib/types";
 
 const maxRetrievalQueryVariants = 4;
 export const maxTextRpcQueryVariants = 3;
@@ -212,6 +213,7 @@ export function buildRetrievalQueryVariants(
   query: string,
   analysis: ClinicalQueryAnalysis,
   aliases: RagAliasInput[] = [],
+  plan?: RagQueryPlan,
 ) {
   const variants: string[] = [];
   const seen = new Set<string>();
@@ -312,7 +314,112 @@ export function buildRetrievalQueryVariants(
     addVariant(retrievalVariantFromTerms(coreTerms.slice(0, 10)));
   }
 
-  return variants.slice(0, maxRetrievalQueryVariants);
+  const legacyVariants = variants.slice(0, maxRetrievalQueryVariants);
+  if (!plan || plan.kind !== "decomposed") return legacyVariants;
+
+  const candidateVariants: string[] = [];
+  const candidateKeys = new Set<string>();
+  for (const value of [
+    plan.originalQuery,
+    ...plan.subquestions.slice(1).map(({ question }) => question),
+    ...legacyVariants,
+  ]) {
+    const normalized = normalizeRetrievalVariant(buildClinicalTextSearchQuery(value));
+    const key = normalized.toLowerCase();
+    if (!normalized || candidateKeys.has(key)) continue;
+    candidateKeys.add(key);
+    candidateVariants.push(normalized);
+    if (candidateVariants.length >= maxRetrievalQueryVariants) break;
+  }
+  return candidateVariants;
+}
+
+const queryPlanDiagnosticReasonCodes = new Set([
+  "comparison_terms",
+  "table_or_threshold_terms",
+  "medication_dose_or_risk_terms",
+  "document_lookup_terms",
+  "document_include_terms",
+  "broad_summary_terms",
+  "typo_corrections",
+  "domain_alias_terms",
+  "freshness_terms",
+  "no_specific_rag_class_terms",
+  "document_explicit",
+  "medicine_explicit",
+  "population_explicit",
+  "jurisdiction_explicit",
+  "setting_explicit",
+  "acronym_expanded",
+  "medicine_alias_or_typo_preserved",
+  "document_section_exact",
+  "material_retrieval_ambiguity",
+  "comparison_sides_identified",
+  "broad_management_decomposition",
+  "comparison_sides_unresolved_single_plan",
+]);
+
+export function sanitizeRagQueryPlanDiagnostics(input: {
+  query_plan_kind?: unknown;
+  subquestion_count?: unknown;
+  query_plan_reason_codes?: unknown;
+  candidate_retrieval_query_variant_count?: unknown;
+}) {
+  const kind = ["single", "decomposed", "clarification_required"].includes(String(input.query_plan_kind))
+    ? (input.query_plan_kind as import("@/lib/rag/rag-programme-eval").RagQueryPlanKind)
+    : undefined;
+  const boundedCount = (value: unknown) =>
+    Number.isInteger(value) && Number(value) >= 0 && Number(value) <= maxRetrievalQueryVariants
+      ? Number(value)
+      : undefined;
+  const reasonCodes = Array.isArray(input.query_plan_reason_codes)
+    ? [
+        ...new Set(
+          input.query_plan_reason_codes.filter(
+            (reason): reason is string => typeof reason === "string" && queryPlanDiagnosticReasonCodes.has(reason),
+          ),
+        ),
+      ].slice(0, 16)
+    : undefined;
+  return {
+    ...(kind ? { query_plan_kind: kind } : {}),
+    ...(boundedCount(input.subquestion_count) !== undefined
+      ? { subquestion_count: boundedCount(input.subquestion_count) }
+      : {}),
+    ...(reasonCodes ? { query_plan_reason_codes: reasonCodes } : {}),
+    ...(boundedCount(input.candidate_retrieval_query_variant_count) !== undefined
+      ? { candidate_retrieval_query_variant_count: boundedCount(input.candidate_retrieval_query_variant_count) }
+      : {}),
+  };
+}
+
+export function buildRagRetrievalVariantPlan(
+  query: string,
+  analysis: ClinicalQueryAnalysis,
+  aliases: RagAliasInput[],
+  plan: RagQueryPlan,
+  rolloutMode: RagProgrammeMode,
+  signal?: AbortSignal,
+) {
+  const servedVariants = buildRetrievalQueryVariants(query, analysis, aliases);
+  const candidateMode = rolloutMode !== "legacy";
+  const shadow = rolloutMode === "shadow";
+  if (candidateMode) throwIfAborted(signal);
+  const candidateVariants = candidateMode
+    ? buildRetrievalQueryVariants(query, analysis, aliases, plan)
+    : servedVariants;
+  if (candidateMode) throwIfAborted(signal);
+  return {
+    queryPlanVersion: plan.version,
+    servedVariants,
+    candidateVariants,
+    diagnostics: sanitizeRagQueryPlanDiagnostics({
+      query_plan_kind: plan.kind,
+      subquestion_count: plan.subquestions.length,
+      query_plan_reason_codes: plan.reasonCodes,
+      ...(shadow ? { candidate_retrieval_query_variant_count: candidateVariants.length } : {}),
+    }),
+  };
 }
 
 // P8b: websearch_to_tsquery ANDs every term, so a long multi-term query (e.g. "ciwa score threshold

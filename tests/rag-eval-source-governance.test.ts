@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildRagEvaluationDiagnostics, evaluateAustralianRagExpectation } from "@/lib/rag/rag-eval-diagnostics";
-import type { Citation, RagAnswer, SearchResult } from "@/lib/types";
+import { evaluateAnswerCoverage, reconcileAnswerSourcePolicyConflicts } from "@/lib/rag/rag-coverage";
+import type { Citation, RagAnswer, RagQueryPlan, SearchResult, SourcePolicyConflict } from "@/lib/types";
 
 function source(args: {
   id: string;
@@ -146,5 +147,222 @@ describe("Australian RAG evaluation diagnostics", () => {
 
     expect(expectation.passed).toBe(true);
     expect(expectation.warnings).toEqual(["Australian candidate passages 1/4", "Australian candidate documents 1/2"]);
+  });
+
+  it("removes a request-local policy conflict when final citation reconciliation drops either side", () => {
+    const local = {
+      ...source({ id: "local-chunk", documentId: "local-doc" }),
+      corpus_scope: "uploaded_local" as const,
+      site_content_domain: null,
+      source_metadata: {
+        ...source({ id: "local-chunk", documentId: "local-doc" }).source_metadata!,
+        corpus_scope: "uploaded_local" as const,
+        source_role: "local_guideline" as const,
+        content_mode: "indexed_content" as const,
+      },
+    };
+    const australian = {
+      ...source({ id: "au-chunk", documentId: "au-doc" }),
+      corpus_scope: "australian_public" as const,
+      site_content_domain: null,
+      source_metadata: {
+        ...source({ id: "au-chunk", documentId: "au-doc" }).source_metadata!,
+        corpus_scope: "australian_public" as const,
+        source_role: "clinical_guideline" as const,
+        content_mode: "indexed_content" as const,
+      },
+    };
+    const plan: RagQueryPlan = {
+      version: "rag-query-plan-v1",
+      kind: "single",
+      originalQuery: "lithium monitoring",
+      interpretation: "Lithium monitoring",
+      subquestions: [{ id: "monitoring", question: "lithium monitoring", purpose: "monitoring", required: true }],
+      targetSiteDomains: [],
+      siteDomainDecision: "none",
+      reasonCodes: [],
+    };
+    const conflict: SourcePolicyConflict = {
+      version: "source-policy-conflict-v1",
+      id: "conflict-1",
+      claimRole: "dose_or_monitoring",
+      topicKey: "lithium-monitoring",
+      local: {
+        documentId: "local-doc",
+        catalogueKey: "local:lithium",
+        title: "Local lithium guidance",
+        publisher: "WA Health",
+        publicationDate: "2024-01-01",
+        effectiveFrom: "2024-01-01",
+        jurisdiction: "Australia/WA",
+        sourceRole: "local_guideline",
+        corpusScope: "uploaded_local",
+        supportingChunkIds: [local.id],
+      },
+      australian: {
+        documentId: "au-doc",
+        catalogueKey: "au:lithium",
+        title: "Australian lithium guidance",
+        publisher: "Australian guidance publisher",
+        publicationDate: "2026-01-01",
+        effectiveFrom: "2026-01-01",
+        jurisdiction: "Australia/National",
+        sourceRole: "clinical_guideline",
+        corpusScope: "australian_public",
+        supportingChunkIds: [australian.id],
+      },
+      overlapReason: "same_claim",
+      materialDifferenceReason: "monitoring_differs",
+      localPrimaryDecision: { selected: "uploaded_local", reason: "current_valid_accessible_directly_supportive" },
+      reviewTargetDocumentId: "local-doc",
+    };
+
+    const coverage = evaluateAnswerCoverage({
+      plan,
+      selectedEvidence: [local, australian],
+      evidenceBySubquestion: [
+        {
+          subquestionId: "monitoring",
+          selectedChunkIds: [local.id, australian.id],
+          citedChunkIds: [local.id],
+          eligibleChunkIds: [local.id, australian.id],
+          support: "direct",
+        },
+      ],
+      conflicts: [conflict],
+    });
+
+    expect(coverage.conflicts).toEqual([]);
+    expect(coverage.coverage[0]).toMatchObject({ status: "direct", chunkIds: [local.id] });
+    const answerWithDroppedConflict = answer([local, australian], [citationFor(local)]);
+    answerWithDroppedConflict.conflictsOrGaps = [
+      { type: "conflict", message: "Provisional source policy conflict.", source_chunk_ids: [local.id, australian.id] },
+      { type: "gap", message: "Local evidence needs broader review.", source_chunk_ids: [local.id] },
+      { type: "conflict", message: "One-source numeric review.", source_chunk_ids: [local.id] },
+    ];
+    reconcileAnswerSourcePolicyConflicts(
+      answerWithDroppedConflict,
+      [
+        {
+          subquestionId: "monitoring",
+          claimRole: "dose_or_monitoring",
+          orderedEvidence: [local, australian],
+          collapsedEvidenceFamilyIds: [],
+          conflicts: [conflict],
+          sourcePolicyReview: "verified_conflict",
+          coverageReason: "direct",
+        },
+      ],
+      coverage,
+    );
+    expect(answerWithDroppedConflict.conflictsOrGaps).toEqual([
+      { type: "gap", message: "Local evidence needs broader review.", source_chunk_ids: [local.id] },
+    ]);
+
+    const retainedCoverage = evaluateAnswerCoverage({
+      plan,
+      selectedEvidence: [local, australian],
+      evidenceBySubquestion: [
+        {
+          subquestionId: "monitoring",
+          selectedChunkIds: [local.id, australian.id],
+          citedChunkIds: [local.id, australian.id],
+          eligibleChunkIds: [local.id, australian.id],
+          support: "direct",
+        },
+      ],
+      conflicts: [conflict],
+    });
+    const answerWithRetainedConflict = answer([local, australian], [citationFor(local), citationFor(australian)]);
+    reconcileAnswerSourcePolicyConflicts(
+      answerWithRetainedConflict,
+      [
+        {
+          subquestionId: "monitoring",
+          claimRole: "dose_or_monitoring",
+          orderedEvidence: [local, australian],
+          collapsedEvidenceFamilyIds: [],
+          conflicts: [conflict],
+          sourcePolicyReview: "verified_conflict",
+          coverageReason: "direct",
+        },
+      ],
+      retainedCoverage,
+    );
+    expect(answerWithRetainedConflict.conflictsOrGaps).toEqual([
+      expect.objectContaining({ type: "conflict", source_chunk_ids: [local.id, australian.id] }),
+    ]);
+
+    const uncitedLocal = { ...local, id: "local-uncited" };
+    const uncitedAustralian = { ...australian, id: "au-uncited" };
+    const multiChunkConflict: SourcePolicyConflict = {
+      ...conflict,
+      id: "conflict-multi-chunk",
+      local: { ...conflict.local, supportingChunkIds: [uncitedLocal.id, local.id] },
+      australian: { ...conflict.australian, supportingChunkIds: [uncitedAustralian.id, australian.id] },
+    };
+    const citedMultiChunkCoverage = evaluateAnswerCoverage({
+      plan,
+      selectedEvidence: [uncitedLocal, local, uncitedAustralian, australian],
+      evidenceBySubquestion: [
+        {
+          subquestionId: "monitoring",
+          selectedChunkIds: [uncitedLocal.id, local.id, uncitedAustralian.id, australian.id],
+          citedChunkIds: [local.id, australian.id],
+          eligibleChunkIds: [uncitedLocal.id, local.id, uncitedAustralian.id, australian.id],
+          support: "direct",
+        },
+      ],
+      conflicts: [multiChunkConflict],
+    });
+    const answerWithMultiChunkConflict = answer(
+      [uncitedLocal, local, uncitedAustralian, australian],
+      [citationFor(local), citationFor(australian)],
+    );
+    reconcileAnswerSourcePolicyConflicts(
+      answerWithMultiChunkConflict,
+      [
+        {
+          subquestionId: "monitoring",
+          claimRole: "dose_or_monitoring",
+          orderedEvidence: [uncitedLocal, local, uncitedAustralian, australian],
+          collapsedEvidenceFamilyIds: [],
+          conflicts: [multiChunkConflict],
+          sourcePolicyReview: "verified_conflict",
+          coverageReason: "direct",
+        },
+      ],
+      citedMultiChunkCoverage,
+    );
+    expect(answerWithMultiChunkConflict.conflictsOrGaps).toEqual([
+      expect.objectContaining({ type: "conflict", source_chunk_ids: [local.id, australian.id] }),
+    ]);
+
+    const notEvaluatedCoverage = {
+      ...coverage,
+      coverage: coverage.coverage.map((item) => ({
+        ...item,
+        reasonCodes: [...item.reasonCodes, "source_policy_not_evaluated"],
+      })),
+    };
+    const answerWithReviewGap = answer([local], [citationFor(local)]);
+    reconcileAnswerSourcePolicyConflicts(
+      answerWithReviewGap,
+      [
+        {
+          subquestionId: "monitoring",
+          claimRole: "dose_or_monitoring",
+          orderedEvidence: [local],
+          collapsedEvidenceFamilyIds: [],
+          conflicts: [],
+          sourcePolicyReview: "not_evaluated",
+          coverageReason: "direct",
+        },
+      ],
+      notEvaluatedCoverage,
+    );
+    expect(answerWithReviewGap.conflictsOrGaps).toEqual([
+      expect.objectContaining({ type: "gap", source_chunk_ids: [local.id] }),
+    ]);
   });
 });
