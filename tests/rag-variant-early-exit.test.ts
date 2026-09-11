@@ -184,8 +184,11 @@ describe("lexical variant early-exit (PT-02)", () => {
       expect.objectContaining({ queryVariants: [query], maxRpcCalls: 1, retrievalMode: "text" }),
     );
     expect(providerCalls).not.toHaveBeenCalled();
-    expect(shadow!.telemetry.candidate_match_counts).toEqual({ matched: 0, partial_match: 1, absent: 3 });
-    expect(Object.values(shadow!.telemetry.candidate_match_counts!).reduce((sum, count) => sum + count, 0)).toBe(4);
+    // Only management was requested: the primary question plus its management
+    // facet. A clinical-presentation overview does not cover either request.
+    expect(shadow!.telemetry.subquestion_count).toBe(2);
+    expect(shadow!.telemetry.candidate_match_counts).toEqual({ matched: 0, partial_match: 0, absent: 2 });
+    expect(Object.values(shadow!.telemetry.candidate_match_counts!).reduce((sum, count) => sum + count, 0)).toBe(2);
 
     const { withRagAnswerQueryPlanDiagnostics } = await import("@/lib/rag/rag-cache");
     const { observeRagAnswer, ragProgrammeTelemetryForAnswer } = await import("@/lib/rag/rag-programme-telemetry");
@@ -209,8 +212,8 @@ describe("lexical variant early-exit (PT-02)", () => {
     });
     expect(ragProgrammeTelemetryForAnswer(answer)?.candidate_match_counts).toEqual({
       matched: 0,
-      partial_match: 1,
-      absent: 3,
+      partial_match: 0,
+      absent: 2,
     });
     expect(ragProgrammeTelemetryForAnswer(answer)?.coverage_counts).toEqual({
       direct: 1,

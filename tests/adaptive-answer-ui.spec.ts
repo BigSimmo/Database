@@ -314,7 +314,12 @@ for (const viewport of viewports) {
 
     const answerSurfaces = page.getByTestId("plain-answer-response");
     await expect(answerSurfaces).toHaveCount(2);
-    await answerSurfaces.nth(1).getByRole("button", { name: "Copy answer with source status" }).press("Enter");
+    // The live answer owns the shared utility row; prior turns retain their
+    // local copy action inside the historical answer surface.
+    await page
+      .getByLabel("Answer utilities")
+      .getByRole("button", { name: "Copy answer with source status" })
+      .press("Enter");
     const currentCopy = await page.evaluate(() => navigator.clipboard.readText());
     for (const text of [
       "Current adaptive lead remains complete for review.",

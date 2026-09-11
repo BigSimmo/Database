@@ -9,6 +9,6 @@
 // `securitypolicyviolation` on every page. Disabling JIT skips the probe entirely
 // (validation stays correct, just interpreted rather than compiled). The server
 // has no CSP, so it keeps the faster JIT path — this is client-only by design.
-import { config } from "zod";
+import { config } from "zod/v4/core";
 
 config({ jitless: true });
