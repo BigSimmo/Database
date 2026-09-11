@@ -282,6 +282,9 @@ async function loadHarness(
     throw new Error("Unexpected classifier provider call");
   });
   const generateStructuredTextResult = vi.fn(async (_input: string, _schema: unknown, _options: unknown) => {
+    void _input;
+    void _schema;
+    void _options;
     if (options.generatedAnswer)
       return {
         text: JSON.stringify(options.generatedAnswer),
@@ -773,7 +776,10 @@ describe("P12C same-evidence legacy and adaptive delivery", () => {
           resolvedQuery,
           requiredFacts,
           evidence: rows.map(({ id, content, source_metadata }) => ({ id, content, source_metadata })),
-          paired: paired.map(({ contract: _contract, ...outcome }) => outcome),
+          paired: paired.map(({ contract, ...outcome }) => {
+            void contract;
+            return outcome;
+          }),
         }),
       );
     expect(paired[1]!.sources).toContain("p12c-primary");
@@ -1015,7 +1021,10 @@ describe("governed retrieval production entrypoint", () => {
   });
   it("P08C loads trusted review configuration at the actual entrypoint and refuses cache reuse", async () => {
     const { searchChunksWithTelemetry, setCachedSearch } = await loadHarness();
-    const loader = vi.fn(async (_input: unknown) => []);
+    const loader = vi.fn(async (_input: unknown) => {
+      void _input;
+      return [];
+    });
     const capture = vi.fn();
     await searchChunksWithTelemetry({
       query: "What is clozapine?",

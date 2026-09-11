@@ -362,6 +362,8 @@ export function buildDynamicSiteContentProjections(
   const candidates = entries.map((entry) => {
     const decision = decisionsById.get(entryKey(entry.kind, entry.recordId))!;
     const { kind: _kind, recordId: _recordId, ...identity } = decision;
+    void _kind;
+    void _recordId;
     return {
       ...identity,
       entry,

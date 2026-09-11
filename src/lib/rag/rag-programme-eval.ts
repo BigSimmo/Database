@@ -291,6 +291,7 @@ function sha256Fingerprint(value: unknown): string {
 
 function withoutCaseFingerprint(testCase: RagProgrammeFixtureCase | Record<string, unknown>) {
   const { caseFingerprint: _ignored, ...stable } = testCase;
+  void _ignored;
   return stable;
 }
 

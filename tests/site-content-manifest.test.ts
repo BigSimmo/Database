@@ -210,6 +210,8 @@ describe("static site-content manifest", () => {
   it("fails closed on duplicate IDs, invalid routes/public state, audit IDs, and protected derived content", () => {
     const valid = record("factsheets:a");
     const { contentHash: _contentHash, publicationVersion: _publicationVersion, ...validInput } = valid;
+    void _contentHash;
+    void _publicationVersion;
     expect(() => buildStaticSiteContentManifest([valid, valid], metadata)).toThrow(/duplicate logicalId/i);
     expect(() => validateSiteContentRecords([{ ...valid, route: "https://example.test/tools/a" }])).toThrow(/route/i);
     expect(() => validateSiteContentRecords([{ ...valid, access: "private" as "public" }])).toThrow(/public/i);

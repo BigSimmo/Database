@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e167bf4f-1eb3-4119-b333-854274cbdf1d",
+  "createdOn": "2026-09-10",
+  "action": "done",
+  "payload": {
+    "id": "#H0HKFD",
+    "outcome": "Aligned care-plan patient mock phone numbers to ACMA fiction range (0491 570 006 - 156) and verified in care-plan-domain.test.ts",
+    "baseRowFingerprint": "a44298fb722e4ce2b405e4235d81eea3e95a1dcc8002e97dfead838f86ac1dc6"
+  }
+}
