@@ -1065,7 +1065,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
+| `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
 | `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              16 |

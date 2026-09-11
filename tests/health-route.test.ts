@@ -26,10 +26,9 @@ function mockEnv(options: {
 
 function mockHealthySiteContent(options: { fails?: boolean } = {}) {
   const current = new Date().toISOString();
+  const probeSupabaseHealth = vi.fn(async () => ({ ok: true, checkedAt: current }));
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin" })) }));
-  vi.doMock("@/lib/supabase/health", () => ({
-    probeSupabaseHealth: vi.fn(async () => ({ ok: true, checkedAt: current })),
-  }));
+  vi.doMock("@/lib/supabase/health", () => ({ probeSupabaseHealth }));
   vi.doMock("@/lib/site-content/site-content-publication", () => ({
     readSiteContentHealthEvidence: vi.fn(async () => {
       if (options.fails) throw new Error("private database failure");
@@ -73,6 +72,7 @@ function mockHealthySiteContent(options: { fails?: boolean } = {}) {
       };
     }),
   }));
+  return { probeSupabaseHealth };
 }
 
 function healthRequest(query = "", headers?: HeadersInit) {
@@ -329,14 +329,8 @@ describe("GET /api/health/ready", () => {
     vi.useFakeTimers();
     try {
       mockEnv({ configured: true });
-      mockHealthySiteContent();
-      const probeSupabaseHealth = vi.fn(async () => ({
-        ok: true,
-        checkedAt: "2026-07-22T00:00:00.000Z",
-        message: "ok",
-      }));
-      vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({})) }));
-      vi.doMock("@/lib/supabase/health", () => ({ probeSupabaseHealth }));
+      // Reuse the helper's spy: duplicate doMock factories can resolve out of order.
+      const { probeSupabaseHealth } = mockHealthySiteContent();
       const { GET } = await import("../src/app/api/health/ready/route");
 
       const first = await GET(new Request("http://localhost/api/health/ready"));

@@ -402,7 +402,7 @@ export function buildStaticSiteContentRecords(): SiteContentRecord[] {
 }
 
 export const staticSiteContentRecords = buildStaticSiteContentRecords();
-export const allSiteContentRecords = staticSiteContentRecords;
+export const allSiteContentRecords = [...staticSiteContentRecords];
 
 export { buildSpecifierSiteContentRecords } from "./specifiers";
 export * from "./registry";

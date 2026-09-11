@@ -401,16 +401,23 @@ for (const viewport of viewports) {
       for (let node = walker.nextNode(); node; node = walker.nextNode()) {
         if (node.textContent?.trim()) textNodes.push(node as Text);
       }
-      const linePoints = textNodes.flatMap((node) => {
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        return Array.from(range.getClientRects())
-          .filter((lineRect) => lineRect.width > 0 && lineRect.height > 0)
-          .map((lineRect) => ({
-            x: lineRect.left + lineRect.width / 2,
-            y: lineRect.top + lineRect.height / 2,
-          }));
-      });
+      // Probe visible glyphs rather than whole text-node line boxes. Chromium
+      // can include collapsed wrap whitespace in a line box, placing its sample
+      // just outside the inline element even though every glyph is visible.
+      const linePoints = textNodes.flatMap((node) =>
+        Array.from(node.data.matchAll(/\S/gu)).flatMap((match) => {
+          const range = document.createRange();
+          const start = match.index ?? 0;
+          range.setStart(node, start);
+          range.setEnd(node, start + match[0].length);
+          return Array.from(range.getClientRects())
+            .filter((glyphRect) => glyphRect.width > 0 && glyphRect.height > 0)
+            .map((glyphRect) => ({
+              x: glyphRect.left + glyphRect.width / 2,
+              y: glyphRect.top + glyphRect.height / 2,
+            }));
+        }),
+      );
       const probeLinePoints = () =>
         linePoints.map(({ x, y }) => {
           const hit = document.elementFromPoint(x, y);
