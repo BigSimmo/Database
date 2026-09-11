@@ -4560,6 +4560,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/pr-batch-runner.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-19-report.md",
         "section": "caring-contacts",
         "catalogued": true

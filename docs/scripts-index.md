@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (326 files) and the `package.json` script surface (306 entries),
+Curated map of `scripts/` (331 files) and the `package.json` script surface (306 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -209,6 +209,7 @@ worker still prints an internally consistent pass count.
 - `merge-branch-review-ledger.mjs` — historical: the `merge=ledger` union driver it implemented was
   removed from `.gitattributes` (ledger #133); the script is retained for reference only.
 - `sync-open-pr-branches.mjs` (`sync:pr-branches`), `sync-pr-branches.mjs` (compatibility entry point) — anti-churn sync for stale open PR heads;
+- `pr-batch-core.mjs`, `pr-batch-github.mjs`, `pr-batch-runner.mjs`, `pr-batch-worker.mjs`, `pr-batch-policy.mjs` — disabled-by-default sequential PR controller, durable GitHub state, credential-isolated repair integration, and workflow policy checks. Activation and recovery: [PR batch runner](pr-batch-runner.md).
   refuses a missing or bot `gh` identity. `sweep-merged-branches.mjs` — merged-branch sweep.
 - `reconciliation-preflight.mjs`, `reconciliation-evidence-pack.mjs` — broad chat/worktree
   reconciliation entry point and its evidence bundle; see `docs/reconciliation-playbook.md`.

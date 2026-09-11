@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { createHash, createHmac } from "node:crypto";
+import { createRequire } from "node:module";
 
 import { describe, expect, it } from "vitest";
 
@@ -10,6 +12,20 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const guardPath = path.join(repoRoot, "scripts", "check-codex-autofix-workflow.mjs");
 const workflowPath = path.join(repoRoot, ".github", "workflows", "codex-autofix-review-comments.yml");
 const originalWorkflow = readFileSync(workflowPath, "utf8").replace(/\r\n/g, "\n");
+const batchStateSigningKey = "test-only-batch-state-signing-key-at-least-32-bytes";
+
+function authenticatedStateContent(state: object, owner: string, repo: string, filePath: string) {
+  if (filePath === "state.json") return state;
+  const stateDigest = createHash("sha256").update(JSON.stringify(state)).digest("hex");
+  return {
+    version: 1,
+    algorithm: "hmac-sha256",
+    stateDigest,
+    signature: createHmac("sha256", batchStateSigningKey)
+      .update(`pr-batch-state:v1\n${owner}/${repo}\ncodex/pr-batch-state\n${stateDigest}`)
+      .digest("hex"),
+  };
+}
 
 type Actor = {
   login: string;
@@ -65,6 +81,7 @@ type ScriptFunction = (
     setFailed: (message: string) => void;
     warning: (message: string) => void;
   },
+  require: NodeJS.Require,
 ) => Promise<void>;
 
 const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (
@@ -110,10 +127,12 @@ if (!requestScriptSource || !threadScriptSource) {
   throw new Error("Expected exactly two github-script blocks (request + thread resolution) in the workflow.");
 }
 
-const requestScript = new AsyncFunction("github", "context", "core", requestScriptSource);
-const threadScript = new AsyncFunction("github", "context", "core", threadScriptSource);
+const requestScript = new AsyncFunction("github", "context", "core", "require", requestScriptSource);
+const threadScript = new AsyncFunction("github", "context", "core", "require", threadScriptSource);
+const workflowRequire = createRequire(import.meta.url);
 
 async function runRequestScript(options?: {
+  batchReserved?: boolean;
   createError?: unknown;
   existingComments?: ExistingComment[];
   existingCommentsError?: unknown;
@@ -162,6 +181,19 @@ async function runRequestScript(options?: {
       throw new Error("Unexpected paginate target");
     },
     rest: {
+      repos: {
+        getContent: async ({ path: filePath }: { path: string }) => {
+          if (!options?.batchReserved) throw Object.assign(new Error("No batch"), { status: 404 });
+          const state = { version: 1, status: "running", entries: [{ number: 42, state: "queued" }] };
+          return {
+            data: {
+              content: Buffer.from(
+                JSON.stringify(authenticatedStateContent(state, "clinical-kb", "database", filePath)),
+              ).toString("base64"),
+            },
+          };
+        },
+      },
       issues: {
         createComment: async (request: CreateCommentRequest) => {
           createdComments.push(request);
@@ -182,38 +214,47 @@ async function runRequestScript(options?: {
     },
   };
 
-  await requestScript(
-    github,
-    {
-      payload: {
-        review,
-        pull_request: {
-          head: {
-            ref: "feature/codex-fix",
-            repo:
-              options?.pullRequestHeadRepository === null
-                ? null
-                : { full_name: options?.pullRequestHeadRepository ?? "clinical-kb/database" },
-            sha: options?.pullRequestHeadSha ?? "head-sha-4",
+  const previousSigningKey = process.env.PR_BATCH_STATE_SIGNING_KEY;
+  process.env.PR_BATCH_STATE_SIGNING_KEY = batchStateSigningKey;
+  try {
+    await requestScript(
+      github,
+      {
+        payload: {
+          review,
+          pull_request: {
+            head: {
+              ref: "feature/codex-fix",
+              repo:
+                options?.pullRequestHeadRepository === null
+                  ? null
+                  : { full_name: options?.pullRequestHeadRepository ?? "clinical-kb/database" },
+              sha: options?.pullRequestHeadSha ?? "head-sha-4",
+            },
+            labels: options?.pullRequestLabels ?? [],
+            number: 42,
+            state: "open",
           },
-          labels: options?.pullRequestLabels ?? [],
-          number: 42,
-          state: "open",
         },
+        repo: { owner: "clinical-kb", repo: "database" },
       },
-      repo: { owner: "clinical-kb", repo: "database" },
-    },
-    {
-      notice: (message) => notices.push(message),
-      setFailed: (message) => failures.push(message),
-      warning: (message) => warnings.push(message),
-    },
-  );
+      {
+        notice: (message) => notices.push(message),
+        setFailed: (message) => failures.push(message),
+        warning: (message) => warnings.push(message),
+      },
+      workflowRequire,
+    );
+  } finally {
+    if (previousSigningKey === undefined) delete process.env.PR_BATCH_STATE_SIGNING_KEY;
+    else process.env.PR_BATCH_STATE_SIGNING_KEY = previousSigningKey;
+  }
 
   return { createdComments, failures, notices, paginateCalls, warnings };
 }
 
 async function runThreadScript(options?: {
+  batchReserved?: boolean;
   comment?: Partial<Comment>;
   graphqlError?: unknown;
   graphqlResults?: unknown[];
@@ -233,6 +274,21 @@ async function runThreadScript(options?: {
   };
 
   const github = {
+    rest: {
+      repos: {
+        getContent: async ({ path: filePath }: { path: string }) => {
+          if (!options?.batchReserved) throw Object.assign(new Error("No batch"), { status: 404 });
+          const state = { version: 1, status: "paused", entries: [{ number: 42, state: "repairing" }] };
+          return {
+            data: {
+              content: Buffer.from(
+                JSON.stringify(authenticatedStateContent(state, "clinical-kb", "database", filePath)),
+              ).toString("base64"),
+            },
+          };
+        },
+      },
+    },
     graphql: async (query: string, variables: Record<string, unknown>) => {
       graphqlCalls.push({ query, variables });
       if (options?.graphqlError !== undefined) throw options.graphqlError;
@@ -240,21 +296,29 @@ async function runThreadScript(options?: {
     },
   };
 
-  await threadScript(
-    github,
-    {
-      payload: {
-        comment,
-        pull_request: { head: { sha: options?.pullRequestHeadSha ?? "head-sha-4" }, number: 42, state: "open" },
+  const previousSigningKey = process.env.PR_BATCH_STATE_SIGNING_KEY;
+  process.env.PR_BATCH_STATE_SIGNING_KEY = batchStateSigningKey;
+  try {
+    await threadScript(
+      github,
+      {
+        payload: {
+          comment,
+          pull_request: { head: { sha: options?.pullRequestHeadSha ?? "head-sha-4" }, number: 42, state: "open" },
+        },
+        repo: { owner: "clinical-kb", repo: "database" },
       },
-      repo: { owner: "clinical-kb", repo: "database" },
-    },
-    {
-      notice: (message) => notices.push(message),
-      setFailed: (message) => failures.push(message),
-      warning: (message) => warnings.push(message),
-    },
-  );
+      {
+        notice: (message) => notices.push(message),
+        setFailed: (message) => failures.push(message),
+        warning: (message) => warnings.push(message),
+      },
+      workflowRequire,
+    );
+  } finally {
+    if (previousSigningKey === undefined) delete process.env.PR_BATCH_STATE_SIGNING_KEY;
+    else process.env.PR_BATCH_STATE_SIGNING_KEY = previousSigningKey;
+  }
 
   return { failures, graphqlCalls, notices, warnings };
 }
@@ -280,6 +344,14 @@ function runGuard(workflow: string) {
 }
 
 describe("Codex auto-resolve workflow guard", () => {
+  it("yields both automatic repair and resolution for batch-owned PRs", async () => {
+    const request = await runRequestScript({ batchReserved: true });
+    expect(request.createdComments).toHaveLength(0);
+    expect(request.notices.join(" ")).toContain("reserved by the batch runner");
+    const resolution = await runThreadScript({ batchReserved: true });
+    expect(resolution.graphqlCalls).toHaveLength(0);
+    expect(resolution.notices.join(" ")).toContain("reserved by the batch runner");
+  });
   it("accepts the hardened workflow", () => {
     const result = runGuard(originalWorkflow);
 
@@ -480,10 +552,10 @@ describe("Codex auto-resolve workflow guard", () => {
   it("rejects workflow-level concurrency that includes unrelated events", () => {
     const workflow = originalWorkflow.replace(
       `    concurrency:
-      group: codex-autoresolve-\${{ github.event.pull_request.number }}
+      group: pr-batch-mutation
       cancel-in-progress: false`,
       `concurrency:
-  group: codex-autoresolve-\${{ github.event.pull_request.number }}
+  group: pr-batch-mutation
   cancel-in-progress: false`,
     );
     expect(workflow).not.toBe(originalWorkflow);
