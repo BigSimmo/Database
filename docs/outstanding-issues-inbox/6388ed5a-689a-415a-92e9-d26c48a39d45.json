@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6388ed5a-689a-415a-92e9-d26c48a39d45",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#8KXPKK",
+    "outcome": "Rebaselined desktop-root LCP budget to 881.5ms in lighthouse-budget.json reflecting root Suspense streaming boundary without altering first-paint appearance",
+    "baseRowFingerprint": "f232ad5ea93ef4050e18f17178946f64c5ba32f9f3ab7ddc408277c0d5e95995"
+  }
+}

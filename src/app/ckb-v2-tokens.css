@@ -222,7 +222,7 @@
    subtree inside html.dark and overrode the inherited dark values (DS-01). */
 .ckb-v2.ckb-v2 {
   --background: #ffffff;
-  --surface: #ffffff;
+  --surface: #fcfdfe;
   --surface-chrome: #ffffff;
   --surface-raised: #ffffff;
   --surface-lux: #ffffff;
@@ -235,7 +235,7 @@
   --clinical-chat-table-header: #fbfcfd;
   --clinical-chat-document: #f8fafc;
 
-  --border: #e6ebf2;
+  --border: #e2e8f0;
   --border-strong: #d3dbe5;
   /* Solid, not 55% alpha: alpha computed LIGHTER than --border, so panels had
      weaker edges than the cards nested inside them (#43). */
@@ -254,7 +254,7 @@
      names resolve to the same value during the deprecation window. */
   --text-soft: #8894a6;
   --decoration-soft: #8894a6;
-  --disabled: #9aa5b5;
+  --disabled: #8794a8;
 
   --command: #111827;
   --command-hover: #0b1220;
@@ -327,7 +327,7 @@
   --background: #0b0e11;
   --surface: #12161a;
   --surface-chrome: #0e1216;
-  --surface-subtle: #1c2126; /* aliased UP - "subtle" must lift, not sink */
+  --surface-subtle: #161a1e; /* aliased UP - "subtle" must lift, not sink */
   --surface-wash: #161a1e;
   --surface-raised: #1c2126;
   --surface-inset: #0a0c0e;

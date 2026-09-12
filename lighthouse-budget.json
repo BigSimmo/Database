@@ -27,7 +27,7 @@
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "desktop-root": {
-      "lcpMs": 785.6470000000003,
+      "lcpMs": 881.5,
       "cls": 0.00702033096926714,
       "tbtMs": 28.99999999999966,
       "fcpMs": 341.12940000000003,

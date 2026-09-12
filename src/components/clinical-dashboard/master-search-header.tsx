@@ -520,6 +520,7 @@ export function MasterSearchHeader({
   const phoneModeMenuListRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const desktopModeMenuSearchRef = useRef<HTMLInputElement | null>(null);
+  const modeMenuFocusRafRef = useRef<number | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const pendingModeSelectionFocusRef = useRef<AppModeId | null>(null);
   const prefetchedModeHrefsRef = useRef(new Set<string>());
@@ -1086,10 +1087,22 @@ export function MasterSearchHeader({
     }
   }
 
+  const cancelModeMenuFocus = useCallback(() => {
+    if (modeMenuFocusRafRef.current !== null) {
+      window.cancelAnimationFrame(modeMenuFocusRafRef.current);
+      modeMenuFocusRafRef.current = null;
+    }
+  }, []);
+
+  const closeModeMenu = useCallback(() => {
+    cancelModeMenuFocus();
+    setModeMenuOpen(false);
+  }, [cancelModeMenuFocus]);
+
   function toggleModeMenu() {
     closeModeSurfaces();
     if (modeMenuOpen) {
-      setModeMenuOpen(false);
+      closeModeMenu();
       return;
     }
     const highlighted = visibleAppModeOptions[selectedModeIndex];
@@ -1100,7 +1113,13 @@ export function MasterSearchHeader({
     setModeMenuFocusIndex(selectedModeIndex);
     setModeMenuOpen(true);
     if (!phoneLayout) {
-      window.requestAnimationFrame(() => desktopModeMenuSearchRef.current?.focus());
+      cancelModeMenuFocus();
+      modeMenuFocusRafRef.current = window.requestAnimationFrame(() => {
+        modeMenuFocusRafRef.current = null;
+        if (modeMenuRef.current?.contains(document.activeElement)) {
+          desktopModeMenuSearchRef.current?.focus();
+        }
+      });
     }
   }
 
@@ -1118,7 +1137,7 @@ export function MasterSearchHeader({
       // (links are excluded from its Tab order, and backward navigation can wrap
       // into the open menu), so keydown is the reliable dismiss signal; the wrapper
       // onBlur remains the net for pointer and programmatic focus moves.
-      setModeMenuOpen(false);
+      closeModeMenu();
     }
   }
 
@@ -1139,13 +1158,13 @@ export function MasterSearchHeader({
       // Phone Sheet owns Escape + return-focus; handling here races its cleanup.
       if (usesPhoneSearchLayout) return;
       event.preventDefault();
-      setModeMenuOpen(false);
+      closeModeMenu();
       window.requestAnimationFrame(() => modeButtonRef.current?.focus());
     } else if (event.key === "Tab") {
       // Desktop: let focus leave the absolute menu and close it. Phone sheet
       // traps Tab itself — closing here would fight the dialog focus cycle.
       if (!usesPhoneSearchLayout) {
-        setModeMenuOpen(false);
+        closeModeMenu();
       }
     }
   }
@@ -1159,7 +1178,7 @@ export function MasterSearchHeader({
       focusModeOption(activeModeMenuOptions.length - 1);
     } else if (event.key === "Escape") {
       event.preventDefault();
-      setModeMenuOpen(false);
+      closeModeMenu();
       setModeMenuQuery("");
       window.requestAnimationFrame(() => modeButtonRef.current?.focus());
     }
@@ -1495,7 +1514,7 @@ export function MasterSearchHeader({
     };
   }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint, searchComposerVisible]);
 
-  const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
+  const dismissModeMenu = useCallback(() => closeModeMenu(), [closeModeMenu]);
   function dismissScope(reason: "outside" | "escape") {
     closeScope(reason === "escape");
   }
@@ -2379,7 +2398,7 @@ export function MasterSearchHeader({
             if (usesPhoneSearchLayout) return;
             const nextFocusedElement = event.relatedTarget;
             if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
-            setModeMenuOpen(false);
+            closeModeMenu();
           }}
           className="relative z-[60] min-w-0 justify-self-center"
         >
