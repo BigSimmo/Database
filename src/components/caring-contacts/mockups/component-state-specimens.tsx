@@ -125,7 +125,7 @@ export function ComponentStateSpecimens() {
         </StateTile>
         <StateTile
           title="Dark"
-          className="dark border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text)]"
+          className="dark ckb-v2 border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text)]"
         >
           <p className="text-sm text-[color:var(--text-muted)]">Raised surfaces use the dark luminance ladder.</p>
         </StateTile>

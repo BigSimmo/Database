@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "cb413776-1733-4b0e-923e-e2e1ab5367ce",
+  "createdOn": "2026-09-10",
+  "action": "cancel",
+  "payload": {
+    "requestId": "9c074a10-c2fe-4e9f-bb43-2736d5d6253b",
+    "reason": "Duplicate completion for 42M061. The earlier main request eadf6de9-e3bc-4dab-b6d0-da55cab98e43 already records mockup Tailwind compilation; retain that canonical mutation while preserving this cancelled request as historical detail."
+  }
+}
