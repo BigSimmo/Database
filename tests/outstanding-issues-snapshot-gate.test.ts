@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { compareSnapshots } from "../scripts/check-outstanding-issues-snapshot.mjs";
 
 const BASE = {
-  version: "outstanding-issues-snapshot-v1",
-  ledger_revision: { sha: "a".repeat(40), committed_at: "2026-08-20T00:00:00Z" },
+  version: "outstanding-issues-snapshot-v2",
+  ledger_revision: { committed_at: "2026-08-20" },
   counts: { open: 2, p1: 1, pending: 0 } as Record<string, number>,
   queue: [{ order: 1, ids: ["#1"] }],
   open: [{ id: "#1" }, { id: "#2" }],
@@ -46,14 +46,18 @@ describe("compareSnapshots", () => {
     expect(compareSnapshots(old, BASE).join(" ")).toMatch(/version/);
   });
 
-  // The regression this test exists for: `ledger_revision` is the sha of the
-  // commit that last touched the ledger, so committing a ledger edit changes it
-  // as a side effect. Comparing it made the gate fail on every ledger change
-  // with nothing stale, which would turn `main` red after each squash merge.
+  // The regression this test exists for: `ledger_revision` dates the commit
+  // that last touched the ledger, so committing a ledger edit changes it as a
+  // side effect. Comparing it made the gate fail on every ledger change with
+  // nothing stale, which would turn `main` red after each squash merge.
+  //
+  // v2 narrowed the field to a date, which is what stops two branches
+  // conflicting on it in git — but the gate still must not compare it, because
+  // branches a day apart legitimately differ here.
   it("ignores a differing ledger_revision, which changes as a side effect of committing", () => {
-    const differentSha = structuredClone(BASE);
-    differentSha.ledger_revision = { sha: "b".repeat(40), committed_at: "2026-08-21T00:00:00Z" };
-    expect(compareSnapshots(differentSha, BASE)).toEqual([]);
+    const differentDate = structuredClone(BASE);
+    differentDate.ledger_revision = { committed_at: "2026-08-21" };
+    expect(compareSnapshots(differentDate, BASE)).toEqual([]);
   });
 
   it("still detects drift in queue, not just open", () => {

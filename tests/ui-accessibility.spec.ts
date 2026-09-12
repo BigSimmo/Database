@@ -259,6 +259,7 @@ test.describe("PsychSift accessibility coverage", () => {
     await expect(modeButton).toHaveAttribute("aria-expanded", "true");
 
     await modeButton.press("Shift+Tab");
+    await expect(modeButton).not.toBeFocused();
     await expect(modeMenu).toBeHidden();
     await expect(modeButton).toHaveAttribute("aria-expanded", "false");
   });

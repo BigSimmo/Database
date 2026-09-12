@@ -331,6 +331,16 @@ async function admittedShadowCacheHarness() {
 }
 
 describe("RAG cache invalidation", () => {
+  it("bumps dependency version past v24 so #ZK460W evicts unsafe shared review-fallback rows", async () => {
+    vi.resetModules();
+    const { ragCacheDependencyVersion } = await import("../src/lib/rag/rag-cache");
+    // Main still writes the unsafe grounded/non-review_only shape under v24; extractive
+    // review fallback lacks generation_fallback:, so getSharedCachedAnswer will not evict.
+    // v25 is the intentional invalidation — staying on v24 would reintroduce the blocker.
+    expect(ragCacheDependencyVersion).toBe("rag-cache-v25");
+    expect(ragCacheDependencyVersion).not.toBe("rag-cache-v24");
+  });
+
   it.each(["local", "shared"] as const)(
     "P09 shadow serves admitted warm %s legacy answers without re-originating",
     async (layer) => {
@@ -668,7 +678,7 @@ describe("RAG cache invalidation", () => {
       expect((await cache.getCachedAnswer(args, Date.now()))?.answer).toBe("variant-" + index);
       expect((await cache.getSharedCachedAnswer(args, Date.now()))?.answer).toBe("variant-" + index);
     }
-    expect(rows.every((row) => row.dependency_version === "rag-cache-v24")).toBe(true);
+    expect(rows.every((row) => row.dependency_version === "rag-cache-v25")).toBe(true);
   });
 
   it("P08C distinguishes full request suffixes in every answer identity without retaining request text", async () => {
@@ -822,7 +832,11 @@ describe("RAG cache invalidation", () => {
     const shadowV1 = { ...legacyV1, ragQueryPlanMode: "shadow" as const };
     const shadowV2 = { ...shadowV1, ragQueryPlanVersion: "rag-query-plan-v2" };
 
-    expect(ragCacheDependencyVersion).toBe("rag-cache-v24");
+    // Ledger #ZK460W: must stay ahead of main's v24 while that namespace still holds
+    // unsafe grounded/non-review_only review-fallback rows that lack generation_fallback:.
+    expect(ragCacheDependencyVersion).toBe("rag-cache-v25");
+    expect(ragCacheDependencyVersion).not.toBe("rag-cache-v24");
+    expect(scopedAnswerCacheKey(legacyV1)).toMatch(/^rag-cache-v25\|/);
     expect(scopedAnswerCacheKey(legacyV1)).not.toBe(scopedAnswerCacheKey(shadowV1));
     expect(scopedAnswerCacheKey(shadowV1)).not.toBe(scopedAnswerCacheKey(shadowV2));
     const searchKeys = [legacyV1, shadowV1, shadowV2].map((args) =>
