@@ -24,7 +24,7 @@
   "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
   "status": "running",
   "resumedAt": "2026-09-12T03:09:04.384Z",
-  "revision": 19,
+  "revision": 20,
   "repairs": 3,
   "pass": 0,
   "active": 2715,
@@ -36,7 +36,8 @@
     "base": "bfce2e3b71b1d40d6f1644d995e40987c3463523",
     "at": "2026-09-12T03:09:04.384Z",
     "fingerprint": "9cef08225662dade4330e433f96a798b7a960b7cd740c8c5e1053e927f1b9291",
-    "runId": 34669599689
+    "runId": 34669599689,
+    "resultHead": "0ba37fbf520b726605d5aefef1658fa92ff38b99"
   },
   "reason": null,
   "entries": [
@@ -201,6 +202,13 @@
       "kind": "worker-claimed",
       "operationId": "batch-34666462342-17",
       "runId": 34669599689
+    },
+    {
+      "revision": 20,
+      "at": "2026-09-12T03:16:10.121Z",
+      "kind": "candidate-sealed",
+      "operationId": "batch-34666462342-17",
+      "resultHead": "0ba37fbf520b726605d5aefef1658fa92ff38b99"
     }
   ],
   "approvedControllerHash": "31b3614590d02004ee972aaeab0c96db5df835fae27b7a6dc73fd4fbc291ad24"
