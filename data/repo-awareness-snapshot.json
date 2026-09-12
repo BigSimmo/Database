@@ -5164,6 +5164,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/caring-contacts-crisis-lines.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/copy-review.md",
         "section": "caring-contacts",
         "catalogued": true
