@@ -2,7 +2,11 @@ import { statusDotMuted, statusDotReady, statusDotReview, type StatusDotTone } f
 import { sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { type CanonicalAnswerTableRecord, type SourceLink } from "@/lib/answer-render-policy";
-import type { BestSourceRecommendation, SearchResult, VisualEvidenceCard } from "@/lib/types";
+import type { VisualEvidenceCard } from "@/lib/types";
+import type {
+  ClientBestSourceRecommendation as BestSourceRecommendation,
+  ClientSearchResult as SearchResult,
+} from "@/lib/answer-client-payload";
 
 /**
  * One cited document as the answer surface shows it: the shape the source rail
@@ -216,6 +220,17 @@ export function sourceSupportSentence(
   return "Related to the question — this page does not state the claim.";
 }
 
+/** Exact final citations that the canonical adaptive projection renders. */
+export function citedSourceIdsForAnswerProjection(projection: {
+  leadCitationSources: Array<Pick<SearchResult, "id">>;
+  sections: Array<{ citationSources: Array<Pick<SearchResult, "id">> }>;
+}) {
+  return new Set([
+    ...projection.leadCitationSources.map((source) => source.id),
+    ...projection.sections.flatMap((section) => section.citationSources.map((source) => source.id)),
+  ]);
+}
+
 /**
  * Builds the rail's ordered, de-duplicated source list from the three shapes the
  * answer surface has on hand.
@@ -228,9 +243,12 @@ export function buildAnswerSourceRows(
   bestSource: BestSourceRecommendation | null,
   sources: SearchResult[],
   sourceLinks: SourceLink[] = [],
+  citedSourceIds?: ReadonlySet<string>,
 ): AnswerSourceRow[] {
   const rows: AnswerSourceRow[] = [];
   const seen = new Set<string>();
+  const isCited = (id: string, legacyFallback: boolean) =>
+    citedSourceIds === undefined ? legacyFallback : citedSourceIds.has(id);
   const pushRow = (row: AnswerSourceRow) => {
     const key = `${row.id}:${row.title}:${row.pageNumber ?? "n/a"}`;
     if (seen.has(key)) return;
@@ -251,7 +269,7 @@ export function buildAnswerSourceRows(
       href: source.href,
       snippet: source.snippet,
       sourceStrength: source.sourceStrength,
-      cited: true,
+      cited: isCited(source.chunk_id, true),
     });
   });
 
@@ -267,7 +285,7 @@ export function buildAnswerSourceRows(
       score: bestSource.score,
       href: bestSource.viewer_href,
       sourceStrength: bestSource.source_strength,
-      cited: true,
+      cited: isCited(bestSource.chunk_id, true),
     });
   }
 
@@ -284,7 +302,7 @@ export function buildAnswerSourceRows(
       href: sourceResultHref(source),
       sourceStrength: source.source_strength,
       // Retrieved but not cited by the answer: the rail's "also found" group.
-      cited: false,
+      cited: isCited(source.id, false),
     });
   });
 

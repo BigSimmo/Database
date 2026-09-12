@@ -6,8 +6,9 @@ import formsPdfManifest from "../../../data/forms-pdf-manifest.json";
 import formsSnapshot from "../../../data/forms-page-snapshot.json";
 import dsmClinicalContent from "../../data/dsm-clinical-content.json";
 import therapiesSource from "../../data/therapies-source.json";
-import { calculators } from "../../components/calculators/calculator-fixtures";
-import { factsheets } from "../../components/factsheets/factsheets-data";
+import { calculatorEvidence, type CalculatorEvidenceSource } from "@/lib/calculators/calculator-evidence";
+import { allCalculatorFixtures } from "@/lib/calculators/calculator-fixtures";
+import { factsheets } from "@/lib/factsheets-data";
 import {
   dictionaryComparisonPairs,
   dictionaryEntries,
@@ -28,7 +29,12 @@ import { loadServicesSnapshot } from "@/lib/service-catalog";
 import { authoritativeSources, loadSpecifiersContent, type AuthoritativeSource } from "@/lib/specifiers-content";
 import { acquisitionSourceReferences } from "@/lib/sources/acquisition-ledger";
 import { safeHttpsUrl } from "@/lib/sources/catalogue-core";
-import type { ClinicalSourceReferenceInput, ClinicalSourceType, SourceUsage } from "@/lib/sources/catalogue-types";
+import type {
+  ClinicalSourceReferenceInput,
+  ClinicalSourceType,
+  SourceLifecycleStatus,
+  SourceUsage,
+} from "@/lib/sources/catalogue-types";
 import { hasInvalidStructuredSourceDate, strictSourceDate } from "@/lib/sources/source-date-policy";
 
 export type ClinicalSourceProvider = {
@@ -160,7 +166,7 @@ function factsheetEvidenceType(tag: string): ClinicalSourceType {
 
 const factsheetProvider: ClinicalSourceProvider = {
   id: "factsheets",
-  sourcePaths: ["src/components/factsheets/factsheets-data.ts"],
+  sourcePaths: ["src/lib/factsheets-data.ts"],
   references: () =>
     factsheets.flatMap((sheet) =>
       sheet.sources.map((source) =>
@@ -515,20 +521,71 @@ const dsmProvider: ClinicalSourceProvider = {
   },
 };
 
+function isAcademicCalculatorEvidence(source: CalculatorEvidenceSource) {
+  return source.type !== "internal_governance_record" && source.type !== "rights_statement";
+}
+
+function calculatorEvidenceType(source: CalculatorEvidenceSource): ClinicalSourceType {
+  if (source.type === "journal_article") return "primary_study";
+  if (source.type === "government_information_paper" || source.type === "government_web_guidance") {
+    return "professional_reference";
+  }
+  return "unknown";
+}
+
+/**
+ * The evidence registry types `status` as an unrestricted string, so a missing, misspelled or
+ * newly introduced value reaches here. Only a status this map names may present a source as
+ * active evidence; anything else falls to `inactive`, which keeps the source visible with its
+ * not-in-active-use warning rather than letting unvetted or quarantined evidence read as
+ * current. `npm run check:calculator-content` fails on any status not listed here, so a new
+ * status is a loud failure at the data rather than a silent demotion at the read.
+ */
+const CALCULATOR_EVIDENCE_LIFECYCLE: Record<string, SourceLifecycleStatus> = {
+  reviewed: "active",
+  permission_review_required: "inactive",
+  not_for_active_use: "excluded",
+};
+
+export const KNOWN_CALCULATOR_EVIDENCE_STATUSES = Object.keys(CALCULATOR_EVIDENCE_LIFECYCLE);
+
+function calculatorEvidenceLifecycle(source: CalculatorEvidenceSource): SourceLifecycleStatus {
+  return CALCULATOR_EVIDENCE_LIFECYCLE[source.status] ?? "inactive";
+}
+
+const calculatorEvidenceById = new Map(calculatorEvidence.sources.map((source) => [source.id, source]));
+
 const calculatorProvider: ClinicalSourceProvider = {
   id: "calculators",
-  sourcePaths: ["src/components/calculators/calculator-fixtures.ts"],
+  sourcePaths: ["data/calculators/evidence.json", "src/lib/calculators/calculator-fixtures.ts"],
   references: () =>
-    calculators.map((calculator) =>
-      reference(
-        { modeId: "calculators", recordId: calculator.id, recordLabel: calculator.name, field: "source" },
-        {
-          title: `${calculator.abbrev} source`,
-          validationStatus: "unverified",
-          referenceText: calculator.source,
-          topics: [calculator.domain],
-        },
-      ),
+    allCalculatorFixtures.flatMap((calculator) =>
+      calculator.sourceIds.flatMap((sourceId) => {
+        const source = calculatorEvidenceById.get(sourceId);
+        if (!source || !isAcademicCalculatorEvidence(source)) return [];
+        return [
+          reference(
+            { modeId: "calculators", recordId: calculator.id, recordLabel: calculator.name, field: "sourceIds" },
+            {
+              sourceId: source.id,
+              title: source.title,
+              publisher: source.issuer,
+              canonicalUrl: source.url,
+              version: source.version,
+              reviewDate: strictSourceDate(source.lastReviewed),
+              expiryDate: strictSourceDate(source.nextReview),
+              jurisdiction: source.jurisdiction,
+              evidenceType: calculatorEvidenceType(source),
+              documentStatus: source.status === "reviewed" ? "current" : "unknown",
+              validationStatus: source.status === "reviewed" ? "locally_reviewed" : "unverified",
+              contentMode: "link_only",
+              lifecycleStatus: calculatorEvidenceLifecycle(source),
+              supersedes: source.supersedes ? [source.supersedes] : [],
+              topics: [calculator.domain],
+            },
+          ),
+        ];
+      }),
     ),
 };
 
@@ -644,12 +701,28 @@ export function repositorySourceCoverageIssues(inputs: RepositorySourceCoverageI
     if (!usedFormulationSources.has(sourceId)) issues.push(`Formulation source ${sourceId} has no mechanism usage`);
   }
 
-  for (const calculator of calculators) {
-    const expected = reference(
-      { modeId: "calculators", recordId: calculator.id, recordLabel: calculator.name, field: "source" },
-      { referenceText: calculator.source },
-    );
-    if (!keys.has(coverageKey(expected))) issues.push(`Calculator ${calculator.id} source is not captured`);
+  const usedCalculatorEvidenceIds = new Set(allCalculatorFixtures.flatMap((calculator) => calculator.sourceIds));
+  for (const calculator of allCalculatorFixtures) {
+    for (const sourceId of calculator.sourceIds) {
+      const source = calculatorEvidenceById.get(sourceId);
+      if (!source) {
+        issues.push(`Calculator ${calculator.id} references missing evidence source ${sourceId}`);
+        continue;
+      }
+      if (!isAcademicCalculatorEvidence(source)) continue;
+      const expected = reference(
+        { modeId: "calculators", recordId: calculator.id, recordLabel: calculator.name, field: "sourceIds" },
+        { sourceId, canonicalUrl: source.url },
+      );
+      if (!keys.has(coverageKey(expected))) {
+        issues.push(`Calculator evidence source ${sourceId} is missing usage ${calculator.id}`);
+      }
+    }
+  }
+  for (const source of calculatorEvidence.sources) {
+    if (isAcademicCalculatorEvidence(source) && !usedCalculatorEvidenceIds.has(source.id)) {
+      issues.push(`Calculator evidence source ${source.id} has no calculator usage`);
+    }
   }
 
   for (const { medication, section, row } of medicationSourceRows()) {

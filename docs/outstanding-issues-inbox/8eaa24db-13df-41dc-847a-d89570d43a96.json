@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8eaa24db-13df-41dc-847a-d89570d43a96",
+  "createdOn": "2026-09-10",
+  "action": "done",
+  "payload": {
+    "id": "#E8ARD5",
+    "outcome": "Authored source deny rationales in medication interaction lexicon and review report",
+    "baseRowFingerprint": "1e7e6403dc4a8258dd51dff523ab830ed48434925ac854bdadd79993153c6e13"
+  }
+}

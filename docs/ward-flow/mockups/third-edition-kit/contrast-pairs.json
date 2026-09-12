@@ -1,0 +1,416 @@
+[
+  {
+    "a": "ink",
+    "b": "surface",
+    "light": 17.18,
+    "dark": 14.57
+  },
+  {
+    "a": "ink",
+    "b": "ground",
+    "light": 14.45,
+    "dark": 15.83
+  },
+  {
+    "a": "ink-soft",
+    "b": "surface",
+    "light": 8.97,
+    "dark": 8.82
+  },
+  {
+    "a": "ink-soft",
+    "b": "ground",
+    "light": 7.55,
+    "dark": 9.59
+  },
+  {
+    "a": "muted",
+    "b": "surface",
+    "light": 5.56,
+    "dark": 5.5
+  },
+  {
+    "a": "muted",
+    "b": "ground",
+    "light": 4.68,
+    "dark": 5.97
+  },
+  {
+    "a": "muted",
+    "b": "ground-hi",
+    "light": 4.94,
+    "dark": 5.67
+  },
+  {
+    "a": "muted",
+    "b": "ground-2",
+    "light": 4.5,
+    "dark": 6.11
+  },
+  {
+    "a": "muted",
+    "b": "sunk",
+    "light": 5.03,
+    "dark": 5.72
+  },
+  {
+    "a": "muted",
+    "b": "surface-2",
+    "light": 5.26,
+    "dark": 5.21
+  },
+  {
+    "a": "muted",
+    "b": "accent-soft",
+    "light": 4.53,
+    "dark": 4.63
+  },
+  {
+    "a": "accent",
+    "b": "surface",
+    "light": 8.8,
+    "dark": 8.86
+  },
+  {
+    "a": "accent-ink",
+    "b": "surface",
+    "light": 10.5,
+    "dark": 10.97
+  },
+  {
+    "a": "accent-ink",
+    "b": "surface-2",
+    "light": 9.93,
+    "dark": 10.41
+  },
+  {
+    "a": "accent-ink",
+    "b": "accent-soft",
+    "light": 8.55,
+    "dark": 9.24
+  },
+  {
+    "a": "on-accent",
+    "b": "accent",
+    "light": 8.95,
+    "dark": 9.63
+  },
+  {
+    "a": "gilt",
+    "b": "surface",
+    "light": 5.71,
+    "dark": 8.92
+  },
+  {
+    "a": "gilt",
+    "b": "gilt-soft",
+    "light": 4.89,
+    "dark": 7.86
+  },
+  {
+    "a": "gilt",
+    "b": "accent-soft",
+    "light": 4.65,
+    "dark": 7.52
+  },
+  {
+    "a": "good",
+    "b": "good-soft",
+    "light": 4.79,
+    "dark": 8.38
+  },
+  {
+    "a": "good",
+    "b": "surface",
+    "light": 5.54,
+    "dark": 9.44
+  },
+  {
+    "a": "warn",
+    "b": "warn-soft",
+    "light": 5.16,
+    "dark": 8.51
+  },
+  {
+    "a": "warn",
+    "b": "surface",
+    "light": 5.86,
+    "dark": 9.56
+  },
+  {
+    "a": "warn",
+    "b": "sunk",
+    "light": 5.3,
+    "dark": 9.96
+  },
+  {
+    "a": "danger",
+    "b": "danger-soft",
+    "light": 4.96,
+    "dark": 6.75
+  },
+  {
+    "a": "danger",
+    "b": "surface",
+    "light": 5.88,
+    "dark": 7.58
+  },
+  {
+    "a": "danger-ink",
+    "b": "danger-soft",
+    "light": 6.27,
+    "dark": 7.83
+  },
+  {
+    "a": "svc-east",
+    "b": "surface",
+    "light": 8.8,
+    "dark": 8.86
+  },
+  {
+    "a": "svc-north",
+    "b": "surface",
+    "light": 5.94,
+    "dark": 7.41
+  },
+  {
+    "a": "svc-south",
+    "b": "surface",
+    "light": 5.99,
+    "dark": 7.38
+  },
+  {
+    "a": "svc-wachs",
+    "b": "surface",
+    "light": 5.67,
+    "dark": 7.25
+  },
+  {
+    "a": "svc-east",
+    "b": "ground",
+    "light": 7.41,
+    "dark": 9.63
+  },
+  {
+    "a": "svc-north",
+    "b": "ground",
+    "light": 5,
+    "dark": 8.05
+  },
+  {
+    "a": "svc-south",
+    "b": "ground",
+    "light": 5.04,
+    "dark": 8.01
+  },
+  {
+    "a": "svc-wachs",
+    "b": "ground",
+    "light": 4.77,
+    "dark": 7.88
+  },
+  {
+    "a": "svc-south",
+    "b": "surface-2",
+    "light": 5.67,
+    "dark": 7
+  },
+  {
+    "a": "svc-north",
+    "b": "surface-2",
+    "light": 5.61,
+    "dark": 7.03
+  },
+  {
+    "a": "svc-east",
+    "b": "surface-2",
+    "light": 8.32,
+    "dark": 8.4
+  },
+  {
+    "a": "svc-wachs",
+    "b": "surface-2",
+    "light": 5.36,
+    "dark": 6.88
+  },
+  {
+    "a": "ink",
+    "b": "surface-2",
+    "light": 16.24,
+    "dark": 13.81
+  },
+  {
+    "a": "ink-soft",
+    "b": "surface-2",
+    "light": 8.48,
+    "dark": 8.37
+  },
+  {
+    "a": "gilt",
+    "b": "surface-2",
+    "light": 5.4,
+    "dark": 8.46
+  },
+  {
+    "a": "ink",
+    "b": "sunk",
+    "light": 15.52,
+    "dark": 15.17
+  },
+  {
+    "a": "ink-soft",
+    "b": "sunk",
+    "light": 8.11,
+    "dark": 9.19
+  },
+  {
+    "a": "accent-ink",
+    "b": "sunk",
+    "light": 9.49,
+    "dark": 11.43
+  },
+  {
+    "a": "good",
+    "b": "sunk",
+    "light": 5.01,
+    "dark": 9.83
+  },
+  {
+    "a": "danger",
+    "b": "sunk",
+    "light": 5.32,
+    "dark": 7.89
+  },
+  {
+    "a": "svc-east",
+    "b": "sunk",
+    "light": 7.96,
+    "dark": 9.23
+  },
+  {
+    "a": "svc-north",
+    "b": "sunk",
+    "light": 5.37,
+    "dark": 7.72
+  },
+  {
+    "a": "svc-south",
+    "b": "sunk",
+    "light": 5.42,
+    "dark": 7.68
+  },
+  {
+    "a": "svc-wachs",
+    "b": "sunk",
+    "light": 5.12,
+    "dark": 7.55
+  },
+  {
+    "a": "svc-east",
+    "b": "accent-soft",
+    "light": 7.17,
+    "dark": 7.46
+  },
+  {
+    "a": "svc-north",
+    "b": "accent-soft",
+    "light": 4.84,
+    "dark": 6.24
+  },
+  {
+    "a": "svc-south",
+    "b": "accent-soft",
+    "light": 4.88,
+    "dark": 6.21
+  },
+  {
+    "a": "svc-wachs",
+    "b": "accent-soft",
+    "light": 4.62,
+    "dark": 6.11
+  },
+  {
+    "a": "good",
+    "b": "accent-soft",
+    "light": 4.51,
+    "dark": 7.95
+  },
+  {
+    "a": "warn",
+    "b": "accent-soft",
+    "light": 4.78,
+    "dark": 8.06
+  },
+  {
+    "a": "svc-east",
+    "b": "good-soft",
+    "light": 7.61,
+    "dark": 7.87
+  },
+  {
+    "a": "svc-north",
+    "b": "good-soft",
+    "light": 5.13,
+    "dark": 6.58
+  },
+  {
+    "a": "svc-south",
+    "b": "good-soft",
+    "light": 5.18,
+    "dark": 6.55
+  },
+  {
+    "a": "svc-wachs",
+    "b": "good-soft",
+    "light": 4.9,
+    "dark": 6.44
+  },
+  {
+    "a": "warn",
+    "b": "good-soft",
+    "light": 5.07,
+    "dark": 8.49
+  },
+  {
+    "a": "ink-soft",
+    "b": "accent-soft",
+    "light": 7.31,
+    "dark": 7.43
+  },
+  {
+    "a": "ink",
+    "b": "danger-soft",
+    "light": 14.47,
+    "dark": 12.98
+  },
+  {
+    "a": "ink-soft",
+    "b": "danger-soft",
+    "light": 7.56,
+    "dark": 7.87
+  },
+  {
+    "a": "ink-soft",
+    "b": "warn-soft",
+    "light": 7.89,
+    "dark": 7.85
+  },
+  {
+    "a": "ink",
+    "b": "good-soft",
+    "light": 14.85,
+    "dark": 12.93
+  },
+  {
+    "a": "ink-soft",
+    "b": "good-soft",
+    "light": 7.76,
+    "dark": 7.83
+  },
+  {
+    "a": "muted",
+    "b": "good-soft",
+    "light": 4.81,
+    "dark": 4.88
+  }
+]

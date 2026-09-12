@@ -7,6 +7,13 @@ export type RetrievalAccessScope = {
   includePublic: boolean;
 };
 
+const GOVERNED_PUBLIC_RETRIEVAL_SCOPE: RetrievalAccessScope = Object.freeze({ includePublic: true });
+
+/** Candidate Answer retrieval is one shared public population for every reader. */
+export function governedPublicRetrievalAccessScope(): RetrievalAccessScope {
+  return GOVERNED_PUBLIC_RETRIEVAL_SCOPE;
+}
+
 export function resolveRetrievalAccessScope(ownerId?: string | null): RetrievalAccessScope {
   return ownerId ? { ownerId, includePublic: true } : { includePublic: true };
 }

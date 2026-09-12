@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c4d3be44-f4c9-471f-9be9-9ecaf0bf2c4c",
+  "createdOn": "2026-09-10",
+  "action": "done",
+  "payload": {
+    "id": "#WM4DNW",
+    "outcome": "Derived differential validation_status from review evidence defaulting to unverified",
+    "baseRowFingerprint": "108c602280f15bebceb0b0737b24108fcefd3860203d1081d60f01253b45fdbb"
+  }
+}

@@ -1,17 +1,17 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "4fe1131ebb326209fd5d7d379253de9ffb061ae2",
-    "committed_at": "2026-09-07T04:17:48+00:00"
+    "sha": "5fafd89facabfcb30752ba7b0163b14ada2acbd2",
+    "committed_at": "2026-09-07T04:19:50Z"
   },
   "counts": {
-    "open": 121,
+    "open": 102,
     "p1": 7,
-    "p2": 78,
-    "p3": 36,
+    "p2": 70,
+    "p3": 25,
     "queued": 7,
     "pending": 0,
-    "resolved": 501
+    "resolved": 525
   },
   "queue": [
     {
@@ -256,38 +256,11 @@
       "added": "2026-08-20"
     },
     {
-      "id": "#000GN4",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "A hardcoded topic denylist refuses in-corpus psychiatric queries with zero retrieval and caches the empty result",
-      "detail": "rag-query-guard.ts:6 short-circuits any query matching ssri, antibiotic, pneumonia, hyperkalaemia and others; every token was transcribed from the eval fixture questions. ssri is demonstrably in-corpus: the golden fixture case vector-gad-worry expects a Generalised Anxiety document whose expectedContentTerms include ssri. So 'Which SSRI is first line for generalised anxiety disorder?' is refused content-blind and the empty result is cached. Worse for eval integrity: classifyCorpusGrounding, the deterministic mechanism built to make exactly this call, is explicitly bypassed for these queries, so the unsupported-query controls pass by literal topic-word match on their own question text rather than by the grounding machinery they exist to validate. A second divergent copy of the same regex lives at clinical-search.ts:371 and additionally contains 'ketamine sedation', so the two guards already disagree. FIX: delete the denylist, let classifyCorpusGrounding decide, single source of truth. Protected surface: needs approval and a canary pair.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
-      "id": "#ZBAC9D",
-      "priority": "P2",
-      "type": "task",
-      "summary": "Retrieval RPC still treats a null document owner as public, so the owner_id republication hole is only half closed",
-      "detail": "CONSOLIDATED 2026-09-02, replacing two records that were pending simultaneously (one from PR #2526 on main, one from this branch) and so failed the ledger planner. DELETION HALF: CLOSED. public.documents, document_labels, document_summaries and document_table_facts use ON DELETE RESTRICT, with the live migration and a schema proof pinning the four visibility tables and their exact restrict action. CODE DEFECT (open by predicate, zero by data): public.retrieval_owner_matches resolves the public sentinel to row_owner_id IS NULL, and retrieval_owner_matches_v2 does the same for include_public; neither requires metadata.public_corpus = true, so an ownerless row without the marker could enter a public retrieval result. EXPOSURE, measured twice on owner-approved read-only reads of ref sjrfecxgysukkwxsowpy (2026-09-01 and 2026-09-02, unchanged between them): total documents 2851; owner_id NOT NULL = 0; owner_id IS NULL = 2851; of those metadata.public_corpus = true = 2851; EXPOSED COUNT = 0. Those reads also established document_corpus_access_state.mode = 'public', meaning set_document_corpus_access_mode('public') has been run against live even though no migration or script in the repo invokes it and the table seeds to 'private' (20260825025032:43-45). That operator back-stamp is what closed the legacy ownerless-but-unmarked population the 20260825025032 header describes, and it is why the defect currently has no blast radius. PRIORITY P2, not P1 - but the exposure is zero by DATA STATE, not by predicate, so any future ownerless insert that skips the marker re-opens it silently. CORRECTION to the previously recorded NEXT step: 'put metadata.public_corpus = true inside the retrieval contract's public branch' CANNOT BE WRITTEN AS DESCRIBED. retrieval_owner_matches receives two uuids and never sees document metadata; doing it at the call sites means twelve distinct retrieval functions, putting every retrieval path in the blast radius of a predicate change against a corpus that is 2851/2851 ownerless - where a marker missing from one row is a total search outage rather than a degradation. ROUTE TAKEN (PR #2547, open, not merged): constrain the WRITE side so the property retrieval already assumes is true by construction - a CHECK on public.documents that an ownerless row is either published (metadata->'public_corpus' is not distinct from 'true'::jsonb; null-safe, because a CHECK passes on NULL) or quarantined (status = 'failed'), added NOT VALID then validated separately, with a fail-fast guard migration; plus the one genuinely unfiltered read path, get_related_document_metadata, gaining 'and d.status = indexed'. The measured 2851/2851 marked population is what VALIDATE CONSTRAINT runs against, so it is expected to pass rather than abort. STILL OPEN: the PR needs an approved live-database window (merging applies it within seconds), and the retrieval predicates themselves are deliberately left alone.",
-      "source": "consolidation of the #2526 record (live reads 2026-09-01/02, ref sjrfecxgysukkwxsowpy) and this branch's schema analysis; PR #2547 supabase/migrations/20260902110500 and 20260902111500",
-      "added": "2026-08-23"
-    },
-    {
       "id": "#ZK460W",
       "priority": "P2",
       "type": "issue",
       "summary": "The extractive review fallback flips grounded false to true, which is the shared root cause behind the three tracked adversarial divergences",
       "detail": "rag.ts:3107-3122 enters the branch BECAUSE the answer failed its quality gate (!finalizedAnswer.grounded) and then sets grounded: true with confidence re-derived from retrieval similarity alone. Claim support force-classifies every claim on this route as routine, so the authority gate passes vacuously and trust resolves to high, unlocking quote cards and suppressing the source-gap warning. The prose restates the clinician's own query as though the corpus confirmed it. This is the mechanism behind #NTAV3D, #C2D9JF and #VXB8XA; none of those rows names it. FIX: keep grounded false and confidence unsupported, retaining citations as review-only provenance (that reason string already exists in answer-render-policy). Protected RAG surface: own PR, RAG impact line, canary pair; flips the three divergence pins together.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
-    },
-    {
-      "id": "#VK8ZYY",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Medication source_status current is derived from a substring and never expires",
-      "detail": "medication-records.ts derives source_status from sourceText.includes('checked'). The snapshot Sources rows carry real dates (all 2026-05/06 today) but nothing parses or ages them, so these records will still report current in 2028; medication-badges only ever renders Review due or Outdated from an explicit sourceStatus this derivation cannot produce. The same substring also matches the negative forms 'not checked' and 'unchecked'. The sibling validation_status literal was fixed in the audit branch; this half remains. FIX: parse the ISO date already present in the source text and return review_due past a defined interval, unknown when no date parses.",
       "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
       "added": "2026-08-23"
     },
@@ -314,8 +287,8 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Enrichment artifact families can be permanently lost, the designed repair function is called by nothing, and no monitoring exists",
-      "detail": "supabase/functions/indexing-v3-agent deletes an artifact family (document_memory_cards, document_index_units, document_embedding_fields) BEFORE calling OpenAI and re-inserting, one family at a time, never staged-then-swapped. A provider outage spanning the retry and deferral budget leaves the family permanently empty, and both terminal states (failed, needs_enrichment_artifacts) are excluded from claim eligibility forever. repair_strict_enrichment_gate_batch (migration 20260625033425) is invoked by NOTHING in the codebase, and no script or query references needs_enrichment_artifacts for monitoring, so a stuck document reports as indexed with an empty artifact family. Silent corruption, not a crash. FIX: stage-then-swap per family, plus a re-queue path or wire the existing repair function into an ops script.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+      "detail": "UPDATE 2026-09-07 (offline repo read on main at 62638c17; no provider access). TWO of the four recorded claims hold, ONE holds with a corrected mechanism, and the central technical premise is REFUTED by the code on main. REFUTED: 'deletes an artifact family BEFORE calling OpenAI and re-inserting, one family at a time, never staged-then-swapped'. In all four writers in supabase/functions/indexing-v3-agent/index.ts - upsertMemoryCardsFromSections, upsertSectionIndexUnits, upsertVisualArtifacts, upsertCoreEmbeddingFields - the embeddingBatch await completes BEFORE sql.begin is entered, and the delete and re-insert share one Postgres transaction. A provider outage therefore aborts before any delete happens, and a failed insert rolls the delete back; the 'permanently empty family' failure mode does not follow from this code. tests/indexing-v3-agent.test.ts pins that ordering statically for all four. CONFIRMED: repair_strict_enrichment_gate_batch is invoked by nothing - every repo-wide hit is the migration, schema mirror, generated types, docs, or a schema-text assertion. CONFIRMED: no monitoring - needs_enrichment_artifacts appears in no script and no workflow. CONFIRMED WITH CORRECTED MECHANISM: both terminal states are excluded from claim eligibility forever, but by two different routes - claim_indexing_v3_agent_jobs excludes needs_enrichment_artifacts by NAME in 'status not in (...)', while failed is excluded through 'attempt_count < max_attempts', because agentFailureDecision only writes failed once attempts are spent. NEW FINDING, the reason the recorded fix would not have worked: repair_strict_enrichment_gate_batch touches documents.metadata, document_index_quality and ingestion_jobs and NEVER touches indexing_v3_agent_jobs, so even wired to a caller it could not have unstuck a stuck document. ADDRESSED in this change: migration 20260907041700 adds the indexing_v3_agent_jobs reset with fresh-processing and fresh-pending guards, scripts/repair-strict-enrichment-gate.ts is the operator caller (dry-run first, --apply --yes, health-probed, deliberately not automated), and check:enrichment-health counts the stuck states. Re-verified separately: current deep-memory writes already stage producer-scoped generations and commit them through commit_document_deep_memory_generation, so the stale follow-up request from PR #2548 was not carried into this replacement.",
+      "source": "supabase/functions/indexing-v3-agent/index.ts; tests/indexing-v3-agent.test.ts; supabase/migrations/20260724060000_atomic_reindex_agent_guard.sql; supabase/migrations/20260625033425_strict_enrichment_gate_repair.sql; src/lib/deep-memory.ts and tests/deep-memory-transaction-sql.test.ts; offline audit on main 62638c17, 2026-09-07",
       "added": "2026-08-23"
     },
     {
@@ -328,15 +301,6 @@
       "added": "2026-08-23"
     },
     {
-      "id": "#CJCH2E",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Ingestion panel reports 'could not reach' when it reached the endpoint but could not parse the body",
-      "detail": "A malformed JSON body on a 200 response falls into the generic catch in IngestionPanel and produces 'The panel could not reach the ingestion jobs endpoint.' It did reach it. The adjacent parseReadyPayload path gets this right and says 'returned an unexpected shape'. Small, but the panel's whole purpose is telling a reader precisely what is and is not known, so a message that misattributes the failure is off-key. Found during the ingestion panel review.",
-      "source": "Ingestion panel review, 2026-08-25",
-      "added": "2026-08-25"
-    },
-    {
       "id": "#EG4Q7W",
       "priority": "P3",
       "type": "rec",
@@ -344,24 +308,6 @@
       "detail": "STILL OPEN AND LARGER THAN RECORDED; re-measured against origin/main d1bb2c197 on 2026-09-02. A done request for this row (97bbfd51) claimed the file had been modularized into five cohesive domain modules (core, plans, contacts, referrals-pathways, assignments). That claim is false against current main and the request was cancelled, so nothing was lost -- but the reason recorded on the cancellation ('target issue is no longer in Open items on current main') was also wrong, since the row was and remains open. Recording the measurement so a third attempt does not start from either error. MEASURED: src/lib/caring-contacts/db/postgres-repository.ts is a single file of 2,500 lines. It has not been split, and it is now about 420 lines LARGER than the ~2,080 this row recorded when it was filed. There are no sibling domain modules beside it under db/. The original recommendation is unchanged and still applies: the split is pure structure with no behaviour change, every method's set_config / set local role preamble must survive it intact because this file is the code half of row-level security, and the existing shared contract suite is the proof that it did.",
       "source": "docs/caring-contacts/phase-2a-build-record.md deferred list item 2",
       "added": "2026-08-24"
-    },
-    {
-      "id": "#KMM6R6",
-      "priority": "P2",
-      "type": "task",
-      "summary": "The Caring Contacts service safety stop halts sending across every patient and team, but the rule that it is stored as ONE record rather than one row per team is currently carried only by a field name (reportedByTeamId) and a doc comment in src/lib/caring-contacts/service-state.ts. Migration 0003 (Phase 2A Task 11) must enforce it in the schema with a fixed-key singleton row plus a test, and every dispatch path must read that one record regardless of the dispatching team. Without it, a stop raised by one team would leave every other team still sending during an incident.",
-      "detail": "",
-      "source": "session 2026-08-19",
-      "added": "2026-08-19"
-    },
-    {
-      "id": "#EWWJVX",
-      "priority": "P2",
-      "type": "task",
-      "summary": "Caring Contacts Phase 2B — the screens",
-      "detail": "Phase 2A closed at Task 19 with one production screen built (/caring-contacts, Today) plus the frozen 24-overlay renderer. Plan 2B builds the remaining screens: patients, patient overview, patient and agreement, pathway selection, personalisation, review and activation, plan detail, schedule, contact and delivery exception, governed templates, team, guidance, reports — plus the Today dashboard body itself (referral queue, needs-action list, sending windows, recent activity, summary counts). Their rules and data already exist from Phase 1 and Tasks 3-11; only the surfaces are missing. The visual specification for each is the committed mockup atlas: 26 of its 44 images have no production counterpart today, listed in docs/caring-contacts/phase-2a-visual-differences.md. Building a screen also means giving its rail/dock destination an href in shell.tsx (Ruling 52) and raising its overlays through openWorkspaceOverlay, which nothing yet does.",
-      "source": "docs/caring-contacts/phase-2a-visual-differences.md; docs/caring-contacts/phase-2a-sdd-archive/task-19-report.md",
-      "added": "2026-08-22"
     },
     {
       "id": "#4VKAA1",
@@ -380,15 +326,6 @@
       "detail": "docs/caring-contacts/hazard-log.md records H-00 (no named clinical safety officer, so nobody owns clinical risk), H-04 (the message set has never been read by anyone with lived experience) and H-05 (no Aboriginal cultural safety review, in a WA suicide-aftercare service). All three are Open with no control. None blocks the synthetic build; every one blocks a pilot. H-04 is ready to run today: docs/caring-contacts/message-review-pack.md is a complete facilitation pack. Owner Josh for H-00 and H-04; Aboriginal health governance for H-05.",
       "source": "Caring Contacts design session 2026-08-19; hazard log H-00/H-04/H-05",
       "added": "2026-08-18"
-    },
-    {
-      "id": "#J43Z6B",
-      "priority": "P2",
-      "type": "rec",
-      "summary": "The tenancy boundary is app-code only, so a single missing owner predicate has nothing behind it; make the property mechanical",
-      "detail": "20260719070000_align_existing_acls revokes ALL on every public base table from public, anon and authenticated and re-grants only service_role, and roles.sql makes that the default for future objects. The roughly 30 policies written TO authenticated therefore can never be evaluated, and every read path uses the RLS-bypassing admin client across 37 API route files. This is deliberate and pinned by tests, not a bug - but it means RLS is a dead backstop and app code is the only tenancy boundary. The audit scanned all owner-bearing .from() calls under src/app/api and found no unscoped read, so the property holds today by review rather than by enforcement. FIX: a lint or contract test asserting that any admin-client query against an owner-bearing table in src/app/api is lexically accompanied by an owner predicate.",
-      "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
-      "added": "2026-08-23"
     },
     {
       "id": "#QCNE6N",
@@ -445,15 +382,6 @@
       "added": "2026-08-25"
     },
     {
-      "id": "#HDAP8N",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "The document cover-thumbnail hook and its /api/documents/[id]/cover route have no product consumer since the source drawer stopped rendering a front-page thumbnail",
-      "detail": "The answer source drawer was the only caller of useDocumentCoverImageId (src/components/clinical-dashboard/use-document-cover.ts). Removing the front-page thumbnail from the drawer left that hook, and the /api/documents/[id]/cover route it fetches, reachable only from tests. check:dead-code-candidate REFUSES deletion on three counts — pinned by tests/use-document-cover.dom.test.tsx, present there as a string literal, and undateable on a shallow clone — so nothing was deleted. Decide deliberately: either a future surface adopts the cover (document detail, source rail card), or the hook, its route, its tests and the coverImageId plumbing are retired together after a deepened clone re-runs the gate. Do not delete on reachability alone.",
-      "source": "session 2026-09-01, sidebar-alignment-cleanup branch",
-      "added": "2026-09-01"
-    },
-    {
       "id": "#1BHXEF",
       "priority": "P3",
       "type": "issue",
@@ -470,15 +398,6 @@
       "detail": "Found 2026-08-27 while verifying PR #2419 (dead scroll on pages that fit the window) across 39 routes x 5 viewports in Chromium: every page that fits reported a scroll range of exactly 0 except /calculators/search, which retained 2px at 1280x1200. RE-MEASURED 2026-09-02 IN CHROMIUM AGAINST A LOCAL DEV SERVER ON BRANCH claude/ui-fixes-q04yq7 (base origin/main 45a3dca) AND IT DOES NOT REPRODUCE. Matrix: viewports 1280x1200, 1280x800, 1440x1200 and 1024x1200, each in the browse (catalogue) state and three submitted states (?q=phq, ?q=phq&run=1, ?q=zzzznomatch with no match), each at deviceScaleFactor 1 and 2, measured the way tests/ui-chrome-scroll.spec.ts measures - both document.scrollingElement.scrollHeight - innerHeight and #main-content.scrollHeight - clientHeight, with the spec's 800ms then 400ms settle reads. Every 1200-tall cell read 0/0 on both reads and both scale factors; the submitted state reached by typing into the composer and pressing Enter (landing on ?q=depression&run=1) also read 0. THE ONLY NON-ZERO CELLS ARE GENUINE CONTENT: at 1280x800 the browse catalogue reports 218px, because the catalogue's own content is a fixed 1018px tall. A height sweep at 1280 wide puts the fit boundary at 1018-1020px: 1000 -> 18px, 1020 and above -> 0. So at the reported 1280x1200 the page clears the window by 182px and the residual is not marginal or sub-pixel - it is absent by a wide margin. The scroll owner is the document at every desktop cell (#main-content computes overflow-y visible), so the 2px could not have been hiding in the other container. Demo mode does not weaken this: the server was in demo mode (the answer route returns the synthetic-corpus refusal), but src/components/calculators/search-page.tsx reads static module data only, with no Supabase or demo branch, so the catalogue's length is identical in live mode. LIKELIEST EXPLANATION: page content changed between 2026-08-27 and now, since the residual was attributed to real content rather than to the calc(100dvh - chrome estimate) class PR #2419 retired. WHAT LANDED WITH THIS UPDATE: /calculators/search is now pinned at zero in both states by the existing gate - two cases added to the 'pages that fit the window have no scroll range' block in tests/ui-chrome-scroll.spec.ts, at the exact reported 1280x1200 viewport (the block's other cases keep their 1440x1200 default via a new optional per-case viewport field). Both pass; a mutation to a 1000-tall viewport makes the browse case fail with 'reserves 18px of scroll past its content', so the assertion is live rather than vacuous. NO PRODUCTION CODE WAS CHANGED and no exception was recorded under invariant 24, because there is nothing to except. NEXT: leave the row open at P3 only until a future sweep re-measures; if it stays 0 there too, close it as not reproducible. Stop: do not reintroduce a viewport-estimate floor, do not clip the route's overflow, and do not shrink a min-h-12 tap target to chase a residual.",
       "source": "PR #2419 verification sweep, 2026-08-27; re-measured in Chromium 2026-09-02 on claude/ui-fixes-q04yq7 (base origin/main 45a3dca), 32-cell viewport x state x deviceScaleFactor matrix, all 1200-tall cells 0px; docs/search-chrome-behaviour.md invariant 24; pinned by tests/ui-chrome-scroll.spec.ts",
       "added": "2026-08-27"
-    },
-    {
-      "id": "#MPZTBR",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "The scope-statement footer contradicts itself: an audit says mount it on every mode home, the code says it was deliberately removed from all of them",
-      "detail": "#PM9SP1's FIX text said to 'relabel to Clinical reference - not validated decision support and mount the footer on the other mode homes'. The relabel half landed (PRs #2497, #2499). The mount half conflicts with a recorded decision in the code: src/components/mode-home-template.tsx:216-219 states 'No mode home renders this any more: the line under the composer was removed from every home page. The sole remaining call site is the therapy-compass page footer, which sits at the bottom of the sub-routes and is explicitly not rendered on the therapy home (showFooter={!isHome} in workspace.tsx).' So one source says mount it everywhere and the other says it was deliberately taken off everywhere. NEXT ACTION: owner ruling on which is current, then make the other match. If the footer stays off mode homes, amend the #PM9SP1 fix text so a future session does not re-add it; if it should return, that is a deliberate reversal of the recorded decision and the comment at mode-home-template.tsx:216-219 must be updated in the same change. Not urgent: every surface that renders retrieved clinical content already carries its own scope line (verified by a repo-wide sweep 2026-09-01) - the open question is the shared mode-home composer footer only.",
-      "source": "Design-system + app review session 2026-09-01; conflict found while fixing #PM9SP1, verified against mode-home-template.tsx and therapy-compass/workspace.tsx",
-      "added": "2026-09-01"
     },
     {
       "id": "#YTR84P",
@@ -580,30 +499,12 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#5ECZQA",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Batch image signed-url route swallows per-item createSignedUrls errors and still returns 200",
-      "detail": "src/app/api/images/signed-urls/route.ts:105 checks only the top-level signed.error returned by createSignedUrls. supabase-js returns a per-path result array of { error, path, signedUrl }, so a single path that fails to sign yields an entry with no usable signedUrl while the top-level error stays null. The loop at :112-122 then skips that image because of the if (signedUrl) guard, and the route returns HTTP 200 with the image silently absent from the urls map. The client (src/lib/batch-signed-urls.ts) treats a missing key as \"not returned\" rather than \"failed\", so a figure disappears from the document view with nothing logged and no error surfaced anywhere. This is a milder instance of exactly the silent-failure class that #Z61JRT was about, and it survived that fix because the fix replaced getPublicUrl with createSignedUrls without adding per-item error handling. It is not a privacy or tenancy defect: the owner-scope gate at :70-88 has already run, so only images the caller is entitled to reach ever get to the signing step. The impact is diagnosability and a confusing partial render, not exposure. FIX: inspect each per-path result, and either surface a per-image error field in the response so the client can distinguish \"failed\" from \"not found\", or log the failing paths through the existing observability layer so a systematic storage problem is visible rather than presenting as scattered missing figures. Prefer the first: the response shape is already a per-id record, so an error discriminant fits without a breaking change. Note the singular route src/app/api/images/[id]/signed-url/route.ts:71 has the mirror-image gap, dereferencing signed.data.signedUrl without a null guard where the batch route has an explicit !signed.data check. Worth aligning both in the same change.",
-      "source": "Found while verifying #Z61JRT on main 45a3dca, 2026-09-02; supabase-schema-guardian review of src/app/api/images/signed-urls/route.ts",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#XGKJ8D",
       "priority": "P2",
       "type": "issue",
       "summary": "pg_cron is created by migration 20260901033250 but never declared in supabase/schema.sql, so the mirror understates the live extension set",
       "detail": "Found by the first real CI run of the new chain/mirror parity gate (PR #2550, Migration replay run 33599464239). The gate now promotes chain-only extensions to unexpected_live findings and prints '### Divergence (1) - [extensions] unexpected_live pg_cron'. pg_cron is deliberately NOT allowlisted in supabase/chain-mirror-allowlist.json because it is a genuine mirror gap, not the emulator-image asymmetry that pg_net is. Fixing it means adding the extension declaration to supabase/schema.sql and regenerating supabase/drift-manifest.json, whose embedded sha256 the edit invalidates; regeneration needs Docker, so this is owner/migration-batch work rather than something an offline session can do. Until it lands, the parity gate reports one known divergence on every database-touching PR.",
       "source": "PR #2550 (claude/drift-semantics); Codex review finding on the chain/mirror parity gate",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#9ZGNW7",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Developer-hub CODE still flips perf_changed, so an admin-only mockup route pulls a full Lighthouse run",
-      "detail": "Found while fixing #EFETZT on 2026-09-02 and deliberately NOT fixed in that PR, because it means editing a fail-closed CI classification surface. PR #2530 added data/repo-awareness-snapshot.json to perfExclusionPatterns in scripts/ci-change-scope.mjs, mirroring the carve-out data/outstanding-issues-snapshot.json already had for the same reason (PR #2302). That closes the common case - a handoff PR that only regenerates the snapshot no longer pays a ~7-minute Lighthouse budget run against a budget the change cannot move. It does NOT close the code case. src/components/developer-area/hub/** and src/lib/developer-area/** match the generic 'src' entry in perfPatterns (ci-change-scope.mjs:226) and are not excluded, because only the ROUTE WRAPPER lives under the excluded src/app/mockups prefix - the panel components live one directory hop away under src/components. So a PR touching the developer hub's own code still triggers lighthouse-budget for /mockups/development/**, which 404s for non-admins in production (src/app/mockups/layout.tsx and src/proxy.ts gate it behind DEVELOPER_AREA_HEADER) and cannot appear in either budgeted journey. WHY IT WAS LEFT: the exclusion list is a fail-closed safety surface, and widening it by directory prefix risks exempting a future component that IS reachable from a budgeted route. The safe shape is probably an explicit list of the developer-hub component and lib paths rather than a prefix, pinned by an assertScope self-test beside the two that already exist (ci-change-scope.mjs:1022), plus a test proving a non-hub file under src/components still flips perf_changed. Cost of leaving it is bounded and only paid by developer-hub PRs, which are rare.",
-      "source": "session 2026-09-02, PR #2530; verification-router review",
       "added": "2026-09-02"
     },
     {
@@ -634,15 +535,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#WKFSV6",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Retiring answer-evidence-popups removed the repo's only source-text heading-hierarchy contract, and the DOM-level coverage does not reach mockup gallery pages",
-      "detail": "RECONSTRUCTED 2026-09-06, partially verified. answer-evidence-popups is confirmed gone: it survives only as references in docs/outstanding-issues.md, the archived q3 branch-review ledger and two applied inbox records, with no occurrence anywhere in src/ or tests/. Heading-hierarchy assertions now exist only in tests/ward-community-index.test.ts and tests/ward-referral-screens.dom.test.tsx, both Ward Flow surfaces, so the claim that no coverage reaches mockup gallery pages or source-text rendering matches what is in the suite today. NOT VERIFIED: the exact contract the retired component asserted, which was not recorded before it was deleted. NEXT ACTION: decide whether a source-text heading-hierarchy contract is still wanted. If it is, write it fresh against the surface that renders source text today rather than trying to recover the retired component's version, and point it at the mockup gallery pages the row says were never covered.",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#3F76JZ",
       "priority": "P2",
       "type": "issue",
@@ -652,57 +544,12 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#S76Z3Y",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Two pieces of dead wiring found beside the mockup surface: an orphaned production component and a proxy redirect for a route that no longer exists",
-      "detail": "RECONSTRUCTED 2026-09-06, and this one could NOT be re-derived from the row. The summary names two artefacts, an orphaned production component and a proxy redirect for a route that no longer exists, without naming either, and the detail field was empty, so the specifics are not recoverable from the ledger. next.config.ts does carry header/rewrite rules including a /mockups/:path* entry and a therapy-compass-data rewrite block, but nothing there could be matched to the row's claim with confidence, and guessing at it would be worse than recording the gap. NEXT ACTION: re-run the discovery rather than trying to recall it. npm run check:knip reports unimported and unused exports and is the tool most likely to surface the orphaned component; the redirect half needs the rewrite and redirect entries in next.config.ts checked one by one against the routes in docs/site-map.md, which is generated and therefore current. Record whatever the sweep finds here, with names this time. If the sweep finds nothing, close this row as not reproducible rather than leaving it open indefinitely. PROCESS NOTE: this row is the clearest example of the cost of an empty detail field. Everything the finder knew was lost at the moment of recording, and the work now has to be done again from scratch.",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#6APN03",
       "priority": "P2",
       "type": "task",
       "summary": "Corpus health panel and the hub document count have never been seen against the real library",
       "detail": "Both merged (#2504, #2512) and both were built in a cloud container with no live database and no browser, so every test uses stand-in data. Confirmation needs a machine with live Supabase config and a signed-in administrator: run npm run ensure, open /mockups/development and check the environment strip shows a real document count rather than 'document count unavailable', then open /mockups/development/corpus-health and check the four status tiles show numbers rather than 'Not read'. Then record which of the five spread cases resolveQualitySpread reports for extraction quality. An unverified report says every document may carry an identical placeholder quality_score. A uniform reading is a prompt to investigate and NOT a confirmed fault: assessDocumentIndexQuality starts the score at 1 and only subtracts penalties before rounding to three decimals, so a cleanly extracted corpus legitimately scores 1.000 for every document. Treat a uniform 0.00 as the suspicious case, since 0 is the column default and extraction_quality defaults to unknown, and corroborate against the issues array and metrics JSON on the same rows before recording anything against the scoring pipeline. Full context in docs/corpus-health-panel-handover.md.",
       "source": "docs/corpus-health-panel-handover.md",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#1NMMZS",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Caring Contacts: the plural job-title exemption also permits preceding-verb commercial phrasing, because the companion list only guards words that follow the word",
-      "detail": "Measured by the clinical-governance-reviewer on commit 33e1ffd, 2026-09-02, and left open deliberately rather than fixed there. CARING_CONTACTS_PROHIBITED_LANGUAGE in tests/helpers/caring-contacts-prohibited-language.ts exempts 'leads' when one of five job-title qualifiers (incident, programme, clinical, service, team) sits immediately before it, per the owner decision that closed #AGRAKQ. The commercial-companion branch that stops an exemption licensing what follows it guards words AFTER the word -- generation, capture, nurturing, magnet, pipeline, numbers -- which is where singular commercial English puts them ('lead generation', 'lead capture'). Plural commercial English puts them BEFORE ('capture leads', 'convert leads', 'unconverted leads'), and nothing guards that position. Measured strings refused before the change and permitted after: 'Capture clinical leads', 'Convert team leads', 'Nurture clinical leads', 'Generate service leads', 'Qualify incident leads', 'Score service leads', 'Export clinical leads', 'Track clinical leads', 'Reactivate service leads', 'Unconverted service leads', 'Warm clinical leads', 'Cold team leads', 'Total clinical leads', 'clinical leads dashboard', 'team leads funnel', 'service leads report', 'clinical leads outreach', 'service leads enrichment', 'Our team leads are up 20% this quarter.', 'How many clinical leads did we get this month?'. Bare commercial plurals are all still refused ('sales leads', 'new leads', 'warm leads', 'qualified leads', 'leads capture', a lone 'Leads'), as is 'clinical leads capture'. FAILURE SCENARIO: someone builds a referral-intake view in the workspace and labels it 'Unconverted service leads' or 'clinical leads dashboard'; the vocabulary scan passes and CRM funnel framing lands on the clinician-facing surface of a suicide-prevention programme, which is the drift this guard exists to catch. No such string exists in the tree today. WHY NOT FIXED: the singular pair has the same shape of hole -- 'Capture the clinical lead' was permitted on both surfaces before any of this -- so it is a pre-existing structural gap made easier to reach, not a new class. Both obvious fixes cost more than they buy. Requiring a determiner, (?<!\\b(?:the|our|its|their|these|those) (?:incident|programme|clinical|service|team) )\\bleads\\b, was measured: it keeps 'The clinical leads met on Tuesday.' permitted and closes all of the above except the 'Our team leads are up 20%' case, but it would refuse an ordinary screen heading of 'Clinical leads' on a team roster, which is the exact wording the owner's decision existed to permit, and it fails five of the currently pinned phrases so the corpus would need rewriting as sentences. Listing commercial verbs would rebuild the allowlist that message-rules.ts records as the original B2 defect, since commercial vocabulary is open-ended. NEXT STEP: leave as measured and documented -- the enumerated strings are in the helper's own comment so the boundary is visible to the next reader -- and revisit only if a real screen label trips it or the owner wants the roster-heading case traded away. The message surface is unaffected: COMMERCIAL_LEAD_PATTERN still refuses every plural outright.",
-      "source": "clinical-governance-reviewer on commit 33e1ffd, PR #2521, 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#MDQZYV",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "match_document_embedding_fields_text bypasses retrieval_owner_matches and is fail-open on a null owner_filter",
-      "detail": "Found while fixing #ZBAC9D (2026-09-02, offline schema read at 45a3dcacb54a). public.match_document_embedding_fields_text (supabase/schema.sql:6845-6860) does not call public.retrieval_owner_matches at all. Its owner predicate is 'and (owner_filter is null or d.owner_id = owner_filter)', which is fail-OPEN on a null owner_filter - it returns every owner's rows - and which returns nothing for the public sentinel, because no real row has owner_id equal to the all-zeroes uuid. That is the exact shape migration 20260708160001_retrieval_owner_matches_fail_closed.sql removed from retrieval_owner_matches ('fail CLOSED (was: true) - no DB-level global escape hatch'), reintroduced in a sibling function. It currently has NO application caller: a grep over src/, worker/ and scripts/ finds none, so it is live-codified dead code rather than an active exposure. It was left out of the #ZBAC9D PR deliberately to keep that diff to the write-side invariant plus the one reachable read-side hole. FIX: either drop the function, or re-scope it to public.retrieval_owner_matches(owner_filter, d.owner_id) like its siblings. Either way it is a retrieval-surface migration and needs the same approved live-database window and a schema-contract pin.",
-      "source": "supabase/schema.sql:6845-6860; supabase/migrations/20260708160001_retrieval_owner_matches_fail_closed.sql:20-32; offline audit during #ZBAC9D, 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#72282V",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Package 15's CSRF Origin check has unit coverage only and its browser suite is red",
-      "detail": "PR #2627 adds src/lib/api-csrf.ts, which rejects a state-changing API request whose Origin does not match the addressed host. No browser or Playwright journey exercised it; Production UI (3) is red on that PR and CI triage classifies it not baselined, so the main comparison says nothing either way. A same-origin flow arriving with an Origin that neither Host nor X-Forwarded-Host reflects - a rewriting proxy in front of Railway - would now be refused where it previously passed. Must not merge until that browser suite is green or the failure is shown not to belong to the change. Recorded 2026-09-04.",
-      "source": "session 2026-09-04",
-      "added": "2026-09-04"
-    },
-    {
-      "id": "#KN2KP2",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The Sources sub-route exclusion list is hand-maintained, so a new /sources route silently loses its search composer",
-      "detail": "Derive the reserved suffixes in src/lib/search-shell-props.ts from modeSecondaryNavigationRegistry.sources, or add a contract test asserting every registered sources nav route keeps searchComposerVisible. Why: that function decides a /sources/<x> path is a source record page by testing it against a literal list ([\"search\",\"topics\",\"publishers\",\"method\"]), and an unlisted route is classified a detail page, which suppresses the shared composer with nothing failing. Context: adding /sources/search in the Sources mode-home PR required hand-adding it to that list; missing it would have shipped a catalogue with no way to search it. Same failure shape as the phoneModeGroups omission the same PR fixed - a second hand-maintained list of routes that no gate compares against the registry. Confidence: high, read directly at src/lib/search-shell-props.ts:97-105. Owner: frontend.",
-      "source": "session 2026-09-02, Sources mode-home PR (claude/sources-mode-dropdown-home-mzw4f5)",
       "added": "2026-09-02"
     },
     {
@@ -778,15 +625,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#JAEKM4",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Shared-shell testid duplicates under Playwright strict mode: service-actions-trigger (PR #2536) and sources-topics-main (PR #2591) both resolve to 2 elements, one nested inside GlobalSearchShell's mobile-composer-reserve-pad wrapper and one outside it",
-      "detail": "Recurring, reproducible 'Production UI critical' failure, not a random flake: strict-mode violation on getByTestId resolving to 2 elements — one aka mobile-composer-reserve-pad.getByTestId(x), one aka getByTestId(x).nth(1). Seen on tests/ui-tools.spec.ts (service-actions-trigger, PR #2536 precedent) and tests/ui-sources.spec.ts:88 (sources-topics-main, PR #2591, run 33868983554). Confirmed unrelated to either PR's own diff (files touched by those PRs don't include global-search-shell.tsx, sources-browse-client.tsx, or mode-home-template.tsx). Root cause not yet isolated — likely a hydration-timing or route-transition double-render inside the GlobalSearchShell/PageSecondaryNavigation tree. GlobalSearchShell is a 'one owner' contract component (AGENTS.md Search chrome behaviour) — a fix needs docs/search-chrome-behaviour.md read first and its own focused PR + npm run verify:phone-chrome, not a rushed patch riding an unrelated PR.",
-      "source": "session 2026-09-04",
-      "added": "2026-09-04"
-    },
-    {
       "id": "#H3PXP0",
       "priority": "P3",
       "type": "issue",
@@ -823,30 +661,12 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#ZKR5YK",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "The mode pill sends every mode to the shared home, including the four that own a real home of their own",
-      "detail": "Owner ruling on whether selecting a mode that owns a functional home should navigate to that home rather than /?mode=<id>. Why: changeMode in global-search-shell.tsx always builds appModeSelectionHref, so picking Sources, Medication, Favourites or Documents lands on the generic shared home, not the surface that mode actually owns; only Tools is special-cased to push its canonical href. Consistent across modes, which is why it was deliberately left unchanged when /sources gained a mode home on 2026-09-02, but it means that home is reachable only by direct link, the mode nav or the Tools launcher. Context: overlaps open PR #2556, a full decision brief on whether the mode concept should survive at all - if that brief is actioned this row is subsumed and should be closed rather than worked. Confidence: high on the mechanism (read at global-search-shell.tsx:717-764), low that this is the right change to make before the brief is decided. Owner: product.",
-      "source": "session 2026-09-02, Sources mode-home PR (claude/sources-mode-dropdown-home-mzw4f5); overlaps PR #2556",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#Q6WD1M",
       "priority": "P1",
       "type": "issue",
       "summary": "Ward Flow places patients with no eligibility check in the reducer at all",
       "detail": "RECONSTRUCTED 2026-09-06. This row was recorded on 2026-09-02 with an EMPTY detail field, so as written nobody could act on it. What follows was rebuilt from the code and its history. ORIGINAL FINDING: the coordinator's placement path in src/components/ward-management/ward-flow-reducer.ts applied no eligibility judgement gate at all, while ACCEPT_REFERRAL at the other end rejected on the first failing gate of any kind. One end refused everything, the other refused nothing. THAT ASYMMETRY IS CLOSED. PR #2571 (commit b401b65cc, 2026-09-03, the day after this row was raised) introduced SUITABILITY_GATES and eligibilityRefusal(), now called on three paths: REFER_TO_UNITS (~line 1075), ACCEPT_REFERRAL (~1158) and the coordinator pull (~1365). A failing gate inside SUITABILITY_GATES refuses unless a reason from OVERRIDE_REASONS is recorded; the physical gates (allocatable_bed, capacity_freshness, specialling) refuse outright and are deliberately not overridable. WHY THIS ROW MUST STAY OPEN ANYWAY. The reducer's own comment above the pull-path call (~1355-1363) warns that a red there proves nothing on its own: the specialling refusal immediately above fires for a patient who fails both checks, and reading that as 'the engine now enforces eligibility' NEARLY CLOSED THIS FINDING FALSELY once already. It asks for proof on a pair whose ONLY failing gate is a judgement gate. That proof does not exist today. The only reducer-level suitability assertion is tests/ward-referral-reducer.test.ts:451, which exercises ACCEPT_REFERRAL rather than the pull path, on fixture RF-001 where BOTH age and security fail. tests/ward-eligibility.test.ts does cover cohort, but tests the pure eligibility() function, not the state transition. NEXT ACTION: add one reducer-level test on the coordinator pull path using a movement/unit pair whose only failing gate is cohort, asserting the transition is refused and the rejection contains 'failed gate cohort:'. Then close. Do not close on the wiring alone. GRADING NOTE FOR THE OWNER: the live hazard this P1 named is fixed; what remains is a missing proof. That arguably makes it P2 rather than P1, but a clinical-safety regrade is the owner's call, so the grade is left as recorded and flagged here.",
       "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#DFMVMN",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Medication considerations panel formats its two not-assessed sentences differently — the contraindication one uses a bare comma join, the advisory one a serial-and helper",
-      "detail": "In src/components/clinical-dashboard/medication-considerations.tsx as landed in PR #2538 (head ef7c55ab), the advisory not-assessed sentence renders its input list through formatInputList(), a helper added in that PR which produces \"eGFR\", \"eGFR and QTc\", \"eGFR, QTc and hepatic status\". The contraindication sentence one InlineNotice above still renders result.unassessed.join(\", \"). With a single missing input the two read identically; with two or more they read inconsistently, and the bare join is the case formatInputList's own doc comment argues against, because the sentence continues into a relative clause (\"which this profile does not include\") that a comma-only list runs straight into. NEXT STEP: apply formatInputList() to the contraindication sentence too. It is identity for a single input (it returns items.join(\"\") when length <= 1), so no existing assertion in tests/medication-interaction-surfaces.dom.test.tsx breaks; add a two-input case for the contraindication tier so the shared formatting is pinned rather than incidental.",
-      "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
       "added": "2026-09-02"
     },
     {
@@ -922,24 +742,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#NADB8P",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "on_call_entries.linked_document_ids is uuid[], so Postgres cannot enforce a foreign key to documents",
-      "detail": "supabase/migrations/20260904120000_on_call_entries.sql:25 declares linked_document_ids uuid[] not null default '{}'. Postgres cannot place a foreign key on an array element, so nothing at the database layer stops an entry referencing a deleted or non-existent document. Behaviour is conservative: the viewer resolves each id and simply omits links it cannot resolve, so a stale id degrades to a missing link rather than a wrong or broken one. No symptom has been observed. Recommendation: LEAVE AS-IS. Enforcing it properly means restructuring the link into a join table (on_call_entry_documents) with a real foreign key and a migration to backfill, which is disproportionate to a defect that fails safely. Revisit only if entries ever start displaying stale links in practice, or if the join table is wanted for another reason (per-link ordering, labels, or reverse lookup from a document to the entries citing it).",
-      "source": "Session 2026-09-05, owner-reported loose end after the On Call mode build",
-      "added": "2026-09-05"
-    },
-    {
-      "id": "#42M061",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Tailwind never scans the mockups tree, so any arbitrary utility written only inside a mockup component is silently never emitted",
-      "detail": "`src/app/globals.css` opens with `@source not \"./mockups\"` and `@source not \"../components/**/*mockup*\"`, and `src/app/mockups/mockups.css` re-emits utilities from `../` and `../../components` without covering the excluded component files. The consequence is silent: an arbitrary utility written only inside `src/components/caring-contacts/mockups/**` lands on the element as a class and no CSS rule is ever generated for it, so it has no effect and nothing fails. Confirmed against the built stylesheet during the Caring Contacts design audit (PR #2574): `min-h-[var(--space-10)]` on the prototype's phone dock has no rule at all, which is why that dock measures 41px rather than the 64px its code reads as; the pre-existing `min-w-[46rem]` continuity strip and `min-w-[42rem]` team table widths have likewise never applied. It also caused a real CI failure in that PR: a derived `pb-[calc(...)]` phone reserve computed to 0px, the fixed dock covered the end of every long phone page, and two 390px journeys in `ui-caring-contact-mockup.spec.ts` timed out; bisected in a scratch worktree rather than guessed. That instance is fixed by using utilities the tree can emit, but the class of defect remains open for every mockup component. Fixing it properly means widening Tailwind's scan against a deliberate exclusion, which has bundle-budget consequences and needs its own measured decision; a narrower alternative is a static gate that fails when an arbitrary-value utility appears in an unscanned mockup path.",
-      "source": "Caring Contacts design audit, PR #2574",
-      "added": "2026-09-04"
-    },
-    {
       "id": "#WM4DNW",
       "priority": "P2",
       "type": "issue",
@@ -974,24 +776,6 @@
       "detail": "src/components/caring-contacts/mockups/component-state-specimens.tsx:128 puts a literal 'dark' class on an <article> without 'ckb-v2'. It is the only off-root .dark mount in src/. globals.css .dark (0,1,0) is declared ON that element, while the v2 dark selectors (.dark .ckb-v2.ckb-v2 and .ckb-v2.dark.ckb-v2) need a .ckb-v2 at or below it, so the compat values win there by declaration-beats-inheritance. Measured in Chromium at /mockups/caring-contacts/system-states: --border #2b3136, --surface-raised #171b1e, --surface #101315, --text-muted #a4adb7 - all globals dark, where the app's real dark mode paints #333a41, #1c2126, #12161a, #a8b2bd. So a tile whose whole purpose is to demonstrate the dark luminance ladder demonstrates a ladder the product never uses. Fix is to add 'ckb-v2' beside 'dark' on that element, which is also a prerequisite for the token-layer collapse: deleting the dead globals .dark declarations would otherwise drop this subtree onto the v2 LIGHT palette. That fix is not a no-op - it moves the tile from the compat dark palette to the real one - so it needs owner sign-off rather than riding along silently. /mockups is blocked in production by src/proxy.ts, so this is a dev/preview surface only.",
       "source": "Token-layer collapse, branch claude/token-layer-collapse-itskb0, browser-measured 2026-09-04",
       "added": "2026-09-04"
-    },
-    {
-      "id": "#0ZTPX9",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Ten CSS custom properties referenced with no fallback and never declared render as nothing on a clinical board",
-      "detail": "tests/design-token-contract.test.ts fails. board.module.css and ward-management.module.css reference --clinical-border-subtle, --clinical-text-muted, --clinical-border, --clinical-surface, --clinical-text and --ward-surface with no fallback and no declaration. An undeclared custom property with no fallback does not error - it renders as nothing, so a clinician sees a missing border or invisible text while every test stays green. Reproduced at adcd8bcb5: 90 tests RAN, 3 failed, real exit 1. Ownership went unclaimed repeatedly across five chats.",
-      "source": "Ward Builder Three, reproduced not relayed, at adcd8bcb5",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#GCTFD7",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Undeclared CSS custom properties make two ward-board controls stop looking like controls",
-      "detail": "board/board.module.css sets background and border on .awayButton (a button) and .leavingSelect (a select), both min-height 3rem tap targets, from --clinical-surface/--clinical-border/--clinical-text, none of which is declared anywhere; ward-management.module.css does the same with --ward-surface on .blockerInput and .blockerButton:disabled. background and border are non-inherited so they fall away; color is inherited so text survives. Every missing token is an isolated absentee from a family that otherwise exists (--clinical-accent and --ward-border are declared), so the fix is the correct existing token name, not a fallback. Nine of the ten bad references have a real declared token they should have used; --clinical-border-subtle has no analog and needs an owner decision. Caught by tests/design-token-contract.test.ts. Measured at fb17db7b1.",
-      "source": "Ward Builder One closing sweep 2026-09-02",
-      "added": "2026-09-02"
     },
     {
       "id": "#S2741S",
@@ -1181,6 +965,51 @@
       "detail": "Failed Unit coverage on PR #2664 head e8bbcdba1 (run 34038808851, job 101501794483): tests/ward-flow-chat-control.test.ts > 'serializes cross-role lease acquisition across processes' expected stderr matching /already held|worktree already held/ but got 'lease acquisition lock is unreadable at /tmp/ward-chat-control-BzcaPW/.git/ward-flow-chat-control/acquire.lock.json; inspect it rather than bypassing custody'. ROOT CAUSE is in main's code, not the test. withLeaseAcquisitionLock in scripts/ward-flow/chat-control.mjs writes the lock with writeFileSync(lockPath, canonicalJson(owner), { encoding: 'utf8', flag: 'wx' }). The wx flag makes the CREATE exclusive, but creation and content are two steps, so a competitor can hit EEXIST in the window after the inode exists and before the holder's bytes are flushed, read the file back empty, and land in the catch at line 381. That branch calls fail() immediately with no retry, so a transient partial read is fatal, while the surrounding loop already retries the EEXIST path 200 times. Under CI load the window is wide enough to hit; the same test passed 3/3 locally on the same head, so it will not reproduce on a quiet machine. FIX: publish the lock atomically. Write a fully formed temp file at `${lockPath}.${owner.token}` then linkSync(staging, lockPath), which is atomic and throws EEXIST when already held, and rmSync the staging file in a finally. linkSync needs adding to the node:fs import; renameSync is already imported but is wrong here because it overwrites. The narrower alternative is to count unreadable reads and only fail() after a bounded number, but that leaves the race in place and only makes it rarer. Not fixed in PR #2664 because that PR is source-governance only and touches no Ward Flow file; the session branch constraint prevented opening a separate fix PR. Do not weaken or quarantine the test to clear it, the test is asserting the correct contract. Full diagnosis posted at https://github.com/BigSimmo/Database/pull/2664#issuecomment-5559938335",
       "source": "PR #2664 CI run 34038808851 job 101501794483, 2026-09-06; scripts/ward-flow/chat-control.mjs:357-401",
       "added": "2026-09-06"
+    },
+    {
+      "id": "#YSKD8J",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Every main CI run concludes cancelled because release-browser-matrix hits its own 70 minute timeout, so main has had no browser coverage at all",
+      "detail": "MECHANISM IDENTIFIED 2026-09-07 by job-level timing, and it is NOT the spending or concurrency cap this row originally hypothesised. That hypothesis is withdrawn, and the per-run concurrency group is not implicated. release-browser-matrix carries timeout-minutes: 70 (.github/workflows/ci.yml). Measured on two consecutive main runs: run 34100540973 (f3ea7cb), job 101675121681, started 08:30:56Z and completed 09:41:19Z = 70m23s, with its 'Full browser UI matrix' step ending in conclusion cancelled. Run 34104496596 (c8cc72f), job 101689976803, started 09:22:47Z and completed 10:33:07Z = 70m20s, identical shape. Both land exactly on the configured timeout. GitHub reports a timed-out job as cancelled, and one cancelled job makes the whole run conclusion cancelled. That is the entire explanation for main's run-level redness, and it also explains the earlier temporal pattern (runs stopped concluding cancelled when the merge queue quietened and the matrix presumably completed inside 70 minutes). In both runs every other job succeeded, PR required included: Change scope, Static PR checks, Unit coverage, Build, Safety and config, Caring Contacts database, Production UI (1)(2)(3), Visual baselines, Lighthouse budget. CONSEQUENCE, and it is worse than the original row implied: the matrix now produces NO result rather than a red one. Main's Firefox and WebKit coverage is currently zero, not failing. The sibling row recording 15 Firefox/WebKit failures describes the last state in which the matrix still finished, at 48.3m on edbd29f. It has since crossed 70 minutes, so those 15 failures are no longer even being reported. NEXT ACTION: find why the matrix went from roughly 48 minutes to over 70. The first candidate is the 15 failing tests themselves, because a failing Playwright test spends its full timeout and then pays for trace and video capture, so failures are disproportionately expensive and a growing failure set is self-accelerating. Fix the failures first and re-measure. Do NOT simply raise timeout-minutes: that buys a longer run without restoring a verdict, and it hides the regression that made the suite slower. If the suite is genuinely too long after the failures are fixed, shard it the way Production UI is already sharded into three jobs rather than extending one 70 minute job. ORIGINAL EVIDENCE, retained: of the 8 completed CI runs on main sampled 2026-09-06, 6 concluded cancelled and 2 failed, none succeeded. Volume context: 132 merge commits to main in 24 hours, 19 in one 3-hour window. The 2026-08-20 queue-eviction mechanism was ruled out and stays ruled out: commit 19ee948 carries group: CI-${{ github.run_id }} for push events plus cancel-in-progress: ${{ github.event_name != 'push' }}, so a main push run has a unique group and cannot be superseded.",
+      "source": "Session 2026-09-07. Original hypothesis from run-level reads on 2026-09-06; corrected the same day by job-level timing on runs 34100540973 and 34104496596, which both show release-browser-matrix ending at its 70 minute timeout. Offline repo read of ci.yml plus GitHub Actions job reads. No provider mutation.",
+      "added": "2026-09-07"
+    },
+    {
+      "id": "#1BKK79",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "#686WHW closed early: an archived ledger row still cannot be corrected, and a competing close still loses its outcome text silently",
+      "detail": "Correction to #686WHW (issue-ulid 01M1GFJ8FM686WHWQXSYTSBJGT), archived 2026-09-06 with outcome 'Handled concurrent issue row closure idempotently in reconcile.' The original request (2026-09-02, PR #2521 vs reconciliation #2542) named three candidate fixes; only the first is implemented. Verified in scripts/ledger-inbox.mjs at 2026-09-07: (1) FIXED — applyRequest's idempotent path (around line 147-156) now returns the markdown unchanged instead of throwing when a done/update request targets a row already in the archive table, so a losing session's CI no longer reds on an unrelated PR. (2) NOT FIXED — the CLI's own fingerprint check for the update action (around line 727-744) still throws 'ledger request rejected: <id> is not in Open items' whenever the target row is archived; only the done action gets the archived-row no-op branch, so there is still no way to queue a correction against an archived row's outcome text at all. (3) NOT FIXED — the idempotent no-op in (1) silently keeps whichever outcome text reconciliation applied first and discards the second session's request outright; it does not compare, merge, or prefer the later/more-accurate outcome, so a more accurate second close is still lost exactly as the original row described. Net effect: an archived row's outcome remains permanently uncorrectable through the tooling, and a race's loser still loses its findings, just without the CI failure. Flagged by Codex review (discussion_r3946596431) on PR #2701. Candidate fix carried over from the original row: add an explicit amend-outcome action (or allow update to target archive rows) so a later, more accurate outcome can be applied to an already-archived row.",
+      "source": "Codex review PR #2701 discussion_r3946596431; corrects #686WHW",
+      "added": "2026-09-07"
+    },
+    {
+      "id": "#0H0S89",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Do not refresh the Lighthouse performance baseline until main has one genuinely green run",
+      "detail": "The Lighthouse budget cells on the release browser matrix have drifted from their recorded baseline, and the obvious remedy (re-record the baseline from a recent main run) is unsafe right now. All four cells drifted together, which points at an environment/runner-level shift rather than any one PR, and main is not currently in a known-good state because release-browser-matrix fails on every run with 15 Firefox/WebKit failures. Refreshing the baseline from a red main would stamp unattributable drift as 'the new normal' and permanently lose the ability to attribute it. NEXT ACTION, in this order: (1) fix or triage the release-browser-matrix Firefox/WebKit failures, (2) obtain one main run where the whole matrix is genuinely green, (3) only then re-record the Lighthouse baseline from that SHA and note the SHA in the commit message. STOP RULE: if step 2 cannot be reached, do not proceed to step 3 - raise it with the owner instead. Related but distinct: #QSHHGK covers the bundle-budget baseline refresh, which is a different artefact.",
+      "source": "Session 2026-09-07 (DSM diagnosis page work). Reversal of my own earlier advice in the same session: I first suggested refreshing the baseline, then withdrew that after establishing main is red. Offline analysis plus GitHub Actions run reads; no baseline was changed.",
+      "added": "2026-09-07"
+    },
+    {
+      "id": "#XSZ4XV",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Audit remediation leftovers still open after #4BE39H's archival: Docling model pin, preview font/noindex, offline-page branding, calculator governance link",
+      "detail": "Correction to #4BE39H (issue-ulid 01M1PW9PQG4BE39HC59GZ0B8NR), archived 2026-09-06 with outcome 'Completed unblocked audit leftovers L45, L131, and sentry dependency.' That outcome text only covers 3 of the 7 items the row's own prior detail named, and the row was fully archived anyway. The 4 not covered by the outcome are still unresolved at 2026-09-07: (1) L49 Docling model revision pin — Dockerfile.worker:86 (docling-tools models download --output-dir /opt/docling-models) and eval/docling/Dockerfile:44 run the same command with no --revision/pin argument, so the models fetched at build time are unpinned; the fix is in PR #2629's body per the original request. (2) L5 fonts/noindex owner decision — public/brand/preview.html and docs/brand/preview.html are still byte-identical (no change applied), so the decision remains unmade. (3) L126 offline-page branding + CACHE_VERSION bump — public/offline.html brand mark is unchanged and public/sw.js CACHE_VERSION is still 2026-08-28-v1, so no bump has occurred. (4) Calculator governance link — data/calculators/evidence.json:9 still points source:governance.url at the github.com blob URL (https://github.com/BigSimmo/Database/blob/main/docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md), which an end user cannot open, per the original request's exact concern. Flagged by Codex review (discussion_r3946596430) on PR #2701; the archived #4BE39H row cannot itself be amended (see #686WHW), which is why this is a new row rather than an edit.",
+      "source": "Codex review PR #2701 discussion_r3946596430; corrects #4BE39H",
+      "added": "2026-09-07"
+    },
+    {
+      "id": "#9Z197J",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "release-browser-matrix fails on every main run with 15 Firefox/WebKit failures, and it is not in PR required so it never blocks a merge",
+      "detail": "Evidence, main run 34065301954 on edbd29f (#2690): every other job passed - Static PR checks, Unit coverage, Safety and config, Build, Visual baselines, Caring Contacts, Production UI (1)(2)(3), Lighthouse budget, and PR required itself. The sole failure was release-browser-matrix: '15 failed, 80 skipped, 1397 passed (48.3m)'. The identical single-job failure occurred on the preceding main commit cae0655 (#2689), so it is persistent and independent of the change under test. ALL 15 failures are Firefox (5) or WebKit (10); Chromium had zero. They are viewport and scroll-geometry assertions, e.g. tests/ui-tools.spec.ts:3172 'long mobile service details paint to the viewport edge with no bottom search dock' expected footerBottom <= 820 but received 838.546875 on webkit. Others: ui-formulation-result-cards.spec.ts:35 (both engines), ui-smoke.spec.ts:1202/2939/1648/5171/5961, ui-stress.spec.ts:436, ui-tools.spec.ts:2927, ui-phone-scroll-page-owned.spec.ts:98 (x2), ui-phone-scroll.spec.ts:236, ui-route-coverage.spec.ts:554, ui-specifiers.spec.ts:181 (axe violation). WHY IT IS INVISIBLE: release-browser-matrix is not part of the PR required aggregate - PR required concluded success on edbd29f while the run overall went red - so this paints every main run red without blocking any merge, and trains readers to ignore main's status. Distinct from #055, which is a process task to run the release gate before a handoff; this row is that the matrix is currently and persistently red. NEXT ACTION: triage the 15 as one focused piece of work (they cluster into phone-chrome scroll geometry, document viewer composer, service detail footer clearance, and one specifiers axe violation). VISIBILITY REMEDY, corrected 2026-09-07 after review: do NOT simply add release-browser-matrix to the pr-required needs list. ci.yml gates the job on workflow_dispatch, schedule, refs/heads/release/*, or refs/heads/main only, so it never runs on a pull_request event at all, and the comment above it records that it must deliberately not wait on pr-required (#023 - a blocking weekly dependency audit once skipped the matrix entirely). A needs edit alone would aggregate a skipped job and change nothing. Fix the post-merge signal instead so a red matrix on main is visible and owned rather than ambient. Making it genuinely merge-blocking is a separate and much larger change - a pull_request trigger plus an aggregate redesign that runs a roughly 50 minute matrix before every merge - and must be costed and decided on its own rather than assumed here. SUPERSEDED IN PART 2026-09-07: the matrix no longer reports these 15 failures at all. It now exceeds its 70 minute timeout on every main run and is recorded as cancelled, so main's Firefox and WebKit coverage is currently zero rather than red. The 48.3m/15-failure evidence above is the last state in which the job still finished. Fix the timeout cause first (see the sibling row on release-browser-matrix timing out), because the 15 failures cannot be re-measured until the job completes again.",
+      "source": "session 2026-09-06 diagnosis of main CI; runs 34065301954 and 34064564709",
+      "added": "2026-09-07"
     }
   ],
   "pending": []

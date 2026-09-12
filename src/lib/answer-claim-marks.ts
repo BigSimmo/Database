@@ -19,7 +19,9 @@
  * resolves to no mark, because a number pointing at a page that does not state
  * the claim is worse than no number at all.
  */
-import type { SupportedClaim } from "@/lib/types";
+import type { SupportedClaim as ServerSupportedClaim } from "@/lib/types";
+
+export type SupportedClaim = Pick<ServerSupportedClaim, "claimId" | "text" | "supportStatus" | "supportingChunkIds">;
 
 /** One number in a cluster: the rail row it opens, and the source it points at. */
 export type ClaimMarkTarget = {

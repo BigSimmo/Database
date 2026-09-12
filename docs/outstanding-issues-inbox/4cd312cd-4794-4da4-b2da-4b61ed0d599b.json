@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4cd312cd-4794-4da4-b2da-4b61ed0d599b",
+  "createdOn": "2026-09-10",
+  "action": "done",
+  "payload": {
+    "id": "#ZV7H8Q",
+    "outcome": "Applied negative veto against substring matching and implemented read-time derivation across differential and registry records",
+    "baseRowFingerprint": "21b21bf9d6c1c00d362a0fc9c4dd9179ffef96dcdfd345f4bfcefb2a25760012"
+  }
+}

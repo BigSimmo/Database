@@ -4,6 +4,7 @@ import {
   curatedEnrichmentFor,
   getSpecifierCatalogItem,
   popularCatalogSlugs,
+  publicSpecifierRecords,
   specifierCatalogItems,
   specifierSlug,
   specifiersStats,
@@ -22,6 +23,14 @@ describe("specifiers content catalog", () => {
     const items = specifierCatalogItems();
     const slugs = new Set(items.map((item) => item.slug));
     expect(slugs.size).toBe(items.length);
+  });
+
+  it("exposes one curated-first canonical public projection", () => {
+    const records = publicSpecifierRecords();
+    const anxious = records.filter((entry) => entry.slug === "with-anxious-distress");
+    expect(anxious).toHaveLength(1);
+    expect(anxious[0]?.source).toBe("curated");
+    expect(new Set(records.map((entry) => entry.slug)).size).toBe(records.length);
   });
 
   it("derives URL-safe slugs from the row key", () => {

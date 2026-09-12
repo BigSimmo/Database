@@ -284,8 +284,21 @@ describe("CI cache safety", () => {
     });
     expect(releaseJob).not.toContain("path: .next/cache");
     expect(releaseJob).not.toContain("run: npm run build");
-    expect(releaseJob).toContain("npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit");
     expect(releaseJob).toContain("npm run test:e2e");
+
+    // Until 2026-09-07 this pinned the single-job command
+    // `npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit`.
+    // That job stopped finishing — 70m23s and 70m20s on two consecutive main
+    // runs, both exactly on the old 70-minute cap — so the engines now run as
+    // sibling matrix jobs and the flags are assembled per engine in the step.
+    // The property this case still owns is the one it always owned: the primary
+    // path does not re-run production Chromium that ui-critical already proved.
+    // Full engine/project coverage is proven in
+    // tests/ci-browser-matrix-coverage.test.ts, which fails closed when a
+    // playwright.config.ts project is not assigned to an engine.
+    expect(releaseJob).toContain('chromium) PROJECTS="--project=chromium-mockups"');
+    expect(releaseJob).toContain('firefox)  PROJECTS="--project=firefox"');
+    expect(releaseJob).toContain('webkit)   PROJECTS="--project=webkit"');
   });
 
   it("scopes the main-branch release backstop to UI, performance, or lockfile risk", () => {

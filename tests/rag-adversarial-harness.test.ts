@@ -147,7 +147,10 @@ class UniversalQuery implements PromiseLike<{ data: unknown[]; error: null }> {
     return Promise.resolve({ data: null, error: null });
   }
   limit() {
-    return Promise.resolve({ data: [], error: null });
+    return this;
+  }
+  abortSignal() {
+    return this;
   }
   insert() {
     return Promise.resolve({ data: null, error: null });
