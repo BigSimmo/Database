@@ -3,13 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, FileText, Plus, Users } from "lucide-react";
 
+import { ListEmptyState } from "@/components/caring-contacts/workspace/list-empty-state";
 import { workspacePanelPadded } from "@/components/caring-contacts/workspace/surfaces";
-import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import { CARING_CONTACTS_ROUTES, scheduleDayRoute } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import { awstCalendarDay, systemClock } from "@/lib/caring-contacts/clock";
-import type { PlanRecord } from "@/lib/caring-contacts/repository";
+import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
+import { READ_ACTIONS, type PlanRecord } from "@/lib/caring-contacts/repository";
 import { buildScheduleRange } from "@/lib/caring-contacts/schedule-view";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
@@ -126,6 +128,11 @@ export default async function CaringContactsTodayPage() {
   const todaySchedule = range.view.days[0];
   const contactsDueToday = todaySchedule?.counts.due ?? 0;
   const activePlansCount = plans.filter((p) => p.plan.state === "active").length;
+  // `listPlans` answers a role without READ_ACTIONS.plan with `[]`, same as a team holding none.
+  // Publishing those zeros as "Contacts Due Today" / "Active Caseload" would turn a denied read
+  // into an authoritative empty caseload. The schedule page asks the same question and withholds
+  // the view; this front door does the same rather than inventing a second empty-state spelling.
+  const mayViewPlans = canPerformCaringContactAction(actor, READ_ACTIONS.plan, { teamId: actor.teamId }).allowed;
 
   return (
     <CaringContactsShell
@@ -139,59 +146,72 @@ export default async function CaringContactsTodayPage() {
         </h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className={workspacePanelPadded}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium uppercase tracking-wider text-[color:var(--text-muted)]">
-                Contacts Due Today
-              </span>
-              <CalendarDays className="h-5 w-5 text-[color:var(--text-muted)]" aria-hidden="true" />
+          {!mayViewPlans ? (
+            <div className="min-w-0 sm:col-span-2">
+              <ListEmptyState
+                kind="not-permitted"
+                heading="Today's workload is not visible in this role"
+                because="Viewing plans is not part of the role you are acting in, and both Contacts Due Today and Active Caseload are built entirely from this team's plans. This says nothing about how many contacts fall today or how many plans are active: a read you may not make and an empty caseload look identical on purpose, so that nobody can find out a record exists by being refused it."
+                changedBy="Nothing on this screen changes it, and there is no control for it anywhere in this workspace yet. The role this demonstration acts in is set outside the interface; a coordinator sees today's figures."
+              />
             </div>
-            <div className="mt-3">
-              <span className="text-3xl font-bold tracking-tight text-[color:var(--text-heading)]">
-                {contactsDueToday}
-              </span>
-              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                {contactsDueToday === 1
-                  ? "1 message scheduled for delivery today"
-                  : `${contactsDueToday} messages scheduled for delivery today`}
-              </p>
-            </div>
-            <div className="mt-4 border-t border-[color:var(--border)] pt-3">
-              <Link
-                href={CARING_CONTACTS_ROUTES.schedule}
-                className="text-xs font-medium text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
-              >
-                View today&apos;s schedule &rarr;
-              </Link>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className={workspacePanelPadded}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase tracking-wider text-[color:var(--text-muted)]">
+                    Contacts Due Today
+                  </span>
+                  <CalendarDays className="h-5 w-5 text-[color:var(--text-muted)]" aria-hidden="true" />
+                </div>
+                <div className="mt-3">
+                  <span className="text-3xl font-bold tracking-tight text-[color:var(--text-heading)]">
+                    {contactsDueToday}
+                  </span>
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                    {contactsDueToday === 1
+                      ? "1 message scheduled for delivery today"
+                      : `${contactsDueToday} messages scheduled for delivery today`}
+                  </p>
+                </div>
+                <div className="mt-4 border-t border-[color:var(--border)] pt-3">
+                  <Link
+                    href={scheduleDayRoute(todayCalendarDay)}
+                    className="text-xs font-medium text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    View today&apos;s schedule &rarr;
+                  </Link>
+                </div>
+              </div>
 
-          <div className={workspacePanelPadded}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium uppercase tracking-wider text-[color:var(--text-muted)]">
-                Active Caseload
-              </span>
-              <Users className="h-5 w-5 text-[color:var(--text-muted)]" aria-hidden="true" />
-            </div>
-            <div className="mt-3">
-              <span className="text-3xl font-bold tracking-tight text-[color:var(--text-heading)]">
-                {activePlansCount}
-              </span>
-              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                {activePlansCount === 1
-                  ? "1 active caring-contact plan"
-                  : `${activePlansCount} active caring-contact plans`}
-              </p>
-            </div>
-            <div className="mt-4 border-t border-[color:var(--border)] pt-3">
-              <Link
-                href={CARING_CONTACTS_ROUTES.patients}
-                className="text-xs font-medium text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
-              >
-                View patient directory &rarr;
-              </Link>
-            </div>
-          </div>
+              <div className={workspacePanelPadded}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase tracking-wider text-[color:var(--text-muted)]">
+                    Active Caseload
+                  </span>
+                  <Users className="h-5 w-5 text-[color:var(--text-muted)]" aria-hidden="true" />
+                </div>
+                <div className="mt-3">
+                  <span className="text-3xl font-bold tracking-tight text-[color:var(--text-heading)]">
+                    {activePlansCount}
+                  </span>
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                    {activePlansCount === 1
+                      ? "1 active caring-contact plan"
+                      : `${activePlansCount} active caring-contact plans`}
+                  </p>
+                </div>
+                <div className="mt-4 border-t border-[color:var(--border)] pt-3">
+                  <Link
+                    href={CARING_CONTACTS_ROUTES.patients}
+                    className="text-xs font-medium text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    View patient directory &rarr;
+                  </Link>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className={workspacePanelPadded}>
             <div className="flex items-center justify-between">
