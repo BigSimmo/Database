@@ -731,3 +731,85 @@ panel:
 card, the rail cards, the drawer and print are fixed together. Display only.
 
 ---
+
+### 12.9 What direction B cost, and how it was repaid (2026-09-07)
+
+Keeping one panel was right. Keeping the narrower one was a coverage loss nobody wrote down at
+the time, and it is invisible from a screenshot.
+
+`UniversalSearchAlsoMatches` is fed by `/api/search/universal` and reaches twelve domains.
+`CrossModeLinksSection` was fed by four catalogues loaded in the browser — medications,
+services, forms, differentials. So from 2026-08-26 a clinician who asked a question in Answer
+mode could never be shown a matching DSM diagnosis, dictionary term, formulation, specifier,
+therapy or tool, though all sixteen other modes could. The register in
+`tests/universal-also-matches-mode-coverage.test.ts` recorded the exemption honestly and
+recorded the wrong thing about it: that Answer answers cross-mode discovery elsewhere, without
+saying that "elsewhere" reached a third of the surface the tray reached.
+
+**Widened rather than replaced.** The line keeps its disclosure, its place inside the answer
+thread between the governed caution and the follow-ups, its walk back through earlier turns when
+a follow-up drops the entity name, and the per-record `Search in <mode>` control and
+`cross_mode_link_open` telemetry the mode-level tray has never had. What changed is only where
+the links come from: `buildCrossModeLinksFromUniversalSearch` maps universal-search groups into
+the same `CrossModeLink` shape, gated on a query term naming the record at a word boundary — the
+same weight and minimum term length the differentials path already used, because a content-only
+score cannot be trusted on a question full of filler.
+
+Three things hold it inside the 12.8 decision rather than undoing it:
+
+- The lookup is opt-in per surface (`universalMode`) and off by default. Every mode but Answer
+  mounts the tray, so a surface that ran this too would print one record twice — which is what
+  §12.8 removed, and what the prescribing page later shipped anyway.
+- The consumed domains and their complement come from one array. `documents` is excluded because
+  an answer already cites its documents in the evidence rail and the drawer, and the four
+  catalogue domains are excluded because the local half already resolves them.
+- It is withdrawn while a generation is in flight, matching `answer && !loading` on the tray, so
+  the lookup never races the answer stream and an open tray never holds matches for the question
+  being replaced. An errored or empty group contributes nothing.
+
+The strip's ceiling stays at four, the number the catalogue half alone allowed. Five was set
+while this was still a collapsed disclosure, where an extra row cost nothing until the reader
+opened it; with the strip open at every width every row is unconditional height on the answer
+surface, so the old ceiling holds and this change stays about reach rather than size. The cap
+only binds when the catalogue half filled the strip on its own, which is a question already well
+served; the common answer names none of those four record types, and that is where the widened
+reach earns its place.
+
+Calculators, Factsheets, Sources, On Call and Favourites are still unreachable from here, and
+not by omission — they contribute no cross-entity search domain at all
+(`universal-search-mode-context.ts`), so nothing can resolve a link to them from any surface.
+
+**The line keeps its single toggle, and now rests open (owner decision, 2026-09-07).** Both ends
+of this were built and looked at on the day the data was widened, and both were wrong.
+
+Closed by default, as direction B shipped it, hides the matches behind a tap nobody has a reason
+to take: a closed tray cannot show what it holds, so the reader has to spend the tap to find out
+whether it was worth spending. Removing the toggle entirely, which was the first correction, put
+four unconditional rows into the answer's evidence stack with no way to put them away — roughly
+90px of resting height on a phone, on the densest surface in the product, which is the trade
+§12.8 made in the other direction for a reason.
+
+The hybrid is one control that starts open. The matches are there to be read without a tap, and
+the space is one tap away for a reader who wants the answer and the follow-ups closer together.
+`variant="line"` and `CrossModeLinksLine` are the presentation again, so the `card` strip stays
+what the DSM diagnosis page and the mockups use.
+
+The header lost its preview of the first three record names in the same change. Those names
+earned their room while the line rested closed and had no other way to say what it held; open,
+they were naming the cards immediately below them. The header is label, rule and count now, at
+every width, which is the device the "Also matches" tray already uses.
+
+Worth recording because it nearly went the other way: `CrossModeLinksLine` was almost deleted
+while it briefly had no consumer. `check:dead-code-candidate` refused the removal — the symbol
+was introduced on 2026-08-26, inside the gate's 30-day window ("likely awaiting its consumer") —
+and the deletion was dropped rather than forced past the threshold. A day later it was the
+presentation again. The gate's heuristic looked wrong at the time and was right in substance.
+
+Three browser tests carry the disclosure as their contract. The 1280px case asserts the rail's
+own computed display in both states rather than the trigger's word for it: width is where this
+broke before, when a `hidden` beside a `md:flex` in one class list lost to the media-query rule
+from 768px up and left a rail painted open while its trigger reported it closed. Now that the
+line rests open, the same mechanic would hide a broken collapse instead, which is why the closed
+state is the one pinned on computed display.
+
+---

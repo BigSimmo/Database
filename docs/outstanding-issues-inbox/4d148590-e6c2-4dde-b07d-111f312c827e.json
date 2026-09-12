@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4d148590-e6c2-4dde-b07d-111f312c827e",
+  "createdOn": "2026-09-07",
+  "action": "update",
+  "payload": {
+    "id": "#ZKR5YK",
+    "detail": "UPDATE 2026-09-06: this row is now partly stale and its Sources example is gone. PR #2672 consolidated /sources: its four-card mode home was deleted and the bare path now redirects to the shared home at /?mode=sources, so Sources no longer owns a home of its own and the mode pill landing there is correct rather than a miss. The row's remaining live cases are Favourites and Tools. Favourites is settled by an explicit owner decision (#V0EDR4, 2026-08-23: two purpose-specific surfaces are deliberate), which leaves Tools as the only open instance: changeMode still builds appModeSelectionHref, so picking Tools lands on /?mode=tools and the legacy client-only launcher (applications-launcher-page.tsx, data-testid tools-home) rather than canonical /tools (ToolsSearchResultsPage). Verified on main 0177bed by a browser probe: /?mode=tools renders tools-home. Documents and Medication also dropped off this row for the same reason as Sources - both bare paths redirect now. STILL AN OWNER RULING, not a defect to fix unilaterally: the pill deliberately always returns to the shared home, so special-casing Tools trades one inconsistency for another, and removing the second launcher means deleting a component that six assertions in tests/favourites-auth-gate.dom.test.tsx still render directly. Re-scope this row to Tools only.",
+    "baseRowFingerprint": "4a2c45298f781607394bb54bdde280518d7e1e6c1706ae00e2b05526613fa232"
+  }
+}

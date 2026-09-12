@@ -18,6 +18,7 @@ function source(relativePath: string) {
 }
 
 const clinicalDashboardSource = source("src/components/ClinicalDashboard.tsx");
+const dashboardModeSurfaceSource = source("src/components/clinical-dashboard/dashboard-mode-surface.ts");
 const masterSearchHeaderSource = source("src/components/clinical-dashboard/master-search-header.tsx");
 const universalAlsoMatchesSource = source("src/components/clinical-dashboard/universal-search-also-matches.tsx");
 const universalCommandSurfaceSource = source("src/components/clinical-dashboard/universal-search-command-surface.tsx");
@@ -131,6 +132,25 @@ describe("audit navigation and auth regressions", () => {
     expect(source("src/proxy.ts")).toContain("legacyHomeRedirectUrl(request.nextUrl, request.method)");
   });
 
+  // Tools is the one alias that forwards whether or not the URL is submitted. It has no
+  // shared home to fall back to (`shouldShowSharedHome` excludes `tools`), so `/?mode=tools`
+  // used to render a second, hub-shaped launcher and Tools had two surfaces depending on how
+  // the clinician arrived. The hub's verb shortcut row moved to `/tools`, so the alias has
+  // nothing of its own left to show.
+  it("forwards the tools alias to the canonical directory whether or not it is submitted", () => {
+    expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=tools"), "GET")?.toString()).toBe(
+      "https://clinical-kb.test/tools",
+    );
+    expect(
+      legacyHomeRedirectUrl(
+        new URL("https://clinical-kb.test/?mode=tools&q=medications&focus=1&run=1#detail"),
+        "GET",
+      )?.toString(),
+    ).toBe("https://clinical-kb.test/tools?q=medications&focus=1&run=1");
+    // A non-navigation method still falls through, same as every other alias.
+    expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=tools"), "POST")).toBeNull();
+  });
+
   // This redirect used to rebuild the destination from scratch (`destination.search = ""`,
   // then only q/focus/run re-added), so `queryMode` and the scope filters were already gone
   // one hop before `consolidatedModeHomeTarget` — whose own doc promises "every other query
@@ -238,16 +258,28 @@ describe("audit navigation and auth regressions", () => {
     );
   });
 
-  it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
+  it("runs cross-mode search on submission at every width, so a closed tray can state its count", () => {
     // `prescribing` was excluded here while the panel mounted ABOVE the medication
     // results; the mount moved below them, so the mode is no longer suppressed and
-    // the deferral contract is the plain submission gate. tests/ui-stress.spec.ts
-    // pins the panel's position under those results.
-    expect(universalAlsoMatchesSource).toContain("const searchActive = submissionActive &&");
+    // the gate is plain submission. tests/ui-stress.spec.ts pins the panel's
+    // position under those results.
+    //
+    // The narrow-screen deferral this contract used to pin is gone deliberately.
+    // Waiting for the click meant the phone header could only say "Tap to open"
+    // and the tray was still rendered when nothing was behind it — a blind door.
+    // The lookup is eager at every width and an empty tray is dropped instead.
+    expect(universalAlsoMatchesSource).toContain("const searchActive = submissionActive;");
     expect(universalAlsoMatchesSource).not.toContain('modeId !== "prescribing"');
-    expect(universalAlsoMatchesSource).toContain('(isWide || modeId === "answer" || expanded)');
+    expect(universalAlsoMatchesSource).not.toContain('(isWide || modeId === "answer" || expanded)');
+    // The header now says pending / a count / nothing found. The "Tap to open"
+    // arm it replaced survives only in the comment above the searchActive gate,
+    // which is why this pins the expression rather than searching for the string.
+    expect(universalAlsoMatchesSource).toContain(
+      'const headerMeta = searchPending ? "Searching…" : matchCount > 0 ? matchCountLabel(matchCount) : "No other matches";',
+    );
     expect(universalAlsoMatchesSource).toContain("enabled: trimmedQuery.length >= 2 && searchActive");
     expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
+    expect(universalAlsoMatchesSource).toContain("if (!searchPending && currentGroups.length === 0) return null;");
     expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
     expect(universalAlsoMatchesSource).toContain("setViewportReady(true);");
     // The panel status is a three-way now — pending / a count / nothing found —
@@ -259,7 +291,7 @@ describe("audit navigation and auth regressions", () => {
 
   it("mounts Answer-mode also-matches only after generation completes", () => {
     const alsoMatchesGate = sourceSegment(
-      clinicalDashboardSource,
+      dashboardModeSurfaceSource,
       "const showUniversalAlsoMatches =",
       "const showDesktopHomeComposer =",
       { label: "also-matches visibility gate" },

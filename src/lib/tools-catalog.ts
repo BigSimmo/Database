@@ -59,6 +59,17 @@ export type ToolCatalogRecord = {
   output: string;
 };
 
+/**
+ * Tools the composer's smart search already answers directly, so surfacing them again
+ * as local results or shortcuts would send a clinician the long way round to something
+ * they have just been handed.
+ *
+ * One definition, three consumers. It was copied into the launcher and the tools
+ * directory separately, and a third copy was nearly added when the quick-action row
+ * moved out of the launcher.
+ */
+export const localSmartExcludedToolIds = new Set<ToolCatalogId>(["clinical-kb-search", "documents", "favourites"]);
+
 export const toolCatalogRecords: ToolCatalogRecord[] = [
   {
     id: "clinical-kb-search",
