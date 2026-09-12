@@ -2,10 +2,15 @@
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { factsheetsTopicsHref } from "@/lib/app-modes";
+import {
+  modeHomeComposerReserveAttr,
+  modeHomeComposerReservePendingValue,
+  modeHomeDesktopComposerSlotId,
+} from "@/lib/mode-home-composer";
 import { installMatchMediaStub } from "./setup/jsdom.setup";
 
 const router = vi.hoisted(() => ({
@@ -242,6 +247,77 @@ describe("MasterSearchHeader DOM", () => {
 
       expect(screen.queryByRole("group", { name: "Search privacy notice" })).toBeNull();
       expect(screen.queryByTestId("answer-composer-privacy-warning")).toBeNull();
+    });
+  });
+  describe("mode-home composer reserve marker", () => {
+    // The slot is appended outside React, so testing-library's cleanup does not
+    // remove it. Left behind, a stale slot keeps the id and getElementById in the
+    // next test resolves to it instead of that test's own slot.
+    afterEach(() => {
+      document.getElementById(modeHomeDesktopComposerSlotId)?.remove();
+    });
+
+    function mountSlot() {
+      const slot = document.createElement("div");
+      slot.id = modeHomeDesktopComposerSlotId;
+      // Exactly what the page SSRs: the reserve marker, and no ready flag —
+      // the owning page segment has not hydrated yet.
+      slot.setAttribute(modeHomeComposerReserveAttr, modeHomeComposerReservePendingValue);
+      document.body.appendChild(slot);
+      return slot;
+    }
+
+    function spyOnReserveRemoval() {
+      const removals: string[] = [];
+      const original = Element.prototype.removeAttribute;
+      vi.spyOn(Element.prototype, "removeAttribute").mockImplementation(function (this: Element, name: string) {
+        if (name === modeHomeComposerReserveAttr && this.id === modeHomeDesktopComposerSlotId) {
+          removals.push(this.getAttribute(modeHomeComposerReserveAttr) ?? "(absent)");
+        }
+        return original.call(this, name);
+      });
+      return removals;
+    }
+
+    it("does not strip the SSR reserve marker while the owning segment is still unhydrated", async () => {
+      // Desktop hero width, so the header wants to adopt the slot and keeps the
+      // pending reserve while it retries adoption.
+      installMatchMediaStub(true);
+      mountSlot();
+      const removals = spyOnReserveRemoval();
+
+      const props = {
+        ...defaultHeaderProps(),
+        desktopHomeComposerSlotId: modeHomeDesktopComposerSlotId,
+      };
+      const { rerender } = render(<MasterSearchHeader {...props} heroComposerBreakpoint="all" />);
+
+      // A dependency change re-runs the composer effect: React fires the cleanup
+      // and then the effect body. The cleanup used to removeAttribute() on a slot
+      // whose React segment had not hydrated, leaving a window in which the DOM
+      // lacked an attribute the page's own client render still produces. A page
+      // segment hydrating inside that window reports a hydration mismatch
+      // (client "pending" vs server null) on data-composer-reserve.
+      rerender(<MasterSearchHeader {...props} heroComposerBreakpoint="sm-up" />);
+      await Promise.resolve();
+
+      expect(removals).toEqual([]);
+    });
+
+    it("still clears the reserve marker when the composer is suppressed (invariant 15)", async () => {
+      installMatchMediaStub(true);
+      const slot = mountSlot();
+
+      const props = {
+        ...defaultHeaderProps(),
+        desktopHomeComposerSlotId: modeHomeDesktopComposerSlotId,
+        searchComposerVisible: false,
+      };
+      render(<MasterSearchHeader {...props} />);
+      // The suppression path clears in a queued microtask.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(slot.hasAttribute(modeHomeComposerReserveAttr)).toBe(false);
     });
   });
 });

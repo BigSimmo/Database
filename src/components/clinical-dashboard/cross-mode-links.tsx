@@ -7,12 +7,16 @@ import { ArrowUpRight, ChevronDown, Layers, Search, type LucideIcon } from "luci
 
 import { cn, eyebrowText, semanticChipTone, sourceCard, type SemanticChipTone } from "@/components/ui-primitives";
 import { logCrossModeLinkOpen } from "@/components/clinical-dashboard/source-actions";
+import { shouldRunUniversalAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches-state";
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
+import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { APP_MODE_ACCENT } from "@/lib/category-identity";
 import {
   buildCrossModeLinksForThread,
+  buildCrossModeLinksFromUniversalSearch,
+  crossModeUniversalExcludedDomains,
   type CrossModeDifferentialCatalog,
   type CrossModeLink,
   type CrossModeLinkBadge,
@@ -31,6 +35,21 @@ const cardActionControl =
   "grid h-tap w-tap shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--cat-border)] hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 type CrossModeLinksVariant = "card" | "compact" | "responsive-compact" | "line";
+
+// The ceiling on one library strip once both halves have contributed.
+//
+// Four, which is what the catalogue half alone allowed before the widened lookup
+// existed. Five was set while this block was still a collapsed disclosure, where
+// an extra row cost nothing until the reader opened it. It is open at every
+// width now (owner decision, 2026-09-07), so every row is unconditional height
+// on the answer surface, between the governed caution and the follow-ups.
+// Holding the old ceiling keeps this change about reach rather than about size.
+//
+// The cap only binds when the catalogue half filled the strip on its own, and a
+// question naming four medication, service, form or differential records is
+// already well served. The common answer names none of them, which is where the
+// widened reach earns its place and where this number never applies.
+const crossModeStripMaxLinks = 4;
 
 type CrossModeLinkCardProps = {
   link: CrossModeLink;
@@ -162,12 +181,25 @@ export function CrossModeLinksSection({
   enabled = true,
   onModeSearch,
   variant = "card",
+  universalMode,
 }: {
   queries: Array<string | null | undefined>;
   enabled?: boolean;
   // Defaults to navigating to the target mode with the search pre-run.
   onModeSearch?: (mode: AppModeId, query: string) => void;
   variant?: CrossModeLinksVariant;
+  /**
+   * Opt in to the cross-entity lookup that reaches DSM, Formulation, Specifiers,
+   * Therapy, Dictionary and Tools, naming the mode the surface belongs to.
+   *
+   * Off by default, and that default is load-bearing. A surface that already
+   * mounts `UniversalSearchAlsoMatches` (every mode but Answer) would otherwise
+   * run the same query against the same endpoint twice and print the results in
+   * two panels — the duplication removed on 2026-08-26. Pass it only from a
+   * surface that mounts no other cross-mode panel, and pass `undefined` while a
+   * generation is in flight so the lookup never races the answer stream.
+   */
+  universalMode?: AppModeId;
 }) {
   const router = useRouter();
   const services = useRegistryRecords("service", { enabled, view: "search" });
@@ -201,16 +233,56 @@ export function CrossModeLinksSection({
     });
   }, [enabled, queriesKey, medications.data, services.records, forms.records, differentials]);
 
-  if (links.length === 0) return null;
-
   const telemetryQuery = queriesKey.split("\u0000").at(-1) ?? "";
+  // The newest turn, not the turn the catalogue links came from. The catalogue
+  // path walks back through the thread on purpose, because a follow-up often
+  // drops the entity name; the cross-entity lookup follows the question on
+  // screen instead, which is the same query `ClinicalDashboard` already gives
+  // the sibling "Also matches" tray on this mode.
+  const universalQuery = universalMode ? telemetryQuery : "";
+  // Read during render rather than in an effect, which is safe here only because
+  // it changes no markup: the universal half starts empty on the server and on
+  // the first client paint either way, and this value reaches nothing but the
+  // hook's `enabled`. A restored answer thread sitting on an unsubmitted shared
+  // home must not fetch, which is the rule this helper owns.
+  const universalSubmitted =
+    Boolean(universalMode) &&
+    shouldRunUniversalAlsoMatches(
+      universalMode ?? "answer",
+      typeof window === "undefined" ? null : window.location.search,
+      universalQuery,
+    );
+  const universal = useUniversalSearch({
+    query: universalQuery,
+    enabled: enabled && universalSubmitted,
+    contextMode: universalMode ?? "answer",
+    excludeDomains: crossModeUniversalExcludedDomains,
+    limitPerDomain: 2,
+  });
+  const universalLinks = useMemo(() => {
+    // `universal.query !== universalQuery` is the stale guard: the hook keeps the
+    // previous query's groups while the next request is in flight, and a card
+    // answering the prior question is exactly the guess this surface must not make.
+    if (!universalMode || universal.query !== universalQuery) return [];
+    return buildCrossModeLinksFromUniversalSearch(universalQuery, universal.groups, {
+      existing: links,
+      // Whatever the catalogue half left unused, up to the strip's ceiling.
+      maxTotal: Math.max(0, crossModeStripMaxLinks - links.length),
+    });
+  }, [universalMode, universal.query, universal.groups, universalQuery, links]);
+
+  const allLinks = universalLinks.length > 0 ? [...links, ...universalLinks] : links;
+
+  if (allLinks.length === 0) return null;
   const handleModeSearch =
     onModeSearch ??
     ((mode: AppModeId, query: string) => {
       router.push(appModeHomeHref(mode, { query, focus: true, run: true }));
     });
 
-  return <CrossModeLinksStrip links={links} onModeSearch={handleModeSearch} query={telemetryQuery} variant={variant} />;
+  return (
+    <CrossModeLinksStrip links={allLinks} onModeSearch={handleModeSearch} query={telemetryQuery} variant={variant} />
+  );
 }
 
 /**
@@ -220,12 +292,14 @@ export function CrossModeLinksSection({
  * Under an answer this block used to be a permanently expanded rail sitting
  * directly above a second, near-identical panel of mode matches. Two panels
  * asking the same question ("where else does this appear") read as one panel
- * repeated. This collapses to a single row carrying a preview of what is inside,
- * closes the answer's evidence/safety stack, and opens to exactly the rail it
- * always was before the follow-up conversation begins.
+ * repeated. This is the single row that replaced them: it closes the answer's
+ * evidence/safety stack and collapses to give the space back before the
+ * follow-up conversation begins.
  *
- * The preview names come from the resolved links, so the line can never
- * advertise a match the expanded rail does not list.
+ * The header carries the label, a rule and the count — no preview of the record
+ * names (owner decision, 2026-09-07). The names were there to tell a closed line
+ * what it held, and the line rests open, so they were repeating the cards
+ * directly beneath them.
  */
 function CrossModeLinksLine({
   links,
@@ -236,13 +310,17 @@ function CrossModeLinksLine({
   onModeSearch: (mode: AppModeId, query: string) => void;
   query: string;
 }) {
-  const [open, setOpen] = useState(false);
+  // Open on arrival, and still collapsible — the hybrid the owner asked for on
+  // 2026-09-07, after seeing both ends of it. Closed-by-default hid the matches
+  // behind a tap nobody had a reason to take, since a closed tray cannot show
+  // what it holds. No toggle at all put four unconditional rows into the
+  // answer's evidence stack with no way to put them away. One control, already
+  // open, gives the reader the matches for free and the space back on request.
+  const [open, setOpen] = useState(true);
   // `useId`, not a constant: two of these can mount at once (the answer thread
   // and a historical turn), and a duplicate id is a DOM-integrity failure the
   // smoke audit fails on.
   const panelId = useId();
-  const preview = links.slice(0, 3).map((link) => link.title);
-  const rest = links.length - preview.length;
   const countLabel = links.length === 1 ? "1 match" : `${links.length} matches`;
   return (
     <section
@@ -278,27 +356,25 @@ function CrossModeLinksLine({
           <Layers className="size-icon-md" aria-hidden />
         </span>
         <span className={cn(eyebrowText, "shrink-0 text-[color:var(--text-heading)]")}>Also in your library</span>
-        {/* Label, rule, count — the editorial section-header device the "Also
-            matches" tray uses. The preview names replace the rule from sm up,
-            where there is room for them; at 320px the label plus both of them
-            would not fit, and the count is the half that still says something
-            when the names are gone. */}
-        <span
-          className="h-px min-w-3 flex-1 bg-[color:var(--border)] forced-colors:bg-[CanvasText] sm:hidden"
-          aria-hidden
-        />
-        <span className="hidden min-w-0 flex-1 truncate text-2xs text-[color:var(--text-muted)] sm:block">
-          {preview.join(" · ")}
-          {rest > 0 ? ` · +${rest}` : null}
-        </span>
-        {/* Visual cue only — the button's accessible name stays the label above,
-            so a screen reader is not read the count twice. */}
+        {/* Label, rule, count — the same editorial section-header device the
+            "Also matches" tray uses, and now at every width. A preview of the
+            first three record names used to take the rule's place from sm up;
+            it earned that room while the line rested closed and had no other
+            way to say what it held. Resting open, it was naming the cards
+            immediately below it. */}
+        <span className="h-px min-w-3 flex-1 bg-[color:var(--border)] forced-colors:bg-[CanvasText]" aria-hidden />
+        {/* The visible count is decorative — it is dropped entirely below sm, and
+            `hidden` hides it from assistive tech as well as from the eye. This
+            tray has no live region to carry the number, so without the sr-only
+            copy the count would never reach a screen reader at any width, and
+            the closed control would announce as a door onto an unknown. */}
         <span
           className="hidden shrink-0 text-2xs font-medium tabular-nums text-[color:var(--text-muted)] sm:inline"
           aria-hidden
         >
           {countLabel}
         </span>
+        <span className="sr-only">{countLabel}</span>
         <span
           className={cn(
             "-mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-transform motion-reduce:transition-none",
