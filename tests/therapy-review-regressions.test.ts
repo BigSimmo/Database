@@ -80,6 +80,14 @@ describe("Therapy review regression contracts", () => {
       "src/components/therapy-compass/screens/sheets-screen.tsx",
       "src/components/therapy-compass/screens/compare-screen.tsx",
       "src/components/therapy-compass/screens/pathways-screen.tsx",
+      // The two secondary listings. Both quote another record's clinical prose
+      // (`bestUsedFor` / `clinicalSummary`) beside its name, and both shipped
+      // without its review state — the gap the 2026-09-02 audit recorded under
+      // L03c. Harmless while a catalogue-wide notice also stated the caveat;
+      // load-bearing once PR #2686 removed it and left the per-record badge as
+      // the whole disclosure.
+      "src/components/therapy-compass/record/related-therapies.tsx",
+      "src/components/therapy-compass/pathway-step-stack.tsx",
     ]) {
       expect(source(path), `${path} must still surface reviewStatus`).toContain("reviewStatus");
     }
