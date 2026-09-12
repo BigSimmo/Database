@@ -339,9 +339,15 @@ async function openWorkspace(
   // Both are `md:hidden`/`md:flex` siblings of one shell subtree, so exactly one
   // of each exists at every width — the count is 1 whichever one is displayed,
   // and this says nothing about which is *visible*. That remains the sweep's job.
-  for (const landmark of ["caring-contacts-rail", "caring-contacts-phone-dock"]) {
-    await expect(page.getByTestId(landmark), `${landmark} did not settle to one copy`).toHaveCount(1);
-  }
+  await expect
+    .poll(
+      async () => [
+        await page.getByTestId("caring-contacts-rail").count(),
+        await page.getByTestId("caring-contacts-phone-dock").count(),
+      ],
+      { message: "caring-contacts navigation landmarks did not settle to one copy each" },
+    )
+    .toEqual([1, 1]);
   // `exact: true`, because Playwright's `name` is a case-insensitive SUBSTRING match by default,
   // and two of these headings are prefixes of each other: "Template" would be satisfied by the
   // templates library's "Templates" h1, so a regression serving the library at a detail URL would
@@ -2307,7 +2313,7 @@ test.describe("caring-contacts guidance, in the modes its own block proved on re
     // The panel says what it is with an information tint. Forced colours drops the
     // author's background, so the whole claim has to survive as words: what a
     // transport receipt is, and one of the three things it is not.
-    const guidance = page.getByTestId("caring-contacts-guidance");
+    const guidance = page.getByRole("main").locator("section[aria-labelledby='caring-contacts-guidance-boundary']");
     await expect(guidance).toContainText("One-way programme boundary");
     await expect(guidance).toContainText("transport receipt");
     await expect(guidance).toContainText("does not mean the message was read");
@@ -2682,7 +2688,7 @@ test.describe("caring-contacts guidance and reports", () => {
     expect(response?.status(), "the guidance route did not serve a page").toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: GUIDANCE_SCREEN.heading })).toBeVisible();
 
-    const guidance = page.getByTestId("caring-contacts-guidance");
+    const guidance = page.getByRole("main").locator("section[aria-labelledby='caring-contacts-guidance-boundary']");
     await expect(guidance).toBeVisible();
     await expect(guidance).toContainText("One-way programme boundary");
     await expect(guidance).toContainText("transport receipt");
@@ -2816,7 +2822,9 @@ test.describe("caring-contacts guidance and reports", () => {
     await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
     // Printed guidance that has lost the boundary panel is guidance that no longer states the one
     // thing it exists to state.
-    await expect(page.getByTestId("caring-contacts-guidance")).toContainText("One-way programme boundary");
+    await expect(
+      page.getByRole("main").locator("section[aria-labelledby='caring-contacts-guidance-boundary']"),
+    ).toContainText("One-way programme boundary");
     expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
     await page.emulateMedia({ media: "screen" });
   });

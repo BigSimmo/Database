@@ -502,6 +502,12 @@ describe("the caring-contacts plan wizard — the draft (Ruling [110])", () => {
       // same reason as the fields above: nothing has recorded either yet. Written out rather than
       // read from `NO_PLAN_DRAFT_DECISIONS`, so this cannot agree with the module by construction.
       decisions: { identityChecked: false, preferenceGivenOnStaffedLine: false },
+      // #M6P1QQ: one `writePlanDraft` per step this flow has taken so far -- `reachPathwayStage`'s
+      // own stage transitions plus the pathway radio click above -- each bumping the version by one
+      // from the fresh draft's 0. Not asserted as an interesting fact in its own right; asserted
+      // because `toEqual` checks every field, and a wrong count here would mean a write this flow
+      // made went missing or an extra one snuck in.
+      version: 4,
     });
 
     // A remount is what a page refresh looks like from this component's point of view.
