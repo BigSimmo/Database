@@ -730,7 +730,10 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   group. `/mockups/development/ledger` (`ledger/page.tsx`, Server Component) — the task ledger
   page: freshness stamp, count tiles, a "blocking now" callout, the recommended running order
   (acuity — urgency, kept deliberately separate from priority), open items grouped by priority,
-  and pending inbox requests. `/mockups/development/routes` — every page and every app mode, from
+  and pending inbox requests. `/mockups/development/hazards` (`hazards/page.tsx`, Server Component)
+  — the snapshot-backed hazard register: it keeps the PsychSift and Caring Contacts registers
+  separate, surfaces unmitigated hazards first, recalculates review expiry in Australia/Perth at
+  render time, and states Ward Flow's missing register as an absence. `/mockups/development/routes` — every page and every app mode, from
   the repo awareness snapshot's route walk. `/mockups/development/documentation` — every tracked
   document, its area, and whether the codebase index lists it. `/mockups/development/test-health`
   — unstable and quarantined tests, from the flake ledger. `/mockups/development/review-state` —

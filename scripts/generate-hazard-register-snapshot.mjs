@@ -26,6 +26,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 export const HAZARD_SNAPSHOT_VERSION = "hazard-register-snapshot-v1";
+export const REVIEW_TIME_ZONE = "Australia/Perth";
 
 const CONTROLS_JSON = "docs/clinical-hazard-controls.json";
 const ANALYSIS_MD = "docs/clinical-hazard-analysis.md";
@@ -55,7 +56,22 @@ export function plainCell(cell) {
  */
 export function tableCells(line) {
   const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
-  return trimmed.split("|").map(plainCell);
+  const cells = [];
+  let cell = "";
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const character = trimmed[index];
+    if (character === "\\" && trimmed[index + 1] === "|") {
+      cell += "|";
+      index += 1;
+    } else if (character === "|") {
+      cells.push(plainCell(cell));
+      cell = "";
+    } else {
+      cell += character;
+    }
+  }
+  cells.push(plainCell(cell));
+  return cells;
 }
 
 /** Every `H-…` row in a markdown table, from anywhere in the document. */
@@ -65,7 +81,10 @@ export function parseHazardRows(markdown) {
     if (!line.trim().startsWith("|")) continue;
     const cells = tableCells(line);
     // Header and alignment rows have no hazard id in column one.
-    if (cells.length < 8 || !/^H-[A-Z0-9]+$/i.test(cells[0])) continue;
+    if (!/^H-[A-Z0-9]+$/i.test(cells[0])) continue;
+    if (cells.length !== 8) {
+      throw new Error(`Hazard row ${cells[0]} expected 8 cells, received ${cells.length}`);
+    }
     const [id, hazard, cause, harm, control, residualRisk, owner, status] = cells;
     rows.push({ id, hazard, cause, harm, control, residualRisk, owner, status });
   }
@@ -103,10 +122,25 @@ export function parseAnalysisTitles(markdown) {
 }
 
 /** Whether a review date has passed, given "today". Undated reviews are never "current". */
+function reviewDateIsValid(reviewExpiresAt) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(reviewExpiresAt ?? "")) return false;
+  const parsed = new Date(`${reviewExpiresAt}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === reviewExpiresAt;
+}
+
+function perthTodayIso(now) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: REVIEW_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 export function reviewExpired(reviewExpiresAt, now) {
-  if (!reviewExpiresAt) return true;
-  const expiry = Date.parse(`${reviewExpiresAt}T23:59:59Z`);
-  return !Number.isFinite(expiry) || expiry < now.getTime();
+  return !reviewDateIsValid(reviewExpiresAt) || reviewExpiresAt < perthTodayIso(now);
 }
 
 function buildPsychSiftRegister(now) {
@@ -148,6 +182,18 @@ function buildPsychSiftRegister(now) {
   };
 }
 
+/** The complete opening authority block, with Markdown presentation removed but no wording omitted. */
+export function caringContactsAuthority(markdown) {
+  const match = /^# Caring Contacts — hazard log\s*\n\n((?:>.*(?:\n|$))+)/m.exec(markdown);
+  if (!match) throw new Error("Caring Contacts hazard log has no opening authority block");
+  return plainCell(
+    match[1]
+      .split("\n")
+      .map((line) => line.replace(/^>\s?/, ""))
+      .join(" "),
+  );
+}
+
 // Takes no `now`: a draft nobody has signed has no review to expire, so there is
 // no date here to compare against one.
 function buildCaringContactsRegister() {
@@ -161,8 +207,7 @@ function buildCaringContactsRegister() {
     scope: "The Caring Contacts workspace only. It does not cover the answer pipeline.",
     sourcePath: CARING_CONTACTS_MD,
     exists: true,
-    authority:
-      "DRAFT, unsigned. Not clinical authority, not a risk assessment anybody has performed, and no row has been reviewed or accepted by a clinician.",
+    authority: caringContactsAuthority(markdown),
     signedOff: false,
     gate: null,
     reviewedAt: null,

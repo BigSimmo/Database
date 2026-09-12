@@ -1,6 +1,6 @@
 {
   "version": "hazard-register-snapshot-v1",
-  "generatedAt": "2026-09-08",
+  "generatedAt": "2026-09-12",
   "counts": {
     "registers": 3,
     "registersMissing": 1,
@@ -109,7 +109,7 @@
       "scope": "The Caring Contacts workspace only. It does not cover the answer pipeline.",
       "sourcePath": "docs/caring-contacts/hazard-log.md",
       "exists": true,
-      "authority": "DRAFT, unsigned. Not clinical authority, not a risk assessment anybody has performed, and no row has been reviewed or accepted by a clinician.",
+      "authority": "DRAFT — requires clinical sign-off by the owner before any real-patient use. This document is a starting point assembled from what this repository already records. It is not clinical authority, it is not a risk assessment anybody has performed, and nothing in it constitutes approval of a pilot. No row below has been reviewed, accepted, or signed off by a clinician. Until the owner signs it, treat every \"residual risk\" cell as an unreviewed assertion by whoever drafted the row, not as an accepted level of risk.",
       "signedOff": false,
       "gate": null,
       "reviewedAt": null,

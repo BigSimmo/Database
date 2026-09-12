@@ -1,6 +1,24 @@
 import snapshotJson from "../../../data/hazard-register-snapshot.json";
 
 export const HAZARD_SNAPSHOT_VERSION = "hazard-register-snapshot-v1";
+const REVIEW_TIME_ZONE = "Australia/Perth";
+
+/** Whether an ISO review date has passed in the local calendar used by the controls gate. */
+export function reviewExpiredAtPerth(reviewExpiresAt: string | null, now = new Date()): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(reviewExpiresAt ?? "")) return true;
+  const parsed = new Date(`${reviewExpiresAt}T00:00:00Z`);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== reviewExpiresAt) return true;
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: REVIEW_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const today = `${values.year}-${values.month}-${values.day}`;
+  return reviewExpiresAt < today;
+}
 
 /**
  * The three states a hazard row can carry, plus the escape hatch.
