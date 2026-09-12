@@ -26,7 +26,10 @@ on:
         default: ""
 
 concurrency:
-  group: codex-run-pr-${{ inputs.pr_number }}
+  # Hold the shared mutation lock for the whole operator run. A repair push
+  # wakes the batch controller before the mutate job starts; job-level locks
+  # let that wake-up replace the pending mutate job in GitHub's one-slot queue.
+  group: pr-batch-mutation
   cancel-in-progress: false
 
 permissions:
@@ -42,9 +45,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     if: github.ref == 'refs/heads/main'
-    concurrency:
-      group: pr-batch-mutation
-      cancel-in-progress: false
     outputs:
       pr_number: ${{ steps.context.outputs.pr_number }}
       expected_head: ${{ steps.context.outputs.expected_head }}
@@ -704,9 +704,6 @@ jobs:
     needs: [prepare, repair]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    concurrency:
-      group: pr-batch-mutation
-      cancel-in-progress: false
     permissions:
       contents: read
     outputs:
@@ -849,9 +846,6 @@ jobs:
     needs: [prepare, repair, publish]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    concurrency:
-      group: pr-batch-mutation
-      cancel-in-progress: false
     permissions:
       contents: read
     steps:
