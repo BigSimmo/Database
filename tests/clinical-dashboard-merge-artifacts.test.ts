@@ -31,6 +31,10 @@ const globalSearchShellSource = readFileSync(
   "utf8",
 );
 const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+const dashboardModeSurfaceSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/dashboard-mode-surface.ts"),
+  "utf8",
+);
 const modeHomeCanvasSource = readFileSync(
   resolve(process.cwd(), "src/components/clinical-dashboard/mode-home-canvas.ts"),
   "utf8",
@@ -222,9 +226,10 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalSearchShellSource).toContain("max-sm:pb-[var(--mobile-composer-reserve)]");
     expect(globalSearchShellSource).not.toContain('data-testid="mobile-composer-reserve-spacer"');
 
-    expect(clinicalDashboardSource).toContain("resolveDashboardVisibleMobileComposerReserve");
-    expect(clinicalDashboardSource).toContain("resolveMobileComposerReserve(");
-    expect(clinicalDashboardSource).toContain('from "@/components/clinical-dashboard/mobile-composer-reserve"');
+    // Reserve helpers were extracted with the mode-surface decisions.
+    expect(dashboardModeSurfaceSource).toContain("resolveDashboardVisibleMobileComposerReserve");
+    expect(dashboardModeSurfaceSource).toContain("resolveMobileComposerReserve(");
+    expect(dashboardModeSurfaceSource).toContain('from "@/components/clinical-dashboard/mobile-composer-reserve"');
     expect(clinicalDashboardSource).not.toContain('bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"');
     expect(clinicalDashboardSource).not.toMatch(/pb-\[max\([^"']*safe-area-inset-bottom/);
     expect(clinicalDashboardSource).toContain(
