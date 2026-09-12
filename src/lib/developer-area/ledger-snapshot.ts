@@ -2,7 +2,7 @@ import snapshotJson from "../../../data/outstanding-issues-snapshot.json";
 
 import { resolveFreshnessFrom, type Freshness } from "./freshness";
 
-export const LEDGER_SNAPSHOT_VERSION = "outstanding-issues-snapshot-v1";
+export const LEDGER_SNAPSHOT_VERSION = "outstanding-issues-snapshot-v2";
 
 export type LedgerPriority = "P1" | "P2" | "P3";
 
@@ -36,7 +36,10 @@ export type LedgerPendingRequest = {
 
 export type LedgerSnapshot = {
   version: string;
-  ledger_revision: { sha: string; committed_at: string } | null;
+  // A date (`2026-09-07`), not a timestamp, and no sha — `readLedgerRevision` in
+  // `scripts/generate-outstanding-issues-snapshot.mjs` carries the reasoning.
+  // Only `committed_at` was ever read, by `resolveFreshness` below.
+  ledger_revision: { committed_at: string } | null;
   counts: { open: number; p1: number; p2: number; p3: number; queued: number; pending: number; resolved: number };
   queue: LedgerQueueEntry[];
   open: LedgerOpenItem[];
