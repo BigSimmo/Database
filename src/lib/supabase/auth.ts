@@ -1,4 +1,5 @@
 import { createServerClient, parseCookieHeader } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import { isAdministratorAppMetadata } from "@/lib/authorization";
@@ -17,6 +18,21 @@ export type OptionalAuthenticationResult =
 
 type AuthenticationRequirement = {
   administrator?: boolean;
+};
+
+export type AuthenticatedUserContext = {
+  user: AuthenticatedUser;
+  publicationClient: PublicationClient;
+};
+
+type PublicationClient = {
+  auth: {
+    getUser: () => PromiseLike<{
+      data: { user: { id: string; app_metadata?: Record<string, unknown> } | null };
+      error: unknown;
+    }>;
+  };
+  rpc: unknown;
 };
 
 function readCookies(cookieHeader: string | null): Map<string, string> {
@@ -177,6 +193,33 @@ async function getUserFromRequestCookies(request: Request): Promise<Authenticate
   return { id: data.user.id, appMetadata: data.user.app_metadata ?? {} };
 }
 
+function publicationClientFromBearerToken(bearerToken: string) {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new AuthenticationError("Authentication is not configured.");
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${bearerToken}` } },
+  });
+}
+
+function publicationClientFromCookies(request: Request) {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const cookieHeader = request.headers.get("cookie");
+  if (!url || !key || !cookieHeader) throw new AuthenticationError("Authentication is not configured.");
+  return createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return parseCookieHeader(cookieHeader).map(({ name, value }) => ({ name, value: value ?? "" }));
+      },
+      setAll() {
+        // Route-handler publication commands never refresh browser cookies.
+      },
+    },
+  });
+}
+
 export const PROXY_AUTH_USER_HEADER = "x-proxy-auth-user";
 
 export function extractProxyAuthenticatedUser(request: Request): AuthenticatedUser | null {
@@ -268,6 +311,51 @@ export async function requireAuthenticatedUser(
     throw new PublicApiError("Administrator access required.", 403, { code: "administrator_required" });
   }
   return user;
+}
+
+/**
+ * Resolve an authenticated user together with the exact request-scoped client
+ * whose JWT/cookies populate auth.uid() inside publication RPCs. The service
+ * client may validate a presented token, but is never returned as mutation
+ * authority. A presented invalid Authorization header cannot fall back to a
+ * cookie session.
+ */
+export async function requireAuthenticatedUserContext(
+  request: Request,
+  supabase: AdminClient,
+  requirement: AuthenticationRequirement = {},
+): Promise<AuthenticatedUserContext> {
+  let user: AuthenticatedUser | null = null;
+  let publicationClient: PublicationClient;
+
+  if (request.headers.has("authorization")) {
+    const bearerToken = extractBearerAccessToken(request);
+    if (!bearerToken) throw new AuthenticationError("Invalid authentication credentials.");
+    user = await getUserFromAccessToken(supabase, bearerToken);
+    if (!user) throw new AuthenticationError("Invalid authentication credentials.");
+    publicationClient = publicationClientFromBearerToken(bearerToken);
+  } else {
+    const legacyCookieToken = extractLegacyCookieSessionAccessToken(request);
+    if (hasCurrentSessionCookie(request)) {
+      publicationClient = publicationClientFromCookies(request);
+      const result = await publicationClient.auth.getUser();
+      if (result.error || !result.data.user?.id) {
+        throw new AuthenticationError("Invalid authentication credentials.");
+      }
+      user = { id: result.data.user.id, appMetadata: result.data.user.app_metadata ?? {} };
+    } else if (legacyCookieToken) {
+      user = await getUserFromAccessToken(supabase, legacyCookieToken);
+      if (!user) throw new AuthenticationError("Invalid authentication credentials.");
+      publicationClient = publicationClientFromBearerToken(legacyCookieToken);
+    } else {
+      throw new AuthenticationError();
+    }
+  }
+
+  if (requirement.administrator && !isAdministratorAppMetadata(user.appMetadata)) {
+    throw new PublicApiError("Administrator access required.", 403, { code: "administrator_required" });
+  }
+  return { user, publicationClient };
 }
 
 export async function getOptionalAuthenticatedUser(

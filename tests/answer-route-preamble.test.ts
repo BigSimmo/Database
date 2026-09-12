@@ -68,6 +68,42 @@ function rateLimitDecision(limited: boolean) {
   };
 }
 
+const normalScope = {
+  documentIds: ["private-scope-document-id"],
+  filters: { collections: ["private-filter"] },
+  activeFilterCount: 1,
+  matchedDocumentCount: 1,
+  warnings: ["Scoped to one current source."],
+  summary: "One active filter",
+  futureInternalField: "private",
+};
+
+const coverageGapAnswer = {
+  answer: "The active sources support only part of this question.",
+  grounded: false,
+  confidence: "unsupported",
+  citations: [],
+  sources: [
+    {
+      id: "coverage-chunk-1",
+      document_id: "public-source-document-1",
+      title: "Current clinical guidance",
+      file_name: "current-guidance.pdf",
+      page_number: 2,
+      chunk_index: 1,
+      section_heading: "Monitoring",
+      content: "The source confirms monitoring is required but does not cover the requested threshold.",
+      image_ids: [],
+      similarity: 0.81,
+      adjacent_before: [{ id: "private-adjacent-chunk" }],
+    },
+  ],
+  fallbackReasonCode: "coverage_gap",
+  fallbackReason: "private_raw_coverage_reason",
+  routingReason: "private_internal_route_reason",
+  degradedMode: { active: true, reason: "private_raw_coverage_reason" },
+};
+
 beforeEach(() => {
   publicAccessContext.mockResolvedValue({
     ownerId,
@@ -77,7 +113,7 @@ beforeEach(() => {
   answerQuestionWithScope.mockResolvedValue({
     answer: "stub",
     grounded: true,
-    confidence: "supported",
+    confidence: "high",
     citations: [],
     sources: [],
     latencyTimings: { total_latency_ms: 1 },
@@ -90,6 +126,23 @@ afterEach(() => {
 });
 
 describe("/api/answer preamble", () => {
+  it.each(["shadow", "canary"] as const)(
+    "preserves the resolved %s observation at the JSON response boundary",
+    async (rolloutMode) => {
+      consumeSubjectApiRateLimit.mockResolvedValue(rateLimitDecision(false));
+      resolveSearchScope.mockResolvedValue({ documentIds: undefined, filters: {}, activeFilterCount: 0, warnings: [] });
+      const { observeRagAnswer, ragProgrammeTelemetryForAnswer } = await import("@/lib/rag/rag-programme-telemetry");
+      const answer = observeRagAnswer(
+        { answer: "Use the cited source.", grounded: false, confidence: "unsupported", citations: [], sources: [] },
+        { interactionId: "b460aaf8-e955-48cb-955c-547f494ad428", rolloutMode },
+      );
+      answerQuestionWithScope.mockResolvedValue(answer);
+      const { POST } = await import("../src/app/api/answer/route");
+      expect((await POST(answerRequest())).status).toBe(200);
+      expect(ragProgrammeTelemetryForAnswer(answer)?.rollout_mode).toBe(rolloutMode);
+      expect(ragProgrammeTelemetryForAnswer(answer)?.interaction_id).toBe("b460aaf8-e955-48cb-955c-547f494ad428");
+    },
+  );
   it("does not begin scope resolution until the limiter has admitted the request", async () => {
     const limiter = deferred<ReturnType<typeof rateLimitDecision>>();
     consumeSubjectApiRateLimit.mockReturnValue(limiter.promise);
@@ -163,5 +216,86 @@ describe("/api/answer preamble", () => {
 
     expect(response.status).toBeGreaterThanOrEqual(500);
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("projects an empty scope through the same bounded answer payload", async () => {
+    consumeSubjectApiRateLimit.mockResolvedValue(rateLimitDecision(false));
+    resolveSearchScope.mockResolvedValue({
+      documentIds: [],
+      filters: { collections: ["private-filter"] },
+      activeFilterCount: 1,
+      matchedDocumentCount: 0,
+      warnings: ["No indexed documents matched."],
+      summary: "One active filter",
+      futureInternalField: "private",
+    });
+
+    const { POST } = await import("../src/app/api/answer/route");
+    const response = await POST(answerRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      fallbackReasonCode: "no_candidates",
+      degradedMode: { active: true, reason: expect.any(String) },
+      sources: [],
+    });
+    expect(payload).not.toHaveProperty("routingReason");
+    expect(payload).not.toHaveProperty("fallbackReason");
+    expect(Object.keys(payload.scope)).toEqual([
+      "summary",
+      "activeFilterCount",
+      "matchedDocumentCount",
+      "warnings",
+      "queryMode",
+    ]);
+    expect(payload.scope).toEqual({
+      summary: "One active filter",
+      activeFilterCount: 1,
+      matchedDocumentCount: 0,
+      warnings: ["No indexed documents matched."],
+      queryMode: "auto",
+    });
+    expect(JSON.stringify(payload.scope)).not.toMatch(/private-filter|futureInternalField|documentIds|filters/);
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("projects a non-empty coverage gap and normal scope through the governed JSON boundary", async () => {
+    consumeSubjectApiRateLimit.mockResolvedValue(rateLimitDecision(false));
+    resolveSearchScope.mockResolvedValue(normalScope);
+    answerQuestionWithScope.mockResolvedValue(coverageGapAnswer);
+
+    const { POST } = await import("../src/app/api/answer/route");
+    const response = await POST(answerRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      fallbackReasonCode: "coverage_gap",
+      degradedMode: {
+        active: true,
+        reason: "The active sources support only part of this question.",
+      },
+      sources: [{ id: "coverage-chunk-1", document_id: "public-source-document-1" }],
+    });
+    expect(Object.keys(payload.scope)).toEqual([
+      "summary",
+      "activeFilterCount",
+      "matchedDocumentCount",
+      "warnings",
+      "queryMode",
+    ]);
+    expect(payload.scope).toEqual({
+      summary: "One active filter",
+      activeFilterCount: 1,
+      matchedDocumentCount: 1,
+      warnings: ["Scoped to one current source."],
+      queryMode: "auto",
+    });
+    expect(JSON.stringify(payload)).not.toMatch(
+      /private-scope-document-id|private-filter|futureInternalField|private-adjacent-chunk|private_raw_coverage_reason|private_internal_route_reason/,
+    );
   });
 });

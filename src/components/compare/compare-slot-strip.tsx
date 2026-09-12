@@ -9,13 +9,23 @@ import { compareSlotBadgeBase, compareSlotBadgeClass } from "@/components/compar
 import { cn } from "@/components/ui-primitives";
 
 /**
- * Slot columns follow the slot count, so three slots fill a row of three and four
- * fill two rows of two. A fixed `lg:grid-cols-3` orphaned the fourth tile alone.
+ * Slot columns follow the slot count against the strip's own width, not the
+ * viewport's. A viewport breakpoint is the wrong signal here because the desktop
+ * sidebar takes 20rem when expanded and 5.25rem when collapsed, so the same
+ * `lg` viewport hands this strip either ~876px or ~640px. Keying off `lg`
+ * truncated titles in the expanded state — the fault this layout exists to
+ * prevent.
+ *
+ * Thresholds are measured, not guessed. Forcing each column count and sweeping
+ * the strip width on `/dsm/compare` (longest title "Persistent depressive
+ * disorder (dysthymia)"), the last width that clips a title is 560px at two
+ * columns, 864px at three and 1152px at four. Each breakpoint below sits just
+ * above its measured floor, so a tile always has room for two lines of title.
  */
 function slotGridColumns(count: number) {
-  if (count >= 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
-  if (count === 3) return "grid-cols-1 sm:grid-cols-3";
-  return "grid-cols-1 sm:grid-cols-2";
+  if (count >= 4) return "grid-cols-1 @min-[38rem]:grid-cols-2 @min-[74rem]:grid-cols-4";
+  if (count === 3) return "grid-cols-1 @min-[38rem]:grid-cols-2 @min-[55rem]:grid-cols-3";
+  return "grid-cols-1 @min-[38rem]:grid-cols-2";
 }
 
 function CompareSlotTile({
@@ -162,7 +172,7 @@ export function CompareSlotStrip({
   const pickerButtonLabel = filledCount === 0 && actionLabel ? actionLabel : changeLabel;
 
   return (
-    <div className={cn("grid gap-3", compactRail ? "mt-2" : "mt-4")} data-testid="compare-slot-strip">
+    <div className={cn("@container grid gap-3", compactRail ? "mt-2" : "mt-4")} data-testid="compare-slot-strip">
       {showPipSummary ? (
         <div
           data-testid="compare-slot-strip-pip-summary"
@@ -248,7 +258,15 @@ export function CompareSlotStrip({
               key={`${slot.label}-${index}`}
               className={cn(
                 pair && "contents",
-                compactRail && "min-w-[9.75rem] max-w-[11.5rem] shrink-0 snap-start sm:min-w-0 sm:max-w-none",
+                compactRail &&
+                  // Phone rail tile width. 11.5rem left the title 86px once the
+                  // badge and the 48px clear-button gutter were taken out, which
+                  // clipped "Persistent depressive disorder (dysthymia)" even at
+                  // three lines. Measured on `/dsm/compare` at 390px: 224px of
+                  // tile still clips, 248px does not. 15.5rem is the first clean
+                  // width, and a 358px strip still shows ~110px of the next tile,
+                  // so the rail keeps its scroll affordance.
+                  "min-w-[15.5rem] max-w-[17rem] shrink-0 snap-start sm:min-w-0 sm:max-w-none",
               )}
             >
               <CompareSlotTile

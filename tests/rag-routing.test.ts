@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   chooseAnswerRoute,
@@ -5,6 +6,9 @@ import {
   shouldRetryWithStrongAfterFast,
   weakRetrievalTopScoreThreshold,
 } from "../src/lib/rag/rag-routing";
+import { analyzeClinicalQuery } from "../src/lib/clinical-search";
+import { buildRagQueryPlan } from "../src/lib/rag/rag-query-plan";
+import { buildRagRetrievalVariantPlan, buildRetrievalQueryVariants } from "../src/lib/rag/rag-retrieval-variants";
 import { ragEvalCases } from "../src/lib/rag/rag-eval-cases";
 import type { DocumentTableFact, SearchResult } from "../src/lib/types";
 
@@ -25,6 +29,56 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
     ...overrides,
   };
 }
+
+describe("shadow query-plan orchestration", () => {
+  it("threads query-plan identity through the real answer retrieval entrypoint", () => {
+    const source = readFileSync("src/lib/rag/rag.ts", "utf8");
+    const answerEntrypoint = source.indexOf("async function answerQuestionWithScopeUncoalesced");
+    const searchCall = source.indexOf("searchChunksWithTelemetry({", answerEntrypoint);
+    const searchCallEnd = source.indexOf("}),", searchCall);
+    const callSource = source.slice(searchCall, searchCallEnd);
+
+    expect(answerEntrypoint).toBeGreaterThan(-1);
+    expect(searchCall).toBeGreaterThan(answerEntrypoint);
+    expect(callSource).toContain("ragQueryPlanVersion: args.ragQueryPlanVersion");
+    expect(callSource).toContain("ragQueryPlanMode: args.ragQueryPlanMode");
+  });
+
+  it("keeps served variants identical while exposing only content-free shadow diagnostics", () => {
+    const query = "Compare clozapine and olanzapine monitoring requirements.";
+    const analysis = analyzeClinicalQuery(query);
+    const plan = buildRagQueryPlan(query, analysis);
+    const legacy = buildRagRetrievalVariantPlan(query, analysis, [], plan, "legacy");
+    const shadow = buildRagRetrievalVariantPlan(query, analysis, [], plan, "shadow");
+
+    expect(shadow.servedVariants).toEqual(legacy.servedVariants);
+    expect(legacy.diagnostics.candidate_retrieval_query_variant_count).toBeUndefined();
+    expect(shadow.diagnostics).toMatchObject({
+      query_plan_kind: "decomposed",
+      subquestion_count: 3,
+      candidate_retrieval_query_variant_count: shadow.candidateVariants.length,
+    });
+    expect(JSON.stringify(shadow.diagnostics)).not.toContain(query);
+    for (const subquestion of plan.subquestions) {
+      expect(JSON.stringify(shadow.diagnostics)).not.toContain(subquestion.question);
+    }
+  });
+
+  it("aborts candidate-only shadow planning without changing legacy served variants", () => {
+    const query = "Compare clozapine and olanzapine monitoring requirements.";
+    const analysis = analyzeClinicalQuery(query);
+    const plan = buildRagQueryPlan(query, analysis);
+    const controller = new AbortController();
+    controller.abort();
+
+    expect(() => buildRagRetrievalVariantPlan(query, analysis, [], plan, "shadow", controller.signal)).toThrow(
+      /aborted/i,
+    );
+    expect(buildRagRetrievalVariantPlan(query, analysis, [], plan, "legacy").servedVariants).toEqual(
+      buildRetrievalQueryVariants(query, analysis),
+    );
+  });
+});
 
 function tableFact(overrides: Partial<DocumentTableFact> = {}): DocumentTableFact {
   return {
@@ -1022,7 +1076,9 @@ describe("RAG answer routing", () => {
   });
 
   it("uses model synthesis for broad management questions even with a strong title match", () => {
-    const selected = route("management of bulimia nervosa", [
+    const programmeCase = ragEvalCases.find((testCase) => testCase.id === "broad-management-strong-route");
+    expect(programmeCase?.programmeExpectation?.requiredFacts).toContain("current_strong_route_eligible");
+    const selected = route(programmeCase?.question ?? "", [
       source({
         title: "Bulimia Nervosa",
         file_name: "bulimia-nervosa.pdf",
@@ -1034,6 +1090,7 @@ describe("RAG answer routing", () => {
     ]);
 
     expect(selected.mode).toBe("strong");
+    expect(programmeCase?.allowedRoutes).toContain(selected.mode);
     expect(selected.model).toBe("strong-model");
     expect(selected.reason).toBe("broad_clinical_management_synthesis");
   });

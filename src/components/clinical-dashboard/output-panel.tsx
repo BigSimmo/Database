@@ -17,7 +17,7 @@ import {
   sortClinicalDetailSections,
 } from "@/components/clinical-dashboard/clinical-output-helpers";
 import { cn, iconTilePremium, metadataPillDensity, panelSubtle, subtleStatusPill } from "@/components/ui-primitives";
-import type { RagAnswer } from "@/lib/types";
+import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
 import {
   type AnswerEvidenceMapRow,
   type AnswerViewMode,
@@ -44,7 +44,7 @@ export function ClinicalOutputPanel({
   onViewModeChange,
   evidenceMapRows,
 }: {
-  answer: RagAnswer;
+  answer: ClientRagAnswerPayload;
   collapsed?: boolean;
   showLead?: boolean;
   viewMode?: AnswerViewMode;

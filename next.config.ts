@@ -5,7 +5,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 import { resolveSentryRelease } from "./src/lib/observability/sentry-release";
 import { expectedSupabaseProject } from "./src/lib/supabase/project";
-import { THERAPY_CATALOGUE_ASSETS } from "./src/components/therapy-compass/data/generated-assets";
+import { THERAPY_CATALOGUE_ASSETS } from "./src/data/therapy-catalogue-assets";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const requestedDistDir = process.env.NEXT_DIST_DIR?.trim();

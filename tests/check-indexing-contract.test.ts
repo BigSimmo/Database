@@ -38,10 +38,10 @@ describe("indexing health scan", () => {
 
     const registryProjection: IndexingHealthDocument = {
       status: "indexed",
-      file_name: "australian-medicine-handbook.registry.json",
+      file_name: "synthetic-crisis-service.registry.json",
       page_count: 0,
       chunk_count: 1,
-      metadata: { source_kind: "registry_record", registry_record_id: "amh" },
+      metadata: { source_kind: "registry_record", registry_record_id: "synthetic-crisis-service" },
     };
 
     expect(isEmptyIndexedDocument(registryProjection)).toBe(false);

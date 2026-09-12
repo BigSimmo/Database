@@ -45,7 +45,13 @@ describe("source metadata diagnostics are browser-safe", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.stubGlobal("process", undefined);
 
-    expect(() => sourceMetadataDiagnostics.warn("document_status", "validated")).not.toThrow();
+    expect(() =>
+      sourceMetadataDiagnostics.warn("document_status", {
+        reason: "unrecognized_enum",
+        input_type: "string",
+        input_length: 9,
+      }),
+    ).not.toThrow();
     expect(warn).toHaveBeenCalledOnce();
   });
 

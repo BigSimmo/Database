@@ -5,8 +5,8 @@ import { resolvePythonBin } from "@/lib/python-bin";
 import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
 import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
 
-/** Treat blank/whitespace as unset so offline scrub can pin "" without failing `.url()`. */
-function coerceBlankUrlEnv(value: unknown): unknown {
+/** Treat blank/whitespace as unset so optional placeholders can remain empty without failing validation. */
+function coerceBlankEnv(value: unknown): unknown {
   return typeof value === "string" && value.trim() === "" ? undefined : value;
 }
 
@@ -44,6 +44,13 @@ const envSchema = z.object({
   SUPABASE_STAGING_PROJECT_REF: z.string().optional(),
   SUPABASE_STAGING_PROJECT_NAME: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST: z.preprocess(
+    coerceBlankEnv,
+    z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
+  ),
   SUPABASE_DB_URL: z.string().url().optional(),
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
   // Inbound webhook receivers. Each shared secret gates a machine-to-machine
@@ -69,7 +76,7 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
   // Keep `z.` at the call site so `check-env-parity` parseEnvSchemaNames sees these names.
-  NEXT_PUBLIC_SENTRY_DSN: z.preprocess(coerceBlankUrlEnv, z.string().url().optional()),
+  NEXT_PUBLIC_SENTRY_DSN: z.preprocess(coerceBlankEnv, z.string().url().optional()),
   NEXT_PUBLIC_SENTRY_RELEASE: z.string().optional(),
   // Optional release tag for Sentry production readability and source-map correlation
   // (for example: a short git SHA or deployment ID).
@@ -89,7 +96,7 @@ const envSchema = z.object({
     .default("false")
     .transform((value) => value === "true"),
   CLINICAL_ASK_DISABLED_MODES: z.preprocess(parseClinicalAskDisabledModes, z.array(z.string())),
-  SENTRY_DSN: z.preprocess(coerceBlankUrlEnv, z.string().url().optional()),
+  SENTRY_DSN: z.preprocess(coerceBlankEnv, z.string().url().optional()),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
   // model without updating this (and the schema) silently corrupts ingestion (IDX-C2).
@@ -182,6 +189,27 @@ const envSchema = z.object({
   // - "offline": never call OpenAI at all (no embeddings, no generation); lexical retrieval
   //   + deterministic source-only answers only. Fails closed when evidence is weak.
   RAG_PROVIDER_MODE: z.enum(["auto", "openai", "offline"]).default("auto"),
+
+  RAG_PROGRAMME_MODE: z.enum(["legacy", "shadow", "canary"]).default("legacy"),
+  RAG_PROGRAMME_CANARY_BASIS_POINTS: z.coerce.number().int().min(0).max(10000).default(0),
+  RAG_PROGRAMME_ROLLOUT_SALT: z.preprocess(coerceBlankEnv, z.string().min(32).optional()),
+  RAG_SITE_CONTENT_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  RAG_AUSTRALIAN_AUGMENTATION_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  RAG_ADAPTIVE_ANSWER_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  RAG_ADAPTIVE_ANSWER_RENDER_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+
   // Optional JSON override for app-layer ranking weights (see src/lib/ranking-config.ts).
   // Lets tuning/eval experiments adjust the second-stage rerank weights, document-diversity
   // demotion, and freshness decay WITHOUT a code change. Omitted/malformed => current defaults.
@@ -326,7 +354,40 @@ const envSchema = z.object({
   DOCUMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(600),
 });
 
-const parsedEnv = envSchema.parse(process.env);
+/** Invalid rollout controls disable the whole programme; static readiness still rejects raw configuration. */
+function failClosedRolloutEnvironment(environment: NodeJS.ProcessEnv) {
+  const mode = environment.RAG_PROGRAMME_MODE ?? "legacy";
+  const percentage = environment.RAG_PROGRAMME_CANARY_BASIS_POINTS;
+  const flags = [
+    "RAG_SITE_CONTENT_ENABLED",
+    "RAG_AUSTRALIAN_AUGMENTATION_ENABLED",
+    "RAG_ADAPTIVE_ANSWER_ENABLED",
+    "RAG_ADAPTIVE_ANSWER_RENDER_ENABLED",
+  ] as const;
+  const salt = environment.RAG_PROGRAMME_ROLLOUT_SALT;
+  const invalid =
+    !["legacy", "shadow", "canary"].includes(mode) ||
+    (percentage !== undefined &&
+      (!percentage.trim() ||
+        !Number.isInteger(Number(percentage)) ||
+        Number(percentage) < 0 ||
+        Number(percentage) > 10000)) ||
+    flags.some((flag) => environment[flag] !== undefined && !["true", "false"].includes(environment[flag]!)) ||
+    (salt !== undefined && salt.trim() !== "" && salt.trim().length < 32);
+  if (!invalid) return environment;
+  return {
+    ...environment,
+    RAG_PROGRAMME_MODE: "legacy",
+    RAG_PROGRAMME_CANARY_BASIS_POINTS: "0",
+    RAG_PROGRAMME_ROLLOUT_SALT: undefined,
+    RAG_SITE_CONTENT_ENABLED: "false",
+    RAG_AUSTRALIAN_AUGMENTATION_ENABLED: "false",
+    RAG_ADAPTIVE_ANSWER_ENABLED: "false",
+    RAG_ADAPTIVE_ANSWER_RENDER_ENABLED: "false",
+  };
+}
+
+const parsedEnv = envSchema.parse(failClosedRolloutEnvironment(process.env));
 const nonProAnswerModelFallback = "gpt-5.6-terra";
 
 function isProAnswerModel(model: string) {

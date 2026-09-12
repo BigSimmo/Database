@@ -149,7 +149,7 @@ describe("InPageNavHeader", () => {
   });
 
   it("keeps a phone gap between the action row and the section rail", () => {
-    renderHeader({ rail: { label: "Service sections" } });
+    renderHeader({ rail: { label: "Service sections", density: "balanced-four" } });
     expect(screen.getByTestId("service-section-rail")).toHaveClass("mt-2");
   });
 
@@ -201,7 +201,7 @@ describe("InPageNavHeader", () => {
     // closes after the viewport crosses `sm` must not restore to a display:none
     // button (focus then falls to the page body).
     const user = userEvent.setup();
-    renderHeader({ rail: { label: "Service sections" } });
+    renderHeader({ rail: { label: "Service sections", density: "balanced-four" } });
     const trigger = screen.getByTestId("service-section-trigger");
 
     await user.click(trigger);

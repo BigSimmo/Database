@@ -6,6 +6,8 @@ import {
   formatAnswerRenderCopyText,
   isCurrencyReviewWarning,
 } from "../src/lib/answer-render-policy";
+import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
+import { answerStateForAnswer, buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import type {
   BestSourceRecommendation,
   Citation,
@@ -137,7 +139,34 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
   };
 }
 
+function clientAnswer(overrides: Partial<RagAnswer> = {}) {
+  return toClientAnswerPayload(answer(overrides));
+}
+
+it.each(["model_synthesis", "source_only"] as const)(
+  "R3 keeps explicit %s provenance with extractive routing",
+  (answerQualityTier) => {
+    const payload = clientAnswer({ answerQualityTier, routingMode: "extractive", fallbackReasonCode: "coverage_gap" });
+    const model = buildAnswerRenderModel(payload);
+    const copied = buildAnswerClipboardText({ answer: payload, weakEvidence: false, renderCopyText: model.copyText });
+    if (answerQualityTier === "model_synthesis") {
+      expect(answerStateForAnswer({ answer: payload, weakEvidence: false }).kind).not.toBe("source_only");
+      expect(copied).toMatch(/^AI-generated from the cited sources\./);
+      expect(copied).not.toMatch(/without (?:AI|model) synthesis/i);
+    } else {
+      expect(copied).toMatch(/^Assembled directly from the cited sources without model synthesis\./);
+    }
+  },
+);
+
 describe("answer render policy", () => {
+  it("caps trust and adds a warning from the bounded retrieval gate signal", () => {
+    const model = buildAnswerRenderModel(answer({ retrievalGateBlocked: true }));
+
+    expect(model.trust).toBe("low");
+    expect(model.warnings).toContain("Retrieval confidence gate was blocked for low signal.");
+  });
+
   it("labels review-only citations accurately instead of calling them generated-answer citations", () => {
     const model = buildAnswerRenderModel(
       answer({
@@ -267,6 +296,10 @@ describe("answer render policy", () => {
     const model = buildAnswerRenderModel(
       answer({
         sources: [reviewDue],
+        citations: [],
+        answerSections: [],
+        quoteCards: [],
+        bestSource: null,
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -310,7 +343,7 @@ describe("answer render policy", () => {
 
   it("does not render high trust for high-risk claims supported only by unverified evidence", () => {
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -337,7 +370,7 @@ describe("answer render policy", () => {
   it("keeps high trust for routine claims on unverified evidence while the D5 flag is off", () => {
     // Locks the zero-change default: only high-risk claims are authority-gated.
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -365,7 +398,7 @@ describe("answer render policy", () => {
     vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", "true");
     try {
       const model = buildAnswerRenderModel(
-        answer({
+        clientAnswer({
           supportedClaims: [
             {
               claimId: "claim-1",
@@ -405,7 +438,7 @@ describe("answer render policy", () => {
     ],
   ])("caps high-risk trust for %s", (_label, assessment) => {
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -426,7 +459,9 @@ describe("answer render policy", () => {
   it("prefers a direct supporting chunk as best source", () => {
     const direct = source({ id: "chunk-2", document_id: "doc-2", title: "Direct threshold", file_name: "direct.pdf" });
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
+        answerQualityTier: "model_synthesis",
+        bestSource: undefined,
         sources: [source(), direct],
         supportedClaims: [
           {
@@ -440,6 +475,25 @@ describe("answer render policy", () => {
       }),
     );
     expect(model.bestSource?.chunk_id).toBe("chunk-2");
+  });
+
+  it("R3 retains an explicit best-source recommendation despite another direct supporting chunk", () => {
+    const model = buildAnswerRenderModel(
+      clientAnswer({
+        answerQualityTier: "model_synthesis",
+        sources: [source(), source({ id: "chunk-2", document_id: "doc-2" })],
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "Withhold clozapine.",
+            riskClass: "high_risk",
+            supportingChunkIds: ["chunk-2"],
+            supportStatus: "direct",
+          },
+        ],
+      }),
+    );
+    expect(model.bestSource?.chunk_id).toBe("chunk-1");
   });
 
   it("copies the displayed table values, units, and canonical provenance", () => {
@@ -572,8 +626,8 @@ describe("answer render policy", () => {
     expect(model.allowedBlocks).toEqual(expect.arrayContaining(["quoteCards", "visualEvidence", "relatedDocuments"]));
   });
 
-  it("promotes smartApiPlan core source links into canonical primary sources", () => {
-    const model = buildAnswerRenderModel(
+  it("does not widen the client renderer to server-only smartApiPlan links", () => {
+    const payload = toClientAnswerPayload(
       answer({
         smartApiPlan: {
           coreSourceLinks: [
@@ -594,49 +648,42 @@ describe("answer render policy", () => {
         } as RagAnswer["smartApiPlan"],
       }),
     );
+    const model = buildAnswerRenderModel(payload);
 
-    expect(model.primarySources[0]).toMatchObject({
-      chunk_id: "core-chunk",
-      document_id: "doc-core",
-      href: "/documents/doc-core?page=8&chunk=core-chunk",
-      reason: "Selected by the answer plan.",
-    });
-    expect(model.copyText).toContain("/documents/doc-core?page=8&chunk=core-chunk");
+    expect(payload).not.toHaveProperty("smartApiPlan");
+    expect(model.primarySources).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ chunk_id: "core-chunk" })]),
+    );
+    expect(model.copyText).not.toContain("/documents/doc-core?page=8&chunk=core-chunk");
   });
 
-  it("does not let a smartApiPlan core link re-promote a review-only citation for the same passage", () => {
-    // Ledger #ZK460W, raised in review on PR #2721. The source-backed review fallback demotes its
-    // citations to `review_only` because the answer they belong to failed its own quality gate.
-    // A core source link is synthesised from the answer plan and carries no provenance, and the
-    // dedupe below is first-wins with core links collected first — so without the override the
-    // rendered row came back reading "Selected by the canonical answer source plan." and the
-    // demotion never reached the source rail at all.
+
+  it("does not let bestSource re-promote a review-only citation for the same passage", () => {
+    // Ledger #ZK460W / Copilot review on PR #2721. collectSourceCandidates gathers bestSource
+    // before citations and dedupes first-wins; without the override a strong bestSource would
+    // keep "Direct" / "strong match" labelling on a passage the answer marked review_only.
+    // smartApiPlan.coreSourceLinks are server-only (stripped by toClientAnswerPayload) and are
+    // covered separately by "does not widen the client renderer to server-only smartApiPlan links".
     const model = buildAnswerRenderModel(
-      answer({
-        grounded: false,
-        confidence: "unsupported",
-        citations: [citation({ provenance: "review_only" })],
-        quoteCards: [],
-        answerSections: [],
-        bestSource: null,
-        smartApiPlan: {
-          coreSourceLinks: [
-            {
-              id: "chunk-1",
-              label: "Clozapine Monitoring Guideline, page 4",
-              href: "/documents/doc-1?page=4&chunk=chunk-1",
-              document_id: "doc-1",
-              chunk_id: "chunk-1",
-              title: "Clozapine Monitoring Guideline",
-              file_name: "clozapine-monitoring.pdf",
-              page_number: 4,
-              source_strength: "strong",
-              reason: "Selected by the canonical answer source plan.",
-              snippet: "Canonical answer-plan source text.",
-            },
-          ],
-        } as RagAnswer["smartApiPlan"],
-      }),
+      toClientAnswerPayload(
+        answer({
+          grounded: false,
+          confidence: "unsupported",
+          citations: [citation({ provenance: "review_only" })],
+          quoteCards: [],
+          answerSections: [],
+          bestSource: {
+            ...citation(),
+            source_strength: "strong",
+            quote: "Pinned best-source excerpt.",
+            snippet: "Pinned best-source excerpt.",
+            score: 0.99,
+            section_heading: "Monitoring",
+            image_count: 0,
+            viewer_href: "/documents/doc-1?page=4&chunk=chunk-1",
+          },
+        }),
+      ),
     );
 
     expect(model.trust).toBe("unsupported");
@@ -645,45 +692,73 @@ describe("answer render policy", () => {
       chunk_id: "chunk-1",
       provenance: "review_only",
       reason: "Added for source review; not accepted as claim support.",
+      sourceStrength: "none",
     });
   });
 
-  it("leaves a core link's own reason intact when no review-only citation covers that passage", () => {
-    // The override is scoped to the passage the answer actually demoted: a core link for a
-    // different chunk keeps the answer plan's wording, so this is not a blanket downgrade.
+  it("leaves an unrelated bestSource strength intact when no review-only citation covers that passage", () => {
+    // bestSource is only collected when its chunk is already in supportingChunkIds (citations /
+    // quotes / sections). Give the unrelated passage a normal citation so it remains eligible,
+    // while the review-only override stays scoped to chunk-1.
     const model = buildAnswerRenderModel(
-      answer({
-        grounded: false,
-        confidence: "unsupported",
-        citations: [citation({ provenance: "review_only" })],
-        quoteCards: [],
-        answerSections: [],
-        bestSource: null,
-        smartApiPlan: {
-          coreSourceLinks: [
-            {
-              id: "other-chunk",
-              label: "Other Source, page 2",
-              href: "/documents/doc-other?page=2&chunk=other-chunk",
-              document_id: "doc-other",
+      toClientAnswerPayload(
+        answer({
+          grounded: false,
+          confidence: "unsupported",
+          citations: [
+            citation({ provenance: "review_only" }),
+            citation({
               chunk_id: "other-chunk",
+              document_id: "doc-other",
               title: "Other Source",
               file_name: "other-source.pdf",
               page_number: 2,
-              source_strength: "strong",
-              reason: "Selected by the canonical answer source plan.",
-              snippet: "Unrelated answer-plan source text.",
-            },
+            }),
           ],
-        } as RagAnswer["smartApiPlan"],
-      }),
+          quoteCards: [],
+          answerSections: [],
+          sources: [
+            source(),
+            source({
+              id: "other-chunk",
+              document_id: "doc-other",
+              title: "Other Source",
+              file_name: "other-source.pdf",
+              page_number: 2,
+            }),
+          ],
+          bestSource: {
+            ...citation({
+              chunk_id: "other-chunk",
+              document_id: "doc-other",
+              title: "Other Source",
+              file_name: "other-source.pdf",
+              page_number: 2,
+            }),
+            source_strength: "strong",
+            quote: "Unrelated best-source excerpt.",
+            snippet: "Unrelated best-source excerpt.",
+            score: 0.99,
+            section_heading: "Other",
+            image_count: 0,
+            viewer_href: "/documents/doc-other?page=2&chunk=other-chunk",
+          },
+        }),
+      ),
     );
 
-    expect(model.primarySources[0]).toMatchObject({
-      chunk_id: "other-chunk",
-      reason: "Selected by the canonical answer source plan.",
+    const reviewOnly = model.primarySources.find((row) => row.chunk_id === "chunk-1");
+    const unrelated = model.primarySources.find((row) => row.chunk_id === "other-chunk");
+    expect(reviewOnly).toMatchObject({
+      provenance: "review_only",
+      reason: "Added for source review; not accepted as claim support.",
+      sourceStrength: "none",
     });
-    expect(model.primarySources[0].provenance).toBeUndefined();
+    expect(unrelated).toMatchObject({
+      chunk_id: "other-chunk",
+      reason: "Pinned by backend as the best source.",
+      sourceStrength: "strong",
+    });
   });
 
   it("deduplicates conflicting section evidence by source rather than rendering duplicate rows", () => {
@@ -834,25 +909,12 @@ describe("answer render policy", () => {
               severity: "warning",
               message: "One or more supporting sources are not locally validated.",
             },
-          ],
-          supportedClaims: [
             {
-              claimId: "claim-1",
-              text: "Review the dose.",
-              riskClass: "high_risk",
-              supportingChunkIds: ["chunk-1"],
-              supportStatus: "direct",
+              code: "review_due_source",
+              severity: "warning",
+              message: "A supporting source is due for review.",
             },
           ],
-          evidenceAssessments: {
-            "chunk-1": {
-              relevance: "direct",
-              claimSupport: "direct",
-              authority: "approved",
-              currency: "review_due",
-              extractionQuality: "good",
-            },
-          },
         }),
       );
 

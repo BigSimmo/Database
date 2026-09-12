@@ -30,9 +30,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const evidencePath = resolve(root, "data/calculators/evidence.json");
 const vectorPath = resolve(root, "data/calculators/golden-vectors.json");
-const fixturesPath = resolve(root, "src/components/calculators/calculator-fixtures.ts");
+const fixturesPath = resolve(root, "src/lib/calculators/calculator-fixtures.ts");
 
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Mirrors CALCULATOR_EVIDENCE_LIFECYCLE in src/lib/sources/repository-providers.ts. */
+const KNOWN_EVIDENCE_STATUSES = ["reviewed", "permission_review_required", "not_for_active_use"];
 
 function validDate(value) {
   return typeof value === "string" && isoDate.test(value) && Number.isFinite(Date.parse(value));
@@ -90,6 +93,15 @@ function main() {
         errors.push(`${label}: nextReview must be after lastReviewed`);
       }
       if (!Object.prototype.hasOwnProperty.call(source, "supersedes")) errors.push(`${label}: missing supersedes key`);
+      // The reader maps status to a lifecycle state and falls closed to "inactive" on anything
+      // it does not recognise. Enumerate the allowed values here so a new or misspelled status
+      // is a loud failure at the data rather than a source quietly demoted at every read.
+      if (!KNOWN_EVIDENCE_STATUSES.includes(source.status)) {
+        errors.push(
+          `${label}: status ${JSON.stringify(source.status)} is not one of ${KNOWN_EVIDENCE_STATUSES.join(", ")}. ` +
+            `Add it to CALCULATOR_EVIDENCE_LIFECYCLE in src/lib/sources/repository-providers.ts with its lifecycle state.`,
+        );
+      }
     }
   }
 

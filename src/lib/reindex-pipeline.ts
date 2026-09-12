@@ -15,6 +15,58 @@ export type AbandonedReindexGenerationCounts = {
   document_sections?: number;
 };
 
+export type DocumentGenerationPromotionIdentity = Readonly<{
+  kind: "document_generation";
+  documentId: string;
+  generationId: string;
+  generationDigest: string;
+  previousGenerationId: string;
+  previousGenerationDigest: string;
+}>;
+
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const documentGenerationPromotionIdentityKeys = [
+  "documentId",
+  "generationDigest",
+  "generationId",
+  "kind",
+  "previousGenerationDigest",
+  "previousGenerationId",
+];
+
+function requiredBoundedIdentity(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.length < 1 || value.length > 200 || value.trim() !== value) {
+    throw new Error(`${field} must be a non-empty bounded identity.`);
+  }
+  return value;
+}
+
+export function assertDocumentGenerationPromotionIdentity(value: unknown): DocumentGenerationPromotionIdentity {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Document generation promotion identity must be an object.");
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).sort().join("\n") !== documentGenerationPromotionIdentityKeys.join("\n")) {
+    throw new Error("Document generation promotion identity has missing or unsupported fields.");
+  }
+  if (record.kind !== "document_generation") {
+    throw new Error("Document generation promotion identity kind is invalid.");
+  }
+  requiredBoundedIdentity(record.documentId, "documentId");
+  const generationId = requiredBoundedIdentity(record.generationId, "generationId");
+  const previousGenerationId = requiredBoundedIdentity(record.previousGenerationId, "previousGenerationId");
+  if (generationId === previousGenerationId) {
+    throw new Error("Current and previous generation identities must be distinct.");
+  }
+  if (typeof record.generationDigest !== "string" || !SHA256_PATTERN.test(record.generationDigest)) {
+    throw new Error("generationDigest must be a lowercase SHA-256 digest.");
+  }
+  if (typeof record.previousGenerationDigest !== "string" || !SHA256_PATTERN.test(record.previousGenerationDigest)) {
+    throw new Error("previousGenerationDigest must be a lowercase SHA-256 digest.");
+  }
+  return value as DocumentGenerationPromotionIdentity;
+}
+
 export function isReindexQueueClear(snapshot: ReindexQueueSnapshot) {
   return (
     snapshot.openJobs === 0 &&

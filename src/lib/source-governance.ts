@@ -1,5 +1,6 @@
 import type {
   EvidenceRelevance,
+  ClinicalSourceMetadata,
   SearchResult,
   SourceGovernanceWarning,
   SourceGovernanceCode,
@@ -324,4 +325,23 @@ export function frontendSourceGovernanceWarnings(warnings: SourceGovernanceWarni
 
 export function hasDangerSourceGovernanceWarning(warnings: SourceGovernanceWarning[]) {
   return warnings.some((warning) => warning.severity === "danger");
+}
+
+/**
+ * Claim evidence must be a governed source document with accepted extraction.
+ * Currentness and catalogue identity are evaluated separately so callers can
+ * return the canonical eligibility reason rather than collapsing every failure.
+ */
+export function isClaimEvidenceGovernanceEligible(
+  source: Pick<
+    ClinicalSourceMetadata,
+    "source_kind" | "content_mode" | "clinical_validation_status" | "extraction_quality"
+  >,
+) {
+  return (
+    source.source_kind === "document" &&
+    source.content_mode === "indexed_content" &&
+    (source.clinical_validation_status === "approved" || source.clinical_validation_status === "locally_reviewed") &&
+    source.extraction_quality === "good"
+  );
 }

@@ -70,8 +70,7 @@ describe("document summary context", () => {
         void options;
         return {
           text: JSON.stringify({
-            answer:
-              "The document provides practical psychiatric guidance across the full indexed source, including the final committed section.",
+            answer: "Committed summary evidence 40.",
             grounded: true,
             confidence: "high",
             answerSections: [],

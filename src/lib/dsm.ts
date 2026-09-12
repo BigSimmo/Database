@@ -361,6 +361,54 @@ export function listDsmDiagnosisSummaries(options: { query?: string; category?: 
     .map(dsmDiagnosisSummary);
 }
 
+export type DsmDifferentialParts = {
+  /** The diagnosis name, with any trailing parenthetical removed. */
+  name: string;
+  /** The authored discriminator from that parenthetical, or "" when there is none. */
+  discriminator: string;
+};
+
+/**
+ * Split a differential entry into its name and the discriminator the record
+ * already carries for it.
+ *
+ * 534 of the 688 differential rows the sidebar shows (78%) end in a parenthetical
+ * that is the clinical reason the differential is being raised — "Social anxiety
+ * disorder (expected attacks in social situations)", "Bipolar I disorder (full
+ * manic episode present - reclassify)". Rendering the whole string on one line
+ * buried that behind the name, so the sidebar read as a list of labels rather
+ * than something that helps separate two candidates.
+ *
+ * DELIBERATELY NOT sourced from `cross-mode-differentials-index.json`, which was
+ * the obvious candidate and is wrong for this. Its `clinicalHinge` is per
+ * PRESENTATION GROUP, not per differential: 201 entries share just 31 distinct
+ * hinge strings, so `social-anxiety-disorder` carries "Abrupt peak over minutes,
+ * recurrent unexpected attacks, anticipatory anxiety or avoidance" — which
+ * describes panic disorder, the presentation, not social anxiety. Rendering that
+ * under a differential's name would state something clinically false about that
+ * diagnosis. The parenthetical here is authored on the record itself, against
+ * that exact differential, so it cannot be mismatched.
+ *
+ * Only a trailing parenthetical counts. An inline one is part of the name
+ * ("Premenstrual dysphoric disorder (PMDD)" is a name, not a discriminator) —
+ * those resolve to a diagnosis and are left whole by the guard below.
+ */
+export function dsmDifferentialParts(value: string): DsmDifferentialParts {
+  const trimmed = value.trim();
+  const match = /^(.*?)\s*\(([^()]*)\)$/.exec(trimmed);
+  if (!match) return { name: trimmed, discriminator: "" };
+
+  const [, name, inside] = match;
+  const discriminator = inside.trim();
+
+  // An abbreviation or alternate label is part of the name, not a reason. Both
+  // are short and word-like; a discriminator is a clause.
+  const looksLikeLabel = !/\s/.test(discriminator) || /^[A-Z0-9\-/]+$/.test(discriminator);
+  if (!name || looksLikeLabel) return { name: trimmed, discriminator: "" };
+
+  return { name, discriminator };
+}
+
 export function resolveDsmDifferential(value: string) {
   const title = value.replace(/\s*\([^)]*\)\s*$/, "").trim();
   const normalized = normalizeSearchText(title);
