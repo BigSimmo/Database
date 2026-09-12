@@ -39,7 +39,8 @@ export type LedgerPendingRequest = {
 
 export type LedgerSnapshot = {
   version: string;
-  ledger_revision: { sha: string; committed_at: string } | null;
+  // Match main: date-only revision, no sha (see generate-outstanding-issues-snapshot.mjs).
+  ledger_revision: { committed_at: string } | null;
   counts: { open: number; p1: number; p2: number; p3: number; queued: number; pending: number; resolved: number };
   queue: LedgerQueueEntry[];
   open: LedgerOpenItem[];
