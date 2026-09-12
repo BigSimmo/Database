@@ -22,9 +22,9 @@
     ]
   },
   "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
-  "status": "running",
+  "status": "all_merged",
   "resumedAt": "2026-09-12T03:36:24.943Z",
-  "revision": 28,
+  "revision": 29,
   "repairs": 3,
   "pass": 1,
   "active": null,
@@ -259,6 +259,11 @@
       "revision": 28,
       "at": "2026-09-12T03:36:57.345Z",
       "kind": "retry-pass"
+    },
+    {
+      "revision": 29,
+      "at": "2026-09-12T03:36:57.345Z",
+      "kind": "completed"
     }
   ],
   "approvedControllerHash": "31b3614590d02004ee972aaeab0c96db5df835fae27b7a6dc73fd4fbc291ad24"
