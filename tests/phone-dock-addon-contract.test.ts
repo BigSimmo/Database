@@ -36,7 +36,8 @@ function read(relativePath: string): string {
 }
 
 const globalsCss = read("src/app/globals.css");
-const dashboard = read("src/components/ClinicalDashboard.tsx");
+// Addon-active flags are derived in dashboard-mode-surface (extracted from ClinicalDashboard).
+const dashboard = read("src/components/clinical-dashboard/dashboard-mode-surface.ts");
 const shell = read("src/components/clinical-dashboard/global-search-shell.tsx");
 const header = read("src/components/clinical-dashboard/master-search-header.tsx");
 

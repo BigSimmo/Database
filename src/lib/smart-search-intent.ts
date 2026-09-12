@@ -116,11 +116,11 @@ const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRul
   ],
   prescribing: [
     {
-      pattern: /\b(?:medicine that needs regular blood tests|regular blood tests)\b/i,
+      pattern: /\bregular blood tests\b/i,
       terms: ["monitoring", "blood tests"],
     },
     {
-      pattern: /\b(?:medicine for alcohol dependence|alcohol dependence)\b/i,
+      pattern: /\balcohol dependence\b/i,
       terms: ["alcohol dependence", "relapse prevention"],
     },
     {
@@ -130,7 +130,7 @@ const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRul
   ],
   tools: [
     {
-      pattern: /\b(?:check medication interactions|medication interactions)\b/i,
+      pattern: /\bmedication interactions\b/i,
       terms: ["medication", "prescribing", "interactions", "safety"],
     },
     { pattern: /\b(?:mental health form|mental health forms)\b/i, terms: ["forms", "paperwork"] },
@@ -141,16 +141,16 @@ const modeExpansionRules: Record<SmartNaturalSearchModeId, readonly ExpansionRul
   ],
   calculators: [
     {
-      pattern: /\b(?:screen depression severity|depression severity)\b/i,
+      pattern: /\bdepression severity\b/i,
       terms: ["PHQ-9", "depression"],
     },
-    { pattern: /\b(?:measure anxiety symptoms|anxiety symptoms)\b/i, terms: ["GAD-7", "anxiety"] },
+    { pattern: /\banxiety symptoms\b/i, terms: ["GAD-7", "anxiety"] },
     {
-      pattern: /\b(?:screen hazardous drinking|hazardous drinking)\b/i,
+      pattern: /\bhazardous drinking\b/i,
       terms: ["AUDIT-C", "CAGE", "alcohol"],
     },
     {
-      pattern: /\b(?:rate obsessive compulsive symptoms|obsessive compulsive symptoms)\b/i,
+      pattern: /\bobsessive compulsive symptoms\b/i,
       terms: ["Y-BOCS", "obsessive compulsive"],
     },
   ],
