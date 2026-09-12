@@ -1,5 +1,5 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import fs from "node:fs";
+import path from "node:path";
 
 import snapshotJson from "../../../data/outstanding-issues-snapshot.json";
 
@@ -39,9 +39,7 @@ export type LedgerPendingRequest = {
 
 export type LedgerSnapshot = {
   version: string;
-  // A date (`2026-09-07`), not a timestamp, and no sha — `readLedgerRevision` in
-  // `scripts/generate-outstanding-issues-snapshot.mjs` carries the reasoning.
-  // Only `committed_at` was ever read, by `resolveFreshness` below.
+  // Match main: date-only revision, no sha (see generate-outstanding-issues-snapshot.mjs).
   ledger_revision: { committed_at: string } | null;
   counts: { open: number; p1: number; p2: number; p3: number; queued: number; pending: number; resolved: number };
   queue: LedgerQueueEntry[];
@@ -49,29 +47,46 @@ export type LedgerSnapshot = {
   pending: LedgerPendingRequest[];
 };
 
-function formatPendingRequest(record: {
+type InboxRecordPayload = {
+  id?: string;
+  summary?: string;
+  detail?: string;
+  pri?: string;
+  source?: string;
+  requestId?: string;
+  reason?: string;
+  outcome?: string;
+};
+
+type InboxRecord = {
   id: string;
   action: string;
-  createdOn?: string;
-  payload?: Record<string, unknown>;
-}): LedgerPendingRequest {
-  const payload = (record.payload ?? {}) as Record<string, unknown>;
+  createdOn?: string | null;
+  payload?: InboxRecordPayload;
+};
+
+/**
+ * Formats a raw inbox record into a `LedgerPendingRequest` matching the exact logic
+ * in `scripts/generate-outstanding-issues-snapshot.mjs`.
+ */
+export function formatInboxRecord(record: InboxRecord): LedgerPendingRequest {
+  const payload = record.payload ?? {};
   const target = payload.id ? `${payload.id}: ` : "";
   let summary: string;
 
   if (record.action === "update") {
     const changes = [
-      payload.summary !== undefined ? `summary → ${String(payload.summary) || "(clear)"}` : null,
-      payload.detail !== undefined ? `detail → ${String(payload.detail) || "(clear)"}` : null,
-      payload.pri !== undefined ? `priority → ${String(payload.pri)}` : null,
-      payload.source !== undefined ? `source → ${String(payload.source) || "(clear)"}` : null,
+      payload.summary !== undefined ? `summary → ${payload.summary || "(clear)"}` : null,
+      payload.detail !== undefined ? `detail → ${payload.detail || "(clear)"}` : null,
+      payload.pri !== undefined ? `priority → ${payload.pri}` : null,
+      payload.source !== undefined ? `source → ${payload.source || "(clear)"}` : null,
     ].filter(Boolean);
     summary = changes.length > 0 ? `${target}${changes.join("; ")}` : `${target}(no change in the update request)`;
   } else if (record.action === "cancel") {
-    const request = payload.requestId ? `Cancel request ${String(payload.requestId)}` : "Cancel request";
-    summary = `${request}: ${String(payload.reason ?? "") || "(no reason in the cancel request)"}`;
+    const request = payload.requestId ? `Cancel request ${payload.requestId}` : "Cancel request";
+    summary = `${request}: ${payload.reason || "(no reason in the cancel request)"}`;
   } else {
-    const body = String(payload.summary ?? payload.detail ?? payload.outcome ?? "");
+    const body = payload.summary || payload.detail || payload.outcome || "";
     summary = body ? `${target}${body}` : `${target}(no summary in the ${record.action} request)`;
   }
 
@@ -83,40 +98,52 @@ function formatPendingRequest(record: {
   };
 }
 
-export function readLivePendingRequests(
-  inboxDir = join(process.cwd(), "docs", "outstanding-issues-inbox"),
-): LedgerPendingRequest[] {
+/**
+ * Reads and formats unapplied inbox records from `docs/outstanding-issues-inbox/`.
+ * Deterministically sorts files by filename to ensure stable ordering.
+ */
+export function readDevPendingRequests(dir: string): LedgerPendingRequest[] {
   if (typeof window !== "undefined") return [];
   try {
-    if (!existsSync(inboxDir)) return [];
-    const entries = readdirSync(inboxDir, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const results: LedgerPendingRequest[] = [];
-    for (const entry of entries) {
-      try {
-        const content = readFileSync(join(inboxDir, entry.name), "utf8");
-        const parsed = JSON.parse(content);
-        if (
-          parsed &&
-          typeof parsed === "object" &&
-          typeof parsed.id === "string" &&
-          typeof parsed.action === "string"
-        ) {
-          results.push(formatPendingRequest(parsed));
-        }
-      } catch {
-        // Skip unreadable or invalid json file
-      }
-    }
-    return results;
+    if (!fs.existsSync(dir)) return [];
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => (typeof entry.isFile === "function" ? entry.isFile() : true) && entry.name.endsWith(".json"))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((entry) => {
+        const raw = fs.readFileSync(path.join(dir, entry.name), "utf8");
+        const record = JSON.parse(raw) as InboxRecord;
+        return formatInboxRecord(record);
+      });
   } catch {
     return [];
   }
 }
 
-export function loadLedgerSnapshot(): LedgerSnapshot {
-  const snapshot = snapshotJson as LedgerSnapshot;
+/**
+ * Loads the committed ledger snapshot.
+ *
+ * Why dev-only reading from docs/ is used (#707F09):
+ * The committed snapshot deliberately carries an empty `pending` array to prevent
+ * git merge conflicts across concurrent branches (`#Y090R5`). During production builds
+ * or Docker container generation, `prebuild` runs `scripts/generate-outstanding-issues-snapshot.mjs`
+ * with `--with-pending`. However, during local development (`next dev`), no lifecycle
+ * script regenerates the snapshot file on disk.
+ *
+ * To prevent the developer hub's pending-requests panel from reading empty during
+ * local development, non-production environments dynamically read unapplied inbox
+ * records directly from `docs/outstanding-issues-inbox/*.json` if available.
+ * If `docs/` is absent (e.g. in a production container) or unreadable, it safely
+ * falls back to the snapshot's existing pending list.
+ */
+export function loadLedgerSnapshot(options?: { inboxDir?: string }): LedgerSnapshot {
+  const snapshot: LedgerSnapshot = {
+    ...snapshotJson,
+    counts: { ...snapshotJson.counts },
+    queue: [...snapshotJson.queue],
+    open: [...snapshotJson.open],
+    pending: [...snapshotJson.pending],
+  };
   if (snapshot.version !== LEDGER_SNAPSHOT_VERSION) {
     // Loud, not a render fallback: an unrecognised shape means the page would
     // silently under-report outstanding work, which is the `#338` failure.
@@ -124,21 +151,20 @@ export function loadLedgerSnapshot(): LedgerSnapshot {
       `Unrecognised ledger snapshot version ${snapshot.version}; expected ${LEDGER_SNAPSHOT_VERSION}. Run: npm run snapshot:issues`,
     );
   }
-  if (process.env.NODE_ENV !== "production") {
+
+  if (process.env.NODE_ENV !== "production" && snapshot.pending.length === 0) {
     try {
-      const livePending = readLivePendingRequests();
-      return {
-        ...snapshot,
-        pending: livePending,
-        counts: {
-          ...snapshot.counts,
-          pending: livePending.length,
-        },
-      };
+      const inboxDir = options?.inboxDir ?? path.join(process.cwd(), "docs", "outstanding-issues-inbox");
+      if (fs.existsSync(inboxDir)) {
+        const loadedPending = readDevPendingRequests(inboxDir);
+        snapshot.pending = loadedPending;
+        snapshot.counts.pending = loadedPending.length;
+      }
     } catch {
-      return snapshot;
+      // Gracefully fall back to snapshot.pending if reading docs fails or is absent.
     }
   }
+
   return snapshot;
 }
 

@@ -1,5 +1,5 @@
 {
-  "$comment": "Resolved value of every token role that ckb-v2-tokens.css overrides in globals.css — the whole overlap, not only the roles whose values differ. Captured per colour scheme and forced-colors state. The token-layer collapse must leave this file byte-identical. Regenerate only via UPDATE_TOKEN_RESOLUTION_PIN=1 for a reviewed change.",
+  "$comment": "Resolved value of every token role that ckb-v2-tokens.css overrides in globals.css \u2014 the whole overlap, not only the roles whose values differ. Captured per colour scheme and forced-colors state. The token-layer collapse must leave this file byte-identical. Regenerate only via UPDATE_TOKEN_RESOLUTION_PIN=1 for a reviewed change.",
   "generatedBy": "tests/ui-token-layer-resolution.spec.ts",
   "capturedFrom": {
     "route": "/",
@@ -117,7 +117,7 @@
       "--background": "#fff",
       "--border": "#e2e8f0",
       "--border-lux": "#dde4ee",
-      "--border-strong": "#cdd5df",
+      "--border-strong": "#c8d2de",
       "--bp-desktop": "1024px",
       "--bp-phone": "640px",
       "--bp-tablet": "768px",

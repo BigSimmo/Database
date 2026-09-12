@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "151ddd48-718a-49de-94ff-ccda20f87ddd",
+  "createdOn": "2026-09-12",
+  "action": "cancel",
+  "payload": {
+    "requestId": "9dcfa96a-ca62-4f15-997c-f438cc673357",
+    "reason": "Retract false #XSZ4XV done: outcome claimed calculator governance source link was updated, but data/calculators/evidence.json is unchanged vs main (blob SHA 7569cc355a1bb6cfa62acb322ef0688e45e23feb) and is not in this PR diff. #XSZ4XV item (4) remains open; do not close the row on a missing evidence.json change. Partial preview/offline/sw work on this branch is retained without a premature done."
+  }
+}
