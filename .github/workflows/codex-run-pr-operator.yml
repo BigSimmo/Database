@@ -1,5 +1,5 @@
 name: Codex Run PR operator
-run-name: ${{ inputs.batch_operation && format('PR batch repair {0}', inputs.batch_operation) || format('PR operator #{0}', inputs.pr_number) }}
+run-name: "${{ inputs.batch_operation && format('PR batch repair {0}', inputs.batch_operation) || format('PR operator #{0}', inputs.pr_number) }}"
 
 on:
   workflow_dispatch:
