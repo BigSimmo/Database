@@ -73,11 +73,7 @@ export const BIMODAL_RUNNER_TOLERANCE_FLOORS = {
 };
 
 /** Exact run ids that receive BIMODAL_RUNNER_TOLERANCE_FLOORS — keep this set narrow. */
-const BIMODAL_RUNNER_VARIANCE_RUNS = new Set([
-  "desktop-root",
-  "mobile-documents-search",
-  "desktop-documents-search",
-]);
+const BIMODAL_RUNNER_VARIANCE_RUNS = new Set(["desktop-root", "mobile-documents-search", "desktop-documents-search"]);
 
 export function isBimodalRunnerVarianceRun(runName) {
   if (!runName || typeof runName !== "string") return false;
@@ -563,10 +559,7 @@ export function selfTest() {
   if (isBimodalRunnerVarianceRun("desktop-documents") || isBimodalRunnerVarianceRun("mobile-documents-upload")) {
     throw new Error("selfTest failed: bare documents substring incorrectly treated as bimodal");
   }
-  const nonBimodalDocuments = gradeRun(
-    { run: "desktop-documents", lcpMs: 961 },
-    { lcpMs: 786, cls: 0, tbtMs: 100 },
-  );
+  const nonBimodalDocuments = gradeRun({ run: "desktop-documents", lcpMs: 961 }, { lcpMs: 786, cls: 0, tbtMs: 100 });
   if (nonBimodalDocuments.length === 0) {
     throw new Error("selfTest failed: unintended documents* run got bimodal LCP floor (false-green path)");
   }
