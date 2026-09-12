@@ -129,7 +129,7 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 5,
+  "revision": 6,
   "repairs": 0,
   "pass": 0,
   "active": 2717,
@@ -161,8 +161,8 @@
     {
       "number": 2717,
       "head": "adac3b9b9192a091ba8c28cfbbc9a9c2d4ee0767",
-      "state": "preparing",
-      "reason": null,
+      "state": "waiting_ci",
+      "reason": "ci-in-flight",
       "attempts": 0,
       "fingerprints": [],
       "updatedAt": "2026-09-12T03:43:30.285Z",
@@ -351,6 +351,13 @@
       "kind": "branch-updated",
       "number": 2717,
       "head": "adac3b9b9192a091ba8c28cfbbc9a9c2d4ee0767"
+    },
+    {
+      "revision": 6,
+      "at": "2026-09-12T03:46:19.846Z",
+      "kind": "waiting",
+      "number": 2717,
+      "reason": "ci-in-flight"
     }
   ]
 }
