@@ -24,7 +24,7 @@
   "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
   "status": "running",
   "resumedAt": "2026-09-12T02:21:45.695Z",
-  "revision": 9,
+  "revision": 10,
   "repairs": 2,
   "pass": 0,
   "active": 2715,
@@ -35,7 +35,8 @@
     "head": "811a6e40622b78136a975f763aaea07eabe80975",
     "base": "90ede03716958037c78adc0b3966fa80b4ca3fff",
     "at": "2026-09-12T02:21:45.695Z",
-    "fingerprint": "139c52e42e77bc21f451d1cb3671c7bb99c4cd42f102d2fee56bc60f96420755"
+    "fingerprint": "139c52e42e77bc21f451d1cb3671c7bb99c4cd42f102d2fee56bc60f96420755",
+    "runId": 34667462349
   },
   "reason": null,
   "entries": [
@@ -125,6 +126,13 @@
       "at": "2026-09-12T02:21:45.695Z",
       "kind": "request-sent",
       "operationId": "batch-34666462342-8"
+    },
+    {
+      "revision": 10,
+      "at": "2026-09-12T02:22:21.502Z",
+      "kind": "worker-claimed",
+      "operationId": "batch-34666462342-8",
+      "runId": 34667462349
     }
   ],
   "approvedControllerHash": "71185e35097d180f74460e8ed3095e0127232bc2215a52999e7a9239f9f27142"
