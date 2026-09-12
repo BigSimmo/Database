@@ -105,10 +105,10 @@ export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData())
       // from the route list alone.
       dev_only: "devOnly" in mode && mode.devOnly === true,
     }))
-    // App-mode ids are unique by construction (they are a hand-maintained
-    // enum-like registry in `app-modes.ts`), so `id` alone is already a total
-    // order and needs no tiebreaker.
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .sort(
+      (left, right) =>
+        left.id.localeCompare(right.id) || left.home.localeCompare(right.home) || left.label.localeCompare(right.label),
+    );
 
   return {
     modes,
@@ -132,12 +132,13 @@ function filterDocumentPaths(output: string): string[] {
   return output
     .split("\0")
     .filter((entry) => entry.endsWith(".md"))
-    .filter((entry) => !EXCLUDED_DOC_PREFIXES.some((prefix) => entry.startsWith(prefix)));
+    .filter((entry) => !EXCLUDED_DOC_PREFIXES.some((prefix) => entry.startsWith(prefix)))
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function scanDocsDirectory(dir: string, baseDir = dir): string[] {
   if (!existsSync(dir)) return [];
-  const entries = readdirSync(dir, { withFileTypes: true });
+  const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
   const results: string[] = [];
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
@@ -148,7 +149,7 @@ function scanDocsDirectory(dir: string, baseDir = dir): string[] {
       results.push(rel);
     }
   }
-  return results;
+  return results.sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -254,6 +255,9 @@ export function buildDocumentationSection(docPaths: readonly string[], readmeMar
   // otherwise insert on the same lines. `path` breaks ties, and it is already a
   // total order here — `docPaths` comes from `git ls-files`, which cannot list
   // the same repo path twice — so the order is deterministic across platforms.
+  // Keep hash-dispersed order from the sort above — do NOT re-sort by path.
+  // A final path sort would cluster same-directory docs onto adjacent lines and
+  // recreate the merge conflicts `dispersalKey` exists to prevent (AGENTS.md).
   const documents = [...docPaths]
     .sort((left, right) => dispersalKey(left).localeCompare(dispersalKey(right)) || left.localeCompare(right))
     .map((repoPath) => ({
@@ -266,8 +270,6 @@ export function buildDocumentationSection(docPaths: readonly string[], readmeMar
   for (const document of documents) {
     sectionNames.add(document.section);
   }
-  // `name` alone is already a total order here: `sectionNames` is a unique Set,
-  // so sorting produces deterministic output with no tiebreaker needed.
   const sections = [...sectionNames].sort((left, right) => left.localeCompare(right)).map((name) => ({ name }));
 
   return {
@@ -313,7 +315,13 @@ export function buildTestHealthSection(ledger: FlakeLedgerFile): TestHealthSecti
     // this module never checks it itself. `Array.prototype.sort` is specified
     // as stable, so even if that external guarantee ever lapsed, a duplicate
     // `id` could only ever tie deterministically, never reorder between runs.
-    .sort((left, right) => left.expires.localeCompare(right.expires) || left.id.localeCompare(right.id));
+    .sort(
+      (left, right) =>
+        left.expires.localeCompare(right.expires) ||
+        left.id.localeCompare(right.id) ||
+        left.spec.localeCompare(right.spec) ||
+        left.title.localeCompare(right.title),
+    );
 
   return {
     note: typeof ledger.$comment === "string" ? ledger.$comment : null,
@@ -385,7 +393,7 @@ function findReviewFilesFs(dir = REVIEW_RECORDS_DIR): string[] {
   const files: string[] = [];
   if (path.isAbsolute(dir)) {
     if (existsSync(dir)) {
-      const entries = readdirSync(dir, { withFileTypes: true });
+      const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
       for (const entry of entries) {
         if (entry.isFile() && entry.name.endsWith(".md")) {
           files.push(path.join(dir, entry.name));
@@ -398,7 +406,7 @@ function findReviewFilesFs(dir = REVIEW_RECORDS_DIR): string[] {
     }
     const archiveDir = "docs/archive";
     if (existsSync(archiveDir)) {
-      const entries = readdirSync(archiveDir, { withFileTypes: true });
+      const entries = readdirSync(archiveDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
       for (const entry of entries) {
         if (entry.isFile() && entry.name.startsWith("branch-review-ledger-") && entry.name.endsWith(".md")) {
           files.push(path.posix.join(archiveDir, entry.name));
@@ -406,7 +414,9 @@ function findReviewFilesFs(dir = REVIEW_RECORDS_DIR): string[] {
       }
     }
     if (existsSync(REVIEW_RECORDS_DIR)) {
-      const entries = readdirSync(REVIEW_RECORDS_DIR, { withFileTypes: true });
+      const entries = readdirSync(REVIEW_RECORDS_DIR, { withFileTypes: true }).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
       for (const entry of entries) {
         if (entry.isFile() && entry.name.endsWith(".record.md")) {
           files.push(path.posix.join(REVIEW_RECORDS_DIR, entry.name));
@@ -414,7 +424,7 @@ function findReviewFilesFs(dir = REVIEW_RECORDS_DIR): string[] {
       }
     }
   }
-  return files.sort();
+  return files.sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -443,7 +453,7 @@ export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; 
     files = output
       .split("\0")
       .filter(Boolean)
-      .sort()
+      .sort((a, b) => a.localeCompare(b))
       .map((entry) => (cwd ? path.join(dir, entry) : entry));
   } catch {
     files = findReviewFilesFs(dir);
@@ -505,7 +515,9 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
         left.head.localeCompare(right.head) ||
         left.date.localeCompare(right.date) ||
         left.ref.localeCompare(right.ref) ||
-        left.scope.localeCompare(right.scope),
+        left.scope.localeCompare(right.scope) ||
+        left.outcome.localeCompare(right.outcome) ||
+        left.checks.localeCompare(right.checks),
     );
 
   // No `counts` here, deliberately — see `ReviewStateSection` in
@@ -639,7 +651,20 @@ export function generate(): RepoAwarenessSnapshot {
 // `import.meta.url` on Windows, because a relative argv[1] stays relative and an
 // absolute one is missing the drive-letter leading slash — the guard would
 // silently never fire and the file would never be written.
+async function main() {
+  if (process.argv.includes("--check")) {
+    const { checkRepoAwarenessSnapshot } = await import("./check-repo-awareness-snapshot");
+    const exitCode = checkRepoAwarenessSnapshot();
+    if (exitCode !== 0) process.exit(exitCode);
+  } else {
+    writeFileSync(OUTPUT_PATH, `${JSON.stringify(generate(), null, 2)}\n`, "utf8");
+    console.log(`[repo-awareness] wrote ${OUTPUT_PATH}`);
+  }
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  writeFileSync(OUTPUT_PATH, `${JSON.stringify(generate(), null, 2)}\n`, "utf8");
-  console.log(`[repo-awareness] wrote ${OUTPUT_PATH}`);
+  void main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 }

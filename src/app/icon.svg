@@ -3,7 +3,7 @@
     .tile { fill: #ffffff; }
     .ink { fill: #1d6fb8; }
     @media (prefers-color-scheme: dark) {
-      .tile { fill: #171b1e; }
+      .tile { fill: #1c2126; }
       .ink { fill: #74bdf0; }
     }
   </style>

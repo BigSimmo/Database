@@ -1,8 +1,23 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Route } from "playwright-core";
-import { expect, test, type Locator, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page, type Request } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { expectNoPageHorizontalOverflow, gotoApp } from "./helpers/spec-navigation";
+
+/**
+ * Detect Next.js 16 prefetch requests across all prefetch strategies (RSC prefetch,
+ * full-strategy HTML/document prefetch, and router state tree prefetch).
+ * In Next 16 full-strategy prefetching, prefetch requests carry headers such as
+ * `purpose: prefetch`, `x-purpose: prefetch`, `sec-purpose: prefetch`, or
+ * `next-router-prefetch`.
+ */
+function isNextPrefetchRequest(request: Request): boolean {
+  const headers = request.headers();
+  const purpose = headers["purpose"] ?? headers["x-purpose"] ?? headers["sec-purpose"];
+  if (purpose === "prefetch") return true;
+  if (headers["next-router-prefetch"] !== undefined) return true;
+  return false;
+}
 import {
   appendPrimaryScrollSpacer,
   readMobileComposerReservePx,
@@ -5099,6 +5114,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await mockDemoApi(page);
     const requestCounts = { documents: 0, jobs: 0, batches: 0, quality: 0 };
     page.on("request", (request) => {
+      if (isNextPrefetchRequest(request)) return;
       const pathname = new URL(request.url()).pathname;
       if (pathname === "/api/documents") requestCounts.documents += 1;
       if (pathname === "/api/ingestion/jobs") requestCounts.jobs += 1;
@@ -5291,6 +5307,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const setupRequests: string[] = [];
     const signedUrlRequests: Array<"preview" | "download"> = [];
     page.on("request", (request) => {
+      if (isNextPrefetchRequest(request)) return;
       const url = new URL(request.url());
       if (url.pathname === `/api/documents/${documentId}`) browserDetailRequests.push(request.url());
       if (url.pathname === "/api/setup-status") setupRequests.push(request.url());
@@ -6094,6 +6111,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const answerRequests: Array<{ query: string; documentId?: string; summaryMode?: boolean }> = [];
     let legacySummaryRequestCount = 0;
     page.on("request", (request) => {
+      if (isNextPrefetchRequest(request)) return;
       if (/\/api\/documents\/[^/]+\/summarize$/.test(new URL(request.url()).pathname)) {
         legacySummaryRequestCount += 1;
       }
