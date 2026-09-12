@@ -12,6 +12,7 @@ import { resolveFreshnessFrom } from "@/lib/developer-area/freshness";
 import {
   loadHazardSnapshot,
   missingRegisters,
+  reviewExpiredAtPerth,
   statusBreakdown,
   statusLabel,
   unmitigatedHazards,
@@ -53,7 +54,8 @@ function StatusPill({ status }: { status: HazardRow["status"] }) {
   return <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${tone}`}>{statusLabel(status)}</span>;
 }
 
-function RegisterAuthority({ register }: { register: HazardRegister }) {
+function RegisterAuthority({ register, now }: { register: HazardRegister; now: Date }) {
+  const reviewExpired = reviewExpiredAtPerth(register.reviewExpiresAt, now);
   return (
     <div className="grid gap-1">
       <p className={META_CLASS}>{register.scope}</p>
@@ -67,14 +69,15 @@ function RegisterAuthority({ register }: { register: HazardRegister }) {
         {register.sourcePath ? ` Source: ${register.sourcePath}.` : ""}
         {register.gate ? ` Checked by ${register.gate}.` : ""}
         {register.reviewExpiresAt
-          ? ` Review ${register.reviewExpired ? "EXPIRED" : "expires"} ${register.reviewExpiresAt}.`
+          ? ` Review ${reviewExpired ? "EXPIRED" : "expires"} ${register.reviewExpiresAt}.`
           : ""}
       </p>
     </div>
   );
 }
 
-function HazardCard({ hazard }: { hazard: HazardRow }) {
+function HazardCard({ hazard, now }: { hazard: HazardRow; now: Date }) {
+  const reviewExpired = reviewExpiredAtPerth(hazard.reviewExpiresAt, now);
   return (
     <li className={hazard.status === "unmitigated" ? DANGER_CARD_CLASS : CARD_CLASS}>
       <div className="flex flex-wrap items-baseline gap-2">
@@ -94,7 +97,7 @@ function HazardCard({ hazard }: { hazard: HazardRow }) {
         {hazard.owner ? `Owner: ${hazard.owner}.` : "No owner recorded."}
         {typeof hazard.controlCount === "number" ? ` ${hazard.controlCount} control file(s),` : ""}
         {typeof hazard.testCount === "number" ? ` ${hazard.testCount} test(s).` : ""}
-        {hazard.reviewExpired && hazard.reviewExpiresAt ? ` Review expired ${hazard.reviewExpiresAt}.` : ""}
+        {reviewExpired && hazard.reviewExpiresAt ? ` Review expired ${hazard.reviewExpiresAt}.` : ""}
       </p>
     </li>
   );
@@ -102,15 +105,16 @@ function HazardCard({ hazard }: { hazard: HazardRow }) {
 
 export default function DeveloperHazardsPage() {
   const snapshot = loadHazardSnapshot();
-  const freshness = resolveFreshnessFrom(snapshot.generatedAt, new Date());
+  const now = new Date();
+  const freshness = resolveFreshnessFrom(snapshot.generatedAt, now);
   const unmitigated = unmitigatedHazards(snapshot);
   const missing = missingRegisters(snapshot);
 
   return (
     <PanelPageShell testId="developer-hazards" title="Hazard register" freshness={freshness} freshnessLabel="Hazards">
       <p className="text-sm leading-6 text-[color:var(--text-muted)]">
-        Three separate registers with three different authorities, kept apart on purpose. Nothing here is clinical
-        assurance: a control existing in code says the rule runs, not that it is the right rule.
+        Three clinical areas: two registers and one area with no register, kept apart on purpose. Nothing here is
+        clinical assurance: a control existing in code says the rule runs, not that it is the right rule.
       </p>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -198,7 +202,7 @@ export default function DeveloperHazardsPage() {
             headingId={`developer-hazards-register-${register.id}-heading`}
             heading={register.name}
           >
-            <RegisterAuthority register={register} />
+            <RegisterAuthority register={register} now={now} />
             <p className={META_CLASS}>
               {statusBreakdown(register)
                 .map((entry) => `${entry.count} ${statusLabel(entry.status).toLowerCase()}`)
@@ -211,7 +215,7 @@ export default function DeveloperHazardsPage() {
             ) : null}
             <ul className="grid gap-2">
               {register.hazards.map((hazard) => (
-                <HazardCard key={hazard.id} hazard={hazard} />
+                <HazardCard key={hazard.id} hazard={hazard} now={now} />
               ))}
             </ul>
           </PanelSection>

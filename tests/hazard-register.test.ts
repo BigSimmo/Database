@@ -12,6 +12,7 @@ import {
 import {
   loadHazardSnapshot,
   missingRegisters,
+  reviewExpiredAtPerth,
   statusBreakdown,
   statusLabel,
   unmitigatedHazards,
@@ -62,6 +63,30 @@ describe("markdown parsing", () => {
     expect(tableCells("| a | b | c |")).toEqual(["a", "b", "c"]);
   });
 
+  it("keeps an escaped pipe inside its hazard cell instead of shifting later columns", () => {
+    const rows = parseHazardRows(
+      [
+        "| **H-C99** | A parser sees a literal pipe | A markdown cell contains `A \\| B` | A status shifts columns | `rule.ts` | Known gap | owner | UNMITIGATED |",
+      ].join("\n"),
+    );
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        id: "H-C99",
+        cause: "A markdown cell contains A | B",
+        status: "UNMITIGATED",
+      }),
+    ]);
+  });
+
+  it("fails loud when a hazard row does not have exactly eight cells", () => {
+    expect(() =>
+      parseHazardRows(
+        "| H-C99 | hazard | cause | harm | control | residual | owner | UNMITIGATED | unexpected extra cell |",
+      ),
+    ).toThrow(/H-C99.*expected 8 cells/i);
+  });
+
   it("takes the first heading for a hazard, not a later narrower one", () => {
     // H5 carries a second heading for one sub-topic; the broad one is its title.
     const titles = parseAnalysisTitles(
@@ -95,6 +120,11 @@ describe("reviewExpired", () => {
     expect(reviewExpired("2026-11-23", new Date("2026-11-23T12:00:00Z"))).toBe(false);
     expect(reviewExpired("2026-11-23", new Date("2026-11-24T12:00:00Z"))).toBe(true);
   });
+
+  it("uses the Australia/Perth local-day boundary", () => {
+    expect(reviewExpired("2026-11-23", new Date("2026-11-23T15:59:59Z"))).toBe(false);
+    expect(reviewExpired("2026-11-23", new Date("2026-11-23T16:00:00Z"))).toBe(true);
+  });
 });
 
 describe("buildHazardSnapshot against the real repository documents", () => {
@@ -124,6 +154,11 @@ describe("buildHazardSnapshot against the real repository documents", () => {
   it("reads the Caring Contacts log as an unsigned draft with its four uncontrolled rows", () => {
     const caringContacts = snapshot.registers[1];
     expect(caringContacts.signedOff).toBe(false);
+    expect(caringContacts.authority).toContain("requires clinical sign-off by the owner before any real-patient use");
+    expect(caringContacts.authority).toContain("nothing in it constitutes approval of a pilot");
+    expect(caringContacts.authority).toContain(
+      "No row below has been reviewed, accepted, or signed off by a clinician",
+    );
     const uncontrolled = caringContacts.hazards.filter((hazard) => hazard.status === "unmitigated");
     expect(uncontrolled.map((hazard) => hazard.id)).toEqual(["H-00", "H-04", "H-05", "H-44"]);
     expect(uncontrolled.every((hazard) => hazard.hasControl === false)).toBe(true);
@@ -150,6 +185,11 @@ describe("buildHazardSnapshot against the real repository documents", () => {
 });
 
 describe("the committed snapshot the page renders", () => {
+  it("calculates expiry from the render-time Australia/Perth date, not the snapshot boolean", () => {
+    expect(reviewExpiredAtPerth("2026-11-23", new Date("2026-11-23T15:59:59Z"))).toBe(false);
+    expect(reviewExpiredAtPerth("2026-11-23", new Date("2026-11-23T16:00:00Z"))).toBe(true);
+  });
+
   it("is in step with the documents, so the page cannot show a stale hazard list", () => {
     const committed = loadHazardSnapshot();
     const rebuilt = buildHazardSnapshot(new Date(`${committed.generatedAt}T00:00:00Z`));

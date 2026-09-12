@@ -12,7 +12,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  vi.useRealTimers();
+  cleanup();
+});
 
 /**
  * Rendered against the *real* committed snapshot, following the other panel
@@ -60,8 +63,27 @@ describe("developer hazard register page", () => {
     expect(psychsift).toHaveTextContent(/Static evidence register only/i);
 
     const caringContacts = screen.getByTestId("developer-hazards-register-caring-contacts");
-    expect(caringContacts).toHaveTextContent(/DRAFT, unsigned/i);
+    expect(caringContacts).toHaveTextContent(/DRAFT — requires clinical sign-off/i);
+    expect(caringContacts).toHaveTextContent(/requires clinical sign-off by the owner before any real-patient use/i);
+    expect(caringContacts).toHaveTextContent(/nothing in it constitutes approval of a pilot/i);
     expect(caringContacts).toHaveTextContent(/Not signed off by a clinician/i);
+  });
+
+  it("marks expired reviews from the render-time Australia/Perth date", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-23T16:00:00Z"));
+    render(<DeveloperHazardsPage />);
+
+    const psychsift = screen.getByTestId("developer-hazards-register-psychsift-answer-pipeline");
+    expect(psychsift).toHaveTextContent("Review EXPIRED 2026-11-23.");
+  });
+
+  it("describes two registers and the uncovered Ward Flow area without overstating coverage", () => {
+    render(<DeveloperHazardsPage />);
+    const page = screen.getByTestId("developer-hazards");
+
+    expect(page).toHaveTextContent(/Three clinical areas: two registers and one area with no register/i);
+    expect(page).not.toHaveTextContent(/Three separate registers/i);
   });
 
   it("renders every recorded hazard, so no row can be silently dropped from a register", () => {
