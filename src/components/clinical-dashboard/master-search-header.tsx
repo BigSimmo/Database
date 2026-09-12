@@ -1487,7 +1487,19 @@ export function MasterSearchHeader({
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
       if (composerSlotId) {
-        setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
+        // Ready-gate, same as adoption: only a slot whose own segment has
+        // hydrated is ours to clear. This cleanup also runs on an ordinary
+        // dependency re-run, and stripping the SSR marker there leaves a window
+        // in which the DOM lacks an attribute the page's client render still
+        // produces — a page segment hydrating inside it logs a
+        // `data-composer-reserve` mismatch (client "pending" vs server null).
+        // Nothing is stranded by skipping: the effect body re-establishes the
+        // reserve on the very next tick, and a real unmount takes the slot
+        // element with it. Invariant 15's three required clears (media query
+        // mismatch, suppressed composer, portal fallback) live in `syncTarget`
+        // and the suppression branch above, and are untouched.
+        const slot = document.getElementById(composerSlotId);
+        if (isDesktopComposerSlotReady(slot)) setModeHomeComposerReservePending(slot, false);
       }
       setDesktopComposerPortalActive(false);
       setDesktopComposerPortalHost(null);

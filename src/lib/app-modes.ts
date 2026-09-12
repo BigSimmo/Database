@@ -332,8 +332,8 @@ export const appModeDefinitions = [
     id: "tools",
     label: "Tools",
     description: "Clinical tools and applications",
-    // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a
-    // dashboard-mode alias for bookmarks and deep links.
+    // PT-11: standalone /tools is the canonical entry; the older /?mode=tools
+    // bookmarks and deep links redirect to it.
     href: "/tools",
     search: {
       kind: "tools",

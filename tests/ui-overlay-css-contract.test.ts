@@ -12,6 +12,7 @@ const globalStylesSource = read("src/app/globals.css");
 const agentsSource = read("AGENTS.md");
 const searchChromeBehaviourSource = read("docs/search-chrome-behaviour.md");
 const clinicalDashboardSource = read("src/components/ClinicalDashboard.tsx");
+const dashboardModeSurfaceSource = read("src/components/clinical-dashboard/dashboard-mode-surface.ts");
 const globalSearchShellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
 const uiPrimitivesSource = readPrimitiveRecipeSources();
 const therapyWorkspaceSource = read("src/components/therapy-compass/workspace.tsx");
@@ -141,8 +142,8 @@ describe("overlay and global CSS contracts", () => {
     expect(searchChromeBehaviourSource).not.toContain(
       "A hidden phone dock must release the content-facing reserve to `0.75rem`",
     );
-    expect(clinicalDashboardSource).toContain("Hidden dock pad must stay at 0rem");
-    expect(clinicalDashboardSource).not.toContain("Hidden dock pad must stay at 0.75rem");
+    expect(dashboardModeSurfaceSource).toContain("Hidden dock pad must stay at 0rem");
+    expect(dashboardModeSurfaceSource).not.toContain("Hidden dock pad must stay at 0.75rem");
   });
 
   it("uses document scrolling in phone browsers and a bounded standalone scroller", () => {
