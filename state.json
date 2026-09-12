@@ -129,10 +129,10 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 10,
+  "revision": 11,
   "repairs": 0,
   "pass": 0,
-  "active": null,
+  "active": 2726,
   "pending": null,
   "reason": null,
   "entries": [
@@ -185,12 +185,12 @@
     {
       "number": 2726,
       "head": "4a0c30b4b4503b57ecab11e4e7039452ecbcae9a",
-      "state": "queued",
+      "state": "preparing",
       "reason": null,
       "attempts": 0,
       "fingerprints": [],
       "updatedAt": "2026-09-12T03:43:30.285Z",
-      "progressAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:58:28.428Z",
       "retried": false
     },
     {
@@ -393,6 +393,12 @@
       "kind": "merged",
       "number": 2717,
       "commit": "cee6cbf07363d268972590733e2f7eac121e0714"
+    },
+    {
+      "revision": 11,
+      "at": "2026-09-12T03:58:28.428Z",
+      "kind": "selected",
+      "number": 2726
     }
   ]
 }
