@@ -24,22 +24,31 @@
   "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
   "status": "running",
   "resumedAt": "2026-09-12T03:09:04.384Z",
-  "revision": 16,
-  "repairs": 2,
+  "revision": 17,
+  "repairs": 3,
   "pass": 0,
   "active": 2715,
-  "pending": null,
+  "pending": {
+    "id": "batch-34666462342-17",
+    "number": 2715,
+    "kind": "repair",
+    "head": "0a33572d6d5c1667a1ca4e981c9ce750d6f34991",
+    "base": "bfce2e3b71b1d40d6f1644d995e40987c3463523",
+    "at": "2026-09-12T03:09:04.384Z",
+    "fingerprint": "9cef08225662dade4330e433f96a798b7a960b7cd740c8c5e1053e927f1b9291"
+  },
   "reason": null,
   "entries": [
     {
       "number": 2715,
       "head": "0a33572d6d5c1667a1ca4e981c9ce750d6f34991",
-      "state": "waiting_ci",
+      "state": "repairing",
       "reason": "ci-in-flight",
-      "attempts": 2,
+      "attempts": 3,
       "fingerprints": [
         "473300616000efeee82b561040df199e184c1fb497322123249ca9eb6ae6e9b1",
-        "139c52e42e77bc21f451d1cb3671c7bb99c4cd42f102d2fee56bc60f96420755"
+        "139c52e42e77bc21f451d1cb3671c7bb99c4cd42f102d2fee56bc60f96420755",
+        "9cef08225662dade4330e433f96a798b7a960b7cd740c8c5e1053e927f1b9291"
       ],
       "updatedAt": "2026-09-12T02:00:56.978Z",
       "progressAt": "2026-09-12T03:09:04.384Z",
@@ -164,6 +173,20 @@
       "revision": 16,
       "at": "2026-09-12T03:09:04.384Z",
       "kind": "resumed"
+    },
+    {
+      "revision": 17,
+      "at": "2026-09-12T03:09:04.384Z",
+      "kind": "intent",
+      "operation": {
+        "id": "batch-34666462342-17",
+        "number": 2715,
+        "kind": "repair",
+        "head": "0a33572d6d5c1667a1ca4e981c9ce750d6f34991",
+        "base": "bfce2e3b71b1d40d6f1644d995e40987c3463523",
+        "at": "2026-09-12T03:09:04.384Z",
+        "fingerprint": "9cef08225662dade4330e433f96a798b7a960b7cd740c8c5e1053e927f1b9291"
+      }
     }
   ],
   "approvedControllerHash": "31b3614590d02004ee972aaeab0c96db5df835fae27b7a6dc73fd4fbc291ad24"
