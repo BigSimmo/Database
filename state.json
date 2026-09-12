@@ -129,32 +129,11 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 16,
+  "revision": 17,
   "repairs": 1,
   "pass": 0,
   "active": 2726,
-  "pending": {
-    "id": "batch-34671129666-12",
-    "number": 2726,
-    "kind": "repair",
-    "head": "4a0c30b4b4503b57ecab11e4e7039452ecbcae9a",
-    "base": "cee6cbf07363d268972590733e2f7eac121e0714",
-    "at": "2026-09-12T03:58:28.428Z",
-    "fingerprint": "998111a22d6d84b7c1c662aadd55f04c03a246cbcad27f928c4477f3535c8ea0",
-    "runId": 34671777972,
-    "resultHead": "61f05c35041d67ca503a4df039e0b5abb1514bc3",
-    "completed": true,
-    "outcome": "progress",
-    "verification": [
-      "`git merge-base --is-ancestor 4a0c30b4b4503b57ecab11e4e7039452ecbcae9a HEAD` — passed; recorded PR head is an ancestor.",
-      "Merge inspection — recorded base is an ancestor; no overlapping changed files, resolution hunks, unmerged entries, or diff-check errors.",
-      "`npm run format` — completed with no tracked changes.",
-      "`npx vitest related --run ...` — 2 files passed, 19 tests passed.",
-      "`npm run verify:pr-local` — blocked before checks by sandbox child-process behavior under the default Node 22 runtime.",
-      "`npm run plan:browser` — blocked by sandbox `spawnSync git EPERM`; explicit scope classification confirmed UI/source scope.",
-      "Trusted context — current-head CI run 34670464312 succeeded; no unresolved review threads."
-    ]
-  },
+  "pending": null,
   "reason": null,
   "entries": [
     {
@@ -205,15 +184,15 @@
     },
     {
       "number": 2726,
-      "head": "4a0c30b4b4503b57ecab11e4e7039452ecbcae9a",
-      "state": "repairing",
+      "head": "61f05c35041d67ca503a4df039e0b5abb1514bc3",
+      "state": "preparing",
       "reason": null,
       "attempts": 1,
       "fingerprints": [
         "998111a22d6d84b7c1c662aadd55f04c03a246cbcad27f928c4477f3535c8ea0"
       ],
       "updatedAt": "2026-09-12T03:43:30.285Z",
-      "progressAt": "2026-09-12T03:58:28.428Z",
+      "progressAt": "2026-09-12T04:05:56.971Z",
       "retried": false
     },
     {
@@ -463,6 +442,14 @@
       "kind": "worker-completed",
       "operationId": "batch-34671129666-12",
       "outcome": "progress"
+    },
+    {
+      "revision": 17,
+      "at": "2026-09-12T04:05:56.971Z",
+      "kind": "repair-settled",
+      "number": 2726,
+      "runId": 34671777972,
+      "conclusion": "success"
     }
   ]
 }
