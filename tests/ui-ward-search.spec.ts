@@ -371,12 +371,14 @@ test.describe("@mockup Ward patient search", () => {
    * `align-self: stretch` with `min-height: var(--ward-tap)` — on both the input and its sibling,
    * and the stylesheet's own comment names the absent-declaration defect it closes.
    *
-   * ⚠️ **TREAT THIS SPEC'S STATUS AS UNKNOWN RATHER THAN RED OR GREEN, and that is the point worth
-   * keeping.** It sits in the `chromium-mockups` lane, which the owner ruled is kept but not run, so
-   * **nothing executes to contradict a claim made here.** A stale "expected to be RED" in an unrun
-   * lane is worse than in a running one: a reader takes it as a live defect, and there is no red or
-   * green anywhere to correct them. **Re-read this comment the first time the lane is switched on**
-   * — the flag is `vars.WARD_JOURNEYS_BLOCKING`, unset by default.
+   * ⚠️ **THE LANE IS SWITCHED ON NOW, AND THIS SPEC IS GREEN. Re-read done 2026-09-06, which is
+   * what the previous wording asked for.** This comment used to say to treat the status as UNKNOWN
+   * rather than red or green, because the `chromium-mockups` lane was kept but not run and so
+   * nothing executed to contradict a claim made here — a stale "expected to be RED" being worse in
+   * an unrun lane than in a running one. `ui-ward-journeys` no longer carries its
+   * `vars.WARD_JOURNEYS_BLOCKING` gate, so this spec runs and blocks on every UI pull request, and
+   * the run that lifted the gate reported `3 skipped, 71 passed` with this case among the passes.
+   * The status is observed, not asserted, and CI now corrects anyone who writes otherwise here.
    *
    * ⚠️ **AND THE DEFECT ITSELF IS THE STRONGEST ARGUMENT IN THIS REPOSITORY FOR KEEPING THESE
    * SEVEN SPECS.** jsdom computes no layout, so no offline test could have measured a 36px control;
