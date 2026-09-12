@@ -70,7 +70,7 @@ export type GenerationCompletedOutput = {
 export type RagGenerationDegradationRecord = RagAnswerGenerationContract & {
   version: "generation-degradation-v1";
   policy: "legacy-generation-policy-v1";
-  cacheVersion: "rag-cache-v24";
+  cacheVersion: "rag-cache-v25";
   routeBudgetMs: number;
   observationComplete: boolean;
   reason: RagGenerationDegradationReason | null;
@@ -236,7 +236,7 @@ export function createGenerationDegradationRecorder(options: {
           version: "generation-degradation-v1",
           policy: "legacy-generation-policy-v1",
           ...contract,
-          cacheVersion: "rag-cache-v24",
+          cacheVersion: "rag-cache-v25",
           routeBudgetMs: options.routeBudgetMs,
           observationComplete,
           reason: observationComplete ? classifyGenerationDegradation(attempts, failed) : null,
@@ -274,7 +274,7 @@ export function projectGenerationDegradation(
     record.version !== "generation-degradation-v1" ||
     record.policy !== "legacy-generation-policy-v1" ||
     !isRagAnswerGenerationContract(record) ||
-    record.cacheVersion !== "rag-cache-v24" ||
+    record.cacheVersion !== "rag-cache-v25" ||
     ![0, 12000, 25000, 35000].includes(record.routeBudgetMs) ||
     typeof record.observationComplete !== "boolean" ||
     (record.reason !== null && !degradationReasons.includes(record.reason)) ||
@@ -360,7 +360,7 @@ export function projectGenerationDegradation(
     ...(record.promptVersion === adaptiveAnswerGenerationContract.promptVersion
       ? adaptiveAnswerGenerationContract
       : legacyAnswerGenerationContract),
-    cacheVersion: "rag-cache-v24",
+    cacheVersion: "rag-cache-v25",
     routeBudgetMs: record.routeBudgetMs,
     observationComplete: record.observationComplete,
     reason: record.reason,

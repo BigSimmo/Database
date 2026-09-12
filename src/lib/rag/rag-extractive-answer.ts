@@ -3047,49 +3047,24 @@ export function buildExtractiveAnswer(args: {
   return recoveredSourceProse ? retainCitedExtractiveFallbackEvidence(candidate) : candidate;
 }
 
-/** Source backed fallback subject. */
-function sourceBackedFallbackSubject(query: string) {
-  const canonicalQuery = analyzeClinicalQuery(query).typoCorrections.reduce(
-    (current, correction) =>
-      current.replace(new RegExp(`\\b${escapeQueryToken(correction.from)}\\b`, "gi"), correction.to),
-    query,
-  );
-  const normalized = normalizeSectionText(canonicalQuery)
-    .replace(/[?!.]+$/, "")
-    .trim();
-  // Do not echo a requested governance status into the source-only fallback.
-  // "Is this protocol approved for use?" must become a neutral topic rather
-  // than prose that appears to affirm the unverified status.
-  const governanceStatusQuestion = normalized.match(
-    /^(?:is|are|was|were)\s+(.+?)\s+(?:approved|authori[sz]ed|validated|verified|current)\b/i,
-  );
-  if (governanceStatusQuestion?.[1]) {
-    return lowerFirst(governanceStatusQuestion[1]);
-  }
-  const subject = normalized
-    .replace(/^summari[sz]e\s+(?:the\s+)?/i, "")
-    .replace(/^what\s+(?:is|are)\s+(?:the\s+)?(?:process|requirements?)\s+for\s+/i, "")
-    .replace(/^what\s+(?:is|are)\s+required\s+(?:for|when)\s+/i, "")
-    .replace(/^what\s+(.+?)\s+should\s+((?:withhold|cease|stop)\s+.+)$/i, "$1 for the decision to $2")
-    .replace(/^what\s+(.+?)\s+(?:is|are)\s+(?:used|required|recommended|needed)\s+for\s+(.+)$/i, "$1 for $2")
-    .replace(/^what\s+(.+?)\s+(?:apply|applies)$/i, "$1")
-    .replace(/^what\s+(.+?)\s+is\s+required$/i, "$1")
-    .replace(/^what\s+does\s+(?:the\s+)?/i, "")
-    .replace(/^what\s+(?:is|are)\s+(?:the\s+)?/i, "")
-    .replace(/^what\s+/i, "")
-    .replace(/\s+(?:document|procedure|guideline)\s+require$/i, "")
-    .replace(/^how\s+(?:is|are)\s+/i, "")
-    .replace(/\s+managed$/i, " management")
-    .trim();
-
-  if (subject.length < 4) return "this clinical question";
-  return subject.length > 90 ? `${subject.slice(0, 87).trim()}...` : lowerFirst(subject);
-}
-
-/** Source backed generation timeout answer. */
-export function sourceBackedGenerationTimeoutAnswer(query: string) {
-  const subject = sourceBackedFallbackSubject(query);
-  return `The uploaded documents contain relevant guidance on ${subject}, but a full written answer could not be completed just now. Relevant document passages are cited below — please review them directly.`;
+/**
+ * Prose for the source-backed review fallback.
+ *
+ * Ledger #ZK460W. This used to read "The uploaded documents contain relevant guidance on
+ * {subject}, but a full written answer could not be completed just now", where {subject} was
+ * rewritten from the clinician's own query. Two faults in one sentence. The clause asserted
+ * something the pipeline had, on this route, just failed to establish, so a query that retrieved
+ * nothing better than loosely similar text came back as a statement that the guidelines covered
+ * it. And echoing the query put whatever the clinician typed into the delivered answer: the
+ * offline adversarial harness case `scope-other-owner-document` puts a patient name in the query,
+ * and it arrived in the answer body through this sentence.
+ *
+ * The wording is now fixed text. It carries no claim about what the documents contain and no
+ * material from the query, which is also why it is safe for `finalizeRagAnswerQualityCore` to
+ * pass it through instead of replacing it.
+ */
+export function sourceBackedGenerationTimeoutAnswer() {
+  return "A written answer could not be produced for this question. The document passages cited below were retrieved as possibly relevant source material and have not been confirmed as answering it. Please review them directly.";
 }
 
 const reasoningEffortRank: Record<OpenAIReasoningEffort, number> = {
@@ -4496,6 +4471,23 @@ function finalizeRagAnswerQualityCore(
   // turning a valid answer into garble that then fails the gate. Return them untouched.
   if (answer.preformatted && answer.grounded) {
     return answer;
+  }
+  // Ledger #ZK460W. The source-backed review fallback is not a model answer being judged: it is a
+  // deterministic pointer built in this module ("a full written answer could not be completed,
+  // here are the passages that were retrieved"), delivered ungrounded and unsupported with
+  // review-only citations. Emission sites set `sourceBackedReviewFallback` so this short-circuit
+  // does not depend on routingReason string matching or empty-sections side-conditions.
+  // Every gate below is written for model prose and returns the wrong verdict on it:
+  // the ungrounded/unsupported gate and the query-overlap gate both replace it with
+  // "No current source ... was found", printed above the sources that were in fact found. That
+  // contradiction is what previously forced the route to relabel itself grounded to stay clear of
+  // these gates, which is the defect this row exists for. Nothing model-authored passes here.
+  if (answer.sourceBackedReviewFallback && !answer.grounded && answer.confidence === "unsupported") {
+    // The display mode is forced conservative here rather than left to the route's smart plan: a
+    // plan built for the rejected candidate can still ask for a threshold-table or comparison
+    // shape, and this answer has no rows to put in one. An evidence gap with citations attached is
+    // what it actually is.
+    return { ...answer, responseMode: "evidence_gap" };
   }
   const cleanedAnswer = sanitizeAnswerText(answer.answer);
   const gapLikeAnswer =
