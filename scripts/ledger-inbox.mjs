@@ -729,7 +729,12 @@ export function assertSafeRemoteReconciliation(argv = [], options = {}) {
 
 function createRequest(action, argv) {
   const positionalId = argv[1]?.startsWith("--") ? undefined : argv[1];
-  const targetId = argValue(argv, "id") ?? positionalId;
+  const rawTargetId = argValue(argv, "id") ?? positionalId;
+  const targetId = rawTargetId
+    ? rawTargetId.startsWith("#") || rawTargetId.includes("-")
+      ? rawTargetId
+      : `#${rawTargetId}`
+    : undefined;
   const targetRequestId = argValue(argv, "requestId") ?? argValue(argv, "id") ?? positionalId;
   const payload =
     action === "add"
@@ -742,7 +747,7 @@ function createRequest(action, argv) {
           issueUlid: issueUlid(),
         }
       : action === "done"
-        ? { id: targetId, outcome: argValue(argv, "outcome") }
+        ? { id: targetId, outcome: argValue(argv, "outcome") ?? argValue(argv, "reason") }
         : action === "cancel"
           ? { requestId: targetRequestId, reason: argValue(argv, "reason") }
           : action === "queue"
@@ -752,7 +757,7 @@ function createRequest(action, argv) {
                 capability: argValue(argv, "capability"),
                 when: argValue(argv, "when"),
                 estimate: argValue(argv, "estimate"),
-                outcome: argValue(argv, "outcome"),
+                outcome: argValue(argv, "outcome") ?? argValue(argv, "reason"),
               }
             : {
                 // `pri` rides the same update request as the prose fields so a
@@ -1292,14 +1297,39 @@ function selfTest() {
     throw new Error("self-test failed: --allow-concurrent must warn loudly rather than throw");
   }
 
+  const parsedEnqueue = parseInboxCommand(["enqueue", "--action", "done", "--id", "#001", "--reason", "tested"]);
+  if (parsedEnqueue.action !== "done" || !parsedEnqueue.argv.includes("--reason")) {
+    throw new Error("self-test failed: parseInboxCommand did not properly parse enqueue alias");
+  }
+
   console.log("ledger inbox self-test passed.");
 }
 
-function main() {
-  const argv = process.argv.slice(2);
-  if (argv.includes("--self-test")) return selfTest();
+export function parseInboxCommand(argv) {
   const action = argv[0];
+  if (action === "enqueue") {
+    const explicitAction = argValue(argv, "action");
+    if (!explicitAction || !ACTIONS.has(explicitAction)) {
+      throw new Error("enqueue requires --action <add|done|update|queue|cancel>");
+    }
+    const filteredArgv = [];
+    for (let i = 1; i < argv.length; i++) {
+      if (argv[i] === "--action") {
+        i++;
+        continue;
+      }
+      filteredArgv.push(argv[i]);
+    }
+    return { action: explicitAction, argv: [explicitAction, ...filteredArgv] };
+  }
+  return { action, argv };
+}
+
+function main() {
+  const rawArgv = process.argv.slice(2);
+  if (rawArgv.includes("--self-test")) return selfTest();
   try {
+    const { action, argv } = parseInboxCommand(rawArgv);
     if (ACTIONS.has(action)) return createRequest(action, argv);
     if (action === "reconcile") return reconcile(argv.slice(1));
     if (action === "check") {
@@ -1323,7 +1353,7 @@ function main() {
       );
       return;
     }
-    throw new Error("usage: ledger-inbox.mjs <add|done|update|queue|cancel|reconcile|check> [args]");
+    throw new Error("usage: ledger-inbox.mjs <add|done|update|queue|cancel|enqueue|reconcile|check> [args]");
   } catch (error) {
     console.error(`ledger inbox: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

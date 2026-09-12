@@ -8728,16 +8728,16 @@
         "ref": "claude/clinical-kb-pwa-review-asi3wb (parity commit review)",
         "head": "1aebf02 (fix landed a3b9a54)",
         "scope": "(recorded with Outcome)",
-        "outcome": "rag-retrieval-reviewer on the monitoring evidence-gate parity commit: REQUEST-CHANGES (soft) — P2 reproduced: inflected monitoring kind tokens (monitor\\w*/annual(?:ly)?/blood tests?/ecgs?/lfts?) steal sole-dose-value sentences from the dose arm; dose-intent answers then reject the monitoring-kind fact (\"Quetiapine is monitored at a dose of 200 mg daily\" flipped grounded true→false, source-gap — fails CLOSED, never a wrong dose). P3: monitoring figure escape lacked the dose escape's multi-drug bare-row guard. Clean: over-admission bounded (broad vocab lives in gate/filter only, promotion still corpus-guarded, claim-support unchanged); regex cost negligible; mismatched-unit test relaxation legitimate (synopsis is corpus-verbatim; weeks pin enforced by atom identity + adjacent_context exclusion from both gate and claim corpora).",
-        "checks": "BOTH FINDINGS FIXED in a3b9a54: kind arm classifies legacy tokens byte-identically and new-inflection-only sentences fall through to the dose arm when they carry a clinicalDoseValuePattern value (both repro sentences pinned as dose-intent tests); multi-drug bare-row guard extended to monitoring_schedule with a discriminating test — red-proven both directions. Reviewer checks: formatting 38/38, focused 644/644; targeting eval deferred to the wave's live canary pair."
+        "outcome": "clinical-governance-reviewer on the same commit: APPROVE-WITH-NITS. P2 (independently converged with the retrieval reviewer's P3): monitoring figure-escape lacked the dose-path multi-drug cross-entity guard — a bare wrong-drug schedule/level row in a multi-drug chunk could be entity-prefixed for a named-drug monitoring query; downstream gates verify text-vs-source presence, never attribution (worked lithium/valproate LFT path traced through finalize). FIXED in a3b9a54 exactly as its smallest-fix prescribed (guard at the :872-881 site now fires for monitoring_schedule; negative multi-drug test added, red-proven). Clean: unsupported figures impossible (admission-only change; promotion corpus guard + numeric verification + claim support all byte-unchanged); conservative failure intact (figure-bearing-only escape, schedule-free refusal pinned); adjacent-context safety held (sourceEvidenceText excludes adjacent_context; weeks refusal confirmed by probe); no PHI/provider/ranking surface. P3s: RAG impact line (present in the PR body — behaviour-change form, correct since the PR also carries the Option A retrieval change); multi-drug negative test (landed in a3b9a54).",
+        "checks": "Offline guard-chain trace + targeted vitest probes (named-drug guard, bare-figure admission, conservative gap, adjacent refusal). Provider/release gates deferred per confirmation boundary."
       },
       {
         "date": "2026-07-21",
         "ref": "claude/clinical-kb-pwa-review-asi3wb (parity commit review)",
         "head": "1aebf02 (fix landed a3b9a54)",
         "scope": "(recorded with Outcome)",
-        "outcome": "clinical-governance-reviewer on the same commit: APPROVE-WITH-NITS. P2 (independently converged with the retrieval reviewer's P3): monitoring figure-escape lacked the dose-path multi-drug cross-entity guard — a bare wrong-drug schedule/level row in a multi-drug chunk could be entity-prefixed for a named-drug monitoring query; downstream gates verify text-vs-source presence, never attribution (worked lithium/valproate LFT path traced through finalize). FIXED in a3b9a54 exactly as its smallest-fix prescribed (guard at the :872-881 site now fires for monitoring_schedule; negative multi-drug test added, red-proven). Clean: unsupported figures impossible (admission-only change; promotion corpus guard + numeric verification + claim support all byte-unchanged); conservative failure intact (figure-bearing-only escape, schedule-free refusal pinned); adjacent-context safety held (sourceEvidenceText excludes adjacent_context; weeks refusal confirmed by probe); no PHI/provider/ranking surface. P3s: RAG impact line (present in the PR body — behaviour-change form, correct since the PR also carries the Option A retrieval change); multi-drug negative test (landed in a3b9a54).",
-        "checks": "Offline guard-chain trace + targeted vitest probes (named-drug guard, bare-figure admission, conservative gap, adjacent refusal). Provider/release gates deferred per confirmation boundary."
+        "outcome": "rag-retrieval-reviewer on the monitoring evidence-gate parity commit: REQUEST-CHANGES (soft) — P2 reproduced: inflected monitoring kind tokens (monitor\\w*/annual(?:ly)?/blood tests?/ecgs?/lfts?) steal sole-dose-value sentences from the dose arm; dose-intent answers then reject the monitoring-kind fact (\"Quetiapine is monitored at a dose of 200 mg daily\" flipped grounded true→false, source-gap — fails CLOSED, never a wrong dose). P3: monitoring figure escape lacked the dose escape's multi-drug bare-row guard. Clean: over-admission bounded (broad vocab lives in gate/filter only, promotion still corpus-guarded, claim-support unchanged); regex cost negligible; mismatched-unit test relaxation legitimate (synopsis is corpus-verbatim; weeks pin enforced by atom identity + adjacent_context exclusion from both gate and claim corpora).",
+        "checks": "BOTH FINDINGS FIXED in a3b9a54: kind arm classifies legacy tokens byte-identically and new-inflection-only sentences fall through to the dose arm when they carry a clinicalDoseValuePattern value (both repro sentences pinned as dose-intent tests); multi-drug bare-row guard extended to monitoring_schedule with a discriminating test — red-proven both directions. Reviewer checks: formatting 38/38, focused 644/644; targeting eval deferred to the wave's live canary pair."
       },
       {
         "date": "2026-08-13",
@@ -19500,6 +19500,14 @@
         "checks": "hosted CI pr-required pass; Production UI pass; CircleCI pass; lint; typecheck; document-viewer-shell.dom; Bugbot none"
       },
       {
+        "date": "2026-09-12",
+        "ref": "claude/answer-mode-coverage-gap-ilcwui",
+        "head": "9dc14120d480df8cd8da8c5da4ebcd4e8015aeef",
+        "scope": "approval review",
+        "outcome": "Approved. No high-confidence P0-P2 defects in the HEAD^..HEAD static diff; change is type-only alias wiring for client-trimmed answer payloads. Residual risk: local Vitest is unavailable in this checkout (missing node_modules/vitest) and origin/main is absent, so this pass did not re-validate or diff the broader branch.",
+        "checks": "ledger:lookup NOT REVIEWED; static review of HEAD^..HEAD for clinical-dashboard-helpers.ts, use-answer-thread-bootstrap.ts, answer-client-payload.ts; npm run test:focused rejected direct test-file selection by design; npm run test -- targeted files blocked: missing node_modules/vitest/vitest.mjs; no provider-backed checks run"
+      },
+      {
         "date": "2026-08-15",
         "ref": "codex/calculators-mode",
         "head": "9dc3891ee8bc30a35fdb203607cdd984d3a24cc3",
@@ -21200,7 +21208,7 @@
         "ref": "PR #1254 / `apply-audit-remediation-fixes`",
         "head": "b3b1eb7e7084859cd18c05152be1b9f8968592ff",
         "scope": "Authorized babysit sweep",
-        "outcome": "Fixed P1 locality-audit-out-of-pr-local + comparator-direction conflicts; typed locality accumulator; hardened citationTelemetry schema; clozapine mg-gated span. Merged `origin/main`. 10/10 threads replied+resolved (2 deferred).",
+        "outcome": "Fixed P1 locality-audit-out-of-pr-local + comparator-direction conflicts; typed locality accumulator; hardened citationTelemetry schema; clozapine mg-gated span. Merged `origin/main` (verify-pr-local conflict resolved to main shape). 10/10 threads replied+resolved (2 deferred: unit normalize, query-context wiring).",
         "checks": "Focused Vitest evidence + verify-pr-local 24/24 PASS. No provider-backed checks."
       },
       {
@@ -21208,7 +21216,7 @@
         "ref": "PR #1254 / `apply-audit-remediation-fixes`",
         "head": "b3b1eb7e7084859cd18c05152be1b9f8968592ff",
         "scope": "Authorized babysit sweep",
-        "outcome": "Fixed P1 locality-audit-out-of-pr-local + comparator-direction conflicts; typed locality accumulator; hardened citationTelemetry schema; clozapine mg-gated span. Merged `origin/main` (verify-pr-local conflict resolved to main shape). 10/10 threads replied+resolved (2 deferred: unit normalize, query-context wiring).",
+        "outcome": "Fixed P1 locality-audit-out-of-pr-local + comparator-direction conflicts; typed locality accumulator; hardened citationTelemetry schema; clozapine mg-gated span. Merged `origin/main`. 10/10 threads replied+resolved (2 deferred).",
         "checks": "Focused Vitest evidence + verify-pr-local 24/24 PASS. No provider-backed checks."
       },
       {
@@ -21914,6 +21922,14 @@
         "scope": "branch-cleanup",
         "outcome": "Redundant: the exact HEAD is an ancestor of `origin/main`; eligible for deletion when no worktree or open PR references it.",
         "checks": "`git merge-base --is-ancestor bafceee0588483bed209b321d9fdf68f48b7ea2f origin/main`."
+      },
+      {
+        "date": "2026-09-12",
+        "ref": "codex/lighthouse-baseline-reliability",
+        "head": "bb24e48be4936ab31f58b1c30910c2bb9ef38fd6",
+        "scope": "prlanded",
+        "outcome": "MERGED via GitHub merge commit; tree matches tip 9c4e5fca; on main",
+        "checks": "PR required green before merge; content empty-diff vs tip"
       },
       {
         "date": "2026-08-18",
@@ -25980,6 +25996,14 @@
         "checks": "test 948 files / 12114 passed | 1 skipped; lint/typecheck exit 0; gate-manifest, ci-scope, verification-plan, skills, knip, docs links/scripts/inventory all pass; plan:browser level none for its own files and CI agrees; landed content verified: branch tip 2626ff7a8 is an ancestor of origin/main, planner+hook+arbiter symbols present, hook is 100755"
       },
       {
+        "date": "2026-09-07",
+        "ref": "claude/side-navigation-reliability-0sg48b",
+        "head": "ee0cf48b5ae370475de1526bd843ac9f62ef55a2",
+        "scope": "prlanded",
+        "outcome": "PR #2637 merged 2026-09-05T11:11:08Z by BigSimmo via true merge commit ee0cf48 (auto-merge armed, three update-branch merges of main by the owner beforehand). Tree of ee0cf48 is identical to branch tip a943909 (git diff --stat empty); fix commit 1a6adff is an ancestor of origin/main; no late or orphaned commits; remote branch already deleted by GitHub. Sidebar shortcuts now switch mode in place via onSelectMode and useHomeModeSeed consumes the UI-change flag one-shot.",
+        "checks": "git diff --stat ee0cf48 a943909 empty; git merge-base --is-ancestor 1a6adff origin/main true; PR read via GitHub MCP state=closed merged=true; CI on head a943909 green before merge"
+      },
+      {
         "date": "2026-07-25",
         "ref": "cursor/pr-babysit-bugbot-agents-6c52 (PR #1167)",
         "head": "ee44812aae9dad1973d8302eba5bfca5000dffb6",
@@ -26034,6 +26058,14 @@
         "scope": "Streamlined-sidebar handoff in the merged universal ledger",
         "outcome": "APPROVE. PRs #1112, #1116, and #1117 landed the universal-ledger baseline, two preserved UI tasks, and credential/hook hardening; this follow-up preserves that current-main schema and adds only the still-missing sidebar delivery as collision-free `#066`. The queue remains gap-free and every recommended ID has one open row. Sidebar implementation stays recoverable from remote branch `origin/codex/sidebar-test-fix-20260723` at full commit `cd54e68fbf7b07b5dffe3220e36af2caa528da54` until its local/browser/build/hosted merge proof is complete.",
         "checks": "Focused sidebar/favourites tests previously passed 18/18 on the recorded implementation commit; this ledger follow-up passed Prettier, remote-ref recovery, 36-row contiguous-order/46-open-ID/next-ID invariants, and `git diff --check`. The broader reconciled precursor passed `verify:cheap` (365 files, 3,242 passed/1 skipped); fresh exact-head hosted CI is required on PR #1114. No OpenAI, Supabase, Railway, deployment, live-app, credential, or production-data action ran."
+      },
+      {
+        "date": "2026-09-12",
+        "ref": "claude/developer-hub-hazard-register",
+        "head": "eef21127dd089e28d733cb3923039c20f172dd3f",
+        "scope": "prlanded",
+        "outcome": "MERGED via GitHub merge commit; tree matches tip 89c9b0bc; on main",
+        "checks": "PR required green before merge; content empty-diff vs tip"
       },
       {
         "date": "2026-08-12",
