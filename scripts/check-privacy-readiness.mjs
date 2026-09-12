@@ -4,6 +4,8 @@ import { execFileSync } from "node:child_process";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { decideReviewedCommitHistoryFromFacts } from "./lib/reviewed-commit-history-decision.mjs";
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifestPath = resolve(root, "docs/governance/privacy-readiness.v1.json");
 const requiredIds = [
@@ -251,22 +253,21 @@ export function validatePrivacyReadiness(
 /**
  * Whether the reviewedCommit checks can be skipped for this run.
  *
- * Only in structural mode, and only when this checkout cannot read the reviewed
- * history (a shallow clone or a filtered clone missing the reviewed tree). Release mode never skips: `check:privacy-readiness
- * :release` and `governance:release` are release gates, and the reviewedCommit
- * ancestry plus evidence-at-commit checks are what bind the register to this
- * repository. Dropping them to spare a truncated checkout would let a release
- * print PRIVACY_READINESS_PASS having proved nothing about the reviewed commit.
+ * Policy lives in `decideReviewedCommitHistoryFromFacts` (shared with the unit-test
+ * helper). This wrapper only adds release-mode fail-close: structural may skip when
+ * history is unanswerable; release never skips — `check:privacy-readiness:release`
+ * and `governance:release` bind the register to the repository, and dropping those
+ * checks on a truncated checkout would let a release print PRIVACY_READINESS_PASS
+ * having proved nothing about the reviewed commit.
  */
 export function shallowSkipDecision({ release, shallow, commitPresent, ancestor, treeReadable }) {
-  const historyAnswerable = commitPresent && ancestor && treeReadable;
-  if (historyAnswerable) return { skip: false, blocked: false };
-
-  // A complete clone with a missing commit remains a real register failure. The only
-  // non-shallow answer we cannot trust is a partial clone whose commit graph exists but whose
-  // reviewed tree does not.
-  const historyUnavailable = shallow || (commitPresent && ancestor && !treeReadable);
-  if (!historyUnavailable) return { skip: false, blocked: false };
+  const { checkGit } = decideReviewedCommitHistoryFromFacts({
+    shallow,
+    commitPresent,
+    ancestor,
+    treeReadable,
+  });
+  if (checkGit) return { skip: false, blocked: false };
   if (release) return { skip: false, blocked: true };
   return { skip: true, blocked: false };
 }
@@ -309,7 +310,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    `PRIVACY_READINESS_PASS mode=${release ? "release" : "structural"} requirements=${manifest.requirements.length}`,
+    `PRIVACY_READINESS_PASS mode=${release ? "release" : "structural"} requirements=${manifest.requirements.length} history=${skip ? "skipped" : "checked"}`,
   );
 }
 

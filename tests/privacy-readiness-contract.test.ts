@@ -1,6 +1,8 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { shallowSkipDecision, validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
+import { decideReviewedCommitHistoryFromFacts } from "../scripts/lib/reviewed-commit-history-decision.mjs";
 import { resolveReviewedCommitHistory, warnReviewedCommitSkipped } from "./helpers/reviewed-commit-history";
 
 const manifest = JSON.parse(
@@ -88,6 +90,38 @@ describe("privacy readiness contract", () => {
         blocked: false,
       });
     }
+  });
+
+  it("shares the reviewed-history unavailability matrix with decideReviewedCommitHistoryFromFacts", () => {
+    // Release mode must only wrap the shared answer with blocked — not re-implement it.
+    const cases = [
+      { shallow: true, commitPresent: true, ancestor: false, treeReadable: true },
+      { shallow: false, commitPresent: true, ancestor: true, treeReadable: false },
+      { shallow: true, commitPresent: false, ancestor: false, treeReadable: false },
+      { shallow: true, commitPresent: true, ancestor: true, treeReadable: true },
+      { shallow: false, commitPresent: false, ancestor: false, treeReadable: false },
+    ] as const;
+    for (const facts of cases) {
+      const { checkGit } = decideReviewedCommitHistoryFromFacts(facts);
+      expect(shallowSkipDecision({ release: false, ...facts })).toEqual({
+        skip: !checkGit,
+        blocked: false,
+      });
+      expect(shallowSkipDecision({ release: true, ...facts })).toEqual({
+        skip: false,
+        blocked: !checkGit,
+      });
+    }
+  });
+
+  it("encodes history=skipped or history=checked on the structural PASS line", () => {
+    // Greppable PASS without a history marker is a silent-success footgun when structural
+    // mode skips Git binding. Release already fail-closes; this pins the success line.
+    const result = spawnSync(process.execPath, ["scripts/check-privacy-readiness.mjs"], {
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/PRIVACY_READINESS_PASS mode=structural requirements=\d+ history=(checked|skipped)/);
   });
 
   it("keeps Railway processor evidence linked to the privacy impact assessment", () => {

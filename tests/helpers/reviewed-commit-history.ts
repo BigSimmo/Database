@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
 
+import { decideReviewedCommitHistoryFromFacts } from "../../scripts/lib/reviewed-commit-history-decision.mjs";
+
 /**
  * WHETHER THIS CHECKOUT CAN HONESTLY ANSWER "IS THE REVIEWED COMMIT AN ANCESTOR OF HEAD?"
  *
@@ -129,11 +131,21 @@ function canAnswer(probes: ReviewedCommitProbes): boolean {
   return probes.hasCommit() && probes.isAncestor() && probes.hasTree();
 }
 
+function factsFromProbes(probes: ReviewedCommitProbes) {
+  return {
+    shallow: probes.isShallow(),
+    commitPresent: probes.hasCommit(),
+    ancestor: probes.isAncestor(),
+    treeReadable: probes.hasTree(),
+  };
+}
+
 /**
  * Decide whether this checkout can run a register's commit-ancestry check.
  *
  * Kept separate from the git calls so `tests/reviewed-commit-history.test.ts` can hold it to
- * every case, including the two that must never become skips.
+ * every case, including the two that must never become skips. The skip/keep matrix lives in
+ * `scripts/lib/reviewed-commit-history-decision.mjs` so the privacy CLI cannot drift.
  */
 export function decideReviewedCommitHistory(commit: string, probes: ReviewedCommitProbes): ReviewedCommitHistory {
   if (canAnswer(probes)) return { checkGit: true, skipReason: null };
@@ -142,6 +154,12 @@ export function decideReviewedCommitHistory(commit: string, probes: ReviewedComm
   if (probes.isShallow() && probes.allowDeepen) {
     probes.deepen();
     if (canAnswer(probes)) return { checkGit: true, skipReason: null };
+  }
+
+  const { checkGit } = decideReviewedCommitHistoryFromFacts(factsFromProbes(probes));
+  if (checkGit) {
+    // A complete clone that cannot reach the reviewed commit is a real finding about the register.
+    return { checkGit: true, skipReason: null };
   }
 
   if (probes.isShallow()) {
@@ -153,20 +171,14 @@ export function decideReviewedCommitHistory(commit: string, probes: ReviewedComm
     };
   }
 
-  // Not shallow. If the commit and its ancestry are both here, the only missing piece is the
-  // historical tree — a partial clone. That is unanswerable, not a failing register.
-  if (probes.hasCommit() && probes.isAncestor() && !probes.hasTree()) {
-    return {
-      checkGit: false,
-      skipReason:
-        `reviewedCommit ${commit} is an ancestor of HEAD but its tree is not in this checkout, ` +
-        `so the reviewed snapshot cannot be read; commit-ancestry check skipped. ` +
-        `This is a partial (treeless or blobless) clone: refetch without a filter to restore the check.`,
-    };
-  }
-
-  // A complete clone that cannot reach the reviewed commit is a real finding about the register.
-  return { checkGit: true, skipReason: null };
+  // Not shallow + checkGit false ⇒ partial clone (commit ancestor, tree missing).
+  return {
+    checkGit: false,
+    skipReason:
+      `reviewedCommit ${commit} is an ancestor of HEAD but its tree is not in this checkout, ` +
+      `so the reviewed snapshot cannot be read; commit-ancestry check skipped. ` +
+      `This is a partial (treeless or blobless) clone: refetch without a filter to restore the check.`,
+  };
 }
 
 /**
