@@ -22,14 +22,14 @@
     ]
   },
   "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
-  "status": "running",
+  "status": "paused",
   "resumedAt": "2026-09-12T02:21:45.695Z",
-  "revision": 13,
+  "revision": 14,
   "repairs": 2,
   "pass": 0,
   "active": 2715,
   "pending": null,
-  "reason": null,
+  "reason": "external-merge-ownership",
   "entries": [
     {
       "number": 2715,
@@ -146,6 +146,12 @@
       "kind": "waiting",
       "number": 2715,
       "reason": "ci-in-flight"
+    },
+    {
+      "revision": 14,
+      "at": "2026-09-12T02:32:28.523Z",
+      "kind": "paused",
+      "reason": "external-merge-ownership"
     }
   ],
   "approvedControllerHash": "71185e35097d180f74460e8ed3095e0127232bc2215a52999e7a9239f9f27142"
