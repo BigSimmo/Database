@@ -41,7 +41,18 @@ export type AppModeSearchKind =
   | "tools";
 export type AppModeResultKind = AppModeSearchKind;
 
-export type AppModeResultsSurface = "results-band" | "answer";
+/**
+ * How a mode presents what a search found.
+ *
+ * `"none"` is a real answer, not a gap: On Call declares no search surface at
+ * all — it has no composer on any route, no results page, and filter chips
+ * inside a page do the narrowing. It still carries the rest of `search` because
+ * the universal command surface and the shared home read the mode's copy, but
+ * there is no result list, so the band-adoption contract must not look for one.
+ * Anything that presents a LIST is still `"results-band"`, and the band stays
+ * mandatory for it.
+ */
+export type AppModeResultsSurface = "results-band" | "answer" | "none";
 
 export type AppModeSearchConfig = {
   kind: AppModeSearchKind;
@@ -504,7 +515,9 @@ export const appModeDefinitions = [
       progressLabel: "Searching your on-call entries.",
       resultKind: "tools",
       resultHeading: "On Call",
-      resultsSurface: "results-band",
+      // No results page: `/on-call` is a dashboard and `/on-call/search` is
+      // gone. See the union's own note above.
+      resultsSurface: "none",
       statusLabel: "On Call",
       nextStep: "Open an entry",
       badgeLabel: null,

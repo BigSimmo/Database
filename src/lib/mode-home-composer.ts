@@ -60,3 +60,18 @@ export const phoneDockAddonSlotId: Record<PhoneDockAddonKind, string> = {
  * release, focus pinning, transition timing, and collapse-budget measurement.
  */
 export const phoneHeaderCollapseAddonSlotId = "phone-header-collapse-addon-slot";
+
+/**
+ * The one page-owned control host in the universal header's TRAILING region,
+ * beside (and in place of) the new-chat button.
+ *
+ * That region carried exactly one hard-coded control for all seventeen modes,
+ * which is why the row reads as universal chrome. A mode whose right-hand
+ * control should be something else — On Call, whose page menu matters and whose
+ * "new chat" means nothing — portals it here, and `globals.css` hides the
+ * new-chat button whenever this slot is occupied, so the region still holds one
+ * control. A DOM slot rather than a prop because the shell renders above the
+ * page and cannot be handed one, and rather than a per-mode branch in the header
+ * because that is how one row becomes sixteen.
+ */
+export const universalHeaderTrailingSlotId = "universal-header-trailing-slot";

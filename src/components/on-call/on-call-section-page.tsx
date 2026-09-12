@@ -24,6 +24,7 @@ import {
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
+import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
@@ -31,6 +32,7 @@ import { activeModeSecondaryNavigationId } from "@/lib/mode-secondary-navigation
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
+import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 /**
  * Generic, non-owner-specific framing for each view. Shown to every reader,
@@ -102,6 +104,16 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   // and returns an empty map on any failure, so it runs unconditionally rather
   // than behind a check that would break the rules of hooks.
   const linkedDocuments = useOnCallLinkedDocuments();
+  // What this page is showing, for the menu's one-line summary. Each list
+  // component narrows `entries` itself, and Who's who splits the contacts
+  // section in two, so the count is derived the same way rather than guessed
+  // from the whole set.
+  const visibleCount =
+    view === "who-is-who"
+      ? partitionContactsEntries(entries).roleExplainers.length
+      : view === "contacts"
+        ? partitionContactsEntries(entries).contacts.length
+        : entries.filter((entry) => entry.section === view).length;
 
   function upsertCachedEntry(entry: OnCallEntry) {
     const next = entries.some((existing) => existing.id === entry.id)
@@ -156,6 +168,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   return (
     <>
       <RegistryModeNav modeId="on-call" activeId={activeModeSecondaryNavigationId("on-call", pathname)} />
+      <OnCallPageMenu view={view} entryCount={visibleCount} />
       <InformationPageShell testId={`on-call-${view}-main`}>
         <section
           id={`on-call-${view}-overview`}

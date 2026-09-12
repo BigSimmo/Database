@@ -9,6 +9,7 @@ import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
+import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import {
   ON_CALL_SECTION_HREFS,
   ON_CALL_SECTION_ICONS,
@@ -302,6 +303,7 @@ export function OnCallHome() {
   return (
     <>
       <RegistryModeNav modeId="on-call" activeId={activeModeSecondaryNavigationId("on-call", pathname)} />
+      <OnCallPageMenu view="home" />
       <InformationPageShell testId="on-call-home-main">
         <h1 className="sr-only">On Call</h1>
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}

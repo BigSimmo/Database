@@ -25,6 +25,10 @@ const router = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
+  // The header reads the pathname to mark the current page in the mode sheet's
+  // in-mode section level. `/` is the shared home, which owns no section list —
+  // the level these tests exercise is the mode list.
+  usePathname: () => "/",
 }));
 
 vi.mock("@/lib/supabase/client", () => ({

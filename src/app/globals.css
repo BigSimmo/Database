@@ -5497,3 +5497,20 @@ html.theme-transitioning *:after {
 [data-print-stamp] {
   display: none;
 }
+
+/* The universal header's trailing region holds exactly ONE control.
+   ------------------------------------------------------------------------
+   The new-chat button was the only occupant for all seventeen modes, which is
+   what makes that row read as universal chrome rather than per-mode furniture.
+   A page that owns a header control portals it into
+   `#universal-header-trailing-slot` (`universalHeaderTrailingSlotId`), and this
+   rule stands the new-chat button down while that slot is occupied — so the
+   region never shows two round buttons, and a mode gains its own control
+   without the header growing a `searchMode === "…"` branch.
+
+   `:has()` on the parent rather than a sibling combinator: the slot is
+   `display: contents`, so its portaled child is the new-chat button's sibling in
+   layout but not in the selector tree the combinator walks. */
+.universal-header-trailing:has(> #universal-header-trailing-slot > *) .universal-header-new-chat {
+  display: none;
+}

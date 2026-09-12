@@ -29,7 +29,19 @@ const expectedLabels: Record<AppModeId, string[]> = {
   factsheets: ["Search", "Topics"],
   dictionary: ["Terms", "Topics", "Compare", "Sources"],
   sources: ["Catalogue", "Topics", "Publishers", "Method"],
-  "on-call": [],
+  "on-call": [
+    "Tonight",
+    "Contacts",
+    "Playbook",
+    "Referrals",
+    "Orientation",
+    // "Teaching" is the label; the id, route segment and check constraint all
+    // stay "education".
+    "Teaching",
+    "Logistics",
+    "Who's who",
+    "Pocket card",
+  ],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -53,19 +65,20 @@ const cleanLandingPath: Record<AppModeId, string> = {
 };
 
 /**
- * The nine modes that register nothing.
+ * The eight modes that register nothing.
  *
- * Eight of them each used to carry one `action: "search"` entry rendering a
- * lone <button> inside its own <nav> landmark, whose only effect was focusing a
- * composer already on screen. Every one is genuinely single-surface, so the
- * control was deleted rather than ported to the shared bar.
+ * Each used to carry one `action: "search"` entry rendering a lone <button>
+ * inside its own <nav> landmark, whose only effect was focusing a composer
+ * already on screen. Every one is genuinely single-surface, so the control was
+ * deleted rather than ported to the shared bar.
  *
- * On Call is the ninth, and it is here for a different reason: all six of its
- * section routes are information pages, so `PageSecondaryNavigation` returns
- * null on every one of them and the shared bar can never render. It briefly
- * registered six destinations anyway, which `tests/ui-mode-nav-density.spec.ts`
- * caught — the bar was missing at every width because nothing drew it. The mode
- * navigates with `OnCallNavHeader` plus an in-flow section strip instead.
+ * On Call was briefly a ninth, for a different reason: all of its routes are
+ * information pages, so `PageSecondaryNavigation` returns null on every one of
+ * them and the SHELL can never render this mode's bar. The conclusion drawn then
+ * was that the bar could not work here and the destinations were deleted. It was
+ * the wrong conclusion — a page that owns its header navigation mounts the bar
+ * itself, which is what `OnCallSectionPage` and `OnCallHome` now do — so the
+ * mode has left this list.
  */
 const emptyRegistryModes = [
   "answer",
@@ -76,7 +89,6 @@ const emptyRegistryModes = [
   "prescribing",
   "tools",
   "calculators",
-  "on-call",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
@@ -407,6 +419,7 @@ describe("mode secondary navigation registry", () => {
       "dsm",
       "factsheets",
       "formulation",
+      "on-call",
       "sources",
       "specifiers",
       "therapy-compass",
