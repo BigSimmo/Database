@@ -4482,11 +4482,7 @@ function finalizeRagAnswerQualityCore(
   // "No current source ... was found", printed above the sources that were in fact found. That
   // contradiction is what previously forced the route to relabel itself grounded to stay clear of
   // these gates, which is the defect this row exists for. Nothing model-authored passes here.
-  if (
-    answer.sourceBackedReviewFallback &&
-    !answer.grounded &&
-    answer.confidence === "unsupported"
-  ) {
+  if (answer.sourceBackedReviewFallback && !answer.grounded && answer.confidence === "unsupported") {
     // The display mode is forced conservative here rather than left to the route's smart plan: a
     // plan built for the rejected candidate can still ask for a threshold-table or comparison
     // shape, and this answer has no rows to put in one. An evidence gap with citations attached is
