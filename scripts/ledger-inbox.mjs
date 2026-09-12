@@ -333,9 +333,7 @@ export function applyRequestBatch(markdown, requests, options = {}) {
     next = applyRequest(next, request, {
       ...options,
       idempotent: true,
-      allowArchived: Boolean(
-        options.allowArchived || isDuplicateClose || request.payload?.allowArchived,
-      ),
+      allowArchived: Boolean(options.allowArchived || isDuplicateClose || request.payload?.allowArchived),
     });
     if (request.action === "done" && id) {
       closedInBatch.add(id);
