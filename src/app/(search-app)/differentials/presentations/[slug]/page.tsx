@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
-import { getPresentationWorkflow, presentationStaticParams } from "@/lib/differentials";
+import { presentationStaticParams } from "@/lib/differentials";
+import {
+  readPresentationPageRecord,
+  readPresentationCandidateRecords,
+} from "@/lib/site-content/differential-page-records";
 
 type DifferentialPresentationRouteProps = {
   params: Promise<{ slug: string }>;
@@ -19,7 +23,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: DifferentialPresentationRouteProps): Promise<Metadata> {
   const { slug } = await params;
-  const workflow = getPresentationWorkflow(slug);
+  const workflow = await readPresentationPageRecord(slug);
   if (!workflow) return { title: "Differential presentation not found - PsychSift" };
   return {
     title: `${workflow.title} - Differential presentation - PsychSift`,
@@ -32,7 +36,11 @@ export default async function DifferentialPresentationRoute({
   searchParams,
 }: DifferentialPresentationRouteProps) {
   const { slug } = await params;
-  if (!getPresentationWorkflow(slug)) notFound();
+  const workflow = await readPresentationPageRecord(slug);
+  if (!workflow) notFound();
+  const candidateRecords = await readPresentationCandidateRecords(
+    workflow.candidates.map((candidate) => candidate.slug),
+  );
 
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const query = firstSearchParam(resolvedSearchParams.query ?? resolvedSearchParams.q)?.trim() ?? "";
@@ -41,5 +49,13 @@ export default async function DifferentialPresentationRoute({
     .map((value) => value.trim())
     .filter(Boolean);
 
-  return <DifferentialPresentationWorkflowPage query={query} presentationSlug={slug} selectedIds={selectedIds} />;
+  return (
+    <DifferentialPresentationWorkflowPage
+      query={query}
+      presentationSlug={slug}
+      selectedIds={selectedIds}
+      workflow={workflow}
+      candidateRecords={candidateRecords}
+    />
+  );
 }

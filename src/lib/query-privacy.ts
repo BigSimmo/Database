@@ -1,3 +1,4 @@
+import { isAnswerRequestContextQuery } from "@/lib/answer-request-context";
 import { createHash, createHmac } from "node:crypto";
 import { clinicalVocabularyMatches } from "@/lib/clinical-vocabulary";
 import { env } from "@/lib/env";
@@ -32,11 +33,13 @@ function queryHashStorageText(query: string) {
 // The `query`/`normalized_query` columns are NOT NULL, so the placeholder keeps
 // joins/dedup possible without storing patient-identifying text.
 export function queryTextForStorage(query: string): string {
-  return env.RAG_PERSIST_RAW_QUERY_TEXT ? query : queryHashStorageText(query);
+  return env.RAG_PERSIST_RAW_QUERY_TEXT && !isAnswerRequestContextQuery(query) ? query : queryHashStorageText(query);
 }
 
 export function normalizedQueryTextForStorage(query: string): string {
-  return env.RAG_PERSIST_RAW_QUERY_TEXT ? normalizeQueryText(query) : queryHashStorageText(query);
+  return env.RAG_PERSIST_RAW_QUERY_TEXT && !isAnswerRequestContextQuery(query)
+    ? normalizeQueryText(query)
+    : queryHashStorageText(query);
 }
 
 // PIA-3: the generated answer is stored verbatim in rag_queries.answer (and in
@@ -55,12 +58,14 @@ export function answerPrivacyMetadata() {
   return { answer_retained: env.RAG_PERSIST_ANSWER_TEXT };
 }
 
-export function queryCacheKeyForStorage(cacheKey: string): string {
-  return env.RAG_PERSIST_RAW_QUERY_TEXT ? cacheKey : `redacted-cache:${hashQueryText(cacheKey)}`;
+export function queryCacheKeyForStorage(cacheKey: string, originalQuery?: string): string {
+  return env.RAG_PERSIST_RAW_QUERY_TEXT && !isAnswerRequestContextQuery(originalQuery ?? cacheKey)
+    ? cacheKey
+    : `redacted-cache:${hashQueryText(cacheKey)}`;
 }
 
-export function queryDerivedTokensForStorage(tokens: string[]): string[] {
-  return env.RAG_PERSIST_RAW_QUERY_TEXT ? tokens : [];
+export function queryDerivedTokensForStorage(tokens: string[], originalQuery?: string): string[] {
+  return env.RAG_PERSIST_RAW_QUERY_TEXT && !isAnswerRequestContextQuery(originalQuery ?? "") ? tokens : [];
 }
 
 // RET-H4-safe candidate aliases for the alias-promotion pipeline (rag-hybrid-findings
@@ -78,6 +83,6 @@ export function queryVocabularyAliasesForStorage(query: string, limit = 10): str
 export function queryPrivacyMetadata(query: string) {
   return {
     query_hash: hashQueryText(query),
-    raw_query_retained: env.RAG_PERSIST_RAW_QUERY_TEXT,
+    raw_query_retained: env.RAG_PERSIST_RAW_QUERY_TEXT && !isAnswerRequestContextQuery(query),
   };
 }

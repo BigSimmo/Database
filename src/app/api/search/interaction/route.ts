@@ -119,7 +119,10 @@ export async function POST(request: Request) {
         top_files: [],
         top_chunk_ids: [],
         miss_reason: "clicked_result",
-        candidate_aliases: queryDerivedTokensForStorage(normalizedClinicalSearchTokens(body.query).slice(0, 10)),
+        candidate_aliases: queryDerivedTokensForStorage(
+          normalizedClinicalSearchTokens(body.query).slice(0, 10),
+          body.query,
+        ),
         candidate_labels: [
           {
             label: safeTelemetryText(target.title) ?? target.slug,
@@ -158,7 +161,10 @@ export async function POST(request: Request) {
       top_files: safeFileName ? [safeFileName] : [],
       top_chunk_ids: clickedChunkId ? [clickedChunkId] : [],
       miss_reason: "clicked_result",
-      candidate_aliases: queryDerivedTokensForStorage(normalizedClinicalSearchTokens(body.query).slice(0, 10)),
+      candidate_aliases: queryDerivedTokensForStorage(
+        normalizedClinicalSearchTokens(body.query).slice(0, 10),
+        body.query,
+      ),
       candidate_labels: safeTitle
         ? [
             {

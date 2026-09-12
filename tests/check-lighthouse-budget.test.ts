@@ -140,6 +140,14 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     expect(incompleteBudgetEvidence(rows, budget())).toEqual(["mobile-dsm: report has no valid tbtMs number"]);
   });
 
+  it("rejects a report missing a newly configured tolerance metric", () => {
+    const rows = completeRows().map((entry: Row) => ({ ...entry, performanceScore: undefined }));
+
+    expect(incompleteBudgetEvidence(rows, budget({ tolerance: { performanceScore: { absolute: 0.02 } } }))).toContain(
+      "mobile-root: report has no valid performanceScore number",
+    );
+  });
+
   it("rejects a run the recorded baseline does not cover", () => {
     // A route added after the baseline was recorded has nothing to compare against,
     // and gradeRun returns no breaches for a missing row — so it would grade ok at
@@ -341,6 +349,16 @@ describe("compareToLighthouseBudget", () => {
   });
 
   const baseline = baselineFromRows(completeRows());
+
+  it("fails evidence when a configured tolerance metric is missing from the baseline", () => {
+    const result = compareToLighthouseBudget(
+      completeRows(),
+      budget({ baseline, tolerance: { performanceScore: { absolute: 0.02 } } }),
+    );
+
+    expect(result).toMatchObject({ status: "fail", reason: "evidence incomplete", breaches: [] });
+    expect(result.incomplete).toContain("mobile-root: baseline performanceScore must be a finite non-negative number");
+  });
 
   it("warns rather than failing when no baseline is recorded yet", () => {
     const result = compareToLighthouseBudget(completeRows(), budget({ baseline: null }));

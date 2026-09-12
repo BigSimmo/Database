@@ -4,6 +4,7 @@ const answerQuestionWithScope = vi.fn();
 const publicAccessContext = vi.fn();
 const consumeSubjectApiRateLimit = vi.fn();
 const resolveSearchScope = vi.fn();
+const persistAnswerDiagnostics = vi.fn();
 
 vi.mock("@/lib/env", () => ({ isDemoMode: () => false }));
 vi.mock("@/lib/rag/rag", () => ({ answerQuestionWithScope, summarizeDocument: vi.fn() }));
@@ -14,11 +15,7 @@ vi.mock("@/lib/api-rate-limit", () => ({
   consumeSubjectApiRateLimit,
   rateLimitJsonResponse: () => new Response(null, { status: 429 }),
 }));
-vi.mock("@/lib/answer-response", () => ({
-  answerDegradedModeSignal: () => ({ active: false }),
-  buildGovernedAnswerClientResponse: (answer: unknown) => ({ payload: answer, telemetryAnswer: answer }),
-  buildGovernedDemoAnswerClientResponse: vi.fn(),
-}));
+vi.mock("@/lib/answer-response", async (importOriginal) => importOriginal());
 vi.mock("@/lib/search-scope", async (importOriginal) => ({
   ...(await importOriginal()),
   resolveSearchScope,
@@ -27,7 +24,7 @@ vi.mock("@/lib/owner-scope", () => ({
   resolveRetrievalAccessScope: (ownerId?: string) => ({ ownerId }),
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({}) }));
-vi.mock("@/lib/answer-telemetry", () => ({ logAnswerDiagnostics: vi.fn() }));
+vi.mock("@/lib/answer-telemetry", () => ({ persistAnswerDiagnostics }));
 vi.mock("@/lib/observability/agent-monitoring", () => ({ setAgentConversationId: vi.fn() }));
 vi.mock("@/lib/sse-heartbeat", () => ({ startSseHeartbeat: () => () => undefined }));
 vi.mock("@/lib/server-timing", () => ({
@@ -37,6 +34,42 @@ vi.mock("@/lib/server-timing", () => ({
 vi.mock("@/lib/answer-feedback-token", () => ({ answerFeedbackMetadata: () => ({}) }));
 
 const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+const normalScope = {
+  documentIds: ["private-scope-document-id"],
+  filters: { collections: ["private-filter"] },
+  activeFilterCount: 1,
+  matchedDocumentCount: 1,
+  warnings: ["Scoped to one current source."],
+  summary: "One active filter",
+  futureInternalField: "private",
+};
+
+const coverageGapAnswer = {
+  answer: "The active sources support only part of this question.",
+  grounded: false,
+  confidence: "unsupported",
+  citations: [],
+  sources: [
+    {
+      id: "coverage-chunk-1",
+      document_id: "public-source-document-1",
+      title: "Current clinical guidance",
+      file_name: "current-guidance.pdf",
+      page_number: 2,
+      chunk_index: 1,
+      section_heading: "Monitoring",
+      content: "The source confirms monitoring is required but does not cover the requested threshold.",
+      image_ids: [],
+      similarity: 0.81,
+      adjacent_before: [{ id: "private-adjacent-chunk" }],
+    },
+  ],
+  fallbackReasonCode: "coverage_gap",
+  fallbackReason: "private_raw_coverage_reason",
+  routingReason: "private_internal_route_reason",
+  degradedMode: { active: true, reason: "private_raw_coverage_reason" },
+};
 
 type ParsedSseFrame = { event: string; data: Record<string, unknown> };
 
@@ -68,6 +101,7 @@ beforeEach(() => {
     resetAt: new Date(Date.now() + 60_000).toISOString(),
   });
   resolveSearchScope.mockResolvedValue({ documentIds: undefined, filters: {}, activeFilterCount: 0, warnings: [] });
+  persistAnswerDiagnostics.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -96,7 +130,6 @@ describe("answer stream verified preview ordering", () => {
               content: "ANC thresholds and FBC monitoring schedule for clozapine.",
               image_ids: [],
               similarity: 0.82,
-              images: [],
             },
           ],
           selectedContextCount: 1,
@@ -126,5 +159,135 @@ describe("answer stream verified preview ordering", () => {
     expect((rankingFrame.data.verifiedUnit as { kind?: string } | undefined)?.kind).toBe("evidence_preview");
     expect(rankingIndex).toBeLessThan(generationIndex);
     expect(generationIndex).toBeLessThan(finalIndex);
+    const observationContext = answerQuestionWithScope.mock.calls[0]?.[0]?.observationContext as
+      { interactionId: string; rolloutMode: string } | undefined;
+    expect(observationContext).toEqual({ interactionId: expect.any(String), rolloutMode: "legacy" });
+    expect(persistAnswerDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({ interactionId: observationContext?.interactionId }),
+    );
+  });
+
+  it("logs an empty-scope final outcome with the stream's one interaction id", async () => {
+    resolveSearchScope.mockResolvedValueOnce({
+      documentIds: [],
+      filters: { collections: ["private-filter"] },
+      activeFilterCount: 1,
+      matchedDocumentCount: 0,
+      warnings: ["No indexed documents matched."],
+      summary: "One active filter",
+      futureInternalField: "private",
+    });
+
+    const { POST } = await import("../src/app/api/answer/stream/route");
+    const response = await POST(
+      new Request("http://localhost/api/answer/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "missing scoped evidence" }),
+      }),
+    );
+    const frames = parseSseFrames(await response.text());
+    const final = frames.find((frame) => frame.event === "final")?.data;
+
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+    const logged = persistAnswerDiagnostics.mock.calls[0]?.[0] as
+      { interactionId: string; answer: { fallbackReasonCode?: string; fallbackReason?: string } } | undefined;
+    expect(logged).toMatchObject({
+      interactionId: expect.any(String),
+      answer: { fallbackReasonCode: "no_candidates", fallbackReason: "retrieval_miss" },
+    });
+    const { ragProgrammeTelemetryForAnswer } = await import("../src/lib/rag/rag-programme-telemetry");
+    expect(ragProgrammeTelemetryForAnswer(logged!.answer as never)?.interaction_id).toBe(logged?.interactionId);
+    expect(Object.keys(final?.scope as Record<string, unknown>)).toEqual([
+      "summary",
+      "activeFilterCount",
+      "matchedDocumentCount",
+      "warnings",
+      "queryMode",
+    ]);
+    expect(final?.scope).toEqual({
+      summary: "One active filter",
+      activeFilterCount: 1,
+      matchedDocumentCount: 0,
+      warnings: ["No indexed documents matched."],
+      queryMode: "auto",
+    });
+    expect(JSON.stringify(final?.scope)).not.toMatch(/private-filter|futureInternalField|documentIds|filters/);
+  });
+
+  it("projects a non-empty coverage gap and normal scope through the governed SSE boundary", async () => {
+    resolveSearchScope.mockResolvedValueOnce(normalScope);
+    answerQuestionWithScope.mockResolvedValueOnce(coverageGapAnswer);
+
+    const { POST } = await import("../src/app/api/answer/stream/route");
+    const response = await POST(
+      new Request("http://localhost/api/answer/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "partially covered monitoring threshold" }),
+      }),
+    );
+    const frames = parseSseFrames(await response.text());
+    const final = frames.find((frame) => frame.event === "final")?.data;
+
+    expect(final).toMatchObject({
+      fallbackReasonCode: "coverage_gap",
+      degradedMode: {
+        active: true,
+        reason: "The active sources support only part of this question.",
+      },
+      sources: [{ id: "coverage-chunk-1", document_id: "public-source-document-1" }],
+    });
+    expect(Object.keys(final?.scope as Record<string, unknown>)).toEqual([
+      "summary",
+      "activeFilterCount",
+      "matchedDocumentCount",
+      "warnings",
+      "queryMode",
+    ]);
+    expect(final?.scope).toEqual({
+      summary: "One active filter",
+      activeFilterCount: 1,
+      matchedDocumentCount: 1,
+      warnings: ["Scoped to one current source."],
+      queryMode: "auto",
+    });
+    expect(JSON.stringify(final)).not.toMatch(
+      /private-scope-document-id|private-filter|futureInternalField|private-adjacent-chunk|private_raw_coverage_reason|private_internal_route_reason/,
+    );
+  });
+
+  it("does not complete the SSE response before configured joined persistence settles", async () => {
+    let release!: () => void;
+    const persistence = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    persistAnswerDiagnostics.mockReturnValueOnce(persistence);
+    answerQuestionWithScope.mockResolvedValueOnce({
+      answer: "Source-backed answer.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+    });
+
+    const { POST } = await import("../src/app/api/answer/stream/route");
+    const response = await POST(
+      new Request("http://localhost/api/answer/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "clozapine monitoring" }),
+      }),
+    );
+    let bodySettled = false;
+    const body = response.text().then((value) => {
+      bodySettled = true;
+      return value;
+    });
+    await vi.waitFor(() => expect(persistAnswerDiagnostics).toHaveBeenCalledOnce());
+
+    expect(bodySettled).toBe(false);
+    release();
+    expect(await body).toContain("event: final");
   });
 });

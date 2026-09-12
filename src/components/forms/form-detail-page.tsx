@@ -535,6 +535,17 @@ function SourceSnapshotCard({ form }: { form: FormRecord }) {
       label: "Use safeguard",
       value: "Check current source before every use",
     },
+    ...(details?.officialPdfEditingRestricted !== undefined
+      ? [
+          {
+            icon: ShieldCheck,
+            label: "PDF permissions",
+            value: details.officialPdfEditingRestricted
+              ? "Editing restricted (printing and form-filling permitted)"
+              : "Editing permitted",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -836,20 +847,39 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   <p className={cn("mt-0.5 truncate text-xs", textMuted)}>
                     {displayText(form.source?.label, "Official form")}
                   </p>
+                  {details?.officialPdfEditingRestricted !== undefined ? (
+                    <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                      {details.officialPdfEditingRestricted
+                        ? "Editing restricted (printing and form-filling permitted)"
+                        : "Editing permitted"}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
                 {displayText(form.source?.status, "Source status pending")}
               </span>
-              <span
-                className={cn(
-                  "hidden min-h-7 items-center rounded-full border px-2 text-xs font-semibold shadow-[var(--shadow-inset)] sm:inline-flex",
-                  details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
-                )}
-              >
-                {details?.officialPdfPasswordProtected ? "Password required" : "Check source"}
-              </span>
-              <div className="flex items-center gap-2 sm:hidden">
+              <div className="hidden flex-wrap items-center gap-1.5 sm:flex">
+                <span
+                  className={cn(
+                    "inline-flex min-h-7 items-center rounded-full border px-2 text-xs font-semibold shadow-[var(--shadow-inset)]",
+                    details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
+                  )}
+                >
+                  {details?.officialPdfPasswordProtected ? "Password required" : "Check source"}
+                </span>
+                {details?.officialPdfEditingRestricted !== undefined ? (
+                  <span
+                    className={cn(
+                      "inline-flex min-h-7 items-center rounded-full border px-2 text-xs font-semibold shadow-[var(--shadow-inset)]",
+                      details.officialPdfEditingRestricted ? toneWarning : toneNeutral,
+                    )}
+                  >
+                    {details.officialPdfEditingRestricted ? "Editing restricted" : "Editing permitted"}
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-1.5 sm:hidden">
                 <span
                   className={cn(
                     "inline-flex min-h-6 items-center rounded-full border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
@@ -858,6 +888,16 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 >
                   {details?.officialPdfPasswordProtected ? "Password required" : "Check source"}
                 </span>
+                {details?.officialPdfEditingRestricted !== undefined ? (
+                  <span
+                    className={cn(
+                      "inline-flex min-h-6 items-center rounded-full border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
+                      details.officialPdfEditingRestricted ? toneWarning : toneNeutral,
+                    )}
+                  >
+                    {details.officialPdfEditingRestricted ? "Editing restricted" : "Editing permitted"}
+                  </span>
+                ) : null}
                 <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
               </div>
               {form.source?.url || details?.localPdfPath ? (

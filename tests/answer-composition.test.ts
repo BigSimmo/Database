@@ -174,3 +174,73 @@ describe("answer composition menu (packet S2 / README A2)", () => {
     expect(Object.isFrozen(first.items)).toBe(true);
   });
 });
+
+it("filters optional adaptive menu kinds without changing the legacy menu or document lookup", async () => {
+  const { buildAdaptiveAnswerPlan, formatAdaptiveAnswerPlanLine } = await import("@/lib/rag/adaptive-answer-plan");
+  const request = {
+    askedParts: [],
+    requestedDepth: "standard" as const,
+    materialSafetyDependencies: [],
+    sourcePolicy: "primary_plus_approved_supplements" as const,
+    subquestions: [],
+  };
+  const plan = buildAdaptiveAnswerPlan({
+    queryClass: "medication_dose_risk",
+    intent: "drug_dosing",
+    simpleDirect: true,
+    requestPlan: request,
+    coverage: {
+      interpretation: "synthetic request",
+      ambiguity: null,
+      subquestions: [],
+      coverage: [],
+      conflicts: [],
+      overall: "absent",
+      insufficiencyReason: "insufficient_claim_support",
+    },
+  });
+  const allowed = { ...plan, optionalSectionKinds: ["monitoring_timing" as const] };
+  expect(
+    buildRelatedInformationMenu("medication_dose_risk", "drug_dosing", allowed).items.map((item) => item.kind),
+  ).toEqual(["monitoring_timing"]);
+  expect(buildRelatedInformationMenu("medication_dose_risk", "drug_dosing").items.length).toBeGreaterThan(1);
+  expect(buildRelatedInformationMenu("document_lookup", "drug_dosing", allowed).items).toEqual([]);
+  expect(formatAdaptiveAnswerPlanLine(plan)).toContain("exact_gap=required");
+  expect(formatAdaptiveAnswerPlanLine(plan)).toContain("source_policy=primary_plus_approved_supplements");
+});
+
+it("cannot authorize a proposed source conflict from an empty canonical record", async () => {
+  const { buildAdaptiveAnswerPlan, adaptiveConflictSectionsAuthorized } =
+    await import("@/lib/rag/adaptive-answer-plan");
+  const plan = buildAdaptiveAnswerPlan({
+    queryClass: "comparison",
+    intent: "comparison",
+    simpleDirect: false,
+    requestPlan: {
+      askedParts: [],
+      requestedDepth: "standard",
+      materialSafetyDependencies: [],
+      sourcePolicy: "primary_plus_approved_supplements",
+      subquestions: [],
+    },
+    coverage: {
+      interpretation: "synthetic comparison",
+      ambiguity: null,
+      subquestions: [],
+      coverage: [],
+      conflicts: [],
+      overall: "absent",
+      insufficiencyReason: "insufficient_claim_support",
+    },
+  });
+  expect(
+    adaptiveConflictSectionsAuthorized(plan, [
+      {
+        heading: "Source conflict",
+        kind: "source_conflict",
+        body: "A model-invented disagreement cannot establish authority.",
+        citation_chunk_ids: ["a", "b"],
+      },
+    ]),
+  ).toBe(false);
+});
