@@ -1,3 +1,4 @@
+import { isBoundMonitoringFrequencyQuestion, requestedMonitoringCadence } from "@/lib/evidence-relevance";
 import type { RagQueryClass, SearchResult } from "@/lib/types";
 import {
   classifyRagQuery,
@@ -113,6 +114,17 @@ export function evaluateEvidenceCoverageGate(
     return {
       accepted: hasStructuredThreshold && strongestScore >= 0.58,
       reason: hasStructuredThreshold ? "structured_threshold_evidence_gate" : "missing_structured_threshold_evidence",
+      strategy: "text_fast_path",
+      sourceImageRequired,
+      sourceImageSatisfied,
+    };
+  }
+
+  if (queryClass === "medication_dose_risk" && isBoundMonitoringFrequencyQuestion(query)) {
+    const accepted = top.some((result) => requestedMonitoringCadence(query, result.content));
+    return {
+      accepted,
+      reason: accepted ? "bound_monitoring_frequency_evidence" : "missing_bound_monitoring_frequency_evidence",
       strategy: "text_fast_path",
       sourceImageRequired,
       sourceImageSatisfied,

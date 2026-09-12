@@ -148,6 +148,19 @@ function card(id: string, documentId: string, chunkId: string, ownerId: string |
 }
 
 describe("retrieval hydration tenancy", () => {
+  it("keeps governed public scope incapable of hydrating owner-private rows", async () => {
+    const { governedPublicRetrievalAccessScope } = await import("../src/lib/owner-scope");
+    expect(
+      (
+        await loadChunksForSignalMatches({
+          supabase: client(),
+          matches,
+          accessScope: governedPublicRetrievalAccessScope(),
+        })
+      ).map((row) => row.id),
+    ).toEqual(["public-chunk"]);
+  });
+
   const cards = [
     card("public-card", "public-doc", "public-chunk", null),
     card("owner-card", "owner-doc", "owner-chunk", "owner-a"),

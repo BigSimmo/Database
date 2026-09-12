@@ -255,6 +255,7 @@ function detailsFor(form: OfficialForm): FormCatalogDetails {
     localPdfSha256: pdfAsset?.sha256,
     localPdfBytes: pdfAsset?.bytes,
     officialPdfPasswordProtected: pdfAsset?.passwordProtected,
+    officialPdfEditingRestricted: pdfAsset?.editingRestricted,
     officialTitleCheckedAt: officialFormsReviewedDate,
     archiveGeneratedAt: archiveGeneratedAt || undefined,
   };

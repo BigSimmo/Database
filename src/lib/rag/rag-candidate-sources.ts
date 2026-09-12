@@ -12,6 +12,7 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  governedPublicRetrievalAccessScope,
   PUBLIC_OWNER_FILTER_SENTINEL,
   retrievalAccessScopeForArgs,
   retrievalAccessScopeKey,
@@ -40,12 +41,27 @@ import {
   relaxVariantToOrQuery,
   shouldRelaxWeakTextMatches,
 } from "@/lib/rag/rag-retrieval-variants";
-import type { SearchTelemetry } from "@/lib/rag/rag-contracts";
+import type {
+  GovernedCorpusComponents,
+  GovernedCorpusRetrievalPhase,
+  RetrievalCorpusScopePolicy,
+  SearchTelemetry,
+} from "@/lib/rag/rag-contracts";
+import type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
+import { uncoveredRagSubquestions } from "@/lib/rag/rag-coverage";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
+import { issueContextPackAdmissionReceipt } from "@/lib/rag/rag-context-admission";
 import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
 import { normalizeOptionalSourceMetadata, normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
-import type { DocumentIndexUnitMatch, DocumentMemoryCard, SearchResult } from "@/lib/types";
+import type {
+  DocumentIndexUnitMatch,
+  DocumentMemoryCard,
+  RagQueryPlan,
+  SearchResult,
+  SiteContentDomain,
+  SourceCorpusScope,
+} from "@/lib/types";
 
 // P0.1: a hybrid RPC returning an error (vs zero rows) means the whole layer silently degraded.
 // Previously every call site did `if (error || !data?.length) return []` and dropped the error on
@@ -59,6 +75,453 @@ type AbortableRpc<T> = RpcResult<T> & {
 type SupabaseRpcClient = {
   rpc: (name: string, rpcArgs: Record<string, unknown>) => AbortableRpc<unknown[]> | PromiseLike<unknown>;
 };
+
+const governedCorpusScopes = new Set<SourceCorpusScope>([
+  "uploaded_local",
+  "clinical_kb_site",
+  "australian_public",
+  "international_supplementary",
+]);
+
+type GovernedCandidateRpcRow = SearchResult & {
+  corpus_scope: SourceCorpusScope;
+  site_content_domain: SiteContentDomain | null;
+  site_release_id?: string | null;
+  site_change_epoch?: string | number | null;
+  pending_exclusion_exact?: boolean | null;
+};
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw abortReason(signal);
+}
+
+/** Resolve bounded candidate phases without introducing an owner partition. */
+export function retrievalCorpusScopes(policy: RetrievalCorpusScopePolicy): GovernedCorpusRetrievalPhase[] {
+  const primary: SourceCorpusScope[] = ["uploaded_local"];
+  if (policy.siteContentEnabled && ["current", "updating"].includes(policy.siteContentState)) {
+    primary.push("clinical_kb_site");
+  }
+  if (policy.australianAugmentationEnabled && policy.australianCurrent) primary.push("australian_public");
+  const phases: GovernedCorpusRetrievalPhase[] = [
+    { corpusScopes: primary, accessScope: governedPublicRetrievalAccessScope(), phase: "primary" },
+  ];
+  if (policy.australianAugmentationEnabled && policy.australianCurrent) {
+    phases.push({
+      corpusScopes: ["international_supplementary"],
+      accessScope: governedPublicRetrievalAccessScope(),
+      phase: "supplementary",
+    });
+  }
+  return phases;
+}
+
+/** Candidate v3 calls never downgrade to v2/legacy when the RPC is absent. */
+export async function callGovernedRetrievalRpc<T extends unknown[] = unknown[]>(
+  supabase: ReturnType<typeof createAdminClient>,
+  name: "match_document_chunks_text_v3" | "match_document_chunks_hybrid_v3" | "match_document_chunks_v3",
+  args: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<{ data: T | null; error: SupabaseRpcError }> {
+  throwIfAborted(signal);
+  const client = supabase as unknown as SupabaseRpcClient;
+  // Keep the finite v3 surface explicit so tenancy scans can inspect every RPC.
+  // These calls must never enter the versioned dispatcher's legacy fallback.
+  const pending = (
+    name === "match_document_chunks_text_v3"
+      ? client.rpc("match_document_chunks_text_v3", args)
+      : name === "match_document_chunks_hybrid_v3"
+        ? client.rpc("match_document_chunks_hybrid_v3", args)
+        : client.rpc("match_document_chunks_v3", args)
+  ) as AbortableRpc<T>;
+  const result = await (signal && typeof pending.abortSignal === "function" ? pending.abortSignal(signal) : pending);
+  throwIfAborted(signal);
+  if (isMissingRetrievalRpcError(result.error)) return { data: [] as unknown as T, error: null };
+  return result;
+}
+
+function siteSnapshotEligible(snapshot: RagContextSnapshot, enabled: boolean) {
+  const site = snapshot.publicSiteContent;
+  return (
+    enabled &&
+    (site.state === "current" || site.state === "updating") &&
+    Boolean(site.releaseId && site.changeEpoch && site.releaseDigest && site.staticManifestDigest)
+  );
+}
+
+function publicGovernedSourceMetadata(input: unknown) {
+  const normalized = { ...normalizeSourceMetadata(input), uploaded_by: null };
+  if (!input || typeof input !== "object" || Array.isArray(input)) return normalized;
+  const lineage = (input as Record<string, unknown>).site_content_lineage;
+  if (!Array.isArray(lineage) || lineage.length > 32) return normalized;
+  const safeLineage = lineage.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const value = entry as Record<string, unknown>;
+    if (
+      typeof value.sourceId !== "string" ||
+      value.sourceId.length < 1 ||
+      value.sourceId.length > 512 ||
+      typeof value.sourceHash !== "string" ||
+      !/^[0-9a-f]{64}$/.test(value.sourceHash) ||
+      (value.relationship !== "derived_from" && value.relationship !== "references")
+    ) {
+      return [];
+    }
+    return [{ sourceId: value.sourceId, sourceHash: value.sourceHash, relationship: value.relationship }];
+  });
+  return safeLineage.length === lineage.length ? { ...normalized, site_content_lineage: safeLineage } : normalized;
+}
+
+function sanitizeGovernedCandidateRows(args: {
+  rows: unknown[];
+  requestedScopes: SourceCorpusScope[];
+  targetSiteDomains: SiteContentDomain[];
+  snapshot: RagContextSnapshot;
+}): SearchResult[] {
+  try {
+    assertRetrievalRows(args.rows, "governed_candidate_v3");
+  } catch (error) {
+    if (error instanceof RetrievalRowShapeError) return [];
+    throw error;
+  }
+  const requestedScopes = new Set(args.requestedScopes);
+  const requestedDomains = new Set(args.targetSiteDomains);
+  const expectedReleaseId = args.snapshot.publicSiteContent.releaseId;
+  const expectedChangeEpoch = args.snapshot.publicSiteContent.changeEpoch;
+  return (args.rows as GovernedCandidateRpcRow[]).flatMap((row) => {
+    if (!governedCorpusScopes.has(row.corpus_scope) || !requestedScopes.has(row.corpus_scope)) return [];
+    if (row.source_metadata?.corpus_scope !== row.corpus_scope) return [];
+    if (row.corpus_scope === "clinical_kb_site") {
+      if (
+        row.source_metadata?.source_kind !== "registry_record" ||
+        !expectedReleaseId ||
+        !expectedChangeEpoch ||
+        row.site_release_id !== expectedReleaseId ||
+        String(row.site_change_epoch) !== expectedChangeEpoch ||
+        row.pending_exclusion_exact !== true ||
+        !row.site_content_domain ||
+        (requestedDomains.size > 0 && !requestedDomains.has(row.site_content_domain))
+      ) {
+        return [];
+      }
+    } else if (row.source_metadata?.source_kind !== "document" || row.site_content_domain !== null) {
+      return [];
+    }
+    const { site_release_id, site_change_epoch, pending_exclusion_exact, context_pack_admission, ...publicRow } = row;
+    void site_release_id;
+    void site_change_epoch;
+    void pending_exclusion_exact;
+    void context_pack_admission;
+    const sanitized = { ...publicRow, source_metadata: publicGovernedSourceMetadata(publicRow.source_metadata) };
+    return [
+      row.corpus_scope === "clinical_kb_site"
+        ? {
+            ...sanitized,
+            context_pack_admission: issueContextPackAdmissionReceipt({
+              ownerId: null,
+              sourcePolicyVersion: args.snapshot.sourcePolicyVersion,
+              indexGeneration: null,
+              document: null,
+              siteContent: {
+                releaseId: expectedReleaseId!,
+                releaseDigest: args.snapshot.publicSiteContent.releaseDigest!,
+                changeEpoch: expectedChangeEpoch!,
+              },
+            }),
+          }
+        : sanitized,
+    ];
+  });
+}
+
+type AdmissionHydrationRow = {
+  id?: unknown;
+  document_id?: unknown;
+  index_generation_id?: unknown;
+  documents?:
+    | {
+        owner_id?: unknown;
+        status?: unknown;
+        index_generation_id?: unknown;
+        metadata?: unknown;
+      }
+    | Array<{
+        owner_id?: unknown;
+        status?: unknown;
+        index_generation_id?: unknown;
+        metadata?: unknown;
+      }>;
+};
+
+async function attachDocumentContextPackAdmission(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  results: SearchResult[];
+  snapshot: RagContextSnapshot;
+}) {
+  const documentResults = args.results.filter((result) => result.corpus_scope === "australian_public");
+  if (!documentResults.length) return args.results;
+  const client = args.supabase as unknown as {
+    from?: (table: string) => {
+      select: (columns: string) => {
+        in: (column: string, values: string[]) => PromiseLike<{ data: unknown[] | null; error: unknown }>;
+      };
+    };
+  };
+  if (typeof client.from !== "function") return args.results;
+  try {
+    const { data, error } = await client
+      .from("document_chunks")
+      .select("id,document_id,index_generation_id,documents!inner(owner_id,status,index_generation_id,metadata)")
+      .in("id", [...new Set(documentResults.map((result) => result.id))]);
+    if (error || !Array.isArray(data)) return args.results;
+    const receiptByChunkId = new Map<string, ReturnType<typeof issueContextPackAdmissionReceipt>>();
+    const resultByChunkId = new Map(documentResults.map((result) => [result.id, result] as const));
+    for (const raw of data as AdmissionHydrationRow[]) {
+      if (
+        typeof raw.id !== "string" ||
+        typeof raw.document_id !== "string" ||
+        raw.index_generation_id !== args.snapshot.documentIndexGeneration ||
+        resultByChunkId.get(raw.id)?.document_id !== raw.document_id
+      )
+        continue;
+      const document = Array.isArray(raw.documents) ? raw.documents[0] : raw.documents;
+      if (!document || document.status !== "indexed" || document.index_generation_id !== raw.index_generation_id)
+        continue;
+      const metadata =
+        document.metadata && typeof document.metadata === "object" && !Array.isArray(document.metadata)
+          ? (document.metadata as Record<string, unknown>)
+          : null;
+      if (
+        !metadata ||
+        metadata.corpus_scope !== "australian_public" ||
+        metadata.publication_manifest_version !== 2 ||
+        metadata.source_policy_version !== args.snapshot.sourcePolicyVersion ||
+        metadata.publication_source_policy_version !== args.snapshot.sourcePolicyVersion ||
+        metadata.publication_reviewed_index_generation_id !== raw.index_generation_id
+      )
+        continue;
+      const ownerId =
+        typeof document.owner_id === "string" && document.owner_id.trim() ? document.owner_id.trim() : null;
+      receiptByChunkId.set(
+        raw.id,
+        issueContextPackAdmissionReceipt({
+          ownerId,
+          sourcePolicyVersion: args.snapshot.sourcePolicyVersion,
+          indexGeneration: raw.index_generation_id,
+          document: {
+            corpusScope: "australian_public",
+            documentId: raw.document_id,
+            chunkId: raw.id,
+          },
+          siteContent: null,
+        }),
+      );
+    }
+    return args.results.map((result) => {
+      if (result.corpus_scope !== "australian_public") return result;
+      const receipt = receiptByChunkId.get(result.id);
+      return receipt ? { ...result, context_pack_admission: receipt } : result;
+    });
+  } catch {
+    return args.results;
+  }
+}
+
+/** Execute bounded candidate-only corpus retrieval under one shared public scope. */
+export async function searchGovernedCorpora(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  queryVariants: string[];
+  queryPlan?: RagQueryPlan;
+  retrievalMode?: "text" | "hybrid" | "vector";
+  embedQuery?: (query: string, signal?: AbortSignal) => Promise<number[]>;
+  documentFilters?: string[];
+  matchCount: number;
+  minSimilarity?: number;
+  snapshot: RagContextSnapshot;
+  components: GovernedCorpusComponents;
+  targetSiteDomains: SiteContentDomain[];
+  answerSourcePolicy?: "only_this_source" | "primary_plus_approved_supplements";
+  /** @deprecated Supplementary retrieval derives from eligible uncovered subquestions. */
+  internationalCoverageGap?: boolean;
+  signal?: AbortSignal;
+  maxRpcCalls?: number;
+  onRpcCall?: () => void;
+}): Promise<SearchResult[]> {
+  throwIfAborted(args.signal);
+  const targetSiteDomains = args.queryPlan?.siteDomainDecision === "inferred" ? [] : args.targetSiteDomains;
+  const restricted = args.answerSourcePolicy === "only_this_source" || Boolean(args.documentFilters?.length);
+  if (args.answerSourcePolicy === "only_this_source" && !args.documentFilters?.length) return [];
+  const siteEligible = siteSnapshotEligible(args.snapshot, args.components.siteContent);
+  const phases = retrievalCorpusScopes({
+    siteContentEnabled: siteEligible,
+    siteContentState: args.snapshot.publicSiteContent.state,
+    australianAugmentationEnabled: args.components.australianAugmentation,
+    australianCurrent: args.components.australianCurrent,
+  });
+  const originalQuery = args.queryVariants[0];
+  if (!originalQuery) return [];
+  const retrievalMode = args.retrievalMode ?? "text";
+  let remainingRpcCalls = Math.max(1, Math.min(args.maxRpcCalls ?? maxTextRpcQueryVariants, maxTextRpcQueryVariants));
+  let results: SearchResult[] = [];
+  const rpcLanes: SearchResult[][] = [];
+  const sharedArgs = (corpusScopes: SourceCorpusScope[]) => ({
+    match_count: Math.max(1, Math.min(args.matchCount, 96)),
+    owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+    include_public: true,
+    corpus_scopes: corpusScopes,
+    expected_site_release_id: siteEligible ? args.snapshot.publicSiteContent.releaseId : null,
+    expected_site_release_digest: siteEligible ? args.snapshot.publicSiteContent.releaseDigest : null,
+    expected_site_change_epoch: siteEligible ? args.snapshot.publicSiteContent.changeEpoch : null,
+    site_content_domains: siteEligible && targetSiteDomains.length > 0 ? targetSiteDomains : null,
+  });
+  const consumeRpc = async (
+    name: "match_document_chunks_text_v3" | "match_document_chunks_hybrid_v3" | "match_document_chunks_v3",
+    rpcArgs: Record<string, unknown>,
+    phase: GovernedCorpusRetrievalPhase,
+  ) => {
+    if (remainingRpcCalls <= 0) return { error: null as SupabaseRpcError, rows: [] as SearchResult[] };
+    remainingRpcCalls -= 1;
+    args.onRpcCall?.();
+    const { data, error } = await callGovernedRetrievalRpc<GovernedCandidateRpcRow[]>(
+      args.supabase,
+      name,
+      rpcArgs,
+      args.signal,
+    );
+    const rows = data?.length
+      ? sanitizeGovernedCandidateRows({
+          rows: args.documentFilters?.length
+            ? data.filter((row) => args.documentFilters!.includes(row.document_id))
+            : data,
+          requestedScopes: phase.corpusScopes,
+          targetSiteDomains,
+          snapshot: args.snapshot,
+        })
+      : [];
+    if (rows.length > 0) rpcLanes.push(rows);
+    results = mergeSearchResults(results, rows);
+    return { error, rows };
+  };
+  const runQuery = async (phase: GovernedCorpusRetrievalPhase, queryText: string) => {
+    throwIfAborted(args.signal);
+    if (retrievalMode === "text") {
+      return consumeRpc(
+        "match_document_chunks_text_v3",
+        { ...sharedArgs(phase.corpusScopes), query_text: queryText, document_filters: args.documentFilters ?? null },
+        phase,
+      );
+    }
+    let queryEmbedding: number[];
+    try {
+      if (!args.embedQuery) return { error: null as SupabaseRpcError, rows: [] as SearchResult[] };
+      queryEmbedding = await args.embedQuery(queryText, args.signal);
+      throwIfAborted(args.signal);
+    } catch (error) {
+      throwIfAborted(args.signal);
+      return { error: { message: error instanceof Error ? error.message : String(error) }, rows: [] as SearchResult[] };
+    }
+    if (retrievalMode === "vector") {
+      const filters = args.documentFilters?.length ? args.documentFilters : [undefined];
+      for (const documentFilter of filters) {
+        if (remainingRpcCalls <= 0) break;
+        await consumeRpc(
+          "match_document_chunks_v3",
+          {
+            ...sharedArgs(phase.corpusScopes),
+            query_embedding: queryEmbedding as unknown as string,
+            min_similarity: args.minSimilarity ?? 0.15,
+            document_filter: documentFilter,
+          },
+          phase,
+        );
+      }
+      return { error: null as SupabaseRpcError, rows: results };
+    }
+    const hybrid = await consumeRpc(
+      "match_document_chunks_hybrid_v3",
+      {
+        ...sharedArgs(phase.corpusScopes),
+        query_embedding: queryEmbedding as unknown as string,
+        query_text: queryText,
+        min_similarity: args.minSimilarity ?? 0.15,
+        document_filters: args.documentFilters ?? null,
+      },
+      phase,
+    );
+    if (hybrid.error && remainingRpcCalls > 0) {
+      const filters = args.documentFilters?.length ? args.documentFilters : [undefined];
+      for (const documentFilter of filters) {
+        if (remainingRpcCalls <= 0) break;
+        await consumeRpc(
+          "match_document_chunks_v3",
+          {
+            ...sharedArgs(phase.corpusScopes),
+            query_embedding: queryEmbedding as unknown as string,
+            min_similarity: args.minSimilarity ?? 0.15,
+            document_filter: documentFilter,
+          },
+          phase,
+        );
+      }
+    }
+    return hybrid;
+  };
+
+  const primary = phases.find(({ phase }) => phase === "primary");
+  const supplementary = restricted ? undefined : phases.find(({ phase }) => phase === "supplementary");
+  if (primary) {
+    await runQuery(primary, originalQuery);
+    const primarySubquestionId = args.queryPlan?.subquestions[0]?.id;
+    const attemptedSubquestionIds = new Set(primarySubquestionId ? [primarySubquestionId] : []);
+    const attemptedQueries = new Set([buildClinicalTextSearchQuery(originalQuery)]);
+    while (args.queryPlan) {
+      const subquestion = uncoveredRagSubquestions(args.queryPlan, results).find(
+        ({ id, question }) =>
+          !attemptedSubquestionIds.has(id) && !attemptedQueries.has(buildClinicalTextSearchQuery(question)),
+      );
+      if (!subquestion) break;
+      const reserveSupplementary = supplementary ? 1 : 0;
+      if (remainingRpcCalls <= reserveSupplementary) break;
+      attemptedSubquestionIds.add(subquestion.id);
+      const queryText = buildClinicalTextSearchQuery(subquestion.question);
+      attemptedQueries.add(queryText);
+      await runQuery(primary, queryText);
+    }
+  }
+  if (supplementary && remainingRpcCalls > 0) {
+    const uncovered = args.queryPlan ? uncoveredRagSubquestions(args.queryPlan, results) : [];
+    const subquestion = uncovered[0];
+    if (subquestion) await runQuery(supplementary, buildClinicalTextSearchQuery(subquestion.question));
+  }
+  return attachDocumentContextPackAdmission({
+    supabase: args.supabase,
+    results: boundedRpcLaneResults(rpcLanes, results, Math.max(1, Math.min(args.matchCount, 96))),
+    snapshot: args.snapshot,
+  });
+}
+
+function boundedRpcLaneResults(lanes: readonly SearchResult[][], pool: SearchResult[], limit: number) {
+  const betterById = new Map(pool.map((result) => [result.id, result]));
+  const selected: SearchResult[] = [];
+  const selectedIds = new Set<string>();
+  const add = (result: SearchResult | undefined) => {
+    const better = result ? betterById.get(result.id) : undefined;
+    if (!better || selectedIds.has(better.id) || selected.length >= limit) return;
+    selectedIds.add(better.id);
+    selected.push(better);
+  };
+  for (const lane of lanes) {
+    add(lane.find((result) => !selectedIds.has(result.id)));
+  }
+  const maxDepth = Math.max(0, ...lanes.map((lane) => lane.length));
+  for (let depth = 0; depth < maxDepth && selected.length < limit; depth += 1) {
+    for (const lane of lanes) add(lane[depth]);
+  }
+  return selected;
+}
 
 function legacyRankFields(versionedName: string) {
   if (versionedName === "match_document_chunks_v2") return ["similarity"];

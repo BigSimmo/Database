@@ -6,9 +6,22 @@ import {
   followUpTemplateKindsByMenuKey,
 } from "@/lib/answer-follow-up";
 import { buildRelatedInformationMenu } from "@/lib/rag/answer-composition";
+import { ragEvalCases } from "@/lib/rag/rag-eval-cases";
 import type { AnswerSection, ClinicalQueryIntent, RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
 describe("buildAnswerFollowUpQuery", () => {
+  it("P08C retains subject and constraints through elaboration and long anaphora without nested wrappers", () => {
+    const first = buildAnswerFollowUpQuery("lithium dosing", "what about renal impairment?");
+    const second = buildAnswerFollowUpQuery(
+      first,
+      "Please elaborate with an explanation and an example of how this changes the approach to monitoring over time.",
+    );
+    expect(second).toContain("lithium dosing");
+    expect(second).toContain("renal impairment");
+    expect(second).toContain("Please elaborate");
+    expect((second.match(/Follow-up to/g) ?? []).length).toBeLessThanOrEqual(1);
+  });
+
   it("returns the follow-up unchanged when there is no prior question", () => {
     expect(buildAnswerFollowUpQuery(undefined, "what about renal impairment?")).toBe("what about renal impairment?");
     expect(buildAnswerFollowUpQuery("", "what about renal impairment?")).toBe("what about renal impairment?");
@@ -24,6 +37,16 @@ describe("buildAnswerFollowUpQuery", () => {
     expect(buildAnswerFollowUpQuery("clozapine monitoring", "is it safe in pregnancy?")).toBe(
       'Follow-up to "clozapine monitoring": is it safe in pregnancy?',
     );
+  });
+
+  it("pins the programme follow-up case to one bounded prior question", () => {
+    const programmeCase = ragEvalCases.find((testCase) => testCase.id === "anaphoric-follow-up");
+
+    expect(buildAnswerFollowUpQuery("lithium dosing", "what about renal impairment?")).toBe(programmeCase?.question);
+    expect(programmeCase?.programmeExpectation?.requiredFacts).toEqual(
+      expect.arrayContaining(["one_prior_question_retained", "continuation_cue_required"]),
+    );
+    expect(programmeCase?.programmeExpectation?.forbiddenPatterns).toContain("unbounded_history_payload");
   });
 
   it("does not wrap a follow-up that restates the prior topic", () => {
@@ -42,11 +65,9 @@ describe("buildAnswerFollowUpQuery", () => {
     expect(buildAnswerFollowUpQuery("lithium dosing", "clozapine baseline bloods")).toBe("clozapine baseline bloods");
   });
 
-  it("keeps the wrapped query within the 2000-char API limit", () => {
-    const longPrior = "a".repeat(2100);
-    const result = buildAnswerFollowUpQuery(longPrior, "what about them?");
-    expect(result.length).toBeLessThanOrEqual(2000);
-    expect(result).toContain("what about them?");
+  it("T8-R2 rejects oversized prior context instead of truncating it to fit the API", () => {
+    const longPrior = "a".repeat(2100) + " material tail restriction";
+    expect(() => buildAnswerFollowUpQuery(longPrior, "what about them?")).toThrow(RangeError);
   });
 
   it("trims whitespace before deciding", () => {
@@ -233,7 +254,7 @@ describe("buildAnswerFollowUpSuggestions · composition menu", () => {
     }
   });
 
-  it("falls back to the query shape when a cached payload carries no query analysis", () => {
+  it("derives an evidence-backed subject when the client payload carries no query analysis", () => {
     const suggestions = buildAnswerFollowUpSuggestions(
       "lithium dosing",
       {
@@ -246,7 +267,7 @@ describe("buildAnswerFollowUpSuggestions · composition menu", () => {
       ["lithium dosing"],
     );
 
-    expect(suggestions).toContain("What monitoring is required for lithium dosing?");
+    expect(suggestions).toContain("What monitoring is required for lithium?");
   });
 });
 
@@ -339,6 +360,34 @@ describe("buildAnswerFollowUpSuggestions · evidence gate", () => {
 
     expect(suggestions).toEqual([]);
   });
+
+  it("does not treat renal as supported by the unrelated word adrenaline", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "renal dosing",
+      answerFor({
+        query: "renal dosing",
+        sources: [evidenceSource("Adrenaline administration requires monitoring and documentation.")],
+        analysisOverrides: { canonicalTerms: [], medications: [] },
+      }),
+      ["renal dosing"],
+    );
+
+    expect(suggestions).toEqual([]);
+  });
+
+  it("keeps token-bounded multiword subjects and configured inflected evidence", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "renal impairment dosing",
+      answerFor({
+        query: "renal impairment dosing",
+        sources: [evidenceSource("Renal impairment requires ongoing monitoring of serum levels.")],
+        analysisOverrides: { canonicalTerms: [], medications: [] },
+      }),
+      ["renal impairment dosing"],
+    );
+
+    expect(suggestions).toContain("What monitoring is required for renal impairment?");
+  });
 });
 
 describe("buildAnswerFollowUpSuggestions · already-answered suppression", () => {
@@ -386,6 +435,20 @@ describe("buildAnswerFollowUpSuggestions · already-answered suppression", () =>
 });
 
 describe("buildAnswerFollowUpSuggestions · thread and shape rules", () => {
+  it.each([
+    ["ART dosing", "Arterial monitoring is required.", false],
+    ["renal dosing", "Adrenaline monitoring is required.", false],
+    ["sodium valproate dosing", "Sodium monitoring and valproate are discussed separately.", false],
+    ["sodium valproate dosing", "Sodium monitoring is required.", false],
+    ["sodium valproate dosing", "SODIUM-VALPROATE monitoring is required.", true],
+    ["ART dosing", "ART: monitoring is required.", true],
+  ])("R3 bounds whole subject support for %s / %s", (query, content, supported) => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      query,
+      answerFor({ query, sources: [{ ...evidenceSource(content), title: "Guidance", section_heading: null }] }),
+    );
+    expect(suggestions.some((item) => /monitoring is required/i.test(item))).toBe(supported);
+  });
   it("never turns a reported gap's prose into a question", () => {
     const suggestions = buildAnswerFollowUpSuggestions(
       "lithium dosing",

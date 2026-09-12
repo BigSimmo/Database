@@ -1,0 +1,110 @@
+PASS  fonts light 1920x1080  JetBrains Mono, Source Sans 3, Source Serif 4
+PASS  weights light 1920x1080  all loaded
+PASS  errors light 1920x1080
+PASS  reconcile light 1920x1080  0
+PASS  overflow light 1920x1080  0px
+PASS  typefloor light 1920x1080  min 10.5px html, 10.5px svg
+PASS  contrast light 1920x1080  0 low of 433
+PASS  errors light 1440x900
+PASS  reconcile light 1440x900  0
+PASS  overflow light 1440x900  0px
+PASS  typefloor light 1440x900  min 10.5px html, 10.5px svg
+PASS  contrast light 1440x900  0 low of 399
+PASS  diagram light 1440x900  357px tall, sideways overflow 432px
+PASS  errors light 1280x800
+PASS  reconcile light 1280x800  0
+PASS  overflow light 1280x800  0px
+PASS  typefloor light 1280x800  min 10.5px html, 10.5px svg
+PASS  contrast light 1280x800  0 low of 333
+PASS  errors light 1200x900
+PASS  reconcile light 1200x900  0
+PASS  overflow light 1200x900  0px
+PASS  typefloor light 1200x900  min 10.5px html, 10.5px svg
+PASS  contrast light 1200x900  0 low of 356
+PASS  errors light 390x844
+PASS  reconcile light 390x844  0
+PASS  overflow light 390x844  0px
+PASS  fonts dark 1920x1080  JetBrains Mono, Source Sans 3, Source Serif 4
+PASS  weights dark 1920x1080  all loaded
+PASS  errors dark 1920x1080
+PASS  reconcile dark 1920x1080  0
+PASS  overflow dark 1920x1080  0px
+PASS  typefloor dark 1920x1080  min 10.5px html, 10.5px svg
+PASS  contrast dark 1920x1080  0 low of 433
+PASS  errors dark 1440x900
+PASS  reconcile dark 1440x900  0
+PASS  overflow dark 1440x900  0px
+PASS  typefloor dark 1440x900  min 10.5px html, 10.5px svg
+PASS  contrast dark 1440x900  0 low of 399
+PASS  diagram dark 1440x900  357px tall, sideways overflow 432px
+PASS  errors dark 1280x800
+PASS  reconcile dark 1280x800  0
+PASS  overflow dark 1280x800  0px
+PASS  typefloor dark 1280x800  min 10.5px html, 10.5px svg
+PASS  contrast dark 1280x800  0 low of 333
+PASS  errors dark 1200x900
+PASS  reconcile dark 1200x900  0
+PASS  overflow dark 1200x900  0px
+PASS  typefloor dark 1200x900  min 10.5px html, 10.5px svg
+PASS  contrast dark 1200x900  0 low of 356
+PASS  errors dark 390x844
+PASS  reconcile dark 390x844  0
+PASS  overflow dark 390x844  0px
+PASS  appearance first click  rgb(15, 18, 22) -> rgb(230, 234, 239) data-theme=light
+PASS  keyboard focus ring  toolItem
+fonts stubbed from /home/user/Database/docs/ward-flow/mockups/third-edition-kit/fonts
+ALL GREEN
+PASS  fonts light 1920x1080  JetBrains Mono, Source Sans 3, Source Serif 4
+PASS  weights light 1920x1080  all loaded
+PASS  errors light 1920x1080
+PASS  reconcile light 1920x1080  not a Command page (absent)
+PASS  overflow light 1920x1080  0px
+PASS  typefloor light 1920x1080  min 10.5px html, 10.5px svg
+PASS  contrast light 1920x1080  0 low of 68
+PASS  errors light 1440x900
+PASS  reconcile light 1440x900  not a Command page (absent)
+PASS  overflow light 1440x900  0px
+PASS  typefloor light 1440x900  min 10.5px html, 10.5px svg
+PASS  contrast light 1440x900  0 low of 64
+PASS  errors light 1280x800
+PASS  reconcile light 1280x800  not a Command page (absent)
+PASS  overflow light 1280x800  0px
+PASS  typefloor light 1280x800  min 10.5px html, 10.5px svg
+PASS  contrast light 1280x800  0 low of 53
+PASS  errors light 1200x900
+PASS  reconcile light 1200x900  not a Command page (absent)
+PASS  overflow light 1200x900  0px
+PASS  typefloor light 1200x900  min 10.5px html, 10.5px svg
+PASS  contrast light 1200x900  0 low of 63
+PASS  errors light 390x844
+PASS  reconcile light 390x844  not a Command page (absent)
+PASS  overflow light 390x844  0px
+PASS  fonts dark 1920x1080  JetBrains Mono, Source Sans 3, Source Serif 4
+PASS  weights dark 1920x1080  all loaded
+PASS  errors dark 1920x1080
+PASS  reconcile dark 1920x1080  not a Command page (absent)
+PASS  overflow dark 1920x1080  0px
+PASS  typefloor dark 1920x1080  min 10.5px html, 10.5px svg
+PASS  contrast dark 1920x1080  0 low of 68
+PASS  errors dark 1440x900
+PASS  reconcile dark 1440x900  not a Command page (absent)
+PASS  overflow dark 1440x900  0px
+PASS  typefloor dark 1440x900  min 10.5px html, 10.5px svg
+PASS  contrast dark 1440x900  0 low of 64
+PASS  errors dark 1280x800
+PASS  reconcile dark 1280x800  not a Command page (absent)
+PASS  overflow dark 1280x800  0px
+PASS  typefloor dark 1280x800  min 10.5px html, 10.5px svg
+PASS  contrast dark 1280x800  0 low of 52
+PASS  errors dark 1200x900
+PASS  reconcile dark 1200x900  not a Command page (absent)
+PASS  overflow dark 1200x900  0px
+PASS  typefloor dark 1200x900  min 10.5px html, 10.5px svg
+PASS  contrast dark 1200x900  0 low of 62
+PASS  errors dark 390x844
+PASS  reconcile dark 390x844  not a Command page (absent)
+PASS  overflow dark 390x844  0px
+PASS  appearance first click  rgb(15, 18, 22) -> rgb(230, 234, 239) data-theme=light
+PASS  keyboard focus ring  g-code
+fonts stubbed from /home/user/Database/docs/ward-flow/mockups/third-edition-kit/fonts
+ALL GREEN

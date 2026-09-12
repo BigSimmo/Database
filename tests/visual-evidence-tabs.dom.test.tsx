@@ -60,6 +60,12 @@ function evidenceSheetProps() {
 }
 
 describe("MobileEvidenceSheetContent tabs (jsdom)", () => {
+  it("renders the bounded retrieval-gate warning without raw diagnostics", () => {
+    render(<MobileEvidenceSheetContent {...evidenceSheetProps()} answer={{ ...answer, retrievalGateBlocked: true }} />);
+
+    expect(screen.getByText(/retrieval confidence gate was triggered/i)).toBeVisible();
+  });
+
   it("explains the review purpose and identifies claim support without decorative placeholders", () => {
     render(<MobileEvidenceSheetContent {...evidenceSheetProps()} />);
 

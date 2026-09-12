@@ -20,6 +20,8 @@ import {
   splitClinicalEvidenceSentences,
 } from "../src/lib/rag/rag-extractive-answer";
 import { classifyRagQuery } from "../src/lib/clinical-search";
+import { buildSelectedEvidenceArtifacts, retainRelatedDocumentsForResults } from "../src/lib/retrieval-selection";
+import { buildSmartRagApiPlan } from "../src/lib/smart-rag-api";
 import type { RagAnswer, RagQueryClass, SearchResult } from "../src/lib/types";
 
 function extractiveAnswerFor(query: string, results: SearchResult[], queryClass?: RagQueryClass) {
@@ -60,6 +62,51 @@ function figureChunk(overrides: Partial<SearchResult>): SearchResult {
 }
 
 describe("source-bound clozapine red-range extraction", () => {
+  it.each([
+    ["absent", "Withhold clozapine at this ANC threshold."],
+    [
+      "foreign medicine",
+      "An ANC below 1.0 x 10^9/L requires withholding lithium. Withhold clozapine at this ANC threshold.",
+    ],
+    [
+      "inapplicable population",
+      "In children, an ANC below 1.0 x 10^9/L requires withholding clozapine. Withhold clozapine at this ANC threshold.",
+    ],
+  ])("A2 E18 retains useful action without borrowing an %s threshold", (_label, content) => {
+    const evidence = figureChunk({
+      title: "Clozapine guideline",
+      file_name: "Clozapine.pdf",
+      section_heading: null,
+      content,
+    });
+    const result = extractiveAnswerFor("What ANC threshold requires withholding clozapine in adults?", [evidence]);
+    const visible = [result.answer, ...(result.answerSections ?? []).map((section) => section.body)].join(" ");
+    expect(visible).not.toMatch(/1\.0/);
+    expect(result.answer).toMatch(/withhold/i);
+    expect(result.citations.map((citation) => citation.chunk_id)).toContain(evidence.id);
+    expect(result.conflictsOrGaps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "gap", message: expect.stringMatching(/requested blood-count threshold/) }),
+      ]),
+    );
+  });
+  it("A2 E18 keeps a pure action answer without requiring a threshold figure", () => {
+    const result = extractiveAnswerFor("Should I withhold clozapine after a red ANC result?", [
+      figureChunk({
+        title: "Clozapine guideline",
+        file_name: "Clozapine.pdf",
+        section_heading: null,
+        content: "Withhold clozapine after a red ANC result.",
+      }),
+    ]);
+    expect(result.answer).toMatch(/withhold/i);
+    expect(result.grounded).toBe(true);
+    expect(result.conflictsOrGaps).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringMatching(/requested blood-count threshold/) }),
+      ]),
+    );
+  });
   const query = "What FBC threshold should withhold clozapine?";
   const redRangeSource = figureChunk({
     id: "nmhs-clozapine-red-range",
@@ -1390,22 +1437,189 @@ describe("escalation fallback intent", () => {
   });
 
   it("removes uncited smart-plan source links from extractive fallback artifacts", () => {
-    const kept = figureChunk({ id: "kept-plan-source", document_id: "kept-plan-document" });
-    const removed = figureChunk({ id: "removed-plan-source", document_id: "removed-plan-document" });
+    const query = "What ANC monitoring is required for clozapine?";
+    const queryClass = classifyRagQuery(query).queryClass;
+    const routeReason = "generation_fallback:provider_timeout; source_backed_extractive_fallback";
+    const kept = figureChunk({
+      id: "kept-plan-source",
+      document_id: "kept-plan-document",
+      title: "Clozapine monitoring guidance",
+      content: "Clozapine monitoring requires regular clinical review.",
+      similarity: 0.3,
+      hybrid_score: 0.3,
+    });
+    const removed = figureChunk({
+      id: "removed-plan-source",
+      document_id: "removed-plan-document",
+      title: "Clozapine ANC monitoring schedule",
+      content: "Clozapine ANC monitoring requires weekly FBC.",
+      similarity: 0.95,
+      hybrid_score: 0.95,
+    });
+    const smartApiPlan = buildSmartRagApiPlan({
+      query,
+      queryClass,
+      results: [kept, removed],
+      routeMode: "extractive",
+      routeReason,
+      retrievalStrategy: "hybrid",
+    });
+    const expectedPlan = buildSmartRagApiPlan({
+      query,
+      queryClass,
+      results: [kept],
+      routeMode: "extractive",
+      routeReason,
+      retrievalStrategy: "hybrid",
+    });
+    const broadArtifacts = buildSelectedEvidenceArtifacts(query, [kept, removed]);
+    const expectedArtifacts = buildSelectedEvidenceArtifacts(query, [kept]);
     const answer = retainCitedExtractiveFallbackEvidence({
       answer: "Keep the cited source.",
       grounded: true,
       confidence: "medium",
       citations: [citationFromResult(kept, "deterministic_support")],
       sources: [kept, removed],
-      smartApiPlan: {
-        sourceLinkCount: 2,
-        coreSourceLinks: [kept, removed].map((source) => ({ chunk_id: source.id })),
-      },
+      routingMode: "extractive",
+      routingReason: routeReason,
+      queryClass,
+      smartApiPlan,
+      quoteCards: broadArtifacts.quoteCards,
+      documentBreakdown: broadArtifacts.documentBreakdown,
+      evidenceSummary: broadArtifacts.evidenceSummary,
+      sourceCoverage: broadArtifacts.sourceCoverage,
+      conflictsOrGaps: broadArtifacts.conflictsOrGaps,
+      visualEvidence: broadArtifacts.visualEvidence,
+      bestSource: broadArtifacts.bestSource,
+      smartPanel: broadArtifacts.smartPanel,
+      relevance: broadArtifacts.relevance,
+      memoryCardsUsed: broadArtifacts.memoryCardsUsed,
+      indexingQuality: broadArtifacts.indexingQuality,
+      scoreExplanations: broadArtifacts.scoreExplanations,
+    } as RagAnswer);
+
+    expect(answer.sources.map((source) => source.id)).toEqual([kept.id]);
+    expect(answer.relevance).toEqual(expectedArtifacts.relevance);
+    expect(answer.scoreExplanations).toEqual(expectedArtifacts.scoreExplanations);
+    expect(answer.documentBreakdown).toEqual(expectedArtifacts.documentBreakdown);
+    expect(answer.evidenceSummary).toEqual(expectedArtifacts.evidenceSummary);
+    expect(answer.sourceCoverage).toEqual(expectedArtifacts.sourceCoverage);
+    expect(answer.bestSource).toBeNull();
+    expect(answer.memoryCardsUsed).toEqual(expectedArtifacts.memoryCardsUsed);
+    expect(answer.indexingQuality).toEqual(expectedArtifacts.indexingQuality);
+    expect(answer.smartPanel).toMatchObject({
+      total_sources: 1,
+      relevance: expectedArtifacts.relevance,
+      bestSource: null,
+    });
+    expect(answer.smartApiPlan).toEqual(expectedPlan);
+    const retainedPlan = answer.smartApiPlan!;
+    expect(retainedPlan.answerPlan.sourceSelection.selectedCount).toBe(1);
+    expect(retainedPlan.answerPlan.retrievalQuality).toBe(expectedPlan.answerPlan.retrievalQuality);
+    expect(retainedPlan.answerPlan.sourceSelection.matchedSignals).toEqual(
+      expectedPlan.answerPlan.sourceSelection.matchedSignals,
+    );
+    expect(retainedPlan.answerPlan.sourceSelection.missingRequiredSignals).toEqual(
+      expectedPlan.answerPlan.sourceSelection.missingRequiredSignals,
+    );
+  });
+
+  it("keeps top-level and smart-panel related documents aligned to cited fallback sources", () => {
+    const kept = figureChunk({ id: "kept-related-source", document_id: "kept-related-document" });
+    const removed = figureChunk({ id: "removed-related-source", document_id: "removed-related-document" });
+    const relatedDocuments = [kept, removed].map((source) => ({
+      document_id: source.document_id,
+      title: source.title,
+      file_name: source.file_name,
+      labels: [],
+      summary: null,
+      best_pages: [source.page_number ?? 1],
+      best_chunk_ids: [source.id],
+      image_count: 0,
+      match_reason: "Direct source match",
+      score: source.hybrid_score,
+    }));
+    const answer = retainCitedExtractiveFallbackEvidence({
+      answer: "Keep the cited source.",
+      grounded: true,
+      confidence: "medium",
+      citations: [citationFromResult(kept, "deterministic_support")],
+      sources: [kept, removed],
+      relatedDocuments,
+      smartPanel: { relatedDocuments },
     } as unknown as RagAnswer);
 
-    expect(answer.smartApiPlan?.coreSourceLinks.map((link) => link.chunk_id)).toEqual([kept.id]);
-    expect(answer.smartApiPlan?.sourceLinkCount).toBe(1);
+    expect(answer.relatedDocuments?.map((document) => document.document_id)).toEqual([kept.document_id]);
+    expect(answer.relatedDocuments?.[0]?.best_chunk_ids).toEqual([kept.id]);
+    expect(answer.smartPanel?.relatedDocuments).toEqual(answer.relatedDocuments);
+  });
+
+  it("rebuilds late related-document metadata from only the cited same-document source", () => {
+    const kept = figureChunk({
+      id: "kept-same-document-source",
+      document_id: "shared-related-document",
+      page_number: 3,
+      similarity: 0.61,
+      hybrid_score: 0.63,
+      images: [],
+    });
+    const removed = figureChunk({
+      id: "removed-same-document-source",
+      document_id: "shared-related-document",
+      page_number: 9,
+      similarity: 0.98,
+      hybrid_score: 0.99,
+      images: [
+        {
+          id: "removed-related-image",
+          page_number: 9,
+          storage_path: "removed-related-image.png",
+          caption: "Removed clinical table",
+          image_type: "clinical_table",
+          searchable: true,
+          clinical_relevance_score: 1,
+        },
+      ],
+    });
+    const relatedDocuments = [
+      {
+        document_id: kept.document_id,
+        title: kept.title,
+        file_name: kept.file_name,
+        labels: [],
+        summary: null,
+        best_pages: [removed.page_number ?? 1, kept.page_number ?? 1],
+        best_chunk_ids: [removed.id],
+        image_count: 1,
+        match_reason: "Matched 2 indexed passages",
+        score: removed.hybrid_score ?? removed.similarity,
+      },
+    ];
+    const expectedRelatedDocuments = retainRelatedDocumentsForResults(relatedDocuments, [kept]);
+    const answer = retainCitedExtractiveFallbackEvidence({
+      answer: "Keep the cited passage only.",
+      grounded: true,
+      confidence: "medium",
+      citations: [citationFromResult(kept, "deterministic_support")],
+      sources: [kept, removed],
+      relatedDocuments,
+      smartPanel: { relatedDocuments },
+    } as unknown as RagAnswer);
+
+    expect(answer.relatedDocuments).toEqual(expectedRelatedDocuments);
+    expect(answer.smartPanel?.relatedDocuments).toEqual(expectedRelatedDocuments);
+    expect(answer.relatedDocuments).toEqual([
+      expect.objectContaining({
+        best_pages: [3],
+        best_chunk_ids: [kept.id],
+        image_count: 0,
+        match_reason: "Matched 1 indexed passage",
+        score: kept.hybrid_score ?? kept.similarity,
+      }),
+    ]);
+    expect(JSON.stringify(answer.relatedDocuments)).not.toMatch(
+      /removed-same-document-source|removed-related-image|0\.99/,
+    );
   });
 
   it("retains the correctly bound escalation clause from a mixed-medication chunk", () => {
