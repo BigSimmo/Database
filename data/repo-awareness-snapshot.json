@@ -1482,6 +1482,10 @@
         "file": "src/app/api/registry/records/route.ts"
       },
       {
+        "path": "/api/caring-contacts/patients/search",
+        "file": "src/app/api/caring-contacts/patients/search/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/dispatches",
         "file": "src/app/api/caring-contacts/dispatches/route.ts"
       },
@@ -5156,6 +5160,11 @@
       },
       {
         "path": "docs/ward-flow-master-sequence-2026-08-29.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts-crisis-lines.md",
         "section": "root",
         "catalogued": false
       },

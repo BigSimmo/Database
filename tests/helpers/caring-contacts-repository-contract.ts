@@ -653,6 +653,35 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
 
         expect(clash).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.planAlreadyExists });
       });
+
+      it("rejects a blank patient name or empty string", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+
+        await expect(
+          store.createPlan(
+            createInput({
+              patientDetail: {
+                ...PATIENT_DETAIL,
+                patientName: "   ",
+              },
+            }),
+            writeContext(COORDINATOR_A, "key-create-blank-spaces"),
+          ),
+        ).rejects.toThrow("Validation error: patient name must not be blank");
+
+        await expect(
+          store.createPlan(
+            createInput({
+              patientDetail: {
+                ...PATIENT_DETAIL,
+                patientName: "",
+              },
+            }),
+            writeContext(COORDINATOR_A, "key-create-blank-empty"),
+          ),
+        ).rejects.toThrow("Validation error: patient name must not be blank");
+      });
     });
 
     describe("rule 5 — reads are team-scoped and reveal nothing", () => {

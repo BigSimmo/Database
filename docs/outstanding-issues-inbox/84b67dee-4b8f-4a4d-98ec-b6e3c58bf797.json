@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "84b67dee-4b8f-4a4d-98ec-b6e3c58bf797",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#V6CDEV",
+    "outcome": "Enforced name.trim().length > 0 in createPlan across plan-store.ts, in-memory repository, and postgres repository, throwing validation error on blank names",
+    "baseRowFingerprint": "f2eb5a61b8a7a6a5255140358402d3812c25ff32710b4ceba7b713b1d1e64d4b"
+  }
+}
