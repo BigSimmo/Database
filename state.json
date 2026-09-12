@@ -129,10 +129,10 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 1,
+  "revision": 2,
   "repairs": 0,
   "pass": 0,
-  "active": null,
+  "active": 2717,
   "pending": null,
   "reason": null,
   "entries": [
@@ -161,7 +161,7 @@
     {
       "number": 2717,
       "head": "fdcb4591eecbe80929da16778d2247bb0525a6cf",
-      "state": "queued",
+      "state": "preparing",
       "reason": null,
       "attempts": 0,
       "fingerprints": [],
@@ -318,6 +318,12 @@
       "revision": 1,
       "at": "2026-09-12T03:43:30.285Z",
       "kind": "launched"
+    },
+    {
+      "revision": 2,
+      "at": "2026-09-12T03:43:30.285Z",
+      "kind": "selected",
+      "number": 2717
     }
   ]
 }
