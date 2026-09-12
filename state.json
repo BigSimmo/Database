@@ -129,19 +129,11 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 4,
+  "revision": 5,
   "repairs": 0,
   "pass": 0,
   "active": 2717,
-  "pending": {
-    "id": "batch-34671129666-3",
-    "number": 2717,
-    "kind": "sync",
-    "head": "fdcb4591eecbe80929da16778d2247bb0525a6cf",
-    "base": "d93c230a0e367f944e4ddc80c4ff3def622743cf",
-    "at": "2026-09-12T03:43:30.285Z",
-    "fingerprint": null
-  },
+  "pending": null,
   "reason": null,
   "entries": [
     {
@@ -168,13 +160,13 @@
     },
     {
       "number": 2717,
-      "head": "fdcb4591eecbe80929da16778d2247bb0525a6cf",
+      "head": "adac3b9b9192a091ba8c28cfbbc9a9c2d4ee0767",
       "state": "preparing",
       "reason": null,
       "attempts": 0,
       "fingerprints": [],
       "updatedAt": "2026-09-12T03:43:30.285Z",
-      "progressAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:46:19.846Z",
       "retried": false
     },
     {
@@ -352,6 +344,13 @@
       "at": "2026-09-12T03:43:30.285Z",
       "kind": "request-sent",
       "operationId": "batch-34671129666-3"
+    },
+    {
+      "revision": 5,
+      "at": "2026-09-12T03:46:19.846Z",
+      "kind": "branch-updated",
+      "number": 2717,
+      "head": "adac3b9b9192a091ba8c28cfbbc9a9c2d4ee0767"
     }
   ]
 }
