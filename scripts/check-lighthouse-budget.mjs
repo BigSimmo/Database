@@ -61,17 +61,27 @@ export const DEFAULT_TOLERANCE = Object.freeze({
 
 /**
  * Runner tolerance floors for bimodal variance on high-variance routes.
- * On desktop root ("desktop-root") and documents search ("/documents/search"),
- * headless Chromium runner scheduling exhibits ~150-180ms LCP jitter between runs
- * on identical code without application regression.
+ * Scoped to exact intended run ids only: desktop root ("desktop-root") and the
+ * documents-search strategy runs ("mobile-documents-search", "desktop-documents-search").
+ * Do NOT match bare "documents" substrings — that would raise the LCP floor on
+ * unintended future /documents/* routes and false-green real regressions.
+ * Headless Chromium runner scheduling exhibits ~150-180ms LCP jitter between runs
+ * on identical code without application regression for these calibrated routes.
  */
 export const BIMODAL_RUNNER_TOLERANCE_FLOORS = {
   lcpMs: 200,
 };
 
+/** Exact run ids that receive BIMODAL_RUNNER_TOLERANCE_FLOORS — keep this set narrow. */
+const BIMODAL_RUNNER_VARIANCE_RUNS = new Set([
+  "desktop-root",
+  "mobile-documents-search",
+  "desktop-documents-search",
+]);
+
 export function isBimodalRunnerVarianceRun(runName) {
   if (!runName || typeof runName !== "string") return false;
-  return runName === "desktop-root" || runName.includes("documents-search") || runName.includes("documents");
+  return BIMODAL_RUNNER_VARIANCE_RUNS.has(runName);
 }
 
 const BASELINE_METRICS = Object.freeze(["lcpMs", "cls", "tbtMs", "fcpMs"]);
@@ -534,12 +544,35 @@ export function selfTest() {
   const gradeResult = gradeRun(sampleRows[0], { lcpMs: 500, cls: 0, tbtMs: 100 });
   if (gradeResult.length === 0) throw new Error("selfTest failed: gradeRun did not flag regression");
 
-  // Calibrated runner tolerance floor accommodates bimodal runner variance on desktop-root
+  // Calibrated runner tolerance floor accommodates bimodal runner variance on intended runs only
   const bimodalIgnored = gradeRun({ run: "desktop-root", lcpMs: 961 }, { lcpMs: 786, cls: 0, tbtMs: 100 });
   if (bimodalIgnored.length !== 0) throw new Error("selfTest failed: bimodal runner variance was not accommodated");
 
+  const bimodalDocsSearchIgnored = gradeRun(
+    { run: "desktop-documents-search", lcpMs: 961 },
+    { lcpMs: 786, cls: 0, tbtMs: 100 },
+  );
+  if (bimodalDocsSearchIgnored.length !== 0) {
+    throw new Error("selfTest failed: documents-search bimodal runner variance was not accommodated");
+  }
+
   const bimodalBreached = gradeRun({ run: "desktop-root", lcpMs: 1050 }, { lcpMs: 786, cls: 0, tbtMs: 100 });
   if (bimodalBreached.length === 0) throw new Error("selfTest failed: real regression on bimodal route not flagged");
+
+  // Negative: bare "documents" substring must NOT raise the LCP floor (false-green risk)
+  if (isBimodalRunnerVarianceRun("desktop-documents") || isBimodalRunnerVarianceRun("mobile-documents-upload")) {
+    throw new Error("selfTest failed: bare documents substring incorrectly treated as bimodal");
+  }
+  const nonBimodalDocuments = gradeRun(
+    { run: "desktop-documents", lcpMs: 961 },
+    { lcpMs: 786, cls: 0, tbtMs: 100 },
+  );
+  if (nonBimodalDocuments.length === 0) {
+    throw new Error("selfTest failed: unintended documents* run got bimodal LCP floor (false-green path)");
+  }
+  if (isBimodalRunnerVarianceRun("mobile-root")) {
+    throw new Error("selfTest failed: mobile-root incorrectly treated as bimodal");
+  }
 
   const comparison = compareToLighthouseBudget(sampleRows, { ...sampleBudget, baseline: staleBaseline });
   if (comparison.status !== "fail") throw new Error("selfTest failed: drifted baseline did not fail comparison");
