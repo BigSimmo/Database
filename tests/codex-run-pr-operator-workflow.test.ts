@@ -9,6 +9,10 @@ it("authenticates batch state and uses only supported concurrency keys", () => {
   expect(workflow).not.toContain("queue: max");
 });
 
+it("quotes the run name so the PR number marker is not parsed as a YAML comment", () => {
+  expect(workflow.split("\n")[1]).toMatch(/^run-name: "\$\{\{.*PR operator #\{0\}.*\}\}"$/u);
+});
+
 function job(name: string, nextName?: string) {
   const start = workflow.indexOf(`  ${name}:`);
   expect(start).toBeGreaterThan(-1);
