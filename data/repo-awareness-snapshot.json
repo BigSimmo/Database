@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-11"
+    "committed_at": "2026-09-12"
   },
   "routes": {
     "modes": [
@@ -795,6 +795,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/development/hazards",
+        "file": "src/app/mockups/development/hazards/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/caring-contacts/guidance",
         "file": "src/app/caring-contacts/guidance/page.tsx",
         "area": "product"
@@ -1475,6 +1480,10 @@
       {
         "path": "/api/registry/records",
         "file": "src/app/api/registry/records/route.ts"
+      },
+      {
+        "path": "/api/caring-contacts/patients/search",
+        "file": "src/app/api/caring-contacts/patients/search/route.ts"
       },
       {
         "path": "/api/caring-contacts/dispatches",
@@ -5151,6 +5160,11 @@
       },
       {
         "path": "docs/ward-flow-master-sequence-2026-08-29.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts-crisis-lines.md",
         "section": "root",
         "catalogued": false
       },
