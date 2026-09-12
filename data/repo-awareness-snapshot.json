@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-11"
+    "committed_at": "2026-09-12"
   },
   "routes": {
     "modes": [
@@ -792,6 +792,11 @@
       {
         "path": "/mockups/ward-flow/discharges",
         "file": "src/app/mockups/ward-flow/discharges/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/development/hazards",
+        "file": "src/app/mockups/development/hazards/page.tsx",
         "area": "mockup"
       },
       {
