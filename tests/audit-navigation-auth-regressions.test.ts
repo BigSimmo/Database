@@ -87,6 +87,17 @@ describe("audit navigation and auth regressions", () => {
     expect(headApplications).toBe(redirectApplications);
   });
 
+  it.each([
+    ["dsm", "major depressive", "/dsm/search?q=major+depressive&focus=1&run=1"],
+    ["formulation", "I keep going over it", "/formulation/search?q=I+keep+going+over+it&focus=1&run=1"],
+  ])("redirects submitted %s searches before the streamed page renders", (mode, query, expected) => {
+    const submitted = new URL("https://clinical-kb.test/");
+    submitted.search = new URLSearchParams({ mode, q: query, focus: "1", run: "1" }).toString();
+    expect(legacyHomeRedirectUrl(submitted, "GET")?.toString()).toBe(`https://clinical-kb.test${expected}`);
+    expect(legacyHomeRedirectUrl(new URL(`https://clinical-kb.test/?mode=${mode}`), "GET")).toBeNull();
+    expect(legacyHomeRedirectUrl(submitted, "POST")).toBeNull();
+  });
+
   it("only redirects submitted root legacy mode aliases, leaving bare /?mode= on the shared home", () => {
     // Selection-only (no q+run=1) must stay on `/` so the shared-home contract
     // covers favourites/differentials/specifiers the same as every other mode.

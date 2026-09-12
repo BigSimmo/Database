@@ -215,12 +215,12 @@ describe("evaluatePatientAlerts — partial / empty profile and unassessed", () 
     expect(verdict.incomplete).toBe(false);
   });
 
-  it("excludes info rows from both tiers", () => {
+  it("routes info rows with missing gates to the advisory tier, never contraindication", () => {
     const record = recordWith({ factors: ["renal"], action: "info", match: { egfr: { lt: 30 } } });
     const result = evaluatePatientAlerts(record, { ageYears: 40 });
     expect(result.unassessed).toHaveLength(0);
-    expect(result.unassessedAdvisory).toHaveLength(0);
-    expect(result.unassessedAdvisoryCount).toBe(0);
+    expect(result.unassessedAdvisory).toEqual(["eGFR"]);
+    expect(result.unassessedAdvisoryCount).toBe(1);
   });
 
   it("counts advisory entries as rows, not as inputs", () => {
@@ -334,12 +334,20 @@ describe("evaluatePatientAlerts — bare-renal fail-safe (no false all-clear on 
     expect(both.unassessedAdvisory).toHaveLength(0);
   });
 
-  it("never surfaces unassessed for info rows", () => {
+  it("surfaces unassessedAdvisory for info rows with missing gates", () => {
     const record = recordWith({ factors: ["renal"], action: "info", match: { egfr: { lt: 30 } } });
     const result = evaluatePatientAlerts(record, { ageYears: 40 });
     expect(result.considerations).toHaveLength(0);
     expect(result.unassessed).toHaveLength(0);
-    expect(result.unassessedAdvisory).toHaveLength(0);
+    expect(result.unassessedAdvisory).toEqual(["eGFR"]);
+    expect(result.unassessedAdvisoryCount).toBe(1);
+
+    // Supplying the gate clears the unassessed advisory
+    const assessed = evaluatePatientAlerts(record, { egfr: 90 });
+    expect(assessed.considerations).toHaveLength(0);
+    expect(assessed.unassessed).toHaveLength(0);
+    expect(assessed.unassessedAdvisory).toHaveLength(0);
+    expect(assessed.unassessedAdvisoryCount).toBe(0);
   });
 });
 

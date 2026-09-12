@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9bce99b8-2b6d-41a2-806a-ea03132b05d9",
+  "createdOn": "2026-09-10",
+  "action": "done",
+  "payload": {
+    "id": "#7ZA9S9",
+    "outcome": "Aligned formulation strength regex and multi-strength parsing in medication badges and tests",
+    "baseRowFingerprint": "6063a134f2aa92ba7e653e592f8d7389195eeb99c830b3d3d2aadc2efeda63f3"
+  }
+}

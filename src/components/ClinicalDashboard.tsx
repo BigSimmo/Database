@@ -192,6 +192,7 @@ import {
   searchRetryCount,
   searchRetryDelaysMs,
   sleep,
+  type AnswerPayload,
   type AnswerErrorKind,
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
@@ -241,6 +242,12 @@ import {
 } from "@/components/clinical-dashboard/use-persisted-answer-thread";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
+import type {
+  ClientDocumentLabel,
+  ClientDocumentMatch,
+  ClientQuoteCard,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
 import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import {
   frontendSourceGovernanceWarnings,
@@ -255,8 +262,6 @@ import type {
   EvidenceRelevance,
   ImportBatch,
   IngestionJob,
-  QuoteCard,
-  RagAnswer,
   SearchResult,
   SearchScopeSummary,
   ClinicalQueryMode,
@@ -354,8 +359,8 @@ function ClinicalDashboardContent({
   // Suppress autofocus once a mode search/answer has been submitted so hide-on-
   // scroll can reclaim chrome on result views (Answer and other bottom docks).
   const shouldAutoFocusComposer = focusSearch && !modeSearchSubmitted;
-  const [answer, setAnswer] = useState<RagAnswer | null>(null);
-  const [sources, setSources] = useState<SearchResult[]>([]);
+  const [answer, setAnswer] = useState<AnswerPayload | null>(null);
+  const [sources, setSources] = useState<ClientSearchResult[]>([]);
   // Answer-mode conversation thread. `priorAnswerTurns` holds completed
   // exchanges displayed above the latest answer; `latestAnswerQuery` is the
   // question that produced the current `answer` (the composer `query` is a
@@ -371,7 +376,7 @@ function ClinicalDashboardContent({
   const latestAnswerTurnRef = useRef<Omit<AnswerTurn, "id"> | null>(null);
   const latestAnswerSnapshotMetadataRef = useRef<AnswerThreadSnapshotMetadata | null>(null);
   const answerTurnSeqRef = useRef(0);
-  const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
+  const [documentMatches, setDocumentMatches] = useState<ClientDocumentMatch[]>([]);
   const [searchRelevance, setSearchRelevance] = useState<EvidenceRelevance | null>(null);
   const [searchFacets, setSearchFacets] = useState<SearchFacets | null>(null);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>(initialSearchNavigationContext.queryMode);
@@ -1268,15 +1273,18 @@ function ClinicalDashboardContent({
   }, []);
 
   const handleDocumentLabelPatched = useCallback((documentId: string, label: DocumentLabel) => {
-    function mergeLabel(labels: DocumentLabel[] | null | undefined) {
+    function mergeLabel<T extends ClientDocumentLabel>(labels: T[] | null | undefined): (T | DocumentLabel)[] {
       const current = labels ?? [];
       let replaced = false;
       const next = current.map((item) => {
-        if (item.id !== label.id) return item;
+        if (!("id" in item) || item.id !== label.id) return item;
         replaced = true;
         return label;
       });
-      return replaced ? next : [label, ...next];
+      // Public answer labels have no mutation identity. The normal full-array
+      // response reconciles them; this compatibility fallback must not append
+      // a renamed label alongside its unidentified previous value.
+      return replaced || current.some((item) => !("id" in item)) ? next : [label, ...next];
     }
 
     setDocuments((current) =>
@@ -1796,13 +1804,14 @@ function ClinicalDashboardContent({
     const committedQuery = displayQuery ?? payload.query;
     latestAnswerTurnRef.current = {
       query: committedQuery,
+      resolvedQuery: payload.query,
       answer: answerData,
       sources: answerData.sources ?? [],
     };
     setLatestAnswerQuery(committedQuery);
     setAnswer(answerData);
     setSources(answerData.sources ?? []);
-    setSearchRelevance(answerData.relevance ?? answerData.smartPanel?.relevance ?? null);
+    setSearchRelevance(answerData.relevance ?? null);
     setSearchScope(answerData.scope ?? null);
     setSourceGovernanceWarnings((answerData.sourceGovernanceWarnings ?? []) as SourceGovernanceWarning[]);
     setSearchFacets(null);
@@ -1977,19 +1986,6 @@ function ClinicalDashboardContent({
     // previous turn's question before retrieval. The raw text the user typed
     // is what the thread displays (via displayQuery below).
     if (isAnswerRequest) dispatchAnswerLifecycle({ type: "start", query: trimmedQuery });
-    const priorTurnQuery = isAnswerRequest && !replaceExistingAnswer ? latestAnswerTurnRef.current?.query : undefined;
-    const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
-    const requestQuery = isAnswerRequest ? buildAnswerFollowUpQuery(priorTurnQuery, trimmedQuery) : trimmedQuery;
-
-    const fallbackQuery = keywordQueryFromNaturalLanguage(requestQuery);
-    const queryPlan =
-      fallbackQuery && fallbackQuery !== requestQuery
-        ? [
-            { query: requestQuery, isKeyword: false },
-            { query: fallbackQuery, isKeyword: true },
-          ]
-        : [{ query: requestQuery, isKeyword: false }];
-
     // Bound this search with a stall watchdog on the shared abort controller so
     // a hung stream recovers instead of spinning forever. Answer streams reset
     // the inactivity window on every received chunk, so a slow-but-live
@@ -2002,6 +1998,22 @@ function ClinicalDashboardContent({
     });
 
     try {
+      const priorTurnQuery =
+        isAnswerRequest && !replaceExistingAnswer
+          ? (latestAnswerTurnRef.current?.resolvedQuery ?? latestAnswerTurnRef.current?.query)
+          : undefined;
+      const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
+      const requestQuery = isAnswerRequest ? buildAnswerFollowUpQuery(priorTurnQuery, trimmedQuery) : trimmedQuery;
+
+      const fallbackQuery = isAnswerRequest ? "" : keywordQueryFromNaturalLanguage(requestQuery);
+      const queryPlan =
+        fallbackQuery && fallbackQuery !== requestQuery
+          ? [
+              { query: requestQuery, isKeyword: false },
+              { query: fallbackQuery, isKeyword: true },
+            ]
+          : [{ query: requestQuery, isKeyword: false }];
+
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
       // An empty source-library search is a RESULT, not a failure: the payload
@@ -2397,8 +2409,8 @@ function ClinicalDashboardContent({
           sourceIds: sourceChunkIds,
           citedSourceIds: citedChunkIds,
           route: answer.routingMode ?? null,
-          model: answer.modelUsed ?? null,
-          providerRequestIds: Array.from(new Set(answer.openAIRequestIds ?? [])).slice(0, 10),
+          model: null,
+          providerRequestIds: [],
         }),
       });
 
@@ -2675,9 +2687,13 @@ function ClinicalDashboardContent({
     });
   }
 
-  function handleFollowUpQuote(quote: QuoteCard) {
-    setQuery(createQuoteFollowUp(quote));
+  function stageAnswerFollowUpDraft(draft: string) {
+    setQuery(draft);
     focusComposerInput();
+  }
+
+  function handleFollowUpQuote(quote: ClientQuoteCard) {
+    stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
   }
 
   function handlePickFollowUpSuggestion(suggestion: string) {
@@ -2832,14 +2848,14 @@ function ClinicalDashboardContent({
   );
   const visualEvidence = useMemo(() => answerRenderModel?.visualEvidence ?? [], [answerRenderModel]);
   const relatedDocuments = useMemo(() => answerRenderModel?.relatedDocuments ?? [], [answerRenderModel]);
-  const currentRelevance = answer?.relevance ?? answer?.smartPanel?.relevance ?? searchRelevance;
+  const currentRelevance = answer?.relevance ?? searchRelevance;
   const weakEvidence = answerRenderModel
     ? answerRenderModel.trust === "unsupported" || answerRenderModel.trust === "low"
     : (currentRelevance ? isWeakRelevance(currentRelevance) : answer?.grounded !== true) ||
-      answer?.retrievalDiagnostics?.gateStatus === "blocked";
+      answer?.retrievalGateBlocked === true;
   const safetyFindings = useMemo(() => extractSafetyFindings(answer), [answer]);
   const bestSource = answerRenderModel?.bestSource ?? null;
-  const sourceSummary = answer?.evidenceSummary ?? answer?.smartPanel?.evidenceSummary;
+  const sourceSummary = answer?.evidenceSummary;
   const answerPreformatted = isPreformattedGroundedAnswer(answer);
   const safeAnswerText = useMemo(
     () => sanitizeAnswerDisplayText(answer?.answer ?? "", { preformatted: answerPreformatted }),
@@ -3823,6 +3839,7 @@ function ClinicalDashboardContent({
                         renderModel={answerRenderModel}
                         weakEvidence={weakEvidence}
                         sources={answerRenderModel.reviewSources}
+                        demoMode={demoMode}
                         safetyFindings={safetyFindings}
                         copiedAnswer={copiedAction === "answer"}
                         pendingFeedback={pendingFeedback}

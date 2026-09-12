@@ -2,6 +2,8 @@ const legacyModePaths = {
   favourites: "/favourites",
   differentials: "/differentials",
   specifiers: "/specifiers",
+  dsm: "/dsm/search",
+  formulation: "/formulation/search",
 } as const;
 
 /**

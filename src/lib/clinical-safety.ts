@@ -1,15 +1,21 @@
 import { documentCitationHref, formatCitationLabel } from "@/lib/citations";
 import { queryCoreTerms } from "@/lib/evidence-relevance";
 import { sanitizeAnswerText } from "@/lib/rag/rag-answer-text";
+import type {
+  ClientCitation,
+  ClientRagAnswerPayload,
+  ClientSafetyWarning,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
 import {
   clinicalProseUsefulness,
   sourceTextForCompactDisplay,
   sourceTextForDisplay,
 } from "@/lib/source-text-sanitizer";
-import type { Citation, RagAnswer, SafetyWarning, SafetyWarningKind, SearchResult } from "@/lib/types";
+import type { RagAnswer, SafetyWarningKind, SearchResult } from "@/lib/types";
 
 export type SafetyFindingKind = SafetyWarningKind;
-export type SafetyFinding = SafetyWarning;
+export type SafetyFinding = ClientSafetyWarning;
 
 const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: RegExp }> = [
   {
@@ -104,7 +110,7 @@ function conciseSourceText(text: string) {
   return `${truncateAtSafeBoundary(normalized, conciseTextCut)}...`;
 }
 
-function citationFromSource(source: SearchResult): Citation {
+function citationFromSource(source: ClientSearchResult): ClientCitation {
   return {
     chunk_id: source.id,
     document_id: source.document_id,
@@ -122,6 +128,11 @@ function hasQueryConceptOverlap(text: string, terms: string[]) {
   const haystack = text.toLowerCase();
   return terms.some((term) => haystack.includes(term.toLowerCase()));
 }
+
+type SafetyAnswerInput = Omit<ClientRagAnswerPayload, "sources"> & {
+  sources: Array<ClientSearchResult | SearchResult>;
+  smartPanel?: Pick<NonNullable<RagAnswer["smartPanel"]>, "query">;
+};
 
 /**
  * Collapse findings that are the same passage counted twice.
@@ -222,7 +233,7 @@ function collapseSafetyFindingsOnce(findings: SafetyFinding[]): SafetyFinding[] 
   return kept;
 }
 
-export function extractSafetyFindings(answer: RagAnswer | null | undefined, limit = 5): SafetyFinding[] {
+export function extractSafetyFindings(answer: SafetyAnswerInput | null | undefined, limit = 5): SafetyFinding[] {
   if (answer?.safetyWarnings) return collapseDuplicateSafetyFindings(answer.safetyWarnings).slice(0, limit);
   if (!answer?.grounded) return [];
   if (answer.relevance && !answer.relevance.isSourceBacked) return [];
@@ -259,7 +270,8 @@ export function extractSafetyFindings(answer: RagAnswer | null | undefined, limi
     const text = sanitizeAnswerText(conciseSourceText(candidate.text)) || conciseSourceText(candidate.text);
     if (!text) continue;
     if (answer.relevance) {
-      const sourceBacked = candidate.source?.relevance?.isSourceBacked;
+      const sourceBacked =
+        candidate.source && "relevance" in candidate.source && candidate.source.relevance?.isSourceBacked;
       const moderateOrStrong = candidate.sourceStrength === "strong" || candidate.sourceStrength === "moderate";
       const overlapsQuery = hasQueryConceptOverlap(text, coreTerms);
       if (!sourceBacked && !(moderateOrStrong && overlapsQuery)) continue;

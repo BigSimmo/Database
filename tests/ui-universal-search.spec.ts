@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page, type Route } from "playwright/test";
 import { demoAnswer } from "../src/lib/demo-data";
+import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { expectSingleSettledOwner } from "./playwright-settlement";
 
@@ -456,7 +457,7 @@ const smartPayload = {
 };
 
 test.describe("universal search smart affordances", () => {
-  const syntheticAnswer = { ...demoAnswer("lithium dosing"), demoMode: true };
+  const syntheticAnswer = { ...toClientAnswerPayload(demoAnswer("lithium dosing")), demoMode: true };
 
   async function mockSmartSearch(page: Page) {
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {

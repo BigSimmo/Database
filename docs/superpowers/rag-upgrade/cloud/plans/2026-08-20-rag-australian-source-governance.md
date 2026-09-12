@@ -1,5 +1,7 @@
 # Australian source governance for RAG — Implementation Plan
 
+**2026-09-07 binding amendment:** Read the package execution-order.md section “Answer-quality amendment — 2026-09-07” (editable owner: docs/superpowers/rag-upgrade/canonical/execution-order.md). It contains the single F01–F21/M01–M07 disposition map and M1–M3 acceptance policy. The task-local amendments below take precedence over superseded examples; unchanged accepted task evidence remains valid. Product implementation is paused pending separate authorization.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Dispatch one implementer at a time and require a task-reviewer verdict for specification compliance and code quality before proceeding. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Establish a typed, enforceable Australian source catalogue that augments uploaded indexed guidelines, excludes Healthdirect, treats eTG and AMH as link-only, constrains every source to its proper role, and binds public activation to the exact governed document/index state a human approved.
@@ -89,6 +91,8 @@ Report separately:
 ---
 
 ### Task 1: Define the versioned Australian catalogue
+
+**Amended acceptance (2026-09-07):** F18: catalogue approval is not usable passage coverage or international activation. Record exact licence/access/role/admission prerequisites for approved international supplementary sources; eTG/AMH remain link-only, Healthdirect excluded. L01 owns separately authorized current verification.
 
 **Files:**
 
@@ -331,6 +335,8 @@ git commit -m "feat(sources): normalize source roles and lifecycle"
 
 ### Task 3: Enforce role eligibility, local priority, and explicit conflicts
 
+**Amended acceptance (2026-09-07):** F17: extend the accepted canonical conflict owner with reviewed difference creation/review, persistence/access, expiry and reconciliation lifecycle. Named clinical/source-governance reviewers approve evidence of overlapping material recommendations; dates alone and model-created records are insufficient. Persistence is append-only/version-bound with audit-only reviewer identity; request loading/revalidation belongs to retrieval Task 8, operator runbook to Task 6, upload lineage/withdrawal to trustedIngestion Task 6. Stale/withdrawn/inaccessible/unreviewed input yields no conflict claim; absent input means not assessed, not no disagreement.
+
 **Files:**
 
 - Modify: `src/lib/types.ts`
@@ -515,6 +521,8 @@ git commit -m "feat(rag): enforce source roles and local priority"
 
 ### Task 4: Bind Australian public activation to policy and generation
 
+**Amended acceptance (2026-09-07):** F18: retain exact policy/version/generation admission and human-approved public activation. International-supplementary needs its own scope/licence/role/activation evidence; trusted uploaded activation cannot substitute. Prove actual eligible passage coverage per reference part before describing a lane as available.
+
 **Files:**
 
 - Modify: `src/lib/publication-manifest.ts`
@@ -670,6 +678,8 @@ git commit -m "feat(sources): add eTG and AMH reference links"
 ---
 
 ### Task 6: Governance documentation and domain handoff
+
+**Amended acceptance (2026-09-07):** F17–F18: own conflict review/reconciliation operator instructions, expiry/revocation and pending-input disclosure, plus international activation prerequisites distinct from P16 uploaded activation. P11 link-reference UI/governance handoff follows isolated M2; all existing P02 source/link-only restrictions remain prerequisites throughout. No fixture conflict or catalogue entry proves production input/corpus availability.
 
 **Files:**
 

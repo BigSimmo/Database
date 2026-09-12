@@ -1,5 +1,7 @@
 # RAG programme evaluation, rollout, and operations — Implementation Plan
 
+**2026-09-07 binding amendment:** Read the package execution-order.md section “Answer-quality amendment — 2026-09-07” (editable owner: docs/superpowers/rag-upgrade/canonical/execution-order.md). It contains the single F01–F21/M01–M07 disposition map and M1–M3 acceptance policy. The task-local amendments below take precedence over superseded examples; unchanged accepted task evidence remains valid. Product implementation is paused pending separate authorization.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Use one fresh implementer at a time, followed by a task reviewer for specification compliance and code quality. Remediate every finding before starting the next task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make every source, retrieval, answer, fallback, re-index, and incremental-delivery improvement measurable, privacy-minimised, reversible, and operationally visible before it can affect broad production traffic.
@@ -77,11 +79,11 @@
 1. Task 1 case/metric contract and Task 2 telemetry contract.
 2. Australian source metadata/eligibility, read-only document/site audits, and first-party registry/static-manifest contracts.
 3. Reversible generation/recovery primitives plus first-party dynamic synchronization, activation, and request-snapshot/cache contracts.
-4. Query planning, explicit uploaded/site/public retrieval lanes, cross-domain coverage, typed updating/fallback behavior, and repository-content Task 6.
+4. Query planning, explicit uploaded/site/public retrieval lanes, cross-domain coverage, typed updating/fallback behavior, with P09 Task 4 rollout/version isolation before adaptive work; repository-content Task 6 follows M2.
 5. Adaptive answer contract and complete main-surface rendering.
 6. Verified lead/section delivery only after the final answer and request-snapshot contracts are stable.
 7. Targeted reversible shadow re-index and public-source lifecycle waves.
-8. Task 4 rollout/cache owner, then offline paired comparison.
+8. Remaining repository/link handoffs and offline paired comparison; Task 4 rollout/cache ownership is already a prerequisite for adaptive work.
 9. Approved default-branch provider/corpus baseline and canary.
 10. Approved blinded v19-versus-v20 usefulness verdict using the existing Gate E tooling.
 11. Production promotion only with named alerts, recovery proof, exact expected/active public static-manifest match, a valid public release, administrator-only publication proof, and independent rollback controls.
@@ -100,6 +102,8 @@
 ---
 
 ### Task 1: Define the programme case and gate contract
+
+**Amended acceptance (2026-09-07):** F10/F12/F19: preserve accepted P01 and amend case expectations prospectively: required parts, depth, eligible passage support, forbidden claims, useful partials, valid paraphrases versus invented relationships and complete presentation. Use existing fixtures/Gate E format and the canonical amendment positive-benefit criterion; do not adjust thresholds after viewing outputs or accept all-generic ties.
 
 **Files:**
 
@@ -360,6 +364,8 @@ Use the policy above as the initial recommendation: zero hard violations, docume
 
 ### Task 2: Unify privacy-safe telemetry ownership and interaction joins
 
+**Amended acceptance (2026-09-07):** F19: extend this existing telemetry owner, not a new framework, with bounded content-free required-part counts and loss reasons at candidates, admission/packing, generation, verification and delivery/copy, plus cost, latency and successful completion. Distinguish stages; no queries, context, prose, source/claim identities or raw errors.
+
 **Files:**
 
 - Create: `src/lib/rag/rag-programme-telemetry.ts`
@@ -479,6 +485,8 @@ Expected: PASS; normal and streaming routes write the same opaque join, flag-off
 
 ### Task 3: Close the reviewed feedback-to-evaluation loop
 
+**Amended acceptance (2026-09-07):** F19: feedback remains reviewed and de-identified before case promotion. Pin targeted weak families and reference expectations before M2 captures, with no automatic changes to source authority, ranker or prompt.
+
 **Files:**
 
 - Create: `src/lib/rag/feedback-eval-triage.ts`
@@ -540,6 +548,8 @@ Do not run `scripts/report-answer-feedback.ts --live` without separate authoriza
 ---
 
 ### Task 4: Add one typed shadow/canary owner and isolate caches
+
+**Amended acceptance (2026-09-07):** F08/F15/F19: this P09 runtime prerequisite remains before P12. Bind full canonical request identity and coherent versioned prompt/schema/render/eval semantics to existing isolated rollout/cache namespaces and independent default-off flags. No candidate writes to legacy and no extra live shadow call; demonstrate legacy-off/rollback truth before M2.
 
 **Files:**
 
@@ -667,6 +677,8 @@ Expected: PASS with default `legacy` and all component flags false; production r
 ---
 
 ### Task 5: Build the paired comparator and default-branch canary
+
+**Amended acceptance (2026-09-07):** F10/F19–F20: preserve the existing fixed 30-case Gate E/provider comparison and hard gates. Require prospectively pinned positive targeted-slice usefulness (candidate wins exceed baseline wins, ties explicit) plus required-part/explanation improvements, no supported-part loss, completed-output success, cost and latency. Evaluate lost recovery after emitted units and reject an earlier-first-unit improvement that worsens successful completion. M2 is deterministic offline evidence, not this provider verdict.
 
 **Files:**
 
@@ -816,6 +828,8 @@ The default-branch workflow runs the same case set twice at the same `EVAL_GIT_S
 ---
 
 ### Task 6: Finalize SLOs, runbook, programme ownership, and production gates
+
+**Amended acceptance (2026-09-07):** F19–F21/M03/M06: final offline/connected reporting separates accepted implementation evidence, incomplete formal JSON/model-route chain and provider/operational proof. Reconcile immutable historical artifacts once; do not reset reconciledBase, manufacture missing command/runtime records or blanket-rerun accepted work. Own later resolution of historical unattributed/Windows tooling failures, preserving the recorded P07 34 count as historical. Keep p95 <=1.10x and cost <=1.15x on comparable evidence and evaluate usable completed output.
 
 **Files:**
 

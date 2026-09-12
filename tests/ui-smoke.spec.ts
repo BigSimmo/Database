@@ -12,6 +12,7 @@ import {
 } from "./playwright-scroll";
 import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
+import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import { BRAND_NAME } from "../src/lib/brand";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
@@ -253,18 +254,24 @@ function answerStreamBody(payload: unknown) {
   ].join("\n\n");
 }
 
-async function fulfillAnswerResponse(route: Route, payload: unknown) {
+async function fulfillAnswerResponse(route: Route, payload: ReturnType<typeof demoAnswer> & { demoMode?: boolean }) {
+  // Match the real JSON/SSE route boundary: server-only answer fields never
+  // reach the strict client decoder, including in synthetic browser fixtures.
+  const clientPayload = {
+    ...toClientAnswerPayload(payload),
+    ...(payload.demoMode === undefined ? {} : { demoMode: payload.demoMode }),
+  };
   const pathname = new URL(route.request().url()).pathname;
   if (pathname.endsWith("/stream")) {
     await route.fulfill({
-      body: answerStreamBody(payload),
+      body: answerStreamBody(clientPayload),
       contentType: "text/event-stream; charset=utf-8",
       headers: { "Cache-Control": "no-cache, no-transform" },
     });
     return;
   }
 
-  await route.fulfill({ json: payload });
+  await route.fulfill({ json: clientPayload });
 }
 
 type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: string[]) => ReturnType<typeof demoAnswer>;

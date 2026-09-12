@@ -1,12 +1,12 @@
 {
   "baselineVersion": "rag-adversarial-baseline.v1",
   "capturedAt": "2026-08-18",
-  "promptVersion": "clinical-rag-answer-v19",
+  "promptVersion": "clinical-rag-answer-v20",
   "semanticRerankEnabled": false,
   "reportKey": {
     "commit_sha": "b7aa925f0ae19e89a9f0acf842b4a80d84083fb5",
     "dataset_version": "rag-adversarial-cases.v1",
-    "eval_config_version": "rag-eval-config-v2",
+    "eval_config_version": "rag-eval-config-v3-adaptive-bounds",
     "model_version": "answer=gpt-5.6-terra; fast=gpt-5.6-terra; strong=gpt-5.6-sol",
     "embedding_version": "text-embedding-3-small@1536",
     "index_version": "20260818090000_schema_drift_snapshot_history_probe"
@@ -31,7 +31,7 @@
       "caseCount": 30,
       "status": "pending_owner_run",
       "blockedReason": "npm run eval:answer-quality over answerQualityEvalCases is a provider-backed OpenAI/Supabase evaluation requiring explicit owner approval per run. Requested (not executed) by packet S2 as the Gate E before/after comparison.",
-      "priorRun": "No before/after comparison has been recorded. The 220-word readability confound noted at eval_config_version rag-eval-config-v1 is resolved: scoreAnswerQualityEvalCase now scores fragmentation and length as two independent checks with separate reasons, and the length ceiling is derived from the v19 contract (110-word answer target + 6 sections at the schema heading/body maxima) rather than the pre-S2 flat 220. A readability=0 flag now names which check failed, so length and fragmentation no longer have to be adjudicated apart by hand. This gate semantic change is why the key reads rag-eval-config-v2; the first run under v2 has no v1-comparable readability rate."
+      "priorRun": "No before/after comparison has been recorded. The 220-word readability confound noted at eval_config_version rag-eval-config-v1 is resolved: scoreAnswerQualityEvalCase now scores fragmentation and length as two independent checks with separate reasons, and the length ceiling is derived from the v19 contract (110-word answer target + 6 sections at the schema heading/body maxima) rather than the pre-S2 flat 220. A readability=0 flag now names which check failed, so length and fragmentation no longer have to be adjudicated apart by hand. That historical change used rag-eval-config-v2. The current local candidate uses v3-adaptive-bounds: shared selected character limits and independent fragmentation/duplication checks. No provider result under v3 has been recorded."
     },
     {
       "id": "offline_contract",

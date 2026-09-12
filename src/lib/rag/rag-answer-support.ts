@@ -1,5 +1,12 @@
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { normalizeSectionText, splitBalancedWords } from "@/lib/rag/rag-answer-text";
+import {
+  fallbackReasonFromRouting,
+  isProviderGenerationFallbackCode,
+  normalizeRagFallbackReasonCode,
+  strongerGovernanceFallbackReasonFromRouting,
+  type RagFallbackInput,
+} from "@/lib/rag/rag-fallback-reason";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { sourceTextForDisplay } from "@/lib/source-text-sanitizer";
 import type {
@@ -51,28 +58,14 @@ export function deriveConfidence(
   return "low";
 }
 
-/**
- * Extracts a structured fallback reason from a routing reason string.
- *
- * @param reason - Raw routing reason string
- * @returns Matched fallback reason or null
- */
-export function fallbackReasonFromRouting(reason?: string | null) {
-  if (!reason) return null;
-  return (
-    reason
-      .split(";")
-      .map((part) => part.trim())
-      .find((part) =>
-        /source_only_[a-z_]+|fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i.test(
-          part,
-        ),
-      ) ?? null
-  );
-}
+export { fallbackReasonFromRouting, normalizeRagFallbackReasonCode, strongerGovernanceFallbackReasonFromRouting };
 
 /** True only when model generation failed and the answer fell back locally. */
-export function isProviderGenerationDegraded(reason?: string | null) {
+export function isProviderGenerationDegraded(input?: string | null | RagFallbackInput) {
+  if (input && typeof input === "object" && input.fallbackReasonCode != null) {
+    return isProviderGenerationFallbackCode(input.fallbackReasonCode);
+  }
+  const reason = typeof input === "string" ? input : input?.routingReason;
   return /(?:^|;\s*)generation_fallback(?::|$)/i.test(reason ?? "");
 }
 

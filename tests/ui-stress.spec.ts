@@ -3,6 +3,8 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
+import type { RagAnswer, SearchResult } from "../src/lib/types";
 import { PATIENT_PROFILE_STORAGE_KEY } from "../src/lib/patient-profile-storage";
 import { readPrimaryScrollGeometry } from "./playwright-scroll";
 
@@ -43,7 +45,7 @@ function makeDocument(index: number) {
   };
 }
 
-function makeSource(index: number) {
+function makeSource(index: number): SearchResult {
   const document = makeDocument((index % 18) + 1);
   return {
     id: `20000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
@@ -74,7 +76,7 @@ function citationFromSource(source: ReturnType<typeof makeSource>) {
   };
 }
 
-function makeStressAnswer() {
+function makeStressAnswer(): RagAnswer {
   const sources = Array.from({ length: 20 }, (_, index) => makeSource(index + 1));
   const citations = sources.slice(0, 14).map(citationFromSource);
   const quoteCards = sources.slice(0, 10).map((source) => ({
@@ -83,7 +85,7 @@ function makeStressAnswer() {
       "This exact quote is intentionally long enough to test wrapping in quote cards and action rows without causing layout overflow.",
     section_heading: source.section_heading,
     source_strength: "strong",
-  }));
+  })) satisfies NonNullable<RagAnswer["quoteCards"]>;
 
   return {
     answer:
@@ -148,18 +150,19 @@ function answerStreamBody(payload: unknown) {
   ].join("\n\n");
 }
 
-async function fulfillAnswerResponse(route: Route, payload: unknown) {
+async function fulfillAnswerResponse(route: Route, payload: RagAnswer) {
+  const clientPayload = toClientAnswerPayload(payload);
   const pathname = new URL(route.request().url()).pathname;
   if (pathname.endsWith("/stream")) {
     await route.fulfill({
-      body: answerStreamBody(payload),
+      body: answerStreamBody(clientPayload),
       contentType: "text/event-stream; charset=utf-8",
       headers: { "Cache-Control": "no-cache, no-transform" },
     });
     return;
   }
 
-  await route.fulfill({ json: payload });
+  await route.fulfill({ json: clientPayload });
 }
 
 async function mockStressData(page: Page) {

@@ -28,7 +28,7 @@ import {
 
 const expectedProviders = {
   dictionary: ["src/lib/dictionary-data.ts"],
-  factsheets: ["src/components/factsheets/factsheets-data.ts"],
+  factsheets: ["src/lib/factsheets-data.ts"],
   formulation: ["src/data/formulation-content.json"],
   therapies: ["src/data/therapies-source.json"],
   specifiers: ["data/specifiers-content.json"],
@@ -42,7 +42,7 @@ const expectedProviders = {
   medications: ["data/medications-snapshot.json"],
   services: ["data/services-snapshot.json"],
   dsm: ["src/data/dsm-clinical-content.json"],
-  calculators: ["data/calculators/evidence.json", "src/components/calculators/calculator-fixtures.ts"],
+  calculators: ["data/calculators/evidence.json", "src/lib/calculators/calculator-fixtures.ts"],
   acquisitions: ["src/data/source-acquisitions.json"],
 } as const;
 
