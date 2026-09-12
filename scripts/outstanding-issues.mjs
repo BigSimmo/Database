@@ -123,7 +123,8 @@ function lastRowIndex(parsed, table) {
 }
 
 export function findRow(parsed, id) {
-  return parsed.rows.find((row) => row.id === id) ?? null;
+  const normalized = normalizeIssueDisplayId(id);
+  return parsed.rows.find((row) => row.id === id || (row.id && normalizeIssueDisplayId(row.id) === normalized)) ?? null;
 }
 
 function isQueueHeaderRow(cells) {
@@ -142,7 +143,9 @@ function isQueueSeparatorRow(cells) {
  * - Renumbers Order 1..N to close gaps (skill contract).
  */
 export function pruneResolvedIdFromQueue(markdown, id) {
-  const target = String(id);
+  // Normalize so lowercase Crockford locators (accepted by validate/findRow)
+  // still prune uppercase queue citations.
+  const target = normalizeIssueDisplayId(id);
 
   const lines = markdown.split("\n");
   const queueStart = lines.findIndex((line) => line.startsWith("## Recommended execution queue"));
@@ -160,9 +163,9 @@ export function pruneResolvedIdFromQueue(markdown, id) {
 
     const idCell = cells[1] ?? "";
     const cited = issueIdCitations(idCell);
-    if (!cited.includes(target)) continue;
+    if (!cited.some((candidate) => normalizeIssueDisplayId(candidate) === target)) continue;
 
-    const remaining = cited.filter((candidate) => candidate !== target);
+    const remaining = cited.filter((candidate) => normalizeIssueDisplayId(candidate) !== target);
     if (remaining.length === 0) {
       lines.splice(index, 1);
       continue;
@@ -239,13 +242,40 @@ export function addIssue(markdown, fields, options = {}) {
   });
 }
 
+export function mergeArchiveOutcome(existingOutcome, newOutcome) {
+  const escapedExisting = String(existingOutcome ?? "").trim();
+  const escapedNew = escapeCell(newOutcome);
+  if (!escapedNew) return escapedExisting;
+  if (!escapedExisting) return escapedNew;
+  const noteContent = escapedNew.replace(/^Note:\s*/i, "");
+  const noteSegment = `Note: ${noteContent}`;
+  if (escapedExisting.includes(noteSegment)) {
+    return escapedExisting;
+  }
+  return `${escapedExisting} \\| ${noteSegment}`;
+}
+
 export function resolveIssue(markdown, id, outcome, options = {}) {
   if (!outcome) throw new Error("--outcome is required");
+  const allowArchived = Boolean(options.allowArchived ?? options.mergeOutcome);
   return guarded(markdown, (current) => {
     const parsed = parseIssues(current);
     const row = findRow(parsed, id);
     if (!row) throw new Error(`${id} is not in ${ISSUES_PATH}`);
     if (row.table === "archive") {
+      if (allowArchived) {
+        const cells = splitCells(row.raw);
+        cells[3] = mergeArchiveOutcome(cells[3], outcome);
+        const updatedRow = buildRow(cells);
+        if (splitCells(updatedRow).length !== ARCHIVE_CELLS) {
+          throw new Error(
+            `built an archive row with ${splitCells(updatedRow).length} cells, expected ${ARCHIVE_CELLS}`,
+          );
+        }
+        const lines = current.split("\n");
+        lines[row.line - 1] = updatedRow;
+        return pruneResolvedIdFromQueue(lines.join("\n"), id);
+      }
       if (options.idempotent) return current;
       throw new Error(`${id} is already archived`);
     }
@@ -603,6 +633,12 @@ function selfTest() {
   };
   rejects("unknown id", () => resolveIssue(fixture, "#999", "x"));
   rejects("double archive", () => resolveIssue(resolved, "#005", "again"));
+  const doubleResolved = resolveIssue(resolved, "#005", "re-closed with note", { allowArchived: true });
+  const doubleRow = parseIssues(doubleResolved).rows.find((r) => r.id === "#005");
+  check(
+    "idempotent resolve merges outcome note",
+    doubleRow && doubleRow.raw.includes("Resolved by PR #1 \\| Note: re-closed with note"),
+  );
   rejects("bad priority", () => addIssue(fixture, { pri: "P9", summary: "x" }));
   rejects("bad type", () => addIssue(fixture, { type: "nope", summary: "x" }));
   rejects("missing summary", () => addIssue(fixture, {}));
@@ -700,7 +736,9 @@ function main() {
         source: argValue(argv, "source"),
       });
     } else if (command === "done") {
+      const allowArchived = argv.includes("--allow-archived") || argv.includes("--merge-outcome");
       next = resolveIssue(markdown, positional, argValue(argv, "outcome"), {
+        allowArchived,
         idempotent: argv.includes("--idempotent"),
       });
     } else if (command === "update") {
