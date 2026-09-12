@@ -129,7 +129,7 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 19,
+  "revision": 20,
   "repairs": 1,
   "pass": 0,
   "active": 2726,
@@ -479,6 +479,12 @@
         "at": "2026-09-12T04:21:30.248Z",
         "fingerprint": null
       }
+    },
+    {
+      "revision": 20,
+      "at": "2026-09-12T04:21:30.248Z",
+      "kind": "request-sent",
+      "operationId": "batch-34671129666-19"
     }
   ]
 }
