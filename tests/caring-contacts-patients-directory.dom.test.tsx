@@ -28,13 +28,12 @@ import { describe, expect, it } from "vitest";
 import { patientsDirectoryHref } from "@/components/caring-contacts/workspace/patients-directory-client";
 import { WORKSPACE_OVERLAY_PARAM } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
+import { demoActorForRole } from "@/lib/caring-contacts-server/session";
 import { CARING_CONTACTS_ROUTES, patientRoute } from "@/lib/caring-contacts-routes";
 import { contactId, pathwayVersionId, patientId, planId, referralId, teamId } from "@/lib/caring-contacts/ids";
 import type { PlanState } from "@/lib/caring-contacts/model";
-import {
-  parsePatientsDirectoryFilter,
-  readPatientsDirectoryAddress,
-} from "@/lib/caring-contacts/patients-directory-filter";
+import { readPatientsDirectoryAddress } from "@/lib/caring-contacts/patients-directory-address";
+import { parsePatientsDirectoryFilter } from "@/lib/caring-contacts/patients-directory-filter";
 import type { PatientNameProjection, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
 
 const TEAM = teamId("demo-team");
@@ -876,9 +875,12 @@ describe("Patients directory - a role that may not see names is told once, not p
 
 describe("Patients directory - a bookmarked search term is stripped from the address, not just unread", () => {
   const NAME = "Jordan Nguyen";
+  // No filterToken appears in any address these tests build, so the actor never gates a resolved
+  // query here -- it exists only to satisfy `readPatientsDirectoryAddress`'s required parameter.
+  const ACTOR = demoActorForRole("coordinator");
 
   it("reports an unrecognised parameter as a BOOLEAN, and rebuilds a query that cannot carry it", () => {
-    const address = readPatientsDirectoryAddress({ state: "active", q: NAME });
+    const address = readPatientsDirectoryAddress({ state: "active", q: NAME }, ACTOR);
 
     expect(address.droppedUnrecognisedParams).toBe(true);
     expect(address.searchNotApplied).toBe(true);
@@ -894,21 +896,26 @@ describe("Patients directory - a bookmarked search term is stripped from the add
 
   it("triggers on any unrecognised name, because a bookmark need not say `q`", () => {
     for (const key of ["q", "name", "search", "patient", "filter"]) {
-      expect(readPatientsDirectoryAddress({ [key]: NAME }).droppedUnrecognisedParams, key).toBe(true);
+      expect(readPatientsDirectoryAddress({ [key]: NAME }, ACTOR).droppedUnrecognisedParams, key).toBe(true);
     }
     // ...and not on the ones this route does understand, or the rewrite would fire forever.
-    expect(readPatientsDirectoryAddress({}).droppedUnrecognisedParams).toBe(false);
-    expect(readPatientsDirectoryAddress({ state: "active" }).droppedUnrecognisedParams).toBe(false);
-    expect(readPatientsDirectoryAddress({ searchNotApplied: "1" }).droppedUnrecognisedParams).toBe(false);
-    expect(readPatientsDirectoryAddress({ overlay: "consent-and-withdrawal" }).droppedUnrecognisedParams).toBe(false);
+    expect(readPatientsDirectoryAddress({}, ACTOR).droppedUnrecognisedParams).toBe(false);
+    expect(readPatientsDirectoryAddress({ state: "active" }, ACTOR).droppedUnrecognisedParams).toBe(false);
+    expect(readPatientsDirectoryAddress({ searchNotApplied: "1" }, ACTOR).droppedUnrecognisedParams).toBe(false);
+    expect(readPatientsDirectoryAddress({ overlay: "consent-and-withdrawal" }, ACTOR).droppedUnrecognisedParams).toBe(
+      false,
+    );
   });
 
   it("produces a rewrite target that is itself clean, so the redirect cannot loop", () => {
-    const address = readPatientsDirectoryAddress({ state: "paused", overlay: "consent-and-withdrawal", q: NAME });
+    const address = readPatientsDirectoryAddress(
+      { state: "paused", overlay: "consent-and-withdrawal", q: NAME },
+      ACTOR,
+    );
     const rewritten = Object.fromEntries(new URLSearchParams(address.canonicalQuery));
 
     // Feed the target back through the same reader: it must ask for no further rewrite.
-    expect(readPatientsDirectoryAddress(rewritten).droppedUnrecognisedParams).toBe(false);
+    expect(readPatientsDirectoryAddress(rewritten, ACTOR).droppedUnrecognisedParams).toBe(false);
     // ...while still carrying everything that was allowed to survive.
     expect(rewritten.state).toBe("paused");
     expect(rewritten.overlay).toBe("consent-and-withdrawal");
@@ -922,7 +929,10 @@ describe("Patients directory - a bookmarked search term is stripped from the add
     // cannot fail, and an assertion that cannot fail is worse than none. What can still go wrong is
     // this route dropping the parameter the writer uses, which is what is asserted instead: a
     // deep-linked overlay must survive the caseload's own address rewrite.
-    const address = readPatientsDirectoryAddress({ [WORKSPACE_OVERLAY_PARAM]: "consent-and-withdrawal", q: "x" });
+    const address = readPatientsDirectoryAddress(
+      { [WORKSPACE_OVERLAY_PARAM]: "consent-and-withdrawal", q: "x" },
+      ACTOR,
+    );
     expect(address.droppedUnrecognisedParams).toBe(true);
     expect(new URLSearchParams(address.canonicalQuery).get(WORKSPACE_OVERLAY_PARAM)).toBe("consent-and-withdrawal");
   });
