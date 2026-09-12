@@ -20,6 +20,7 @@ const requiredIds = [
   "PRIV-CLINICAL-PHI-MINIMISATION",
 ];
 const classes = new Set(["code", "provider", "legal", "clinical"]);
+const offlineGitEnv = { ...process.env, GIT_NO_LAZY_FETCH: "1", GIT_TERMINAL_PROMPT: "0" };
 const statuses = new Set(["pending", "partial", "verified", "accepted_decision"]);
 const transitions = {
   pending: new Set(["pending", "partial", "verified", "accepted_decision"]),
@@ -64,7 +65,11 @@ function repositoryPath(reference) {
 
 function commitExists(commit) {
   try {
-    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], {
+      cwd: root,
+      env: offlineGitEnv,
+      stdio: "ignore",
+    });
     return true;
   } catch {
     return false;
@@ -76,6 +81,7 @@ function isShallowClone() {
     return (
       execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
         cwd: root,
+        env: offlineGitEnv,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
       }).trim() === "true"
@@ -87,7 +93,26 @@ function isShallowClone() {
 
 function commitIsAncestor(commit) {
   try {
-    execFileSync("git", ["merge-base", "--is-ancestor", commit, "HEAD"], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["merge-base", "--is-ancestor", commit, "HEAD"], {
+      cwd: root,
+      env: offlineGitEnv,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasReadableTree(commit) {
+  try {
+    // The evidence paths are nested, so a root-tree listing is insufficient: a filtered clone
+    // can hold the root while a nested tree needed by pathExistsAtCommit is unavailable.
+    execFileSync("git", ["ls-tree", "-r", "--name-only", `${commit}^{tree}`], {
+      cwd: root,
+      env: offlineGitEnv,
+      stdio: "ignore",
+    });
     return true;
   } catch {
     return false;
@@ -101,6 +126,7 @@ function pathExistsAtCommit(commit, file) {
     if (!commitTreeCache.has(commit)) {
       const paths = execFileSync("git", ["ls-tree", "-r", "--name-only", commit], {
         cwd: root,
+        env: offlineGitEnv,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
       });
@@ -225,15 +251,22 @@ export function validatePrivacyReadiness(
 /**
  * Whether the reviewedCommit checks can be skipped for this run.
  *
- * Only in structural mode, and only when the commit is genuinely unreachable in
- * a genuinely shallow clone. Release mode never skips: `check:privacy-readiness
+ * Only in structural mode, and only when this checkout cannot read the reviewed
+ * history (a shallow clone or a filtered clone missing the reviewed tree). Release mode never skips: `check:privacy-readiness
  * :release` and `governance:release` are release gates, and the reviewedCommit
  * ancestry plus evidence-at-commit checks are what bind the register to this
  * repository. Dropping them to spare a truncated checkout would let a release
  * print PRIVACY_READINESS_PASS having proved nothing about the reviewed commit.
  */
-export function shallowSkipDecision({ release, shallow, commitPresent }) {
-  if (!shallow || commitPresent) return { skip: false, blocked: false };
+export function shallowSkipDecision({ release, shallow, commitPresent, ancestor, treeReadable }) {
+  const historyAnswerable = commitPresent && ancestor && treeReadable;
+  if (historyAnswerable) return { skip: false, blocked: false };
+
+  // A complete clone with a missing commit remains a real register failure. The only
+  // non-shallow answer we cannot trust is a partial clone whose commit graph exists but whose
+  // reviewed tree does not.
+  const historyUnavailable = shallow || (commitPresent && ancestor && !treeReadable);
+  if (!historyUnavailable) return { skip: false, blocked: false };
   if (release) return { skip: false, blocked: true };
   return { skip: true, blocked: false };
 }
@@ -249,22 +282,24 @@ function main() {
     release,
     shallow: isShallowClone(),
     commitPresent: commitExists(manifest?.reviewedCommit ?? ""),
+    ancestor: commitIsAncestor(manifest?.reviewedCommit ?? ""),
+    treeReadable: hasReadableTree(manifest?.reviewedCommit ?? ""),
   });
   if (blocked) {
     console.error("PRIVACY_READINESS_FAIL mode=release");
     console.error(
-      `- reviewedCommit ${manifest?.reviewedCommit ?? "(unset)"} is unreachable in this shallow clone, and ` +
+      `- reviewedCommit ${manifest?.reviewedCommit ?? "(unset)"} cannot be read from this checkout, and ` +
         "release mode will not skip the ancestry and evidence-at-commit checks that bind this register to the " +
-        "repository. Re-run on a full-history checkout: git fetch --unshallow (or git fetch --deepen=2000).",
+        "repository. Re-run on a full-history, unfiltered checkout: git fetch --unshallow (or git fetch --deepen=2000).",
     );
     process.exit(1);
   }
   if (skip) {
     console.warn(
-      "PRIVACY_READINESS_SHALLOW_CLONE: this is a shallow git clone and reviewedCommit is not present, " +
-        "so the reviewedCommit existence/ancestry and evidence-at-commit checks were skipped. Run on a " +
-        "full-history checkout (git fetch --unshallow) to prove them; every other check below still ran. " +
-        "Release mode does not skip them.",
+      "PRIVACY_READINESS_HISTORY_UNAVAILABLE: this checkout cannot read the reviewedCommit ancestry and full " +
+        "tree, so the reviewedCommit existence/ancestry and evidence-at-commit checks were skipped. Run on a " +
+        "full-history, unfiltered checkout (git fetch --unshallow) to prove them; every other check below still " +
+        "ran. Release mode does not skip them.",
     );
   }
   const errors = validatePrivacyReadiness(manifest, { release, checkGit: !skip });

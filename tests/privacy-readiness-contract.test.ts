@@ -23,24 +23,67 @@ describe("privacy readiness contract", () => {
     expect(validatePrivacyReadiness(manifest, { checkGit })).toEqual([]);
   });
 
-  it("never skips the reviewedCommit checks in release mode, however shallow the checkout", () => {
-    // The release gate's repository binding is exactly these checks, so a
-    // truncated checkout must block the release rather than quietly pass it.
-    expect(shallowSkipDecision({ release: false, shallow: true, commitPresent: false })).toEqual({
+  it("skips structural Git checks when a shallow checkout has the commit but cannot answer its ancestry", () => {
+    // A fetched commit object alone does not make the evidence-at-commit checks safe: the
+    // reviewed snapshot still cannot be walked. This is the present-but-unreachable partial
+    // history case reported on the privacy CLI.
+    expect(
+      shallowSkipDecision({ release: false, shallow: true, commitPresent: true, ancestor: false, treeReadable: true }),
+    ).toEqual({
       skip: true,
       blocked: false,
     });
-    expect(shallowSkipDecision({ release: true, shallow: true, commitPresent: false })).toEqual({
+    expect(
+      shallowSkipDecision({ release: true, shallow: true, commitPresent: true, ancestor: false, treeReadable: true }),
+    ).toEqual({
+      skip: false,
+      blocked: true,
+    });
+  });
+
+  it("skips structural Git checks when a nested reviewed tree is unavailable", () => {
+    // A root tree can be present while a nested governance path is absent from a filtered
+    // checkout. The CLI must not enable checkGit until its recursive tree walk is readable.
+    expect(
+      shallowSkipDecision({ release: false, shallow: false, commitPresent: true, ancestor: true, treeReadable: false }),
+    ).toEqual({
+      skip: true,
+      blocked: false,
+    });
+  });
+
+  it("never skips the reviewedCommit checks in release mode when history is unanswerable", () => {
+    // The release gate's repository binding is exactly these checks, so a
+    // truncated checkout must block the release rather than quietly pass it.
+    expect(
+      shallowSkipDecision({
+        release: false,
+        shallow: true,
+        commitPresent: false,
+        ancestor: false,
+        treeReadable: false,
+      }),
+    ).toEqual({
+      skip: true,
+      blocked: false,
+    });
+    expect(
+      shallowSkipDecision({ release: true, shallow: true, commitPresent: false, ancestor: false, treeReadable: false }),
+    ).toEqual({
       skip: false,
       blocked: true,
     });
     // A reachable commit or a full clone is proved, not skipped, in either mode.
     for (const release of [false, true]) {
-      expect(shallowSkipDecision({ release, shallow: true, commitPresent: true })).toEqual({
+      expect(
+        shallowSkipDecision({ release, shallow: true, commitPresent: true, ancestor: true, treeReadable: true }),
+      ).toEqual({
         skip: false,
         blocked: false,
       });
-      expect(shallowSkipDecision({ release, shallow: false, commitPresent: false })).toEqual({
+      expect(
+        shallowSkipDecision({ release, shallow: false, commitPresent: false, ancestor: false, treeReadable: false }),
+      ).toEqual({
         skip: false,
         blocked: false,
       });

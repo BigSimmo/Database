@@ -96,7 +96,7 @@ function isAncestorOfHead(commit: string): boolean {
  * and it is the part a treeless or blobless clone silently lacks.
  */
 function hasReadableTree(commit: string): boolean {
-  return gitSucceeds(["ls-tree", "--name-only", `${commit}^{tree}`]);
+  return gitSucceeds(["ls-tree", "-r", "--name-only", `${commit}^{tree}`]);
 }
 
 function deepenHistory(depth: number): void {
