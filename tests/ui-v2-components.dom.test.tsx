@@ -502,6 +502,63 @@ describe("SegmentedControl", () => {
     expect(screen.getByRole("radio", { name: "Comprehensive" })).toHaveFocus();
   });
 
+  // `disabled` and `deadEnd` are different states and must not converge.
+  // `disabled` is "not on offer" and leaves the keyboard path; `deadEnd` is
+  // "your own narrowing emptied this", and docs/filter-contract.md section 3
+  // requires it to stay reachable so it can say so.
+  it("keeps a dead end on the arrow path, withholding only selection", async () => {
+    function DeadEndHarness() {
+      const [value, setValue] = useState("all");
+      return (
+        <SegmentedControl
+          label="Source locality"
+          value={value}
+          onChange={setValue}
+          options={[
+            { value: "all", label: "Any locality", hint: "3 loaded sources", hintLabel: "3" },
+            { value: "local", label: "Local", hint: "0 loaded sources", hintLabel: "0", deadEnd: true },
+            { value: "non_local", label: "Non-local", hint: "3 loaded sources", hintLabel: "3" },
+          ]}
+          layout="fit"
+        />
+      );
+    }
+    render(<DeadEndHarness />);
+
+    const dead = screen.getByRole("radio", { name: /^Local/ });
+    expect(dead).toHaveAttribute("aria-disabled", "true");
+    // Never the native attribute: that would take it out of the tab order.
+    expect(dead).not.toBeDisabled();
+    expect(dead).toHaveAccessibleDescription("Not selectable from here.");
+
+    // Arrowing onto it moves focus so the description is announced, but must
+    // not commit it — nor silently commit the option before it.
+    screen.getByRole("radio", { name: /^Any locality/ }).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(dead).toHaveFocus();
+    expect(dead).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("radio", { name: /^Any locality/ })).toHaveAttribute("aria-checked", "true");
+
+    // Clicking it is guarded too.
+    await userEvent.click(dead);
+    expect(screen.getByRole("radio", { name: /^Any locality/ })).toHaveAttribute("aria-checked", "true");
+  });
+
+  // The count is split: the unit is announced, the short form is displayed.
+  it("announces the hint with its unit while displaying only hintLabel", () => {
+    render(
+      <SegmentedControl
+        label="Source locality"
+        value="all"
+        onChange={() => undefined}
+        options={[{ value: "all", label: "Any locality", hint: "3 loaded sources", hintLabel: "3" }]}
+        layout="fit"
+      />,
+    );
+    const option = screen.getByRole("radio", { name: "Any locality (3 loaded sources)" });
+    expect(option).toHaveTextContent(/^Any locality3$/);
+  });
+
   // The one-of-N rails this control replaces across the modes all carry a count.
   // Baking it into `label` would fold the number into the truncating span, so it
   // gets its own slot — and it must reach the accessible name, or a screen

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6d9ced9d-0f97-4519-b7d0-8a5bffc596d6",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The differentials export leaves 194 of 201 records with an empty section summary, and at least one carries another diagnosis's content",
+    "detail": "Measured over all 201 records in data/differentials-snapshot.json during the 2026-09-06 session: 150 carry NO investigations, 110 carry NO immediate actions, 194 have at least one EMPTY section summary, and 55 of the 91 records that do have \"immediate actions\" carry statements rather than actions. Worse than sparse in at least one case: lithium-physiological-withdrawal-tremor is titled \"Lithium\" with a tremor subtitle, but its clinicalHinge is the definition of AKATHISIA, its four immediateActions are statements about akathisia, drug-induced parkinsonism and tardive syndromes rather than actions, and its related nodes are the EPS family rather than tremor differentials. That is another diagnosis's content presented under this one. WHY THIS IS P2 AND NOT P1: the detail page now degrades honestly around it. Every panel added in PR #2665 renders only when it has content, so a sparse record produces a sparse page rather than a confident-looking empty one; buildDiscriminators derives a row only from data the catalogue actually carries and leaves the cell blank rather than echoing the other column; and the one known-mismatched record shows a content note saying its generated sections mix material from other diagnoses. Nothing fabricates. WHAT REMAINS: the overlay in src/lib/differential-curated.ts treats symptoms one record at a time and does not scale - repairing the generator that produced 194 records with an empty section summary is a data-pipeline job, and no row owned it before this one. NEXT: find the export/generation step behind data/differentials-snapshot.json, establish whether the empty sections are a source-content gap or a mapping bug in the exporter, and fix at that layer. The per-record counts above are the measurement to re-run afterwards - a fix should move them materially, and the lithium record specifically should stop carrying akathisia content. STOP: do not paper over further records by seeding differential-curated.ts; that overlay exists for correction and high-yield enrichment, not as a substitute for a working export, and every seeded record adds clinical content that needs its own sign-off (see the authored-records row).",
+    "source": "Claude Code session 2026-09-06 (session_01GMHX5TDG34BBn2yDdi81s5), measured across data/differentials-snapshot.json while building PR #2665",
+    "issueUlid": "01M1XMVVBHVMG7D8T4KN1HCQ0R"
+  }
+}
