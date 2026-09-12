@@ -19505,6 +19505,14 @@
         "checks": "hosted CI pr-required pass; Production UI pass; CircleCI pass; lint; typecheck; document-viewer-shell.dom; Bugbot none"
       },
       {
+        "date": "2026-09-12",
+        "ref": "claude/answer-mode-coverage-gap-ilcwui",
+        "head": "9dc14120d480df8cd8da8c5da4ebcd4e8015aeef",
+        "scope": "approval review",
+        "outcome": "Approved. No high-confidence P0-P2 defects in the HEAD^..HEAD static diff; change is type-only alias wiring for client-trimmed answer payloads. Residual risk: local Vitest is unavailable in this checkout (missing node_modules/vitest) and origin/main is absent, so this pass did not re-validate or diff the broader branch.",
+        "checks": "ledger:lookup NOT REVIEWED; static review of HEAD^..HEAD for clinical-dashboard-helpers.ts, use-answer-thread-bootstrap.ts, answer-client-payload.ts; npm run test:focused rejected direct test-file selection by design; npm run test -- targeted files blocked: missing node_modules/vitest/vitest.mjs; no provider-backed checks run"
+      },
+      {
         "date": "2026-08-15",
         "ref": "codex/calculators-mode",
         "head": "9dc3891ee8bc30a35fdb203607cdd984d3a24cc3",
@@ -25991,6 +25999,14 @@
         "scope": "prlanded",
         "outcome": "merged (#2553) — browser-gate planner (npm run plan:browser), arbiter narrowed-gate routing, cloud SessionStart testing-policy hook; three Codex P2s (mockup project routing, draft-PR CI precondition, two-token selector flags) fixed and all threads resolved",
         "checks": "test 948 files / 12114 passed | 1 skipped; lint/typecheck exit 0; gate-manifest, ci-scope, verification-plan, skills, knip, docs links/scripts/inventory all pass; plan:browser level none for its own files and CI agrees; landed content verified: branch tip 2626ff7a8 is an ancestor of origin/main, planner+hook+arbiter symbols present, hook is 100755"
+      },
+      {
+        "date": "2026-09-07",
+        "ref": "claude/side-navigation-reliability-0sg48b",
+        "head": "ee0cf48b5ae370475de1526bd843ac9f62ef55a2",
+        "scope": "prlanded",
+        "outcome": "PR #2637 merged 2026-09-05T11:11:08Z by BigSimmo via true merge commit ee0cf48 (auto-merge armed, three update-branch merges of main by the owner beforehand). Tree of ee0cf48 is identical to branch tip a943909 (git diff --stat empty); fix commit 1a6adff is an ancestor of origin/main; no late or orphaned commits; remote branch already deleted by GitHub. Sidebar shortcuts now switch mode in place via onSelectMode and useHomeModeSeed consumes the UI-change flag one-shot.",
+        "checks": "git diff --stat ee0cf48 a943909 empty; git merge-base --is-ancestor 1a6adff origin/main true; PR read via GitHub MCP state=closed merged=true; CI on head a943909 green before merge"
       },
       {
         "date": "2026-07-25",

@@ -1,0 +1,4210 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="On Call phone screens for PsychSift — eleven 390px artboards in the app's own design tokens."
+    />
+    <title>On Call Night Screens</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+    />
+    <style>
+      /* ============================================================
+   Tokens lifted verbatim from src/app/globals.css, so these
+   artboards are the app's real palette rather than a lookalike.
+   ============================================================ */
+      :root {
+        --n0: #ffffff;
+        --n50: #f7f8fa;
+        --n100: #f1f4f6;
+        --n200: #e5e7eb;
+        --n300: #cdd5df;
+        --n400: #98a2b3;
+        --n500: #667085;
+        --n600: #475467;
+        --n700: #344054;
+        --n800: #1d2939;
+        --n900: #101418;
+        --n950: #080b0f;
+
+        --background: #f1f4f8;
+        --surface: #fcfdfe;
+        --surface-raised: #ffffff;
+        --surface-chrome: #f7f9fc;
+        --surface-inset: #eaeef4;
+        --border: #e3e8ef;
+        --border-strong: #c8d2de;
+
+        --text: var(--n900);
+        --text-heading: #080b0f;
+        --text-muted: var(--n600);
+        --text-soft: var(--n500);
+
+        --accent: #1d6fb8;
+        --accent-strong: #185c99;
+        --accent-soft: #eff5fc;
+        --accent-border: #c6dcf2;
+        --accent-contrast: #ffffff;
+
+        --command: #111827;
+        --command-contrast: #ffffff;
+
+        --mode: #634f8f;
+        --mode-soft: #f4f1fa;
+        --mode-border: #ded6ee;
+
+        --warning: #8a4d05;
+        --warning-bg: #fffcf6;
+        --warning-border: #f5d9a8;
+        --danger: #a3190f;
+        --danger-bg: #fef3f2;
+        --danger-border: #fda29b;
+        --success: #0c6b41;
+        --success-bg: #ecfdf3;
+        --success-border: #abefc6;
+        --info: #1c4fbf;
+        --info-bg: #eff4ff;
+        --info-border: #b2ccff;
+
+        --r-xs: 0.25rem;
+        --r-sm: 0.375rem;
+        --r-md: 0.625rem;
+        --r-lg: 0.75rem;
+        --r-xl: 1rem;
+        --r-2xl: 1.25rem;
+        --r-pill: 9999px;
+        --r-frame: 1.85rem;
+
+        --tap: 3rem; /* 48px — the app's one tap knob */
+        --compact: 2.5rem; /* 40px metadata rung only */
+        --phone: 24.375rem; /* 390px */
+
+        --scrim: rgb(8 11 15 / 46%);
+        --lift: 0 1px 2px rgb(8 11 15 / 5%);
+        --lift-sheet: 0 -10px 34px -12px rgb(8 11 15 / 34%);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --n0: #060708;
+          --n50: #0b0d0f;
+          --n100: #101214;
+          --n200: #171a1d;
+          --n300: #23282c;
+          --n400: #3b454b;
+          --n500: #7c858f;
+          --n600: #a4adb7;
+          --n700: #cbd1d8;
+          --n800: #e5e8ec;
+          --n900: #f4f6f8;
+          --n950: #fbfcfd;
+          --background: #060708;
+          --surface: #101315;
+          --surface-raised: #171b1e;
+          --surface-chrome: #0b0d0f;
+          --surface-inset: #08090b;
+          --border: #2b3136;
+          --border-strong: #3b444b;
+          --text: var(--n900);
+          --text-heading: var(--n950);
+          --text-muted: var(--n600);
+          --text-soft: var(--n500);
+          --accent: #74bdf0;
+          --accent-strong: #a9d8f8;
+          --accent-soft: #123556;
+          --accent-border: #235a7d;
+          --accent-contrast: #08203a;
+          --command: #f5f7f7;
+          --command-contrast: #060708;
+          --mode: #b0a0d8;
+          --mode-soft: #2a2540;
+          --mode-border: #3d3557;
+          --warning: #f2c45a;
+          --warning-bg: #3d2f14;
+          --warning-border: #725e23;
+          --danger: #ff9ca4;
+          --danger-bg: #401c24;
+          --danger-border: #7f2e36;
+          --success: #7de0a3;
+          --success-bg: #153f2a;
+          --success-border: #24794f;
+          --info: #89c0f0;
+          --info-bg: #122c4c;
+          --info-border: #2c537f;
+          --scrim: rgb(0 0 0 / 62%);
+          --lift: 0 1px 2px rgb(0 0 0 / 40%);
+          --lift-sheet: 0 -10px 34px -10px rgb(0 0 0 / 62%);
+        }
+      }
+      :root[data-theme="dark"] {
+        --n0: #060708;
+        --n50: #0b0d0f;
+        --n100: #101214;
+        --n200: #171a1d;
+        --n300: #23282c;
+        --n400: #3b454b;
+        --n500: #7c858f;
+        --n600: #a4adb7;
+        --n700: #cbd1d8;
+        --n800: #e5e8ec;
+        --n900: #f4f6f8;
+        --n950: #fbfcfd;
+        --background: #060708;
+        --surface: #101315;
+        --surface-raised: #171b1e;
+        --surface-chrome: #0b0d0f;
+        --surface-inset: #08090b;
+        --border: #2b3136;
+        --border-strong: #3b444b;
+        --text: var(--n900);
+        --text-heading: var(--n950);
+        --text-muted: var(--n600);
+        --text-soft: var(--n500);
+        --accent: #74bdf0;
+        --accent-strong: #a9d8f8;
+        --accent-soft: #123556;
+        --accent-border: #235a7d;
+        --accent-contrast: #08203a;
+        --command: #f5f7f7;
+        --command-contrast: #060708;
+        --mode: #b0a0d8;
+        --mode-soft: #2a2540;
+        --mode-border: #3d3557;
+        --warning: #f2c45a;
+        --warning-bg: #3d2f14;
+        --warning-border: #725e23;
+        --danger: #ff9ca4;
+        --danger-bg: #401c24;
+        --danger-border: #7f2e36;
+        --success: #7de0a3;
+        --success-bg: #153f2a;
+        --success-border: #24794f;
+        --info: #89c0f0;
+        --info-bg: #122c4c;
+        --info-border: #2c537f;
+        --scrim: rgb(0 0 0 / 62%);
+        --lift: 0 1px 2px rgb(0 0 0 / 40%);
+        --lift-sheet: 0 -10px 34px -10px rgb(0 0 0 / 62%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--text);
+        font-family:
+          "Geist",
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 96rem;
+        margin: 0 auto;
+        padding-inline: 20px;
+        padding-block: 40px 72px;
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: var(--r-xs);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      /* ---------- masthead ---------- */
+      .masthead {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        max-width: 64ch;
+      }
+      .kicker {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--mode);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .kicker .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: var(--r-pill);
+        background: var(--mode);
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(28px, 4.4vw, 40px);
+        line-height: 1.08;
+        letter-spacing: -0.022em;
+        font-weight: 700;
+        color: var(--text-heading);
+        text-wrap: balance;
+      }
+      .lede {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 16px;
+      }
+      .lede code {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 14px;
+        background: var(--surface-inset);
+        border: 1px solid var(--border);
+        border-radius: var(--r-xs);
+        padding: 1px 5px;
+      }
+      .notice {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        background: var(--info-bg);
+        border: 1px solid var(--info-border);
+        border-radius: var(--r-lg);
+        padding: 12px 14px;
+        color: var(--info);
+        font-size: 13.5px;
+        max-width: 74ch;
+      }
+      .notice svg {
+        flex: none;
+        margin-top: 1px;
+      }
+
+      /* ---------- changes strip ---------- */
+      .changes {
+        margin-top: 30px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        background: var(--surface);
+        overflow: hidden;
+      }
+      .changes-head {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-chrome);
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-soft);
+      }
+      .changes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+      }
+      .changes-cell {
+        padding: 14px 16px;
+        border-top: 1px solid var(--border);
+      }
+      .changes-cell:not(:last-child) {
+        border-right: 1px solid var(--border);
+      }
+      .changes-k {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-heading);
+        margin-bottom: 6px;
+      }
+      .changes-k svg {
+        color: var(--mode);
+        flex: none;
+      }
+      .changes-v {
+        font-size: 13px;
+        color: var(--text-muted);
+        line-height: 1.5;
+      }
+
+      /* ---------- gallery ---------- */
+      .gallery {
+        margin-top: 44px;
+        display: grid;
+        gap: 44px 32px;
+        grid-template-columns: repeat(auto-fill, minmax(390px, 390px));
+        justify-content: center;
+      }
+      @media (max-width: 439px) {
+        .wrap {
+          padding-inline: 14px;
+        }
+        .gallery {
+          grid-template-columns: 1fr;
+          gap: 36px;
+        }
+      }
+      .board {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
+      .board-head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .board-no {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 12px;
+        color: var(--mode);
+        background: var(--mode-soft);
+        border: 1px solid var(--mode-border);
+        border-radius: var(--r-sm);
+        padding: 1px 7px;
+        flex: none;
+      }
+      .board-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: -0.012em;
+        color: var(--text-heading);
+      }
+      .board-sub {
+        margin: 0;
+        font-size: 13.5px;
+        color: var(--text-muted);
+      }
+      .notes {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .notes li {
+        position: relative;
+        padding-left: 15px;
+        font-size: 13px;
+        color: var(--text-muted);
+        line-height: 1.5;
+      }
+      .notes li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 8px;
+        width: 5px;
+        height: 5px;
+        border-radius: var(--r-pill);
+        background: var(--border-strong);
+      }
+
+      /* ---------- phone frame ---------- */
+      .frame {
+        width: 100%;
+        max-width: var(--phone);
+        border-radius: var(--r-frame);
+        background: var(--surface-chrome);
+        border: 1px solid var(--border-strong);
+        box-shadow:
+          var(--lift),
+          0 18px 40px -22px rgb(8 11 15 / 26%);
+        overflow: hidden;
+        position: relative;
+      }
+      .screen {
+        display: flex;
+        flex-direction: column;
+        min-height: 748px;
+        background: var(--background);
+        font-size: 14px;
+      }
+
+      /* status bar */
+      .statusbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 20px 4px;
+        background: var(--surface-chrome);
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 11.5px;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+      }
+      .bars i {
+        display: block;
+        width: 3px;
+        background: var(--text-muted);
+        border-radius: 1px;
+      }
+      .bars i:nth-child(1) {
+        height: 4px;
+      }
+      .bars i:nth-child(2) {
+        height: 6px;
+      }
+      .bars i:nth-child(3) {
+        height: 8px;
+      }
+      .bars i:nth-child(4) {
+        height: 10px;
+        background: var(--border-strong);
+      }
+
+      /* ===== 1. UNIVERSAL HEADER — the app's own, unchanged in this mode =====
+   min-h-14 · grid [auto | 1fr | auto] · hamburger left, mode pill centred,
+   header control right. The pill is h-12 rounded-full with a 32px filled
+   clinical-accent circle; the "Mode" eyebrow is hidden below sm, so a phone
+   shows the label alone. Mirrors master-search-header.tsx. */
+      .apphdr {
+        position: relative;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        min-height: 3.5rem;
+        padding: 0 8px;
+        background: var(--surface-glass);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+      }
+      .hdrbtn {
+        width: var(--tap);
+        height: var(--tap);
+        flex: none;
+        border: 0;
+        background: transparent;
+        border-radius: var(--r-pill);
+        display: grid;
+        place-items: center;
+        color: var(--text-muted);
+        cursor: pointer;
+      }
+      /* the mode's own control on the right sits in a bordered round button */
+      .hdrbtn.ringed {
+        border: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .modepill {
+        justify-self: center;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        height: var(--tap);
+        width: min(13rem, calc(100% - 1rem));
+        min-width: 0;
+        padding: 0 10px;
+        border-radius: var(--r-pill);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        text-align: left;
+      }
+      .modepill .mi {
+        width: 32px;
+        height: 32px;
+        flex: none;
+        border-radius: var(--r-pill);
+        display: grid;
+        place-items: center;
+        background: var(--clinical-accent, var(--accent));
+        color: var(--accent-contrast);
+        box-shadow: var(--lift);
+      }
+      .modepill .ml {
+        font-weight: 800;
+        font-size: 15px;
+        line-height: 1.25;
+        color: var(--text-heading);
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .modepill > svg:last-child {
+        color: var(--text-soft);
+        flex: none;
+      }
+      .modepill[aria-expanded="true"] > svg:last-child {
+        transform: rotate(180deg);
+      }
+
+      /* ===== 3. MODE NAV RAIL — the Therapy-style priority navigation =====
+   Reproduced from mode-nav.tsx + nav-slot-ink.tsx. 48px bar on --surface with
+   a bottom hairline. Every slot keeps ONE weight in every state — bolding the
+   active label would change its width and shift the rule under it. The rule
+   hangs off the ink, so it is exactly as wide as the word, never the slot. */
+      .modenav {
+        display: flex;
+        align-items: stretch;
+        height: 3rem;
+        padding: 0 4px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        overflow: hidden;
+      }
+      .slot {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 3rem;
+        min-width: 0;
+        padding: 0 12px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      .ink {
+        position: relative;
+        display: flex;
+        height: 1.25rem;
+        min-width: 0;
+        align-items: center;
+        gap: 8px;
+        margin-top: 2px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        letter-spacing: -0.014em;
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .slot.on .ink {
+        color: var(--text-heading);
+      }
+      .ink > span.lbl {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ink > svg.tr {
+        width: 14px;
+        height: 14px;
+        flex: none;
+        opacity: 0.55;
+      }
+      .ink .ct {
+        display: grid;
+        place-items: center;
+        height: 1.125rem;
+        min-width: 1.125rem;
+        padding: 0 6px;
+        border-radius: var(--r-pill);
+        border: 1px solid var(--border-strong);
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+        color: var(--text-muted);
+        flex: none;
+      }
+      .slot.on .ink .ct {
+        border-color: var(--accent-border);
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+      /* the rule: 2px under the ink, accent when current, a hairline for a trail */
+      .rule {
+        position: absolute;
+        inset-inline: 0;
+        bottom: -0.8125rem;
+        height: 2px;
+        border-top-left-radius: var(--r-xs);
+        border-top-right-radius: var(--r-xs);
+        background: transparent;
+      }
+      .slot.on .rule {
+        background: var(--accent);
+      }
+      .slot.trail .rule {
+        height: 1px;
+        background: color-mix(in oklab, var(--accent) 35%, transparent);
+      }
+
+      /* body */
+      .body {
+        flex: 1;
+        overflow: hidden;
+        padding: 12px 12px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 11px;
+      }
+      .homebar {
+        padding: 7px 0 9px;
+        background: var(--background);
+        display: grid;
+        place-items: center;
+      }
+      .homebar i {
+        display: block;
+        width: 124px;
+        height: 4px;
+        border-radius: var(--r-pill);
+        background: var(--border-strong);
+        opacity: 0.7;
+      }
+
+      /* site switcher control */
+      .sitepick {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        min-height: var(--tap);
+        padding: 7px 12px;
+        border-radius: var(--r-md);
+        background: var(--mode-soft);
+        border: 1px solid var(--mode-border);
+        color: var(--text);
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
+      }
+      .sitepick .lab {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 9.5px;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--mode);
+        display: block;
+      }
+      .sitepick .val {
+        font-weight: 600;
+        font-size: 14.5px;
+        color: var(--text-heading);
+        display: block;
+        letter-spacing: -0.01em;
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+
+      /* group heading */
+      .grouphdr {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10.5px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-soft);
+        padding: 5px 2px 1px;
+      }
+      .grouphdr .ct {
+        font-size: 10px;
+        color: var(--text-soft);
+        background: var(--surface-inset);
+        border-radius: var(--r-sm);
+        padding: 0 5px;
+      }
+
+      /* cards + rows */
+      .card {
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        overflow: hidden;
+        box-shadow: var(--lift);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        width: 100%;
+        min-height: var(--tap);
+        padding: 9px 12px;
+        background: transparent;
+        border: 0;
+        border-top: 1px solid var(--border);
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .row:first-child {
+        border-top: 0;
+      }
+      .row .t {
+        font-weight: 500;
+        font-size: 14.5px;
+        color: var(--text-heading);
+        letter-spacing: -0.008em;
+        display: block;
+      }
+      .row .s {
+        font-size: 12.5px;
+        color: var(--text-muted);
+        margin-top: 1px;
+        display: block;
+        line-height: 1.4;
+      }
+      .num {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: 13.5px;
+        color: var(--text);
+        letter-spacing: -0.01em;
+      }
+      .leadicon {
+        width: 34px;
+        height: 34px;
+        border-radius: var(--r-md);
+        flex: none;
+        display: grid;
+        place-items: center;
+        background: var(--surface-inset);
+        color: var(--text-muted);
+      }
+      .leadicon.acc {
+        background: var(--accent-soft);
+        border: 1px solid var(--accent-border);
+        color: var(--accent);
+      }
+      .leadicon.mod {
+        background: var(--mode-soft);
+        border: 1px solid var(--mode-border);
+        color: var(--mode);
+      }
+      .callbtn {
+        width: var(--tap);
+        height: var(--tap);
+        flex: none;
+        border-radius: var(--r-md);
+        background: var(--accent-soft);
+        border: 1px solid var(--accent-border);
+        color: var(--accent);
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+      .chev {
+        color: var(--text-soft);
+        flex: none;
+      }
+
+      /* chips */
+      .chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 28px;
+        padding: 0 9px;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .chip.on {
+        background: var(--mode-soft);
+        border-color: var(--mode-border);
+        color: var(--mode);
+        font-weight: 500;
+      }
+      .chip.mono {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 11px;
+      }
+      .filters {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+      .filters::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* status — icon + words, never colour alone */
+      .flag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: var(--r-sm);
+        padding: 3px 8px;
+        border: 1px solid;
+      }
+      .flag.warn {
+        color: var(--warning);
+        background: var(--warning-bg);
+        border-color: var(--warning-border);
+      }
+      .flag.priv {
+        color: var(--text-muted);
+        background: var(--surface-inset);
+        border-color: var(--border-strong);
+      }
+      .banner {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 10px 12px;
+        border-radius: var(--r-lg);
+        border: 1px solid;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .banner.warn {
+        color: var(--warning);
+        background: var(--warning-bg);
+        border-color: var(--warning-border);
+      }
+      .banner.priv {
+        color: var(--text-muted);
+        background: var(--surface-inset);
+        border-color: var(--border-strong);
+      }
+      .banner svg {
+        flex: none;
+        margin-top: 1px;
+      }
+      .banner b {
+        font-weight: 600;
+      }
+      .stamp {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10.5px;
+        color: var(--text-soft);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      /* ---------- modular dashboard ---------- */
+      .mod {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .mod-h {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 2px;
+      }
+      .mod-h h3 {
+        margin: 0;
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10.5px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-soft);
+        font-weight: 500;
+      }
+      .mod-h .act {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 32px;
+        padding: 0 8px;
+        border: 0;
+        background: transparent;
+        border-radius: var(--r-sm);
+        color: var(--accent);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      /* shift module — the dashboard's context header */
+      .shift {
+        border-radius: var(--r-lg);
+        border: 1px solid var(--mode-border);
+        background: var(--mode-soft);
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 11px;
+      }
+      .shift-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .shift-lab {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 9.5px;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--mode);
+        display: block;
+      }
+      .shift-site {
+        font-weight: 700;
+        font-size: 17px;
+        letter-spacing: -0.02em;
+        color: var(--text-heading);
+        display: block;
+        margin-top: 1px;
+      }
+      .shift-when {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-muted);
+        display: block;
+        margin-top: 3px;
+      }
+      .shift-sw {
+        display: grid;
+        place-items: center;
+        width: var(--tap);
+        height: var(--tap);
+        flex: none;
+        border-radius: var(--r-md);
+        background: var(--surface-raised);
+        border: 1px solid var(--mode-border);
+        color: var(--mode);
+        cursor: pointer;
+      }
+      .prog {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .prog-bar {
+        height: 5px;
+        border-radius: var(--r-pill);
+        background: var(--surface-raised);
+        overflow: hidden;
+        border: 1px solid var(--mode-border);
+      }
+      .prog-bar i {
+        display: block;
+        height: 100%;
+        width: 57%;
+        background: var(--accent);
+        border-radius: var(--r-pill);
+      }
+      .prog-lab {
+        display: flex;
+        justify-content: space-between;
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10.5px;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .prog-lab b {
+        color: var(--text-heading);
+        font-weight: 600;
+      }
+
+      /* ward strip */
+      .wards {
+        display: flex;
+        gap: 7px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+      .wards::-webkit-scrollbar {
+        display: none;
+      }
+      .ward {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: none;
+        min-height: var(--tap);
+        padding: 7px 12px;
+        border-radius: var(--r-md);
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        box-shadow: var(--lift);
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+        color: inherit;
+      }
+      .ward .wn {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--text-heading);
+        letter-spacing: -0.01em;
+      }
+      .ward .wx {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 11.5px;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+      }
+      .ward.locked .wn::after {
+        content: " ·";
+        color: var(--text-soft);
+      }
+
+      /* quick actions */
+      .quick {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      .qa {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 72px;
+        padding: 9px 6px;
+        border-radius: var(--r-lg);
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        box-shadow: var(--lift);
+        cursor: pointer;
+        font: inherit;
+        color: inherit;
+      }
+      .qa svg {
+        color: var(--accent);
+      }
+      .qa span {
+        font-size: 11.5px;
+        font-weight: 500;
+        color: var(--text-heading);
+        text-align: center;
+        line-height: 1.25;
+      }
+
+      /* pinned reminder card */
+      .pinned {
+        border-radius: var(--r-lg);
+        border: 1px solid var(--accent-border);
+        background: var(--accent-soft);
+        padding: 12px;
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .pinned svg {
+        flex: none;
+        color: var(--accent);
+        margin-top: 1px;
+      }
+      .pinned .pt {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--text-heading);
+        line-height: 1.4;
+        display: block;
+      }
+      .pinned .ps {
+        font-size: 12.5px;
+        color: var(--text-muted);
+        margin-top: 3px;
+        display: block;
+        line-height: 1.45;
+      }
+
+      /* recent list */
+      .recent .row .s {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--text-soft);
+      }
+
+      /* HOME — primary call actions */
+      .calls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+      }
+      .callcard {
+        display: flex;
+        flex-direction: column;
+        min-height: 102px;
+        padding: 12px;
+        border-radius: var(--r-lg);
+        background: var(--command);
+        color: var(--command-contrast);
+        border: 0;
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+      }
+      .callcard .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: auto;
+      }
+      .callcard .top svg {
+        opacity: 0.92;
+      }
+      .callcard .avail {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 9.5px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        opacity: 0.66;
+      }
+      .callcard .role {
+        font-size: 12.5px;
+        opacity: 0.85;
+        line-height: 1.3;
+      }
+      .callcard .digits {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: 19px;
+        font-weight: 500;
+        letter-spacing: -0.025em;
+        margin-top: 3px;
+      }
+      .callthird {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        min-height: var(--tap);
+        padding: 8px 12px;
+        border-radius: var(--r-md);
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        box-shadow: var(--lift);
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      /* HOME — section tiles */
+      .tiles {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .tile {
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        padding: 12px 11px;
+        border-radius: var(--r-lg);
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        box-shadow: var(--lift);
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+        color: inherit;
+        min-height: 78px;
+      }
+      .tile .tt {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .tile .tt svg {
+        color: var(--mode);
+      }
+      .tile .tc {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--text-soft);
+        font-variant-numeric: tabular-nums;
+      }
+      .tile .tl {
+        font-weight: 500;
+        font-size: 14px;
+        color: var(--text-heading);
+        letter-spacing: -0.008em;
+      }
+      .tile .td {
+        font-size: 11.5px;
+        color: var(--text-soft);
+        margin-top: 2px;
+        line-height: 1.35;
+      }
+      .tile.card-alt {
+        background: var(--mode-soft);
+        border-color: var(--mode-border);
+      }
+      .tile.card-alt .tl {
+        color: var(--mode);
+      }
+
+      /* SHEET — the section switcher */
+      .sheetwrap {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        pointer-events: none;
+      }
+      .scrim {
+        position: absolute;
+        inset: 0;
+        background: var(--scrim);
+      }
+      .sheet {
+        position: relative;
+        background: var(--surface-raised);
+        border-top-left-radius: var(--r-xl);
+        border-top-right-radius: var(--r-xl);
+        box-shadow: var(--lift-sheet);
+        border-top: 1px solid var(--border);
+        padding-bottom: 10px;
+        max-height: 86%;
+        display: flex;
+        flex-direction: column;
+      }
+      .sheet-grab {
+        display: grid;
+        place-items: center;
+        padding: 8px 0 2px;
+      }
+      .sheet-grab i {
+        display: block;
+        width: 38px;
+        height: 4px;
+        border-radius: var(--r-pill);
+        background: var(--border-strong);
+      }
+      .sheet-hdr {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 0 6px 4px;
+        border-bottom: 1px solid var(--border);
+      }
+      .sheet-ttl {
+        flex: 1;
+        min-width: 0;
+        padding: 0 4px;
+      }
+      .sheet-ttl .st {
+        font-weight: 600;
+        font-size: 15.5px;
+        color: var(--text-heading);
+        letter-spacing: -0.012em;
+      }
+      .sheet-ttl .ss {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 1px;
+      }
+      .sheet-body {
+        overflow: hidden;
+        padding: 4px 0 0;
+      }
+      .sheetrow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        min-height: var(--tap);
+        padding: 8px 14px;
+        background: transparent;
+        border: 0;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .sheetrow.on {
+        background: var(--mode-soft);
+      }
+      .sheetrow.on .sl {
+        color: var(--mode);
+        font-weight: 600;
+      }
+      .sheetrow .sl {
+        font-weight: 500;
+        font-size: 15px;
+        color: var(--text-heading);
+        display: block;
+        letter-spacing: -0.01em;
+      }
+      .sheetrow .sd {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 1px;
+        display: block;
+      }
+      .sheetrow .sc {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 11.5px;
+        color: var(--text-soft);
+        font-variant-numeric: tabular-nums;
+      }
+      .sheet-foot {
+        border-top: 1px solid var(--border);
+        margin-top: 4px;
+        padding-top: 4px;
+      }
+
+      /* page-menu extras: the segmented control the shared header moves into the
+   actions sheet below sm, and plain action rows */
+      .segctl {
+        display: flex;
+        gap: 4px;
+        padding: 4px;
+        margin: 8px 14px 4px;
+        border-radius: var(--r-md);
+        background: var(--surface-inset);
+        border: 1px solid var(--border);
+      }
+      .segctl button {
+        flex: 1;
+        min-height: 40px;
+        border: 0;
+        border-radius: var(--r-sm);
+        background: transparent;
+        color: var(--text-muted);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .segctl button[aria-pressed="true"] {
+        background: var(--surface-raised);
+        color: var(--text-heading);
+        font-weight: 600;
+        box-shadow: var(--lift);
+      }
+      .actrow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        min-height: var(--tap);
+        padding: 8px 14px;
+        background: transparent;
+        border: 0;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .actrow .al {
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-heading);
+        display: block;
+        letter-spacing: -0.01em;
+      }
+      .actrow .ad {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 1px;
+        display: block;
+      }
+      .actrow svg:first-child {
+        color: var(--text-muted);
+        flex: none;
+      }
+      .sheet-kicker {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-soft);
+        padding: 10px 14px 2px;
+      }
+
+      /* ladder */
+      .ladder {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .ladder li {
+        display: flex;
+        gap: 11px;
+        padding: 10px 12px;
+        border-top: 1px solid var(--border);
+      }
+      .step {
+        width: 24px;
+        height: 24px;
+        flex: none;
+        border-radius: var(--r-pill);
+        background: var(--mode-soft);
+        border: 1px solid var(--mode-border);
+        color: var(--mode);
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 12px;
+        display: grid;
+        place-items: center;
+        margin-top: 2px;
+      }
+      .ladder .who {
+        font-weight: 500;
+        font-size: 14px;
+        color: var(--text-heading);
+        display: block;
+      }
+      .ladder .when {
+        font-size: 12.5px;
+        color: var(--text-muted);
+        margin-top: 1px;
+        display: block;
+        line-height: 1.42;
+      }
+      .minicall {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 34px;
+        padding: 0 11px;
+        margin-top: 7px;
+        border-radius: var(--r-md);
+        background: var(--accent-soft);
+        border: 1px solid var(--accent-border);
+        color: var(--accent);
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 12.5px;
+        font-variant-numeric: tabular-nums;
+        cursor: pointer;
+      }
+      .doclink {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 10px 12px;
+        border-top: 1px solid var(--border);
+        cursor: pointer;
+      }
+      .doclink .dt {
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--accent);
+        line-height: 1.35;
+        display: block;
+      }
+      .doclink .dd {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10.5px;
+        color: var(--text-soft);
+        margin-top: 3px;
+        display: block;
+      }
+
+      /* detail */
+      .detail {
+        padding: 0 12px 12px;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .dl {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding-top: 10px;
+      }
+      .dl .k {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10px;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+        color: var(--text-soft);
+        margin-bottom: 3px;
+      }
+      .dl .v {
+        font-size: 13.5px;
+        color: var(--text);
+        line-height: 1.45;
+      }
+      .taglist {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .taglist li {
+        display: flex;
+        gap: 7px;
+        font-size: 13.5px;
+        color: var(--text);
+        line-height: 1.4;
+      }
+      .taglist svg {
+        flex: none;
+        margin-top: 3px;
+      }
+      .taglist.yes svg {
+        color: var(--success);
+      }
+      .taglist.no svg {
+        color: var(--danger);
+      }
+
+      /* checklist */
+      .check {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .check li {
+        display: flex;
+        gap: 11px;
+        align-items: flex-start;
+        padding: 10px 12px;
+        border-top: 1px solid var(--border);
+      }
+      .check li:first-child {
+        border-top: 0;
+      }
+      .box {
+        width: 20px;
+        height: 20px;
+        flex: none;
+        border-radius: var(--r-xs);
+        margin-top: 1px;
+        border: 1.5px solid var(--border-strong);
+        background: var(--surface);
+        display: grid;
+        place-items: center;
+        color: var(--surface);
+      }
+      .box.done {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-contrast);
+      }
+      .check .ct {
+        font-size: 14px;
+        color: var(--text-heading);
+        line-height: 1.4;
+        display: block;
+      }
+      .check .cs {
+        font-size: 12.5px;
+        color: var(--text-muted);
+        margin-top: 2px;
+        display: block;
+      }
+      .check li.done .ct {
+        color: var(--text-muted);
+        text-decoration: line-through;
+        text-decoration-color: var(--border-strong);
+      }
+
+      /* date badge */
+      .datebadge {
+        width: 44px;
+        flex: none;
+        border-radius: var(--r-md);
+        background: var(--surface-inset);
+        border: 1px solid var(--border);
+        padding: 5px 0;
+        text-align: center;
+      }
+      .datebadge .dow {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 9.5px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--mode);
+        display: block;
+      }
+      .datebadge .dnum {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--text-heading);
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+        display: block;
+      }
+      .datebadge .mon {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 9.5px;
+        color: var(--text-soft);
+        text-transform: uppercase;
+        display: block;
+      }
+
+      /* owner note */
+      .ownernote {
+        margin: 10px 12px 0;
+        padding: 10px 11px;
+        border-radius: var(--r-md);
+        background: var(--surface-inset);
+        border: 1px solid var(--border-strong);
+        border-left: 3px solid var(--mode);
+      }
+      .ownernote .attrib {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--mode);
+        margin-bottom: 5px;
+      }
+      .ownernote p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--text);
+        line-height: 1.5;
+      }
+
+      /* empty state */
+      .empty {
+        padding: 16px 12px;
+        text-align: center;
+        border-top: 1px solid var(--border);
+      }
+      .empty .et {
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--text-heading);
+      }
+      .empty .es {
+        font-size: 12.5px;
+        color: var(--text-muted);
+        margin: 4px 0 10px;
+      }
+      .ghost {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        min-height: var(--tap);
+        padding: 0 14px;
+        border-radius: var(--r-md);
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        color: var(--text);
+        font: inherit;
+        font-size: 13.5px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .hidesvg {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="hidesvg" aria-hidden="true">
+      <symbol
+        id="i-phone"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M14.05 2a9 9 0 0 1 8 7.94M14.05 6A5 5 0 0 1 18 10" />
+        <path
+          d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
+        />
+      </symbol>
+      <symbol
+        id="i-chevr"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m9 18 6-6-6-6" />
+      </symbol>
+      <symbol
+        id="i-chevd"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m6 9 6 6 6-6" />
+      </symbol>
+      <symbol
+        id="i-back"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m12 19-7-7 7-7" />
+        <path d="M19 12H5" />
+      </symbol>
+      <symbol
+        id="i-dots"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+      >
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
+        <circle cx="5" cy="12" r="1" />
+      </symbol>
+      <symbol
+        id="i-search"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+      </symbol>
+      <symbol
+        id="i-lock"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect width="18" height="11" x="3" y="11" rx="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </symbol>
+      <symbol
+        id="i-warn"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z" />
+        <path d="M12 9v4" />
+        <path d="M12 17h.01" />
+      </symbol>
+      <symbol
+        id="i-clock"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </symbol>
+      <symbol
+        id="i-pin"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+        <circle cx="12" cy="10" r="3" />
+      </symbol>
+      <symbol
+        id="i-file"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+        <path d="M14 2v5h6" />
+      </symbol>
+      <symbol
+        id="i-sign"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M20 20a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2" />
+        <path d="M4 15V4a2 2 0 0 1 2-2h8l4 4v9" />
+        <path d="m9 12 2 2 4-4" />
+      </symbol>
+      <symbol
+        id="i-users"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      </symbol>
+      <symbol
+        id="i-route"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="6" cy="19" r="3" />
+        <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
+        <circle cx="18" cy="5" r="3" />
+      </symbol>
+      <symbol
+        id="i-cap"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M22 10 12 5 2 10l10 5 10-5Z" />
+        <path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" />
+      </symbol>
+      <symbol
+        id="i-wrench"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.8 3.8Z"
+        />
+      </symbol>
+      <symbol
+        id="i-shield"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1 1 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1Z"
+        />
+      </symbol>
+      <symbol
+        id="i-cal"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M8 2v4M16 2v4" />
+        <rect width="18" height="18" x="3" y="4" rx="2" />
+        <path d="M3 10h18" />
+      </symbol>
+      <symbol
+        id="i-check"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M20 6 9 17l-5-5" />
+      </symbol>
+      <symbol
+        id="i-x"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.4"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M18 6 6 18M6 6l12 12" />
+      </symbol>
+      <symbol
+        id="i-ext"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M15 3h6v6" />
+        <path d="M10 14 21 3" />
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      </symbol>
+      <symbol
+        id="i-bldg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect width="16" height="20" x="4" y="2" rx="2" />
+        <path d="M9 22v-4h6v4M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01" />
+      </symbol>
+      <symbol
+        id="i-info"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 16v-4M12 8h.01" />
+      </symbol>
+      <symbol
+        id="i-wifi"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M12 20h.01" />
+        <path d="M5 12.9a10 10 0 0 1 14 0" />
+        <path d="M8.5 16.4a5 5 0 0 1 7 0" />
+        <path d="M2 8.8a15 15 0 0 1 20 0" />
+      </symbol>
+      <symbol
+        id="i-key"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m15.5 7.5 3 3L22 7l-3-3" />
+        <path d="m9.5 13.5 6-6" />
+        <circle cx="7" cy="16" r="4" />
+      </symbol>
+      <symbol
+        id="i-print"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M6 9V2h12v7" />
+        <rect width="12" height="8" x="6" y="14" />
+        <path d="M6 18H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2" />
+      </symbol>
+      <symbol
+        id="i-grid"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect width="7" height="7" x="3" y="3" rx="1" />
+        <rect width="7" height="7" x="14" y="3" rx="1" />
+        <rect width="7" height="7" x="14" y="14" rx="1" />
+        <rect width="7" height="7" x="3" y="14" rx="1" />
+      </symbol>
+      <symbol
+        id="i-ellipsis"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.25"
+        stroke-linecap="round"
+      >
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
+        <circle cx="5" cy="12" r="1" />
+      </symbol>
+      <symbol
+        id="i-star"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M11.5 3.3a.6.6 0 0 1 1 0l2.3 4.7 5.2.7a.6.6 0 0 1 .3 1l-3.7 3.6.9 5.1a.6.6 0 0 1-.9.6L12 16.6l-4.6 2.4a.6.6 0 0 1-.9-.6l.9-5.1L3.7 9.7a.6.6 0 0 1 .3-1l5.2-.7Z"
+        />
+      </symbol>
+      <symbol
+        id="i-menu"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M4 6h16M4 12h16M4 18h16" />
+      </symbol>
+      <symbol
+        id="i-pin2"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M12 17v5" />
+        <path
+          d="M9 10.8V4h6v6.8a2 2 0 0 0 .6 1.4l1.9 1.9a1 1 0 0 1-.7 1.7H7.2a1 1 0 0 1-.7-1.7l1.9-1.9a2 2 0 0 0 .6-1.4Z"
+        />
+      </symbol>
+      <symbol
+        id="i-sun"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.9"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path
+          d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"
+        />
+      </symbol>
+    </svg>
+
+    <div class="wrap">
+      <header class="masthead">
+        <p class="kicker"><span class="dot"></span>On Call · phone screens · v6</p>
+        <h1>On Call, a dashboard for the shift</h1>
+        <p class="lede">
+          Eleven screens at 390&nbsp;px in the app's own tokens. Home is now seven modules — shift progress, the calls
+          that come first, tonight's wards, a pinned reminder, recent numbers, what's coming, and the section grid. Both
+          rows of chrome stay the app's own, read out of <code>master-search-header.tsx</code>,
+          <code>mode-nav.tsx</code> and <code>nav-slot-ink.tsx</code> rather than redrawn. No search, no bottom toolbar.
+        </p>
+        <div class="notice">
+          <svg width="16" height="16"><use href="#i-info" /></svg>
+          <span
+            ><b>All content is example data.</b> Numbers, wards and sessions are placeholders for layout only — no real
+            internal contact, and no credential in any field.</span
+          >
+        </div>
+      </header>
+
+      <section class="changes" aria-label="How the chrome is stacked">
+        <div class="changes-head">How the chrome is stacked</div>
+        <div class="changes-grid">
+          <div class="changes-cell">
+            <div class="changes-k">
+              <svg width="15" height="15"><use href="#i-menu" /></svg>1 · Universal header
+            </div>
+            <div class="changes-v">
+              The app’s own row, unaltered: 56&nbsp;px tall, hamburger on the left, the mode pill centred — 48&nbsp;px,
+              fully round, a 32&nbsp;px filled blue circle around the mode glyph — and a header control on the right.
+              The "Mode" eyebrow is hidden at phone width, exactly as the component does it.
+            </div>
+          </div>
+          <div class="changes-cell">
+            <div class="changes-k">
+              <svg width="15" height="15"><use href="#i-chevd" /></svg>2 · The switcher, altered
+            </div>
+            <div class="changes-v">
+              In On Call the switcher opens this mode's seven sections first, instead of the flat list of modes. That is
+              the one thing this mode changes about the universal header.
+            </div>
+          </div>
+          <div class="changes-cell">
+            <div class="changes-k">
+              <svg width="15" height="15"><use href="#i-grid" /></svg>3 · The section rail
+            </div>
+            <div class="changes-v">
+              Tonight, Contacts, Playbook and More, on a 48&nbsp;px bar. Every slot keeps one weight in every state —
+              bolding the current label would change its width and shift the rule beneath it. The rule hangs off the
+              word, not the slot.
+            </div>
+          </div>
+          <div class="changes-cell">
+            <div class="changes-k">
+              <svg width="15" height="15"><use href="#i-clock" /></svg>4 · New on Home
+            </div>
+            <div class="changes-v">
+              Shift progress, a scrolling strip of tonight's wards, and a recent-numbers list — the three additions that
+              save the most taps on a second night. The freshness warning has moved to Contacts, where the fix is.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="gallery">
+        <!-- ============ 01 HOME ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">01</span>
+            <h2 class="board-title">Home</h2>
+          </div>
+          <p class="board-sub">Rebuilt. Where am I, who do I call, what's on, what's stale — then everything else.</p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>22:41</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="false" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot on" aria-current="page">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body">
+                <section class="shift">
+                  <div class="shift-top">
+                    <span class="grow">
+                      <span class="shift-lab">On tonight</span>
+                      <span class="shift-site">Northside</span>
+                      <span class="shift-when">17:00 – 08:00 · Wards 4B, 5A, ED</span>
+                    </span>
+                    <button class="shift-sw" aria-label="Change site">
+                      <svg width="19" height="19"><use href="#i-bldg" /></svg>
+                    </button>
+                  </div>
+                  <div class="prog">
+                    <div class="prog-bar"><i></i></div>
+                    <div class="prog-lab">
+                      <span>Started 17:00</span><span><b>6h 20m</b> to handover</span>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="mod">
+                  <div class="mod-h"><h3>Call first</h3></div>
+                  <div class="calls">
+                    <button class="callcard">
+                      <span class="top"
+                        ><svg width="17" height="17"><use href="#i-phone" /></svg
+                        ><span class="avail">Always</span></span
+                      >
+                      <span class="role">Nurse manager</span>
+                      <span class="digits">5544</span>
+                    </button>
+                    <button class="callcard">
+                      <span class="top"
+                        ><svg width="17" height="17"><use href="#i-phone" /></svg
+                        ><span class="avail">From 17:00</span></span
+                      >
+                      <span class="role">Registrar on call</span>
+                      <span class="digits">5107</span>
+                    </button>
+                  </div>
+                  <button class="callthird">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Switchboard</span
+                      ><span class="s">For the consultant, and anyone off this list</span></span
+                    >
+                    <span class="num">9</span>
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </button>
+                </section>
+
+                <section class="mod">
+                  <div class="mod-h">
+                    <h3>Your wards</h3>
+                    <button class="act">
+                      All wards<svg width="13" height="13"><use href="#i-chevr" /></svg>
+                    </button>
+                  </div>
+                  <div class="wards">
+                    <button class="ward"><span class="wn">Ward 4B</span><span class="wx">5210</span></button>
+                    <button class="ward"><span class="wn">Ward 5A</span><span class="wx">5230</span></button>
+                    <button class="ward"><span class="wn">ED</span><span class="wx">5401</span></button>
+                    <button class="ward"><span class="wn">PICU</span><span class="wx">5245</span></button>
+                  </div>
+                </section>
+
+                <section class="pinned">
+                  <svg width="17" height="17"><use href="#i-shield" /></svg>
+                  <span class="grow">
+                    <span class="pt">You are expected to wake the consultant.</span>
+                    <span class="ps"
+                      >Any detention decision, or a registrar unreachable for ten minutes. The Playbook has the
+                      ladder.</span
+                    >
+                  </span>
+                </section>
+
+                <section class="mod recent">
+                  <div class="mod-h">
+                    <h3>Recent</h3>
+                    <button class="act">Clear</button>
+                  </div>
+                  <div class="card">
+                    <div class="row">
+                      <span class="leadicon"
+                        ><svg width="17" height="17"><use href="#i-phone" /></svg
+                      ></span>
+                      <span class="grow"
+                        ><span class="t">Ward 4B nurses' station</span><span class="s">21:58</span></span
+                      >
+                      <span class="num">5210</span>
+                      <span class="callbtn" role="button" aria-label="Call"
+                        ><svg width="18" height="18"><use href="#i-phone" /></svg
+                      ></span>
+                    </div>
+                    <div class="row">
+                      <span class="leadicon"
+                        ><svg width="17" height="17"><use href="#i-users" /></svg
+                      ></span>
+                      <span class="grow"
+                        ><span class="t">Interpreter — TIS National</span><span class="s">20:14</span></span
+                      >
+                      <span class="num">131 450</span>
+                      <span class="callbtn" role="button" aria-label="Call"
+                        ><svg width="18" height="18"><use href="#i-phone" /></svg
+                      ></span>
+                    </div>
+                    <div class="row">
+                      <span class="leadicon"
+                        ><svg width="17" height="17"><use href="#i-route" /></svg
+                      ></span>
+                      <span class="grow"
+                        ><span class="t">Youth mental health service</span><span class="s">18:40</span></span
+                      >
+                      <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="mod">
+                  <div class="mod-h"><h3>Coming up</h3></div>
+                  <div class="card">
+                    <div class="row" style="cursor: default">
+                      <span class="datebadge"
+                        ><span class="dow">Tue</span><span class="dnum">16</span><span class="mon">Sep</span></span
+                      >
+                      <span class="grow"
+                        ><span class="t">Registrar teaching</span
+                        ><span class="s">08:00 · Seminar room 2 · Dr A. Whitfield</span></span
+                      >
+                      <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                    </div>
+                    <div class="row" style="cursor: default">
+                      <span class="leadicon"
+                        ><svg width="17" height="17"><use href="#i-clock" /></svg
+                      ></span>
+                      <span class="grow"
+                        ><span class="t">Handover</span
+                        ><span class="s">08:00 · Seminar room 2 · bring the ward list</span></span
+                      >
+                    </div>
+                  </div>
+                </section>
+
+                <section class="mod">
+                  <div class="mod-h"><h3>Quick</h3></div>
+                  <div class="quick">
+                    <button class="qa">
+                      <svg width="19" height="19"><use href="#i-print" /></svg><span>Pocket card</span>
+                    </button>
+                    <button class="qa">
+                      <svg width="19" height="19"><use href="#i-warn" /></svg><span>Wrong number</span>
+                    </button>
+                    <button class="qa">
+                      <svg width="19" height="19"><use href="#i-sign" /></svg><span>Claim overtime</span>
+                    </button>
+                  </div>
+                </section>
+
+                <section class="mod">
+                  <div class="mod-h"><h3>All sections</h3></div>
+                  <div class="tiles">
+                    <button class="tile">
+                      <span class="tt"
+                        ><svg width="18" height="18"><use href="#i-phone" /></svg><span class="tc">42</span></span
+                      >
+                      <span><span class="tl">Contacts</span><span class="td">Numbers, by role</span></span>
+                    </button>
+                    <button class="tile">
+                      <span class="tt"
+                        ><svg width="18" height="18"><use href="#i-shield" /></svg><span class="tc">9</span></span
+                      >
+                      <span><span class="tl">Playbook</span><span class="td">Who to ring, in order</span></span>
+                    </button>
+                    <button class="tile">
+                      <span class="tt"
+                        ><svg width="18" height="18"><use href="#i-route" /></svg><span class="tc">17</span></span
+                      >
+                      <span><span class="tl">Referrals</span><span class="td">Who takes whom</span></span>
+                    </button>
+                    <button class="tile">
+                      <span class="tt"
+                        ><svg width="18" height="18"><use href="#i-sign" /></svg><span class="tc">23</span></span
+                      >
+                      <span><span class="tl">Forms</span><span class="td">Claims and access</span></span>
+                    </button>
+                    <button class="tile">
+                      <span class="tt"
+                        ><svg width="18" height="18"><use href="#i-file" /></svg><span class="tc">11</span></span
+                      >
+                      <span><span class="tl">Orientation</span><span class="td">Starting and leaving</span></span>
+                    </button>
+                    <button class="tile">
+                      <span class="tt"
+                        ><svg width="18" height="18"><use href="#i-cap" /></svg><span class="tc">6</span></span
+                      >
+                      <span><span class="tl">Teaching</span><span class="td">What's on this term</span></span>
+                    </button>
+                    <button class="tile">
+                      <span class="tt"
+                        ><svg width="18" height="18"><use href="#i-pin" /></svg><span class="tc">19</span></span
+                      >
+                      <span><span class="tl">Logistics</span><span class="td">Rooms, food, access</span></span>
+                    </button>
+                    <button class="tile card-alt">
+                      <span class="tt"
+                        ><svg width="18" height="18"><use href="#i-users" /></svg
+                      ></span>
+                      <span><span class="tl">Who's who</span><span class="td">Roles, and who to ask</span></span>
+                    </button>
+                  </div>
+                </section>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>
+              Seven modules, each with a quiet monospaced label and its own action where one helps. The shift module is
+              the only one painted in the mode's purple — it is context, not content, and the tint says so without a
+              border shouting it.
+            </li>
+            <li>
+              <b>Shift progress</b> is new and earns its place on nights: a thin bar, the start time, and how long is
+              left. It answers "how much of this is still ahead of me" without arithmetic at 3am.
+            </li>
+            <li>
+              <b>Your wards</b> is new — a scrolling strip of just tonight's wards with their extensions, so the three
+              numbers you dial most are one tap from the top of the app.
+            </li>
+            <li>
+              <b>Recent</b> is new, and is probably the highest-yield module here: on a second night you re-dial the
+              same four numbers, and this removes the search entirely.
+            </li>
+            <li>
+              The consultant sentence is pinned in accent rather than buried in the Playbook. It is the hub's single
+              most valuable line, so it gets a card.
+            </li>
+            <li>
+              The freshness warning is gone from Home. It belongs on Contacts, where the overdue rows actually are and
+              where the fix is one tap away.
+            </li>
+          </ul>
+        </article>
+
+        <!-- ============ 02 SWITCHER — SECTIONS ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">02</span>
+            <h2 class="board-title">More</h2>
+          </div>
+          <p class="board-sub">The rail's overflow sheet. Four slots fit; the rest live here.</p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>22:44</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="true" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot on" aria-current="page">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body" style="opacity: 0.4">
+                <div class="filters">
+                  <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Emergency</span
+                  ><span class="chip">Wards</span>
+                </div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                    ><span class="grow"
+                      ><span class="t">After-hours nurse manager</span><span class="s">Always on</span></span
+                    ><span class="num">5544</span>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                    ><span class="grow"><span class="t">Registrar on call</span><span class="s">From 17:00</span></span
+                    ><span class="num">5107</span>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+            <div class="sheetwrap">
+              <div class="scrim"></div>
+              <div class="sheet">
+                <div class="sheet-grab"><i></i></div>
+                <div class="sheet-hdr">
+                  <div class="sheet-ttl">
+                    <div class="st">More</div>
+                    <div class="ss">Five sections · Northside</div>
+                  </div>
+                  <button class="iconbtn" aria-label="Close">
+                    <svg width="20" height="20"><use href="#i-x" /></svg>
+                  </button>
+                </div>
+                <div class="sheet-body">
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-route" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">Referrals</span><span class="sd">Who a service takes</span></span
+                    >
+                    <span class="sc">17</span>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-sign" /></svg
+                    ></span>
+                    <span class="grow"><span class="sl">Forms</span><span class="sd">Claims, leave, access</span></span>
+                    <span class="sc">23</span>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-file" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">Orientation</span><span class="sd">Starting and leaving a term</span></span
+                    >
+                    <span class="sc">11</span>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-cap" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">Teaching</span><span class="sd">Sessions and requirements</span></span
+                    >
+                    <span class="sc">6</span>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-pin" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">Logistics</span><span class="sd">Rooms, food, getting in</span></span
+                    >
+                    <span class="sc">19</span>
+                  </button>
+                  <div class="sheet-foot">
+                    <button class="sheetrow">
+                      <span class="leadicon"
+                        ><svg width="17" height="17"><use href="#i-print" /></svg
+                      ></span>
+                      <span class="grow"
+                        ><span class="sl">Pocket card</span><span class="sd">One page, for printing</span></span
+                      >
+                      <svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>
+              Four slots is what fits at 390&nbsp;px without abbreviating a word. The rail never shortens a label — a
+              slot shows its real word or folds into More.
+            </li>
+            <li>Counts ride the slot, so Contacts says 42 before you open it.</li>
+            <li>The pocket card sits below a rule at the foot: it is an output, not another section.</li>
+          </ul>
+        </article>
+
+        <!-- ============ 03 SWITCHER — ALL MODES ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">03</span>
+            <h2 class="board-title">All modes</h2>
+          </div>
+          <p class="board-sub">The mode pill’s own sheet — unchanged from every other mode.</p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>22:45</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="true" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot on" aria-current="page">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body" style="opacity: 0.4">
+                <div class="filters">
+                  <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Emergency</span>
+                </div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                    ><span class="grow"><span class="t">After-hours nurse manager</span></span
+                    ><span class="num">5544</span>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+            <div class="sheetwrap">
+              <div class="scrim"></div>
+              <div class="sheet">
+                <div class="sheet-grab"><i></i></div>
+                <div class="sheet-hdr">
+                  <div class="sheet-ttl">
+                    <div class="st">All modes</div>
+                    <div class="ss">17 modes · On Call is where you are</div>
+                  </div>
+                  <button class="iconbtn" aria-label="Close">
+                    <svg width="20" height="20"><use href="#i-x" /></svg>
+                  </button>
+                </div>
+                <div class="sheet-body">
+                  <button class="sheetrow on">
+                    <span class="leadicon mod"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">On Call</span><span class="sd">Contacts, escalation, orientation</span></span
+                    >
+                    <svg width="17" height="17" style="color: var(--mode)"><use href="#i-check" /></svg>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-sun" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">Answer</span><span class="sd">Ask the knowledge base</span></span
+                    >
+                    <svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-file" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">Documents</span><span class="sd">Your uploaded guidelines</span></span
+                    >
+                    <svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-route" /></svg
+                    ></span>
+                    <span class="grow"><span class="sl">Services</span><span class="sd">Referral pathways</span></span>
+                    <svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-sign" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">Forms</span><span class="sd">Clinical forms library</span></span
+                    >
+                    <svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-cap" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">Factsheets</span><span class="sd">Patient-facing information</span></span
+                    >
+                    <svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
+                  </button>
+                  <div class="sheet-foot">
+                    <div class="banner priv" style="margin: 8px 14px; border-radius: var(--r-md)">
+                      <svg width="15" height="15"><use href="#i-info" /></svg>
+                      <span
+                        >Eleven more below. Stepping back into On Call returns you to its seven sections, not to this
+                        list.</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>
+              This is the universal switcher every mode shares. On Call does not replace it — it simply opens one level
+              in from here.
+            </li>
+            <li>On Call sits first and ticked because it is where you are. Colour is not doing that work alone.</li>
+            <li>
+              So the stack is three deep and reversible in one direction: all modes → On Call's sections → sites. Every
+              level after the first carries a back arrow to the level above.
+            </li>
+          </ul>
+        </article>
+
+        <!-- ============ 03 SWITCHER — SITE LEVEL ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">04</span>
+            <h2 class="board-title">Site</h2>
+          </div>
+          <p class="board-sub">Opened from the page menu. Its back arrow returns there, not out to the page.</p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>22:44</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="true" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot on" aria-current="page">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body" style="opacity: 0.4">
+                <div class="filters">
+                  <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Emergency</span>
+                </div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                    ><span class="grow"><span class="t">After-hours nurse manager</span></span
+                    ><span class="num">5544</span>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+            <div class="sheetwrap">
+              <div class="scrim"></div>
+              <div class="sheet">
+                <div class="sheet-grab"><i></i></div>
+                <div class="sheet-hdr">
+                  <button class="iconbtn" aria-label="Back to page actions">
+                    <svg width="20" height="20"><use href="#i-back" /></svg>
+                  </button>
+                  <div class="sheet-ttl">
+                    <div class="st">Which site tonight?</div>
+                    <div class="ss">Changes every section at once</div>
+                  </div>
+                  <button class="iconbtn" aria-label="Close">
+                    <svg width="20" height="20"><use href="#i-x" /></svg>
+                  </button>
+                </div>
+                <div class="sheet-body">
+                  <button class="sheetrow on">
+                    <span class="leadicon mod"
+                      ><svg width="17" height="17"><use href="#i-bldg" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">Northside</span><span class="sd">Wards 4B, 5A and ED · you are here</span></span
+                    >
+                    <svg width="17" height="17" style="color: var(--mode)"><use href="#i-check" /></svg>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-bldg" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="sl">Riverside</span><span class="sd">Ward 2 and the community team</span></span
+                    >
+                    <svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
+                  </button>
+                  <button class="sheetrow">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-bldg" /></svg
+                    ></span>
+                    <span class="grow"><span class="sl">Eastvale</span><span class="sd">Weekend cover only</span></span>
+                    <svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
+                  </button>
+                  <div class="sheet-foot">
+                    <div class="banner priv" style="margin: 8px 14px; border-radius: var(--r-md)">
+                      <svg width="15" height="15"><use href="#i-info" /></svg>
+                      <span
+                        >Your choice sticks until you change it, and the site you picked is named in the header on every
+                        page.</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>
+              The sheet header grows a back arrow at this level. It returns you to the section list — the sheet does not
+              close and dump you back on the page you were already looking at.
+            </li>
+            <li>
+              The title asks a question rather than labelling a noun, because the answer changes every number behind it.
+            </li>
+            <li>
+              A tick <em>and</em> the words "you are here" mark the current site. Colour alone never carries state.
+            </li>
+          </ul>
+        </article>
+
+        <!-- ============ 05 PAGE MENU ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">05</span>
+            <h2 class="board-title">Page menu</h2>
+          </div>
+          <p class="board-sub">
+            The shared actions sheet every PsychSift page uses — not a menu invented for this mode.
+          </p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>22:46</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="false" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions" aria-expanded="true">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot on" aria-current="page">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body" style="opacity: 0.4">
+                <div class="filters">
+                  <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Emergency</span>
+                </div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                    ><span class="grow"><span class="t">After-hours nurse manager</span></span
+                    ><span class="num">5544</span>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+            <div class="sheetwrap">
+              <div class="scrim"></div>
+              <div class="sheet">
+                <div class="sheet-grab"><i></i></div>
+                <div class="sheet-hdr">
+                  <div class="sheet-ttl">
+                    <div class="st">Contacts</div>
+                    <div class="ss">42 entries · Northside · 3 need checking</div>
+                  </div>
+                  <button class="iconbtn" aria-label="Close">
+                    <svg width="20" height="20"><use href="#i-x" /></svg>
+                  </button>
+                </div>
+                <div class="sheet-body">
+                  <div class="sheet-kicker">Order</div>
+                  <div class="segctl" role="group" aria-label="Order contacts">
+                    <button aria-pressed="true">By role</button>
+                    <button aria-pressed="false">By area</button>
+                    <button aria-pressed="false">Overdue first</button>
+                  </div>
+                  <div class="sheet-kicker">This section</div>
+                  <button class="actrow">
+                    <svg width="18" height="18"><use href="#i-phone" /></svg>
+                    <span class="grow"
+                      ><span class="al">Add a contact</span
+                      ><span class="ad">Role first, name only if you must</span></span
+                    >
+                  </button>
+                  <button class="actrow">
+                    <svg width="18" height="18"><use href="#i-check" /></svg>
+                    <span class="grow"
+                      ><span class="al">Mark all as still correct</span
+                      ><span class="ad">Stamps today on 42 entries</span></span
+                    >
+                  </button>
+                  <button class="actrow">
+                    <svg width="18" height="18"><use href="#i-print" /></svg>
+                    <span class="grow"
+                      ><span class="al">Print the pocket card</span
+                      ><span class="ad">Excludes private and overdue entries</span></span
+                    >
+                  </button>
+                  <button class="actrow">
+                    <svg width="18" height="18"><use href="#i-lock" /></svg>
+                    <span class="grow"
+                      ><span class="al">Show private entries</span><span class="ad">Only visible to you</span></span
+                    >
+                  </button>
+                  <div class="sheet-foot">
+                    <button class="actrow">
+                      <svg width="18" height="18"><use href="#i-bldg" /></svg>
+                      <span class="grow"
+                        ><span class="al">Change site</span
+                        ><span class="ad">Northside → Riverside or Eastvale</span></span
+                      >
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>
+              This is the shared page menu, opened by the ellipsis in the bordered group. Its shape is the component's:
+              a heading naming the page, a one-line summary, then actions — nothing bespoke to On&nbsp;Call.
+            </li>
+            <li>
+              The order control sits <em>inside</em> the sheet because that is what the shared header does at phone
+              width: a segmented control is inline only from tablet up, and below that it moves into the actions sheet
+              rather than claiming a band of its own.
+            </li>
+            <li>
+              Ordering by <em>overdue first</em> is offered here rather than as a fourth filter chip, keeping the chip
+              row to what it filters.
+            </li>
+            <li>
+              Every action states its consequence — "excludes private and overdue entries" — so nothing surprises you
+              after the tap.
+            </li>
+          </ul>
+        </article>
+
+        <!-- ============ 04 CONTACTS ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">06</span>
+            <h2 class="board-title">Contacts</h2>
+          </div>
+          <p class="board-sub">One column of roles. The whole row rings the number.</p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>22:43</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="false" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot on" aria-current="page">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body">
+                <div class="filters">
+                  <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Emergency</span>
+                  <span class="chip">Wards</span><span class="chip">Services</span><span class="chip">Admin</span>
+                </div>
+
+                <div class="grouphdr">
+                  <svg width="12" height="12" style="color: var(--warning)"><use href="#i-warn" /></svg>Needs checking
+                  <span class="ct">3</span>
+                </div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg
+                    ></span>
+                    <span class="grow">
+                      <span class="t">Bed management, after hours</span>
+                      <span class="s"
+                        ><span class="flag warn"
+                          ><svg width="11" height="11"><use href="#i-warn" /></svg>Checked 14 months ago</span
+                        ></span
+                      >
+                    </span>
+                    <span class="num">5290</span>
+                    <span class="callbtn" role="button" aria-label="Call"
+                      ><svg width="18" height="18"><use href="#i-phone" /></svg
+                    ></span>
+                  </div>
+                </div>
+
+                <div class="grouphdr">Tonight <span class="ct">4</span></div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">After-hours nurse manager</span
+                      ><span class="s">Always on · covers both sites</span></span
+                    >
+                    <span class="num">5544</span>
+                    <span class="callbtn" role="button" aria-label="Call"
+                      ><svg width="18" height="18"><use href="#i-phone" /></svg
+                    ></span>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg
+                    ></span>
+                    <span class="grow"><span class="t">Registrar on call</span><span class="s">From 17:00</span></span>
+                    <span class="num">5107</span>
+                    <span class="callbtn" role="button" aria-label="Call"
+                      ><svg width="18" height="18"><use href="#i-phone" /></svg
+                    ></span>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-phone" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Consultant on call</span
+                      ><span class="s">Via switchboard · read the Playbook step first</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-lock" /></svg
+                    ></span>
+                    <span class="grow">
+                      <span class="t">Dr M. Okafor — direct</span>
+                      <span class="s"
+                        ><span class="flag priv"
+                          ><svg width="11" height="11"><use href="#i-lock" /></svg>Private · only you</span
+                        ></span
+                      >
+                    </span>
+                  </div>
+                </div>
+
+                <div class="grouphdr">Emergency <span class="ct">5</span></div>
+                <div class="card">
+                  <div class="row">
+                    <span
+                      class="leadicon"
+                      style="background: var(--danger-bg); border: 1px solid var(--danger-border); color: var(--danger)"
+                      ><svg width="17" height="17"><use href="#i-warn" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Code black — Northside</span
+                      ><span class="s">Dial from any internal handset</span></span
+                    >
+                    <span class="num">55</span>
+                    <span class="callbtn" role="button" aria-label="Call"
+                      ><svg width="18" height="18"><use href="#i-phone" /></svg
+                    ></span>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-shield" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Security — urgent</span><span class="s">Escorts use the routine line</span></span
+                    >
+                    <span class="num">5333</span>
+                    <span class="callbtn" role="button" aria-label="Call"
+                      ><svg width="18" height="18"><use href="#i-phone" /></svg
+                    ></span>
+                  </div>
+                </div>
+
+                <div class="grouphdr">Services <span class="ct">9</span></div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-users" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Interpreter — TIS National</span
+                      ><span class="s">24 hours · quote the client code</span></span
+                    >
+                    <span class="num">131 450</span>
+                    <span class="callbtn" role="button" aria-label="Call"
+                      ><svg width="18" height="18"><use href="#i-phone" /></svg
+                    ></span>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-users" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Aboriginal liaison, after hours</span
+                      ><span class="s">On call via switchboard</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>Roles, never people. An entry survives the rotation that replaces whoever holds it.</li>
+            <li>Overdue rows collect in their own group at the top rather than hiding in place among the good ones.</li>
+            <li>
+              The private mobile shows as <em>Private · only you</em> with no digits at all, so the rule is visible
+              without the number being.
+            </li>
+            <li>With no bottom bar, the last group sits above the home indicator instead of behind a toolbar.</li>
+          </ul>
+        </article>
+
+        <!-- ============ 05 PLAYBOOK ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">07</span>
+            <h2 class="board-title">Playbook</h2>
+          </div>
+          <p class="board-sub">Who to ring, in what order. Clinical words are links to your own documents.</p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>02:14</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="false" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot on" aria-current="page">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body">
+                <div class="banner priv">
+                  <svg width="16" height="16"><use href="#i-info" /></svg>
+                  <span
+                    >Escalation only. Clinical guidance opens your own uploaded documents — this section never writes
+                    it.</span
+                  >
+                </div>
+
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-shield" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Patient wants to leave the ward</span
+                      ><span class="s">Escalation in 3 steps</span></span
+                    >
+                    <svg width="16" height="16" class="chev" style="transform: rotate(90deg)">
+                      <use href="#i-chevr" />
+                    </svg>
+                  </div>
+                  <ol class="ladder">
+                    <li>
+                      <span class="step">1</span>
+                      <span class="grow">
+                        <span class="who">Nurse in charge, on the ward</span>
+                        <span class="when">First, before any call. They may already know the plan.</span>
+                      </span>
+                    </li>
+                    <li>
+                      <span class="step">2</span>
+                      <span class="grow">
+                        <span class="who">Registrar on call</span>
+                        <span class="when">If the patient is still trying to leave after five minutes.</span>
+                        <span class="minicall" role="button"
+                          ><svg width="14" height="14"><use href="#i-phone" /></svg>5107</span
+                        >
+                      </span>
+                    </li>
+                    <li>
+                      <span class="step">3</span>
+                      <span class="grow">
+                        <span class="who">Consultant on call</span>
+                        <span class="when"
+                          >Any detention decision, or if the registrar is unreachable for ten minutes.
+                          <b style="color: var(--text-heading)">You are expected to make this call.</b></span
+                        >
+                        <span class="minicall" role="button"
+                          ><svg width="14" height="14"><use href="#i-phone" /></svg>Switchboard</span
+                        >
+                      </span>
+                    </li>
+                  </ol>
+                  <div class="grouphdr" style="padding: 8px 12px 2px">Local guidance</div>
+                  <div class="doclink">
+                    <svg width="16" height="16" style="color: var(--accent); flex: none; margin-top: 2px">
+                      <use href="#i-file" />
+                    </svg>
+                    <span class="grow"
+                      ><span class="dt">Absconding and missing patient procedure</span
+                      ><span class="dd">Your document · reviewed Mar 2026</span></span
+                    >
+                    <svg width="15" height="15" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                  <div class="doclink">
+                    <svg width="16" height="16" style="color: var(--accent); flex: none; margin-top: 2px">
+                      <use href="#i-file" />
+                    </svg>
+                    <span class="grow"
+                      ><span class="dt">Leave and detention — ward procedure</span
+                      ><span class="dd">Your document · reviewed Jan 2026</span></span
+                    >
+                    <svg width="15" height="15" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                </div>
+
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-shield" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Acute behavioural disturbance</span
+                      ><span class="s">Escalation in 4 steps</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-shield" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Clinical system is down</span><span class="s">Escalation in 2 steps</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                </div>
+
+                <div class="grouphdr">No guideline linked yet <span class="ct">1</span></div>
+                <div class="card">
+                  <div class="row" style="cursor: default">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-shield" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Needlestick after hours</span><span class="s">Escalation in 3 steps</span></span
+                    >
+                  </div>
+                  <div class="empty">
+                    <div class="et">No local guideline linked</div>
+                    <div class="es">
+                      The steps above are the escalation. Nothing here stands in for your service's written procedure.
+                    </div>
+                    <button class="ghost">
+                      <svg width="15" height="15"><use href="#i-search" /></svg>Search your documents
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>
+              Numbering is used because the content genuinely is a sequence — step 3 is not step 1 with a different
+              number.
+            </li>
+            <li>
+              "You are expected to make this call" is set in full ink inside step 3. It is the sentence that gets a
+              consultant rung at 3am instead of a patient watched until morning.
+            </li>
+            <li>
+              The empty state is designed, not absent: it names what is missing and offers a document search rather than
+              inventing advice.
+            </li>
+          </ul>
+        </article>
+
+        <!-- ============ 06 REFERRALS ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">08</span>
+            <h2 class="board-title">Referrals</h2>
+          </div>
+          <p class="board-sub">Rows that open to what a service takes, and what it does not.</p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>16:02</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="false" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot on" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body">
+                <div class="filters">
+                  <span class="chip on">All</span><span class="chip">Takes tonight</span
+                  ><span class="chip">Community</span> <span class="chip">Inpatient</span
+                  ><span class="chip">Youth</span>
+                </div>
+
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-route" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Community mental health — north</span
+                      ><span class="s">Mon–Fri 08:30–17:00 · north of the river</span></span
+                    >
+                    <svg width="16" height="16" class="chev" style="transform: rotate(90deg)">
+                      <use href="#i-chevr" />
+                    </svg>
+                  </div>
+                  <div class="detail">
+                    <div class="dl">
+                      <div>
+                        <div class="k">Accepts</div>
+                        <ul class="taglist yes">
+                          <li>
+                            <svg width="14" height="14"><use href="#i-check" /></svg>Adults 18–64 in the catchment
+                          </li>
+                          <li>
+                            <svg width="14" height="14"><use href="#i-check" /></svg>Post-discharge follow-up within 7
+                            days
+                          </li>
+                        </ul>
+                      </div>
+                      <div>
+                        <div class="k">Does not accept</div>
+                        <ul class="taglist no">
+                          <li>
+                            <svg width="13" height="13"><use href="#i-x" /></svg>Under 18 — use the youth service
+                          </li>
+                          <li>
+                            <svg width="13" height="13"><use href="#i-x" /></svg>Primary drug and alcohol presentations
+                          </li>
+                        </ul>
+                      </div>
+                      <div>
+                        <div class="k">How to refer</div>
+                        <div class="v">
+                          Referral form by secure email, then ring intake to confirm it arrived. Same-day referrals must
+                          be phoned before 15:00.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="chips" style="margin-top: 12px">
+                      <span class="chip mono"
+                        ><svg width="12" height="12"><use href="#i-clock" /></svg>Triaged in 3 working days</span
+                      >
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 10px">
+                      <button class="ghost" style="flex: 1">
+                        <svg width="15" height="15"><use href="#i-ext" /></svg>Referral form
+                      </button>
+                      <button
+                        class="ghost"
+                        style="
+                          flex: 1;
+                          background: var(--accent-soft);
+                          border-color: var(--accent-border);
+                          color: var(--accent);
+                        "
+                      >
+                        <svg width="15" height="15"><use href="#i-phone" /></svg>5410
+                      </button>
+                    </div>
+                    <div class="stamp" style="margin-top: 12px">
+                      <svg width="11" height="11"><use href="#i-check" /></svg>Checked 2 Sep 2026
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-route" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Youth mental health service</span
+                      ><span class="s">Under 18 · 08:00–20:00, seven days</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-route" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Older adult psychiatry</span><span class="s">65 and over · weekdays</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-route" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Homeless health outreach</span
+                      ><span class="s">No catchment requirement</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-route" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Perinatal mental health</span
+                      ><span class="s">Pregnancy to 12 months post partum</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                </div>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>
+              <em>Accepts</em> and <em>Does not accept</em> are labelled headings with ticks and crosses. The exclusion
+              is never carried by red alone.
+            </li>
+            <li>
+              Rows expand in place, so the page keeps working with no signal and there is no detail route to get lost
+              on.
+            </li>
+            <li>Both actions sit at the bottom of the open row, where your thumb already is after reading it.</li>
+          </ul>
+        </article>
+
+        <!-- ============ 07 FORMS ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">09</span>
+            <h2 class="board-title">Forms</h2>
+          </div>
+          <p class="board-sub">Who signs it, how long it takes, online or paper.</p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>11:27</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="false" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot on" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body">
+                <div class="filters">
+                  <span class="chip on">All</span><span class="chip">Money</span><span class="chip">Time off</span>
+                  <span class="chip">Access</span><span class="chip">Training</span><span class="chip">Workplace</span>
+                </div>
+
+                <div class="grouphdr">Money <span class="ct">7</span></div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-sign" /></svg
+                    ></span>
+                    <span class="grow">
+                      <span class="t">Unrostered overtime claim</span>
+                      <span class="s">Your term supervisor signs it</span>
+                      <span class="chips" style="margin-top: 6px">
+                        <span class="chip mono"
+                          ><svg width="11" height="11"><use href="#i-clock" /></svg>One pay cycle</span
+                        >
+                        <span class="chip mono">Online</span>
+                      </span>
+                    </span>
+                    <svg width="16" height="16" class="chev"><use href="#i-ext" /></svg>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-sign" /></svg
+                    ></span>
+                    <span class="grow">
+                      <span class="t">Timesheet</span>
+                      <span class="s">In by Monday 10:00</span>
+                      <span class="chips" style="margin-top: 6px">
+                        <span class="chip mono">No signature</span><span class="chip mono">Online</span>
+                      </span>
+                    </span>
+                    <svg width="16" height="16" class="chev"><use href="#i-ext" /></svg>
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-sign" /></svg
+                    ></span>
+                    <span class="grow">
+                      <span class="t">Professional development allowance</span>
+                      <span class="s">The DCT signs · claim before 30 June</span>
+                      <span class="chips" style="margin-top: 6px">
+                        <span class="chip mono"
+                          ><svg width="11" height="11"><use href="#i-clock" /></svg>2–3 weeks</span
+                        >
+                        <span class="chip mono">Online</span>
+                      </span>
+                    </span>
+                    <svg width="16" height="16" class="chev"><use href="#i-ext" /></svg>
+                  </div>
+                </div>
+
+                <div class="grouphdr">Access <span class="ct">6</span></div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-key" /></svg
+                    ></span>
+                    <span class="grow">
+                      <span class="t">Keycard and door access</span>
+                      <span class="s">Ward manager signs · photo needed</span>
+                      <span class="chips" style="margin-top: 6px">
+                        <span class="chip mono"
+                          ><svg width="11" height="11"><use href="#i-clock" /></svg>Allow 5 working days</span
+                        >
+                        <span class="chip mono">Paper</span>
+                      </span>
+                    </span>
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                </div>
+
+                <div class="grouphdr">When the system is down <span class="ct">1</span></div>
+                <div class="card">
+                  <div class="row" style="cursor: default">
+                    <span
+                      class="leadicon"
+                      style="
+                        background: var(--warning-bg);
+                        border: 1px solid var(--warning-border);
+                        color: var(--warning);
+                      "
+                      ><svg width="17" height="17"><use href="#i-file" /></svg
+                    ></span>
+                    <span class="grow">
+                      <span class="t">Downtime paper pack</span>
+                      <span class="s">Blue folder, nurses' station, second shelf. Not online anywhere.</span>
+                      <span class="chips" style="margin-top: 6px"><span class="chip mono">Paper only</span></span>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="banner priv">
+                  <svg width="16" height="16"><use href="#i-info" /></svg>
+                  <span
+                    >Every row links to the official current version. The hub never stores a copy — a stale form that
+                    looks official is worse than none.</span
+                  >
+                </div>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>
+              Three chips answer the only questions anyone has about a form. They sit on the 40&nbsp;px compact rung
+              because they are metadata, not actions.
+            </li>
+            <li>An external-link glyph rather than a chevron tells you the row leaves the app before you tap it.</li>
+            <li>The paper-only row gives a physical shelf, because at 2am that is the whole answer.</li>
+          </ul>
+        </article>
+
+        <!-- ============ 08 ORIENTATION ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">10</span>
+            <h2 class="board-title">Orientation</h2>
+          </div>
+          <p class="board-sub">Starting a term, and finishing one. Checklists, not prose.</p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>07:52</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="false" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot on" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body">
+                <div class="filters">
+                  <span class="chip on">Starting</span><span class="chip">Finishing</span
+                  ><span class="chip">This rotation</span>
+                </div>
+
+                <div class="grouphdr">Your first fifteen minutes</div>
+                <div class="card">
+                  <ul class="check">
+                    <li class="done">
+                      <span class="box done"
+                        ><svg width="12" height="12"><use href="#i-check" /></svg
+                      ></span>
+                      <span class="grow"
+                        ><span class="ct">Collect the on-call phone</span
+                        ><span class="cs">Nurses' station, Ward 4B</span></span
+                      >
+                    </li>
+                    <li class="done">
+                      <span class="box done"
+                        ><svg width="12" height="12"><use href="#i-check" /></svg
+                      ></span>
+                      <span class="grow"
+                        ><span class="ct">Handover, 17:00, seminar room 2</span
+                        ><span class="cs">Bring the ward list. ISBAR format.</span></span
+                      >
+                    </li>
+                    <li>
+                      <span class="box"></span>
+                      <span class="grow"
+                        ><span class="ct">Introduce yourself to the nurse in charge</span
+                        ><span class="cs">They will tell you which patients to watch tonight.</span></span
+                      >
+                    </li>
+                    <li>
+                      <span class="box"></span>
+                      <span class="grow"
+                        ><span class="ct">Check your keycard opens 4B and the on-call room</span
+                        ><span class="cs">If it does not, ring security before dark.</span></span
+                      >
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="grouphdr">Your rotation</div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon acc"
+                      ><svg width="17" height="17"><use href="#i-file" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Ward 4B orientation manual</span
+                      ><span class="s">PDF · 24 pages · uploaded Feb 2026</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                  <div class="ownernote">
+                    <div class="attrib">Note from Dr Simmons</div>
+                    <p>
+                      The manual still lists the old bed-management number. Use the one in Contacts, not page 11.
+                      Everything else is current.
+                    </p>
+                  </div>
+                  <div class="stamp" style="padding: 10px 12px 12px">
+                    <svg width="11" height="11"><use href="#i-check" /></svg>Checked 2 Sep 2026
+                  </div>
+                </div>
+
+                <div class="grouphdr">What the last person wished they knew</div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-users" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Ward 4B · notes from the previous registrar</span
+                      ><span class="s">Four things, two minutes to read</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                </div>
+
+                <div class="grouphdr">
+                  <svg width="12" height="12" style="color: var(--warning)"><use href="#i-warn" /></svg>Before you
+                  leave, 8 Dec
+                </div>
+                <div class="card">
+                  <ul class="check">
+                    <li>
+                      <span class="box"></span
+                      ><span class="grow"><span class="ct">Return the on-call phone and pager</span></span>
+                    </li>
+                    <li>
+                      <span class="box"></span
+                      ><span class="grow"
+                        ><span class="ct">Hand back the keycard</span
+                        ><span class="cs">Not doing this is what gets chased for months.</span></span
+                      >
+                    </li>
+                    <li>
+                      <span class="box"></span><span class="grow"><span class="ct">Clear the locker</span></span>
+                    </li>
+                    <li>
+                      <span class="box"></span
+                      ><span class="grow"
+                        ><span class="ct">Finish outstanding notes and discharge summaries</span></span
+                      >
+                    </li>
+                    <li>
+                      <span class="box"></span
+                      ><span class="grow"
+                        ><span class="ct">End-of-term assessment signed</span
+                        ><span class="cs">Your term supervisor signs it, not the DCT.</span></span
+                      >
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>
+              Your summary above a manual is always badged <em>Note from Dr Simmons</em>. The app never lets your words
+              read as the manual's.
+            </li>
+            <li>
+              The end-of-term checklist is a section, not a footnote — it is the thing everyone forgets and gets chased
+              for.
+            </li>
+            <li>Done items grey and strike through, so what remains is what stands out.</li>
+          </ul>
+        </article>
+
+        <!-- ============ 09 LOGISTICS ============ -->
+        <article class="board">
+          <div class="board-head">
+            <span class="board-no">11</span>
+            <h2 class="board-title">Logistics</h2>
+          </div>
+          <p class="board-sub">The plainest page — and the one that shows what only you can see.</p>
+          <div class="frame">
+            <div class="screen">
+              <div class="statusbar">
+                <span>03:06</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+              </div>
+              <div class="apphdr">
+                <button class="hdrbtn" aria-label="Open PsychSift menu">
+                  <svg width="22" height="22"><use href="#i-menu" /></svg>
+                </button>
+                <button class="modepill" aria-haspopup="dialog" aria-expanded="false" aria-label="Mode On Call">
+                  <span class="mi"
+                    ><svg width="16" height="16"><use href="#i-phone" /></svg
+                  ></span>
+                  <span class="ml">On Call</span>
+                  <svg width="16" height="16"><use href="#i-chevd" /></svg>
+                </button>
+                <button class="hdrbtn ringed" aria-label="Open page actions">
+                  <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
+                </button>
+              </div>
+              <nav class="modenav" aria-label="On Call sections">
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Contacts</span><span class="ct">42</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Playbook</span><span class="ct">9</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot on" aria-haspopup="dialog" aria-expanded="false" aria-label="More sections">
+                  <span class="ink"
+                    ><span class="lbl">More</span><svg class="tr"><use href="#i-chevd" /></svg><span class="rule"></span
+                  ></span>
+                </button>
+              </nav>
+              <div class="body">
+                <div class="banner warn">
+                  <svg width="16" height="16"><use href="#i-clock" /></svg>
+                  <span><b>Showing the copy saved on this phone.</b> No signal here — saved 12 Sep, 18:04.</span>
+                </div>
+
+                <div class="grouphdr">Where</div>
+                <div class="card">
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-pin" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">On-call room</span
+                      ><span class="s">Level 2, past the lifts · linen opposite</span></span
+                    >
+                    <svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
+                  </div>
+                  <div class="row" style="cursor: default">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-clock" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Food after hours</span
+                      ><span class="s">Vending, Level 1 foyer · cafeteria closes 19:30 · card only</span></span
+                    >
+                  </div>
+                  <div class="row" style="cursor: default">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-pin" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Parking at night</span
+                      ><span class="s">Staff bay 3 after 18:00 · nearest the ED door</span></span
+                    >
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-shield" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Security escort to the car</span
+                      ><span class="s">Routine line · allow ten minutes</span></span
+                    >
+                    <span class="num">5333</span>
+                    <span class="callbtn" role="button" aria-label="Call"
+                      ><svg width="18" height="18"><use href="#i-phone" /></svg
+                    ></span>
+                  </div>
+                </div>
+
+                <div class="grouphdr">
+                  <svg width="12" height="12"><use href="#i-lock" /></svg>Getting in <span class="ct">4</span>
+                </div>
+                <div class="card">
+                  <div class="banner priv" style="border: 0; border-radius: 0; border-bottom: 1px solid var(--border)">
+                    <svg width="16" height="16"><use href="#i-lock" /></svg>
+                    <span
+                      ><b>Private — only you can see this group.</b> After-hours entry and locked-ward detail stay off
+                      the public page.</span
+                    >
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-key" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">After-hours entry</span
+                      ><span class="s">Which door, and what to do when the card fails</span></span
+                    >
+                    <span class="flag priv"
+                      ><svg width="11" height="11"><use href="#i-lock" /></svg>Private</span
+                    >
+                  </div>
+                  <div class="row">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-key" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Which wards are locked</span
+                      ><span class="s">And who can let you through</span></span
+                    >
+                    <span class="flag priv"
+                      ><svg width="11" height="11"><use href="#i-lock" /></svg>Private</span
+                    >
+                  </div>
+                </div>
+
+                <div class="grouphdr">Connectivity</div>
+                <div class="card">
+                  <div class="row" style="cursor: default">
+                    <span class="leadicon"
+                      ><svg width="17" height="17"><use href="#i-wifi" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">Staff Wi-Fi</span
+                      ><span class="s"
+                        >How to get access from the IT desk. The password is never stored here.</span
+                      ></span
+                    >
+                  </div>
+                  <div class="row" style="cursor: default">
+                    <span
+                      class="leadicon"
+                      style="
+                        background: var(--warning-bg);
+                        border: 1px solid var(--warning-border);
+                        color: var(--warning);
+                      "
+                      ><svg width="17" height="17"><use href="#i-warn" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">No mobile signal</span
+                      ><span class="s"
+                        >Basement, imaging corridor, Level 2 stairwell. Nearest landline: nurses' station 4B.</span
+                      ></span
+                    >
+                  </div>
+                </div>
+
+                <div class="grouphdr">What you can authorise</div>
+                <div class="card">
+                  <div class="row" style="cursor: default">
+                    <span
+                      class="leadicon"
+                      style="
+                        background: var(--success-bg);
+                        border: 1px solid var(--success-border);
+                        color: var(--success);
+                      "
+                      ><svg width="17" height="17"><use href="#i-check" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">A taxi home after a night shift</span
+                      ><span class="s">Yours to authorise. Nurse manager countersigns next morning.</span></span
+                    >
+                  </div>
+                  <div class="row" style="cursor: default">
+                    <span
+                      class="leadicon"
+                      style="
+                        background: var(--success-bg);
+                        border: 1px solid var(--success-border);
+                        color: var(--success);
+                      "
+                      ><svg width="17" height="17"><use href="#i-check" /></svg
+                    ></span>
+                    <span class="grow"
+                      ><span class="t">A meal tray after kitchen close</span
+                      ><span class="s">Ring the ward. No form.</span></span
+                    >
+                  </div>
+                </div>
+              </div>
+              <div class="homebar"><i></i></div>
+            </div>
+          </div>
+          <ul class="notes">
+            <li>
+              The offline banner names the date the copy was saved, so a stale number is obvious rather than merely old.
+              Its announcement goes to a screen-reader-only live region; the visible band is not itself one.
+            </li>
+            <li>
+              The private group carries its explanation inside the card — you learn the rule where it applies, not in a
+              settings screen.
+            </li>
+            <li>
+              "What you can authorise" earns its space: knowing you may call a taxi is the difference between driving
+              home exhausted and not.
+            </li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </body>
+</html>
