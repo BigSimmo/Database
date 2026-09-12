@@ -47,6 +47,7 @@ export const CARING_CONTACTS_ROUTES = {
   notifications: `${CARING_CONTACTS_BASE}/notifications`,
   training: `${CARING_CONTACTS_BASE}/training`,
   coverage: `${CARING_CONTACTS_BASE}/coverage`,
+  intake: `${CARING_CONTACTS_BASE}/intake`,
 } as const;
 
 export type CaringContactsRouteKey = keyof typeof CARING_CONTACTS_ROUTES;
@@ -140,4 +141,8 @@ export function pathwayRoute(pathwayId: string): string {
 
 export function episodeTimelineRoute(planId: string): string {
   return `${planRoute(planId)}/timeline`;
+}
+
+export function intakeRoute(): string {
+  return CARING_CONTACTS_ROUTES.intake;
 }
