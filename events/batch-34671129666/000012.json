@@ -1,0 +1,14 @@
+{
+  "revision": 12,
+  "at": "2026-09-12T03:58:28.428Z",
+  "kind": "intent",
+  "operation": {
+    "id": "batch-34671129666-12",
+    "number": 2726,
+    "kind": "repair",
+    "head": "4a0c30b4b4503b57ecab11e4e7039452ecbcae9a",
+    "base": "cee6cbf07363d268972590733e2f7eac121e0714",
+    "at": "2026-09-12T03:58:28.428Z",
+    "fingerprint": "998111a22d6d84b7c1c662aadd55f04c03a246cbcad27f928c4477f3535c8ea0"
+  }
+}
