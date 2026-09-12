@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
@@ -11,9 +12,50 @@ const retentionParityMigration = readFileSync(
   "utf8",
 );
 
+/*
+ * Web-container sessions start on a shallow clone, so `reviewedCommit` is often
+ * absent from local history. Without this the validator reports
+ * `reviewedCommit does not exist: <sha>`, which reads as a governance breach
+ * rather than a missing object, and every cloud session sees a spurious
+ * regression on an untouched file. Mirrors the guards already carried by
+ * tests/clinical-hazard-controls.test.ts and tests/rag-plan-package-parity.test.ts
+ * (`#1M0J6D`); this suite was the third with the same failure and the only one
+ * left without the guard.
+ */
+function isShallowClone(): boolean {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isCommitAvailable(commit: string): boolean {
+  try {
+    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe("privacy readiness contract", () => {
   it("accepts the honest structural register", () => {
-    expect(validatePrivacyReadiness(manifest)).toEqual([]);
+    let checkGit = true;
+    if (!isCommitAvailable(manifest.reviewedCommit) && isShallowClone()) {
+      console.warn(
+        `PRIVACY_READINESS_SHALLOW_CLONE: reviewedCommit ${manifest.reviewedCommit} is unavailable in shallow clone; skipping commit ancestry check.`,
+      );
+      checkGit = false;
+    }
+    expect(validatePrivacyReadiness(manifest, { checkGit })).toEqual([]);
   });
 
   it("keeps Railway processor evidence linked to the privacy impact assessment", () => {

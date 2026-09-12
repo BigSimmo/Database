@@ -23,9 +23,13 @@ const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string;
     file: "src/components/clinical-dashboard/answer-result-surface.tsx",
     mounts: false,
     because:
-      "Answer carries its cross-mode links on the answer surface's own library line (CrossModeLinksSection). " +
-      "Both rendered for a while, one directly under the other, asking the same question — the duplication " +
-      "the owner photographed on 2026-08-26. tests/ui-universal-search.spec.ts pins the panel OUT of Answer.",
+      "Answer carries its cross-mode links on the answer surface's own library line (CrossModeLinksSection), " +
+      "inside the answer thread rather than below the whole result region. Both rendered for a while, one " +
+      "directly under the other, asking the same question — the duplication the owner photographed on " +
+      "2026-08-26. tests/ui-universal-search.spec.ts pins the panel OUT of Answer. The line is not the " +
+      "narrower surface it once was: since the universalMode opt-in it runs the same /api/search/universal " +
+      "lookup the tray runs, so DSM, Formulation, Specifiers, Therapy, Dictionary and Tools are reachable " +
+      "from an answer too, on top of the four catalogues resolved in the browser.",
   },
   documents: { file: "src/components/ClinicalDashboard.tsx", mounts: true },
   services: { file: "src/components/services/services-navigator-page.tsx", mounts: true },
@@ -74,6 +78,17 @@ describe("cross-mode also-matches coverage", () => {
       expect(entry.because.length, "an exemption must carry its reason").toBeGreaterThan(80);
       expect(read(entry.file)).toContain("CrossModeLinksSection");
     });
+
+    it(`keeps ${modeId}'s own line reaching the modes no catalogue can resolve`, () => {
+      // The exemption above is only honest while the line actually reaches the
+      // other modes. Without this opt-in it falls back to four client-side
+      // catalogues, and an answer can never point at a DSM diagnosis, a
+      // dictionary term, a formulation, a specifier, a therapy or a tool —
+      // which is the coverage gap the exemption now claims is closed.
+      expect(read(entry.file), `${entry.file} must pass universalMode to CrossModeLinksSection`).toMatch(
+        /<CrossModeLinksSection[\s\S]{0,400}?universalMode=/,
+      );
+    });
   }
 
   it("lets exactly one owner mount the panel for a mode that borrows a result kind", () => {
@@ -84,7 +99,8 @@ describe("cross-mode also-matches coverage", () => {
     // Prescribing is that mode — `/?mode=prescribing` renders
     // MedicationPrescribingWorkspace inside the dashboard — and it shipped two
     // panels until ui-stress caught the count at 2.
-    const dashboard = read("src/components/ClinicalDashboard.tsx");
+    // Visibility gate lives in dashboard-mode-surface (extracted from ClinicalDashboard).
+    const dashboard = read("src/components/clinical-dashboard/dashboard-mode-surface.ts");
     const gate = dashboard.slice(
       dashboard.indexOf("const showUniversalAlsoMatches ="),
       dashboard.indexOf("const showDesktopHomeComposer ="),
