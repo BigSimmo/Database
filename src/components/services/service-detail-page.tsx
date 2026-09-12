@@ -341,9 +341,15 @@ function SummaryCard({ card }: { card: ServiceSummaryCard }) {
   const isCost = card.id === "cost";
 
   return (
+    // The cards sit in one stretched grid row, so the card with the most to say sets
+    // the height for all of them, and a short card printed its text hard against the
+    // top of a tall box. The block is centred in whatever height the tallest sibling
+    // imposes instead. Title and detail stay together: unlike the form priority-fact
+    // cards there is no separate footnote zone here, so there is nothing to pin to
+    // the bottom.
     <article
       className={cn(
-        "min-h-[7.25rem] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:min-h-[7.75rem]",
+        "flex min-h-[7.25rem] flex-col justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)] sm:min-h-[7.75rem]",
         isCost && "border-[color:var(--success-border)] bg-[color:var(--success-soft)]/25",
       )}
     >

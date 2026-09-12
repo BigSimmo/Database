@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5e2e28b3-785e-4be2-b8dd-1781750e3ea0",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#HDCF2B",
+    "outcome": "Refactored caseload search query to use POST body payloads and opaque session filter tokens with TTL expiration and automatic invalid token removal, eliminating PHI from URLs and access logs.",
+    "baseRowFingerprint": "544cf6abfa964366248cdbed28e55eef0a54065d834fa272c1dd5f7cda2e4894"
+  }
+}
