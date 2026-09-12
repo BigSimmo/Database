@@ -255,14 +255,16 @@ export function buildDocumentationSection(docPaths: readonly string[], readmeMar
   // otherwise insert on the same lines. `path` breaks ties, and it is already a
   // total order here — `docPaths` comes from `git ls-files`, which cannot list
   // the same repo path twice — so the order is deterministic across platforms.
+  // Keep hash-dispersed order from the sort above — do NOT re-sort by path.
+  // A final path sort would cluster same-directory docs onto adjacent lines and
+  // recreate the merge conflicts `dispersalKey` exists to prevent (AGENTS.md).
   const documents = [...docPaths]
     .sort((left, right) => dispersalKey(left).localeCompare(dispersalKey(right)) || left.localeCompare(right))
     .map((repoPath) => ({
       path: repoPath,
       section: documentSection(repoPath),
       catalogued: catalogued.has(repoPath),
-    }))
-    .sort((left, right) => left.path.localeCompare(right.path) || left.section.localeCompare(right.section));
+    }));
 
   const sectionNames = new Set<string>();
   for (const document of documents) {

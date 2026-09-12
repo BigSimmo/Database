@@ -82,8 +82,10 @@ RUN python3 -m venv /opt/docling-venv \
   && rm /tmp/docling-requirements.txt
 # Prefetch docling's models at build time: HF_HUB_OFFLINE=1 below forbids any run-time
 # fetch, so a missing model fails the shadow run loudly instead of reaching HuggingFace
-# from a production worker. Model weights are pinned via the exact hash-locked docling==2.120.2
-# requirement in eval/docling/requirements.txt (docling-tools CLI has no --revision flag).
+# from a production worker. The Python client is hash-locked (docling==2.120.2 in
+# eval/docling/requirements.txt), but the HuggingFace model artifacts themselves are
+# NOT revision/digest-pinned yet (docling-tools has no --revision flag). Tracked as
+# outstanding-issues #XSZ4XV — vendor or verify an explicit artifact digest separately.
 RUN /opt/docling-venv/bin/docling-tools models download --output-dir /opt/docling-models \
   && chmod -R a+rX /opt/docling-models
 ENV WORKER_DOCLING_PYTHON_BIN=/opt/docling-venv/bin/python

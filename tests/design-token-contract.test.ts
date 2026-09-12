@@ -379,12 +379,10 @@ describe("disabled and pre-paint values", () => {
     expect(brand).toContain(`ink: "${colourOf(light, "--clinical-accent")}"`);
     expect(brand).toContain(`ink: "${colourOf(dark, "--clinical-accent")}"`);
     expect(brand).toContain(`tile: "${colourOf(light, "--surface-raised")}"`);
-    const darkTile = colourOf(dark, "--surface-raised");
-    const compatDarkTile = colourOf(declarations(darkBlock), "--surface-raised");
-    expect(
-      brand.includes(`tile: "${darkTile}"`) || brand.includes(`tile: "${compatDarkTile}"`),
-      `brand mark tile must mirror dark --surface-raised (${darkTile} or ${compatDarkTile})`,
-    ).toBe(true);
+    // Require the root-mounted v2 dark --surface-raised only — never the
+    // globals.css compatibility-layer value. Accepting either lets brand assets
+    // permanently desync from the cascade the app actually paints.
+    expect(brand).toContain(`tile: "${colourOf(dark, "--surface-raised")}"`);
   });
 });
 
