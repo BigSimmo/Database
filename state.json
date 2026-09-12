@@ -127,9 +127,9 @@
     ]
   },
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
-  "status": "running",
+  "status": "paused",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 35,
+  "revision": 36,
   "repairs": 2,
   "pass": 0,
   "active": 2729,
@@ -143,7 +143,7 @@
     "fingerprint": "8370baeeb90b504e4f2d89163fe9c1492b6b463776818e9ab4cd293e41dcf88a",
     "runId": 34673417838
   },
-  "reason": null,
+  "reason": "post-merge-ci-failure:#2717",
   "entries": [
     {
       "number": 2710,
@@ -611,6 +611,12 @@
       "kind": "worker-claimed",
       "operationId": "batch-34671129666-33",
       "runId": 34673417838
+    },
+    {
+      "revision": 36,
+      "at": "2026-09-12T04:43:50.423Z",
+      "kind": "paused",
+      "reason": "post-merge-ci-failure:#2717"
     }
   ]
 }
