@@ -3,7 +3,12 @@ import http from "node:http";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
-import { appName, localProjectId, projectPortEnd, stableProjectPort } from "../src/lib/local-server-utils.mjs";
+import {
+  appName,
+  circularProjectPortRange,
+  localProjectId,
+  stableProjectPort,
+} from "../src/lib/local-server-utils.mjs";
 
 const modulePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(modulePath), "..");
@@ -80,12 +85,26 @@ function requestJson(port) {
   });
 }
 
+/**
+ * The port this checkout's dev server is listening on, or null.
+ *
+ * Probes the whole project port range, wrapping at the top — not `stablePort`
+ * upward. `dev-free-port.mjs` honours any `PORT` or `--port`, so a server can sit
+ * *below* the stable port (`PORT=3130` against a stable 3131) and an upward-only
+ * scan never reaches it. That blind spot let the guard clear this project's dev
+ * output, and permit a concurrent production build, while the dev server was
+ * still using it. `run-playwright.mjs`, `run-lighthouse-budget.mjs` and
+ * `measure-cls-attribution.mjs` already locate the server this way; this was the
+ * one that did not.
+ *
+ * A port outside the project range entirely (`PORT=9999`) is still missed, and
+ * cannot be found from here: the build process cannot see the environment the
+ * dev server was started in.
+ */
 export async function findRunningProjectServer(rootDir = projectRoot) {
   const expectedProjectId = localProjectId(rootDir);
-  const stablePort = stableProjectPort(rootDir);
-  const maxPort = projectPortEnd;
 
-  for (let port = stablePort; port <= maxPort; port += 1) {
+  for (const port of circularProjectPortRange(stableProjectPort(rootDir))) {
     const payload = await requestJson(port);
     if (payload?.appName === appName && payload?.projectId === expectedProjectId) return port;
   }
@@ -94,13 +113,34 @@ export async function findRunningProjectServer(rootDir = projectRoot) {
 }
 
 async function main() {
-  const ramDecision = evaluateNextBuildRamGuard();
+  const result = await runNextBuildGuard();
+  if (result.status === "low-ram") process.exit(1);
+  if (result.status === "dev-server-running") process.exit(DEV_SERVER_BUILD_REFUSED_EXIT_CODE);
+}
+
+/**
+ * Check whether a production build may begin without mutating dev output.
+ *
+ * A server probe is necessarily advisory: `npm run dev` accepts ports outside
+ * the managed range and a server can start after the probe. Keep this guard to
+ * refusing known concurrent servers; deleting `.next/dev` requires startup and
+ * build coordination that this process does not own.
+ */
+export async function runNextBuildGuard({
+  rootDir = projectRoot,
+  env = process.env,
+  evaluateRamGuard = evaluateNextBuildRamGuard,
+  findServer = findRunningProjectServer,
+  error = console.error,
+  warn = console.warn,
+} = {}) {
+  const ramDecision = evaluateRamGuard();
   if (ramDecision === "fail") {
-    console.error(formatLowRamBuildMessage());
-    process.exit(1);
+    error(formatLowRamBuildMessage());
+    return { status: "low-ram" };
   }
   if (ramDecision === "warn") {
-    console.warn(
+    warn(
       [
         formatLowRamBuildMessage(),
         "Continuing because CI, GITHUB_ACTIONS, or ALLOW_LOW_RAM_BUILD=1 is set (hosted runners often report ~7–8 GiB).",
@@ -108,22 +148,24 @@ async function main() {
     );
   }
 
-  if (process.env.ALLOW_BUILD_WITH_DEV_SERVER === "1") {
-    console.warn("ALLOW_BUILD_WITH_DEV_SERVER=1 is set; continuing even if the local dev server is running.");
-    return;
+  if (env.ALLOW_BUILD_WITH_DEV_SERVER === "1") {
+    warn("ALLOW_BUILD_WITH_DEV_SERVER=1 is set; continuing even if the local dev server is running.");
+    return { status: "ok" };
   }
 
-  const runningPort = await findRunningProjectServer();
+  const runningPort = await findServer(rootDir);
   if (runningPort) {
-    console.error(
+    error(
       [
         `Refusing to run next build while ${appName} dev server is running at http://localhost:${runningPort}.`,
         "Stop the dev server first, or set ALLOW_BUILD_WITH_DEV_SERVER=1 if this cache churn is intentional.",
         `BUILD_REFUSED_DEV_SERVER exit=${DEV_SERVER_BUILD_REFUSED_EXIT_CODE}`,
       ].join("\n"),
     );
-    process.exit(DEV_SERVER_BUILD_REFUSED_EXIT_CODE);
+    return { status: "dev-server-running", port: runningPort };
   }
+
+  return { status: "ok" };
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(modulePath);
