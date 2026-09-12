@@ -76,12 +76,18 @@ export const HUB_PANELS: readonly HubPanel[] = [
   // candidate on the Ruling R1 ground the five removed entries failed on --
   // it restates no fact an existing green gate already guarantees. Do not
   // drop it in a later placeholder sweep; it is unbuilt, not unwanted.
+  // Built 2026-09-08. The summary names what the page can actually show: the
+  // registers this repository holds and, for Ward Flow, the fact that it holds
+  // none. It deliberately does not say "every clinical risk" -- three of the
+  // four rows with no control are reviews nobody has convened, so a register
+  // claiming completeness would be the first thing on the hub that is untrue.
   {
     id: "hazard-register",
     name: "Hazard register",
-    summary: "Known clinical risks and their mitigations",
+    summary: "Known clinical risks, their controls, and the ones nothing controls yet",
     group: "clinical",
-    phase: 4,
+    phase: 1,
+    href: "/mockups/development/hazards",
   },
 
   // No `environment` card: the environment strip renders as its own section on
