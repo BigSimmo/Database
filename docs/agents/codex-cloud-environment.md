@@ -10,6 +10,12 @@ Use `docs/codex-cloud.md` as the environment contract:
 
 - Configure setup as `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
 - Configure maintenance as `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
+- For an explicitly owner-authorized GitHub shell environment, use
+  `bash scripts/run-codex-cloud-github.sh setup` and
+  `bash scripts/run-codex-cloud-github.sh maintenance` instead, with the connected profile.
+  The encrypted setup secret is consumed before profile scrubbing; only the standard `gh`
+  credential store persists for that authorized capability. See the scoped exception and
+  acceptance requirements in `docs/codex-cloud.md` (Setup and maintenance).
 - Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
   Use `connected` only when the user explicitly authorizes the required provider access.
 - When MCP tools are already callable in a Cloud session and the task needs them, use the host

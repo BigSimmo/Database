@@ -51,6 +51,17 @@ describe("eval quality diagnostic arguments", () => {
       question: "What agitaton and arousl dosing guidance applies to psychiatric inpatients?",
     });
   });
+
+  it("does not admit a programme fixture ID through the legacy quality selector", () => {
+    const [selected] = selectRagQualityCasesForQuestion("direct-evidence-generic-refusal");
+
+    expect(selected).toMatchObject({
+      id: "custom-question",
+      question: "direct-evidence-generic-refusal",
+      expectedFiles: [],
+    });
+    expect(selected?.programmeExpectation).toBeUndefined();
+  });
 });
 
 describe("eval quality run context", () => {

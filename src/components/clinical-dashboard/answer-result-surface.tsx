@@ -9,26 +9,46 @@ import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
+import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
+import { AnswerInlineSections } from "@/components/clinical-dashboard/answer-inline-sections";
+import {
+  answerUsesAdaptiveMainSurface,
+  projectAnswerForMainSurface,
+  type ProjectedAnswerSection,
+} from "@/components/clinical-dashboard/answer-section-projector";
 import {
   isPreformattedGroundedAnswer,
   NaturalLanguageAnswer,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
-import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import { AnswerUtilityActions, SafetyFindingsListContent } from "@/components/clinical-dashboard/evidence-panels";
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
 import { useAnswerSourceSelection } from "@/components/clinical-dashboard/use-answer-source-selection";
 import { CanonicalAnswerTables } from "@/components/clinical-dashboard/visual-evidence";
-import { annotateSourceAttachments, buildAnswerSourceRows } from "@/components/clinical-dashboard/answer-source-rows";
+import {
+  annotateSourceAttachments,
+  buildAnswerSourceRows,
+  citedSourceIdsForAnswerProjection,
+} from "@/components/clinical-dashboard/answer-source-rows";
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { AnswerCard, type AnswerSupportStrength } from "@/components/ui/answer-card";
-import { compactVerificationWordingFor, VerificationNotice } from "@/components/ui/verification-notice";
+import { answerUsesDegradedMode, answerUsesSourceOnlyProvenance } from "@/components/ui/answer-state";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn } from "@/components/ui-primitives";
 import { isCurrencyReviewWarning, type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { demoAnswerDisclosure } from "@/lib/answer-client-payload";
+import { publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
+import type {
+  ClientBestSourceRecommendation,
+  ClientQuoteCard,
+  ClientRagAnswerPayload,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
 import { type AppModeId } from "@/lib/app-modes";
 import { extractSafetyFindings, groupSafetyFindingsByKind } from "@/lib/clinical-safety";
-import type { BestSourceRecommendation, EvidenceSummary, QuoteCard, RagAnswer, SearchResult } from "@/lib/types";
+import type { EvidenceSummary } from "@/lib/types";
+import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
+import { compactVerificationWordingFor, VerificationNotice } from "@/components/ui/verification-notice";
 
 /**
  * Renders a staged answer with inline content and optional clinical notes, evidence, safety findings, and follow-up interfaces.
@@ -83,6 +103,7 @@ function StagedAnswerResultSurfaceImpl({
   renderModel,
   weakEvidence,
   sources,
+  demoMode,
   safetyFindings,
   copiedAnswer,
   pendingFeedback,
@@ -96,19 +117,25 @@ function StagedAnswerResultSurfaceImpl({
   followUpSuggestionsDisabled = false,
   onScopeDocument,
 }: {
-  answer: RagAnswer;
+  answer: ClientRagAnswerPayload & { interactionId?: string };
   query: string;
-  bestSource: BestSourceRecommendation | null;
+  bestSource: ClientBestSourceRecommendation | null;
   sourceSummary?: EvidenceSummary;
   renderModel: AnswerRenderModel;
   weakEvidence: boolean;
-  sources: SearchResult[];
+  answerViewMode?: AnswerViewMode;
+  answerEvidenceMapRows?: AnswerEvidenceMapRow[];
+  answerGrounded?: boolean;
+  sources: ClientSearchResult[];
+  demoMode: boolean;
+  /** Kept as an optional compatibility prop for extracted surface callers. */
+  safeAnswerSections?: ProjectedAnswerSection[];
   safetyFindings: ReturnType<typeof extractSafetyFindings>;
   copiedAnswer: boolean;
   pendingFeedback: AnswerFeedbackType | null;
   onCopyAnswer: () => void;
   onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onFollowUpQuote?: (quote: ClientQuoteCard) => void;
   crossModeQueries?: Array<string | null | undefined>;
   onCrossModeSearch?: (mode: AppModeId, query: string) => void;
   followUpSuggestions?: string[];
@@ -118,13 +145,43 @@ function StagedAnswerResultSurfaceImpl({
   onScopeDocument?: (documentId: string) => void;
 }) {
   const router = useRouter();
-  const sourceCount =
+  const isDemoAnswer = demoMode || answer.demoMode === true || answer.fallbackMode === "non_production_demo";
+  const degradedAnswer = answerUsesDegradedMode({
+    answerQualityTier: answer.answerQualityTier,
+    fallbackReasonCode: answer.fallbackReasonCode,
+    degradedMode: answer.degradedMode,
+  });
+  const sourceOnlyAnswer = answerUsesSourceOnlyProvenance({
+    answerQualityTier: answer.answerQualityTier,
+    routingMode: answer.routingMode,
+  });
+  const preformatted = isPreformattedGroundedAnswer(answer);
+  const projectedAnswer = useMemo(
+    () =>
+      projectAnswerForMainSurface({
+        answer,
+        sources: answer.sources.length > 0 ? answer.sources : sources,
+        preformatted,
+      }),
+    [answer, preformatted, sources],
+  );
+  const renderAdaptiveAnswer = answerUsesAdaptiveMainSurface(answer);
+  const citedSourceIds = useMemo(
+    () => (renderAdaptiveAnswer ? citedSourceIdsForAnswerProjection(projectedAnswer) : undefined),
+    [projectedAnswer, renderAdaptiveAnswer],
+  );
+  const legacySourceCount =
     renderModel.primarySources.length ||
     sourceSummary?.total_sources ||
     sources.length ||
     answer.sources?.length ||
     answer.citations.length;
-  const sourceOnly = answer.answerQualityTier === "source_only";
+  // Adaptive source rows already carry their exact final citation order. Let
+  // NaturalLanguageAnswer apply its existing four-row presentation cap to that
+  // complete set rather than feeding it a trust-capped/recommended subset first.
+  const leadSourceLinks = renderAdaptiveAnswer ? [] : renderModel.primarySources;
+  const leadBestSource = renderAdaptiveAnswer ? null : bestSource;
+  const leadSourceCount = renderAdaptiveAnswer ? projectedAnswer.leadCitationSources.length : legacySourceCount;
   const centralTables = renderModel.tables;
   /**
    * The one cited-source list. The rail under the answer lists these rows and the
@@ -133,11 +190,14 @@ function StagedAnswerResultSurfaceImpl({
    */
   const railSources = useMemo(
     () =>
-      annotateSourceAttachments(buildAnswerSourceRows(bestSource, sources, renderModel.primarySources), {
-        tables: renderModel.tables,
-        visualEvidence: renderModel.visualEvidence,
-      }),
-    [bestSource, sources, renderModel.primarySources, renderModel.tables, renderModel.visualEvidence],
+      annotateSourceAttachments(
+        buildAnswerSourceRows(bestSource, sources, renderModel.primarySources, citedSourceIds),
+        {
+          tables: renderModel.tables,
+          visualEvidence: renderModel.visualEvidence,
+        },
+      ),
+    [bestSource, citedSourceIds, sources, renderModel.primarySources, renderModel.tables, renderModel.visualEvidence],
   );
   // `trust` already distinguishes these; until now only a conditionally-rendered
   // side card ever showed the difference, so a "medium" answer - which includes
@@ -204,6 +264,7 @@ function StagedAnswerResultSurfaceImpl({
     // buttons, and focusing a detached node silently drops focus to <body>.
     return opener?.isConnected ? opener : null;
   }, []);
+
   function closeSafetyFindingsReview() {
     setSafetyFindingsOpen(false);
   }
@@ -222,6 +283,7 @@ function StagedAnswerResultSurfaceImpl({
     () => answerStateForAnswer({ answer, sources, weakEvidence }),
     [answer, sources, weakEvidence],
   );
+
   // Built once so both arms of the `ready` / degraded split below stay identical.
   // The split exists only because `AnswerCardProps` discriminates on `state` to make
   // `onOpenSource` required for a degraded card (DECISIONS §Q1), and a union-typed
@@ -236,12 +298,9 @@ function StagedAnswerResultSurfaceImpl({
     // stale/partial/ungrounded outrank source_only, so keying on the kind announced
     // "AI-generated" directly above the Source-only disclosure saying no model wrote
     // it (#228).
-    attribution: (sourceOnly ? "extractive" : "model") as "extractive" | "model",
-    sourceCount: "sourceCount" in answerState ? answerState.sourceCount : sourceCount,
-    // The compact governed instruction moves into the Source-only disclosure on
-    // screen. Print keeps the complete notice in the card header because a
-    // collapsed interactive disclosure is not part of the printed record.
-    className: sourceOnly ? "hidden print:flex" : undefined,
+    attribution: (sourceOnlyAnswer ? "extractive" : "model") as "extractive" | "model",
+    sourceCount: "sourceCount" in answerState ? answerState.sourceCount : leadSourceCount,
+    className: sourceOnlyAnswer ? "hidden print:flex" : undefined,
   };
   /**
    * The header status line the approved specimen draws: the support chip (owned
@@ -354,14 +413,14 @@ function StagedAnswerResultSurfaceImpl({
    * assessment that sets the stale state also adds a warning.
    */
   const answerLimitationsChipLabel = [
-    sourceOnly ? "Source-only" : null,
+    sourceOnlyAnswer ? "Source-only" : null,
     answerReviewDue || (answerGapWarningCount === 0 && renderModel.warnings.length > 0) ? "Review due" : null,
     answerGapWarningCount > 0 ? `${answerGapWarningCount} limitation${answerGapWarningCount === 1 ? "" : "s"}` : null,
   ]
     .filter(Boolean)
     .join(" · ");
   const answerMetaChipsWithGaps =
-    renderModel.warnings.length > 0 || answerReviewDue || sourceOnly ? (
+    renderModel.warnings.length > 0 || answerReviewDue || sourceOnlyAnswer ? (
       <>
         {answerMetaChips}
         <button
@@ -446,12 +505,12 @@ function StagedAnswerResultSurfaceImpl({
    * overdue, then the rest.
    */
   const answerEvidenceGapsDetail =
-    renderModel.warnings.length > 0 || overdueSourcesBanner || sourceOnly ? (
+    renderModel.warnings.length > 0 || overdueSourcesBanner || sourceOnlyAnswer ? (
       <div id="answer-limitations-detail" className="grid gap-2">
         {/* The governed extractive wording, verbatim from the same lookup the
             Source-only pill used before it was folded in here. Never reworded at
             this call site. */}
-        {sourceOnly ? (
+        {sourceOnlyAnswer ? (
           <p
             data-testid="answer-limitation-source-only"
             className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/70 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
@@ -480,26 +539,28 @@ function StagedAnswerResultSurfaceImpl({
   }
 
   const answerProse = (
-    <NaturalLanguageAnswer
-      text={answer.answer}
-      query={query}
-      preformatted={isPreformattedGroundedAnswer(answer)}
-      clinicalPoints={clinicalPointsRail}
-      bestSource={bestSource}
-      sources={sources}
-      sourceLinks={renderModel.primarySources}
-      // Server-assessed, per-sentence. This is what lets a number in the prose
-      // restate an attribution the answer pipeline already made rather than one
-      // this layer invented; where it is absent the prose renders unmarked.
-      claims={answer.supportedClaims}
-      railRows={railSources}
-      copied={copiedAnswer}
-      onCopy={onCopyAnswer}
-      onOpenSource={openSourceFromClaim}
-      onOpenRailSource={openSourceFromRail}
-      openSourceIndex={openSourceIndex}
-      showCopyAction={false}
-    />
+    <>
+      <NaturalLanguageAnswer
+        text={projectedAnswer.leadText}
+        query={query}
+        preformatted={preformatted}
+        sourceCount={leadSourceCount}
+        sourceOnly={sourceOnlyAnswer}
+        bestSource={leadBestSource}
+        sources={projectedAnswer.leadCitationSources}
+        sourceLinks={leadSourceLinks}
+        clinicalPoints={clinicalPointsRail}
+        claims={answer.claimMarks}
+        railRows={railSources}
+        onOpenSource={openSourceFromClaim}
+        onOpenRailSource={openSourceFromRail}
+        openSourceIndex={openSourceIndex}
+        showCopyAction={false}
+        copied={copiedAnswer}
+        onCopy={onCopyAnswer}
+      />
+      {renderAdaptiveAnswer ? <AnswerInlineSections sections={projectedAnswer.sections} /> : null}
+    </>
   );
 
   return (
@@ -532,6 +593,20 @@ function StagedAnswerResultSurfaceImpl({
                 `stale_evidence`/`partial_retrieval` — the two kinds that say
                 something the notice cannot (#227 over #207; see answer-card.tsx).
                 This surface no longer decides that. */}
+            {isDemoAnswer ? (
+              <p role="note" className="text-sm text-[color:var(--warning)]">
+                {demoAnswerDisclosure}
+              </p>
+            ) : null}
+            {degradedAnswer ? (
+              <p
+                role="note"
+                data-testid="current-answer-degradation"
+                className="text-sm text-[color:var(--text-muted)]"
+              >
+                {publicFallbackReason(answer.fallbackReasonCode ?? "unknown")}
+              </p>
+            ) : null}
             {/* The question is a chat bubble on the current turn, exactly as it is
                 on every prior turn. It used to be a muted echo inside the card
                 header, which made the newest exchange read as a document with a

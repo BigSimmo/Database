@@ -76,6 +76,10 @@ export function answerStateCaveat(state: AnswerState): string | null {
       return `only ${state.retrieved} of ${state.requested} sources were available for this answer.`;
     case "ungrounded":
       return UNGROUNDED_CAVEAT[state.reason];
+    case "source_only":
+      return state.reason === "generation_failed"
+        ? "answer generation was unavailable, so this response was assembled directly from the cited sources."
+        : "answer generation did not pass the quality gate, so this response was assembled directly from the cited sources.";
     default:
       return null;
   }
@@ -121,6 +125,7 @@ export function composeAnswerClipboardText({
   state,
   metadata,
   sourceOnly,
+  degradedReason,
 }: {
   /** `buildAnswerRenderModel(answer).copyText` — the primary product payload. */
   renderCopyText: string;
@@ -133,9 +138,15 @@ export function composeAnswerClipboardText({
    * state alone can no longer be trusted to say whether a model wrote the prose.
    */
   sourceOnly?: boolean;
+  /** Fixed browser-safe degradation phrase from the governed answer projection. */
+  degradedReason?: string | null;
 }): string {
   const body = renderCopyText.trim();
-  const head = [answerStateAttribution(state, { sourceOnly }), answerClipboardCaveatLine(state)]
+  const head = [
+    answerStateAttribution(state, { sourceOnly }),
+    degradedReason ? `Degraded mode: ${degradedReason}` : null,
+    answerClipboardCaveatLine(state),
+  ]
     .filter(Boolean)
     .join("\n");
   const provenance = answerClipboardProvenanceLine(state, metadata);

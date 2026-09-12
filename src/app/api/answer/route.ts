@@ -17,20 +17,21 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope } from "@/lib/owner-scope";
-import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { parseJsonBody } from "@/lib/validation/body";
 import {
-  answerDegradedModeSignal,
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
+  buildGovernedEmptyScopeAnswerClientResponse,
 } from "@/lib/answer-response";
 import { answerServerTimingEntries, buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
+import { persistAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
 import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
+import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
+import { toClientSearchScopeSummary } from "@/lib/answer-client-payload";
 
 export const runtime = "nodejs";
 
@@ -59,6 +60,7 @@ function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string
 
 export async function POST(request: Request) {
   const interactionId = randomUUID();
+  const observationContext = { interactionId, rolloutMode: "legacy" } as const;
   // Group this request's LLM calls (embedding, generation, verification) into
   // one Sentry agent-monitoring conversation keyed by the synthetic interaction
   // UUID — never by query text.
@@ -112,20 +114,23 @@ export async function POST(request: Request) {
     });
     const scopeMs = Date.now() - scopeStartedAt;
     if (scope.documentIds?.length === 0) {
+      const governedEmptyResponse = buildGovernedEmptyScopeAnswerClientResponse(emptyScopeAnswer);
+      const emptyAnswer = observeRagAnswer(governedEmptyResponse.telemetryAnswer, observationContext);
+      await persistAnswerDiagnostics({
+        supabase,
+        query: answerBody.query,
+        ownerId: access.ownerId,
+        interactionId,
+        answer: emptyAnswer,
+      });
       const serverTiming = buildServerTimingHeader([
         ...preambleServerTimingEntries({ authMs, rateLimitMs, scopeMs }),
         { name: "total", durMs: Date.now() - routeStartedAt },
       ]);
       return NextResponse.json(
         {
-          answer: emptyScopeAnswer,
-          grounded: false,
-          confidence: "unsupported",
-          citations: [],
-          sources: [],
-          degradedMode: answerDegradedModeSignal(),
-          scope: { ...scope, queryMode: answerBody.queryMode },
-          sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+          ...governedEmptyResponse.payload,
+          scope: toClientSearchScopeSummary(scope, answerBody.queryMode),
           ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
         },
         serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
@@ -147,13 +152,15 @@ export async function POST(request: Request) {
       accessScope,
       allowGlobalSearch: !access.ownerId,
       queryMode: answerBody.queryMode,
+      observationContext,
       signal: request.signal,
     });
     const governedResponse = buildGovernedAnswerClientResponse(answer);
-    logAnswerDiagnostics({
+    await persistAnswerDiagnostics({
       supabase,
       query: answerBody.query,
       ownerId: access.ownerId,
+      interactionId,
       answer: governedResponse.telemetryAnswer,
     });
 
@@ -165,7 +172,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ...governedResponse.payload,
-        scope: { ...scope, queryMode: answerBody.queryMode },
+        scope: toClientSearchScopeSummary(scope, answerBody.queryMode),
         ...answerFeedbackMetadata(interactionId, governedResponse.payload.answer),
       },
       serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,

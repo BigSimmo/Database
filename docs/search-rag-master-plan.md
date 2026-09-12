@@ -147,7 +147,7 @@ Routing rules:
 - Source/document lookup stays extractive only when the question explicitly asks for source location, quotes, or supporting documents.
 - Medication, dosing, monitoring, threshold, risk, comparison, pathway, and referral questions route to model synthesis.
 - Safety-sensitive, conflicting, comparison, weak-but-plausible, or failed-fast cases route to strong.
-- No strong failure should fall through to stitched extractive clinical prose.
+- Superseded by the governed recovery amendment (2026-09-08): the former blanket prohibition on extractive clinical recovery no longer applies. After model failure, one bounded recovery may return directly supported source text only when the existing citation, numeric, claim-support and source-governance gates pass; otherwise return a source-gap answer.
 
 Tests:
 
@@ -502,9 +502,9 @@ Each phase should be separable.
 The work is complete when all of these are true:
 
 - First answer is synthesized for clinical questions and directly answers the query.
-- Extractive mode appears only for explicit lookup/source tasks.
+- Extractive mode serves explicit lookup/source tasks and the bounded, verified recovery path described above; it does not become the default clinical first-answer path.
 - Fast/strong model routing is deterministic, observable, and test-covered.
-- Failed generation produces a source-gap answer, not stitched clinical prose.
+- Superseded acceptance wording: failed generation may produce a bounded source-backed recovery that passes the same final evidence gates; if support or verification fails, return a useful source-gap answer.
 - Citations and evidence IDs are constrained to retrieved chunks.
 - Optional evidence panels are governed by a render policy.
 - Evidence rows and source preview rows are clickable when source targets exist.
@@ -512,3 +512,29 @@ The work is complete when all of these are true:
 - API validation in target route families is schema-first and consistently errors.
 - Security-sensitive errors and source access remain safe.
 - Focused tests, broad verification, production-readiness, and browser source smoke pass or document known pre-existing failures.
+
+## P08C Task 8 local implementation — 2026-09-08
+
+Answer cache v24 now hashes the complete canonical request, including retained user context, request depth and source-policy semantics, with the existing scope, snapshot and generation-version boundaries. The same fingerprint serves local/shared cache and coalescing; retrieval normalization stays lossy. Selected-source and access restrictions remain hard limits. Inferred domain preferences no longer remove otherwise eligible cross-domain candidates.
+
+The Dashboard stores one bounded resolved query alongside the displayed latest question and reuses it for successive follow-ups and reload. Context contains user requests only; oversized or malformed envelopes fail within the existing 2,000-character API contract. Context queries remain redacted even with raw-query retention enabled. Answer requests no longer retry a lossy keyword variant. Asked parts and a bounded medicine/clinical-constraint safety dependency feed the existing four-subquestion budget; no extra planning model call or generic mandatory four-part answer template was added.
+
+Trusted reviewed-policy configuration loads append-only, version-bound fixture events and revalidates access, source version/hash and expiry before the existing canonical conflict resolver. A missing adapter remains not assessed. Review-configured requests conservatively refuse caching/coalescing. No hosted review persistence, human approval, activation or deployment is established by these offline fixtures.
+
+Server diagnostics use an explicit content-free projection, including required/represented/lost coverage-part counts. These counts do not prove numeric fact retention or clinical completeness. The public answer DTO excludes diagnostics. Task 7 generation degradation remains a separate signal and uses cache version v24.
+
+This paragraph records the historical Task 8 handoff state. Its independent review/compiler and downstream local implementation have since completed; exact Task 8 evidence remains in the local-only artifact `.superpowers/sdd/P08C-task-8-implementation-20260908-report.md`. The root-owned, local-only M2 acceptance artifact at `.superpowers/sdd/M2-final-local-acceptance-20260909.md` is the authority for the current cumulative acceptance verdict and retained boundaries.
+
+## P12C adaptive answer implementation — 2026-09-09
+
+The local candidate is `clinical-rag-answer-v20` with `clinical-rag-answer-schema-v5`; the unchanged legacy lane remains v19/schema v4. V20 keeps one canonical lead and adds bounded, ordered, question-specific sections. The same authoritative server DTO supplies current and prior answers, final SSE parsing, thread persistence/restoration, rendering and clipboard output, so supported sections and exact source gaps are delivered once and consistently. The old 85-word display cap was an independent UI defect that clipped already verified prose; removing it did not expand the provider prompt or answer-contract limits.
+
+`RAG_ADAPTIVE_ANSWER_ENABLED` and `RAG_ADAPTIVE_ANSWER_RENDER_ENABLED` are independent server-only flags, both default off. Producer-off selects v19/v4 for new production. Render-off hides adaptive main-surface sections but does not rewrite stored or current v20 payloads; their canonical clipboard content remains version-driven. Prompt, schema, response and cache identities remain versioned for rollback. This implementation does not activate either lane.
+
+Protected behavior remains binding: concise narrow answers; claim, numeric, dose, comparison, source-image and final verification; exact citation IDs from retrieved chunks; selected-source and private-access limits; current source/receipt/role/conflict authority; and useful partial answers that preserve supported parts while naming exact gaps. Catalogue records remain authority only for their product facts. Content-free required/represented/lost part counts and coverage counts expose false insufficiency and delivery loss without becoming proof of clinical completeness.
+
+Deterministic evidence covers complete broad/mixed, exact-removal partial, irrelevant supplement, two-follow-up/elaboration/restoration and narrow journeys through production functions. The original same-input/fixed-provider-fact 11-case capture records 11 server-fact ties, 10 v20 copy-delivery wins and one concise narrow tie; R1 later passed all 11 assertions without producing a fresh raw outcome capture. Shared relevance, coverage and extractive fixes benefit both lanes. No model/provider-quality or all-improvement-is-v20 claim follows.
+
+Final focused verification is 421 PASS and compiler 2,036 PASS. Reused evidence: fixtures 36 golden/26 suite/26 programme PASS; R1 domain 1,194 PASS plus one known baseline-confirmed P16 failure whose later assertions were not executed; readiness 4 PASS/5 WARN/1 FAIL for missing local configuration; and Task 4 synthetic Chromium 3 PASS. The local-only Task 5 final-verification artifact at `.superpowers/sdd/P12C-task5-final-verification-20260909.md` retains the exact evidence and limits. The root-owned, local-only M2 acceptance artifact at `.superpowers/sdd/M2-final-local-acceptance-20260909.md` is the authority for the current cumulative acceptance verdict and retained boundaries.
+
+Hosted/provider and corpus proof, blinded v19/v20 provider comparison, P16 uploaded-local admission, production cache population, production build/deployment, physical Safari/PWA, P10/P11 handoffs, and formal P17 receipt reconciliation remain separate. No canary or activation is authorized by this documentation.

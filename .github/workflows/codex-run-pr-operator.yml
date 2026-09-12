@@ -1,4 +1,5 @@
 name: Codex Run PR operator
+run-name: "${{ inputs.batch_operation && format('PR batch repair {0}', inputs.batch_operation) || format('PR operator #{0}', inputs.pr_number) }}"
 
 on:
   workflow_dispatch:
@@ -15,9 +16,20 @@ on:
         description: "Type: I authorized this PR in the linked Codex task"
         required: true
         type: string
+      batch_id:
+        description: "Reserved for the authorized batch controller"
+        type: string
+        default: ""
+      batch_operation:
+        description: "Exact journaled repair operation; never grants authority by itself"
+        type: string
+        default: ""
 
 concurrency:
-  group: codex-run-pr-${{ inputs.pr_number }}
+  # Keep the complete operator run in its own serialized lane. Sharing the
+  # controller's pending slot lets event-driven wake-ups evict an authorized
+  # operator before it starts; job-level locks can also evict its mutate tail.
+  group: codex-run-pr-operator
   cancel-in-progress: false
 
 permissions:
@@ -32,6 +44,7 @@ jobs:
     name: Validate request and collect bounded PR evidence
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    if: github.ref == 'refs/heads/main'
     outputs:
       pr_number: ${{ steps.context.outputs.pr_number }}
       expected_head: ${{ steps.context.outputs.expected_head }}
@@ -40,6 +53,11 @@ jobs:
       base_sha: ${{ steps.context.outputs.base_sha }}
       context_sha256: ${{ steps.context.outputs.context_sha256 }}
     steps:
+      - name: Checkout trusted batch ownership policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
       - name: Validate deliberate human dispatch
         env:
           DISPATCH_ACTOR: ${{ github.actor }}
@@ -59,6 +77,8 @@ jobs:
       - name: Validate target and collect bounded context
         id: context
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}
         with:
           github-token: ${{ secrets.GH_TOKEN }}
           script: |
@@ -70,12 +90,22 @@ jobs:
             const prNumber = Number(context.payload.inputs.pr_number);
             const authorizationTaskUrl = context.payload.inputs.codex_task_url;
             const actor = context.actor;
+            const { pathToFileURL } = require('node:url');
+            const { GitHubBatch, workerOwnership } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-batch-worker.mjs`).href);
+            const batchApi = new GitHubBatch(github, { ...context.repo, runId: context.runId, actor });
+            const batchContext = await workerOwnership(batchApi, {
+              number: prNumber, batchId: context.payload.inputs.batch_id || '',
+              operationId: context.payload.inputs.batch_operation || '', claim: true,
+            });
+            if (batchContext && batchContext.authorization !== authorizationTaskUrl) {
+              throw new Error('Batch authorization reference mismatch');
+            }
 
             if (!Number.isSafeInteger(prNumber) || prNumber < 1) {
               core.setFailed("A positive integer pull-request number is required.");
               return;
             }
-            const taskUrlPattern = /^https:\/\/chatgpt\.com\/codex\/(?:cloud\/)?tasks\/task_[A-Za-z0-9_]+\/?$/u;
+            const taskUrlPattern = /^(?:codex:\/\/threads\/[a-f0-9-]{36}|https:\/\/chatgpt\.com\/codex\/(?:cloud\/)?tasks\/task_[A-Za-z0-9_]+\/?)$/u;
             if (!taskUrlPattern.test(authorizationTaskUrl)) {
               core.setFailed("A valid Codex task URL is required as the authorization audit reference.");
               return;
@@ -123,6 +153,9 @@ jobs:
               ref: `heads/${pr.base.ref}`,
             });
             const baseSha = currentBaseRef.object.sha;
+            if (batchContext && (pr.head.sha !== batchContext.expected_head || baseSha !== batchContext.base_sha)) {
+              throw new Error('PR changed after batch repair dispatch');
+            }
             if (!/^[0-9a-f]{40}$/u.test(baseSha)) {
               core.setFailed("The current base branch did not resolve to an exact commit SHA.");
               return;
@@ -183,6 +216,7 @@ jobs:
                   root_comment_id: thread.comments.nodes[0]?.databaseId ?? null,
                   latest_comment_id: thread.latestComment.nodes[0]?.databaseId ?? null,
                   comment_count: thread.comments.totalCount,
+                  evidence_complete: thread.comments.totalCount === thread.comments.nodes.length && thread.comments.nodes.every((comment) => (comment.body || '').length <= 8000),
                   comments: thread.comments.nodes.map((comment) => ({
                     id: comment.databaseId,
                     author: comment.author?.login ?? "unknown",
@@ -337,6 +371,7 @@ jobs:
               }
               failedRuns.push({
                 id: run.id,
+                run_attempt: run.run_attempt,
                 name: run.name,
                 conclusion: run.conclusion,
                 head_sha: run.head_sha,
@@ -351,6 +386,7 @@ jobs:
               basehead: `${pr.head.sha}...${baseSha}`,
             });
             const payload = {
+              batch: batchContext,
               generated_at: new Date().toISOString(),
               repository: `${owner}/${repo}`,
               actor,
@@ -379,7 +415,7 @@ jobs:
               failed_checks: failedChecks,
               workflow_runs: workflowRuns,
               failed_workflow_runs: failedRuns,
-              open_pull_requests: openPullRequests,
+              open_pull_requests: batchContext ? openPullRequests.filter((item) => item.number === prNumber) : openPullRequests,
             };
 
             const artifactDir = path.join(process.env.GITHUB_WORKSPACE, ".codex-run-pr");
@@ -399,7 +435,7 @@ jobs:
           name: codex-run-pr-context-${{ github.run_id }}
           path: .codex-run-pr/context.json
           include-hidden-files: true
-          retention-days: 1
+          retention-days: 7
           if-no-files-found: error
 
   repair:
@@ -462,14 +498,35 @@ jobs:
           }
           if ! git merge-base --is-ancestor "$BASE_SHA" HEAD; then
             if ! git merge-tree --write-tree HEAD "$BASE_SHA" >/dev/null; then
-              echo "::error::The exact recorded base has merge conflicts; operator policy requires a human resolution."
-              exit 1
+              if ! jq -e '.batch != null' .codex-run-pr/context.json >/dev/null; then
+                echo "::error::The exact recorded base has merge conflicts; operator policy requires a human resolution outside an authorized batch."
+                exit 1
+              fi
+              # Leave merge metadata trusted/read-only. Codex may resolve working
+              # files; the seal later stages them and creates the two-parent commit.
+              git merge --no-commit --no-ff "$BASE_SHA" || test -f .git/MERGE_HEAD
+              test "$(cat .git/MERGE_HEAD)" = "$BASE_SHA"
+              compare_tree="$(git rev-parse AUTO_MERGE^{tree})"
+              git diff --name-only --diff-filter=U > "$RUNNER_TEMP/batch-conflicts.txt"
+              while IFS= read -r conflict_path; do
+                case "${conflict_path,,}" in
+                  .github/*|.codex/*|.claude/*|.agents/*|agents.md|claude.md|supabase/*|*auth*|*permission*|*secret*|*credential*|scripts/pr-batch*)
+                    echo "::error::Conflict requires protected-surface authority."
+                    exit 1
+                    ;;
+                esac
+              done < "$RUNNER_TEMP/batch-conflicts.txt"
+              echo "OPERATOR_COMPARE_TREE=$compare_tree" >> "$GITHUB_ENV"
+            else
+              git merge --no-edit "$BASE_SHA"
             fi
-            git merge --no-edit "$BASE_SHA"
           fi
           operator_start_sha="$(git rev-parse HEAD)"
           git merge-base --is-ancestor "$EXPECTED_HEAD" "$operator_start_sha"
           echo "OPERATOR_START_SHA=$operator_start_sha" >> "$GITHUB_ENV"
+          if [ ! -f .git/MERGE_HEAD ]; then
+            echo "OPERATOR_COMPARE_TREE=$operator_start_sha" >> "$GITHUB_ENV"
+          fi
           trusted_dir="$RUNNER_TEMP/codex-run-pr-trusted"
           mkdir -p "$trusted_dir"
           git show "$BASE_SHA:.github/codex/prompts/run-pr-operator.md" \
@@ -536,7 +593,8 @@ jobs:
           git merge-base --is-ancestor "$EXPECTED_HEAD" "$OPERATOR_START_SHA"
           jq -e '
             type == "object" and
-            (keys == ["checks", "rerun_failed_run_ids", "summary", "thread_dispositions"]) and
+            (keys == ["checks", "progress_outcome", "rerun_failed_run_ids", "summary", "thread_dispositions"]) and
+            (.progress_outcome == "progress" or .progress_outcome == "blocked" or .progress_outcome == "no_change") and
             (.summary | type == "string" and length > 0 and length <= 4000) and
             (.checks | type == "array" and length <= 50 and all(.[]; type == "string" and length > 0 and length <= 500)) and
             (.thread_dispositions | type == "array" and length <= 50 and all(.[];
@@ -549,10 +607,14 @@ jobs:
             ((.thread_dispositions | map(.thread_id) | length) == (.thread_dispositions | map(.thread_id) | unique | length)) and
             (.rerun_failed_run_ids | type == "array" and length <= 1 and all(.[]; type == "number" and floor == . and . >= 1))
           ' .codex-run-pr/result.json >/dev/null
+          if jq -e '.progress_outcome == "blocked"' .codex-run-pr/result.json >/dev/null; then
+            echo "::error::Repair reported blocked; no candidate will be published."
+            exit 1
+          fi
 
           mapfile -d '' -t changed_paths < <(
             {
-              git diff --name-only --no-renames -z "$OPERATOR_START_SHA" --
+              git diff --name-only --no-renames -z "$OPERATOR_COMPARE_TREE" --
               git ls-files -z --others --exclude-standard
             } | sort -zu
           )
@@ -586,16 +648,18 @@ jobs:
           }
 
           git add -A -- . ':!.codex-run-pr/**'
-          if git diff --cached --raw "$OPERATOR_START_SHA" -- | grep -Eq '^:.* (120000|160000) '; then
+          git diff --cached --check
+          test -z "$(git ls-files -u)"
+          if git diff --cached --raw "$OPERATOR_COMPARE_TREE" -- | grep -Eq '^:.* (120000|160000) '; then
             echo "::error::Codex repair introduced a symbolic link or Git submodule."
             exit 1
           fi
-          diff_bytes="$(git diff --cached --binary "$OPERATOR_START_SHA" -- | wc -c)"
+          diff_bytes="$(git diff --cached --binary "$OPERATOR_COMPARE_TREE" -- | wc -c)"
           if [ "$diff_bytes" -gt 1048576 ]; then
             echo "::error::Codex repair exceeds the 1 MiB publication limit."
             exit 1
           fi
-          if ! git diff --cached --quiet; then
+          if [ -f .git/MERGE_HEAD ] || ! git diff --cached --quiet; then
             git -c core.hooksPath=/dev/null commit -m "fix: apply Codex Run PR repair"
           fi
           git merge-base --is-ancestor "$EXPECTED_HEAD" HEAD
@@ -632,7 +696,7 @@ jobs:
             .codex-run-pr/manifest.json
             .codex-run-pr/result.bundle
           include-hidden-files: true
-          retention-days: 1
+          retention-days: 7
           if-no-files-found: error
 
   publish:
@@ -700,12 +764,36 @@ jobs:
           git merge-base --is-ancestor "$operator_start_sha" "$result_sha"
 
           remote_head="$(GH_TOKEN="$GITHUB_TOKEN" gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$HEAD_REF" --jq .object.sha)"
-          test "$remote_head" = "$EXPECTED_HEAD" || {
+          if [ "$remote_head" != "$EXPECTED_HEAD" ] && ! { jq -e '.batch != null' .codex-run-pr/context.json >/dev/null && test "$remote_head" = "$result_sha"; }; then
             echo "::error::The PR head advanced after preparation; refusing a stale publication."
             exit 1
-          }
+          fi
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
           echo "result_sha=$result_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse an untrusted policy checkout destination
+        shell: bash
+        run: test ! -e .batch-policy && test ! -L .batch-policy
+
+      - name: Checkout trusted publication policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .batch-policy
+          persist-credentials: false
+
+      - name: Verify ownership and journal the candidate before publication
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}
+          RESULT_SHA: ${{ steps.verify.outputs.result_sha }}
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const { GitHubBatch, checkpointCandidate } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.batch-policy/scripts/pr-batch-worker.mjs`).href);
+            const contextData = JSON.parse(require('node:fs').readFileSync('.codex-run-pr/context.json', 'utf8'));
+            await checkpointCandidate(new GitHubBatch(github, { ...context.repo, actor: context.actor, runId: context.runId }), contextData, process.env.RESULT_SHA);
 
       - name: Publish through the authenticated human operator token
         if: steps.verify.outputs.changed == 'true'
@@ -730,6 +818,10 @@ jobs:
             exit 1
           }
           gh auth setup-git --hostname github.com
+          if jq -e '.batch != null' .codex-run-pr/context.json >/dev/null; then
+            test "$(gh variable get PR_BATCH_ENABLED --repo "$GITHUB_REPOSITORY")" = "true"
+            test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$(jq -r .batch.base_sha .codex-run-pr/context.json)"
+          fi
           git push origin "$RESULT_SHA:refs/heads/$HEAD_REF"
           remote_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$HEAD_REF" --jq .object.sha)"
           test "$remote_head" = "$RESULT_SHA"
@@ -757,13 +849,48 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Checkout trusted mutation policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
       - name: Download bounded context and structured result
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: codex-run-pr-result-${{ github.run_id }}
           path: .codex-run-pr
 
+      - name: Apply batch mutations with durable per-effect receipts
+        if: inputs.batch_id != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}
+          PUBLISHED_SHA: ${{ needs.publish.outputs.published_sha }}
+          CONTEXT_SHA256: ${{ needs.prepare.outputs.context_sha256 }}
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const fs = require('node:fs');
+            const bytes = fs.readFileSync('.codex-run-pr/context.json');
+            if (require('node:crypto').createHash('sha256').update(bytes).digest('hex') !== process.env.CONTEXT_SHA256) throw new Error('Context digest mismatch');
+            const { pathToFileURL } = require('node:url');
+            const { GitHubBatch, applyBatchResult } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-batch-worker.mjs`).href);
+            await applyBatchResult(new GitHubBatch(github, { ...context.repo, actor: context.actor, runId: context.runId }), JSON.parse(bytes), JSON.parse(fs.readFileSync('.codex-run-pr/result.json', 'utf8')), process.env.PUBLISHED_SHA);
+
+      - name: Recheck standalone mutation ownership
+        if: inputs.batch_id == ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const { GitHubBatch, workerOwnership } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-batch-worker.mjs`).href);
+            await workerOwnership(new GitHubBatch(github, { ...context.repo, actor: context.actor, runId: context.runId }), { number: Number(context.payload.inputs.pr_number) });
+
       - name: Apply only verified PR mutations
+        if: inputs.batch_id == ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           EXPECTED_HEAD: ${{ needs.prepare.outputs.expected_head }}

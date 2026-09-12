@@ -58,7 +58,7 @@ import {
 } from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
 import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
 import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
-import { cn } from "@/components/ui-primitives";
+import { cn, LoadingPanel } from "@/components/ui-primitives";
 import {
   appModeDefinition,
   appModeHomeHref,
@@ -71,7 +71,6 @@ import {
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
-import { ClinicalAskAnswerSurface } from "@/components/clinical-dashboard/clinical-ask-answer-surface";
 import { isClinicalAskModeId, type ClinicalAskModeId } from "@/lib/clinical-ask/contracts";
 import { clinicalAskWorkspaceVisible } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import type { ClinicalAskShellBindings } from "@/components/clinical-dashboard/clinical-ask-shell-bindings";
@@ -87,6 +86,11 @@ const ClinicalAskShellBindingsLayer = dynamic(
   () =>
     import("@/components/clinical-dashboard/clinical-ask-shell-bindings").then((m) => m.ClinicalAskShellBindingsLayer),
   { ssr: false },
+);
+
+const ClinicalAskAnswerSurface = dynamic(
+  () => import("@/components/clinical-dashboard/clinical-ask-answer-surface").then((m) => m.ClinicalAskAnswerSurface),
+  { ssr: false, loading: () => <LoadingPanel label="Loading Clinical Ask response" /> },
 );
 
 const inactiveClinicalAskShellBindings = {

@@ -248,7 +248,7 @@ describe("calculator governance hardening", () => {
       scriptRelPath,
       "data/calculators/evidence.json",
       "data/calculators/golden-vectors.json",
-      "src/components/calculators/calculator-fixtures.ts",
+      "src/lib/calculators/calculator-fixtures.ts",
     ];
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "calculator-governance-"));
     try {

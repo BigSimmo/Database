@@ -6,6 +6,13 @@ export type Json = any;
 
 export type Vector = number[] | string;
 
+type GeneratedTable<Row, RequiredInsert extends keyof Row = never> = {
+  Row: Row;
+  Insert: Pick<Row, RequiredInsert> & Partial<Omit<Row, RequiredInsert>>;
+  Update: Partial<Row>;
+  Relationships: [];
+};
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -470,6 +477,9 @@ export type Database = {
       };
       document_corpus_access_snapshots: {
         Row: {
+          published_label_ids: string[];
+          published_summary_ids: string[];
+          published_table_fact_ids: string[];
           activation_id: string;
           captured_at: string;
           document_id: string;
@@ -478,6 +488,9 @@ export type Database = {
           public_corpus_value: Json | null;
         };
         Insert: {
+          published_label_ids?: string[];
+          published_summary_ids?: string[];
+          published_table_fact_ids?: string[];
           activation_id: string;
           captured_at?: string;
           document_id: string;
@@ -486,6 +499,9 @@ export type Database = {
           public_corpus_value?: Json | null;
         };
         Update: {
+          published_label_ids?: string[];
+          published_summary_ids?: string[];
+          published_table_fact_ids?: string[];
           activation_id?: string;
           captured_at?: string;
           document_id?: string;
@@ -1071,7 +1087,10 @@ export type Database = {
           id: string;
           manifest_digest: string;
           reason: string;
+          reviewed_index_generation_id: string | null;
           reviewed_state_digest: string | null;
+          source_catalogue_key: string | null;
+          source_policy_version: string | null;
         };
         Insert: {
           approved_at?: string;
@@ -1083,7 +1102,10 @@ export type Database = {
           id?: string;
           manifest_digest: string;
           reason: string;
+          reviewed_index_generation_id?: string | null;
           reviewed_state_digest?: string | null;
+          source_catalogue_key?: string | null;
+          source_policy_version?: string | null;
         };
         Update: {
           approved_at?: string;
@@ -1095,9 +1117,371 @@ export type Database = {
           id?: string;
           manifest_digest?: string;
           reason?: string;
+          reviewed_index_generation_id?: string | null;
           reviewed_state_digest?: string | null;
+          source_catalogue_key?: string | null;
+          source_policy_version?: string | null;
         };
         Relationships: [];
+      };
+      public_source_policy_entries: {
+        Row: {
+          canonical_host: string;
+          canonical_url: string;
+          content_mode: string;
+          created_at: string;
+          exact_document_licence: string;
+          lifecycle: string;
+          policy_digest: string;
+          policy_version: string;
+          source_catalogue_key: string;
+        };
+        Insert: {
+          canonical_host: string;
+          canonical_url: string;
+          content_mode: string;
+          created_at?: string;
+          exact_document_licence: string;
+          lifecycle: string;
+          policy_digest: string;
+          policy_version: string;
+          source_catalogue_key: string;
+        };
+        Update: {
+          canonical_host?: string;
+          canonical_url?: string;
+          content_mode?: string;
+          created_at?: string;
+          exact_document_licence?: string;
+          lifecycle?: string;
+          policy_digest?: string;
+          policy_version?: string;
+          source_catalogue_key?: string;
+        };
+        Relationships: [];
+      };
+      public_source_activation_events: {
+        Row: {
+          activation_sequence: number;
+          created_at: string;
+          decision: string;
+          evidence_references: string[];
+          id: string;
+          manifest_digest: string;
+          operator_id: string;
+          policy_digest: string;
+          policy_version: string;
+          reason: string;
+          source_catalogue_key: string;
+        };
+        Insert: {
+          activation_sequence?: never;
+          created_at?: string;
+          decision: string;
+          evidence_references: string[];
+          id?: string;
+          manifest_digest: string;
+          operator_id: string;
+          policy_digest: string;
+          policy_version: string;
+          reason: string;
+          source_catalogue_key: string;
+        };
+        Update: {
+          activation_sequence?: never;
+          created_at?: string;
+          decision?: string;
+          evidence_references?: string[];
+          id?: string;
+          manifest_digest?: string;
+          operator_id?: string;
+          policy_digest?: string;
+          policy_version?: string;
+          reason?: string;
+          source_catalogue_key?: string;
+        };
+        Relationships: [];
+      };
+      public_source_activation_guards: {
+        Row: {
+          backend_pid: number;
+          created_at: string;
+          token: string;
+          transaction_id: number;
+          version_id: string;
+        };
+        Insert: {
+          backend_pid: number;
+          created_at?: string;
+          token: string;
+          transaction_id: number;
+          version_id: string;
+        };
+        Update: {
+          backend_pid?: number;
+          created_at?: string;
+          token?: string;
+          transaction_id?: number;
+          version_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "public_source_activation_guards_version_id_fkey";
+            columns: ["version_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      public_source_cleanup_mutation_guards: {
+        Row: {
+          backend_pid: number;
+          created_at: string;
+          operation: string;
+          public_source_reservation_id: string;
+          public_source_upload_attempt_id: string;
+          token: string;
+          transaction_id: number;
+        };
+        Insert: {
+          backend_pid: number;
+          created_at?: string;
+          operation: string;
+          public_source_reservation_id: string;
+          public_source_upload_attempt_id: string;
+          token: string;
+          transaction_id: number;
+        };
+        Update: {
+          backend_pid?: number;
+          created_at?: string;
+          operation?: string;
+          public_source_reservation_id?: string;
+          public_source_upload_attempt_id?: string;
+          token?: string;
+          transaction_id?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "public_source_cleanup_mutation_guards_public_source_upload_attempt_id_fkey";
+            columns: ["public_source_upload_attempt_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_upload_attempts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "public_source_cleanup_mutation_guards_public_source_reservation_id_fkey";
+            columns: ["public_source_reservation_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      public_source_upload_attempts: {
+        Row: {
+          claim_expires_at: string;
+          claim_token: string;
+          cleanup_not_before: string;
+          created_at: string;
+          id: string;
+          signed_authority_digest: string | null;
+          signed_authority_expires_at: string | null;
+          state: string;
+          storage_bucket: string;
+          storage_path: string;
+          updated_at: string;
+          version_id: string;
+        };
+        Insert: {
+          claim_expires_at: string;
+          claim_token: string;
+          cleanup_not_before: string;
+          created_at?: string;
+          id: string;
+          signed_authority_digest?: string | null;
+          signed_authority_expires_at?: string | null;
+          state: string;
+          storage_bucket: string;
+          storage_path: string;
+          updated_at?: string;
+          version_id: string;
+        };
+        Update: {
+          claim_expires_at?: string;
+          claim_token?: string;
+          cleanup_not_before?: string;
+          created_at?: string;
+          id?: string;
+          signed_authority_digest?: string | null;
+          signed_authority_expires_at?: string | null;
+          state?: string;
+          storage_bucket?: string;
+          storage_path?: string;
+          updated_at?: string;
+          version_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "public_source_upload_attempts_version_id_fkey";
+            columns: ["version_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      public_source_versions: {
+        Row: {
+          activation_event_id: string;
+          activation_sequence: number;
+          content_hash: string;
+          created_at: string;
+          current_upload_attempt_id: string | null;
+          exact_canonical_url: string;
+          exact_version: string;
+          exact_version_url: string;
+          extraction_index_generation_id: string | null;
+          finalized_upload_attempt_id: string | null;
+          id: string;
+          intended_disposition: string;
+          licence_evidence_digest: string;
+          lifecycle: string;
+          raw_response_byte_count: number;
+          raw_response_hash: string;
+          reservation_key: string;
+          reserved_document_id: string;
+          reserved_storage_path: string;
+          storage_bucket: string;
+          upload_lease_token: string;
+          upload_lease_expires_at: string;
+          upload_state: string;
+          retrieved_at: string;
+          review_queued_at: string | null;
+          review_reason: string | null;
+          source_catalogue_key: string;
+          source_policy_digest: string;
+          source_policy_version: string;
+          staging_document_id: string | null;
+          steward_id: string;
+          supersedes_version_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          activation_event_id: string;
+          activation_sequence: number;
+          content_hash: string;
+          created_at?: string;
+          current_upload_attempt_id?: string | null;
+          exact_canonical_url: string;
+          exact_version: string;
+          exact_version_url: string;
+          extraction_index_generation_id?: string | null;
+          finalized_upload_attempt_id?: string | null;
+          id: string;
+          intended_disposition: string;
+          licence_evidence_digest: string;
+          lifecycle?: string;
+          raw_response_byte_count: number;
+          raw_response_hash: string;
+          reservation_key: string;
+          reserved_document_id: string;
+          reserved_storage_path: string;
+          storage_bucket: string;
+          upload_lease_token: string;
+          upload_lease_expires_at: string;
+          upload_state?: string;
+          retrieved_at: string;
+          review_queued_at?: string | null;
+          review_reason?: string | null;
+          source_catalogue_key: string;
+          source_policy_digest: string;
+          source_policy_version: string;
+          staging_document_id?: string | null;
+          steward_id: string;
+          supersedes_version_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          activation_event_id?: string;
+          activation_sequence?: number;
+          content_hash?: string;
+          created_at?: string;
+          current_upload_attempt_id?: string | null;
+          exact_canonical_url?: string;
+          exact_version?: string;
+          exact_version_url?: string;
+          extraction_index_generation_id?: string | null;
+          finalized_upload_attempt_id?: string | null;
+          id?: string;
+          intended_disposition?: string;
+          licence_evidence_digest?: string;
+          lifecycle?: string;
+          raw_response_byte_count?: number;
+          raw_response_hash?: string;
+          reservation_key?: string;
+          reserved_document_id?: string;
+          reserved_storage_path?: string;
+          storage_bucket?: string;
+          upload_lease_token?: string;
+          upload_lease_expires_at?: string;
+          upload_state?: string;
+          retrieved_at?: string;
+          review_queued_at?: string | null;
+          review_reason?: string | null;
+          source_catalogue_key?: string;
+          source_policy_digest?: string;
+          source_policy_version?: string;
+          staging_document_id?: string | null;
+          steward_id?: string;
+          supersedes_version_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "public_source_versions_current_upload_attempt_id_fkey";
+            columns: ["current_upload_attempt_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_upload_attempts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "public_source_versions_finalized_upload_attempt_id_fkey";
+            columns: ["finalized_upload_attempt_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_upload_attempts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "public_source_versions_activation_event_id_fkey";
+            columns: ["activation_event_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_activation_events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "public_source_versions_source_catalogue_key_fkey";
+            columns: ["source_catalogue_key"];
+            isOneToOne: false;
+            referencedRelation: "public_source_policy_entries";
+            referencedColumns: ["source_catalogue_key"];
+          },
+          {
+            foreignKeyName: "public_source_versions_staging_document_id_fkey";
+            columns: ["staging_document_id"];
+            isOneToOne: true;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "public_source_versions_supersedes_version_id_fkey";
+            columns: ["supersedes_version_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       document_sections: {
         Row: {
@@ -2402,6 +2786,13 @@ export type Database = {
           last_error: string | null;
           metadata: Json;
           owner_id: string | null;
+          public_source_cleanup_not_before: string | null;
+          public_source_claim_expires_at: string | null;
+          public_source_claim_token: string | null;
+          public_source_reservation_id: string | null;
+          public_source_upload_attempt_id: string | null;
+          public_source_storage_bucket: string | null;
+          public_source_storage_path: string | null;
           status: string;
           storage_removed: number;
           updated_at: string;
@@ -2420,6 +2811,13 @@ export type Database = {
           last_error?: string | null;
           metadata?: Json;
           owner_id?: string | null;
+          public_source_cleanup_not_before?: string | null;
+          public_source_claim_expires_at?: string | null;
+          public_source_claim_token?: string | null;
+          public_source_reservation_id?: string | null;
+          public_source_upload_attempt_id?: string | null;
+          public_source_storage_bucket?: string | null;
+          public_source_storage_path?: string | null;
           status?: string;
           storage_removed?: number;
           updated_at?: string;
@@ -2438,11 +2836,33 @@ export type Database = {
           last_error?: string | null;
           metadata?: Json;
           owner_id?: string | null;
+          public_source_cleanup_not_before?: string | null;
+          public_source_claim_expires_at?: string | null;
+          public_source_claim_token?: string | null;
+          public_source_reservation_id?: string | null;
+          public_source_upload_attempt_id?: string | null;
+          public_source_storage_bucket?: string | null;
+          public_source_storage_path?: string | null;
           status?: string;
           storage_removed?: number;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "storage_cleanup_jobs_public_source_reservation_id_fkey";
+            columns: ["public_source_reservation_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "storage_cleanup_jobs_public_source_upload_attempt_id_fkey";
+            columns: ["public_source_upload_attempt_id"];
+            isOneToOne: true;
+            referencedRelation: "public_source_upload_attempts";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       user_favourite_sets: {
         Row: {
@@ -2530,6 +2950,59 @@ export type Database = {
         };
         Relationships: [];
       };
+      site_content_publications: GeneratedTable<{
+        id: string; logical_id: string; kind: string; slug: string; source_table: string; source_row_id: string;
+        source_owner_id: string; source_version: string; published_by: string; administrator_authorized_at: string;
+        administrator_authorization_version: string; reconciliation_plan_digest: string | null;
+        record: Json; render_payload: Json; retired: boolean; created_at: string;
+      }, "logical_id" | "kind" | "slug" | "source_table" | "source_row_id" | "source_owner_id" | "source_version" | "published_by" | "administrator_authorized_at" | "administrator_authorization_version" | "record" | "render_payload">;
+      site_content_reconciliation_plans: GeneratedTable<{
+        plan_digest: string; version: string; trusted_snapshot_digest: string; trusted_snapshots: Json; dispositions: Json;
+        expected_record_count: number; expected_group_count: number; batch_size: number; batch_count: number; counts: Json;
+        reviewed_by: string; reviewed_at: string; administrator_authorized_at: string;
+        administrator_authorization_version: string;
+      }, "plan_digest" | "version" | "trusted_snapshot_digest" | "trusted_snapshots" | "dispositions" | "expected_record_count" | "expected_group_count" | "batch_size" | "batch_count" | "counts" | "reviewed_by" | "administrator_authorized_at" | "administrator_authorization_version">;
+      site_content_public_records: GeneratedTable<{
+        logical_id: string; kind: string; slug: string; current_publication_id: string; head_change_epoch: number;
+        retired: boolean; pending_event_sequence: number | null; updated_at: string;
+      }, "logical_id" | "kind" | "slug" | "current_publication_id" | "head_change_epoch">;
+      site_content_sync_state: GeneratedTable<{
+        singleton: boolean; change_epoch: number; served_change_epoch: number; active_release_id: string | null;
+        active_release_digest: string | null; active_transition_receipt_id: string | null;
+        initialized: boolean; updated_at: string;
+      }>;
+      site_content_sync_events: GeneratedTable<{
+        event_sequence: number; logical_id: string; target_publication_id: string; target_change_epoch: number; state: string;
+        attempt_count: number; next_attempt_at: string; worker_id: string | null; lease_token: string | null;
+        lease_generation: number; lease_expires_at: string | null; superseded_by_event_sequence: number | null;
+        terminal_at: string | null; last_error_code: string | null; created_at: string; updated_at: string;
+      }, "logical_id" | "target_publication_id" | "target_change_epoch">;
+      site_content_sync_worker_invocations: GeneratedTable<{
+        invocation_id: string; worker_id: string; started_at: string; admission_expires_at: string;
+        terminal_phase: string | null; terminal_at: string | null; outcome_code: string | null;
+      }, "invocation_id" | "worker_id" | "admission_expires_at">;
+      site_content_sync_event_plans: GeneratedTable<{
+        event_sequence: number; plan_digest: string; target_change_epoch: number; plan: Json; release_id: string;
+        created_at: string;
+      }, "event_sequence" | "plan_digest" | "target_change_epoch" | "plan" | "release_id">;
+      site_content_releases: GeneratedTable<{
+        id: string; state: string; target_change_epoch: number; previous_release_id: string | null; registry_version: string;
+        static_manifest_digest: string; dynamic_state_digest: string; release_digest: string; generation_id: string;
+        plan_digest: string; reconciliation_plan_digest: string | null; expected_added_count: number;
+        expected_changed_count: number; expected_unchanged_count: number; expected_record_count: number;
+        expected_tombstone_count: number; must_pass_checks: boolean; created_at: string; activated_at: string | null;
+      }, "id" | "state" | "target_change_epoch" | "registry_version" | "static_manifest_digest" | "dynamic_state_digest" | "release_digest" | "generation_id" | "plan_digest" | "expected_added_count" | "expected_changed_count" | "expected_unchanged_count" | "expected_record_count" | "expected_tombstone_count">;
+      site_content_release_records: GeneratedTable<{
+        release_id: string; logical_id: string; target_publication_id: string | null; logical_document_id: string;
+        logical_chunk_id: string; normalized_text: string; content_hash: string; publication_fingerprint: string;
+        governance_fingerprint: string; lineage_fingerprint: string; public_metadata_fingerprint: string;
+        embedding_model: string; embedding_dimensions: number; embedding_fingerprint: string;
+        embedding_value_digest: string | null; embedding: Vector | null; record: Json | null; render_payload: Json | null;
+        tombstone: boolean; public_visible: boolean; created_at: string;
+      }, "release_id" | "logical_id" | "logical_document_id" | "logical_chunk_id" | "normalized_text" | "content_hash" | "publication_fingerprint" | "governance_fingerprint" | "lineage_fingerprint" | "public_metadata_fingerprint" | "embedding_model" | "embedding_dimensions" | "embedding_fingerprint">;
+      site_content_release_receipts: GeneratedTable<{
+        receipt_id: string; release_id: string; receipt_kind: string; recovery_readiness_digest: string; receipt: Json; created_at: string;
+      }, "receipt_id" | "release_id" | "receipt_kind" | "recovery_readiness_digest" | "receipt">;
     };
     Views: {
       document_strict_gate_status: {
@@ -2983,6 +3456,43 @@ export type Database = {
         };
         Returns: Database["public"]["Functions"]["match_document_chunks"]["Returns"];
       };
+      match_document_chunks_v3: {
+        Args: {
+          corpus_scopes?: string[] | null;
+          document_filter?: string | null;
+          expected_site_change_epoch?: number | null;
+          expected_site_release_digest?: string | null;
+          expected_site_release_id?: string | null;
+          include_public?: boolean;
+          match_count?: number;
+          min_similarity?: number;
+          owner_filter?: string;
+          query_embedding: Vector;
+          site_content_domains?: string[] | null;
+        };
+        Returns: {
+          chunk_index: number;
+          content: string;
+          corpus_scope: string;
+          document_id: string;
+          document_labels: Json;
+          document_summary: string | null;
+          file_name: string;
+          id: string;
+          image_ids: string[];
+          images: Json;
+          page_number: number | null;
+          pending_exclusion_exact: boolean;
+          retrieval_synopsis: string | null;
+          section_heading: string | null;
+          similarity: number;
+          site_change_epoch: number | null;
+          site_content_domain: string | null;
+          site_release_id: string | null;
+          source_metadata: Json;
+          title: string;
+        }[];
+      };
       match_document_chunks_hybrid: {
         Args: {
           document_filters?: string[] | null;
@@ -3022,6 +3532,45 @@ export type Database = {
           query_text: string;
         };
         Returns: Database["public"]["Functions"]["match_document_chunks_hybrid"]["Returns"];
+      };
+      match_document_chunks_hybrid_v3: {
+        Args: {
+          corpus_scopes?: string[] | null;
+          document_filters?: string[] | null;
+          expected_site_change_epoch?: number | null;
+          expected_site_release_digest?: string | null;
+          expected_site_release_id?: string | null;
+          include_public?: boolean;
+          match_count?: number;
+          min_similarity?: number;
+          owner_filter?: string;
+          query_embedding: Vector;
+          query_text: string;
+          site_content_domains?: string[] | null;
+        };
+        Returns: {
+          chunk_index: number;
+          content: string;
+          corpus_scope: string;
+          document_id: string;
+          file_name: string;
+          hybrid_score: number;
+          id: string;
+          image_ids: string[];
+          images: Json;
+          page_number: number | null;
+          pending_exclusion_exact: boolean;
+          retrieval_synopsis: string | null;
+          rrf_score: number;
+          section_heading: string | null;
+          similarity: number;
+          site_change_epoch: number | null;
+          site_content_domain: string | null;
+          site_release_id: string | null;
+          source_metadata: Json;
+          text_rank: number;
+          title: string;
+        }[];
       };
       match_document_chunks_text: {
         Args: {
@@ -3103,6 +3652,45 @@ export type Database = {
           retrieval_synopsis: string;
           section_heading: string;
           similarity: number;
+          source_metadata: Json;
+          text_rank: number;
+          title: string;
+        }[];
+      };
+      match_document_chunks_text_v3: {
+        Args: {
+          corpus_scopes?: string[] | null;
+          document_filters?: string[] | null;
+          expected_site_change_epoch?: number | null;
+          expected_site_release_digest?: string | null;
+          expected_site_release_id?: string | null;
+          include_public?: boolean;
+          match_count?: number;
+          owner_filter?: string;
+          query_text: string;
+          site_content_domains?: string[] | null;
+        };
+        Returns: {
+          chunk_index: number;
+          content: string;
+          corpus_scope: string;
+          document_id: string;
+          document_labels: Json;
+          document_summary: string | null;
+          file_name: string;
+          hybrid_score: number;
+          id: string;
+          image_ids: string[];
+          images: Json;
+          lexical_score: number;
+          page_number: number | null;
+          pending_exclusion_exact: boolean;
+          retrieval_synopsis: string | null;
+          section_heading: string | null;
+          similarity: number;
+          site_change_epoch: number | null;
+          site_content_domain: string | null;
+          site_release_id: string | null;
           source_metadata: Json;
           text_rank: number;
           title: string;
@@ -3334,6 +3922,76 @@ export type Database = {
         Args: { p_document_id: string; p_expected_owner_id: string };
         Returns: string;
       };
+      activate_approved_public_documents: {
+        Args: {
+          p_manifest: Json;
+          p_expected_state_digest: string;
+          p_expected_generation_ids: string[];
+        };
+        Returns: Json;
+      };
+      record_public_source_activation: {
+        Args: { p_manifest: Json };
+        Returns: Database["public"]["Tables"]["public_source_activation_events"]["Row"];
+      };
+      preflight_public_source_acquisition: {
+        Args: { p_manifest: Json };
+        Returns: Json;
+      };
+      reserve_public_source_version: {
+        Args: { p_manifest: Json };
+        Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      authorize_public_source_upload: {
+        Args: { p_manifest: Json };
+        Returns: Json;
+      };
+      bind_public_source_upload_authority: {
+        Args: { p_manifest: Json };
+        Returns: Json;
+      };
+      reap_expired_public_source_upload_attempts: {
+        Args: { p_limit: number };
+        Returns: number;
+      };
+      claim_public_source_cleanup_job: {
+        Args: { p_max_attempts: number };
+        Returns: Json;
+      };
+      complete_public_source_cleanup_job: {
+        Args: { p_claim_token: string; p_job_id: string; p_storage_removed: number };
+        Returns: Json;
+      };
+      release_public_source_cleanup_job: {
+        Args: { p_claim_token: string; p_error: string; p_job_id: string };
+        Returns: Json;
+      };
+      finalize_public_source_version: {
+        Args: { p_manifest: Json; p_max_attempts: number };
+        Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      abandon_public_source_reservation: {
+        Args: { p_manifest: Json };
+        Returns: Json;
+      };
+      activate_public_source_version: {
+        Args: {
+          p_activation_event_id: string;
+          p_expected_generation_ids: string[];
+          p_expected_state_digest: string;
+          p_publication_manifest: Json;
+          p_version_id: string;
+        };
+        Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      transition_public_source_version: {
+        Args: { p_activation_event_id: string; p_target_lifecycle: string; p_version_id: string };
+        Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      withdraw_public_source_version: {
+        Args: { p_operator_id: string; p_reason: string; p_version_id: string };
+        Returns: Json;
+      };
       publish_approved_documents: {
         Args: {
           p_documents: Json;
@@ -3341,6 +3999,56 @@ export type Database = {
           p_manifest_digest: string;
         };
         Returns: Json;
+      };
+      record_site_content_reconciliation_plan: {
+        Args: { p_plan: Json };
+        Returns: boolean;
+      };
+      publish_site_content_record: {
+        Args: { p_kind: string; p_source_row_id: string; p_expected_source_version: string; p_expected_change_epoch: number; p_reconciliation_plan_digest: string | null; p_expected_record_digest: string; p_expected_projection_digest: string };
+        Returns: { outcome: string; conflict_code: string | null; logical_id: string | null; publication_id: string | null; event_sequence: number | null; change_epoch: number | null }[];
+      };
+      retire_site_content_record: Database["public"]["Functions"]["publish_site_content_record"];
+      record_site_content_sync_worker_invocation: {
+        Args: { p_worker_id: string; p_invocation_id: string; p_phase: string; p_outcome_code?: string | null };
+        Returns: boolean;
+      };
+      read_site_content_health: { Args: Record<PropertyKey, never>; Returns: Json };
+      read_site_content_public_records: {
+        Args: { p_kind: string; p_slug?: string | null };
+        Returns: { initialized: boolean; record: Json | null; render_payload: Json | null; snapshot: Json }[];
+      };
+      claim_site_content_sync_events: {
+        Args: { p_worker_id: string; p_limit: number; p_lease_seconds: number };
+        Returns: Database["public"]["Tables"]["site_content_sync_events"]["Row"][];
+      };
+      heartbeat_site_content_sync_event: {
+        Args: { p_event_sequence: number; p_worker_id: string; p_lease_token: string; p_lease_generation: number; p_lease_seconds: number };
+        Returns: boolean;
+      };
+      record_site_content_sync_event_plan: {
+        Args: { p_event_sequence: number; p_expected_change_epoch: number; p_plan_digest: string; p_plan: Json };
+        Returns: boolean;
+      };
+      read_site_content_sync_event_plan: {
+        Args: { p_event_sequence: number; p_worker_id: string; p_lease_token: string; p_lease_generation: number };
+        Returns: Json;
+      };
+      stage_site_content_sync_event: {
+        Args: { p_event_sequence: number; p_worker_id: string; p_lease_token: string; p_lease_generation: number; p_stage: Json };
+        Returns: boolean;
+      };
+      fail_site_content_sync_event: {
+        Args: { p_event_sequence: number; p_worker_id: string; p_lease_token: string; p_lease_generation: number; p_error_code: string };
+        Returns: boolean;
+      };
+      activate_site_content_release: {
+        Args: { p_release_id: string; p_expected_release_digest: string; p_expected_change_epoch: number; p_recovery_digest: string; p_activation_receipt: Json };
+        Returns: boolean;
+      };
+      rollback_site_content_release: {
+        Args: { p_expected_active_release_id: string; p_target_release_id: string; p_recovery_digest: string; p_rollback_receipt: Json };
+        Returns: boolean;
       };
       purge_expired_rag_queries: {
         Args: { p_retention_days?: number };

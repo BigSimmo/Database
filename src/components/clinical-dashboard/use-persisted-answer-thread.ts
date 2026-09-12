@@ -10,7 +10,7 @@ import {
   type StoredAnswerTurn,
 } from "@/lib/answer-thread-storage";
 import { demoRecentQueryOwnerId } from "@/lib/recent-query-storage";
-import type { RagAnswer } from "@/lib/types";
+import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
 
 export type AnswerThreadSnapshotMetadata = Pick<PersistedAnswerThread, "latestSubmissionSignature" | "expiresAt">;
 
@@ -34,7 +34,7 @@ export function usePersistedAnswerThread({
 }: {
   ownerId: string | null;
   enabled: boolean;
-  answer: RagAnswer | null;
+  answer: ClientRagAnswerPayload | null;
   priorTurns: StoredAnswerTurn[];
   latestTurn: Omit<StoredAnswerTurn, "id"> | null;
   collapsedTurnIds: Set<string>;
