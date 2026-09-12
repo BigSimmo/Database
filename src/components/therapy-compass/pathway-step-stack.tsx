@@ -9,6 +9,7 @@ import { cn } from "@/components/ui-primitives";
 
 import type { Pathway, PathwayStep, Therapy } from "./data/types";
 import { pathwayLinkedStepCount } from "./pathway-review-label";
+import { StatusBadge } from "./ui";
 
 type PathwayStepStackProps = {
   steps: PathwayStep[];
@@ -61,6 +62,11 @@ function StepCard({
               <span className="inline-flex items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 py-0.5 text-2xs font-bold tracking-eyebrow text-[color:var(--text-muted)]">
                 {roleLabel}
               </span>
+              {/* Only when the step resolves to a record. `description` falls
+                  back to that record's `bestUsedFor`, so a linked step quotes
+                  its clinical prose and owes its review state; an unlinked step
+                  names no record and has none to state. */}
+              {therapy ? <StatusBadge status={therapy.reviewStatus} size="compact" /> : null}
             </div>
             <p className="mt-1.5 mb-0 text-xs leading-normal text-[color:var(--text-muted)]">{description}</p>
           </div>
@@ -106,7 +112,10 @@ function StepCard({
           <Scale aria-hidden="true" size={17} strokeWidth={1.6} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{title}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{title}</span>
+            {therapy ? <StatusBadge status={therapy.reviewStatus} size="compact" /> : null}
+          </div>
           <div className="mt-0.5 line-clamp-2 text-xs text-[color:var(--text-muted)]">{description}</div>
         </div>
         <span className="whitespace-nowrap text-3xs font-bold tracking-eyebrow text-[color:var(--text-muted)]">
