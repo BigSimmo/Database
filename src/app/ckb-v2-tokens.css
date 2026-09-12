@@ -236,7 +236,7 @@
   --clinical-chat-document: #f8fafc;
 
   --border: #e3e8ef;
-  --border-strong: #d3dbe5;
+  --border-strong: #c8d2de;
   /* Solid, not 55% alpha: alpha computed LIGHTER than --border, so panels had
      weaker edges than the cards nested inside them (#43). */
   --border-lux: #dde4ee;

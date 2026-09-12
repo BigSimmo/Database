@@ -117,7 +117,7 @@
       "--background": "#fff",
       "--border": "#e3e8ef",
       "--border-lux": "#dde4ee",
-      "--border-strong": "#d3dbe5",
+      "--border-strong": "#c8d2de",
       "--bp-desktop": "1024px",
       "--bp-phone": "640px",
       "--bp-tablet": "768px",

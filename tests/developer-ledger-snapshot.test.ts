@@ -12,7 +12,7 @@ import {
 describe("ledger snapshot", () => {
   it("loads the generated snapshot and validates its version", () => {
     const snapshot = loadLedgerSnapshot();
-    expect(snapshot.version).toBe("outstanding-issues-snapshot-v1");
+    expect(snapshot.version).toBe("outstanding-issues-snapshot-v2");
     expect(snapshot.counts.open).toBeGreaterThan(0);
   });
 

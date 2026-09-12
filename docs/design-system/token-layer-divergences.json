@@ -2,7 +2,7 @@
   "$comment": "Roles declared in BOTH globals.css and ckb-v2-tokens.css with different values. The v2 value paints; the globals.css value is dead. Reviewed set — refresh with `npm run design-system:token-divergence:update` and say in the PR why each change is right.",
   "generatedBy": "scripts/token-layer-divergences.mjs",
   "counts": {
-    "light": 27,
+    "light": 26,
     "dark": 22,
     "forcedColors": 3
   },
@@ -15,10 +15,6 @@
       "--border-lux": {
         "compat": "rgb(200 210 222 / 55%)",
         "v2": "#dde4ee"
-      },
-      "--border-strong": {
-        "compat": "#c8d2de",
-        "v2": "#d3dbe5"
       },
       "--clinical-accent-border": {
         "compat": "#c6dcf2",

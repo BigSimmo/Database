@@ -5,7 +5,7 @@ import snapshotJson from "../../../data/outstanding-issues-snapshot.json";
 
 import { resolveFreshnessFrom, type Freshness } from "./freshness";
 
-export const LEDGER_SNAPSHOT_VERSION = "outstanding-issues-snapshot-v1";
+export const LEDGER_SNAPSHOT_VERSION = "outstanding-issues-snapshot-v2";
 
 export type LedgerPriority = "P1" | "P2" | "P3";
 
