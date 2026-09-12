@@ -102,6 +102,7 @@ export function formatInboxRecord(record: InboxRecord): LedgerPendingRequest {
  * Deterministically sorts files by filename to ensure stable ordering.
  */
 export function readDevPendingRequests(dir: string): LedgerPendingRequest[] {
+  if (typeof window !== "undefined") return [];
   try {
     if (!fs.existsSync(dir)) return [];
     return fs
