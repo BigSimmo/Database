@@ -8,17 +8,13 @@ import {
   BookOpen,
   Clock3,
   ExternalLink,
-  FileImage,
   FileText,
   FolderOpen,
-  Heart,
   ListChecks,
-  Quote,
   RefreshCw,
   Search,
   ShieldAlert,
   Activity,
-  Wrench,
 } from "lucide-react";
 import {
   type CSSProperties,
@@ -61,6 +57,10 @@ import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-f
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
+import {
+  buildDashboardBottomNavItems,
+  resolveDashboardModeSurface,
+} from "@/components/clinical-dashboard/dashboard-mode-surface";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
 import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import {
@@ -73,7 +73,6 @@ import {
   fallbackSetupChecks,
   hasReadyRequiredPublicSearchConfig,
   hasReadyPublicSearchSetup,
-  shouldShowDashboardDegradedNotice,
   type SetupCheck,
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/document-manager-contracts";
@@ -98,11 +97,6 @@ import {
 import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
-import {
-  mobileComposerIdleReserve,
-  resolveDashboardVisibleMobileComposerReserve,
-  resolveMobileComposerReserve,
-} from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
@@ -124,7 +118,6 @@ import {
   replaceOwnedAbortController,
   mergeDocumentRefresh,
   normalizeNavigationHash,
-  shouldShowSharedHome,
   setupNeedsSlowRecheck,
   setupRecheckPollMs,
   shorterPollDelay,
@@ -269,12 +262,7 @@ import type {
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { DashboardDesktopResultComposerSlot } from "@/components/clinical-dashboard/dashboard-desktop-result-composer-slot";
-import {
-  desktopPageComposerSlotId,
-  differentialsMobileCompareAddonSlotId,
-  patientDetailsAddonSlotId,
-  modeHomeDesktopComposerSlotId,
-} from "@/lib/mode-home-composer";
+import { differentialsMobileCompareAddonSlotId, patientDetailsAddonSlotId } from "@/lib/mode-home-composer";
 import { toolCatalogRecords } from "@/lib/tools-catalog";
 import { createQuoteFollowUp, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 import {
@@ -2892,91 +2880,66 @@ function ClinicalDashboardContent({
       }),
     [answer, answerRenderModel, groupedGovernanceWarningCount, searchMode, sources.length, weakEvidence],
   );
-  const bottomNavItems = [
-    {
-      label: activeModeSearch.statusLabel,
-      description:
-        activeModeResultKind === "tools"
-          ? query.trim()
-            ? "Filtered tools"
-            : "Browse tools"
-          : activeModeResultKind === "favourites"
-            ? query.trim()
-              ? "Filtered favourites"
-              : "Browse favourites"
-            : activeModeResultKind === "answer"
-              ? answer
-                ? weakEvidence
-                  ? "Read synthesis carefully"
-                  : "Clinical synthesis"
-                : activeModeSearch.nextStep
-              : documentMatches.length
-                ? "Document results"
-                : activeModeSearch.readyTitle,
-      icon:
-        activeModeResultKind === "tools"
-          ? Wrench
-          : activeModeResultKind === "favourites"
-            ? Heart
-            : activeModeResultKind === "answer"
-              ? Search
-              : FileText,
-      href: "#search",
-      count:
-        activeModeResultKind === "tools"
-          ? toolCatalogRecords.length
-          : activeModeResultKind === "favourites"
-            ? null
-            : activeModeResultKind === "documents"
-              ? documentMatches.length
-              : null,
-      empty: activeModeResultKind === "documents" && documentMatches.length === 0,
-    },
-    {
-      label: "Quotes",
-      description: answer
-        ? answerRenderModel?.quoteCards.length
-          ? "Exact source excerpts"
-          : "No quotes yet"
-        : "No quotes yet",
-      icon: Quote,
-      href: "#quotes",
-      count: answer ? (answerRenderModel?.quoteCards.length ?? 0) : null,
-      empty: !answer || (answerRenderModel?.quoteCards.length ?? 0) === 0,
-    },
-    {
-      label: "Images",
-      description: answer ? (visualEvidence.length ? "Tables and diagrams" : "No images yet") : "No images yet",
-      icon: FileImage,
-      href: "#images",
-      count: answer ? visualEvidence.length : null,
-      empty: !answer || visualEvidence.length === 0,
-    },
-    {
-      label: "Sources",
-      description: answer
-        ? answerRenderModel?.reviewSources.length
-          ? "Passages and documents"
-          : "No sources yet"
-        : "No sources yet",
-      icon: FileText,
-      href: "#sources",
-      count: answer ? (answerRenderModel?.reviewSources.length ?? 0) : null,
-      empty: !answer || (answerRenderModel?.reviewSources.length ?? 0) === 0,
-    },
-  ] as const;
-  const showAuthPanel = false;
-  const showDegradedNotice = shouldShowDashboardDegradedNotice({ isOnline, apiUnavailable, canRunSearch });
-  const submittedAnswerSearchActive =
-    activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
-  const showSharedHome = shouldShowSharedHome({
-    pathname,
-    mode: searchParams.get("mode"),
-    submittedUrlRunRequested,
-    hasError: Boolean(error),
-    hasAnswer: Boolean(answer),
+  const bottomNavItems = buildDashboardBottomNavItems({
+    activeModeResultKind,
+    activeModeSearch,
+    answer,
+    documentMatchCount: documentMatches.length,
+    query,
+    quoteCount: answerRenderModel?.quoteCards.length ?? 0,
+    reviewSourceCount: answerRenderModel?.reviewSources.length ?? 0,
+    toolCatalogCount: toolCatalogRecords.length,
+    visualEvidenceCount: visualEvidence.length,
+    weakEvidence,
+  });
+  const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
+  const {
+    showAuthPanel,
+    showDegradedNotice,
+    showSharedHome,
+    showAnswerCancelledNotice,
+    showAnswerPending,
+    showAnswerProgress,
+    universalAlsoMatchesQuery,
+    showUniversalAlsoMatches,
+    toolsDirectoryWithoutComposer,
+    desktopHomeComposerSlotId,
+    desktopResultComposerSlotId,
+    heroComposerBreakpoint,
+    heroOwnsPhoneComposer,
+    hasMobileBottomSearch,
+    openSidebarSearch,
+    centeredModeHome,
+    compactMobileModeHome,
+    differentialsCompareAddonActive,
+    patientDetailsAddonActive,
+    mobileComposerReserve,
+  } = resolveDashboardModeSurface({
+    activeModeResultKind,
+    answer,
+    answerFollowUpSuggestionCount: answerFollowUpSuggestions.length,
+    answerLifecycleStatus: answerLifecycle.status,
+    answerProgressCompleted,
+    answerProgressEventCount: answerProgressEvents.length,
+    apiUnavailable,
+    bottomComposerHidden,
+    canRunSearch,
+    documentMatchCount: documentMatches.length,
+    error,
+    favouritesAccessible,
+    focusComposerInput,
+    isOnline,
+    latestAnswerQuery,
     loading,
-    submittedAnswerSearchActive,
+    modeSearchSubmitted,
+    pathname,
+    query,
+    searchMode,
+    startNewChat,
+    submittedModeQuery,
+    submittedUrlMode: searchParams.get("mode"),
+    submittedUrlQuery,
+    submittedUrlRunRequested,
   });
   // The mode pill rewrites the shared-home URL with history.replaceState rather
   // than asking Next to navigate. Server metadata therefore cannot update after
@@ -2985,123 +2948,6 @@ function ClinicalDashboardContent({
   useEffect(() => {
     if (showSharedHome) document.title = sharedHomeDocumentTitle(searchMode);
   }, [searchMode, showSharedHome]);
-  // A stopped generation reports on the last action rather than describing the
-  // page, so the notice renders at the top of the content column while this same
-  // condition still short-circuits the mode-home empty-state chain below.
-  const showAnswerCancelledNotice = answerLifecycle.status === "cancelled" && activeModeResultKind === "answer";
-  // `submittedAnswerSearchActive` stays true after the reader presses Stop, and a
-  // cancel is not an `error`, so without the cancelled guard the pending branch
-  // held its skeleton on screen indefinitely — a shimmering placeholder promising
-  // an answer that was already abandoned, directly beneath the notice saying so.
-  const showAnswerPending =
-    activeModeResultKind === "answer" &&
-    !answer &&
-    !showAnswerCancelledNotice &&
-    (loading || (submittedAnswerSearchActive && !error));
-  const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
-  const showAnswerProgress =
-    activeModeResultKind === "answer" &&
-    answerProgressEvents.length > 0 &&
-    (loading || (Boolean(answer) && answerProgressCompleted));
-  // Answer mode already keyed off the generated answer's query. Every other mode keys off
-  // the submitted query for the same reason: typing without pressing Enter must not fetch
-  // cross-mode matches for the draft, nor replace the tray and its count with results the
-  // primary cards do not share. Tools and Favourites never record a submission, so they
-  // fall through to `query`, which is the only query they have.
-  const universalAlsoMatchesQuery =
-    activeModeResultKind === "answer" ? (latestAnswerQuery ?? query) : (submittedModeQuery ?? query);
-  // Answer-mode also-matches wait for a completed generation (`answer && !loading`)
-  // so the panel never sits under the drafting skeleton/stepper. Tools/Favourites
-  // still mount on submission. Follow-ups hide the panel while loading so stale
-  // matches for the prior query do not compete with the new Drafting stepper.
-  const showUniversalAlsoMatches =
-    !showSharedHome &&
-    // Prescribing declares `resultKind: "documents"` on purpose (it searches the
-    // indexed sources, not a forms table), so the documents arm below matches it
-    // and this dashboard would mount a SECOND panel over the one
-    // MedicationPrescribingWorkspace already renders under the medication list.
-    // The workspace owns the mount, because only it knows where the result list
-    // ends; the mode is named here rather than the result kind, because the kind
-    // is shared and the ownership is not. `tests/ui-stress.spec.ts` pins the count
-    // at one on `/?mode=prescribing`, which is how the duplicate was caught.
-    searchMode !== "prescribing" &&
-    Boolean(universalAlsoMatchesQuery.trim()) &&
-    (activeModeResultKind === "tools" ||
-      activeModeResultKind === "favourites" ||
-      (activeModeResultKind === "answer" && Boolean(answer) && !loading) ||
-      ((activeModeResultKind === "documents" ||
-        activeModeResultKind === "services" ||
-        activeModeResultKind === "forms") &&
-        modeSearchSubmitted));
-  // `/tools` owns the tools catalogue and stays composer-free, so a dashboard
-  // path reaching the tools result kind must not mount a second ownership model
-  // (hero/page/dock) behind it. Modes that only borrow the `tools` result kind
-  // remain on the shared home and are intentionally exempt.
-  const toolsDirectoryWithoutComposer = activeModeResultKind === "tools" && !showSharedHome;
-  const showDesktopHomeComposer =
-    !error &&
-    (showSharedHome ||
-      (!toolsDirectoryWithoutComposer && activeModeResultKind === "tools") ||
-      (activeModeResultKind === "favourites" && favouritesAccessible) ||
-      (!loading &&
-        ((searchMode === "documents" &&
-          activeModeResultKind === "documents" &&
-          documentMatches.length === 0 &&
-          !modeSearchSubmitted) ||
-          // Prescribing keeps MedicationHome (and the hero/phone composer) until
-          // an explicit submit — draft keystrokes must not flip to results/dock.
-          (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
-          // Empty unsubmitted differentials visits 307 to the shared home;
-          // keep the hero slot only while that idle dashboard branch mounts.
-          (activeModeResultKind === "differentials" &&
-            !modeSearchSubmitted &&
-            !(query.trim() && documentMatches.length > 0)))));
-  const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
-  const desktopResultComposerSlotId =
-    !desktopHomeComposerSlotId && searchMode !== "answer" && !toolsDirectoryWithoutComposer
-      ? desktopPageComposerSlotId
-      : undefined;
-  // Most mounted mode homes keep the in-flow hero pill on phones. The Tools
-  // directory has no composer at any breakpoint. Modes borrowing `kind:
-  // "tools"` (Factsheets, Dictionary, Therapy Compass) opt back in via
-  // `showSharedHome`.
-  const heroComposerBreakpoint =
-    showDesktopHomeComposer && (showSharedHome || activeModeResultKind !== "tools") ? "all" : "sm-up";
-  const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
-  const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer && !toolsDirectoryWithoutComposer;
-  // Tools owns its local catalogue controls, so the sidebar's cross-guide
-  // search action must leave the directory before trying to focus a shared
-  // composer that is intentionally absent.
-  const openSidebarSearch = toolsDirectoryWithoutComposer ? startNewChat : focusComposerInput;
-  // Favourites and Tools are content-rich hubs that stay top-aligned; the shared
-  // home mounts neither, so it centres like every other mode.
-  const centeredModeHome =
-    showDesktopHomeComposer &&
-    (showSharedHome || (activeModeResultKind !== "tools" && activeModeResultKind !== "favourites"));
-  // Short mode homes (centred homes plus the services/forms registry homes)
-  // drop the large mobile bottom padding so phones don't get a scrollbar for
-  // content that already fits. Result views keep the full clearance.
-  const compactMobileModeHome =
-    centeredModeHome ||
-    ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
-  const differentialsCompareAddonActive =
-    searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
-  // Prescribing submitted searches render here (there is no standalone results
-  // route), so this is where the Patient details pill docks for that mode.
-  const patientDetailsAddonActive = searchMode === "prescribing" && modeSearchSubmitted && Boolean(query.trim());
-  // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
-  const mobileComposerReserve = resolveMobileComposerReserve(
-    bottomComposerHidden,
-    toolsDirectoryWithoutComposer
-      ? mobileComposerIdleReserve
-      : resolveDashboardVisibleMobileComposerReserve({
-          searchMode,
-          hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
-          differentialsCompareAddonActive,
-          patientDetailsAddonActive,
-          heroOwnsPhoneComposer,
-        }),
-  );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
   const activeIndexingWorkCount =
