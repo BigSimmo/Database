@@ -7,7 +7,8 @@
 // (2026-08-28) added two medications and two deny-lists — `acei` went from one
 // drug to two, `statins` from two to three, `fibrates` from two rows to one —
 // while the sheet went on leading with "Status: reviewed 2026-08-22" and the
-// gate stayed green.
+// gate stayed green. Those four changes were reviewed and the sheet re-signed on
+// 2026-09-06, so what is pinned below is the mechanism, not that state.
 
 import { describe, expect, it } from "vitest";
 
@@ -137,7 +138,14 @@ describe("signOffStatusLine", () => {
 });
 
 describe("the committed review sheet", () => {
-  it("states the sign-off is not current until it is re-recorded with a mappings hash", async () => {
+  it("never leads with a status its recorded sign-off does not support", async () => {
+    // The status line is derived, so the sheet cannot claim a review the hash does
+    // not cover. This is the guard, not the particular date: the 2026-08-22 block
+    // was re-recorded on 2026-09-06 with the mappings hash it had been missing, and
+    // pinning either date here would only make an honest re-signing look like a
+    // regression. Staleness itself stays a warning from the generator rather than a
+    // failure here — an ordinary lexicon edit must not go red until a clinician can
+    // re-sign it.
     const { readFileSync } = await import("node:fs");
     const sheet = readFileSync("docs/medication-interaction-lexicon-review.md", "utf8");
     const records = loadMedicationSnapshot();
@@ -150,7 +158,7 @@ describe("the committed review sheet", () => {
 
     expect(statusLine).toBe(signOffStatusLine(signOff, catalogueMappingsHash(catalogueTerms, live)));
     // The sign-off block itself is a human record and is never rewritten here.
-    expect(signOff.date).toBe("2026-08-22");
+    expect(signOff.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it("shows every source-side exclusion the sign-off hash now covers", async () => {
