@@ -129,10 +129,10 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 30,
+  "revision": 31,
   "repairs": 1,
   "pass": 0,
-  "active": 2728,
+  "active": null,
   "pending": null,
   "reason": null,
   "entries": [
@@ -200,13 +200,15 @@
     {
       "number": 2728,
       "head": "df460f96bb667b0f471efb566a28db94f6ff0592",
-      "state": "merge_requested",
-      "reason": "ci-in-flight",
+      "state": "merged",
+      "reason": null,
       "attempts": 0,
       "fingerprints": [],
       "updatedAt": "2026-09-12T03:43:30.285Z",
       "progressAt": "2026-09-12T04:23:15.129Z",
-      "retried": false
+      "retried": false,
+      "mergeCommit": "6d6ce2a640f72fb7770b8165d30d3a866dc936ff",
+      "mergedAt": "2026-09-12T04:35:10Z"
     },
     {
       "number": 2729,
@@ -558,6 +560,13 @@
       "at": "2026-09-12T04:35:25.954Z",
       "kind": "merge-request-observed",
       "number": 2728
+    },
+    {
+      "revision": 31,
+      "at": "2026-09-12T04:35:25.954Z",
+      "kind": "merged",
+      "number": 2728,
+      "commit": "6d6ce2a640f72fb7770b8165d30d3a866dc936ff"
     }
   ]
 }
