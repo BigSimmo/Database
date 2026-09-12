@@ -12,6 +12,15 @@ import {
   DEVELOPER_AREA_PATH_HEADER,
   DEVELOPER_GATED_PATH_PREFIXES,
 } from "@/lib/developer-area/headers";
+import {
+  DEVELOPER_ACCESS_COOKIE,
+  DEVELOPER_ACCESS_COOKIE_MAX_AGE_SECONDS,
+  DEVELOPER_ACCESS_COOKIE_PATH,
+  DEVELOPER_ACCESS_QUERY_PARAM,
+  developerAccessKeyMatches,
+  developerAccessTokenValid,
+  issueDeveloperAccessToken,
+} from "@/lib/developer-area/link-access";
 import { readSearchNavigationContext } from "@/lib/search-navigation-context";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
 import { signProxyAuthPayload } from "@/lib/supabase/proxy-auth-crypto";
@@ -200,11 +209,45 @@ export async function proxy(request: NextRequest) {
     }
     return headers;
   };
-  // Every response the browser sees must carry the enforced CSP header.
+  // Rolling renewal of the passwordless developer-area cookie. Browsers clamp
+  // `Set-Cookie` lifetimes to roughly 400 days, so a cookie issued once would
+  // quietly expire and put the sign-in screen back in front of the owner about a
+  // year later — the exact outcome this feature exists to prevent. Re-stamping it
+  // on every verified visit means a device used at least once a year never needs
+  // the link again. It renews only what already verifies: an absent, expired, or
+  // forged cookie yields null here and falls through to `DeveloperAreaGate`.
+  const developerAccessRenewal =
+    isDeveloperGatedPath(pathname) && developerAccessTokenValid(request.cookies.get(DEVELOPER_ACCESS_COOKIE)?.value)
+      ? issueDeveloperAccessToken()
+      : null;
+
+  // Every response the browser sees must carry the enforced CSP header — and, on
+  // a gated path held open by a valid access cookie, the renewed cookie. Stamped
+  // here rather than on one early-returned response so the renewal cannot skip
+  // the Supabase session refresh below: an administrator who is ALSO using the
+  // link must keep having their session cookie rotated like everyone else.
   const withCsp = (response: NextResponse) => {
     response.headers.set("content-security-policy", csp);
+    if (developerAccessRenewal) setDeveloperAccessCookie(response, developerAccessRenewal, request);
     return response;
   };
+
+  // `?devkey=…` exchanges the secret for the long-lived signed cookie and
+  // redirects with it removed, so the key never lingers in the address bar, in
+  // shared history, or in an onward Referer header. This must run before
+  // compatibility redirects, which otherwise preserve the query string and
+  // could forward the secret to their target.
+  if (isDeveloperGatedPath(pathname) && request.nextUrl.searchParams.has(DEVELOPER_ACCESS_QUERY_PARAM)) {
+    const presented = request.nextUrl.searchParams.get(DEVELOPER_ACCESS_QUERY_PARAM);
+    const url = request.nextUrl.clone();
+    url.searchParams.delete(DEVELOPER_ACCESS_QUERY_PARAM);
+    const redirectTarget = staticRouteRedirects[pathname];
+    if (redirectTarget) url.pathname = redirectTarget;
+    const response = withCsp(NextResponse.redirect(url));
+    const token = developerAccessKeyMatches(presented) ? issueDeveloperAccessToken() : null;
+    if (token) setDeveloperAccessCookie(response, token, request);
+    return response;
+  }
 
   const legacyHomeTarget = legacyHomeRedirectUrl(request.nextUrl, request.method);
   if (legacyHomeTarget) return withCsp(NextResponse.redirect(legacyHomeTarget));
@@ -332,6 +375,24 @@ export async function proxy(request: NextRequest) {
     }
   }
   return withCsp(response);
+}
+
+/**
+ * Writes the developer-area access cookie onto a response.
+ *
+ * `secure` is derived from the request's own protocol rather than pinned true:
+ * a local `http://` dev server must be able to hold the cookie too, and a
+ * `Secure` cookie set over http is silently dropped by the browser. Every real
+ * deployment is https, so this is https in practice.
+ */
+function setDeveloperAccessCookie(response: NextResponse, token: string, request: NextRequest) {
+  response.cookies.set(DEVELOPER_ACCESS_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: request.nextUrl.protocol === "https:",
+    path: DEVELOPER_ACCESS_COOKIE_PATH,
+    maxAge: DEVELOPER_ACCESS_COOKIE_MAX_AGE_SECONDS,
+  });
 }
 
 export function shouldBlockProductionMockups(
