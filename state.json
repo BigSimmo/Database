@@ -24,7 +24,7 @@
   "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
   "status": "running",
   "resumedAt": "2026-09-12T02:21:45.695Z",
-  "revision": 12,
+  "revision": 13,
   "repairs": 2,
   "pass": 0,
   "active": 2715,
@@ -34,8 +34,8 @@
     {
       "number": 2715,
       "head": "0a33572d6d5c1667a1ca4e981c9ce750d6f34991",
-      "state": "preparing",
-      "reason": null,
+      "state": "waiting_ci",
+      "reason": "ci-in-flight",
       "attempts": 2,
       "fingerprints": [
         "473300616000efeee82b561040df199e184c1fb497322123249ca9eb6ae6e9b1",
@@ -139,6 +139,13 @@
       "number": 2715,
       "runId": 34667462349,
       "conclusion": "cancelled"
+    },
+    {
+      "revision": 13,
+      "at": "2026-09-12T02:28:13.523Z",
+      "kind": "waiting",
+      "number": 2715,
+      "reason": "ci-in-flight"
     }
   ],
   "approvedControllerHash": "71185e35097d180f74460e8ed3095e0127232bc2215a52999e7a9239f9f27142"
