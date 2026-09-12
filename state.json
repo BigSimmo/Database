@@ -129,7 +129,7 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 17,
+  "revision": 18,
   "repairs": 1,
   "pass": 0,
   "active": 2726,
@@ -185,8 +185,8 @@
     {
       "number": 2726,
       "head": "61f05c35041d67ca503a4df039e0b5abb1514bc3",
-      "state": "preparing",
-      "reason": null,
+      "state": "waiting_ci",
+      "reason": "ci-in-flight",
       "attempts": 1,
       "fingerprints": [
         "998111a22d6d84b7c1c662aadd55f04c03a246cbcad27f928c4477f3535c8ea0"
@@ -450,6 +450,13 @@
       "number": 2726,
       "runId": 34671777972,
       "conclusion": "success"
+    },
+    {
+      "revision": 18,
+      "at": "2026-09-12T04:05:56.971Z",
+      "kind": "waiting",
+      "number": 2726,
+      "reason": "ci-in-flight"
     }
   ]
 }
