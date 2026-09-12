@@ -13,7 +13,8 @@ import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differenti
  * 2. "Check next" aggregates the investigations the ranked differentials name,
  *    most-shared first, and never invents one of its own.
  * 3. Both cards read the filtered result set, so the rail never describes a
- *    wider list than the one on screen.
+ *    wider list than the one on screen. If a lens hides every emergent, the
+ *    urgency card stays and says so instead of vanishing.
  */
 
 const catalogState = vi.hoisted(() => ({
@@ -113,6 +114,7 @@ describe("differentials interpretation rail", () => {
       expect(screen.getAllByText("Acute dystonia").length).toBeGreaterThan(0);
     });
     expect(screen.queryByTestId("differentials-highest-urgency")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("differentials-urgency-hidden-by-filters")).not.toBeInTheDocument();
   });
 
   it("ranks shared investigations first and attributes a single-source one to its differential", async () => {
@@ -150,10 +152,11 @@ describe("differentials interpretation rail", () => {
     expect(within(card).getByText("Thyroid function tests")).toBeVisible();
     expect(within(card).getByText("ECG / QT assessment")).toBeVisible();
     expect(screen.getByTestId("differentials-highest-urgency")).toBeVisible();
+    expect(screen.queryByTestId("differentials-urgency-hidden-by-filters")).not.toBeInTheDocument();
 
-    // Narrowing to High leaves only the urgent differential, so the rail must
-    // describe that list alone: the emergent row goes, and so does the
-    // investigation only the emergent differential named.
+    // Narrowing to High leaves only the urgent differential. Check next follows
+    // that list. Highest urgency must not vanish: it stays with a notice that
+    // the lens hid the emergent, without putting the hidden row back on screen.
     await act(async () => {
       screen.getByTestId("differential-filter-trigger-phone").click();
     });
@@ -164,9 +167,22 @@ describe("differentials interpretation rail", () => {
       screen.getByTestId("differential-filter-panel-done").click();
     });
 
-    expect(screen.queryByTestId("differentials-highest-urgency")).not.toBeInTheDocument();
+    const urgency = screen.getByTestId("differentials-highest-urgency");
+    expect(urgency).toBeVisible();
+    expect(within(urgency).getByTestId("differentials-urgency-hidden-by-filters")).toHaveTextContent(
+      "1 emergent differential is hidden by the active filters.",
+    );
+    expect(within(urgency).queryByRole("link")).not.toBeInTheDocument();
     expect(within(card).getByText("Thyroid function tests")).toBeVisible();
     expect(within(card).queryByText("ECG / QT assessment")).not.toBeInTheDocument();
+
+    await act(async () => {
+      within(urgency).getByRole("button", { name: "Show all results" }).click();
+    });
+    const restored = screen.getByTestId("differentials-highest-urgency");
+    expect(screen.queryByTestId("differentials-urgency-hidden-by-filters")).not.toBeInTheDocument();
+    expect(within(restored).getByTestId("differential-status-badge")).toHaveTextContent("Emergent");
+    expect(within(restored).getByRole("link")).toBeVisible();
   });
 
   it("hides the check-next card when no ranked differential names an investigation", async () => {
