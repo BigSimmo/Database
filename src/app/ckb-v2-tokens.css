@@ -224,7 +224,7 @@
   --background: #ffffff;
   --surface: #fcfdfe;
   --surface-chrome: #ffffff;
-  --surface-raised: #ffffff;
+  --surface-raised: #fcfdfe;
   --surface-lux: #ffffff;
 
   /* The only non-white surfaces - both whispers */
@@ -236,7 +236,7 @@
   --clinical-chat-document: #f8fafc;
 
   --border: #e2e8f0;
-  --border-strong: #d3dbe5;
+  --border-strong: #cdd5df;
   /* Solid, not 55% alpha: alpha computed LIGHTER than --border, so panels had
      weaker edges than the cards nested inside them (#43). */
   --border-lux: #dde4ee;
@@ -327,7 +327,7 @@
   --background: #0b0e11;
   --surface: #12161a;
   --surface-chrome: #0e1216;
-  --surface-subtle: #161a1e; /* aliased UP - "subtle" must lift, not sink */
+  --surface-subtle: var(--surface-raised); /* aliased UP - "subtle" must lift, not sink */
   --surface-wash: #161a1e;
   --surface-raised: #1c2126;
   --surface-inset: #0a0c0e;

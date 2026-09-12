@@ -124,7 +124,7 @@ describe("theme token symmetry", () => {
 
 describe("surface scale", () => {
   // In v2 (SPEC §4.3, §4.4):
-  // Light: true-white page, cards, and panels (--surface and --surface-raised are both #ffffff).
+  // Light: page, cards, and panels share one plane (--surface and --surface-raised match after v2 overlay).
   // Two non-white surfaces: --surface-subtle and --surface-inset, plus --surface-wash for quiet strips.
   // Dark: four monotonic surfaces: inset -> background -> surface -> raised -> lux, with subtle aliased UP to raised.
   it("orders light surfaces: inset → wash → subtle → surface (= raised)", () => {

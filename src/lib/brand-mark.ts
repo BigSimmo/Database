@@ -130,7 +130,7 @@ export const BRAND_POINT_SMALL = { cx: 54.8724, cy: 20.0286, r: 10.4586 } as con
  *  the accent moves — then `npm run brand:update` regenerates app/icon.svg,
  *  which `npm run brand:check` verifies in verify:cheap, and the design-token
  *  contract test fails if they ever disagree with the token. */
-export const BRAND_LIGHT = { tile: "#ffffff", ink: "#1d6fb8" } as const;
+export const BRAND_LIGHT = { tile: "#fcfdfe", ink: "#1d6fb8" } as const;
 export const BRAND_DARK = { tile: "#1c2126", ink: "#74bdf0" } as const;
 
 export type BrandColors = { tile: string; ink: string };

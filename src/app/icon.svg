@@ -1,6 +1,6 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <style>
-    .tile { fill: #ffffff; }
+    .tile { fill: #fcfdfe; }
     .ink { fill: #1d6fb8; }
     @media (prefers-color-scheme: dark) {
       .tile { fill: #1c2126; }
