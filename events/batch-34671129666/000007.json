@@ -1,0 +1,14 @@
+{
+  "revision": 7,
+  "at": "2026-09-12T03:58:00.292Z",
+  "kind": "intent",
+  "operation": {
+    "id": "batch-34671129666-7",
+    "number": 2717,
+    "kind": "merge",
+    "head": "adac3b9b9192a091ba8c28cfbbc9a9c2d4ee0767",
+    "base": "d93c230a0e367f944e4ddc80c4ff3def622743cf",
+    "at": "2026-09-12T03:58:00.292Z",
+    "fingerprint": null
+  }
+}

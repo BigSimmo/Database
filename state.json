@@ -129,11 +129,19 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 6,
+  "revision": 7,
   "repairs": 0,
   "pass": 0,
   "active": 2717,
-  "pending": null,
+  "pending": {
+    "id": "batch-34671129666-7",
+    "number": 2717,
+    "kind": "merge",
+    "head": "adac3b9b9192a091ba8c28cfbbc9a9c2d4ee0767",
+    "base": "d93c230a0e367f944e4ddc80c4ff3def622743cf",
+    "at": "2026-09-12T03:58:00.292Z",
+    "fingerprint": null
+  },
   "reason": null,
   "entries": [
     {
@@ -161,7 +169,7 @@
     {
       "number": 2717,
       "head": "adac3b9b9192a091ba8c28cfbbc9a9c2d4ee0767",
-      "state": "waiting_ci",
+      "state": "ready",
       "reason": "ci-in-flight",
       "attempts": 0,
       "fingerprints": [],
@@ -358,6 +366,20 @@
       "kind": "waiting",
       "number": 2717,
       "reason": "ci-in-flight"
+    },
+    {
+      "revision": 7,
+      "at": "2026-09-12T03:58:00.292Z",
+      "kind": "intent",
+      "operation": {
+        "id": "batch-34671129666-7",
+        "number": 2717,
+        "kind": "merge",
+        "head": "adac3b9b9192a091ba8c28cfbbc9a9c2d4ee0767",
+        "base": "d93c230a0e367f944e4ddc80c4ff3def622743cf",
+        "at": "2026-09-12T03:58:00.292Z",
+        "fingerprint": null
+      }
     }
   ]
 }
