@@ -1857,7 +1857,12 @@ function layoutOverflow(page: Page) {
  * `:focus-visible`, which a programmatic focus does not reliably raise.
  */
 async function tabToWorkspaceDestination(page: Page) {
-  const destination = page.getByRole("link", { name: "Today" });
+  // Scope to the rail / phone-dock nav. The Today front door also has an in-page
+  // "View today's schedule" link that Playwright's default substring name match
+  // would treat as a second "Today" and trip strict mode.
+  const destination = page
+    .locator('[data-testid="caring-contacts-rail"], [data-testid="caring-contacts-phone-dock"]')
+    .getByRole("link", { name: "Today", exact: true });
   for (let press = 0; press < 40; press += 1) {
     await page.keyboard.press("Tab");
     if (await destination.evaluate((node) => node === document.activeElement)) return destination;

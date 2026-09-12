@@ -222,9 +222,9 @@
    subtree inside html.dark and overrode the inherited dark values (DS-01). */
 .ckb-v2.ckb-v2 {
   --background: #ffffff;
-  --surface: #ffffff;
+  --surface: #fcfdfe;
   --surface-chrome: #ffffff;
-  --surface-raised: #ffffff;
+  --surface-raised: #fcfdfe;
   --surface-lux: #ffffff;
 
   /* The only non-white surfaces - both whispers */
@@ -235,7 +235,7 @@
   --clinical-chat-table-header: #fbfcfd;
   --clinical-chat-document: #f8fafc;
 
-  --border: #e3e8ef;
+  --border: #e2e8f0;
   --border-strong: #c8d2de;
   /* Solid, not 55% alpha: alpha computed LIGHTER than --border, so panels had
      weaker edges than the cards nested inside them (#43). */
