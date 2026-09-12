@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { InformationPageHeader } from "@/components/information-page-shell";
 import {
   CategoryTag,
+  ReviewStatusBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
   specifierCard,
@@ -29,6 +30,7 @@ import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   applyBuilderGroupRules,
   builderCatalogGroups,
+  relaxBuilderGroups,
   builderDiagnosisGroups,
   catalogWordingSegment,
   findBuilderDiagnosis,
@@ -127,14 +129,14 @@ function catalogStep(group: BuilderCatalogGroup, index: number): BuilderStep {
     title: group.selection === "single" ? `Choose the ${label}` : `Add ${label}`,
     body:
       group.selection === "single"
-        ? "Select one option, and only when it is established."
+        ? "Select one option, and only when it is established. One-of is this builder's default for the group, not a verified manual rule, so reopen it if more than one applies."
         : "Select only what the current presentation supports.",
   };
 }
 
-function builderStepsFor(diagnosis: BuilderDiagnosis): BuilderStep[] {
+function builderStepsFor(diagnosis: BuilderDiagnosis, catalogGroups: BuilderCatalogGroup[]): BuilderStep[] {
   if (diagnosis.kind === "guided") return [baseStep, ...guidedSteps];
-  return [baseStep, ...builderCatalogGroups(diagnosis.id).map((group, index) => catalogStep(group, index + 1))];
+  return [baseStep, ...catalogGroups.map((group, index) => catalogStep(group, index + 1))];
 }
 
 function continueLabelFor(steps: BuilderStep[], index: number) {
@@ -256,15 +258,18 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
   const [selected, setSelected] = useState<string[]>(initialState.selected);
   const [diagnosisFilter, setDiagnosisFilter] = useState("");
   const [copyState, setCopyState] = useState<CopyState>("idle");
+  // Single-select groups the clinician has reopened because more than one option
+  // applies. Keyed by group id, which already carries the diagnosis.
+  const [relaxedGroupIds, setRelaxedGroupIds] = useState<ReadonlySet<string>>(() => new Set());
   const copyTimer = useRef<number | null>(null);
   const focusStageHeading = useRef(false);
 
   const diagnosis = findBuilderDiagnosis(diagnosisId) ?? guidedBuilderDiagnoses[0];
-  const steps = useMemo(() => builderStepsFor(diagnosis), [diagnosis]);
   const catalogGroups = useMemo(
-    () => (diagnosis.kind === "catalog" ? builderCatalogGroups(diagnosis.id) : []),
-    [diagnosis],
+    () => (diagnosis.kind === "catalog" ? relaxBuilderGroups(builderCatalogGroups(diagnosis.id), relaxedGroupIds) : []),
+    [diagnosis, relaxedGroupIds],
   );
+  const steps = useMemo(() => builderStepsFor(diagnosis, catalogGroups), [catalogGroups, diagnosis]);
 
   const firstStepId = useMemo(() => {
     const seeded = initialState.selected[0];
@@ -350,6 +355,8 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
   function changeDiagnosis(nextId: string) {
     const next = findBuilderDiagnosis(nextId);
     if (!next) return;
+    const nextGroups =
+      next.kind === "catalog" ? relaxBuilderGroups(builderCatalogGroups(next.id), relaxedGroupIds) : [];
     setDiagnosisId(nextId);
     setSelected((current) => {
       // Curated selections survive a move between mood presets when they remain
@@ -362,17 +369,16 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
         });
       }
       if (next.kind === "catalog" && diagnosis.kind === "catalog") {
-        const groups = builderCatalogGroups(next.id);
-        const known = new Set(groups.flatMap((group) => group.items.map((item) => item.slug)));
+        const known = new Set(nextGroups.flatMap((group) => group.items.map((item) => item.slug)));
         return applyBuilderGroupRules(
-          groups,
+          nextGroups,
           current.filter((slug) => known.has(slug)),
         );
       }
       return [];
     });
 
-    const nextSteps = builderStepsFor(next);
+    const nextSteps = builderStepsFor(next, nextGroups);
     setActiveView((current) => (nextSteps.some((step) => step.id === current) ? current : "base"));
     setVisited((current) => current.filter((id) => nextSteps.some((step) => step.id === id)));
     setCopyState("idle");
@@ -383,6 +389,16 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
       if (diagnosis.kind === "catalog") return toggleBuilderCatalogSlug(catalogGroups, current, slug);
       if (current.includes(slug)) return current.filter((item) => item !== slug);
       return normalizeSpecifierSelection([...current, slug]);
+    });
+    setCopyState("idle");
+  }
+
+  function relaxGroup(groupId: string) {
+    setRelaxedGroupIds((current) => {
+      if (current.has(groupId)) return current;
+      const next = new Set(current);
+      next.add(groupId);
+      return next;
     });
     setCopyState("idle");
   }
@@ -704,6 +720,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                           type={single ? "radio" : "checkbox"}
                           name={single ? activeStep.group.id : undefined}
                           aria-label={item.label}
+                          aria-describedby={`${item.slug}-review-status`}
                           checked={checked}
                           onChange={() =>
                             single ? chooseCatalogSingle(activeStep.group, item.slug) : toggle(item.slug)
@@ -731,8 +748,18 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                           )}
                         </span>
                         <span className="min-w-0">
-                          <span className="block text-sm font-extrabold break-words text-[color:var(--text-heading)]">
-                            {item.label}
+                          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="text-sm font-extrabold break-words text-[color:var(--text-heading)]">
+                              {item.label}
+                            </span>
+                            {/* The detail and reference pages already carry this badge. Carrying it here too
+                                means the clinician sees an item's source-review state at the point of choosing
+                                it, not only if they open its record afterwards. The input sets aria-label, which
+                                overrides the label's descendant text, so the status reaches assistive tech only
+                                through the aria-describedby wired to this id. */}
+                            <span id={`${item.slug}-review-status`}>
+                              <ReviewStatusBadge status={item.src} />
+                            </span>
                           </span>
                           <span className="mt-1 block text-xs font-medium leading-5 break-words text-[color:var(--text-muted)]">
                             Recorded for {item.disorder}. Confirm the wording against the current manual before
@@ -744,6 +771,22 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                   })}
                 </div>
               </fieldset>
+              {activeStep.group.selection === "single" ? (
+                <div className="border-t border-[color:var(--border)] px-4 py-3 sm:px-5">
+                  <button
+                    type="button"
+                    onClick={() => relaxGroup(activeStep.group.id)}
+                    data-testid="specifier-builder-relax-group"
+                    className="min-h-12 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-left text-xs font-bold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    More than one of these applies
+                  </button>
+                  <p className="mt-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                    Reopens this group so every applicable option can be recorded. Use it when the manual allows the
+                    combination; the one-of default is this builder&rsquo;s grouping, not a rule.
+                  </p>
+                </div>
+              ) : null}
             </section>
           ) : null}
 
