@@ -18,6 +18,7 @@ function source(relativePath: string) {
 }
 
 const clinicalDashboardSource = source("src/components/ClinicalDashboard.tsx");
+const dashboardModeSurfaceSource = source("src/components/clinical-dashboard/dashboard-mode-surface.ts");
 const masterSearchHeaderSource = source("src/components/clinical-dashboard/master-search-header.tsx");
 const universalAlsoMatchesSource = source("src/components/clinical-dashboard/universal-search-also-matches.tsx");
 const universalCommandSurfaceSource = source("src/components/clinical-dashboard/universal-search-command-surface.tsx");
@@ -290,7 +291,7 @@ describe("audit navigation and auth regressions", () => {
 
   it("mounts Answer-mode also-matches only after generation completes", () => {
     const alsoMatchesGate = sourceSegment(
-      clinicalDashboardSource,
+      dashboardModeSurfaceSource,
       "const showUniversalAlsoMatches =",
       "const showDesktopHomeComposer =",
       { label: "also-matches visibility gate" },
