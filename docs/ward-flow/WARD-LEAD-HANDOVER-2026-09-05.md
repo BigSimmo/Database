@@ -232,12 +232,14 @@ provide it for itself). **Neither of the two above should be trusted without run
 
 ### This is NOT Ward Verifier's inert CI flag — they are unrelated
 
-Ward Verifier's `vars.WARD_JOURNEYS_BLOCKING` is a **separate matter with nothing in common but the
-word "expected"**. It is a repository variable that is unset, which makes the seven browser journeys
-non-blocking in CI; it becomes live only when the owner sets it after seeing those journeys green
-once, and it can only take effect on `main`. **It produces no red locally and no failing assertion
-anywhere.** A red you can run and a flag you cannot are different objects, and conflating them would
-let a real failure hide behind "that one's expected".
+Ward Verifier's `vars.WARD_JOURNEYS_BLOCKING` was a **separate matter with nothing in common but
+the word "expected"**. It was a repository variable, left unset, which made the seven browser
+journeys non-blocking in CI. **SUPERSEDED 2026-09-06:** the owner removed the gate outright rather
+than setting the variable, after a green run of the seven (`3 skipped, 71 passed`). The journeys now
+block on every UI pull request and the variable no longer exists in `ci.yml`. The distinction this
+section drew still stands for anything else that is "expected": a red you can run and a flag you
+cannot are different objects, and conflating them lets a real failure hide behind "that one's
+expected" — which is precisely what happened to these journeys on 2026-09-05.
 
 ## 3. Outstanding work, with owners
 
@@ -338,8 +340,9 @@ answers, and this project has been caught by it.
   raw values untouched and referrals still findable under any spelling.
 - **Scratch files / `.next`** — approved by name, per file. An approval for two named files does not
   stretch to a third.
-- **Browser tests** — keep them, do not run them. Now behind `vars.WARD_JOURNEYS_BLOCKING`,
-  inert until deliberately enabled.
+- **Browser tests** — keep them, do not run them. Was behind `vars.WARD_JOURNEYS_BLOCKING`, inert
+  until deliberately enabled. **Superseded 2026-09-06:** the gate is removed and the seven journeys
+  block on every UI pull request.
 - **White ward ground** — asked for three times; done in the one shared token.
 
 **Rulings I made that are not yet built:**
