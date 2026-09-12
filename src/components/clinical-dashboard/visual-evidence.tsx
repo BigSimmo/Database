@@ -51,7 +51,8 @@ import { type AnswerRenderModel, type CanonicalAnswerTableRecord } from "@/lib/a
 import { formatCompactCitationLabel } from "@/lib/citations";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
-import type { QuoteCard, RagAnswer, SearchResult, VisualEvidenceCard } from "@/lib/types";
+import type { ClientQuoteCard, ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
+import type { VisualEvidenceCard } from "@/lib/types";
 import { emptyStates } from "@/lib/ui-copy";
 import { type AnswerEvidenceMapRow } from "@/lib/ward-output";
 
@@ -475,8 +476,8 @@ export function MobileEvidenceSheetContent({
   onFollowUpQuote,
   onScopeDocument,
 }: {
-  answer: RagAnswer;
-  sources: SearchResult[];
+  answer: ClientRagAnswerPayload;
+  sources: ClientSearchResult[];
   renderModel: AnswerRenderModel;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
@@ -486,7 +487,7 @@ export function MobileEvidenceSheetContent({
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
   onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onFollowUpQuote?: (quote: ClientQuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
   const order = evidenceTabOrder(answer, renderModel);
@@ -622,7 +623,7 @@ export function MobileEvidenceSheetContent({
       <AnswerSafetyNotice
         demoMode={demoMode}
         weakEvidence={renderModel.trust !== "high"}
-        retrievalDiagnostics={answer.retrievalDiagnostics}
+        retrievalGateBlocked={answer.retrievalGateBlocked}
       />
       <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
       <div className="sticky bottom-0 -mx-3 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-2.5 py-1.5 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
@@ -685,7 +686,7 @@ function MobileEvidenceTabPanel({
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onFollowUpQuote?: (quote: ClientQuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
 }) {
   if (tab === "Claims") {

@@ -1,11 +1,55 @@
 import { classifySourceAuthority, type SourceDesignation } from "@/lib/source-authority-registry";
-import type { ClinicalSourceMetadata } from "@/lib/types";
+import type { ClinicalSourceMetadata, ClinicalSourceMetadataInput } from "@/lib/types";
 
 const knownStatuses = new Set(["current", "review_due", "outdated", "unknown"]);
 const knownValidation = new Set(["unverified", "locally_reviewed", "approved", "unknown"]);
 const knownExtraction = new Set(["good", "partial", "poor", "unknown"]);
 const knownSourceKinds = new Set(["document", "registry_record"]);
 const knownRegistryRecordKinds = new Set(["service", "form", "medication", "differential"]);
+const knownCorpusScopes = new Set([
+  "uploaded_local",
+  "clinical_kb_site",
+  "australian_public",
+  "international_supplementary",
+]);
+const knownSourceRoles = new Set([
+  "local_guideline",
+  "clinical_guideline",
+  "clinical_reference",
+  "service_directory",
+  "form_reference",
+  "tool_reference",
+  "safety_alert",
+  "regulatory",
+  "quality_standard",
+  "legal",
+  "subsidy",
+  "professional_review",
+  "service_policy",
+  "reference_link",
+]);
+const knownContentModes = new Set(["indexed_content", "link_only"]);
+const knownChangeStates = new Set(["unchanged", "changed", "withdrawn", "superseded", "unknown"]);
+const knownLicencePolicies = new Set([
+  "review_required",
+  "public_index_permitted",
+  "metadata_link_only",
+  "index_forbidden",
+]);
+
+type SourceMetadataDiagnosticReason =
+  | "credentialed_url"
+  | "https_required"
+  | "invalid_https_url"
+  | "invalid_iso_date"
+  | "invalid_sha256"
+  | "unrecognized_enum";
+
+type SourceMetadataDiagnostic = Readonly<{
+  reason: SourceMetadataDiagnosticReason;
+  input_type: string;
+  input_length: number | null;
+}>;
 
 function stringOrNull(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -20,11 +64,32 @@ function stringOrNull(value: unknown) {
 // Exported as an object so tests can spy on the seam the way they previously spied
 // on `logger.warn`; the default implementation stays quiet under NODE_ENV=test.
 export const sourceMetadataDiagnostics = {
-  warn(field: string, value: string) {
+  warn(field: string, diagnostic: SourceMetadataDiagnostic) {
     if (typeof process !== "undefined" && process.env && process.env.NODE_ENV === "test") return;
-    console.warn(JSON.stringify({ level: "warn", message: `source-metadata: unrecognized ${field}`, field, value }));
+    console.warn(
+      JSON.stringify({
+        level: "warn",
+        message: `source-metadata: unrecognized ${field}`,
+        field,
+        ...diagnostic,
+      }),
+    );
   },
 };
+
+function diagnosticInputType(value: unknown) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+function warnInvalid(field: string, value: unknown, reason: SourceMetadataDiagnosticReason) {
+  sourceMetadataDiagnostics.warn(field, {
+    reason,
+    input_type: diagnosticInputType(value),
+    input_length: typeof value === "string" ? value.length : null,
+  });
+}
 
 function enumOrDefault<T extends string | null>(value: unknown, allowed: Set<string>, fallback: T, field: string): T {
   if (typeof value === "string" && allowed.has(value)) return value as T;
@@ -35,12 +100,74 @@ function enumOrDefault<T extends string | null>(value: unknown, allowed: Set<str
   // are the common case and would drown the signal. The returned value is unchanged,
   // so this is observability only: no ranking/retrieval behaviour changes.
   if (typeof value === "string" && value.trim()) {
-    sourceMetadataDiagnostics.warn(field, value);
+    warnInvalid(field, value, "unrecognized_enum");
   }
   return fallback;
 }
 
-export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata {
+const isoDateOnly = /^(\d{4})-(\d{2})-(\d{2})$/;
+const isoDateTime = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/;
+
+function hasValidCalendarDate(year: number, month: number, day: number) {
+  if (month < 1 || month > 12 || day < 1) return false;
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= daysInMonth[month - 1];
+}
+
+function isValidIsoDate(value: string) {
+  const dateOnlyMatch = isoDateOnly.exec(value);
+  if (dateOnlyMatch) {
+    return hasValidCalendarDate(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]), Number(dateOnlyMatch[3]));
+  }
+
+  const dateTimeMatch = isoDateTime.exec(value);
+  if (!dateTimeMatch) return false;
+  const [, year, month, day, hour, minute, second, offsetHour, offsetMinute] = dateTimeMatch;
+  if (!hasValidCalendarDate(Number(year), Number(month), Number(day))) return false;
+  if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return false;
+  if (offsetHour !== undefined) {
+    const parsedOffsetHour = Number(offsetHour);
+    const parsedOffsetMinute = Number(offsetMinute);
+    if (parsedOffsetHour > 14 || parsedOffsetMinute > 59) return false;
+    if (parsedOffsetHour === 14 && parsedOffsetMinute !== 0) return false;
+  }
+  return !Number.isNaN(Date.parse(value));
+}
+
+function isoDateOrNull(value: unknown, field: string) {
+  const normalized = stringOrNull(value);
+  if (!normalized) return null;
+  if (isValidIsoDate(normalized)) return normalized;
+  warnInvalid(field, normalized, "invalid_iso_date");
+  return null;
+}
+
+function httpsUrlOrNull(value: unknown, field: string) {
+  const normalized = stringOrNull(value);
+  if (!normalized) return null;
+  let reason: SourceMetadataDiagnosticReason = "invalid_https_url";
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.username || parsed.password) reason = "credentialed_url";
+    else if (parsed.protocol !== "https:") reason = "https_required";
+    else return normalized;
+  } catch {
+    // The redacted diagnostic below is the single failure signal for malformed URLs.
+  }
+  warnInvalid(field, normalized, reason);
+  return null;
+}
+
+function sha256OrNull(value: unknown, field: string) {
+  const normalized = stringOrNull(value);
+  if (!normalized) return null;
+  if (/^[a-fA-F0-9]{64}$/.test(normalized)) return normalized;
+  warnInvalid(field, normalized, "invalid_sha256");
+  return null;
+}
+
+export function normalizeClinicalSourceMetadata(input: ClinicalSourceMetadataInput): ClinicalSourceMetadata {
   const value = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
 
   return {
@@ -64,6 +191,20 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
     uploaded_at: stringOrNull(value.uploaded_at),
     indexed_at: stringOrNull(value.indexed_at),
     uploaded_by: stringOrNull(value.uploaded_by),
+    corpus_scope: enumOrDefault(value.corpus_scope, knownCorpusScopes, null, "corpus_scope"),
+    source_role: enumOrDefault(value.source_role, knownSourceRoles, null, "source_role"),
+    content_mode: enumOrDefault(value.content_mode, knownContentModes, null, "content_mode"),
+    source_catalogue_key: stringOrNull(value.source_catalogue_key),
+    source_policy_version: stringOrNull(value.source_policy_version),
+    canonical_url: httpsUrlOrNull(value.canonical_url, "canonical_url"),
+    effective_date: isoDateOrNull(value.effective_date, "effective_date"),
+    expiry_date: isoDateOrNull(value.expiry_date, "expiry_date"),
+    supersedes_document_id: stringOrNull(value.supersedes_document_id),
+    superseded_by_document_id: stringOrNull(value.superseded_by_document_id),
+    retrieved_at: isoDateOrNull(value.retrieved_at, "retrieved_at"),
+    content_hash: sha256OrNull(value.content_hash, "content_hash"),
+    change_state: enumOrDefault(value.change_state, knownChangeStates, "unknown", "change_state"),
+    licence_policy: enumOrDefault(value.licence_policy, knownLicencePolicies, null, "licence_policy"),
     document_status: enumOrDefault(value.document_status, knownStatuses, "unknown", "document_status"),
     clinical_validation_status: enumOrDefault(
       value.clinical_validation_status,
@@ -73,6 +214,12 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
     ),
     extraction_quality: enumOrDefault(value.extraction_quality, knownExtraction, "unknown", "extraction_quality"),
   };
+}
+
+/** Compatibility name retained for existing rendering and retrieval consumers. */
+export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata {
+  const safeInput = input && typeof input === "object" && !Array.isArray(input) ? input : null;
+  return normalizeClinicalSourceMetadata(safeInput as ClinicalSourceMetadataInput);
 }
 
 const GOVERNANCE_FIELDS = ["document_status", "clinical_validation_status", "extraction_quality"] as const;
@@ -122,7 +269,9 @@ export function formatClinicalDate(value: string | null | undefined) {
   }).format(date);
 }
 
-export function sourceStatusLabel(metadata?: ClinicalSourceMetadata | null) {
+export function sourceStatusLabel(
+  metadata?: Partial<Pick<ClinicalSourceMetadata, "source_kind" | "document_status">> | null,
+) {
   const status = metadata?.document_status ?? "unknown";
   if (metadata?.source_kind === "registry_record") {
     if (status === "review_due") return "Registry summary · Review due";
@@ -135,7 +284,9 @@ export function sourceStatusLabel(metadata?: ClinicalSourceMetadata | null) {
   return "Review status unknown";
 }
 
-export function validationStatusLabel(metadata?: ClinicalSourceMetadata | null) {
+export function validationStatusLabel(
+  metadata?: Partial<Pick<ClinicalSourceMetadata, "clinical_validation_status">> | null,
+) {
   const status = metadata?.clinical_validation_status ?? "unverified";
   if (status === "approved") return "Approved";
   if (status === "locally_reviewed") return "Locally reviewed";
@@ -169,7 +320,7 @@ export function sourceProvenanceSummary(metadata?: ClinicalSourceMetadata | null
     .join(" · ");
 }
 
-export function clipboardProvenanceLine(metadata?: ClinicalSourceMetadata | null) {
+export function clipboardProvenanceLine(metadata?: Partial<ClinicalSourceMetadata> | null) {
   const source = metadata ?? normalizeSourceMetadata(null);
   // Copied provenance stays fully explicit (including "Unknown" values): the
   // clipboard line is an audit artifact, unlike the visible summary above
@@ -202,7 +353,7 @@ export function sourceDesignationDescription(metadata?: ClinicalSourceMetadata |
   return "Source authority is unknown, ambiguous, conflicting, or a registry summary. Treat as unclassified provenance.";
 }
 
-export function sourceDesignationSummary(metadata?: ClinicalSourceMetadata | null) {
+export function sourceDesignationSummary(metadata?: Partial<ClinicalSourceMetadata> | null) {
   const classification = classifySourceAuthority(metadata);
   return sourceDesignationLabel(classification.designation);
 }

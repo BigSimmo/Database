@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "programmeId": "rag-answer-quality-and-repository-coverage-v1",
   "reconciledBase": "f3d1a3cce2c943ad3083425ed9c7c46dbef23087",
+  "amendmentPolicy": "2026-09-07 additive documentation amendment: execution-order.md#answer-quality-amendment--2026-09-07 owns the finding/task map, M1-M3 milestones and local acceptance-versus-formal-receipt distinction. Preserve reconciledBase and accepted identities. P12 moves before P10/P11 handoffs but retains P09 isolation and P02/P06 source/snapshot prerequisites. Product implementation remains paused; formal amended receipt/schema/route compatibility remains unresolved and is not asserted by this manifest.",
   "basePolicy": "Before publication and Phase P00, fetch and verify current origin/main. If it differs from reconciledBase, materialize on the new base, revalidate implementation/evidence/paths/migrations/dependencies, update reconciledBase and regenerate both packages before execution.",
   "packagePolicy": {
     "sharedBodiesMustMatch": true,
@@ -36,6 +37,97 @@
     "repositoryContent": "plans/2026-08-21-rag-repository-content-sync.md",
     "trustedIngestion": "plans/2026-08-21-trusted-admin-document-ingestion.md"
   },
+  "localAgentPolicy": {
+    "schemaVersion": 1,
+    "policyId": "rag-local-smart-agents-v1",
+    "controller": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high"
+    },
+    "profiles": {
+      "mechanical": {
+        "model": "gpt-5.6-terra",
+        "reasoning_effort": "medium"
+      },
+      "routine": {
+        "model": "gpt-5.6-sol",
+        "reasoning_effort": "high"
+      },
+      "sensitive": {
+        "model": "gpt-6-astra",
+        "reasoning_effort": "high"
+      }
+    },
+    "riskProfiles": {
+      "mechanical": "mechanical",
+      "routine": "routine",
+      "integration": "sensitive",
+      "clinical": "sensitive",
+      "privacy": "sensitive",
+      "security": "sensitive",
+      "concurrency": "sensitive",
+      "ambiguous": "sensitive"
+    },
+    "roles": {
+      "writer": "worker",
+      "scout": "explorer",
+      "reviewer": "default",
+      "retrieval-review": "rag-retrieval-reviewer",
+      "governance-review": "clinical-governance-reviewer",
+      "ui-review": "frontend-ui-reviewer",
+      "phase-review": "default",
+      "final-review": "default"
+    },
+    "sensitiveWriterTasks": ["P08B/6"],
+    "formalReviewRoles": [
+      "reviewer",
+      "retrieval-review",
+      "governance-review",
+      "ui-review",
+      "phase-review",
+      "final-review"
+    ],
+    "phaseReviewOverrides": {
+      "P08B": {
+        "retrieval-review": "gpt-6-astra",
+        "governance-review": "gpt-6-astra",
+        "ui-review": "gpt-5.6-sol"
+      }
+    },
+    "finalReview": {
+      "phase": "P17",
+      "model": "gpt-6-astra",
+      "reasoning_effort": "xhigh"
+    },
+    "capacity": {
+      "childSlots": 3,
+      "defaultChildLimit": 2,
+      "maxWriters": 1
+    },
+    "childForkTurns": "none",
+    "childSpawningAllowed": false,
+    "automaticLaunchAllowed": false,
+    "correctionPolicy": {
+      "resumeThroughRound": 3,
+      "freshEscalationRounds": [4, 5],
+      "breakerRound": 6,
+      "contextRepairRequiredBeforeEscalation": true,
+      "environmentFailureIsModelFailure": false
+    }
+  },
+  "continuationArtifacts": [
+    {
+      "schemaVersion": 1,
+      "evidenceKind": "implemented-artifact-identity",
+      "programmeId": "rag-answer-quality-and-repository-coverage-v1",
+      "phase": "P02",
+      "plan": "australian",
+      "task": 4,
+      "path": "supabase/migrations/20260822123000_govern_australian_source_activation.sql",
+      "commit": "5e3363e4384d2d113b03cd54ce8b784460056292",
+      "blob": "50df455b9643a02a74d53107e41d3778b5d4438b"
+    }
+  ],
   "defaultAgentPolicy": {
     "controllerModel": "gpt-5.6-sol",
     "implementationModel": "gpt-5.6-sol",
@@ -404,38 +496,12 @@
       "authority": "local-code-no-canary"
     },
     {
-      "id": "P10",
-      "executionPredecessor": "P09",
-      "name": "Repository-wide evaluation handoff",
-      "plan": "repositoryContent",
-      "tasks": [6],
-      "dependsOn": ["P08C", "P09"],
-      "implementationModel": "gpt-5.6-sol",
-      "implementationReasoning": "high",
-      "reviewReasoning": "high",
-      "environment": "offline",
-      "authority": "local-code-and-documents"
-    },
-    {
-      "id": "P11",
-      "executionPredecessor": "P10",
-      "name": "eTG and AMH link-only presentation and governance handoff",
-      "plan": "australian",
-      "tasks": [5, 6],
-      "dependsOn": ["P02", "P10"],
-      "implementationModel": "gpt-5.6-terra",
-      "implementationReasoning": "high",
-      "reviewReasoning": "high",
-      "environment": "offline",
-      "authority": "local-code-and-documents"
-    },
-    {
       "id": "P12A",
-      "executionPredecessor": "P11",
+      "executionPredecessor": "P09",
       "name": "Adaptive answer coverage and schema contracts",
       "plan": "adaptive",
       "tasks": [1, 2],
-      "dependsOn": ["P00", "P08C", "P09", "P10", "P11"],
+      "dependsOn": ["P00", "P02", "P06", "P08C", "P09"],
       "implementationModel": "gpt-5.6-sol",
       "implementationReasoning": "high",
       "reviewReasoning": "xhigh",
@@ -469,8 +535,34 @@
       "authority": "local-code-provider-canary-deferred"
     },
     {
-      "id": "P13A",
+      "id": "P10",
       "executionPredecessor": "P12C",
+      "name": "Repository-wide evaluation handoff",
+      "plan": "repositoryContent",
+      "tasks": [6],
+      "dependsOn": ["P08C", "P09"],
+      "implementationModel": "gpt-5.6-sol",
+      "implementationReasoning": "high",
+      "reviewReasoning": "high",
+      "environment": "offline",
+      "authority": "local-code-and-documents"
+    },
+    {
+      "id": "P11",
+      "executionPredecessor": "P10",
+      "name": "eTG and AMH link-only presentation and governance handoff",
+      "plan": "australian",
+      "tasks": [5, 6],
+      "dependsOn": ["P02", "P10"],
+      "implementationModel": "gpt-5.6-terra",
+      "implementationReasoning": "high",
+      "reviewReasoning": "high",
+      "environment": "offline",
+      "authority": "local-code-and-documents"
+    },
+    {
+      "id": "P13A",
+      "executionPredecessor": "P11",
       "name": "Verified-delivery protocol and citation-complete parser",
       "plan": "verifiedDelivery",
       "tasks": [1, 2],

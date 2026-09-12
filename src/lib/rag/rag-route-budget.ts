@@ -1,4 +1,5 @@
 import type { AnswerRouteMode } from "@/lib/rag/rag-routing";
+import { isProviderGenerationFallbackCode } from "@/lib/rag/rag-fallback-reason";
 import type { RagAnswer } from "@/lib/types";
 
 export const answerRouteBudgetMs = {
@@ -61,10 +62,11 @@ export function deadlineAllowsGenerationRetry(deadline: Pick<AnswerRouteDeadline
 
 export function answerRouteResultCanBeCached(
   deadline: Pick<AnswerRouteDeadline, "deadlineExceeded">,
-  answer: Pick<RagAnswer, "routingReason" | "degradedMode">,
+  answer: Pick<RagAnswer, "fallbackReasonCode" | "routingReason" | "degradedMode">,
 ) {
   return (
     !deadline.deadlineExceeded &&
+    !isProviderGenerationFallbackCode(answer.fallbackReasonCode) &&
     !GENERATION_FALLBACK_MARKER.test(answer.routingReason ?? "") &&
     !GENERATION_FALLBACK_MARKER.test(answer.degradedMode?.reason ?? "")
   );

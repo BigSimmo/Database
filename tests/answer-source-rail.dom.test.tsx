@@ -46,9 +46,12 @@ import { AnswerSourceRail } from "@/components/clinical-dashboard/answer-source-
 import {
   type AnswerSourceRow,
   answerSourceRailRowId,
+  buildAnswerSourceRows,
   sourceCapsuleDisplay,
   sourceSupportSentence,
 } from "@/components/clinical-dashboard/answer-source-rows";
+import type { ClientSearchResult } from "@/lib/answer-client-payload";
+import type { SourceLink } from "@/lib/answer-render-policy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import type { VisualEvidenceCard } from "@/lib/types";
 
@@ -136,6 +139,46 @@ function RailAndDrawer({
 }
 
 describe("answer source rail", () => {
+  it("keeps an exact fifth citation cited after the low-trust primary-source cap", () => {
+    const sources: ClientSearchResult[] = Array.from({ length: 6 }, (_, index) => ({
+      id: `chunk-${index + 1}`,
+      document_id: `doc-${index + 1}`,
+      title: index === 5 ? "Retrieved but uncited" : `Cited source ${index + 1}`,
+      file_name: `source-${index + 1}.pdf`,
+      page_number: index + 1,
+      chunk_index: index,
+      section_heading: "Monitoring",
+      content: "Synthetic source passage.",
+      image_ids: [],
+      similarity: 0.9 - index * 0.01,
+      source_metadata: normalizeSourceMetadata({ document_status: "current" }),
+    }));
+    const primarySources: SourceLink[] = sources.slice(0, 4).map((source) => ({
+      id: source.id,
+      chunk_id: source.id,
+      document_id: source.document_id,
+      title: source.title,
+      file_name: source.file_name,
+      page_number: source.page_number,
+      href: `/documents/${source.document_id}?page=${source.page_number}&chunk=${source.id}`,
+      label: source.title,
+      sourceStrength: "strong",
+      reason: "Cited by the generated answer.",
+      sourceMetadata: source.source_metadata,
+      score: source.similarity,
+    }));
+
+    const rows = buildAnswerSourceRows(
+      null,
+      sources,
+      primarySources,
+      new Set(sources.slice(0, 5).map((source) => source.id)),
+    );
+
+    expect(rows.map((source) => source.id)).toEqual(sources.map((source) => source.id));
+    expect(rows.map((source) => source.cited)).toEqual([true, true, true, true, true, false]);
+  });
+
   it("shows one card per cited document with its page and status", () => {
     render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
     const rows = screen.getAllByTestId("answer-source-rail-row");

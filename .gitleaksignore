@@ -102,3 +102,12 @@ f69f2f129ac3fd65c7115a9f84b254f1a1d41929:docs/caring-contacts/phase-2b-sdd-archi
 # Rewriting it out of history would need a force-push, which is worse.
 c3bb25828022355cbc27ac3262c285725d5bda0c:tests/env-answer-feedback-warning.test.ts:generic-api-key:49
 c3bb25828022355cbc27ac3262c285725d5bda0c:tests/instrumentation.test.ts:generic-api-key:151
+# Reviewed false positives: canonical site-content release JSON stores ordinary
+# clinical labels in fields named `key`; generic-api-key misclassified two labels
+# on one historical line in both the generated schema and source migration.
+179864d464ae1dd77b3bd3ffa04c7a0f9121e474:supabase/schema.sql:generic-api-key:10208
+179864d464ae1dd77b3bd3ffa04c7a0f9121e474:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:836
+# The regenerated canonical payload in the grouped repair commit carries the
+# same two reviewed clinical `key` fields at their new generated line numbers.
+f8da9503bdd4b8bcaa87871f75d8f6bf6764edf0:supabase/schema.sql:generic-api-key:13397
+f8da9503bdd4b8bcaa87871f75d8f6bf6764edf0:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:894

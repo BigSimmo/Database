@@ -281,10 +281,18 @@ function governanceForSections(
   const derived = deriveMedicationSourceGovernance(sections, referenceDate);
   // `outdated` asserts that the guidance has been superseded. That is a recorded
   // clinical judgement, not something age can establish or refute, so a stored
-  // `outdated` survives re-derivation rather than being quietly downgraded. Every
-  // other stored value is only ever a frozen age calculation, which the fresh
-  // derivation replaces.
-  const sourceStatus = storedStatus === "outdated" ? "outdated" : derived.sourceStatus;
+  // `outdated` survives re-derivation rather than being quietly downgraded. However,
+  // if the record was subsequently updated or re-verified (e.g. `row.last_reviewed_at`
+  // is newer than reference or an explicit re-verification timestamp is present),
+  // `sourceStatus` is re-evaluated rather than being permanently stuck in "outdated".
+  const reviewedAt = row.last_reviewed_at ? new Date(row.last_reviewed_at) : null;
+  const hasValidReviewDate = reviewedAt !== null && !Number.isNaN(reviewedAt.getTime());
+  const hasNewerReview =
+    hasValidReviewDate &&
+    (reviewedAt.getTime() >= referenceDate.getTime() ||
+      (derived.sourceCheckedAt !== null && reviewedAt.getTime() > new Date(derived.sourceCheckedAt).getTime()));
+
+  const sourceStatus = storedStatus === "outdated" && !hasNewerReview ? "outdated" : derived.sourceStatus;
   return {
     sourceStatus,
     validationStatus: medicationValidationStatus(row.validation_status),

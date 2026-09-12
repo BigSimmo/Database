@@ -33,7 +33,7 @@ import type {
 // a trailing \b after it can never match (it would require a word char to its
 // right), which previously dropped every percentage token.
 const NUMERIC_TOKEN_PATTERN =
-  /\b\d+\s*:\s*\d+\b|\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×\s*10\^?\d*\/?l?|x\s*10\^?\d*\/?l?|mg\/(?:day|hour|hr|h|kg|m2|dose)|mg|mcg|ug|microgram(?:s)?|micrograms?|μg|g\b|kg|ml\/(?:day|hour|hr|h)|ml|mL|l\b|mmol\/l|mmol\/L|mmol|mol\/l|umol\/l|µmol\/l|ng\/ml|units?\/?\w*|iu\b|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
+  /\b\d+\s*:\s*\d+\b|\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×\s*10\^?\d*\/?l?|x\s*10\^?\d*\/?l?|mg\/(?:day|hour|hr|h|kg|m2|dose)|mg|mcg|ug|microgram(?:s)?|micrograms?|μg|g\b|kg|ml\/(?:day|hour|hr|h)|ml|mL|l\b|mmol\/l|mmol\/L|mmol|mol\/l|umol\/l|µmol\/l|ng\/ml|units?\/?\w*|iu\b|milliseconds?|msecs?|ms\b|tablets?|puffs?|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
 
 // Decimal numbers and ranges that, while not unit-bearing, are very likely
 // clinical thresholds in context (e.g. "ANC 2.0", "INR 2-3"). We only treat a
@@ -112,7 +112,7 @@ export type LabelledNumericBandConflict = {
 };
 
 const clinicalQuantityPattern =
-  /\b(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most)\s+)?(\d+(?:[.,]\d+)?)(?:\s*[-–—]\s*(\d+(?:[.,]\d+)?))?\s*(ug|µg|μg|mcg|micrograms?|mg|g|kg|ml|l|mmol|mol|umol|µmol|ng|units?|iu|hours?|hrs?|h|days?|weeks?|wk|months?|minutes?|mins?|years?|°c|mmhg|bpm|%)\b((?:\s*\/\s*(?:kg|m2|dose|seconds?|secs?|minutes?|mins?|hours?|hrs?|h|days?|weeks?|wk|ml|l)){0,3})/giu;
+  /\b(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most)\s+)?(\d+(?:[.,]\d+)?)(?:\s*[-–—]\s*(\d+(?:[.,]\d+)?))?\s*(ug|µg|μg|mcg|micrograms?|mg|g|kg|ml|l|mmol|mol|umol|µmol|ng|units?|iu|milliseconds?|msecs?|ms|tablets?|puffs?|hours?|hrs?|h|days?|weeks?|wk|months?|minutes?|mins?|years?|°c|mmhg|bpm|%)\b((?:\s*\/\s*(?:kg|m2|dose|seconds?|secs?|minutes?|mins?|hours?|hrs?|h|days?|weeks?|wk|ml|l)){0,3})/giu;
 const scientificQuantityPattern =
   /(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most|<=|>=|<|>|≤|≥)\s*)?(\d+(?:[.,]\d+)?)\s*[×x]\s*10\^?(\d+)\s*\/\s*([a-z])/giu;
 const unitlessThresholdPattern =
@@ -122,6 +122,7 @@ const routePattern =
   /\b(oral(?:ly)?|intramuscular(?:ly)?|subcutaneous(?:ly)?|sublingual(?:ly)?|intravenous(?:ly)?|rectal(?:ly)?|\bim\b|\bpo\b|\bsc\b|\bsl\b|\biv\b)\b/giu;
 const frequencyPattern =
   /\b(?:(\d+)\s+times?\s+)?(once\s+daily|twice\s+daily|three\s+times\s+daily|daily|weekly|hourly|nightly|fortnightly|monthly)\b/giu;
+const everyNFrequencyPattern = /\bevery\s+(\d+)\s+(seconds?|minutes?|hours?|days?|weeks?)\b/giu;
 
 function canonicalNumber(value: string) {
   const normalized = value.replace(",", ".");
@@ -140,6 +141,9 @@ function canonicalUnit(value: string) {
   if (/^(?:weeks?|wk)$/.test(unit)) return "week";
   if (/^(?:minutes?|mins?)$/.test(unit)) return "minute";
   if (/^(?:seconds?|secs?)$/.test(unit)) return "second";
+  if (/^(?:milliseconds?|msecs?|ms)$/.test(unit)) return "ms";
+  if (/^(?:tablets?)$/.test(unit)) return "tablet";
+  if (/^(?:puffs?)$/.test(unit)) return "puff";
   if (/^(?:units?)$/.test(unit)) return "units";
   return unit;
 }
@@ -294,6 +298,11 @@ export function extractClinicalValueAtoms(text: string): ClinicalValueAtom[] {
       frequency: canonicalFrequency(match[1], match[2]),
     });
   }
+  for (const match of normalized.matchAll(everyNFrequencyPattern)) {
+    const unit = canonicalUnit(match[2]);
+    const frequency = `1/${canonicalNumber(match[1])}${unit}`;
+    atoms.push({ rawText: match[0], kind: "frequency", canonicalValue: frequency, frequency });
+  }
   for (const match of normalized.matchAll(routePattern)) {
     atoms.push({
       rawText: match[0],
@@ -307,6 +316,11 @@ export function extractClinicalValueAtoms(text: string): ClinicalValueAtom[] {
     (atom, index) =>
       atoms.findIndex((candidate) => clinicalValueAtomKey(candidate) === clinicalValueAtomKey(atom)) === index,
   );
+}
+
+/** Canonical signal used by context packing to avoid truncating a clinical value or schedule. */
+export function hasClinicalValueOrSchedule(text: string) {
+  return extractClinicalValueAtoms(text).length > 0;
 }
 
 type LabelledNumericBand = {

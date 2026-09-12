@@ -15,6 +15,7 @@ export const GOVERNED_SOURCE_HOSTS = [
   "rph.health.wa.gov.au",
   "ruah.org.au",
   "smhs.health.wa.gov.au",
+  "www.abs.gov.au",
   "www.aihw.gov.au",
   "www.beyondblue.org.au",
   "www.cci.health.wa.gov.au",

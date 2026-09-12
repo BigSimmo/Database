@@ -1,5 +1,7 @@
 # Adaptive RAG answer and display — Implementation Plan
 
+**2026-09-07 binding amendment:** Read the package execution-order.md section “Answer-quality amendment — 2026-09-07” (editable owner: docs/superpowers/rag-upgrade/canonical/execution-order.md). It contains the single F01–F21/M01–M07 disposition map and M1–M3 acceptance policy. The task-local amendments below take precedence over superseded examples; unchanged accepted task evidence remains valid. Product implementation is paused pending separate authorization.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Dispatch one implementer at a time, then a task reviewer for specification compliance and code quality before continuing. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Extend the landed v19 moderate-length/related-information contract into evidence-gated adaptive answers, and remove the independent silent 85-word display cap so narrow questions stay concise, broad questions can be complete, and supported parts remain useful when another part is missing.
@@ -31,7 +33,7 @@
 - Task 0 changes only the already-finalized v19 lead display and copy projection. It must not render v20-only sections, alter generation, or wait on a new answer-contract discriminator. If it cannot remain a lossless sanitation-only correction with exact clipboard parity, stop and fold it back into Task 4.
 - Change `ragAnswerPromptVersion` whenever prompt/schema semantics change so response and provider prompt caches cannot serve mixed contracts.
 - `src/lib/rag/rag.ts` cannot grow beyond 4,362 lines. Put policy, limits, coverage, and finalization in cohesive modules and keep `rag.ts` integration to thin wiring; never raise the maintainability budget.
-- Reuse one exported answer-contract limits owner for the 1,600-character lead, 48-character heading, 600-character section body, and eight-section adaptive maximum. Schema validation, verified delivery, and evaluation must not carry independent numeric copies.
+- Reuse one exported answer-contract limits owner. Evaluate the starting 1,600-character lead, 48-character heading, 600-character section body and eight-section candidates against reference answers; select bounded limits prospectively before finalizing v20. Schema validation, verified delivery, and evaluation must not carry independent numeric copies.
 - Before editing Next.js/React code, read the relevant installed Next 16 guide under `node_modules/next/dist/docs/`.
 - Run no provider-backed evaluation, live Supabase command, production mutation, deployment, commit, or push without the authorization required by repository policy.
 
@@ -117,6 +119,8 @@ Expected: PASS with full v19 lead text on screen and clipboard, unchanged sanita
 ---
 
 ### Task 1: Define the adaptive answer policy
+
+**Amended acceptance (2026-09-07):** F11–F12/F14–F16: plan from resolved request, asked parts and explicit depth, separating required safety dependencies from optional enrichment. Fixed categories/section counts below are candidate heuristics, not mandatory headings or a prohibition on a detailed narrow explanation. Establish evidence-backed reference expectations and a bounded total-output allocation before fixing numeric ceilings; avoid an extra planning model call. Preserve explicit source restrictions.
 
 **Files:**
 
@@ -366,6 +370,8 @@ git commit -m "feat(rag): define adaptive answer shapes"
 
 ### Task 2: Drive composition, prompt, schema, and cache from the plan
 
+**Amended acceptance (2026-09-07):** F09/F15–F16: first land the focused no-unverified-overflow contract with Task 3 in M1; integrate v20 later after P09 isolation. Rewrite one coherent approved-supplied-evidence prompt, schema, formatting/source-context, verifier, render, evaluator and cache-version contract. Replace contradictory uploaded-only, fixed 60–110-word and blanket no-provenance/format instructions; safe lists/comparisons may express useful supported detail. Treat 1600/48/600/eight as empirical starting hypotheses: one bounded shared limits owner, fixture-backed allocation, no indiscriminate constant increase. No displayed numeric or nonnumeric claim is exempt after the 24th per lead/section; assess, withhold or reject overflow.
+
 **Files:**
 
 - Modify: `src/lib/rag/adaptive-answer-plan.ts`
@@ -382,7 +388,7 @@ git commit -m "feat(rag): define adaptive answer shapes"
 - Modify: `tests/rag-eval-cases.test.ts`
 - Modify: `tests/openai-cache.test.ts`
 
-**Interfaces:** Consumes `AdaptiveAnswerPlan` and canonical answer verification inputs. Produces a stable `adaptive_answer:` prompt line, shared exported answer-contract limits, ordered v20 schema properties, final-only `RagAnswer.answerContractVersion = "clinical-rag-answer-v20"`, sanitized client discrimination, and matching cache fingerprints. `rag-answer-contract-limits.ts` exports the canonical 1,600-character answer, 48-character heading, 600-character section body, and eight-section adaptive maximum. `answerJsonOutputSchemaForResults`, Zod/final verification, the quality evaluator, and verified delivery import those values. The schema pins its first properties as `answer`, `grounded`, `confidence`, `citations`, `answerSections`; post-generation verification enforces the lower plan-specific section cap.
+**Interfaces:** Consumes `AdaptiveAnswerPlan` and canonical answer verification inputs. Produces a stable `adaptive_answer:` prompt line, shared exported answer-contract limits, ordered v20 schema properties, final-only `RagAnswer.answerContractVersion = "clinical-rag-answer-v20"`, sanitized client discrimination, and matching cache fingerprints. `rag-answer-contract-limits.ts` exports the empirically selected bounded lead, heading, section-body, section-count and total-output limits; 1600/48/600/eight are starting hypotheses, not acceptance constants. `answerJsonOutputSchemaForResults`, Zod/final verification, the quality evaluator, and verified delivery import those values. The schema pins its first properties as `answer`, `grounded`, `confidence`, `citations`, `answerSections`; post-generation verification enforces the lower plan-specific section cap.
 
 - [ ] **Step 1: Replace the old fixed-length test pins**
 
@@ -446,20 +452,23 @@ In `rag.ts`, build `adaptiveAnswerPlan` after `queryAnalysis` and `answerCoverag
 `adaptive_answer: ${formatAdaptiveAnswerPlanLine(adaptiveAnswerPlan)}`,
 ```
 
-Replace the fixed first-layer paragraph in `rag-answer-instructions.ts` with:
+Rewrite the existing generation instructions coherently, removing contradictory uploaded-only, fixed 60–110-word, blanket no-provenance and formatting restrictions rather than appending instructions to them. The versioned contract must include:
 
 ```text
 ## Answer length and shape
-- Follow the adaptive_answer contract in the Interpreted clinical task block.
+- Use only the approved supplied evidence under the explicit source policy; uploaded, site and supplementary evidence retain their permitted roles.
+- Follow the resolved requested parts, depth and adaptive_answer contract in the Interpreted clinical task block.
+- Explain relevant primary/supplementary context in plain prose without private/internal metadata. Preserve all exact citation, numeric and prompt-injection safeguards.
+- Use safely rendered structure, lists or comparisons when useful; every factual explanation and relationship requires direct supplied support.
 - The range describes the useful shape, not a quota. Stop when the exact question and supported high-yield detail are complete; never pad to reach a minimum.
-- A narrow question remains narrow. A comprehensive question may use every independently supported section needed to answer it.
+- A narrow topic stays on topic, but explicit requests for detail receive useful supported explanation. A broad question receives all independently supported requested parts, without mandatory unrelated headings.
 - When coverage is partial, answer the supported subquestions, name the exact unsupported subquestion and reason, then include the supplied targeted clarification only when it can change retrieval.
 - When source_conflict is required, include one source_conflict section derived only from the supplied canonical conflict: identify both sources, the Australian publication/effective date, jurisdiction and role, the material difference, why the current uploaded guideline remains primary, and that the uploaded document is flagged for review.
 ```
 
-Set the schema `answerSections.maxItems` to `8`, preserve the authoritative `answer` max of `1_600` characters and section `body` max of `600` characters, and order the first schema properties exactly as `answer`, `grounded`, `confidence`, `citations`, `answerSections`. This makes the later verified-delivery parser able to emit a citation-complete lead without another prompt/schema revision. Enforce `adaptiveAnswerPlan.sectionRange[1]` during finalization. Roll `ragAnswerPromptVersion` to `clinical-rag-answer-v20` and keep `src/lib/openai.ts` using that exported value.
+Derive schema lead/body/section/total limits from the shared owner after reference-answer evaluation; do not freeze 1600/600/eight or increase them all without evidence. Order the first schema properties exactly as `answer`, `grounded`, `confidence`, `citations`, `answerSections`. This makes the later verified-delivery parser able to emit a citation-complete lead without another prompt/schema revision. Enforce `adaptiveAnswerPlan.sectionRange[1]` during finalization. Roll `ragAnswerPromptVersion` to `clinical-rag-answer-v20` and keep `src/lib/openai.ts` using that exported value.
 
-Update `scoreAnswerQualityEvalCase` through the shared limits owner. Its current 900-word ceiling was derived from v19's six-section schema and must not reject a legal eight-section v20 answer or retain the stale 220-word HANDOVER claim. Keep fragmentation and runaway-duplication detection separate from style preference, add a discriminating max-shape test, and roll the committed evaluation-config fingerprint when the metric contract changes.
+Update `scoreAnswerQualityEvalCase` through the shared limits owner. Its current 900-word ceiling was derived from v19's six-section schema and must not reject a legal v20 answer under the selected shared limits or retain the stale 220-word HANDOVER claim. Keep fragmentation and runaway-duplication detection separate from style preference, add a discriminating max-shape test, and roll the committed evaluation-config fingerprint when the metric contract changes.
 
 When the server component flag is false, use the unchanged legacy prompt/schema/version and finalization path; do not construct an adaptive plan and do not let v20 answers share a legacy cache namespace. Add a truth-table test for legacy mode, candidate+adaptive-off, and candidate+adaptive-on.
 
@@ -486,6 +495,8 @@ git commit -m "feat(rag): generate evidence-adaptive answers"
 ---
 
 ### Task 3: Preserve supported subanswers and emit exact gaps
+
+**Amended acceptance (2026-09-07):** F09–F10/F17: the M1 corrective slice closes 24/25 claim-boundary bypasses and unsupported explanatory/causal assertions before richer answers. Direct support must establish the asserted relation with population, polarity and qualifications; legitimate paraphrase stays, invented relation is withheld even at medium confidence. Use paired positive/negative cases rather than simply tighter lexical thresholds. Preserve independently supported parts and exact gaps. Consume only reviewed, current, accessible canonical conflicts loaded by retrieval Task 8; missing review data is not no-conflict proof.
 
 **Files:**
 
@@ -612,6 +623,8 @@ git commit -m "fix(rag): retain supported answers across evidence gaps"
 
 ### Task 4: Render the complete governed answer in the main surface
 
+**Amended acceptance (2026-09-07):** F04/F11/F15–F16: deliver the complete verified lead and useful question-specific sections once on the main surface, optional panels closed. Current/prior/copy/print/restoration retain equivalent complete content, citations and exact synthesis/degradation disclosure; bounded continuation context survives reload without feedback credentials or prior-model-prose evidence. Prove real current-surface DOM and copy paths, no clipped/padded/duplicated sections and accessibility.
+
 **Files:**
 
 - Modify: `src/components/clinical-dashboard/answer-content.tsx`
@@ -716,6 +729,8 @@ git commit -m "fix(chat): display complete cited answers"
 
 ### Task 5: Add real false-insufficiency and usefulness cases
 
+**Amended acceptance (2026-09-07):** F18–F19: prepare reference expectations using eligible fixture passages, then prove broad mixed-source + useful partial after supplement removal + two follow-ups/elaboration end to end. Track all required parts from evidence to displayed/copied output; irrelevant supplement adds no claims, primary-complete avoids needless retrieval. Apply the prospective positive-benefit criterion in the canonical amendment; generic ties or test totals alone do not pass M2. Fixture source lanes are not live activation.
+
 **Files:**
 
 - Modify: `src/lib/rag/rag-eval-cases.ts`
@@ -780,6 +795,8 @@ git commit -m "test(rag): cover adaptive and partial answers"
 ---
 
 ### Task 6: Domain handoff and approval-gated canary
+
+**Amended acceptance (2026-09-07):** F19/F21: M2 offline acceptance requires the complete integrated deterministic journeys and prospective benefit evidence, not merely successful unit counts. Keep P09 rollout/version/flag isolation and accepted source/snapshot/link-only constraints as prerequisites; P10/P11 handoffs follow M2. Final Gate E/provider/corpus/operational proof and formal receipt reconciliation remain separate, unclosed layers.
 
 **Files:**
 

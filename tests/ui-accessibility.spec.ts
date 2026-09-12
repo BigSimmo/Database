@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
+import { THERAPY_CATALOGUE_SUMMARY } from "@/components/therapy-compass/data/generated-assets";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { expectNoPageHorizontalOverflow, gotoApp } from "./helpers/spec-navigation";
 import { visibleByTestId } from "./playwright-settlement";
@@ -726,7 +727,14 @@ test.describe("PsychSift accessibility coverage", () => {
 
     await expectNoPageHorizontalOverflow(page);
 
-    await page.goto("/therapy-compass/cognitive-behavioural-therapy-cbt/brief", {
+    // The record is taken from the catalogue manifest rather than hardcoded.
+    // `/brief` calls notFound() for any record without a brief version, so a
+    // pinned slug silently turns this accessibility assertion into a 404 the
+    // moment that record's `briefInterventionAvailable` changes — which is
+    // exactly what happened when the flag stopped being asserted for all 205
+    // records and CBT, a "Group programme", correctly lost it.
+    expect(THERAPY_CATALOGUE_SUMMARY.defaultBriefSlug, "catalogue has no brief-capable record").toBeTruthy();
+    await page.goto(`/therapy-compass/${THERAPY_CATALOGUE_SUMMARY.defaultBriefSlug}/brief`, {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: "Brief Intervention" })).toBeVisible({ timeout: 60_000 });
