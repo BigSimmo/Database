@@ -177,7 +177,10 @@ export function MedicationNavHeader({
         if (isMedicationTabId(id)) onSelectTab(id);
       }}
       // Every slot carries a section count, so the four-slot band clips.
-      rail={{ label: "Medication sections", countedLabels: true }}
+      // `extended-counted`, named rather than inherited. Its four slots each
+      // carry an icon, a label and a count badge, so they need the wider bands
+      // this profile was calibrated for — not Therapy's wordmark bands.
+      rail={{ label: "Medication sections", density: "extended-counted", countedLabels: true }}
     />
   );
 }

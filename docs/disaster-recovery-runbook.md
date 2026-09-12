@@ -67,6 +67,10 @@ vs schema.sql (buckets, two triggers, a handful of indexes — item 10 in
 
 ## Retrieval verification on the restored copy (rehearsed 2026-07-07)
 
+### Site-content releases
+
+Public registry site content is restored as immutable `site_content_releases` and release-scoped records plus append-only P05 receipts. A release activation is permitted only after current `site_release` recovery-readiness evidence and its exact content-addressed activation receipt have been validated. Keep the previous release and its records retained: rollback may switch only to that exact release named by the activation receipt and must persist the exact P05 rollback receipt. It must not reconstruct or re-embed from mutable owner drafts. See [site-content-sync-runbook.md](site-content-sync-runbook.md) for the queue, activation, rollback, and hosted acceptance procedure.
+
 1. `search_schema_health()` → `ok: true, missing: []` on the restored copy.
 2. `schema_drift_snapshot()` → full inventory captured; this became
    `supabase/drift-manifest.json`.
@@ -122,6 +126,12 @@ idle_in_transaction_session_timeout` (in the migration chain, so a chain
   replay restores it; a schema.sql-only replay does not).
 
 ## Post-restore environment recovery controls & sanity checks
+
+### Site-content release transition recovery
+
+The site-content singleton is not recoverable from `active_release_id` alone. `active_transition_receipt_id` must resolve to the exact activation receipt for the active release or to the exact rollback receipt targeting it and linked to the rolled-back source activation. Treat a missing, ambiguous, cross-release, or malformed pointer as unavailable; never synthesize a receipt or choose one by timestamp.
+
+Rollback is a no-update operation: before it starts there must be no candidate release, live event, pending head pointer, or head beyond the served watermark. It is non-cascading and requires the current pointer to be an activation. A successful rollback preserves monotonic `change_epoch`, moves `served_change_epoch` to that current epoch, leaves completed events and canonical heads unchanged, and records the rollback pointer atomically. Rolling back to the retained bootstrap still leaves the control plane initialized; frozen database bytes may be read, but seed fallback and RAG/cache eligibility remain disabled. The next publication advances the canonical epoch and creates normal pending work; a subsequent activation is permitted only after validating the rollback predecessor chain.
 
 A schema restore is not operationally complete until all five environment-owned controls have been re-created and verified (`#326`, `docs/operator-backlog.md`). Follow this operational checklist after any schema restore or disaster recovery drill:
 

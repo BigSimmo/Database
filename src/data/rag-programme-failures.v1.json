@@ -1,0 +1,698 @@
+{
+  "schemaVersion": 1,
+  "caseSetFingerprint": "sha256:cb8585a08bb0b888582a9ba812ba1e751cf0a200844efbf27047f96922cb97b3",
+  "cases": [
+    {
+      "id": "direct-evidence-generic-refusal",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-local-guideline-direct-evidence"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local"],
+        "expectedSourceRoles": ["local_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["narrow", "focused"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["not_in_corpus", "retrieval_miss"],
+        "requiredFacts": ["direct_supported_answer"],
+        "forbiddenPatterns": ["generic_refusal"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "trusted-document-admission-access",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-active-owned-document"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local"],
+        "expectedSourceRoles": ["local_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary", "risk"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["focused"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["governance_block"],
+        "requiredFacts": ["trusted_admission_active", "ordinary_upload_denied", "private_staging_excluded"],
+        "forbiddenPatterns": ["staging_document_used", "legacy_private_document_used"],
+        "incrementalEligibility": "none"
+      }
+    },
+    {
+      "id": "broad-multi-intent-partial",
+      "latencyTargetMs": 8000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-broad-local-guideline"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local"],
+        "expectedSourceRoles": ["local_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary", "monitoring", "risk"],
+        "minimumDirectSubquestions": 2,
+        "allowedAnswerShapes": ["partial"],
+        "requireSupportedPart": true,
+        "requireExactGap": true,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["not_in_corpus"],
+        "requiredFacts": ["supported_sections_retained", "missing_subtopic_named"],
+        "forbiddenPatterns": ["whole_answer_refusal"],
+        "incrementalEligibility": "independent_sections"
+      }
+    },
+    {
+      "id": "uploaded-australian-augmentation",
+      "latencyTargetMs": 8000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-uploaded-guideline", "fixture-australian-guideline"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local", "australian_public"],
+        "expectedSourceRoles": ["local_guideline", "clinical_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary", "comparison_side"],
+        "minimumDirectSubquestions": 2,
+        "allowedAnswerShapes": ["focused", "comparison"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["retrieval_miss"],
+        "requiredFacts": ["local_primary", "eligible_australian_augmentation"],
+        "forbiddenPatterns": ["international_substitution"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "site-specifier-direct",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-site-specifier"],
+      "expectation": {
+        "expectedCorpusScopes": ["clinical_kb_site"],
+        "expectedSourceRoles": ["clinical_reference"],
+        "expectedSiteDomains": ["specifiers"],
+        "expectedPublicSiteContentState": "current",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["narrow"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["not_in_corpus", "site_content_stale"],
+        "requiredFacts": ["current_specifier_record"],
+        "forbiddenPatterns": ["stale_site_record"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "site-differential-direct",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-site-differential"],
+      "expectation": {
+        "expectedCorpusScopes": ["clinical_kb_site"],
+        "expectedSourceRoles": ["clinical_reference"],
+        "expectedSiteDomains": ["differentials"],
+        "expectedPublicSiteContentState": "current",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["focused"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["not_in_corpus", "site_content_stale"],
+        "requiredFacts": ["current_differential_record"],
+        "forbiddenPatterns": ["stale_site_record"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "site-medication-direct",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-site-medication"],
+      "expectation": {
+        "expectedCorpusScopes": ["clinical_kb_site"],
+        "expectedSourceRoles": ["clinical_reference"],
+        "expectedSiteDomains": ["medications"],
+        "expectedPublicSiteContentState": "current",
+        "expectedSubquestionPurposes": ["primary", "monitoring"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["focused"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["not_in_corpus", "site_content_stale"],
+        "requiredFacts": ["current_medication_record"],
+        "forbiddenPatterns": ["stale_site_record"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "site-cross-domain-coverage",
+      "latencyTargetMs": 8000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-site-service", "fixture-site-form", "fixture-site-tool"],
+      "expectation": {
+        "expectedCorpusScopes": ["clinical_kb_site"],
+        "expectedSourceRoles": ["service_directory", "form_reference", "tool_reference"],
+        "expectedSiteDomains": ["services", "forms", "tools"],
+        "expectedPublicSiteContentState": "current",
+        "expectedSubquestionPurposes": ["primary", "required_action"],
+        "minimumDirectSubquestions": 3,
+        "allowedAnswerShapes": ["comprehensive"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["retrieval_miss"],
+        "requiredFacts": ["bounded_cross_domain_coverage"],
+        "forbiddenPatterns": ["unbounded_retrieval_fanout"],
+        "incrementalEligibility": "independent_sections"
+      }
+    },
+    {
+      "id": "uploaded-guideline-primary",
+      "latencyTargetMs": 6000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-uploaded-guideline", "fixture-site-summary"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local", "clinical_kb_site"],
+        "expectedSourceRoles": ["local_guideline", "clinical_reference"],
+        "expectedSiteDomains": ["factsheets"],
+        "expectedPublicSiteContentState": "current",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["focused"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["source_role_mismatch"],
+        "requiredFacts": ["uploaded_guideline_primary"],
+        "forbiddenPatterns": ["derivative_summary_primary"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "site-product-primary",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-site-catalogue-record"],
+      "expectation": {
+        "expectedCorpusScopes": ["clinical_kb_site"],
+        "expectedSourceRoles": ["clinical_reference"],
+        "expectedSiteDomains": ["tools"],
+        "expectedPublicSiteContentState": "current",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["narrow"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["source_role_mismatch"],
+        "requiredFacts": ["site_catalogue_primary"],
+        "forbiddenPatterns": ["unrelated_uploaded_primary"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "site-changed-deleted-stale",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": [],
+      "expectation": {
+        "expectedCorpusScopes": ["clinical_kb_site"],
+        "expectedSourceRoles": ["clinical_reference"],
+        "expectedSiteDomains": ["services"],
+        "expectedPublicSiteContentState": "stale",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 0,
+        "allowedAnswerShapes": ["partial"],
+        "requireSupportedPart": false,
+        "requireExactGap": true,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["not_in_corpus"],
+        "requiredFacts": ["stale_release_named"],
+        "forbiddenPatterns": ["prior_deleted_content_served"],
+        "incrementalEligibility": "none"
+      }
+    },
+    {
+      "id": "uploaded-public-conflict",
+      "latencyTargetMs": 8000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-local-conflict-guideline", "fixture-australian-conflict-guideline"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local", "australian_public"],
+        "expectedSourceRoles": ["local_guideline", "clinical_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary", "comparison_side"],
+        "minimumDirectSubquestions": 2,
+        "allowedAnswerShapes": ["comparison"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": {
+          "localDocumentId": "fixture-local-conflict-guideline",
+          "australianDocumentId": "fixture-australian-conflict-guideline",
+          "requireVisibleFields": [
+            "source_identity",
+            "publication_or_effective_date",
+            "jurisdiction",
+            "source_role",
+            "material_difference",
+            "local_primary_decision",
+            "review_flag"
+          ]
+        },
+        "forbiddenFallbackReasons": ["source_conflict"],
+        "requiredFacts": ["local_primary", "review_provenance_visible"],
+        "forbiddenPatterns": ["conflict_silently_resolved"],
+        "incrementalEligibility": "none"
+      }
+    },
+    {
+      "id": "site-public-read-parity",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-canonical-public-site-release"],
+      "expectation": {
+        "expectedCorpusScopes": ["clinical_kb_site"],
+        "expectedSourceRoles": ["clinical_reference"],
+        "expectedSiteDomains": ["services"],
+        "expectedPublicSiteContentState": "current",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["narrow"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["governance_block"],
+        "requiredFacts": ["anonymous_authenticated_parity"],
+        "forbiddenPatterns": ["owner_scoped_public_read"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "site-admin-publication-only",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-canonical-public-site-release"],
+      "expectation": {
+        "expectedCorpusScopes": ["clinical_kb_site"],
+        "expectedSourceRoles": ["service_policy"],
+        "expectedSiteDomains": ["services"],
+        "expectedPublicSiteContentState": "current",
+        "expectedSubquestionPurposes": ["primary", "risk"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["focused"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["governance_block"],
+        "requiredFacts": ["administrator_mutation_only", "private_staging_excluded"],
+        "forbiddenPatterns": ["non_admin_publication", "private_document_exposed"],
+        "incrementalEligibility": "none"
+      }
+    },
+    {
+      "id": "source-role-mismatch",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": [],
+      "expectation": {
+        "expectedCorpusScopes": ["australian_public"],
+        "expectedSourceRoles": ["clinical_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 0,
+        "allowedAnswerShapes": ["partial"],
+        "requireSupportedPart": false,
+        "requireExactGap": true,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["not_in_corpus"],
+        "requiredFacts": ["role_mismatch_named"],
+        "forbiddenPatterns": [
+          "pbs_as_treatment_guideline",
+          "legal_as_treatment_guideline",
+          "regulatory_as_treatment_guideline"
+        ],
+        "incrementalEligibility": "none"
+      }
+    },
+    {
+      "id": "site-sync-unavailable",
+      "latencyTargetMs": 8000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-uploaded-guideline", "fixture-australian-guideline"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local", "clinical_kb_site", "australian_public"],
+        "expectedSourceRoles": ["local_guideline", "clinical_guideline"],
+        "expectedSiteDomains": ["services"],
+        "expectedPublicSiteContentState": "unavailable",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["partial"],
+        "requireSupportedPart": true,
+        "requireExactGap": true,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["not_in_corpus"],
+        "requiredFacts": ["site_lane_degraded", "uploaded_evidence_retained", "australian_evidence_retained"],
+        "forbiddenPatterns": ["whole_answer_refusal"],
+        "incrementalEligibility": "independent_sections"
+      }
+    },
+    {
+      "id": "australian-augmentation-unavailable",
+      "latencyTargetMs": 8000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-uploaded-guideline", "fixture-site-reference"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local", "clinical_kb_site", "australian_public"],
+        "expectedSourceRoles": ["local_guideline", "clinical_reference"],
+        "expectedSiteDomains": ["factsheets"],
+        "expectedPublicSiteContentState": "current",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["partial"],
+        "requireSupportedPart": true,
+        "requireExactGap": true,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["not_in_corpus"],
+        "requiredFacts": ["australian_lane_degraded", "uploaded_evidence_retained", "site_evidence_retained"],
+        "forbiddenPatterns": ["whole_answer_refusal"],
+        "incrementalEligibility": "independent_sections"
+      }
+    },
+    {
+      "id": "healthdirect-exclusion",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": [],
+      "expectation": {
+        "expectedCorpusScopes": ["australian_public"],
+        "expectedSourceRoles": ["clinical_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 0,
+        "allowedAnswerShapes": ["partial"],
+        "requireSupportedPart": false,
+        "requireExactGap": true,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": [],
+        "requiredFacts": ["healthdirect_excluded"],
+        "forbiddenPatterns": ["healthdirect_used"],
+        "incrementalEligibility": "none"
+      }
+    },
+    {
+      "id": "link-only-etg-amh",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": [],
+      "expectation": {
+        "expectedCorpusScopes": ["international_supplementary"],
+        "expectedSourceRoles": ["reference_link"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 0,
+        "allowedAnswerShapes": ["partial"],
+        "requireSupportedPart": false,
+        "requireExactGap": true,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": [],
+        "requiredFacts": ["link_only_boundary_visible"],
+        "forbiddenPatterns": ["etg_content_used", "amh_content_used"],
+        "incrementalEligibility": "none"
+      }
+    },
+    {
+      "id": "blocked-reference-upload",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": [],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local", "international_supplementary"],
+        "expectedSourceRoles": ["reference_link"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["risk"],
+        "minimumDirectSubquestions": 0,
+        "allowedAnswerShapes": ["partial"],
+        "requireSupportedPart": false,
+        "requireExactGap": true,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": [],
+        "requiredFacts": ["blocked_before_provider", "bounded_policy_diagnostic"],
+        "forbiddenPatterns": ["provider_artifact_created", "index_artifact_created", "protected_content_persisted"],
+        "incrementalEligibility": "none"
+      }
+    },
+    {
+      "id": "narrow-fact-concise",
+      "latencyTargetMs": 4000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-local-narrow-fact"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local"],
+        "expectedSourceRoles": ["local_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["narrow"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["not_in_corpus"],
+        "requiredFacts": ["narrow_fact_present"],
+        "forbiddenPatterns": ["unsupported_expansion"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "broad-supported-sections",
+      "latencyTargetMs": 8000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-broad-management-guideline"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local"],
+        "expectedSourceRoles": ["local_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary", "required_action", "monitoring", "risk"],
+        "minimumDirectSubquestions": 4,
+        "allowedAnswerShapes": ["comprehensive"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["retrieval_miss"],
+        "requiredFacts": ["all_supported_sections_retained"],
+        "forbiddenPatterns": ["supported_section_omitted"],
+        "incrementalEligibility": "independent_sections"
+      }
+    },
+    {
+      "id": "broad-management-strong-route",
+      "latencyTargetMs": 8000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-broad-management-guideline"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local"],
+        "expectedSourceRoles": ["local_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary", "required_action", "monitoring"],
+        "minimumDirectSubquestions": 2,
+        "allowedAnswerShapes": ["comprehensive"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["provider_failure"],
+        "requiredFacts": ["current_strong_route_eligible"],
+        "forbiddenPatterns": ["route_tuned_by_fixture"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "eight-section-completion",
+      "latencyTargetMs": 12000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-eight-section-guideline"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local"],
+        "expectedSourceRoles": ["local_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary", "required_action", "monitoring", "risk", "special_population"],
+        "minimumDirectSubquestions": 5,
+        "allowedAnswerShapes": ["comprehensive"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["provider_failure"],
+        "requiredFacts": ["eight_sections_complete", "bounded_self_heal_preserved"],
+        "forbiddenPatterns": ["partial_structured_answer_returned", "silent_max_output_tokens_degradation"],
+        "incrementalEligibility": "independent_sections"
+      }
+    },
+    {
+      "id": "anaphoric-follow-up",
+      "latencyTargetMs": 6000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-follow-up-guideline"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local"],
+        "expectedSourceRoles": ["local_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary", "special_population"],
+        "minimumDirectSubquestions": 1,
+        "allowedAnswerShapes": ["focused"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["retrieval_miss"],
+        "requiredFacts": ["one_prior_question_retained", "continuation_cue_required"],
+        "forbiddenPatterns": ["conversation_text_persisted", "unbounded_history_payload"],
+        "incrementalEligibility": "lead"
+      }
+    },
+    {
+      "id": "incremental-reconciliation",
+      "latencyTargetMs": 8000,
+      "privacyReview": {
+        "status": "approved_deidentified",
+        "reviewedOn": "2026-08-20",
+        "reviewerRole": "clinical_governance"
+      },
+      "expectedDocuments": ["fixture-incremental-guideline"],
+      "expectation": {
+        "expectedCorpusScopes": ["uploaded_local"],
+        "expectedSourceRoles": ["local_guideline"],
+        "expectedSiteDomains": [],
+        "expectedPublicSiteContentState": "not_applicable",
+        "expectedSubquestionPurposes": ["primary", "monitoring"],
+        "minimumDirectSubquestions": 2,
+        "allowedAnswerShapes": ["comprehensive"],
+        "requireSupportedPart": true,
+        "requireExactGap": false,
+        "expectedConflict": null,
+        "forbiddenFallbackReasons": ["provider_failure"],
+        "requiredFacts": ["lead_eligibility_proven", "section_eligibility_proven", "final_reconciliation_matched"],
+        "forbiddenPatterns": ["unverified_incremental_unit", "reconciliation_mismatch"],
+        "incrementalEligibility": "independent_sections"
+      }
+    }
+  ]
+}

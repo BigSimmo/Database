@@ -362,7 +362,7 @@ function factorLabelsFor(patient: MedicationPatientMetadata): string[] {
  * Only fields present in the profile are tested (partial profiles are normal).
  * Any row whose numeric/categorical gate the clinician did not supply is
  * surfaced separately — `unassessed` for contraindication rows, and
- * `unassessedAdvisory` for dosing/monitoring/caution rows — so a missing input is
+ * `unassessedAdvisory` for dosing/monitoring/caution/info rows — so a missing input is
  * never read as an all-clear at either tier.
  */
 export function evaluatePatientAlerts(record: MedicationRecord, profile: PatientProfile): PatientAlertResult {
@@ -397,11 +397,11 @@ export function evaluatePatientAlerts(record: MedicationRecord, profile: Patient
       // unevaluated, and reporting no gap there is exactly the false all-clear
       // this partition exists to prevent.
       if (missingGates.length === 0) continue;
-      // `info` rows carry no action to miss, so an unread gate on one is noise
-      // rather than a safety gap. Every other action — including an unknown one
-      // a future catalogue export might introduce — lands in the advisory tier,
-      // because the conservative direction is to state the gap, not drop it.
-      if (patient.action === "info") continue;
+      // Contraindications land in the blocking `unassessed` set, while every
+      // other action — caution, monitor, dose-adjust, info, and any unknown one
+      // a future catalogue export might introduce — lands in the advisory tier
+      // (`unassessedAdvisory`) so an unread gate on an info row does not hide
+      // under a false green all-clear.
       if (patient.action === "contraindication") {
         for (const gate of missingGates) unassessed.add(gate);
       } else {

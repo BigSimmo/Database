@@ -78,7 +78,7 @@ export const THERAPY_REVIEW_CHECK_KEYS = Object.freeze(THERAPY_REVIEW_CHECKS.map
 export const THERAPY_GENERATED_PATHS = Object.freeze({
   source: "src/data/therapies-source.json",
   serverIndex: "src/data/therapies-index.json",
-  manifest: "src/components/therapy-compass/data/generated-assets.ts",
+  manifest: "src/data/therapy-catalogue-assets.ts",
   publicDirectory: "public/therapy-compass-data",
   retiredHomeAlias: "therapies-home.json",
 });

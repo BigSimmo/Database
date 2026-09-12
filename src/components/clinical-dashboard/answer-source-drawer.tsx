@@ -32,7 +32,8 @@ import {
 } from "@/components/clinical-dashboard/answer-source-rows";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { type CanonicalAnswerTableRecord } from "@/lib/answer-render-policy";
-import type { QuoteCard, VisualEvidenceCard } from "@/lib/types";
+import type { VisualEvidenceCard } from "@/lib/types";
+import type { ClientQuoteCard as QuoteCard } from "@/lib/answer-client-payload";
 
 /**
  * Above this many sources the numbered pager stops being a scan and starts being

@@ -62,7 +62,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import type { AnswerState } from "@/components/ui/answer-state";
+import { answerUsesDegradedMode, type AnswerState } from "@/components/ui/answer-state";
 import { isAnswerSourceBacked, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
 import {
@@ -77,14 +77,12 @@ import {
 import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import { normalizeExtractedGlyphs, sourceTextForVerbatimQuote } from "@/lib/source-text-sanitizer";
 import type {
-  AnswerSection,
-  BestSourceRecommendation,
-  EvidenceSummary,
-  QuoteCard,
-  RagAnswer,
-  SearchResult,
-  VisualEvidenceCard,
-} from "@/lib/types";
+  ClientBestSourceRecommendation,
+  ClientQuoteCard,
+  ClientRagAnswerPayload,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
+import type { AnswerSection, EvidenceSummary, VisualEvidenceCard } from "@/lib/types";
 import { emptyStates } from "@/lib/ui-copy";
 import {
   type AnswerEvidenceMapRow,
@@ -135,8 +133,8 @@ type AnswerSupportPriority = {
  * treats as caution and which a clinician should verify for the same reason.
  */
 export function answerSupportPriority(
-  answer: RagAnswer,
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
+  answer: ClientRagAnswerPayload,
+  sections: Array<AnswerSection & { citationSources: ClientSearchResult[] }>,
   table: VisualEvidenceCard | null,
   safetyFindings: ReturnType<typeof extractSafetyFindings>,
   options: { grounded: boolean; weakEvidence: boolean; answerState?: AnswerState | null },
@@ -153,7 +151,7 @@ export function answerSupportPriority(
 
   const degradedState = options.answerState != null && options.answerState.kind !== "ready";
 
-  if (answer.answerQualityTier === "source_only" || !options.grounded || options.weakEvidence || degradedState) {
+  if (answerUsesDegradedMode(answer) || !options.grounded || options.weakEvidence || degradedState) {
     return {
       title: "Review source match",
       detail:
@@ -430,7 +428,7 @@ type ClinicalNotesRow = {
 function clinicalNoteHref(
   sourceIndex: number,
   sourceLinks: SourceLink[],
-  bestSource: BestSourceRecommendation | null,
+  bestSource: ClientBestSourceRecommendation | null,
 ): string | undefined {
   return sourceLinks[sourceIndex - 1]?.href ?? sourceLinks[0]?.href ?? bestSource?.viewer_href ?? undefined;
 }
@@ -616,17 +614,15 @@ function clinicalNoteHasDistinctDetail(row: ClinicalNotesRow) {
   return Boolean(detail) && detail !== title;
 }
 
-function clinicalNotesTableEvidenceCount(answer: RagAnswer) {
-  return (answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []).filter(
-    (item) => item.accessibleTableMarkdown || item.tableRows?.length,
-  ).length;
+function clinicalNotesTableEvidenceCount(answer: ClientRagAnswerPayload) {
+  return (answer.visualEvidence ?? []).filter((item) => item.accessibleTableMarkdown || item.tableRows?.length).length;
 }
 
 function clinicalNotesRowsForTab(
   sections: ClinicalDetailSection[],
   tab: ClinicalNotesTabId,
   sourceLinks: SourceLink[] = [],
-  bestSource: BestSourceRecommendation | null = null,
+  bestSource: ClientBestSourceRecommendation | null = null,
 ) {
   const meta = clinicalNotesTabMeta[tab];
   const rows: ClinicalNotesRow[] = [];
@@ -699,14 +695,13 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
  * evidence is passed separately).
  */
 export function trustGatedAnswerForClinicalNotes(
-  answer: RagAnswer,
+  answer: ClientRagAnswerPayload,
   visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
-): RagAnswer {
+): ClientRagAnswerPayload {
   if (isAnswerSourceBacked(answer)) {
     return {
       ...answer,
       visualEvidence,
-      smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence } : answer.smartPanel,
     };
   }
   // Clear free-text answer too: labeled Action/Monitoring prose can rebuild
@@ -720,7 +715,6 @@ export function trustGatedAnswerForClinicalNotes(
     comparisonMatrix: undefined,
     comparisonEvaluationState: undefined,
     visualEvidence,
-    smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence, quotes: [] } : answer.smartPanel,
   };
 }
 
@@ -731,11 +725,11 @@ export function trustGatedAnswerForClinicalNotes(
  * @param viewMode - Selects the standard or high-yield section set.
  * @returns The sorted clinical detail sections with display-ready items.
  */
-function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: AnswerViewMode) {
+function clinicalNotesDetailSectionsForAnswer(answer: ClientRagAnswerPayload, viewMode: AnswerViewMode) {
   const sections =
     viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
   const primaryAnswer = plainAnswerText(answer.answer, { preformatted: isPreformattedGroundedAnswer(answer) });
-  const keepVerifySource = answer.answerQualityTier === "source_only" || answer.grounded === false;
+  const keepVerifySource = answerUsesDegradedMode(answer) || answer.grounded === false;
   return sortClinicalDetailSections(
     sections
       .filter((section) => (keepVerifySource || section.id !== "verify-source") && section.id !== "bottom-line")
@@ -747,7 +741,11 @@ function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: Answe
   );
 }
 
-export function clinicalNotesDisplayCountForAnswer(answer: RagAnswer, viewMode: AnswerViewMode, fallback: number) {
+export function clinicalNotesDisplayCountForAnswer(
+  answer: ClientRagAnswerPayload,
+  viewMode: AnswerViewMode,
+  fallback: number,
+) {
   const tabs = clinicalNotesAvailableTabs(
     clinicalNotesDetailSectionsForAnswer(trustGatedAnswerForClinicalNotes(answer), viewMode),
   );
@@ -766,12 +764,12 @@ export function ClinicalNotesChecklistPanel({
   onCopy,
   onOpenTables,
 }: {
-  answer: RagAnswer;
+  answer: ClientRagAnswerPayload;
   visualEvidence: VisualEvidenceCard[];
   viewMode: AnswerViewMode;
   evidenceMapRows: AnswerEvidenceMapRow[];
   sourceLinks?: SourceLink[];
-  bestSource: BestSourceRecommendation | null;
+  bestSource: ClientBestSourceRecommendation | null;
   copied: boolean;
   onCopy: () => void;
   onOpenTables?: () => void;
@@ -1154,8 +1152,8 @@ export function SafetyFindingsListContent({ findings, query }: { findings: Safet
 }
 
 export function compactEvidenceSummary(
-  answer: RagAnswer,
-  sources: SearchResult[],
+  answer: ClientRagAnswerPayload,
+  sources: ClientSearchResult[],
   sourceSummary?: EvidenceSummary,
   renderModel?: AnswerRenderModel,
 ) {
@@ -1192,7 +1190,7 @@ function renderModelAllows(renderModel: AnswerRenderModel, block: AnswerRenderMo
   return renderModel.allowedBlocks.includes(block);
 }
 
-export function evidenceTabOrder(_answer: RagAnswer, renderModel: AnswerRenderModel): EvidenceTabName[] {
+export function evidenceTabOrder(_answer: ClientRagAnswerPayload, renderModel: AnswerRenderModel): EvidenceTabName[] {
   const order: EvidenceTabName[] = ["Claims", "Quotes", "Tables", "Images", "Gaps"];
   return order.filter((tab) => {
     if (tab === "Tables") {
@@ -1216,7 +1214,7 @@ export function evidenceTabCount({
   renderModel,
 }: {
   tab: EvidenceTabName;
-  sources: SearchResult[];
+  sources: ClientSearchResult[];
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   renderModel: AnswerRenderModel;
@@ -1236,13 +1234,13 @@ export function evidenceTabCount({
   return renderModel.warnings.length;
 }
 
-export function clinicalNotesCount(answer: RagAnswer) {
+export function clinicalNotesCount(answer: ClientRagAnswerPayload) {
   return buildHighYieldClinicalOutputSections(trustGatedAnswerForClinicalNotes(answer)).filter((section) =>
     ["action", "escalation", "thresholds", "cautions", "monitoring", "medication", "source-gap"].includes(section.id),
   ).length;
 }
 
-export function answerHasCentralTable(answer: RagAnswer) {
+export function answerHasCentralTable(answer: ClientRagAnswerPayload) {
   return (
     answer.queryClass === "table_threshold" ||
     answer.responseMode === "threshold_table" ||
@@ -1250,7 +1248,7 @@ export function answerHasCentralTable(answer: RagAnswer) {
   );
 }
 
-export function primaryVisualTable(answer: RagAnswer) {
+export function primaryVisualTable(answer: ClientRagAnswerPayload) {
   return answer.visualEvidence?.find((item) => item.accessibleTableMarkdown || item.tableRows?.length) ?? null;
 }
 
@@ -1378,13 +1376,12 @@ export { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/
 export function AnswerSafetyNotice({
   demoMode,
   weakEvidence = false,
-  retrievalDiagnostics,
+  retrievalGateBlocked = false,
 }: {
   demoMode: boolean;
   weakEvidence?: boolean;
-  retrievalDiagnostics?: RagAnswer["retrievalDiagnostics"];
+  retrievalGateBlocked?: boolean;
 }) {
-  const retrievalGateBlocked = retrievalDiagnostics?.gateStatus === "blocked";
   return (
     <div
       data-testid="answer-safety-notice"
@@ -1420,10 +1417,10 @@ export function QuoteCards({
   onScopeDocument,
   query,
 }: {
-  quotes: QuoteCard[];
+  quotes: ClientQuoteCard[];
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
-  onFollowUp?: (quote: QuoteCard) => void;
+  onFollowUp?: (quote: ClientQuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
   query?: string;
 }) {
@@ -1499,7 +1496,7 @@ export function QuoteCards({
   );
 }
 
-export function formatQuoteCardsForClipboard(quotes: QuoteCard[]) {
+export function formatQuoteCardsForClipboard(quotes: ClientQuoteCard[]) {
   return quotes
     .map((quote, index) =>
       [

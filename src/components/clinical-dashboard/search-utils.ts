@@ -3,11 +3,16 @@ import {
   type AnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
 import { isAnswerStreamEventName, type VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
+import { projectClientAnswerPayload, type ClientRagAnswerPayload } from "@/lib/answer-client-payload";
 import type { RagAnswer } from "@/lib/types";
 
 export { keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
 
-export type AnswerPayload = RagAnswer & { demoMode?: boolean };
+export type AnswerPayload = ClientRagAnswerPayload &
+  Pick<RagAnswer, "interactionId" | "feedbackToken"> & {
+    demoMode?: boolean;
+    fallbackMode?: "non_production_demo";
+  };
 
 export function evidencePreviewReconcilesWithFinal(preview: VerifiedEvidencePreviewUnit, finalPayload: AnswerPayload) {
   const finalSourcesByIdentity = new Map(
@@ -18,19 +23,25 @@ export function evidencePreviewReconcilesWithFinal(preview: VerifiedEvidencePrev
   );
 }
 
-const answerConfidenceValues = new Set<AnswerPayload["confidence"]>(["high", "medium", "low", "unsupported"]);
+function projectAnswerPayload(value: unknown): AnswerPayload | null {
+  const projected = projectClientAnswerPayload(value, true);
+  if (!projected || !value || typeof value !== "object" || Array.isArray(value)) return null;
+  const extensions = value as Record<string, unknown>;
+  if (extensions.interactionId !== undefined && typeof extensions.interactionId !== "string") return null;
+  if (extensions.feedbackToken !== undefined && typeof extensions.feedbackToken !== "string") return null;
+  if (extensions.demoMode !== undefined && typeof extensions.demoMode !== "boolean") return null;
+  if (extensions.fallbackMode !== undefined && extensions.fallbackMode !== "non_production_demo") return null;
+  return {
+    ...projected,
+    ...(typeof extensions.interactionId === "string" ? { interactionId: extensions.interactionId } : {}),
+    ...(typeof extensions.feedbackToken === "string" ? { feedbackToken: extensions.feedbackToken } : {}),
+    ...(typeof extensions.demoMode === "boolean" ? { demoMode: extensions.demoMode } : {}),
+    ...(extensions.fallbackMode === "non_production_demo" ? { fallbackMode: extensions.fallbackMode } : {}),
+  };
+}
 
 export function isAnswerPayload(value: unknown): value is AnswerPayload {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const payload = value as Record<string, unknown>;
-  return (
-    typeof payload.answer === "string" &&
-    typeof payload.grounded === "boolean" &&
-    answerConfidenceValues.has(payload.confidence as AnswerPayload["confidence"]) &&
-    Array.isArray(payload.citations) &&
-    Array.isArray(payload.sources) &&
-    (payload.demoMode === undefined || typeof payload.demoMode === "boolean")
-  );
+  return projectAnswerPayload(value) !== null;
 }
 
 export type SearchError = Error & {
@@ -154,7 +165,8 @@ export async function readAnswerStream(
       );
     }
     if (event === "final") {
-      if (!isAnswerPayload(data)) {
+      const finalPayload = projectAnswerPayload(data);
+      if (!finalPayload) {
         pendingCompletion = null;
         clearEvidencePreview();
         throw makeSearchError("Answer stream returned an invalid final payload.", 502, true);
@@ -163,14 +175,14 @@ export async function readAnswerStream(
         // The final payload is authoritative in both outcomes. Reconciliation is
         // deliberately evaluated before the preview is discarded so client tests
         // guard the byte-identical subset contract without ever withholding final.
-        evidencePreviewReconcilesWithFinal(evidencePreview, data);
+        evidencePreviewReconcilesWithFinal(evidencePreview, finalPayload);
       }
       clearEvidencePreview();
       if (pendingCompletion) {
         onProgress(pendingCompletion);
         pendingCompletion = null;
       }
-      return data;
+      return finalPayload;
     }
 
     return null;
@@ -262,9 +274,7 @@ export function answerPayloadIsUsable(payload: AnswerPayload) {
   const answerText = payload.answer.trim();
   if (!answerText) return false;
   if (payload.confidence === "unsupported") {
-    const hasGapContext = Boolean(
-      payload.relevance || payload.smartPanel?.relevance || payload.sources?.length || payload.relatedDocuments?.length,
-    );
+    const hasGapContext = Boolean(payload.relevance || payload.sources?.length || payload.relatedDocuments?.length);
     return hasGapContext;
   }
 
