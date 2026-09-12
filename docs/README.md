@@ -32,6 +32,7 @@ npm run docs:check-links
 - [wiring-conventions.md](wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
 - [search-chrome-behaviour.md](search-chrome-behaviour.md) — shared search-chrome contract: composer ownership, phone edge-to-edge dock, hide/reveal reserves
 - [mockup-retirement-policy.md](mockup-retirement-policy.md) — when a mockup may be deleted, who decides, what evidence is required, and the three tiers that keep developer-gated prototypes out of cleanup scope
+- [developer-area-access.md](developer-area-access.md) — how the four developer-gated `/mockups` subtrees are protected, the passwordless `?devkey` link and its setup, what the link deliberately does not grant, and how to revoke it
 - [search-results-bar-decisions.md](search-results-bar-decisions.md) — shared results-bar anatomy, why the filter shelf is scoped to two modes, and what is deliberately not done
 - [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
 - [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states (dated 2026-07-07 race analysis; the lease is heartbeated and fenced since 2026-07-08 — see its status banner)
@@ -153,7 +154,7 @@ Every remaining tracked document in this category (operations, plus the `rag-beh
 
 Every remaining tracked document in this category, one line each; the description is the document's own title, with its opening sentence where that adds something.
 
-- [medication-interaction-lexicon-review.md](medication-interaction-lexicon-review.md) — Medication interaction lexicon — clinical review sheet — Status: reviewed 2026-08-22 — see the sign-off at the bottom.
+- [medication-interaction-lexicon-review.md](medication-interaction-lexicon-review.md) — Medication interaction lexicon — clinical review sheet — Status: reviewed 2026-09-06 — see the sign-off at the bottom.
 - [medication-lexicon-review-worklist.md](medication-lexicon-review-worklist.md) — Medication lexicon — clinician reading worklist (#318) — This is a reading aid, not a review.
 - [services-mode-governance.md](services-mode-governance.md) — Services Mode Governance — A Services record is not “current” merely because its prose is plausible or its confidence is high.
 

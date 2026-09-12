@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { MIN_DEVELOPER_ACCESS_KEY_LENGTH } from "@/lib/developer-area/link-access";
 import { resolvePythonBin } from "@/lib/python-bin";
 import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
 import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
@@ -8,6 +9,16 @@ import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
 /** Treat blank/whitespace as unset so optional placeholders can remain empty without failing validation. */
 function coerceBlankEnv(value: unknown): unknown {
   return typeof value === "string" && value.trim() === "" ? undefined : value;
+}
+
+/**
+ * The passwordless developer link is intentionally fail-closed when its key is
+ * unset or under-strength. Normalizing those values before schema validation
+ * keeps that runtime fallback reachable instead of preventing proxy startup.
+ */
+function coerceDeveloperAreaAccessKey(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  return value.trim().length < MIN_DEVELOPER_ACCESS_KEY_LENGTH ? undefined : value;
 }
 
 const clinicalAskDisabledModeIds = new Set([
@@ -75,6 +86,17 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
   LOCAL_NO_AUTH_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
+  // Passwordless access to the developer-gated /mockups subtrees: the secret a
+  // bookmarked `?devkey=…` link presents once, which src/proxy.ts exchanges for a
+  // signed, long-lived cookie. Server-only and never NEXT_PUBLIC_ — a public
+  // build-time flag opening this area is precisely #L30. Optional: unset means
+  // the link route is off and the administrator sign-in is the only way in. The
+  // 32-character floor is enforced rather than advisory because this secret
+  // travels in a URL, where it is visible in browser history and screen shares.
+  DEVELOPER_AREA_ACCESS_KEY: z.preprocess(
+    coerceDeveloperAreaAccessKey,
+    z.string().min(MIN_DEVELOPER_ACCESS_KEY_LENGTH).optional(),
+  ),
   // Keep `z.` at the call site so `check-env-parity` parseEnvSchemaNames sees these names.
   NEXT_PUBLIC_SENTRY_DSN: z.preprocess(coerceBlankEnv, z.string().url().optional()),
   NEXT_PUBLIC_SENTRY_RELEASE: z.string().optional(),
