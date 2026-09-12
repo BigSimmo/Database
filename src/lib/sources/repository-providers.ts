@@ -6,9 +6,9 @@ import formsPdfManifest from "../../../data/forms-pdf-manifest.json";
 import formsSnapshot from "../../../data/forms-page-snapshot.json";
 import dsmClinicalContent from "../../data/dsm-clinical-content.json";
 import therapiesSource from "../../data/therapies-source.json";
-import { calculatorEvidence, type CalculatorEvidenceSource } from "../../components/calculators/calculator-evidence";
-import { allCalculatorFixtures } from "../../components/calculators/calculator-fixtures";
-import { factsheets } from "../../components/factsheets/factsheets-data";
+import { calculatorEvidence, type CalculatorEvidenceSource } from "@/lib/calculators/calculator-evidence";
+import { allCalculatorFixtures } from "@/lib/calculators/calculator-fixtures";
+import { factsheets } from "@/lib/factsheets-data";
 import {
   dictionaryComparisonPairs,
   dictionaryEntries,
@@ -166,7 +166,7 @@ function factsheetEvidenceType(tag: string): ClinicalSourceType {
 
 const factsheetProvider: ClinicalSourceProvider = {
   id: "factsheets",
-  sourcePaths: ["src/components/factsheets/factsheets-data.ts"],
+  sourcePaths: ["src/lib/factsheets-data.ts"],
   references: () =>
     factsheets.flatMap((sheet) =>
       sheet.sources.map((source) =>
@@ -557,7 +557,7 @@ const calculatorEvidenceById = new Map(calculatorEvidence.sources.map((source) =
 
 const calculatorProvider: ClinicalSourceProvider = {
   id: "calculators",
-  sourcePaths: ["data/calculators/evidence.json", "src/components/calculators/calculator-fixtures.ts"],
+  sourcePaths: ["data/calculators/evidence.json", "src/lib/calculators/calculator-fixtures.ts"],
   references: () =>
     allCalculatorFixtures.flatMap((calculator) =>
       calculator.sourceIds.flatMap((sourceId) => {

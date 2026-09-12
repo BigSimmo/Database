@@ -282,6 +282,7 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
 - Prefer local, static, mocked, or offline checks. If a recommended verification would touch a provider, report the command and ask before running it.
 - `npm run check:supabase-project`, live PR/CI tooling, answer-generation checks, ingestion checks against live services, and release gates that call providers are not automatic.
 - Exception: the `Run PR` shortcut (see "## Run PR shortcut") is standing user confirmation for the specific GitHub actions it enumerates, for the duration of that sweep only.
+- Exception: the `Clear PRs` shortcut (see "## Clear PRs shortcut") authorizes one finite sequential merge batch, including bounded repair API usage and the resulting Railway deployments, within its documented exclusions.
 
 <!-- END:api-confirmation-boundary -->
 
@@ -305,6 +306,10 @@ For the anti-churn branch-sync mitigations and the `git merge-tree` test that te
 
 For the `Run PR` open-PR maintenance sweep — what it authorizes, its hard guardrails, and its procedure, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
 <!-- END:run-pr-shortcut -->
+
+## Clear PRs shortcut
+
+When the user says `Clear PRs` (case-insensitive, entire message after trimming), invoke the sequential PR batch runner using [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md#clear-prs-shortcut). This authorizes the documented batch actions without another launch confirmation. Read that procedure before dispatch; do not substitute the maintenance-only `Run PR` sweep.
 
 ## Babysit the pull request, then stop
 

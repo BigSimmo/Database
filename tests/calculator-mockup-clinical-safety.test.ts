@@ -19,7 +19,7 @@ import { describe, expect, it } from "vitest";
 const REPO_ROOT = join(import.meta.dirname, "..");
 
 const COPY_FILES = [
-  "src/components/calculators/calculator-fixtures.ts",
+  "src/lib/calculators/calculator-fixtures.ts",
   "src/components/calculators/calculator-pathways.ts",
   "src/components/calculator-mockups/calculator-fixtures.ts",
   "src/components/calculator-mockups/calculator-pathways.ts",

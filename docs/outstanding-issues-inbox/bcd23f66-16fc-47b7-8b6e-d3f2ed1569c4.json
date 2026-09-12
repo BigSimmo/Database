@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "bcd23f66-16fc-47b7-8b6e-d3f2ed1569c4",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "DSM-5-TR specifier catalogue has no clinician sign-off: 585 items, 71 source-verified, 0 reviewed",
+    "detail": "The Specifiers mode (search, detail routes, Map, and now the Build catalogue path) serves 585 specifier items across 131 disorders from data/specifiers-search-index.json. 71 carry a verified source; every one of the 585 is still clinician-review-pending, and the dataset lastUpdated is 2026-05-09. Generated definitions are correctly withheld and PR #2726 now renders ReviewStatusBadge on each option at the point of selection, so the state is honest on screen, but the underlying review has never been done. This is a qualified-clinician task, not a code task: a psychiatrist has to read each entry against current DSM-5-TR / ICD-11 materials and record the outcome in the review fields (sourceVerificationStatus, clinicianReviewStatus) that data/specifiers-content.json already carries. Scope it in tranches by category rather than as one pass. Until it is done, the builder must keep its aide-memoire framing and must not be described as decision support.",
+    "source": "PR #2726 (BigSimmo/Database), specifier builder review-status work",
+    "issueUlid": "01M1XS1N1YZ3GZ5PDNEACPWDY8"
+  }
+}

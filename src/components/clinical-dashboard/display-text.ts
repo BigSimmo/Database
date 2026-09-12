@@ -1,38 +1,22 @@
 import {
   normalizeExtractedGlyphs,
   normalizeInlineBulletGlyphs,
-  normalizePreformattedDisplayText,
   sourceTextForCompactDisplay,
   sourceTextForClinicalProse,
   sourceTextForClinicalProsePreservingBreaks,
   stripClassificationBanner,
 } from "@/lib/source-text-sanitizer";
-import { polishClinicalAnswerProse } from "@/lib/rag/rag-answer-text";
-
-const displayJsonArtifactPattern =
-  /"?(answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|conflictsOrGaps|quoteCards?|source_chunk_ids|chunk_id)"?\s*:\s*/i;
-
-export type DisplayTextSanitizeOptions = {
-  minLength?: number;
-  minTokens?: number;
-  compactSource?: boolean;
-  // Server-`preformatted` answers (doc-support lists, table/visual references)
-  // are display-ready by construction; run only lossless normalization so their
-  // document names / facility codes are not deleted as "source noise".
-  preformatted?: boolean;
-  // Keep server high-yield bold (**…**) so <SafeBoldText> can render it.
-  preserveBold?: boolean;
-};
-
-/**
- * Normalizes display text by trimming surrounding whitespace and collapsing internal whitespace.
- *
- * @param value - The display text to normalize
- * @returns The normalized display text
- */
-export function normalizeDisplayText(value: string) {
-  return value.trim().replace(/\s+/g, " ");
-}
+import {
+  looksLikeDisplayArtifact,
+  normalizeDisplayText,
+  type DisplayTextSanitizeOptions,
+} from "@/lib/answer-display-text";
+export {
+  looksLikeDisplayArtifact,
+  normalizeDisplayText,
+  sanitizeAnswerDisplayText,
+  type DisplayTextSanitizeOptions,
+} from "@/lib/answer-display-text";
 
 /**
  * Prepares an extracted source passage for the answer preview without changing
@@ -59,18 +43,6 @@ export function sourceQuoteDisplayText(value: string) {
     .replace(/^\.\s*/, "")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-export function looksLikeDisplayArtifact(value: string) {
-  const normalized = normalizeDisplayText(value);
-  if (!normalized) return true;
-  const quoteCount = (normalized.match(/"/g) ?? []).length;
-  const colonCount = (normalized.match(/:/g) ?? []).length;
-  if (normalized.startsWith("{") && normalized.endsWith("}") && displayJsonArtifactPattern.test(normalized))
-    return true;
-  if (/[{}\[\]]/.test(normalized) && quoteCount >= 4 && colonCount >= 2 && displayJsonArtifactPattern.test(normalized))
-    return true;
-  return false;
 }
 
 export function sanitizeDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
@@ -219,37 +191,6 @@ export function compactSourceSnippet(value: string, options: CompactSourceSnippe
   if (leadingContinuation) text = `… ${text}`;
   if (truncatedTail && !/(?:\.{3}|…)$/.test(text)) text = `${text} …`;
   return text;
-}
-
-/**
- * Sanitizes answer text for display while removing embedded artifacts and low-information content.
- *
- * @param options - Controls minimum content thresholds, preformatted text handling, and bold formatting preservation.
- * @returns The cleaned answer text, or an empty string when the input is empty, invalid, or artifact-like.
- */
-export function sanitizeAnswerDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
-  const normalized = (
-    options.preformatted
-      ? normalizePreformattedDisplayText(value, {
-          preserveBold: options.preserveBold,
-        })
-      : polishClinicalAnswerProse(sourceTextForClinicalProsePreservingBreaks(value), {
-          preserveBold: options.preserveBold,
-        })
-  ).trim();
-  if (!normalized) return "";
-  const artifactStart = normalizeDisplayText(normalized).search(
-    /\{\s*"(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|source_chunk_ids|chunk_id|conflictsOrGaps|quoteCards?)\s*:/i,
-  );
-  const trimmed =
-    artifactStart === -1 ? normalized : artifactStart === 0 ? "" : normalized.slice(0, artifactStart).trim();
-  if (!trimmed) return "";
-  const { minLength = 2, minTokens = 1 } = options;
-  if (trimmed.length < minLength) return "";
-  const tokenCount = normalizeDisplayText(trimmed).split(/\s+/).filter(Boolean).length;
-  if (tokenCount < minTokens) return "";
-  if (!/[A-Za-z]{2,}/.test(trimmed)) return "";
-  return looksLikeDisplayArtifact(trimmed) ? "" : trimmed;
 }
 
 export function cleanDisplayTitle(title: string) {

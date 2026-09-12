@@ -1,15 +1,13 @@
 "use client";
 
+import { primaryAnswerDisplayText as canonicalPrimaryAnswerDisplayText } from "@/lib/answer-display-text";
+
 import { Fragment, memo, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { chatActionRow, chatAnswerText, chatMicroAction, cn } from "@/components/ui-primitives";
-import {
-  cleanDisplayTitle,
-  comparableAnswerText,
-  sanitizeAnswerDisplayText,
-} from "@/components/clinical-dashboard/display-text";
+import { cleanDisplayTitle, comparableAnswerText } from "@/components/clinical-dashboard/display-text";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { AnswerSourceRail } from "@/components/clinical-dashboard/answer-source-rail";
 import { AnswerSourceMark, AnswerSourceMarkOverflow } from "@/components/clinical-dashboard/answer-source-mark";
@@ -20,17 +18,10 @@ import {
 } from "@/components/clinical-dashboard/answer-source-rows";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
-import { type ClaimMarkCluster, resolveClaimMarks } from "@/lib/answer-claim-marks";
+import { type ClaimMarkCluster, type SupportedClaim, resolveClaimMarks } from "@/lib/answer-claim-marks";
 import { type SourceLink } from "@/lib/answer-render-policy";
-import type {
-  AnswerSection,
-  AnswerSectionKind,
-  BestSourceRecommendation,
-  RagAnswer,
-  SearchResult,
-  SupportedClaim,
-  VisualEvidenceCard,
-} from "@/lib/types";
+import type { AnswerSection, AnswerSectionKind, RagAnswer, VisualEvidenceCard } from "@/lib/types";
+import type { ClientBestSourceRecommendation, ClientSearchResult } from "@/lib/answer-client-payload";
 
 export const SourceImage = memo(function SourceImage({
   endpoint,
@@ -72,37 +63,12 @@ export function isPreformattedGroundedAnswer(answer: Pick<RagAnswer, "preformatt
   return Boolean(answer?.preformatted && answer?.grounded);
 }
 
-// Fragments carrying a safety-critical signal must never be dropped by the
-// compact 3-fragment / 85-word cap — a withhold/threshold/escalation caveat
-// hidden from the primary prose is a clinical-safety regression.
-// Covers the common withhold / withdrawal / contraindication / negation /
-// escalation directives so a short safety caveat is never dropped from the
-// compact primary answer. Kept deliberately broad (matching a non-safety
-// fragment only preserves it verbatim — the safe direction).
-const primaryAnswerSafetySignalPattern =
-  /\b(?:withhold|withheld|stop|cease|discontinue\w*|suspend\w*|hold|held|threshold|escalat\w*|urgent|immediately|never|avoid|contraindicat\w*|toxic|red\s*zone|amber|(?:do|must|should|will)\s+not|not\s+recommended)\b/i;
-
-// Test against a de-bolded copy so server bold markers inside a phrase
-// ("do **not** administer", "red **zone**") on the preserveBold path can never
-// defeat the safety match and let a caveat be dropped by the compact cap.
-function isPrimaryAnswerSafetyFragment(fragment: string) {
-  return primaryAnswerSafetySignalPattern.test(fragment.replace(/\*\*/g, ""));
-}
-
 // Shared tail of the sanitize path: run the display sanitizer, then strip the
 // synthetic-demo notice both plainAnswerText and primaryAnswerDisplayText need
 // removed before the text reaches the screen.
 function sanitizeAndStripSyntheticNotice(value: string, options: AnswerDisplayTextOptions) {
-  return sanitizeAnswerDisplayText(value, {
-    minLength: 8,
-    minTokens: 2,
-    preformatted: options.preformatted,
-    preserveBold: options.preserveBold,
-  })
-    .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
-    .trim();
+  return canonicalPrimaryAnswerDisplayText(value, options);
 }
-
 /**
  * Produces sanitized, display-ready text for an answer.
  *
@@ -118,126 +84,27 @@ export function plainAnswerText(value: string, options: AnswerDisplayTextOptions
 }
 
 /**
- * Selects and compacts the primary answer text while preserving safety-critical guidance.
+ * Produces the complete, sanitized primary answer text.
  *
  * @param value - The answer text to prepare for display
  * @param options - Formatting options, including preformatted mode
  * @returns The display-ready answer text
  */
 export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTextOptions = {}) {
-  return primaryAnswerDisplayFragments(value, options)
-    .map((fragment) => fragment.display)
-    .join(" ");
+  return sanitizeAndStripSyntheticNotice(value, options);
 }
 
-/**
- * One displayed sentence of the primary answer.
- *
- * `raw` exists because the two texts a source mark has to reconcile took
- * different routes: the server split its claims from the answer *before* the
- * prose-usefulness pass rewrote a sentence for display. Matching on `raw` is
- * what lets a mark restate an attribution the pipeline already made, rather
- * than re-deriving one from the rewritten text.
- */
-export type AnswerDisplayFragment = {
-  /** What the reader sees. */
-  display: string;
-  /** The same sentence before the usefulness pass — the text `splitClaims` saw. */
-  raw: string;
-  /** True when the word budget cut this sentence short. A cut sentence is not the claim. */
-  truncated: boolean;
-};
+export type AnswerDisplayFragment = { display: string; raw: string; truncated: boolean };
 
-/**
- * Selects and compacts the primary answer, sentence by sentence, preserving
- * safety-critical guidance.
- *
- * `primaryAnswerDisplayText` is `fragments.map(display).join(" ")` and nothing
- * else, so splitting the prose for marks cannot change a single character of
- * what is displayed. `tests/answer-content.test.ts` pins that equivalence.
- *
- * @param value - The answer text to prepare for display
- * @param options - Formatting options, including preformatted mode
- * @returns The display-ready sentences, in order
- */
+/** Preserve every verified word; sentence boundaries only attach existing claim marks. */
 export function primaryAnswerDisplayFragments(
   value: string,
   options: AnswerDisplayTextOptions = {},
 ): AnswerDisplayFragment[] {
-  // Deterministic preformatted answers are already concise and display-ready;
-  // the fragment-level usefulness pass below would re-strip the very names/codes
-  // the preformatted path just preserved, so return them as-is — one fragment,
-  // whitespace and all, which is also why they carry no marks.
-  if (options.preformatted) {
-    const text = plainAnswerText(value, options);
-    return text ? [{ display: text, raw: text, truncated: false }] : [];
-  }
-  // Skip whole-text clinicalProseUsefulness: its 3-token floor drops short
-  // safety sentences ("Stop lithium.") before the fragment-level safety
-  // bypass below can rescue them.
-  const cleaned = sanitizeAndStripSyntheticNotice(value, { preformatted: false, preserveBold: options.preserveBold });
-  const prepared = cleaned
-    .split(/\r?\n+/)
-    .flatMap((line: string) =>
-      line.split(/(?<=[.!?])\s+(?=(?:[A-Z]|\*\*|If\b|When\b|Do\b|Use\b|Monitor\b|Escalate\b|Document\b))/),
-    )
-    .map((fragment: string) =>
-      fragment
-        .replace(/^(?:[-*•]|\d+[.)])\s+/, "")
-        .replace(
-          /^(?:\*\*)?(?:answer|summary|bottom line|direct answer|clinical point|key point|required actions?|monitoring(?:\/timing)?|thresholds?|dose detail|medication(?:\/dose details?)?|escalation(?:\/risk)?|risk|safety|documentation(?:\/forms)?|source gaps?)(?:\*\*)?:\s+/i,
-          "",
-        )
-        .trim(),
-    )
-    // Safety-bearing fragments pass through untouched and are never dropped by
-    // the usefulness/length gate — a short caveat like "Contraindicated in
-    // pregnancy" (under the 8-word floor) must still reach the display.
-    .map((raw: string) => ({
-      raw,
-      display: isPrimaryAnswerSafetyFragment(raw) ? raw : clinicalProseUsefulness(raw).text || raw,
-    }))
-    .filter(({ display }) => {
-      if (!display) return false;
-      if (isPrimaryAnswerSafetyFragment(display)) return true;
-      const useful = clinicalProseUsefulness(display);
-      return useful.useful || display.split(/\s+/).length >= 8;
-    });
-  const uniqueFragments: AnswerDisplayFragment[] = [];
-  const seenDisplay = new Set<string>();
-  for (const fragment of prepared) {
-    if (seenDisplay.has(fragment.display)) continue;
-    seenDisplay.add(fragment.display);
-    uniqueFragments.push({ ...fragment, truncated: false });
-  }
-  const selected: AnswerDisplayFragment[] = [];
-  let nonSafetyKept = 0;
-  let wordBudget = 85;
-  for (const fragment of uniqueFragments) {
-    if (isPrimaryAnswerSafetyFragment(fragment.display)) {
-      selected.push(fragment);
-      continue;
-    }
-    if (nonSafetyKept >= 3 || wordBudget <= 0) continue;
-    nonSafetyKept += 1;
-    const words = fragment.display.split(/\s+/).filter(Boolean);
-    if (words.length <= wordBudget) {
-      selected.push(fragment);
-      wordBudget -= words.length;
-    } else {
-      selected.push({
-        ...fragment,
-        display: `${words
-          .slice(0, wordBudget)
-          .join(" ")
-          .replace(/[;,:-]\s*$/, "")}...`,
-        truncated: true,
-      });
-      wordBudget = 0;
-    }
-  }
-  if (selected.length) return selected;
-  return cleaned ? [{ display: cleaned, raw: cleaned, truncated: false }] : [];
+  const cleaned = primaryAnswerDisplayText(value, options);
+  if (!cleaned) return [];
+  if (options.preformatted) return [{ display: cleaned, raw: cleaned, truncated: false }];
+  return cleaned.split(/(?<=[.!?])\s+(?=[A-Z*])/).map((text) => ({ display: text, raw: text, truncated: false }));
 }
 
 /**
@@ -397,16 +264,11 @@ export function NaturalLanguageAnswer({
   text: string;
   query?: string;
   preformatted?: boolean;
-  /**
-   * The Key points rail, rendered at the seam between the answer and its
-   * sources. Passed in rather than derived here because the surface owns the
-   * findings and the sheet they open; this component owns only where the seam
-   * is.
-   */
+  sourceCount?: number;
+  sourceOnly?: boolean;
+  bestSource: ClientBestSourceRecommendation | null;
+  sources: ClientSearchResult[];
   clinicalPoints?: ReactNode;
-  /** Direct route used by expanded source-currency detail. */
-  bestSource: BestSourceRecommendation | null;
-  sources: SearchResult[];
   sourceLinks: SourceLink[];
   /**
    * `answer.supportedClaims`. Absent on a historical turn and on any answer the
@@ -582,7 +444,7 @@ function keyClinicalItemFromText(item: string): KeyClinicalItem | null {
 }
 
 export function keyClinicalItemsFromSections(
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
+  sections: Array<AnswerSection & { citationSources: ClientSearchResult[] }>,
 ): KeyClinicalItem[] {
   const usefulKinds = new Set<AnswerSectionKind | undefined>([
     "required_actions",

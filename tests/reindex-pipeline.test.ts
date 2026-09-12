@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   abandonedReindexGenerationTotal,
+  assertDocumentGenerationPromotionIdentity,
   committedIndexGeneration,
   hasAbandonedReindexGenerations,
   imageRowNeedsGenerationRestamp,
@@ -158,5 +159,27 @@ describe("reindex pipeline queue state", () => {
     ).toBe(3);
     expect(hasAbandonedReindexGenerations({ document_chunks: 0, document_images: 0 })).toBe(false);
     expect(hasAbandonedReindexGenerations({ document_chunks: 0, document_images: 1 })).toBe(true);
+  });
+
+  it("requires an immutable previous-generation pointer for document promotion receipts", () => {
+    const identity = {
+      kind: "document_generation" as const,
+      documentId: "document-42",
+      generationId: "generation-current",
+      generationDigest: "a".repeat(64),
+      previousGenerationId: "generation-previous",
+      previousGenerationDigest: "b".repeat(64),
+    };
+
+    expect(assertDocumentGenerationPromotionIdentity(identity)).toBe(identity);
+    expect(() => assertDocumentGenerationPromotionIdentity({ ...identity, previousGenerationId: undefined })).toThrow(
+      /previousGenerationId/,
+    );
+    expect(() =>
+      assertDocumentGenerationPromotionIdentity({ ...identity, generationId: "generation-previous" }),
+    ).toThrow(/distinct/i);
+    expect(() => assertDocumentGenerationPromotionIdentity({ ...identity, siteReleaseId: "wrong-domain" })).toThrow(
+      /unsupported fields/i,
+    );
   });
 });

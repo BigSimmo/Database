@@ -1,5 +1,9 @@
 import { env } from "@/lib/env";
-import type { RagAnswer } from "@/lib/types";
+import { rankAnswerEvidence } from "@/lib/answer-ranking";
+import { buildCrossDocumentFusionBrief, buildCrossDocumentSynthesisPlan } from "@/lib/cross-document-synthesis";
+import { buildAnswerScoreExplanations, buildIndexingQuality, collectMemoryCards } from "@/lib/rag/rag-answer-support";
+import { memoryCardChunkScore } from "@/lib/rag/rag-candidate-sources";
+import type { RagAnswer, RagQueryClass } from "@/lib/types";
 
 type AnswerLatencyTimings = NonNullable<RagAnswer["latencyTimings"]>;
 
@@ -45,6 +49,48 @@ export function answerLatencyMetadata(
     generation_latency_ms: generationLatencyMs,
     total_latency_ms: timings?.total_latency_ms ?? Date.now() - startedAt,
     ...extendedAnswerTelemetryFields(timings),
+  };
+}
+
+/** Persist answer-scoped evidence metadata from the exact sources that survived final retention. */
+export function answerScopedEvidenceMetadata(
+  query: string,
+  queryClass: RagQueryClass,
+  answer: Pick<RagAnswer, "sources" | "indexingVersion">,
+) {
+  const sources = answer.sources;
+  const ranking = rankAnswerEvidence(query, sources, queryClass);
+  const crossDocumentPlan = buildCrossDocumentSynthesisPlan(query, sources, queryClass);
+  const fusionBrief = crossDocumentPlan.enabled
+    ? buildCrossDocumentFusionBrief(query, crossDocumentPlan.results)
+    : null;
+  const memoryCards = collectMemoryCards(sources);
+  const indexingQuality = buildIndexingQuality(sources, memoryCards);
+  const scoreExplanations = buildAnswerScoreExplanations(sources);
+  return {
+    answer_rank_top_score: ranking.topScore,
+    answer_ranked_source_count: ranking.rankedSourceCount,
+    answer_rank_strategy: ranking.strategy,
+    answer_rank_query_class: ranking.queryClass,
+    cross_document_synthesis: crossDocumentPlan.enabled,
+    cross_document_reason: crossDocumentPlan.reason,
+    cross_document_count: crossDocumentPlan.documentCount,
+    cross_document_selected_count: crossDocumentPlan.selectedDocumentCount,
+    cross_document_selected_source_count: crossDocumentPlan.selectedSourceCount,
+    cross_document_fusion_bullets: fusionBrief?.bulletCount ?? 0,
+    cross_document_fusion_source_chunk_ids: fusionBrief?.sourceChunkIds ?? [],
+    memory_card_count: memoryCards.length,
+    memory_top_score: Number(
+      Math.max(
+        0,
+        ...sources.map((source) => source.memory_score ?? 0),
+        ...memoryCards.map(memoryCardChunkScore),
+      ).toFixed(4),
+    ),
+    indexing_version: answer.indexingVersion ?? indexingQuality.indexingVersion ?? null,
+    indexing_extraction_quality: indexingQuality.extractionQuality,
+    indexing_stale: indexingQuality.stale,
+    ...scoreExplanationLogMetadata(scoreExplanations),
   };
 }
 

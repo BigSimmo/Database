@@ -137,11 +137,45 @@ describe("source-backed recovery gate — cross-reference guard", () => {
   });
 
   it("still rescues a legitimate source-backed paraphrase with the same strong signals (regression guard)", () => {
-    const answer = finalizeRagAnswerQuality(groundedExtractiveAnswer(LAI_PARAPHRASE), LAI_QUERY, queryClass);
+    const sourceCitation = citation({
+      chunk_id: "lai-pathway-1",
+      document_id: "lai-pathway",
+      title: "Long acting injectable pathway",
+      file_name: "lai-pathway.pdf",
+    });
+    const answer = finalizeRagAnswerQuality(
+      groundedExtractiveAnswer(LAI_PARAPHRASE, {
+        citations: [sourceCitation],
+        sources: [
+          {
+            id: sourceCitation.chunk_id,
+            document_id: sourceCitation.document_id,
+            title: sourceCitation.title,
+            file_name: sourceCitation.file_name,
+            page_number: sourceCitation.page_number,
+            chunk_index: sourceCitation.chunk_index,
+            section_heading: "Follow-up",
+            content: LAI_PARAPHRASE,
+            image_ids: [],
+            similarity: 0.9,
+            images: [],
+          },
+        ],
+      }),
+      LAI_QUERY,
+      queryClass,
+    );
 
     expect(answer.grounded).toBe(true);
     expect(answer.confidence).toBe("medium");
     expect(answer.routingReason).toContain("final_quality_gate_source_backed_recovery:missing_query_overlap");
     expect(answer.answer.replace(/\*\*/g, "")).toMatch(/Depot antipsychotic follow-up/i);
+  });
+
+  it("does not treat source-selection signals as support when the cited source is absent", () => {
+    const answer = finalizeRagAnswerQuality(groundedExtractiveAnswer(LAI_PARAPHRASE), LAI_QUERY, queryClass);
+    expect(answer.grounded).toBe(false);
+    expect(answer.citations).toEqual([]);
+    expect(answer.routingReason).toContain("claim_support_factual_gap");
   });
 });

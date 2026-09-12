@@ -2,13 +2,58 @@ import type {
   ClinicalQueryMode,
   CorpusGroundingVerdict,
   RagQueryClass,
+  RagQueryPlan,
   RetrievalIntent,
   RetrievalSelectionSummary,
 } from "@/lib/types";
 import type { RetrievalAccessScope } from "@/lib/owner-scope";
+import type { RagProgrammeMode } from "@/lib/rag/rag-programme-eval";
+import type { RagContextSnapshotInput, RagRequestContext } from "@/lib/rag/rag-context-snapshot";
+import type { SiteContentDomain, SiteContentPartitionState } from "@/lib/types";
+import type { SourcePolicyConflict } from "@/lib/types";
+
+export type { RagContextSnapshotInput, RagRequestContext } from "@/lib/rag/rag-context-snapshot";
+export type { RagContextSnapshot } from "@/lib/site-content/site-content-contracts";
+
+export type RagObservationContext = {
+  interactionId: string;
+  rolloutMode: RagProgrammeMode;
+};
+
+export type RagCandidateMatchCounts = { matched: number; partial_match: number; absent: number };
+
+export function sanitizeRagCandidateMatchCounts(
+  value: unknown,
+  expectedSubquestionCount?: number,
+): RagCandidateMatchCounts | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const counts = value as Record<keyof RagCandidateMatchCounts, unknown>;
+  const bounded = (count: unknown) => Number.isInteger(count) && Number(count) >= 0 && Number(count) <= 4;
+  if (!bounded(counts.matched) || !bounded(counts.partial_match) || !bounded(counts.absent)) return undefined;
+  const sanitized = {
+    matched: Number(counts.matched),
+    partial_match: Number(counts.partial_match),
+    absent: Number(counts.absent),
+  };
+  if (
+    expectedSubquestionCount !== undefined &&
+    (!Number.isInteger(expectedSubquestionCount) ||
+      expectedSubquestionCount < 0 ||
+      expectedSubquestionCount > 4 ||
+      Object.values(sanitized).reduce((sum, count) => sum + count, 0) !== expectedSubquestionCount)
+  )
+    return undefined;
+  return sanitized;
+}
 
 export type SearchChunksArgs = {
   query: string;
+  /** Explicit request policy; document filters remain restrictive in either mode. */
+  answerSourcePolicy?: "only_this_source" | "primary_plus_approved_supplements";
+  /** Server-configured reviewed-input adapter; never accepted from an HTTP payload. */
+  loadReviewedSourcePolicyInput?: import("@/lib/rag/rag-reviewed-policy-input").ReviewedSourcePolicyLoader;
+  reviewedPolicyRequest?: import("@/lib/rag/rag-reviewed-policy-input").ReviewedPolicyRequest;
+  captureSourcePolicyConflicts?: (conflicts: readonly SourcePolicyConflict[]) => void;
   topK?: number;
   minSimilarity?: number;
   documentId?: string;
@@ -31,9 +76,77 @@ export type SearchChunksArgs = {
   cacheContext?: {
     indexingVersionAtRequestStart?: Promise<string>;
   };
+  /** Caller-injected immutable public-corpus facts, resolved once at the exported request boundary. */
+  ragContextSnapshotInput?: RagContextSnapshotInput;
+  /** Internal: the exact frozen request snapshot shared by nested retrieval/cache calls. */
+  ragRequestContext?: RagRequestContext;
+  /** Internal bounded query-plan contract version; raw subquestions never enter cache identity. */
+  ragQueryPlanVersion?: string;
+  /** Internal programme mode for shadow diagnostics and cache partitioning. */
+  ragQueryPlanMode?: RagProgrammeMode;
+  /** Server-issued immutable decision; unissued caller objects cannot activate a rollout. */
+  ragProgrammeRollout?: import("@/lib/rag/rag-rollout").RagProgrammeRolloutDecision;
+  /** Internal bounded diagnostics carried into answer cache/programme observation. */
+  ragQueryPlanKind?: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
+  ragSubquestionCount?: number;
+  /** Internal shadow-only, content-free per-subquestion candidate-match diagnostics. */
+  ragCandidateMatchCounts?: RagCandidateMatchCounts;
+  /** Internal default-off candidate-lane policy. Absence disables all governed v3 work. */
+  governedCorpusComponents?: GovernedCorpusComponents;
+  /** @deprecated Supplementary retrieval derives from request-local eligible coverage gaps. */
+  governedInternationalCoverageGap?: boolean;
+  /** Request-local canonical policy inputs; never serialized into cache or telemetry identity. */
+  sourcePolicyConflicts?: readonly SourcePolicyConflict[];
+  /** Request-local handoff of the exact served plan; never persisted in cache identity or telemetry. */
+  captureRagQueryPlan?: (plan: RagQueryPlan) => void;
 };
 
+export type GovernedCorpusComponents = Readonly<{
+  siteContent: boolean;
+  australianAugmentation: boolean;
+  australianCurrent: boolean;
+}>;
+
+export type GovernedCorpusComponentState = Readonly<{
+  siteContent: "enabled" | "disabled";
+  australianAugmentation: "enabled_current" | "enabled_unavailable" | "disabled";
+}>;
+
+export function governedCorpusComponentState(components?: GovernedCorpusComponents): GovernedCorpusComponentState {
+  return {
+    siteContent: components?.siteContent ? "enabled" : "disabled",
+    australianAugmentation: !components?.australianAugmentation
+      ? "disabled"
+      : components.australianCurrent
+        ? "enabled_current"
+        : "enabled_unavailable",
+  };
+}
+
+export type RetrievalCorpusScopePolicy = Readonly<{
+  siteContentEnabled: boolean;
+  siteContentState: SiteContentPartitionState;
+  australianAugmentationEnabled: boolean;
+  australianCurrent: boolean;
+  /** @deprecated Retained for call-site compatibility; it has no retrieval effect. */
+  internationalCoverageGap?: boolean;
+}>;
+
+export type GovernedCorpusRetrievalPhase = Readonly<{
+  corpusScopes: import("@/lib/types").SourceCorpusScope[];
+  accessScope: RetrievalAccessScope;
+  phase: "primary" | "supplementary";
+}>;
+
+export type GovernedCorpusCandidateDiagnostics = Readonly<{
+  rpcCalls: number;
+  resultCount: number;
+  selectedSiteDomains: SiteContentDomain[];
+}>;
+
 export type SearchTelemetry = {
+  shadow_retrieval_state?: "pending" | "completed" | "failed" | "cancelled";
+  reviewed_input_state?: "not_assessed" | "unavailable" | "reviewed";
   search_cache_hit: boolean;
   search_total_latency_ms?: number;
   retrieval_phase_latencies_ms?: Record<string, number>;
@@ -45,6 +158,15 @@ export type SearchTelemetry = {
   text_candidate_count?: number;
   embedding_field_count?: number;
   retrieval_query_variant_count?: number;
+  query_plan_kind?: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
+  subquestion_count?: number;
+  query_plan_reason_codes?: string[];
+  candidate_retrieval_query_variant_count?: number;
+  candidate_match_counts?: RagCandidateMatchCounts;
+  governed_component_state?: GovernedCorpusComponentState;
+  governed_candidate_rpc_calls?: number;
+  governed_candidate_count?: number;
+  governed_candidate_site_domains?: SiteContentDomain[];
   rag_alias_count?: number;
   rag_alias_expansion_count?: number;
   text_fast_path_latency_ms: number;

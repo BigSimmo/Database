@@ -274,6 +274,22 @@ describe("Playwright production-project isolation", () => {
     ).toBe(true);
   });
 
+  it("collects the adaptive answer journey into every required browser project", () => {
+    const source = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    const productionSpecPattern = configPattern(source, "productionSpecPattern");
+    const testMatch = source.match(/testMatch:\s*(\/.*\/),/);
+    expect(testMatch, "playwright.config.ts: could not read the top-level testMatch regex").not.toBeNull();
+    const testMatchPattern = new RegExp(testMatch![1].slice(1, -1));
+    const spec = "tests/adaptive-answer-ui.spec.ts";
+
+    expect(existsSync(resolve(process.cwd(), spec)), `${spec} is missing`).toBe(true);
+    expect(testMatchPattern.test(spec), `${spec} is not collected by top-level testMatch`).toBe(true);
+    expect(
+      productionSpecPattern.test(spec),
+      `${spec} is not collected by productionSpecPattern, so the adaptive renderer has no browser gate`,
+    ).toBe(true);
+  });
+
   /**
    * Ward Flow's browser journeys are the prototype's only rendered evidence, and their
    * collection depends on TWO hand-maintained alternations in playwright.config.ts that both

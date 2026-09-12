@@ -139,8 +139,12 @@ export type InPageNavHeaderProps =
        */
       rail?: {
         label: string;
-        /** Calibrated label family — moves only the band widths. */
-        density?: ModeNavDensityProfile;
+        /**
+         * Calibrated label family, moving only the band widths. Required: see
+         * the note on `InPageSectionRail`'s own `density` for why inheriting a
+         * default here shipped a regression.
+         */
+        density: ModeNavDensityProfile;
         /** `true` when every slot carries a count badge beside its label. */
         countedLabels?: boolean;
       };

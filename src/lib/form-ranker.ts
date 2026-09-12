@@ -84,6 +84,7 @@ export type FormCatalogDetails = {
   localPdfSha256?: string;
   localPdfBytes?: number;
   officialPdfPasswordProtected?: boolean;
+  officialPdfEditingRestricted?: boolean;
   officialTitleCheckedAt: string;
   archiveGeneratedAt?: string;
 };

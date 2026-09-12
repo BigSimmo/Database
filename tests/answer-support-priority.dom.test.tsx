@@ -119,7 +119,6 @@ describe("answerSupportPriority · Review source match", () => {
           content: "Avoid clozapine in severe neutropenia.",
           image_ids: [],
           similarity: 0.9,
-          images: [],
         },
       ],
     });

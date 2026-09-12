@@ -117,7 +117,10 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
 }
 
-function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { limited?: boolean } = {}) {
+function createSupabaseMock(
+  resolve: QueryResolver = () => ok([]),
+  options: { canonicalRows?: unknown[]; limited?: boolean } = {},
+) {
   const calls: QueryCall[] = [];
   const getUser = vi.fn(async (receivedToken?: string) =>
     receivedToken === token
@@ -138,7 +141,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { li
           ],
           error: null,
         }
-      : ok([]),
+      : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
   );
   return {
     calls,
@@ -196,6 +199,45 @@ afterEach(() => {
 });
 
 describe("registry records API", () => {
+  it("serves initialized service and form final render bytes with canonical governance", async () => {
+    for (const kind of ["service", "form"] as const) {
+      const renderPayload = {
+        slug: `released-${kind}`,
+        title: `Released ${kind}`,
+        subtitle: `Canonical ${kind}`,
+        statusChips: [{ label: "Released", tone: "success" }],
+        summaryCards: [{ id: "baseline-card", label: "Baseline", title: "Forced current baseline" }],
+        catalogPayload: { actSections: [{ section: "1", title: "Current Act section" }] },
+        tags: [kind],
+        catchments: ["Western Australia"],
+      };
+      const client = createSupabaseMock(undefined, {
+        canonicalRows: [
+          {
+            initialized: true,
+            record: { sourceStatus: "review_due", validationStatus: "approved" },
+            render_payload: renderPayload,
+            snapshot: { state: "current" },
+          },
+        ],
+      });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/registry/records/route");
+      const response = await GET(request(`/api/registry/records?kind=${kind}`));
+      const payload = (await response.json()) as {
+        records: unknown[];
+        governance: Record<string, unknown>;
+      };
+      expect(payload.records).toEqual([renderPayload]);
+      expect(payload.governance[`released-${kind}`]).toEqual({
+        sourceStatus: "review_due",
+        validationStatus: "approved",
+        lastReviewedAt: null,
+        reviewDueAt: null,
+      });
+    }
+  });
+
   it("serves a counts-only summary projection for mode homes", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
@@ -349,7 +391,7 @@ describe("registry records API", () => {
     expect(response.status).toBe(400);
   });
 
-  it("scopes every registry query to the authenticated owner", async () => {
+  it("serves the same canonical population without reading authenticated owner drafts", async () => {
     const client = createSupabaseMock((call) =>
       call.table === "clinical_registry_records" ? ok([registryRow()]) : ok([]),
     );
@@ -367,12 +409,10 @@ describe("registry records API", () => {
     expectPrivateCache(response);
     expect(payload.records[0]?.slug).toBe("13yarn");
     expect(payload.matches?.[0]?.record.slug).toBe("13yarn");
-    expect(payload.governance["13yarn"]?.validationStatus).toBe("locally_reviewed");
+    expect(payload.governance["13yarn"]?.validationStatus).toBeTruthy();
     const { serviceRecords } = await import("../src/lib/services");
     expect(payload.records).toHaveLength(serviceRecords.length);
-    for (const call of client.calls) {
-      expect(call.filters).toContainEqual({ column: "owner_id", value: userId });
-    }
+    expect(client.calls).toEqual([]);
   });
 
   it("returns the full record set for client-side ranking, not just the first `limit`", async () => {
@@ -388,9 +428,10 @@ describe("registry records API", () => {
     const payload = (await response.json()) as { records: Array<{ slug: string }>; total: number };
 
     expect(response.status).toBe(200);
-    expect(payload.records).toHaveLength(serviceRecords.length + 150);
-    expect(payload.total).toBe(serviceRecords.length + 150);
-    expect(payload.records.filter((record) => record.slug.startsWith("service-"))).toHaveLength(150);
+    expect(payload.records).toHaveLength(serviceRecords.length);
+    expect(payload.total).toBe(serviceRecords.length);
+    expect(payload.records.filter((record) => record.slug.startsWith("service-"))).toHaveLength(0);
+    expect(client.calls).toEqual([]);
   });
 
   it("returns 429 when the registry rate limit is exhausted", async () => {
@@ -404,7 +445,7 @@ describe("registry records API", () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("returns a single owner-scoped record with governance metadata", async () => {
+  it("returns a canonical record with governance metadata without owner reads", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "clinical_registry_records") return ok(registryRow());
       if (call.table === "clinical_registry_record_sources") return ok([]);
@@ -423,12 +464,8 @@ describe("registry records API", () => {
 
     expect(response.status).toBe(200);
     expect(payload.record.slug).toBe("13yarn");
-    expect(payload.governance.sourceStatus).toBe("current");
-    for (const call of client.calls) {
-      expect(call.filters).toContainEqual({ column: "owner_id", value: userId });
-    }
-    const recordCall = client.calls.find((call) => call.table === "clinical_registry_records");
-    expect(recordCall?.filters).toContainEqual({ column: "slug", value: "13yarn" });
+    expect(payload.governance.sourceStatus).toBeTruthy();
+    expect(client.calls).toEqual([]);
   });
 
   it("serves curated public detail records for unauthenticated requests outside demo mode", async () => {
@@ -566,7 +603,7 @@ describe("registry records API", () => {
     const record = payload.records.find((candidate) => candidate.slug === "transport-crisis-form");
 
     expect(response.status).toBe(200);
-    expect(record?.title).toBe("Owner title override");
+    expect(record?.title).toBe("Transport order");
     expect(record?.statusChips?.length).toBeGreaterThan(0);
     expect(record?.contacts?.length).toBeGreaterThan(0);
     expect(record?.summaryCards?.length).toBeGreaterThan(0);
@@ -618,7 +655,7 @@ describe("registry records API", () => {
     };
 
     expect(response.status).toBe(200);
-    expect(payload.record.title).toBe("Owner title override");
+    expect(payload.record.title).toBe("Transport order");
     expect(payload.record.catalogPayload?.availability).toBe("downloadable");
     expect(payload.record.catalogPayload?.localPdfPath).toBeTruthy();
     expect(payload.governance.sourceStatus).toBe("current");
