@@ -3134,6 +3134,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/developer-area-access.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/development-speed-playbook.md",
         "section": "root",
         "catalogued": true
