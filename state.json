@@ -24,25 +24,17 @@
   "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
   "status": "running",
   "resumedAt": "2026-09-12T03:36:24.943Z",
-  "revision": 25,
+  "revision": 26,
   "repairs": 3,
   "pass": 0,
   "active": 2715,
-  "pending": {
-    "id": "batch-34666462342-24",
-    "number": 2715,
-    "kind": "merge",
-    "head": "0ba37fbf520b726605d5aefef1658fa92ff38b99",
-    "base": "bfce2e3b71b1d40d6f1644d995e40987c3463523",
-    "at": "2026-09-12T03:36:24.943Z",
-    "fingerprint": null
-  },
+  "pending": null,
   "reason": null,
   "entries": [
     {
       "number": 2715,
       "head": "0ba37fbf520b726605d5aefef1658fa92ff38b99",
-      "state": "ready",
+      "state": "merge_requested",
       "reason": "ci-in-flight",
       "attempts": 3,
       "fingerprints": [
@@ -247,6 +239,12 @@
       "at": "2026-09-12T03:36:24.943Z",
       "kind": "request-sent",
       "operationId": "batch-34666462342-24"
+    },
+    {
+      "revision": 26,
+      "at": "2026-09-12T03:36:57.345Z",
+      "kind": "merge-request-observed",
+      "number": 2715
     }
   ],
   "approvedControllerHash": "31b3614590d02004ee972aaeab0c96db5df835fae27b7a6dc73fd4fbc291ad24"
