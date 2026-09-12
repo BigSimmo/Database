@@ -1080,7 +1080,12 @@ export function MasterSearchHeader({
     // equal once React commits it — so focus directly by that index instead
     // of re-deriving it against a list that hasn't caught up yet.
     if (!phoneLayout) {
-      window.requestAnimationFrame(() => {
+      if (modeMenuFocusRafRef.current !== null) {
+        window.cancelAnimationFrame(modeMenuFocusRafRef.current);
+        modeMenuFocusRafRef.current = null;
+      }
+      modeMenuFocusRafRef.current = window.requestAnimationFrame(() => {
+        modeMenuFocusRafRef.current = null;
         setModeMenuFocusIndex(nextIndex);
         modeOptionRefs.current[nextIndex]?.focus();
       });
