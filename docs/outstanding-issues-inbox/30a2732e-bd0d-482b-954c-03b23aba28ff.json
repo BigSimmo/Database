@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "30a2732e-bd0d-482b-954c-03b23aba28ff",
+  "createdOn": "2026-09-10",
+  "action": "cancel",
+  "payload": {
+    "requestId": "84b67dee-4b8f-4a4d-98ec-b6e3c58bf797",
+    "reason": "Repository blank-name validation is implemented, but SQL writes still need a constraint that preserves the intentional retention-clearance transition. Keep V6CDEV open until that storage boundary is verified."
+  }
+}

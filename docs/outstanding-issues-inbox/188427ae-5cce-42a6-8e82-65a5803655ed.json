@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "188427ae-5cce-42a6-8e82-65a5803655ed",
+  "createdOn": "2026-09-08",
+  "action": "done",
+  "payload": {
+    "id": "#2NRB8V",
+    "outcome": "Scoped three caring-contacts-guidance assertions in tests/ui-caring-contacts-workspace.spec.ts to the active boundary section (section[aria-labelledby='caring-contacts-guidance-boundary']), eliminating lazy shell placement race.",
+    "baseRowFingerprint": "1404435331c516298009d4e3646c4d71af2c11f0431b58baafc8e99d08def990"
+  }
+}
