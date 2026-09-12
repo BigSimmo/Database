@@ -47,6 +47,9 @@ describe("Railway config as code", () => {
     expect(appDockerfile).toContain(
       "COPY --from=build /app/src/components/therapy-compass/data/generated-assets.ts ./src/components/therapy-compass/data/generated-assets.ts",
     );
+    expect(appDockerfile).toContain(
+      "COPY --from=build /app/src/data/therapy-catalogue-assets.ts ./src/data/therapy-catalogue-assets.ts",
+    );
   });
 
   it("admits Railway's non-secret deployment SHA into the build release", () => {

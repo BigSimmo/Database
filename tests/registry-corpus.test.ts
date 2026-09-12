@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { buildDefaultMedicationRows } from "../src/lib/medication-fixtures";
 import {
   clinicalRegistryRowsToCorpusEntries,
+  differentialRowsToCorpusEntries,
+  embedRegistryCorpusEntries,
   medicationRowsToCorpusEntries,
+  registryCorpusDocumentId,
   registryDocumentIntent,
 } from "../src/lib/registry-corpus";
 import { registryCorpusDetailHref } from "../src/lib/registry-corpus-links";
@@ -103,6 +106,95 @@ function corpusHarness() {
 }
 
 describe("registry corpus", () => {
+  it("rejects explicitly marked link-only sources in the production corpus projection", async () => {
+    const { supabase, documents, chunks } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const [baseEntry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
+
+    for (const catalogueKey of ["etg-complete", "australian-medicines-handbook"]) {
+      await expect(
+        embedRegistryCorpusEntries(supabase as never, [
+          {
+            ...baseEntry!,
+            metadata: {
+              ...baseEntry!.metadata,
+              source_catalogue_key: catalogueKey,
+              licence_policy: "public_index_permitted",
+            },
+          },
+        ]),
+      ).rejects.toThrow(/link-only/i);
+    }
+
+    expect(embedTextsMock).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(documents.size).toBe(0);
+    expect(chunks.size).toBe(0);
+  });
+
+  it("requires exact document-level public indexing permission for an indexed catalogue source", async () => {
+    const deniedHarness = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const [baseEntry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
+
+    for (const licencePolicy of [
+      undefined,
+      null,
+      "",
+      "unexpected",
+      "review_required",
+      "metadata_link_only",
+      "index_forbidden",
+    ]) {
+      const metadata = {
+        ...baseEntry!.metadata,
+        source_catalogue_key: "wa-health",
+        ...(licencePolicy === undefined ? {} : { licence_policy: licencePolicy }),
+      };
+      await expect(
+        embedRegistryCorpusEntries(deniedHarness.supabase as never, [{ ...baseEntry!, metadata }]),
+      ).rejects.toThrow(/licence|index permission/i);
+    }
+
+    expect(embedTextsMock).not.toHaveBeenCalled();
+    expect(deniedHarness.supabase.from).not.toHaveBeenCalled();
+    expect(deniedHarness.documents.size).toBe(0);
+    expect(deniedHarness.chunks.size).toBe(0);
+
+    const permittedHarness = corpusHarness();
+    await expect(
+      embedRegistryCorpusEntries(permittedHarness.supabase as never, [
+        {
+          ...baseEntry!,
+          metadata: {
+            ...baseEntry!.metadata,
+            source_catalogue_key: "wa-health",
+            licence_policy: "public_index_permitted",
+          },
+        },
+      ]),
+    ).resolves.toEqual({ documentCount: 1, chunkCount: 1 });
+    expect(embedTextsMock).toHaveBeenCalledOnce();
+    expect(permittedHarness.documents.size).toBe(1);
+    expect(permittedHarness.chunks.size).toBe(1);
+  });
+
+  it("does not infer catalogue identity from registry title or content", async () => {
+    const { supabase, documents, chunks } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const [entry] = clinicalRegistryRowsToCorpusEntries([
+      registryRow({ title: "eTG and Australian Medicines Handbook access service" }),
+    ]);
+
+    await expect(embedRegistryCorpusEntries(supabase as never, [entry!])).resolves.toEqual({
+      documentCount: 1,
+      chunkCount: 1,
+    });
+    expect(embedTextsMock).toHaveBeenCalledOnce();
+    expect(documents.size).toBe(1);
+    expect(chunks.size).toBe(1);
+  });
+
   it("retries a failed embed and stops calling OpenAI once corpus hashes are current", async () => {
     const { supabase, documents, chunks } = corpusHarness();
     embedTextsMock
@@ -305,6 +397,8 @@ describe("registry corpus", () => {
         registry_record_kind: "service",
       },
     });
+    expect(document?.metadata).not.toHaveProperty("corpus_scope");
+    expect(chunk?.metadata).not.toHaveProperty("corpus_scope");
     expect(chunk?.metadata).toMatchObject({
       clinical_validation_evidence: { status: "locally_reviewed" },
     });
@@ -363,6 +457,23 @@ describe("registry corpus", () => {
     );
   });
 
+  it("strips conventional audit actor noun ids from document and chunk retrieval metadata", async () => {
+    const { supabase, documents, chunks } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const [baseEntry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
+    const auditKeys = ["creator_id", "updater_id", "publisher_id", "reviewer_id", "retiree_id"] as const;
+    const metadata = Object.fromEntries(auditKeys.map((key) => [key, `audit-${key}`]));
+
+    await embedRegistryCorpusEntries(supabase as never, [{ ...baseEntry!, metadata }]);
+
+    const [document] = [...documents.values()] as Array<{ metadata: Record<string, unknown> }>;
+    const [chunk] = [...chunks.values()] as Array<{ metadata: Record<string, unknown> }>;
+    for (const key of auditKeys) {
+      expect(document?.metadata).not.toHaveProperty(key);
+      expect(chunk?.metadata).not.toHaveProperty(key);
+    }
+  });
+
   it("maps every registry family to its deterministic smart-v2 intent", () => {
     expect(registryDocumentIntent("medication")).toBe("medication-instruction");
     expect(registryDocumentIntent("differential")).toBe("decision-support");
@@ -386,6 +497,14 @@ describe("registry corpus", () => {
     expect(entry?.content).toContain("Service: Crisis service");
     expect(entry?.content).toContain("Route: Call the crisis line before transfer");
     expect(entry?.searchText).toContain("crisis");
+  });
+
+  it("keeps deterministic document IDs stable for site-content adoption", () => {
+    const [entry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
+    expect(registryCorpusDocumentId(entry.kind, entry.recordId)).toBe(
+      registryCorpusDocumentId("service", "11111111-1111-4111-8111-111111111111"),
+    );
+    expect(differentialRowsToCorpusEntries([])).toEqual([]);
   });
 
   it("preserves form kind separately from service kind", () => {

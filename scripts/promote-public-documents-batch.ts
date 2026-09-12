@@ -1,11 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { loadEnvConfig } from "@next/env";
 import {
+  assertAustralianPublicActivationMetadata,
   assertPublicationApplyConfirmation,
   parsePublicationCommandArgs,
-  parsePublicationManifest,
+  parseVersionedPublicationManifest,
   publicationManifestDigest,
+  publicationManifestV2ExpectedStateDigest,
 } from "@/lib/publication-manifest";
+import type { Json } from "@/lib/supabase/database.types";
 
 loadEnvConfig(process.cwd());
 
@@ -14,17 +17,27 @@ async function loadAdminClient() {
   return createAdminClient();
 }
 
+function metadataString(metadata: Json, key: string) {
+  if (!metadata || Array.isArray(metadata) || typeof metadata !== "object") return null;
+  const value = metadata[key];
+  return typeof value === "string" ? value : null;
+}
+
 async function main() {
   const args = parsePublicationCommandArgs(process.argv.slice(2));
   const raw = await readFile(args.manifestPath, "utf8");
-  const manifest = parsePublicationManifest(raw);
+  const manifest = parseVersionedPublicationManifest(raw);
   const digest = publicationManifestDigest(raw);
   const supabase = await loadAdminClient();
   const ids = manifest.documents.map((document) => document.documentId);
+  const governedDocumentsById =
+    manifest.version === 2
+      ? new Map(manifest.documents.map((document) => [document.documentId, document] as const))
+      : null;
 
   const { data: documents, error: documentError } = await supabase
     .from("documents")
-    .select("id, owner_id, status, title")
+    .select("id, owner_id, status, title, index_generation_id, metadata")
     .in("id", ids);
   if (documentError) throw new Error(documentError.message);
 
@@ -32,10 +45,66 @@ async function main() {
   const validationErrors: string[] = [];
   for (const entry of manifest.documents) {
     const document = documentsById.get(entry.documentId);
+    const governedEntry = governedDocumentsById?.get(entry.documentId);
+    let activationMetadataError: string | null = null;
+    if (document && manifest.version === 2 && governedEntry?.decision === "approved") {
+      try {
+        assertAustralianPublicActivationMetadata(document.metadata, governedEntry.sourceCatalogueKey);
+      } catch (error) {
+        activationMetadataError = error instanceof Error ? error.message : "Australian activation metadata is invalid";
+      }
+    }
     if (!document) validationErrors.push(`${entry.documentId}: not found`);
     else if (document.owner_id !== entry.expectedOwnerId) validationErrors.push(`${entry.documentId}: owner changed`);
     else if (document.status !== "indexed") validationErrors.push(`${entry.documentId}: status is ${document.status}`);
-    else {
+    else if (manifest.version === 1 && metadataString(document.metadata, "corpus_scope") === "australian_public") {
+      validationErrors.push(`${entry.documentId}: Australian public activation requires manifest v2`);
+    } else if (
+      manifest.version === 2 &&
+      governedEntry &&
+      document.index_generation_id !== governedEntry.expectedIndexGenerationId
+    ) {
+      validationErrors.push(`${entry.documentId}: committed index generation changed`);
+    } else if (manifest.version === 2 && metadataString(document.metadata, "corpus_scope") !== "australian_public") {
+      validationErrors.push(`${entry.documentId}: corpus_scope is not australian_public`);
+    } else if (
+      manifest.version === 2 &&
+      governedEntry &&
+      metadataString(document.metadata, "source_catalogue_key") !== governedEntry.sourceCatalogueKey
+    ) {
+      validationErrors.push(`${entry.documentId}: source catalogue key changed`);
+    } else if (
+      manifest.version === 2 &&
+      metadataString(document.metadata, "source_policy_version") !== manifest.sourcePolicyVersion
+    ) {
+      validationErrors.push(`${entry.documentId}: source policy version changed`);
+    } else if (activationMetadataError) {
+      validationErrors.push(`${entry.documentId}: ${activationMetadataError}`);
+    } else if (
+      manifest.version === 2 &&
+      governedEntry?.decision === "approved" &&
+      metadataString(document.metadata, "content_mode") !== "indexed_content"
+    ) {
+      validationErrors.push(`${entry.documentId}: content mode is not indexed_content`);
+    } else if (
+      manifest.version === 2 &&
+      governedEntry?.decision === "approved" &&
+      metadataString(document.metadata, "licence_policy") !== "public_index_permitted"
+    ) {
+      validationErrors.push(`${entry.documentId}: document licence does not permit public indexing`);
+    } else if (
+      manifest.version === 2 &&
+      governedEntry?.decision === "approved" &&
+      metadataString(document.metadata, "document_status") !== "current"
+    ) {
+      validationErrors.push(`${entry.documentId}: document is not current`);
+    } else if (
+      manifest.version === 2 &&
+      governedEntry?.decision === "approved" &&
+      !["changed", "unchanged"].includes(metadataString(document.metadata, "change_state") ?? "")
+    ) {
+      validationErrors.push(`${entry.documentId}: source lifecycle is not active`);
+    } else {
       const { data: currentStateDigest, error: digestError } = await supabase.rpc("document_publication_state_digest", {
         p_document_id: entry.documentId,
         p_expected_owner_id: entry.expectedOwnerId,
@@ -77,21 +146,23 @@ async function main() {
 
   const { data: existingApprovals, error: existingApprovalError } = await supabase
     .from("document_publication_approvals")
-    .select("document_id, expected_prior_owner_id, decision, manifest_digest, reviewed_state_digest")
+    .select(
+      "document_id, expected_prior_owner_id, decision, manifest_digest, reviewed_state_digest, source_catalogue_key, source_policy_version, reviewed_index_generation_id",
+    )
     .eq("manifest_digest", digest)
     .in("document_id", ids);
   if (existingApprovalError) throw new Error(existingApprovalError.message);
   const existing = new Set(
     (existingApprovals ?? []).map(
       (approval) =>
-        `${approval.document_id}:${approval.expected_prior_owner_id}:${approval.decision}:${approval.manifest_digest}:${approval.reviewed_state_digest}`,
+        `${approval.document_id}:${approval.expected_prior_owner_id}:${approval.decision}:${approval.manifest_digest}:${approval.reviewed_state_digest}:${approval.source_catalogue_key ?? ""}:${approval.source_policy_version ?? ""}:${approval.reviewed_index_generation_id ?? ""}`,
     ),
   );
   const approvals = manifest.documents
     .filter(
       (document) =>
         !existing.has(
-          `${document.documentId}:${document.expectedOwnerId}:${document.decision}:${digest}:${document.expectedStateDigest}`,
+          `${document.documentId}:${document.expectedOwnerId}:${document.decision}:${digest}:${document.expectedStateDigest}:${governedDocumentsById?.get(document.documentId)?.sourceCatalogueKey ?? ""}:${manifest.version === 2 ? manifest.sourcePolicyVersion : ""}:${governedDocumentsById?.get(document.documentId)?.expectedIndexGenerationId ?? ""}`,
         ),
     )
     .map((document) => ({
@@ -103,6 +174,9 @@ async function main() {
       evidence_references: manifest.evidenceReferences,
       manifest_digest: digest,
       reviewed_state_digest: document.expectedStateDigest,
+      source_catalogue_key: governedDocumentsById?.get(document.documentId)?.sourceCatalogueKey ?? null,
+      source_policy_version: manifest.version === 2 ? manifest.sourcePolicyVersion : null,
+      reviewed_index_generation_id: governedDocumentsById?.get(document.documentId)?.expectedIndexGenerationId ?? null,
     }));
   if (approvals.length > 0) {
     const { error: approvalError } = await supabase.from("document_publication_approvals").insert(approvals);
@@ -118,6 +192,17 @@ async function main() {
     }));
   if (approvedDocuments.length === 0) {
     console.log("[public-documents:promote] decisions recorded; no documents were approved for publication.");
+    return;
+  }
+
+  if (manifest.version === 2) {
+    const { data: result, error: activationError } = await supabase.rpc("activate_approved_public_documents", {
+      p_manifest: manifest,
+      p_expected_state_digest: publicationManifestV2ExpectedStateDigest(manifest),
+      p_expected_generation_ids: manifest.documents.map((document) => document.expectedIndexGenerationId),
+    });
+    if (activationError) throw new Error(activationError.message);
+    console.log(`[public-documents:promote] result: ${JSON.stringify(result)}`);
     return;
   }
 

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "23b17b46-ef2c-4a6a-b0da-7e105e0f192a",
+  "createdOn": "2026-09-10",
+  "action": "done",
+  "payload": {
+    "id": "#GNNMAF",
+    "outcome": "Surfaced patient alert info rows with unread gates in unassessedAdvisory tier instead of dropping them",
+    "baseRowFingerprint": "4d448921c2824903245982e74bf798e75872f7f168d6574da93bc71ad8f4bd43"
+  }
+}
