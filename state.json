@@ -24,27 +24,17 @@
   "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
   "status": "running",
   "resumedAt": "2026-09-12T02:21:45.695Z",
-  "revision": 11,
+  "revision": 12,
   "repairs": 2,
   "pass": 0,
   "active": 2715,
-  "pending": {
-    "id": "batch-34666462342-8",
-    "number": 2715,
-    "kind": "repair",
-    "head": "811a6e40622b78136a975f763aaea07eabe80975",
-    "base": "90ede03716958037c78adc0b3966fa80b4ca3fff",
-    "at": "2026-09-12T02:21:45.695Z",
-    "fingerprint": "139c52e42e77bc21f451d1cb3671c7bb99c4cd42f102d2fee56bc60f96420755",
-    "runId": 34667462349,
-    "resultHead": "0a33572d6d5c1667a1ca4e981c9ce750d6f34991"
-  },
+  "pending": null,
   "reason": null,
   "entries": [
     {
       "number": 2715,
-      "head": "811a6e40622b78136a975f763aaea07eabe80975",
-      "state": "repairing",
+      "head": "0a33572d6d5c1667a1ca4e981c9ce750d6f34991",
+      "state": "preparing",
       "reason": null,
       "attempts": 2,
       "fingerprints": [
@@ -52,7 +42,7 @@
         "139c52e42e77bc21f451d1cb3671c7bb99c4cd42f102d2fee56bc60f96420755"
       ],
       "updatedAt": "2026-09-12T02:00:56.978Z",
-      "progressAt": "2026-09-12T02:00:56.978Z",
+      "progressAt": "2026-09-12T02:28:13.523Z",
       "retried": false
     }
   ],
@@ -141,6 +131,14 @@
       "kind": "candidate-sealed",
       "operationId": "batch-34666462342-8",
       "resultHead": "0a33572d6d5c1667a1ca4e981c9ce750d6f34991"
+    },
+    {
+      "revision": 12,
+      "at": "2026-09-12T02:28:13.523Z",
+      "kind": "repair-settled",
+      "number": 2715,
+      "runId": 34667462349,
+      "conclusion": "cancelled"
     }
   ],
   "approvedControllerHash": "71185e35097d180f74460e8ed3095e0127232bc2215a52999e7a9239f9f27142"
