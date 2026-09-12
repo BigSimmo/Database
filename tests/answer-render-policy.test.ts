@@ -657,6 +657,109 @@ describe("answer render policy", () => {
     expect(model.copyText).not.toContain("/documents/doc-core?page=8&chunk=core-chunk");
   });
 
+  it("does not let bestSource re-promote a review-only citation for the same passage", () => {
+    // Ledger #ZK460W / Copilot review on PR #2721. collectSourceCandidates gathers bestSource
+    // before citations and dedupes first-wins; without the override a strong bestSource would
+    // keep "Direct" / "strong match" labelling on a passage the answer marked review_only.
+    // smartApiPlan.coreSourceLinks are server-only (stripped by toClientAnswerPayload) and are
+    // covered separately by "does not widen the client renderer to server-only smartApiPlan links".
+    const model = buildAnswerRenderModel(
+      toClientAnswerPayload(
+        answer({
+          grounded: false,
+          confidence: "unsupported",
+          citations: [citation({ provenance: "review_only" })],
+          quoteCards: [],
+          answerSections: [],
+          bestSource: {
+            ...citation(),
+            source_strength: "strong",
+            quote: "Pinned best-source excerpt.",
+            snippet: "Pinned best-source excerpt.",
+            score: 0.99,
+            section_heading: "Monitoring",
+            image_count: 0,
+            viewer_href: "/documents/doc-1?page=4&chunk=chunk-1",
+          },
+        }),
+      ),
+    );
+
+    expect(model.trust).toBe("unsupported");
+    expect(model.primarySources).toHaveLength(1);
+    expect(model.primarySources[0]).toMatchObject({
+      chunk_id: "chunk-1",
+      provenance: "review_only",
+      reason: "Added for source review; not accepted as claim support.",
+      sourceStrength: "none",
+    });
+  });
+
+  it("leaves an unrelated bestSource strength intact when no review-only citation covers that passage", () => {
+    // bestSource is only collected when its chunk is already in supportingChunkIds (citations /
+    // quotes / sections). Give the unrelated passage a normal citation so it remains eligible,
+    // while the review-only override stays scoped to chunk-1.
+    const model = buildAnswerRenderModel(
+      toClientAnswerPayload(
+        answer({
+          grounded: false,
+          confidence: "unsupported",
+          citations: [
+            citation({ provenance: "review_only" }),
+            citation({
+              chunk_id: "other-chunk",
+              document_id: "doc-other",
+              title: "Other Source",
+              file_name: "other-source.pdf",
+              page_number: 2,
+            }),
+          ],
+          quoteCards: [],
+          answerSections: [],
+          sources: [
+            source(),
+            source({
+              id: "other-chunk",
+              document_id: "doc-other",
+              title: "Other Source",
+              file_name: "other-source.pdf",
+              page_number: 2,
+            }),
+          ],
+          bestSource: {
+            ...citation({
+              chunk_id: "other-chunk",
+              document_id: "doc-other",
+              title: "Other Source",
+              file_name: "other-source.pdf",
+              page_number: 2,
+            }),
+            source_strength: "strong",
+            quote: "Unrelated best-source excerpt.",
+            snippet: "Unrelated best-source excerpt.",
+            score: 0.99,
+            section_heading: "Other",
+            image_count: 0,
+            viewer_href: "/documents/doc-other?page=2&chunk=other-chunk",
+          },
+        }),
+      ),
+    );
+
+    const reviewOnly = model.primarySources.find((row) => row.chunk_id === "chunk-1");
+    const unrelated = model.primarySources.find((row) => row.chunk_id === "other-chunk");
+    expect(reviewOnly).toMatchObject({
+      provenance: "review_only",
+      reason: "Added for source review; not accepted as claim support.",
+      sourceStrength: "none",
+    });
+    expect(unrelated).toMatchObject({
+      chunk_id: "other-chunk",
+      reason: "Pinned by backend as the best source.",
+      sourceStrength: "strong",
+    });
+  });
+
   it("deduplicates conflicting section evidence by source rather than rendering duplicate rows", () => {
     const model = buildAnswerRenderModel(
       answer({

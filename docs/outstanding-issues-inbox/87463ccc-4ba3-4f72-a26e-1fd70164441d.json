@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "87463ccc-4ba3-4f72-a26e-1fd70164441d",
+  "createdOn": "2026-09-07",
+  "action": "update",
+  "payload": {
+    "id": "#NTAV3D",
+    "detail": "Pinned in tests/rag-adversarial-harness.test.ts KNOWN_DIVERGENCES (self-expiring). UPDATE 2026-09-07 (#ZK460W fix, branch claude/rag-review-fallback-grounded-flip): the observed shape changed. It was grounded true with a source pointer echoing the query text. It is now grounded false, confidence unsupported, answerQualityTier source_only, modelUsed null, responseMode evidence_gap, citations [syn-scope-guess-a] carrying provenance review_only, and pointer prose that contains no material from the query at all. The guessed chunk id syn-not-retrieved-zzz is still never resolved into content, so the no-read invariant continues to hold. What remains divergent is narrower than the row's title: the route points at in-scope evidence rather than refusing, so the normative fixture expectation (refuse, zero citations) still fails on the citation clause only. Next: decide whether a query naming an unretrieved chunk id should refuse outright rather than return an ungrounded pointer with in-scope citations. This is the same open question as #C2D9JF, which now has an identical observed shape. RAG-surface change; own PR; harness pin flips; canary pair. Stop: do not delete the pin without the behaviour change.",
+    "baseRowFingerprint": "a8221a27b2660ac3a4bbe73602c0c727642699546c8356cd908f140be7c8fce2"
+  }
+}
