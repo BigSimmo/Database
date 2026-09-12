@@ -15,13 +15,32 @@ job works, not how to treat anyone.
 **On Call content is readable by anyone on the internet.** The 2026-09-04 amendment made reads
 public; `psychiatry.tools` has no login wall. Only an entry ticked **Personal** stays private.
 
-Two items on the list are blocked on a third visibility state — signed-in readers only:
+Two items on the list need a third visibility state — signed-in readers only — before they can
+be built at all:
 
 - the teaching meeting link, because a public join link lets strangers into a teaching session
 - a reader reporting a wrong number, because that needs an account without edit rights
 
-Everything else is safe to publish as written. A daily roster naming who is on tonight is not,
-and is not on this list: link out to the live rostering system instead.
+**A third class needs that same tier before its content is entered, even though the entry itself
+already exists.** Physical-access detail is security-sensitive on a world-readable page, and an
+earlier draft of this document wrongly cleared everything outside the two items above as safe to
+publish. It is not. Mark these Personal, or hold them for the signed-in tier:
+
+- how to get in after hours, and which doors lock when
+- on-call room access
+- which wards are locked
+- anything naming an individual rather than a role
+
+**Never entered in a public field, at any tier:** network or Wi-Fi passwords, door keycodes,
+remote-access credentials, or any other secret. Access entries carry the process and the place —
+who to ask, where to go, how long it takes — never the credential itself.
+
+A daily roster naming who is on tonight is also not publishable, and is not on this list: link out
+to the live rostering system instead.
+
+Handover and orientation entries are safe as **process** — where, when, in what format. They must
+never grow into patient lists or identifiable clinical handover, which this mode rules out
+entirely.
 
 ---
 
