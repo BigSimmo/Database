@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "7c9df6d8-6113-407a-842e-0899aa7799c2",
+  "createdOn": "2026-09-07",
+  "action": "cancel",
+  "payload": {
+    "requestId": "2e5e2bc1-25b0-43af-805c-e3f7d8c63a13",
+    "reason": "Ordering, not a reversal: the owner's decision to close #QSHHGK stands. Its pending update a4593f03 corrects a statement in the row that is now false (that the baseline was deliberately not refreshed), and a done cannot carry a detail change, so the update must land first. Re-queue this closure after the next reconcile."
+  }
+}
