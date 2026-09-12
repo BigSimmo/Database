@@ -97,7 +97,7 @@ describe("countTestCases", () => {
     const counts: Record<string, number> = {
       "tests/guard-push-no-merge-base.test.ts": 1,
       "tests/pdf-extractor.test.ts": 6,
-      "tests/claude-cloud-profile.test.ts": 24,
+      "tests/claude-cloud-profile.test.ts": 26,
     };
     for (const [path, expected] of Object.entries(counts)) {
       const source = readFileSync(resolve(REPOSITORY_ROOT, path), "utf8");

@@ -207,6 +207,32 @@ describe("ModeNav item contract", () => {
   });
 });
 
+describe("ModeNav density is chosen, never inherited", () => {
+  const railSource = read("src/components/in-page-nav/in-page-section-rail.tsx");
+  const headerSource = read("src/components/in-page-nav/in-page-nav-header.tsx");
+
+  it("requires every rail to name its own density profile", () => {
+    // `density` defaulted to a profile, so medication's rail inherited
+    // Therapy's without naming it. `registryModeNavDensityProfiles` lists only
+    // the modes that render the top bar, so the coupling was invisible there,
+    // and retuning `extended` for Therapy in PR #2686 unfolded medication's
+    // counted labels early. A default cannot be safe: the value is calibrated
+    // against one label family's measured widths.
+    expect(railSource).not.toMatch(/density\s*=\s*"/);
+    expect(railSource).toMatch(/^\s*density: ModeNavDensityProfile;/m);
+    expect(headerSource).toMatch(/^\s*density: ModeNavDensityProfile;/m);
+  });
+
+  it("keeps every rail call site naming a profile, so the consumer set is greppable", () => {
+    for (const path of [
+      "src/components/clinical-dashboard/medication-nav-header.tsx",
+      "src/components/therapy-compass/therapy-record-nav-header.tsx",
+    ]) {
+      expect(read(path), `${path} must name its density profile`).toMatch(/density: "/);
+    }
+  });
+});
+
 describe("ModeNav overflow slot", () => {
   const moreSlot = modeNavSource.slice(
     modeNavSource.indexOf("plan.moreUntil !== null ? ("),

@@ -88,6 +88,7 @@ jobs:
       build_changed: ${{ steps.scope.outputs.build_changed }}
       lockfile_changed: ${{ steps.scope.outputs.lockfile_changed }}
       pr_policy_body_changed: ${{ steps.scope.outputs.pr_policy_body_changed }}
+      site_content_changed: ${{ steps.scope.outputs.site_content_changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -250,6 +251,12 @@ jobs:
 
       - name: CI scope self-test
         run: npm run check:ci-scope
+
+      - name: Site-content static and freshness contracts
+        if: needs.changes.outputs.site_content_changed == 'true'
+        run: |
+          node scripts/run-tsx.mjs scripts/build-site-content-manifest.ts --check
+          node scripts/run-tsx.mjs scripts/check-site-content-freshness.ts --evidence tests/fixtures/site-content/release-evidence-current.json
 
       - name: Verification-plan self-test
         run: npm run check:verification-plan

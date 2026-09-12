@@ -1,0 +1,121 @@
+<!--
+  Ward Flow shell, third edition: the markup fragment.
+
+  One app shell. The frame classes ride beside the third edition's own (app and hApp, frame and
+  hFrame, scroll and hScroll), so the mockup's locked laptop layout keeps working. The rail is one
+  empty nav that shell-script.js renders in the open or the closed shape. The header is one row.
+  The Command body goes where the comment says, unchanged from the mockup.
+
+  Left out on purpose, as design system content: the Rail views switcher (.oBar), the Every screen
+  cards (#mapPanel, .map, .card), the drawn layout (#bodyScreen, .schema), the four prose columns
+  ("Open, 236 pixels", "Closed, 76 pixels", "What was added, and why", "Considered, not built") and
+  the page footer (.hFoot). Their rules are in shell-docs.css.
+-->
+<div class="app hApp">
+  <a class="skip" href="#qpane-patients">Skip to the priority queue</a>
+  <nav class="rail open" id="rail" aria-label="Ward Flow sections"></nav>
+
+  <div class="frame hFrame">
+    <p class="srOnly" id="live" aria-live="polite" aria-atomic="true"></p>
+
+    <header class="hdr1" aria-label="Header">
+      <div class="title">
+        <h1 id="pageTitle">Command</h1>
+        <span
+          class="chip mark"
+          title="Every figure and name on this screen is invented. Not a medical device and not clinical decision support."
+          ><span class="long">Synthetic </span>prototype</span
+        >
+      </div>
+      <div class="searchWrap" id="searchWrap">
+        <label class="search">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5L14 14" />
+          </svg>
+          <input
+            type="search"
+            id="q"
+            placeholder="Search patients, movements, wards"
+            aria-label="Universal search: patients by name or identifier, movements, departments and wards. Risk scores and best matches are not returned."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <kbd id="qHint" aria-hidden="true">/</kbd>
+          <button type="button" class="clearBtn" id="qClear" hidden>Clear</button>
+        </label>
+        <div class="qPop" id="qPop" role="group" aria-label="Search results"></div>
+      </div>
+      <details class="menu svcMenu" id="svcMenu">
+        <summary>
+          <span class="srOnly">Service: </span><span class="dot" id="svcDot" aria-hidden="true" hidden></span
+          ><span class="lbl" id="svcLabel">All services</span><span class="count" id="svcCount"></span>
+        </summary>
+        <div class="menuPanel" role="group" aria-label="Choose a health service">
+          <p class="menuHead">Service<span class="count">scopes the queue and the strip</span></p>
+          <div id="svcList"></div>
+          <p class="menuNote">
+            One service, or all four. The queue, the pressure strip, the drawers and the rail follow the choice. The
+            Statewide flow keeps showing the whole network and its foot says so.
+          </p>
+        </div>
+      </details>
+      <div class="end">
+        <details class="menu drawerMenu wide" id="activityMenu" data-menu="activity">
+          <summary>
+            <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8.5h3l2-5 3 9 2-4h3" /></svg
+            ><span class="lbl optional">Activity</span
+            ><span class="dot" id="actDot" data-tone="good" aria-hidden="true"></span
+            ><span class="srOnly" id="actDotText"></span>
+          </summary>
+          <div class="menuPanel" id="activityPanel" role="group" aria-label="Activity"></div>
+        </details>
+        <details class="menu drawerMenu" id="tasksMenu" data-menu="tasks">
+          <summary>
+            <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M2.5 4.5l1.5 1.5 3-3M2.5 9.5l1.5 1.5 3-3M9 4h5M9 9h5M9 13h3" /></svg
+            ><span class="lbl optional">Tasks</span><span class="badge" id="tasksCount"></span
+            ><span class="dot" id="tasksDot" aria-hidden="true" hidden></span
+            ><span class="srOnly" id="tasksDotText"></span>
+          </summary>
+          <div class="menuPanel" id="tasksPanel" role="group" aria-label="Outstanding tasks"></div>
+        </details>
+        <details class="menu drawerMenu wide" id="toolsMenu" data-menu="tools">
+          <summary>
+            <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M9.5 2.5a3 3 0 0 0-3.6 3.9L2 10.3V14h3.7l3.9-3.9a3 3 0 0 0 3.9-3.6l-2 2-2-.5-.5-2z" /></svg
+            ><span class="lbl optional">Tools</span>
+          </summary>
+          <div class="menuPanel" id="toolsPanel" role="group" aria-label="Tools"></div>
+        </details>
+        <details class="menu" id="newMenu">
+          <summary class="primary">New referral</summary>
+          <div class="menuPanel">
+            <p class="menuHead">Raise a referral</p>
+            <div class="menuList">
+              <button class="menuItem" type="button" data-new="an emergency department">
+                From an emergency department<small>ED</small>
+              </button>
+              <button class="menuItem" type="button" data-new="a community team">
+                From a community team<small>CMHT</small>
+              </button>
+              <button class="menuItem" type="button" data-new="a GP or private practice">
+                From a GP or private practice<small>GP</small>
+              </button>
+            </div>
+            <p class="menuNote">
+              Opens the Raise a referral screen with the source prefilled. Not wired in this prototype.
+            </p>
+          </div>
+        </details>
+      </div>
+    </header>
+
+    <div class="scroll hScroll">
+      <!-- THE COMMAND BODY GOES HERE, unchanged from command-third-edition.html: the Emergency
+           department pressure section (#edList), div.grid3 with the tabbed queue panel
+           (#qpane-patients, #qpane-referrals, #qFilter), div.midCol (Statewide flow with #diagWrap,
+           #legend, and the registers tab panel) and section#slPanel. -->
+    </div>
+  </div>
+</div>

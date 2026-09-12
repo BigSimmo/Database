@@ -5,8 +5,9 @@ import { demoSummary, getDemoDocument } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { documentSummaryQuestion } from "@/lib/answer-contract";
 import { summarizeDocument } from "@/lib/rag/rag";
+import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
 import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
-import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
+import { persistAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
@@ -43,13 +44,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Group this request's LLM calls into one Sentry agent-monitoring conversation
     // before any OpenAI work starts. Synthetic UUID only — never document/query text.
     const interactionId = randomUUID();
+    const observationContext = { interactionId, rolloutMode: "legacy" } as const;
     setAgentConversationId(interactionId);
-    const answer = await summarizeDocument(id, user.id, { signal: request.signal });
-    const governedResponse = buildGovernedAnswerClientResponse(answer);
-    logAnswerDiagnostics({
+    const answer = await summarizeDocument(id, user.id, { signal: request.signal, observationContext });
+    const governedResponse = buildGovernedAnswerClientResponse(observeRagAnswer(answer, observationContext));
+    await persistAnswerDiagnostics({
       supabase,
       query: documentSummaryQuestion,
       ownerId: user.id,
+      interactionId,
       answer: governedResponse.telemetryAnswer,
     });
     return NextResponse.json({

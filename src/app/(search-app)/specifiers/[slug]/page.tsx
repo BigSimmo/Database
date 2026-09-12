@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 
 import { SpecifierRecordPage } from "@/components/specifiers/specifier-record-page";
 import { SpecifierReferencePage } from "@/components/specifiers/specifier-reference-page";
-import { findSpecifier, specifierRecords } from "@/lib/specifiers";
-import { getSpecifierCatalogItem, popularCatalogSlugs } from "@/lib/specifiers-content";
+import { specifierRecords } from "@/lib/specifiers";
+import { popularCatalogSlugs, publicSpecifierRecordBySlug } from "@/lib/specifiers-content";
 
 // Curated records are always pre-rendered. The full DSM-5-TR catalogue (~585 items)
 // is too large to statically generate in full, so only the source-verified subset is
@@ -24,19 +24,18 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: SpecifierDetailRouteProps): Promise<Metadata> {
   const { slug } = await params;
 
-  const record = findSpecifier(slug);
-  if (record) {
+  const resolved = publicSpecifierRecordBySlug(slug);
+  if (resolved?.source === "curated") {
     return {
-      title: `${record.name} - Psychiatric specifier - PsychSift`,
-      description: record.summary,
+      title: `${resolved.record.name} - Psychiatric specifier - PsychSift`,
+      description: resolved.record.summary,
     };
   }
 
-  const item = getSpecifierCatalogItem(slug);
-  if (item) {
+  if (resolved?.source === "catalogue") {
     return {
-      title: `${item.label} - ${item.disorderName} specifier - PsychSift`,
-      description: `${item.label} — ${item.disorderName} specifier (${item.categoryName}).`,
+      title: `${resolved.item.label} - ${resolved.item.disorderName} specifier - PsychSift`,
+      description: `${resolved.item.label} — ${resolved.item.disorderName} specifier (${resolved.item.categoryName}).`,
     };
   }
 
@@ -46,11 +45,10 @@ export async function generateMetadata({ params }: SpecifierDetailRouteProps): P
 export default async function SpecifierDetailRoute({ params }: SpecifierDetailRouteProps) {
   const { slug } = await params;
 
-  const record = findSpecifier(slug);
-  if (record) return <SpecifierRecordPage record={record} />;
+  const resolved = publicSpecifierRecordBySlug(slug);
+  if (resolved?.source === "curated") return <SpecifierRecordPage record={resolved.record} />;
 
-  const item = getSpecifierCatalogItem(slug);
-  if (item) return <SpecifierReferencePage item={item} />;
+  if (resolved?.source === "catalogue") return <SpecifierReferencePage item={resolved.item} />;
 
   notFound();
 }

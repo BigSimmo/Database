@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { validateActionReference } from "./github-action-pins.mjs";
 import { yamlBlock } from "./yaml-contract.mjs";
+import { prBatchWorkflowFailures } from "./pr-batch-policy.mjs";
 
 const workflowDir = path.join(process.cwd(), ".github", "workflows");
 
@@ -517,7 +518,7 @@ function discoverGitHubActionFiles(root) {
 }
 
 function collectPinFailures(root) {
-  const failures = [];
+  const failures = prBatchWorkflowFailures(root);
   const reaperCommands = resolveReaperCommands(root);
   for (const filePath of discoverGitHubActionFiles(root)) {
     const fileName = path.relative(root, filePath).replaceAll("\\", "/");

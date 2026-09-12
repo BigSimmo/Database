@@ -36,6 +36,8 @@ No confidence average, model response, warning banner, or administrator ownershi
 
 ### 1.1 RAG programme integration boundary
 
+**2026-09-07 amendment:** Consume the single F17–F19 disposition/acceptance map in the package execution-order.md “Answer-quality amendment — 2026-09-07”. P16 proves eligible usable uploaded passages for target answer parts, not only successful indexing. International licence/role/source-definition/version activation remains distinct. Australian Task 3 owns reviewed conflict creation/review/persistence/expiry, retrieval Task 8 request loading, Australian Task 6 operator reconciliation, and trusted-ingestion Task 6 upload lineage/withdrawal invalidation. Conflict review assesses material differences; it is not a second trusted-upload clinical admission approval. Fixtures do not prove real corpus/provider readiness.
+
 This design is the admission and technical-readiness owner for uploaded documents inside the wider RAG programme. It does not create a parallel retrieval, source-governance, evaluation, site-content, or re-index control plane.
 
 - `uploaded_local` means an administrator/backend-admitted document that has completed the owned staging-to-shared activation. It never means an ordinary user's private upload and it never includes administrator-owned staging rows.

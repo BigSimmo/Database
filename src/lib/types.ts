@@ -93,6 +93,13 @@ export type DocumentOrganizationProfile = {
   review_status: DocumentOrganizationReviewStatus;
 };
 
+export type SourceContentMode = "indexed_content" | "link_only";
+
+export type SourceLicencePolicy =
+  "review_required" | "public_index_permitted" | "metadata_link_only" | "index_forbidden";
+
+export type SourceChangeState = "unchanged" | "changed" | "withdrawn" | "superseded" | "unknown";
+
 export type ClinicalSourceMetadata = {
   source_kind?: "document" | "registry_record" | string | null;
   registry_record_kind?: "service" | "form" | "medication" | "differential" | string | null;
@@ -109,11 +116,294 @@ export type ClinicalSourceMetadata = {
   uploaded_at: string | null;
   indexed_at: string | null;
   uploaded_by: string | null;
+  corpus_scope?: SourceCorpusScope | null;
+  source_role?: ClinicalSourceRole | null;
+  content_mode?: SourceContentMode | null;
+  source_catalogue_key?: string | null;
+  source_policy_version?: string | null;
+  canonical_url?: string | null;
+  effective_date?: string | null;
+  expiry_date?: string | null;
+  supersedes_document_id?: string | null;
+  superseded_by_document_id?: string | null;
+  retrieved_at?: string | null;
+  content_hash?: string | null;
+  change_state?: SourceChangeState;
+  licence_policy?: SourceLicencePolicy | null;
   document_status: "current" | "review_due" | "outdated" | "unknown";
   clinical_validation_status: "unverified" | "locally_reviewed" | "approved" | "unknown";
   clinical_validation_evidence?: Record<string, unknown> | null;
   extraction_quality: "good" | "partial" | "poor" | "unknown";
 };
+
+/** Untrusted metadata shape accepted at ingestion and API normalization boundaries. */
+export type ClinicalSourceMetadataInput =
+  | (Partial<{ [Field in keyof ClinicalSourceMetadata]: unknown }> & Readonly<Record<string, unknown>>)
+  | null
+  | undefined;
+
+/** Canonical corpus boundary used by programme evaluation, ingestion, and retrieval. */
+export type SourceCorpusScope =
+  "uploaded_local" | "clinical_kb_site" | "australian_public" | "international_supplementary";
+
+/** Server-issued, request-local provenance used only for context-pack admission. */
+export type ContextPackAdmissionReceipt = Readonly<{
+  version: "context-pack-admission-v1";
+  ownerId: string | null;
+  sourcePolicyVersion: string;
+  indexGeneration: string | null;
+  document: Readonly<{
+    corpusScope: "australian_public";
+    documentId: string;
+    chunkId: string;
+  }> | null;
+  siteContent: Readonly<{
+    releaseId: string;
+    releaseDigest: string;
+    changeEpoch: string;
+  }> | null;
+}>;
+
+/** Canonical clinical/governance role of a source, independent of its corpus. */
+export type ClinicalSourceRole =
+  | "local_guideline"
+  | "clinical_guideline"
+  | "clinical_reference"
+  | "service_directory"
+  | "form_reference"
+  | "tool_reference"
+  | "safety_alert"
+  | "regulatory"
+  | "quality_standard"
+  | "legal"
+  | "subsidy"
+  | "professional_review"
+  | "service_policy"
+  | "reference_link";
+
+/** Claim-level evidence roles used to keep source purpose separate from topical relevance. */
+export type ClinicalClaimRole =
+  "treatment" | "dose_or_monitoring" | "safety" | "legal" | "subsidy" | "quality" | "service_workflow";
+
+export type SourceEligibilityDecision = {
+  eligible: boolean;
+  reason:
+    "eligible" | "link_only" | "inactive" | "role_mismatch" | "not_current" | "governance_block" | "catalogue_mismatch";
+};
+
+export type SourcePolicyConflictSide = {
+  documentId: string;
+  catalogueKey: string;
+  title: string;
+  publisher: string;
+  publicationDate: string | null;
+  effectiveFrom: string | null;
+  jurisdiction: string;
+  sourceRole: ClinicalSourceRole;
+  corpusScope: SourceCorpusScope;
+  supportingChunkIds: string[];
+};
+
+export type SourcePolicyConflict = {
+  version: "source-policy-conflict-v1";
+  id: string;
+  claimRole: ClinicalClaimRole;
+  topicKey: string;
+  local: SourcePolicyConflictSide & { corpusScope: "uploaded_local" };
+  australian: SourcePolicyConflictSide & { corpusScope: "australian_public" };
+  overlapReason: "same_claim" | "same_topic_and_population";
+  materialDifferenceReason:
+    | "recommendation_differs"
+    | "dose_differs"
+    | "threshold_differs"
+    | "monitoring_differs"
+    | "legal_status_differs"
+    | "other_reviewed_material_difference";
+  localPrimaryDecision: {
+    selected: "uploaded_local";
+    reason: "current_valid_accessible_directly_supportive";
+  };
+  reviewTargetDocumentId: string;
+};
+
+export type VerifiedSourcePolicyDifference = Pick<
+  SourcePolicyConflict,
+  "claimRole" | "topicKey" | "overlapReason" | "materialDifferenceReason"
+> & {
+  localChunkIds: string[];
+  australianChunkIds: string[];
+};
+
+export type EvidencePrimaryDecision =
+  | {
+      selected: "uploaded_local";
+      reason: "current_valid_accessible_directly_supportive";
+    }
+  | {
+      selected: "australian_public";
+      reason: "no_eligible_uploaded_local" | "uploaded_local_not_directly_supportive";
+    }
+  | {
+      selected: "none";
+      reason: "no_eligible_evidence";
+    };
+
+/** Canonical first-party Clinical KB content domains. */
+export type SiteContentDomain =
+  | "services"
+  | "forms"
+  | "medications"
+  | "differentials"
+  | "specifiers"
+  | "dsm"
+  | "formulation"
+  | "therapies"
+  | "dictionary"
+  | "factsheets"
+  | "calculators"
+  | "tools";
+
+export type SiteContentPartitionState = "current" | "updating" | "stale" | "unavailable" | "disabled";
+
+export type RagSubquestionPurpose =
+  "primary" | "comparison_side" | "required_action" | "monitoring" | "risk" | "special_population";
+
+export type RagSubquestion = {
+  id: string;
+  /** Request-local clinical question. Never persist this field in telemetry. */
+  question: string;
+  purpose: RagSubquestionPurpose;
+  /** Request-local delivery facets; never retrieval text or telemetry. */
+  requestedFacets?: RagAskedPart[];
+  requestedFacetDetails?: Partial<Record<RagAskedPart, RagRequestedFacetDetail[]>>;
+  required: boolean;
+};
+
+export type RagRequestedFacetDetail = "frequency" | "route" | "maximum";
+
+export type RagAskedPart =
+  | "dosing"
+  | "assessment"
+  | "differential"
+  | "rationale"
+  | "management"
+  | "monitoring"
+  | "risk"
+  | "comparison"
+  | "service_workflow";
+
+export type RagQueryPlan = {
+  askedParts?: RagAskedPart[];
+  requestedDepth?: "concise" | "standard" | "detailed";
+  materialSafetyDependencies?: RagSubquestionPurpose[];
+  sourcePolicy?: "only_this_source" | "primary_plus_approved_supplements";
+  version: "rag-query-plan-v1";
+  kind: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
+  /** Request-local original text. Never persist this field in telemetry. */
+  originalQuery: string;
+  interpretation: string;
+  subquestions: RagSubquestion[];
+  targetSiteDomains: SiteContentDomain[];
+  siteDomainDecision: "explicit" | "inferred" | "none";
+  reasonCodes: string[];
+};
+
+export type ClinicalAmbiguity = {
+  material: boolean;
+  dimensions: Array<"population" | "setting" | "medicine" | "document" | "jurisdiction" | "decision">;
+  clarificationQuestion: string;
+};
+
+export type SubquestionCoverage = {
+  subquestionId: string;
+  status: "direct" | "partial" | "conflicting" | "absent";
+  chunkIds: string[];
+  reasonCodes: string[];
+};
+
+export type AnswerCoveragePlan = {
+  interpretation: string;
+  ambiguity: ClinicalAmbiguity | null;
+  subquestions: Array<{ id: string; question: string; required: boolean }>;
+  coverage: SubquestionCoverage[];
+  conflicts: SourcePolicyConflict[];
+  overall: "complete" | "partial" | "conflicting" | "absent";
+  insufficiencyReason: RagInsufficiencyReason | null;
+};
+
+export type RagFallbackReasonCode =
+  | "provider_offline"
+  | "provider_missing_key"
+  | "provider_auth"
+  | "provider_quota"
+  | "provider_rate_limit"
+  | "provider_timeout"
+  | "provider_failure"
+  | "retrieval_degraded"
+  | "no_candidates"
+  | "low_signal"
+  | "coverage_gap"
+  | "source_role_mismatch"
+  | "source_conflict"
+  | "source_governance_block"
+  | "site_content_updating"
+  | "site_content_stale"
+  | "site_content_unavailable"
+  | "citation_or_claim_gate"
+  | "unsupported"
+  | "unknown";
+
+export type AdaptiveAnswerShape = "narrow" | "focused" | "comprehensive" | "comparison" | "partial";
+
+/** Required, request-local policy input; legacy query/answer plans need not carry it. */
+export type AdaptiveAnswerRequest = Required<
+  Pick<RagQueryPlan, "askedParts" | "requestedDepth" | "materialSafetyDependencies" | "sourcePolicy">
+> &
+  Pick<RagQueryPlan, "subquestions">;
+
+/** Internal composition policy, built only from the current request and packed coverage. */
+export type AdaptiveAnswerPlan = {
+  shape: AdaptiveAnswerShape;
+  requestedDepth: AdaptiveAnswerRequest["requestedDepth"];
+  requiredAskedParts: RagAskedPart[];
+  materialSafetyDependencies: RagSubquestionPurpose[];
+  sourcePolicy: AdaptiveAnswerRequest["sourcePolicy"];
+  requiredCoverage: Array<{
+    subquestionId: string;
+    question: string;
+    purpose: RagSubquestionPurpose | null;
+    /** Null is missing coverage, never manufactured supporting evidence. */
+    coverage: SubquestionCoverage | null;
+  }>;
+  supportedSubquestionIds: string[];
+  exactGapSubquestionIds: string[];
+  missingSafetyDependencies: RagSubquestionPurpose[];
+  optionalSectionKinds: AnswerSectionKind[];
+  requireExactGap: boolean;
+  requireConflictSection: boolean;
+  conflicts: SourcePolicyConflict[];
+  clarificationQuestion: string | null;
+  /** Finite policy tiers; the shared answer-contract limits owner supplies empirical ceilings. */
+  allocation: {
+    tier: "concise" | "standard" | "detailed";
+    requiredFirst: true;
+    optionalEnrichment: "remaining_budget_only";
+    padToMinimum: false;
+  };
+};
+
+export type RagInsufficiencyReason =
+  | "not_in_corpus"
+  | "retrieval_miss"
+  | "insufficient_claim_support"
+  | "source_role_mismatch"
+  | "source_conflict"
+  | "governance_block"
+  | "site_content_updating"
+  | "site_content_stale"
+  | "site_content_unavailable"
+  | "timeout"
+  | "provider_failure";
 
 export type ClinicalQueryMode =
   | "auto"
@@ -344,6 +634,12 @@ export type SearchResult = {
   retrieval_synopsis?: string | null;
   image_ids: string[];
   similarity: number;
+  /** Server-only retrieval scope; candidate selection rejects an absent or unknown value. */
+  corpus_scope?: SourceCorpusScope;
+  /** Server-only first-party site partition, when this result belongs to that corpus. */
+  site_content_domain?: SiteContentDomain | null;
+  /** Server-only, non-serializable authority. Untrusted retrieval rows are never allowed to provide it. */
+  context_pack_admission?: ContextPackAdmissionReceipt;
   // RC9 observability: "synthetic_text" marks a `similarity` fabricated from lexical/structural
   // signals (document-lookup, memory-card, table-facts fast paths) rather than a real cosine.
   // Coverage/threshold gates are calibrated for cosine values; this tag lets telemetry measure
@@ -867,6 +1163,7 @@ export type AnswerSectionKind =
   | "comparison"
   | "documentation"
   | "source_gap"
+  | "source_conflict"
   | "visual_evidence"
   | "quotes"
   | "verification";
@@ -932,6 +1229,9 @@ export type SmartRagAnswerPlan = {
   sourcePolicy: "required_citations" | "nearby_sources_allowed" | "exact_source_links";
 };
 
+/** Adaptive generation only: enrich after actual packed coverage exists, behind its rollout gate. */
+export type AdaptiveSmartRagAnswerPlan = SmartRagAnswerPlan & { adaptiveAnswer: AdaptiveAnswerPlan };
+
 export type SmartRagApiPlan = {
   query: string;
   queryClass: RagQueryClass;
@@ -994,6 +1294,13 @@ export type ComparisonMatrix = {
 };
 
 export type RagAnswer = {
+  /** Final server-selected adaptive contract; absent for legacy payloads. */
+  answerContractVersion?: "clinical-rag-answer-v20";
+  renderAdaptiveAnswer?: boolean;
+  /** Server-only allowlisted coverage accounting; no query/source/reviewer identifiers. */
+  ragDiagnostics?: import("@/lib/rag/rag-eval-diagnostics").ContentFreeRagDiagnostics;
+  /** Server-only programme diagnostics; excluded from the public answer DTO. */
+  generationDegradation?: import("@/lib/rag/rag-generation-degradation").RagGenerationDegradationRecord;
   interactionId?: string;
   feedbackToken?: string;
   answer: string;
@@ -1004,6 +1311,10 @@ export type RagAnswer = {
   supportedClaims?: SupportedClaim[];
   evidenceAssessments?: Record<string, EvidenceAssessment>;
   retrievalDiagnostics?: RetrievalDiagnostics;
+  /** Bounded browser-safe projection of retrievalDiagnostics.gateStatus. */
+  retrievalGateBlocked?: boolean;
+  /** Server-derived browser-safe trust cap. Never carries claim, chunk, document, or assessment identities. */
+  authorityTrustCapRequired?: boolean;
   modelUsed?: string | null;
   routingMode?: "unsupported" | "extractive" | "fast" | "strong";
   routingReason?: string;
@@ -1012,6 +1323,7 @@ export type RagAnswer = {
   // "source-only — may be lower quality, verify against cited passages" disclosure.
   providerMode?: "auto" | "openai" | "offline";
   answerQualityTier?: "model_synthesis" | "source_only" | "cached";
+  fallbackReasonCode?: RagFallbackReasonCode | null;
   fallbackReason?: string | null;
   degradedMode?: {
     active: boolean;
@@ -1053,6 +1365,8 @@ export type RagAnswer = {
     context_pack_cache_hits?: number;
     answer_retry_count?: number;
     answer_retry_reasons?: string[];
+    /** Server-only bounded observation that any provider generation result was truncated. */
+    provider_generation_truncated?: boolean;
     /** Cache-version refresh plus answer-cache lookups before retrieval starts. These run
      * inside the route budget but outside every retrieval phase timer. Additive. */
     pre_retrieval_latency_ms?: number;

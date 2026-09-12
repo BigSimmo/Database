@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 const { TEST_PROJECT_REF, TEST_SESSION_COOKIE } = vi.hoisted(() => {
@@ -30,6 +31,15 @@ function authClient(result: unknown) {
 }
 
 describe("optional authentication", () => {
+  it("owns a request-scoped user-context client for bearer and chunked-cookie publication commands", () => {
+    const source = readFileSync("src/lib/supabase/auth.ts", "utf8");
+    expect(source).toContain("requireAuthenticatedUserContext");
+    expect(source).toContain("publicationClient");
+    expect(source).toContain("global: { headers: { Authorization: `Bearer ${bearerToken}` } }");
+    expect(source).toContain("parseCookieHeader(cookieHeader)");
+    expect(source).toMatch(/request\.headers\.has\(["']authorization["']\)/);
+  });
+
   it("distinguishes absent credentials without calling Supabase auth", async () => {
     const client = authClient({ data: { user: null }, error: null });
     const request = new Request("http://localhost/api/search");

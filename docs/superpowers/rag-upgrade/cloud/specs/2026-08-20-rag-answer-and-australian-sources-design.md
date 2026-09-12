@@ -1,5 +1,7 @@
 # RAG answer quality, repository content, and Australian source augmentation — design
 
+**Binding amendment (2026-09-07):** The package execution-order.md section “Answer-quality amendment — 2026-09-07” is the single F01–F21/M01–M07 disposition map, milestone and acceptance policy (editable owner: docs/superpowers/rag-upgrade/canonical/execution-order.md). Preserve accepted local evidence; implementation remains paused. This amendment supersedes conflicting shape examples and scheduling-only dependencies below.
+
 **Status:** Approved programme design, reconciled against `origin/main` `aa0c04bce12995894a9287cb1a084f89f2ed6ef8` on 2026-08-22. The new programme implementation has not started; the existing RAG improvement Track A, buffered-final path, and flag-gated evidence-preview prerequisites are recorded below and are not to be reimplemented.
 
 **Date:** 2026-08-20
@@ -114,6 +116,12 @@ If a newer Australian source materially conflicts with the uploaded local guidel
 
 If the uploaded guideline is withdrawn, explicitly superseded, expired, inaccessible, or fails a danger-level governance gate, it is not eligible merely because it was uploaded.
 
+### Reviewed conflict and source-readiness lifecycle
+
+Australian Task 3 owns reviewed material-difference creation/review, append-only version-bound persistence/access and expiry policy; retrieval Task 8 loads/revalidates it per request; Australian Task 6 owns operator reconciliation; trusted-ingestion Task 6 invalidates upload-lineage inputs on withdrawal or generation change. No reviewed input means not assessed, never proof of no disagreement. A date difference or model assertion cannot create a canonical clinical conflict. Fixture records prove consumption only.
+
+Ingestion Task 1 maps every reference answer part to an eligible/current/access-safe passage. Catalogue approval does not prove usable extraction/index coverage. P16 owns trusted uploaded admission and technical activation, while international supplementary sources separately require approved source-definition/licence/role/version/evaluation/activation receipts from Australian/ingestion owners and L01–L06. Link-only references cannot fill unseen-evidence gaps.
+
 ### 3.2 Approved source catalogue
 
 | Source                                                            | Permitted role                                                               | Content mode           | Activation rule                                                               |
@@ -164,7 +172,7 @@ An official publisher or `.gov.au` domain establishes identity, not permission t
 
 ### 4.1 Adaptive length
 
-Length follows the clinical task and supported evidence yield:
+Length follows explicit requested depth, clinical task and supported evidence yield. Resolve asked parts, population, setting, constraints and source policy first. Required parts include material safety dependencies; adjacent enrichment is optional. Categories and section ranges below are advisory, never mandatory headings or limits on a detailed narrow explanation:
 
 | Answer shape                                     | Lead answer                  | Sections                                                                                |
 | ------------------------------------------------ | ---------------------------- | --------------------------------------------------------------------------------------- |
@@ -180,16 +188,18 @@ These are shape targets, not hard word caps. The response stops when the questio
 
 - Ask a clarification before retrieval only when population, setting, medicine, document, jurisdiction, or requested decision is materially ambiguous and competing interpretations would produce different answers.
 - Otherwise proceed and state the interpretation briefly.
-- Decompose broad questions into named subquestions and track evidence coverage for each.
+- Track explicit requested parts and requested depth, including material safety dependencies, using bounded named subquestions. Treat adjacent enrichment as optional; do not force every broad question into fixed actions/monitoring/risk lanes.
+- Preserve bounded resolved subject/constraints/latest request through successive follow-ups and elaboration; explicit topic/population/negation changes override prior context. Retrieve current eligible evidence again, without treating prior model prose as evidence.
 - Keep independently supported subanswers even when another subquestion has no support.
 - Replace the generic “not enough information” state with a structured reason: `not_in_corpus`, `retrieval_miss`, `insufficient_claim_support`, `source_role_mismatch`, `source_conflict`, `governance_block`, `timeout`, or `provider_failure`.
+- Say retrieved evidence did not establish a fact unless a stronger corpus-wide absence claim is proven. Do not infer absence from a coverage gap.
 - When the user can resolve the gap, ask one targeted question. When they cannot, say what source or scope is missing and provide the supported portion.
 
 ### 4.3 Citations and source presentation
 
 - Use compact inline citations attached to the sentence or section they support.
 - Cite the smallest sufficient directly supporting chunk set.
-- Distinguish uploaded-local, Australian augmentation, conflict, and supplementary sources in metadata, not promotional prose.
+- Distinguish uploaded-local, Australian augmentation, reviewed conflict and supplementary scope in metadata and concise relevant source-context explanation; never expose internal metadata or promotional inventory prose.
 - Link-only eTG/AMH entries may be offered as “consult this authenticated reference” but cannot support a factual claim unless separately visible permitted evidence supports that claim.
 - The main answer must stand alone; optional panels may expose deeper provenance but cannot contain required answer content exclusively.
 
@@ -197,18 +207,18 @@ These are shape targets, not hard word caps. The response stops when the questio
 
 The answer path becomes an explicit pipeline:
 
-1. **Analyse.** Normalise the query, detect intent, identify material ambiguity, and build ordered subquestions.
+1. **Analyse.** Resolve the complete canonical request, bounded follow-up context, explicit parts/depth and source policy. Hash this full request for answer-cache identity; lossy search-term normalization is retrieval-only. Invalidate/version old colliding cache entries. Detect intent/material ambiguity and build bounded ordered subquestions.
 2. **Snapshot and scope.** Resolve access plus one immutable request snapshot. Search `uploaded_local`, current `clinical_kb_site`, and active `australian_public`; add `international_supplementary` only after an evidence-gap decision.
-3. **Retrieve.** Run lexical, semantic, title/section, structured-table, and document lookup routes appropriate to each subquestion.
+3. **Retrieve.** Run existing bounded routes for each required part. Explicit only-this-source restrictions never widen; primary-plus-approved-supplements must be explicit and uses the existing gap-driven lane. Inferred domains are preferences or bounded fallback, not hard access filters. Primary-complete evidence avoids unnecessary supplementation.
 4. **Merge.** Deduplicate by canonical document/chunk generation while preserving corpus and role provenance.
 5. **Eligibility.** Remove inaccessible, inactive, withdrawn, superseded, link-only-content, role-ineligible, and danger-governance candidates.
 6. **Rank.** Rank eligible candidates by clinical relevance and directness, with bounded source/subquestion diversity.
 7. **Pack.** Build claim-oriented evidence groups that keep rule, population, exception, action, and units together.
 8. **Assess coverage.** Record direct, partial, conflicting, or absent coverage for every subquestion.
 9. **Compose.** Generate an adaptive lead and only the supported sections.
-10. **Verify.** Check every claim, number, role, citation, source conflict, and governance rule independently.
+10. **Verify.** Check every displayed clinical claim, number, role, citation, reviewed source conflict and governance rule, including overflow beyond 24 claims per lead/section. Direct support must establish relationships, population, polarity and qualifications: retain valid paraphrase, withhold unsupported causal explanation even at medium confidence. Assess/withhold/reject over-budget claims; never leave an unverified tail or clip it in the UI.
 11. **Fallback.** Preserve verified supported units and emit an exact gap reason if generation, parsing, time, or evidence fails.
-12. **Deliver.** Send verified incremental units followed by one authoritative final payload.
+12. **Deliver.** Establish one complete current/prior/copy/print/restored final answer first, including truthful synthesis/degradation disclosure and authoritative best-source withdrawal. Enable verified incremental units only after M2 and completion-quality proof, preserving immutable emission and exact reconciliation.
 
 Published first-party site content is deliberately public to every reader. New site content and document upload are administrator/backend-only: active `clinical_kb_site` and `uploaded_local` content are shared, while drafts, owned document staging, and legacy owner-private uploads are ineligible for Answer retrieval. Administrator/user identifiers are audit data and never retrieval, cache, log, or preview partition keys.
 
@@ -320,7 +330,7 @@ The offline candidate must meet all hard gates:
 - no loss in protected uploaded-guideline recall;
 - direct and cross-domain specifier/differential/medication cases retrieve the intended current site records without elevating them over eligible uploaded guidance;
 - a stale/mismatched public release is never retrieved or served from cache, a pending administrator-published edit immediately excludes its old projection/cache while unaffected public records remain available only through a proven anti-join, and anonymous/authenticated readers remain in parity;
-- false-insufficiency rate improves on the target slice;
+- prospective positive required-part/explanation usefulness improves on the targeted weak-case families under the amendment criterion; all-generic ties fail even when false insufficiency is already zero;
 - supported-subquestion retention improves or holds;
 - must-pass real failures pass;
 - no material regression in MRR/recall, conflict detection, citation precision, answer usefulness, or bounded latency; and
@@ -337,7 +347,8 @@ Record bounded reason codes and counts, not raw clinical queries or answer prose
 - retrieval route, candidate count, role exclusions, and coverage class;
 - fallback/insufficiency reason;
 - verified units emitted/discarded and reconciliation outcome;
-- latency by stage, cache version, source-policy version, and index generation; and
+- bounded required-part counts and loss reasons through candidates, admission/packing, generation, verification and delivery/copy, distinguishing omissions by stage;
+- latency/cost and successful usable completion, post-emission errors/retries and lost recovery opportunities; version/generation identities remain internal and public/persisted telemetry uses only its established allowlist; and
 - explicit user rating linked by opaque trace/evaluation identifiers.
 
 ## 9. Rollout and rollback
@@ -370,7 +381,7 @@ Every stage has a kill switch. `RAG_SITE_CONTENT_ENABLED=false` removes the firs
 | 2, then 7       | [Adaptive answer and display](../plans/2026-08-20-rag-adaptive-answer.md)                          | Lossless v19 lead display is independent; v20 server/section work needs `AnswerCoveragePlan` and stable source/fallback contracts | high                                | high server, medium-high UI       |
 | 7               | [Verified incremental delivery](../plans/2026-08-20-rag-verified-incremental-delivery.md)          | Stable final answer/schema/verification/context-snapshot contract                                                                 | xhigh                               | high                              |
 
-The practical critical path is: evaluation Tasks 1–2 → the independent lossless-v19-display slice → Australian governance/read-only audit contracts plus repository-content Tasks 1–2 → shared recovery-evidence/activation-receipt primitives → repository-content Tasks 3–5 → retrieval contracts/retrieval implementation → evaluation rollout ownership through Task 4 → repository-content evaluation handoff → adaptive v20 answer/section rendering → verified delivery → offline edge/reindex contracts and trusted-ingestion implementation → final offline programme comparison → separately authorized connected source verification, provider/blinded v19-versus-v20 evidence, targeted live acquisition/reindex waves, and final rollout. Full edge-ingestion repair and document re-index wiring do not block the first-party site lane; they still block every connected document shadow-stage/evaluate/promote operation. Repository-wide content must not be postponed until after retrieval/adaptive work, because its domain, snapshot, cache, and public-access contracts are inputs to those schemas.
+The practical critical path is: evaluation Tasks 1–2 → the independent lossless-v19-display slice → Australian governance/read-only audit contracts plus repository-content Tasks 1–2 → shared recovery-evidence/activation-receipt primitives → repository-content Tasks 3–5 → retrieval contracts/retrieval implementation → evaluation rollout ownership through Task 4 → adaptive v20 answer/section rendering with M2 deterministic mixed-source/partial/elaboration proof → repository-content evaluation and link-only handoffs → verified delivery → offline edge/reindex contracts and trusted-ingestion implementation → final offline programme comparison → separately authorized connected source verification, provider/blinded v19-versus-v20 evidence, targeted live acquisition/reindex waves, and final rollout. Full edge-ingestion repair and document re-index wiring do not block the first-party site lane; they still block every connected document shadow-stage/evaluate/promote operation. Repository-wide content must not be postponed until after retrieval/adaptive work, because its domain, snapshot, cache, and public-access contracts are inputs to those schemas.
 
 The eight implementation plans live in the sibling `../plans/` directory of each complete package. Their interleaved dependency order is defined by the package execution manifest rather than inferred from document order. Execution uses subagent-driven development sequentially: one fresh implementer for one bounded numeric task, then one fresh task reviewer returning separate specification-compliance and code-quality verdicts, with remediation and re-review before the next task. One Cloud/local execution session handles one phase-plan only, so task briefs, reports, review packages, and `.superpowers/sdd/progress.md` cannot collide across plans. Multiple implementers must not modify this shared RAG path concurrently. Use high build reasoning for RAG, ingestion, access, migrations, privacy, streaming, and rollout; medium-high is reserved for bounded display/UI or mechanical documentation tasks; use xhigh for final plan/branch/promotion review.
 

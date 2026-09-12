@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   answerDegradedModeSignal,
+  buildGovernedEmptyScopeAnswerClientResponse,
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
 } from "../src/lib/answer-response";
+import { projectClientAnswerPayload, toClientSearchScopeSummary } from "../src/lib/answer-client-payload";
+import { readAnswerStream } from "../src/components/clinical-dashboard/search-utils";
+import { answerUsesSourceOnlyProvenance } from "../src/components/ui/answer-state";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 function source(documentStatus: "current" | "outdated" = "current"): SearchResult {
@@ -59,17 +63,79 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
 }
 
 describe("governed answer response", () => {
+  it.each([
+    [
+      "generation_fallback:provider_timeout",
+      "provider_timeout",
+      "Answer generation timed out; the verified source-backed portion is shown.",
+    ],
+    ["coverage_gap", "coverage_gap", "The active sources support only part of this question."],
+  ])("FR1 normalizes legacy %s through JSON and final SSE", async (routingReason, code, reason) => {
+    const result = buildGovernedAnswerClientResponse(answer({ routingReason, answerQualityTier: "model_synthesis" }));
+    const json = JSON.parse(JSON.stringify(result.payload));
+    expect(json).toMatchObject({ fallbackReasonCode: code, degradedMode: { active: true, reason } });
+    expect(projectClientAnswerPayload(json, true)).toEqual(json);
+    const streamed = await readAnswerStream(new Response(`event: final\ndata: ${JSON.stringify(json)}\n\n`), () => {});
+    expect(streamed).toEqual(json);
+    expect(answerUsesSourceOnlyProvenance(streamed)).toBe(false);
+  });
+
   it("keeps a normal grounded answer and derives source-only degradation consistently", () => {
     const result = buildGovernedAnswerClientResponse(
-      answer({ answerQualityTier: "source_only", fallbackReason: "generation_fallback" }),
+      answer({
+        answerQualityTier: "source_only",
+        fallbackReasonCode: "provider_timeout",
+        fallbackReason: "generation_fallback: socket private-host?token=secret",
+        routingReason: "generation_fallback: socket private-host?token=secret",
+        degradedMode: { active: true, reason: "socket private-host?token=secret" },
+        queryAnalysis: { secret: "private-query" } as never,
+        retrievalDiagnostics: { gateStatus: "blocked", secret: "private-diagnostics" } as never,
+        openAIRequestIds: ["req_secret"],
+      }),
     );
 
     expect(result.refused).toBe(false);
     expect(result.payload).toMatchObject({
       answer: "Use the cited monitoring pathway.",
-      degradedMode: { active: true, reason: "generation_fallback" },
+      fallbackReasonCode: "provider_timeout",
+      degradedMode: {
+        active: true,
+        reason: "Answer generation timed out; the verified source-backed portion is shown.",
+      },
+      retrievalGateBlocked: true,
     });
+    expect(result.payload).not.toHaveProperty("routingReason");
+    expect(result.payload).not.toHaveProperty("fallbackReason");
+    expect(result.payload).not.toHaveProperty("queryAnalysis");
+    expect(result.payload).not.toHaveProperty("retrievalDiagnostics");
+    expect(result.payload).not.toHaveProperty("openAIRequestIds");
+    expect(JSON.stringify(result.payload)).not.toMatch(
+      /private-host|token=secret|private-query|private-diagnostics|req_secret/,
+    );
     expect(answerDegradedModeSignal()).toEqual({ active: false, reason: null });
+  });
+
+  it("normalizes malformed runtime fallback codes and activates valid typed degradation", () => {
+    const malformed = buildGovernedAnswerClientResponse(
+      answer({ fallbackReasonCode: "provider_timeout\nprivate-host?token=secret" as never }),
+    );
+    expect(malformed.payload).toMatchObject({
+      fallbackReasonCode: "unknown",
+      degradedMode: {
+        active: true,
+        reason: "The answer could not be completed from the currently verified sources.",
+      },
+    });
+    expect(JSON.stringify(malformed.payload)).not.toMatch(/private-host|token=secret/);
+
+    const coverageGap = buildGovernedAnswerClientResponse(answer({ fallbackReasonCode: "coverage_gap" }));
+    expect(coverageGap.payload).toMatchObject({
+      fallbackReasonCode: "coverage_gap",
+      degradedMode: {
+        active: true,
+        reason: "The active sources support only part of this question.",
+      },
+    });
   });
 
   it("fails closed without leaking answer-only fields when any answer route sees danger governance", () => {
@@ -103,10 +169,96 @@ describe("governed answer response", () => {
       confidence: "unsupported",
       citations: [],
       sources: [],
-      degradedMode: { active: true, reason: "supabase_api_key_configuration" },
+      fallbackReasonCode: "source_governance_block",
+      degradedMode: {
+        active: true,
+        reason: "Available material did not meet the source-governance requirements.",
+      },
       fallbackMode: "non_production_demo",
-      fallbackReason: "supabase_api_key_configuration",
     });
+    expect(result).not.toHaveProperty("fallbackReason");
     expect(result).not.toHaveProperty("smartPanel");
+  });
+
+  it("preserves an existing governance refusal when adding the demo marker", () => {
+    const result = buildGovernedDemoAnswerClientResponse(
+      answer({
+        answerQualityTier: "source_only",
+        fallbackReasonCode: "source_governance_block",
+        fallbackReason: "source_governance_refusal",
+      }),
+      "supabase_api_key_configuration",
+    );
+
+    expect(result).toMatchObject({
+      demoMode: true,
+      fallbackMode: "non_production_demo",
+      fallbackReasonCode: "source_governance_block",
+      degradedMode: {
+        active: true,
+        reason: "Available material did not meet the source-governance requirements.",
+      },
+    });
+  });
+
+  it.each(["citation_or_claim_gate", "source_role_mismatch", "source_conflict"] as const)(
+    "preserves stronger governed %s state when adding a demo fallback",
+    (fallbackReasonCode) => {
+      const result = buildGovernedDemoAnswerClientResponse(
+        answer({
+          answerQualityTier: "source_only",
+          fallbackReasonCode,
+          fallbackReason: fallbackReasonCode,
+          degradedMode: { active: true, reason: "private raw reason" },
+        }),
+        "supabase_api_key_configuration",
+      );
+
+      expect(result.fallbackReasonCode).toBe(fallbackReasonCode);
+      expect(result.degradedMode.reason).not.toContain("private raw reason");
+    },
+  );
+
+  it("projects route scope through one bounded allowlist", () => {
+    const projected = toClientSearchScopeSummary(
+      {
+        documentIds: ["private-document-id"],
+        filters: { collections: ["private-filter"] },
+        activeFilterCount: 2,
+        matchedDocumentCount: 1,
+        warnings: ["review the selected scope"],
+        summary: "Two active filters",
+        futureInternalField: "private" as never,
+      } as never,
+      "monitoring_schedule",
+    );
+
+    expect(Object.keys(projected)).toEqual([
+      "summary",
+      "activeFilterCount",
+      "matchedDocumentCount",
+      "warnings",
+      "queryMode",
+    ]);
+    expect(JSON.stringify(projected)).not.toMatch(/private-document-id|private-filter|futureInternalField/);
+  });
+
+  it("builds direct empty-scope JSON and SSE payloads through the same safe projection", () => {
+    const first = buildGovernedEmptyScopeAnswerClientResponse("No indexed documents matched.");
+    const second = buildGovernedEmptyScopeAnswerClientResponse("No indexed documents matched.");
+
+    expect(first.payload).toEqual(second.payload);
+    expect(first.payload).toMatchObject({
+      answer: "No indexed documents matched.",
+      grounded: false,
+      confidence: "unsupported",
+      fallbackReasonCode: "no_candidates",
+      degradedMode: {
+        active: true,
+        reason: "No directly relevant source passage was found in the active corpus.",
+      },
+    });
+    expect(first.payload).not.toHaveProperty("routingReason");
+    expect(first.payload).not.toHaveProperty("fallbackReason");
   });
 });
