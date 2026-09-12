@@ -69,6 +69,10 @@ const clinicalRiskPatterns = [
   // classifier returned `clinicalRisk: false`, so no governance preflight was
   // ever required. Generators live in scripts/ and are matched above.
   /^(?:src\/data|data|public\/therapy-compass-data)\//,
+  // Tests that act as clinical safety guards / prohibited wording chokepoints
+  // (e.g. Caring Contacts interface vocabulary, overlay definitions, clinical safety checks).
+  // Weakening or altering them is the clinical evasion route (#97W4FD).
+  /^tests\/(?:caring-contacts-(?:interface-vocabulary|overlay-definitions)\.test|calculator-mockup-clinical-safety\.test|helpers\/caring-contacts-prohibited-language)\.ts$/,
 ];
 
 /**
@@ -933,6 +937,16 @@ function selfTest() {
     }).ok,
     true,
     "an unrelated deployment constraint must not block a migration PR",
+  );
+  assert.equal(
+    classifyPullRequestFiles(["tests/caring-contacts-interface-vocabulary.test.ts"]).clinicalRisk,
+    true,
+    "clinical test guards must require clinical governance preflight (#97W4FD)",
+  );
+  assert.equal(
+    classifyPullRequestFiles(["tests/calculator-mockup-clinical-safety.test.ts"]).clinicalRisk,
+    true,
+    "calculator mockup safety test must require clinical governance preflight (#97W4FD)",
   );
   const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
   for (const item of requiredClinicalGovernanceItems)

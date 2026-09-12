@@ -7,7 +7,7 @@
 // cannot permit disclosure the preview is simply absent — there is no weaker
 // "stream-safe" variant.
 
-import { trimSourceForClient } from "@/lib/answer-client-payload";
+import { projectClientSearchResult, type ClientSearchResult } from "@/lib/answer-client-payload";
 import { env } from "@/lib/env";
 import { hasDangerSourceGovernanceWarning, sourceGovernanceWarnings } from "@/lib/source-governance";
 import {
@@ -250,7 +250,7 @@ export function buildEvidencePreviewUnit(args: {
  * Returns null only when not even one source can be delivered.
  */
 function buildUnit(results: SearchResult[]): VerifiedEvidencePreviewUnit | null {
-  const unitOf = (sources: SearchResult[]): VerifiedEvidencePreviewUnit => ({
+  const unitOf = (sources: ClientSearchResult[]): VerifiedEvidencePreviewUnit => ({
     schemaVersion: 1,
     kind: "evidence_preview",
     sequence: 0,
@@ -262,7 +262,8 @@ function buildUnit(results: SearchResult[]): VerifiedEvidencePreviewUnit | null 
   });
   const deliverable = results
     .slice(0, evidencePreviewMaxSources)
-    .map(trimSourceForClient)
+    .map(projectClientSearchResult)
+    .filter((source): source is ClientSearchResult => source !== null)
     .filter((source) => isDeliverableVerifiedUnit(unitOf([source])));
   for (let count = deliverable.length; count > 0; count -= 1) {
     const unit = unitOf(deliverable.slice(0, count));

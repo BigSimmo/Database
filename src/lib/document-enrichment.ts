@@ -700,9 +700,12 @@ type RelatedDocumentMetadataRow = {
   summary: string | null;
 };
 
-function withOptionalAbortSignal<T>(query: T, signal?: AbortSignal): T {
-  const abortable = query as T & { abortSignal?: (value: AbortSignal) => T };
-  return signal && typeof abortable.abortSignal === "function" ? abortable.abortSignal(signal) : query;
+async function withOptionalAbortSignal<T>(query: PromiseLike<T>, signal?: AbortSignal): Promise<T> {
+  signal?.throwIfAborted();
+  const abortable = query as PromiseLike<T> & { abortSignal?: (value: AbortSignal) => PromiseLike<T> };
+  const result = await (signal && typeof abortable.abortSignal === "function" ? abortable.abortSignal(signal) : query);
+  signal?.throwIfAborted();
+  return result;
 }
 
 export async function fetchRelatedDocumentMetadata(args: {
@@ -779,6 +782,7 @@ export async function fetchRelatedDocumentMetadata(args: {
   }
 
   const [labelsResult, summariesResult] = await Promise.all([labelsQuery, summariesQuery]);
+  args.signal?.throwIfAborted();
   const metadataError = labelsResult.error ?? summariesResult.error;
   if (metadataError) throw metadataError;
   const labels = (labelsResult.data ?? []) as DocumentLabel[];

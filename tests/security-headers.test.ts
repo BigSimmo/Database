@@ -19,6 +19,23 @@ const flagVariants = [
 const NONCE = "dGVzdC1ub25jZQ==";
 
 describe("security headers", () => {
+  it("disables Zod eval compilation before client validation", async () => {
+    const { config } = await import("zod/v4/core");
+    const z = await import("zod/mini");
+    const previousJitless = config().jitless;
+    try {
+      config({ jitless: false });
+      await import("../src/instrumentation-client");
+      expect(config().jitless).toBe(true);
+      const schema = z.strictObject({ value: z.string() });
+      expect(schema.safeParse({ value: "valid" }).success).toBe(true);
+      expect(schema.safeParse({ value: 1 }).success).toBe(false);
+      expect(schema.safeParse({ value: "valid", privateField: "hidden" }).success).toBe(false);
+    } finally {
+      config({ jitless: previousJitless });
+    }
+  });
+
   for (const flags of flagVariants) {
     describe(flags.name, () => {
       const headers = buildSecurityHeaders(flags);

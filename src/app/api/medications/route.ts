@@ -9,9 +9,9 @@ import {
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
+import { defaultMedicationRecords } from "@/lib/medication-seed";
 import { medicationAliasesForEntity } from "@/lib/medication-entities";
-import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
-import { publicMedicationGovernance, rowGovernanceForRecord, rowToMedicationRecord } from "@/lib/medication-records";
+import { publicMedicationGovernance } from "@/lib/medication-records";
 import { medicationCatalogInterpretation, searchMedicationCatalog } from "@/lib/medication-query";
 import {
   medicationBrandNames,
@@ -21,14 +21,16 @@ import {
   type MedicationSearchMatch,
 } from "@/lib/medications";
 import { publicAccessContext } from "@/lib/public-api-access";
+import {
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
 import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
-
-const MEDICATION_MAX_RECORDS = 500;
 
 const medicationListQuerySchema = z.object({
   q: z
@@ -207,36 +209,41 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("Medication requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    if (!access.ownerId) {
-      return medicationResponse(
-        {
-          ...publicMedicationPayload(q, limit, fields),
-          publicAccess: true,
+    const seedRecords = defaultMedicationRecords();
+    const canonical = await readCanonicalSiteContentRecords({
+      supabase,
+      kind: "medication",
+      slug: null,
+      seeds: seedRecords.map((record) => ({
+        record,
+        governance: publicMedicationGovernance(record),
+      })),
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as MedicationRecord,
+        governance: {
+          ...publicMedicationGovernance(finalRenderPayload as unknown as MedicationRecord),
+          ...canonicalSiteContentGovernance(canonicalRecord),
         },
-        { request, fixture: true },
-      );
-    }
-
-    const rows = await fetchOwnerMedicationRowsWithSeed(supabase, access.ownerId, MEDICATION_MAX_RECORDS);
-    const fullRecords = rows.map(rowToMedicationRecord);
+      }),
+    });
+    const fullRecords = canonical.records.map((entry) => entry.record);
     const records = fields === "index" ? toIndexRecords(fullRecords) : fullRecords;
-    // Governance is derived from `fullRecords`, not re-read from the rows: `rowGovernance`
-    // would Zod-parse the identical `sections` payload a second time, which measured about
-    // 6 ms per 330 rows on top of the 7 ms `rowToMedicationRecord` already spends — roughly
-    // 9 ms of wasted synchronous event-loop time per request at the MEDICATION_MAX_RECORDS
-    // cap, for an answer already in hand (latency audit 2026-07-28, L2-9).
     const governanceBySlug = Object.fromEntries(
-      rows.map((row, index) => [row.slug, rowGovernanceForRecord(row, fullRecords[index]!)]),
+      canonical.records.map((entry) => [entry.record.slug, entry.governance]),
     );
     const ranked = q ? rankCatalogMatches(fullRecords, q, limit, fields === "index") : undefined;
 
-    return medicationResponse({
-      records,
-      matches: ranked?.matches,
-      interpretation: ranked?.interpretation,
-      total: rows.length,
-      governance: governanceBySlug,
-    });
+    return medicationResponse(
+      {
+        publicAccess: true,
+        records,
+        matches: ranked?.matches,
+        interpretation: ranked?.interpretation,
+        total: fullRecords.length,
+        governance: governanceBySlug,
+      },
+      { request, fixture: canonical.source === "seed_uninitialized" },
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

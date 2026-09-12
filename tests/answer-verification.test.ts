@@ -697,3 +697,940 @@ describe("answer-verification (GEN-C2 / GEN-H2)", () => {
     expect(verification.hasUnverifiedNumbers).toBe(false);
   });
 });
+
+describe("P12B exact retained-answer metadata", () => {
+  it.each(["not_in_corpus", "source_role_mismatch", "timeout", "provider_failure"] as const)(
+    "retains supported prose and names only the missing required part for %s",
+    async (reason) => {
+      const { retainVerifiedAnswerParts } = await import("../src/lib/rag/rag-extractive-answer");
+      const { adaptiveAnswerGenerationContract } = await import("../src/lib/rag/rag-versioning");
+      const row = source({ content: "For agitation management, use oral medication when the patient is willing." });
+      const coverage: import("../src/lib/types").AnswerCoveragePlan = {
+        interpretation: "Agitation management and adolescent monitoring",
+        ambiguity: null,
+        subquestions: [
+          { id: "adult", question: "Agitation management", required: true },
+          { id: "adolescent", question: "Adolescent monitoring schedule", required: true },
+          { id: "optional", question: "Optional background", required: false },
+        ],
+        coverage: [
+          { subquestionId: "adult", status: "direct", chunkIds: [row.id], reasonCodes: [] },
+          { subquestionId: "adolescent", status: "absent", chunkIds: [], reasonCodes: [reason] },
+        ],
+        conflicts: [],
+        overall: "partial",
+        insufficiencyReason: reason,
+      };
+      const input: RagAnswer = {
+        answer: row.content,
+        grounded: true,
+        confidence: "high",
+        sources: [row],
+        citations: [citationFromResult(row, "model_selected")],
+        answerSections: [
+          {
+            heading: "Invented gap",
+            body: "Missing adult treatment.",
+            kind: "source_gap",
+            supportLevel: "unsupported",
+            citation_chunk_ids: [],
+          },
+        ],
+      };
+      const context = {
+        query: "How is agitation managed?",
+        queryClass: "unsupported_or_general" as const,
+        contract: adaptiveAnswerGenerationContract,
+        resolveCoverage: () => coverage,
+      };
+      const result = retainVerifiedAnswerParts(input, context);
+      expect(result.answer.grounded).toBe(true);
+      expect(result.answer.answer.replaceAll("**", "")).toContain(row.content);
+      const gap = result.answer.answerSections?.find((s) => s.kind === "source_gap");
+      expect(result.gapAdded).toBe(true);
+      expect(gap?.body).toContain("Adolescent monitoring schedule");
+      expect(gap?.body).not.toMatch(/Agitation management|Optional background|Missing adult/);
+      expect(gap?.citation_chunk_ids).toEqual([]);
+      expect(retainVerifiedAnswerParts(result.answer, context).answer.answerSections).toEqual(
+        result.answer.answerSections,
+      );
+    },
+  );
+});
+
+it("P12B consumer retains every supported part when one supporting source is removed", async () => {
+  const { retainVerifiedAnswerParts } = await import("../src/lib/rag/rag-extractive-answer");
+  const { adaptiveAnswerGenerationContract } = await import("../src/lib/rag/rag-versioning");
+  const lead = "For agitation, offer oral medication when the patient is willing.";
+  const firstFact = "Record the person's preferred language before discussing agitation care.";
+  const secondFact = "Document the agreed care contact after discussing agitation care.";
+  const first = source({ id: "first", content: lead + " " + firstFact });
+  const second = source({ id: "second", content: secondFact });
+  for (const removeSecond of [false, true]) {
+    const answer: RagAnswer = {
+      answer: lead,
+      grounded: true,
+      confidence: "high",
+      sources: removeSecond ? [first] : [first, second],
+      citations: [citationFromResult(first, "model_selected"), citationFromResult(second, "model_selected")],
+      answerSections: [
+        {
+          heading: "Language",
+          body: firstFact,
+          kind: "required_actions",
+          supportLevel: "direct",
+          citation_chunk_ids: [first.id],
+        },
+        {
+          heading: "Care contact",
+          body: secondFact,
+          kind: "required_actions",
+          supportLevel: "direct",
+          citation_chunk_ids: [second.id],
+        },
+      ],
+    };
+    const result = retainVerifiedAnswerParts(answer, {
+      query: "Explain agitation management in detail.",
+      queryClass: "broad_summary",
+      contract: adaptiveAnswerGenerationContract,
+      resolveCoverage: (verified) => ({
+        interpretation: "Language and care contact",
+        ambiguity: null,
+        subquestions: [
+          { id: "first", question: "Preferred language", required: true },
+          { id: "second", question: "Agreed care contact", required: true },
+        ],
+        coverage: [first, second].map((row) => ({
+          subquestionId: row.id,
+          status: verified.citations.some((citation) => citation.chunk_id === row.id) ? "direct" : "absent",
+          chunkIds: verified.citations.some((citation) => citation.chunk_id === row.id) ? [row.id] : [],
+          reasonCodes: [],
+        })),
+        conflicts: [],
+        overall: removeSecond ? "partial" : "complete",
+        insufficiencyReason: removeSecond ? "not_in_corpus" : null,
+      }),
+    });
+    expect(result.answer.answer.replaceAll("**", "")).toBe(lead);
+    expect(result.answer.answerSections?.[0]?.body).toBe(firstFact);
+    expect(result.retainedSectionCount).toBe(removeSecond ? 1 : 2);
+    expect(result.droppedSectionCount).toBe(removeSecond ? 1 : 0);
+    if (removeSecond) {
+      expect(result.answer.answerSections?.[1]?.body).toBe("Agreed care contact: not covered by the active sources.");
+      expect(result.answer.citations.map((citation) => citation.chunk_id)).toEqual([first.id]);
+    } else expect(result.answer.answerSections?.[1]?.body).toBe(secondFact);
+  }
+});
+
+it("P12B consolidates only identical evidence and keeps every heading and fact across repeated finalization", async () => {
+  const { retainVerifiedAnswerParts } = await import("../src/lib/rag/rag-extractive-answer");
+  const { adaptiveAnswerGenerationContract } = await import("../src/lib/rag/rag-versioning");
+  const { answerWithinLimits, adaptiveAnswerLimits } = await import("../src/lib/rag/rag-answer-contract-limits");
+  const lead = "For agitation, offer oral medication when the patient is willing.";
+  const facts = [
+    "Record the person's preferred language before discussing agitation care.",
+    "Document the agreed care contact after discussing agitation care.",
+    "Explain the planned review location before discussing agitation care.",
+    "Record the person's communication preferences for the agitation review.",
+    "Confirm the agreed support person before discussing agitation care.",
+    "Document the person's preferred contact method for the agitation review.",
+    "Record the nominated care coordinator for the agitation review.",
+    "Confirm the agreed handover destination after the agitation review.",
+  ];
+  const first = source({ id: "first", content: [lead, ...facts].join(" ") });
+  const second = source({ id: "second", content: [lead, ...facts].join(" ") });
+  const context = {
+    query: "Explain agitation management in detail.",
+    queryClass: "broad_summary" as const,
+    contract: adaptiveAnswerGenerationContract,
+    resolveCoverage: (): import("../src/lib/types").AnswerCoveragePlan => ({
+      interpretation: "Care and monitoring",
+      ambiguity: null,
+      subquestions: [
+        { id: "care", question: "Care", required: true },
+        { id: "monitoring", question: "Adolescent monitoring", required: true },
+      ],
+      coverage: [
+        { subquestionId: "care", status: "direct", chunkIds: [first.id, second.id], reasonCodes: [] },
+        { subquestionId: "monitoring", status: "absent", chunkIds: [], reasonCodes: [] },
+      ],
+      conflicts: [],
+      overall: "partial",
+      insufficiencyReason: "not_in_corpus",
+    }),
+  };
+  for (const mixedCitations of [false, true]) {
+    const input: RagAnswer = {
+      answer: lead,
+      grounded: true,
+      confidence: "high",
+      sources: [first, second],
+      citations: [citationFromResult(first, "model_selected"), citationFromResult(second, "model_selected")],
+      answerSections: facts.map((body, index) => ({
+        heading: "Care " + String.fromCharCode(65 + index),
+        body,
+        kind: "required_actions",
+        supportLevel: "direct",
+        citation_chunk_ids: [mixedCitations && index % 2 ? second.id : first.id],
+      })),
+    };
+    const result = retainVerifiedAnswerParts(input, context).answer;
+    expect(result.answerSections).toHaveLength(mixedCitations ? 9 : 8);
+    expect(answerWithinLimits(result, adaptiveAnswerLimits)).toBe(!mixedCitations);
+    const delivered = result.answerSections!.map((section) => section.heading + "\n" + section.body).join("\n");
+    for (const fact of facts) expect(delivered).toContain(fact);
+    for (let index = 0; index < 8; index++) expect(delivered).toContain("Care " + String.fromCharCode(65 + index));
+    expect(retainVerifiedAnswerParts(result, context).answer.answerSections).toEqual(result.answerSections);
+  }
+});
+
+it.each([
+  { withheld: false, sameSource: false, leadOnly: false },
+  { withheld: true, sameSource: false, leadOnly: false },
+  { withheld: false, sameSource: true, leadOnly: false },
+  { withheld: true, sameSource: true, leadOnly: false },
+  { withheld: false, sameSource: true, leadOnly: true },
+])(
+  "P12B R1 reconciles surviving claims (withheld=$withheld, shared=$sameSource, lead=$leadOnly)",
+  async ({ withheld, sameSource, leadOnly }) => {
+    const { retainVerifiedAnswerParts } = await import("../src/lib/rag/rag-extractive-answer");
+    const { adaptiveAnswerGenerationContract } = await import("../src/lib/rag/rag-versioning");
+    const lead = "For agitation, offer oral medication when the patient is willing.";
+    const firstFact = "Record the person's preferred language before discussing agitation care.";
+    const secondFact = "Document the agreed care contact after discussing agitation care.";
+    const first = source({ id: "language", content: lead + " " + firstFact + (sameSource ? " " + secondFact : "") });
+    const second = source({ id: "contact", content: secondFact });
+    const coverage: import("../src/lib/types").AnswerCoveragePlan = {
+      interpretation: "Language and care contact",
+      ambiguity: null,
+      subquestions: [
+        { id: "language", question: "Preferred language", required: true },
+        { id: "contact", question: "Agreed care contact", required: true },
+      ],
+      coverage: [first, second].map((row) => ({
+        subquestionId: row.id,
+        status: "direct",
+        chunkIds: [sameSource ? first.id : row.id],
+        reasonCodes: [],
+      })),
+      conflicts: [],
+      overall: "complete",
+      insufficiencyReason: null,
+    };
+    const context = {
+      query: "Explain agitation management in detail.",
+      queryClass: "broad_summary" as const,
+      contract: adaptiveAnswerGenerationContract,
+      resolveCoverage: () => structuredClone(coverage),
+    };
+    const rows = sameSource ? [first] : [first, second];
+    const input: RagAnswer = {
+      answer: leadOnly ? [lead, firstFact, secondFact].join(" ") : lead,
+      grounded: true,
+      confidence: "high",
+      sources: rows,
+      citations: rows.map((row) => citationFromResult(row, "model_selected")),
+      answerSections: leadOnly
+        ? []
+        : [
+            {
+              heading: "Language",
+              body: firstFact,
+              kind: "required_actions",
+              supportLevel: "direct",
+              citation_chunk_ids: [first.id],
+            },
+            {
+              heading: "Care contact",
+              body: withheld ? "The agreed care contact reduces mortality by 90%." : secondFact,
+              kind: "required_actions",
+              supportLevel: "direct",
+              citation_chunk_ids: [sameSource ? first.id : second.id],
+            },
+          ],
+    };
+    const result = retainVerifiedAnswerParts(input, context).answer;
+    expect(result.answer.replaceAll("**", "")).toBe(input.answer);
+    if (!leadOnly) expect(result.answerSections?.[0]?.body).toBe(firstFact);
+    expect(result.sources.map((row) => row.id)).toEqual(rows.map((row) => row.id));
+    expect(result.citations.map((citation) => citation.chunk_id)).toEqual(rows.map((row) => row.id));
+    const gap = result.answerSections?.find((section) => section.kind === "source_gap");
+    if (withheld) {
+      expect(result.answerSections?.some((section) => section.body.includes("90%"))).toBe(false);
+      expect(gap?.body).toContain("Agreed care contact");
+      expect(gap?.body).not.toContain("not covered by the active sources");
+    } else {
+      expect(gap).toBeUndefined();
+      if (!leadOnly) expect(result.answerSections?.[1]?.body).toBe(secondFact);
+    }
+    expect(retainVerifiedAnswerParts(result, context).answer.answerSections).toEqual(result.answerSections);
+  },
+);
+
+it("P12B R1 retains a supported paraphrase and rejects same-topic coverage missing its distinguishing facet", async () => {
+  const { retainVerifiedAnswerParts } = await import("../src/lib/rag/rag-extractive-answer");
+  const { adaptiveAnswerGenerationContract } = await import("../src/lib/rag/rag-versioning");
+  const { deliveredProseRelevance } = await import("../src/lib/evidence-relevance");
+  const lead = "For agitation, offer oral medication when the patient is willing.";
+  const sourceFact = "Record the person's preferred language before discussing agitation care.";
+  const paraphrase = "Before discussing agitation care, document the person's preferred language.";
+  const longFact = "For adult inpatient agitation care, record communication preferences.";
+  const longQuestion = "For adult inpatient agitation care, record communication preferences and consent.";
+  expect(deliveredProseRelevance(longQuestion, longFact).direct).toBe(true);
+  for (const sameTopic of [false, true]) {
+    const firstFact = sameTopic ? longFact : paraphrase;
+    const row = source({
+      content: [
+        lead,
+        sameTopic ? longFact : sourceFact,
+        "For adult inpatient agitation care, record the consent decision.",
+      ].join(" "),
+    });
+    const coverage: import("../src/lib/types").AnswerCoveragePlan = {
+      interpretation: "Care details",
+      ambiguity: null,
+      subquestions: [
+        { id: "present", question: sameTopic ? longFact : "Preferred language", required: true },
+        { id: "absent", question: sameTopic ? longQuestion : "Consent decision", required: true },
+      ],
+      coverage: ["present", "absent"].map((id) => ({
+        subquestionId: id,
+        status: "direct",
+        chunkIds: [row.id],
+        reasonCodes: [],
+      })),
+      conflicts: [],
+      overall: "complete",
+      insufficiencyReason: null,
+    };
+    const result = retainVerifiedAnswerParts(
+      {
+        answer: lead,
+        grounded: true,
+        confidence: "high",
+        sources: [row],
+        citations: [citationFromResult(row, "model_selected")],
+        answerSections: [
+          {
+            heading: "Communication",
+            body: firstFact,
+            kind: "required_actions",
+            supportLevel: "direct",
+            citation_chunk_ids: [row.id],
+          },
+        ],
+      },
+      {
+        query: "Explain agitation management in detail.",
+        queryClass: "broad_summary",
+        contract: adaptiveAnswerGenerationContract,
+        resolveCoverage: () => coverage,
+      },
+    ).answer;
+    expect(result.answerSections?.[0]?.body).toBe(firstFact);
+    const gap = result.answerSections?.find((section) => section.kind === "source_gap");
+    expect(gap?.body).toContain(sameTopic ? longQuestion : "Consent decision");
+    if (!sameTopic) expect(gap?.body).not.toContain("Preferred language");
+    expect(gap?.body).not.toContain("not covered by the active sources");
+  }
+});
+
+async function p12bR2DeliveredCase(
+  questions: string[] | import("../src/lib/types").RagQueryPlan,
+  facts: string[],
+  rowOverrides: Partial<SearchResult> = {},
+  options: {
+    leadOnly?: boolean;
+    alternateKinds?: boolean;
+    customizeCoverage?: (coverage: import("../src/lib/types").AnswerCoveragePlan) => void;
+  } = {},
+) {
+  const { retainVerifiedAnswerParts } = await import("../src/lib/rag/rag-extractive-answer");
+  const { adaptiveAnswerGenerationContract } = await import("../src/lib/rag/rag-versioning");
+  const lead = "For agitation, offer oral medication when the patient is willing.";
+  const row = source({
+    title: "Care record",
+    file_name: "care.pdf",
+    section_heading: "Care",
+    ...rowOverrides,
+    content: lead + " " + (rowOverrides.content ?? facts.join(" ")),
+  });
+  const parts = Array.isArray(questions)
+    ? questions.map((question, index) => ({ id: `sq-${index + 1}`, question, required: true }))
+    : questions.subquestions;
+  const coverage: import("../src/lib/types").AnswerCoveragePlan = {
+    interpretation: "Delivered completeness",
+    ambiguity: null,
+    subquestions: parts,
+    coverage: parts.map((part) => ({ subquestionId: part.id, status: "direct", chunkIds: [row.id], reasonCodes: [] })),
+    conflicts: [],
+    overall: "complete",
+    insufficiencyReason: null,
+  };
+  options.customizeCoverage?.(coverage);
+  let finalCoverage = coverage;
+  const context = {
+    query: "Explain agitation management in detail.",
+    queryClass: "broad_summary" as const,
+    contract: adaptiveAnswerGenerationContract,
+    ...(!Array.isArray(questions) ? { queryPlan: questions } : {}),
+    resolveCoverage: () => structuredClone(coverage),
+    reconcileCoverage: (_: RagAnswer, value: import("../src/lib/types").AnswerCoveragePlan | null) => {
+      if (value) finalCoverage = value;
+    },
+  };
+  const input: RagAnswer = {
+    answer: options.leadOnly ? [lead, ...facts].join(" ") : lead,
+    grounded: true,
+    confidence: "high",
+    sources: [row],
+    citations: [citationFromResult(row, "model_selected")],
+    answerSections: options.leadOnly
+      ? []
+      : facts.map((body, index) => ({
+          heading: `Fact ${index + 1}`,
+          body,
+          kind: options.alternateKinds && index % 2 ? "monitoring_timing" : "required_actions",
+          supportLevel: "direct",
+          citation_chunk_ids: [row.id],
+        })),
+  };
+  const retained = retainVerifiedAnswerParts(input, context);
+  const result = retained.answer;
+  expect(
+    result.answerSections
+      ?.filter((section) => section.kind !== "source_gap")
+      .map((section) => section.body.replaceAll("**", "")),
+  ).toEqual(options.leadOnly ? [] : facts);
+  if (options.leadOnly) for (const fact of facts) expect(result.answer.replaceAll("**", "")).toContain(fact);
+  expect(result.sources.map((row) => row.id)).toEqual([row.id]);
+  expect(result.citations.map((citation) => citation.chunk_id)).toEqual([row.id]);
+  expect(retainVerifiedAnswerParts(result, context).answer.answerSections).toEqual(result.answerSections);
+  return { answer: result, coverage: finalCoverage, gapAdded: retained.gapAdded };
+}
+
+it("P12B R2 binds real canonical individual and grouped facets to delivered prose", async () => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const monitoring = "Monitor agitation symptoms every three months.";
+  const risk = "Agitation carries a risk of injury.";
+  for (const grouped of [false, true]) {
+    const query = grouped
+      ? "Agitation assessment, management, monitoring and risk in detail."
+      : "Agitation monitoring and risk in detail.";
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.subquestions.length).toBe(grouped ? 4 : 3);
+    expect(plan.subquestions[0]?.requestedFacets).toEqual(
+      grouped ? ["assessment", "management", "monitoring", "risk"] : ["monitoring", "risk"],
+    );
+    expect(plan.subquestions.at(-1)?.requestedFacets).toEqual(grouped ? ["monitoring", "risk"] : ["risk"]);
+    const prefix = grouped
+      ? ["Assess agitation symptoms before treatment.", "Manage agitation with a calm environment."]
+      : [];
+    const partial = await p12bR2DeliveredCase(plan, [...prefix, monitoring]);
+    expect(partial.coverage.coverage[0]?.status).toBe("absent");
+    expect(partial.coverage.coverage.at(-1)?.status).toBe("absent");
+    const gap = partial.answer.answerSections?.find((section) => section.kind === "source_gap")?.body ?? "";
+    expect(gap).toMatch(/^risk:/);
+    expect(gap).not.toMatch(/monitoring|Focus on|Address the requested/);
+    expect(gap.match(/risk/g)).toHaveLength(1);
+    const complete = await p12bR2DeliveredCase(plan, [...prefix, monitoring, risk]);
+    expect(complete.coverage.coverage.every((entry) => entry.status === "direct")).toBe(true);
+    const leadOnly = await p12bR2DeliveredCase(plan, [...prefix, monitoring, risk], {}, { leadOnly: true });
+    expect(leadOnly.coverage.coverage.every((entry) => entry.status === "direct")).toBe(true);
+  }
+});
+
+it("P12B R2 requires the sole requested care-contact part without borrowing a same-row language claim", async () => {
+  const language = "Record the person's preferred language before discussing agitation care.";
+  const contact = "Document the agreed care contact after discussing agitation care.";
+  const partial = await p12bR2DeliveredCase(["Agreed care contact"], [language], { content: language + " " + contact });
+  expect(partial.coverage.coverage[0]?.status).toBe("absent");
+  expect(partial.answer.answerSections?.find((section) => section.kind === "source_gap")?.body).not.toContain(
+    "not covered by the active sources",
+  );
+  const complete = await p12bR2DeliveredCase(["Agreed care contact"], [contact]);
+  expect(complete.coverage.coverage[0]?.status).toBe("direct");
+});
+
+it("P12B R2 delivered completeness is invariant to undelivered source headings and context", async () => {
+  const fact = "Monitor blood tests annually.";
+  const plain = await p12bR2DeliveredCase(["Clozapine monitoring"], [fact]);
+  const labelled = await p12bR2DeliveredCase(["Clozapine monitoring"], [fact], {
+    title: "Clozapine monitoring",
+    section_heading: "Clozapine",
+    content: fact + " Clozapine monitoring is described in this section.",
+  });
+  expect(labelled.coverage.coverage).toEqual(plain.coverage.coverage);
+  expect(labelled.coverage.coverage[0]?.status).toBe("absent");
+});
+
+it.each(["every 3 months", "every three months", "annually", "yearly", ""])(
+  "P12B R2 preserves delivered monitoring frequency '%s' with a frequency-missing control",
+  async (frequency) => {
+    const fact = `Monitor lithium levels${frequency ? " " + frequency : ""}.`;
+    const result = await p12bR2DeliveredCase(["How often should lithium monitoring occur?"], [fact]);
+    expect(result.coverage.coverage[0]?.status).toBe(frequency ? "direct" : "absent");
+  },
+);
+
+it("P12B R2 retains unbound plan consumer names and prefers specific canonical missing reasons", async () => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const query = "Agitation monitoring and risk in detail.";
+  const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+  const unbound = {
+    ...plan,
+    subquestions: [{ id: "sq-1", question: "Agreed care contact", purpose: "primary" as const, required: true }],
+  };
+  const language = "Record the person's preferred language before discussing agitation care.";
+  const unboundResult = await p12bR2DeliveredCase(unbound, [language]);
+  expect(unboundResult.coverage.coverage[0]?.status).toBe("absent");
+  expect(unboundResult.answer.answerSections?.find((section) => section.kind === "source_gap")?.body).toMatch(
+    /^Agreed care contact:/,
+  );
+  const monitoring = "Monitor agitation symptoms every three months.";
+  const result = await p12bR2DeliveredCase(
+    plan,
+    [monitoring],
+    {},
+    {
+      customizeCoverage: (coverage) => {
+        coverage.coverage[0]!.status = "absent";
+        coverage.coverage[0]!.chunkIds = [];
+        coverage.coverage[0]!.reasonCodes = ["retrieval_miss"];
+        const risk = coverage.coverage.at(-1)!;
+        risk.status = "absent";
+        risk.chunkIds = [];
+        risk.reasonCodes = ["not_in_corpus"];
+        coverage.overall = "partial";
+        coverage.insufficiencyReason = "insufficient_claim_support";
+      },
+    },
+  );
+  expect(result.answer.answerSections?.find((section) => section.kind === "source_gap")?.body).toBe(
+    "risk: not covered by the active sources.",
+  );
+  const explainQuery = "Explain agitation monitoring and risk in detail.";
+  const explainPlan = buildRagQueryPlan(explainQuery, analyzeClinicalQuery(explainQuery));
+  const missingRationale = await p12bR2DeliveredCase(explainPlan, [monitoring, "Agitation carries a risk of injury."]);
+  expect(missingRationale.answer.answerSections?.find((section) => section.kind === "source_gap")?.body).toMatch(
+    /^rationale:/,
+  );
+});
+
+it.each(["", "every 3 months", "every three months", "annually", "yearly"])(
+  "P12B R3 enforces canonical monitoring frequency '%s' without withholding risk",
+  async (frequency) => {
+    const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+    const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+    const query = "What monitoring frequency and risks apply to lithium?";
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    expect(plan.subquestions.map((part) => part.requestedFacets)).toEqual([
+      ["monitoring", "risk"],
+      ["monitoring"],
+      ["risk"],
+    ]);
+    const monitoring = `Monitor lithium levels${frequency ? " " + frequency : ""}.`;
+    const risk = "Lithium carries a risk of tremor.";
+    const result = await p12bR2DeliveredCase(plan, [monitoring, risk], {
+      content: [monitoring, risk, "Monitor lithium levels every three months."].join(" "),
+    });
+    expect(result.coverage.coverage.at(-1)?.status).toBe("direct");
+    expect(result.coverage.coverage[0]?.status).toBe(frequency ? "direct" : "absent");
+    const gap = result.answer.answerSections?.find((section) => section.kind === "source_gap");
+    if (frequency) expect(gap).toBeUndefined();
+    else {
+      expect(gap?.body).toMatch(/^monitoring frequency:/);
+      expect(gap?.body).not.toMatch(/risk|not covered by the active sources/);
+      const aggregateAbsent = await p12bR2DeliveredCase(
+        plan,
+        [monitoring, risk],
+        {},
+        {
+          customizeCoverage: (coverage) => {
+            coverage.coverage[0]!.status = "absent";
+            coverage.coverage[0]!.chunkIds = [];
+            coverage.coverage[0]!.reasonCodes = ["retrieval_miss"];
+            coverage.overall = "partial";
+          },
+        },
+      );
+      expect(aggregateAbsent.answer.answerSections?.find((section) => section.kind === "source_gap")?.body).toBe(
+        gap?.body,
+      );
+    }
+  },
+);
+
+it.each([
+  [
+    "compound dosing",
+    "Start lithium at 300 mg daily and monitor lithium levels.",
+    "Start lithium at 300 mg daily and monitor lithium levels every 3 months.",
+  ],
+  [
+    "during treatment",
+    "Monitor lithium levels during daily lithium treatment.",
+    "Monitor lithium levels every three months during daily lithium treatment.",
+  ],
+  [
+    "while monitoring",
+    "Monitor lithium levels while receiving daily lithium treatment.",
+    "Monitor lithium levels every three months while receiving daily lithium treatment.",
+  ],
+  ["duration only", "Monitor lithium levels for three months.", "Monitor lithium levels monthly for three months."],
+  [
+    "numeric treatment interval",
+    "Monitor lithium levels during lithium treatment every 3 months.",
+    "Monitor lithium levels every 3 months during lithium treatment.",
+  ],
+  [
+    "treatment before monitoring",
+    "During daily lithium treatment, monitor lithium levels.",
+    "During daily lithium treatment, monitor lithium levels every 3 months.",
+  ],
+  [
+    "compound treatment after monitoring",
+    "Monitor lithium levels and take lithium daily.",
+    "Monitor lithium levels annually and take lithium daily.",
+  ],
+  [
+    "treatment with monitoring",
+    "Monitor lithium levels with daily lithium treatment.",
+    "Monitor lithium levels yearly with daily lithium treatment.",
+  ],
+  ["treatment adjective", "Monitor daily lithium treatment.", "Monitor daily lithium treatment every three months."],
+])("P12B R4 binds delivered monitoring cadence locally: %s", async (_name, unspecified, scheduled) => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const query = "What monitoring frequency and risks apply to lithium?";
+  const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+  expect(plan.subquestions.map((part) => part.requestedFacets)).toEqual([
+    ["monitoring", "risk"],
+    ["monitoring"],
+    ["risk"],
+  ]);
+  const risk = "Lithium carries a risk of tremor.";
+  // The verifier splits source prose at "while". Use the equivalent "during"
+  // source phrase; both delivered variants must still earn actual direct support.
+  const row = { content: [unspecified, scheduled, risk].join(" ").replaceAll("while receiving", "during") };
+  for (const [monitoring, complete] of [
+    [unspecified, false],
+    [scheduled, true],
+  ] as const) {
+    const result = await p12bR2DeliveredCase(plan, [monitoring, risk], row);
+    expect(result.answer.supportedClaims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: monitoring, supportStatus: "direct", supportingChunkIds: ["chunk-1"] }),
+        expect.objectContaining({ text: risk, supportStatus: "direct", supportingChunkIds: ["chunk-1"] }),
+      ]),
+    );
+    expect(result.coverage.coverage.map((entry) => entry.status)).toEqual(
+      complete ? ["direct", "direct", "direct"] : ["absent", "absent", "direct"],
+    );
+    expect(result.gapAdded).toBe(!complete);
+    const gap = result.answer.answerSections?.find((section) => section.kind === "source_gap");
+    if (complete) expect(gap).toBeUndefined();
+    else {
+      expect(gap?.body).toMatch(/^monitoring frequency:/);
+      expect(gap?.body).not.toMatch(/risk|not covered by the active sources/);
+    }
+  }
+});
+
+it.each([
+  "Check lithium levels every three months.",
+  "Lithium levels should be checked every 3 months.",
+  "Monitor lithium levels once a month.",
+  "Monitor lithium levels on a monthly basis.",
+  "Review lithium levels annually.",
+  "Monitor lithium levels daily.",
+  "Every three months, monitor lithium levels.",
+  "Monitor lithium levels and renal function every three months.",
+  "Monitor lithium levels at three-month intervals.",
+  "Monitor lithium levels at 3-month intervals.",
+])("P12B R4 preserves explicit monitoring schedule paraphrase: %s", async (monitoring) => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const query = "What monitoring frequency and risks apply to lithium?";
+  const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+  const result = await p12bR2DeliveredCase(plan, [monitoring, "Lithium carries a risk of tremor."]);
+  expect(result.coverage.coverage.every((entry) => entry.status === "direct")).toBe(true);
+  expect(result.gapAdded).toBe(false);
+});
+
+it.each([
+  "document medication adherence",
+  "record weight",
+  "assess hydration",
+  "notify the care team",
+  "also record weight",
+  "should record weight",
+])("P12B R5 keeps a coordinated clinical action's cadence separate: %s", async (otherAction) => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const { hasClinicalActionSignal } = await import("../src/lib/rag/rag-clinical-language-signals");
+  expect(hasClinicalActionSignal(otherAction)).toBe(true);
+  const query = "What monitoring frequency and risks apply to lithium?";
+  const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+  expect(plan.subquestions.map((part) => part.requestedFacets)).toEqual([
+    ["monitoring", "risk"],
+    ["monitoring"],
+    ["risk"],
+  ]);
+  const unspecified = `Monitor lithium levels and ${otherAction} daily.`;
+  const scheduledBefore = `Monitor lithium levels every three months and ${otherAction} daily.`;
+  const scheduledAfter = `${otherAction[0]!.toUpperCase()}${otherAction.slice(1)} daily and monitor lithium levels every three months.`;
+  const risk = "Lithium carries a risk of tremor.";
+  const row = { content: [unspecified, scheduledBefore, scheduledAfter, risk].join(" ") };
+  for (const [monitoring, complete] of [
+    [unspecified, false],
+    [scheduledBefore, true],
+    [scheduledAfter, true],
+  ] as const) {
+    const result = await p12bR2DeliveredCase(plan, [monitoring, risk], row);
+    expect(result.answer.supportedClaims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: monitoring, supportStatus: "direct", supportingChunkIds: ["chunk-1"] }),
+        expect.objectContaining({ text: risk, supportStatus: "direct", supportingChunkIds: ["chunk-1"] }),
+      ]),
+    );
+    expect(result.coverage.coverage.map((entry) => entry.status)).toEqual(
+      complete ? ["direct", "direct", "direct"] : ["absent", "absent", "direct"],
+    );
+    expect(result.gapAdded).toBe(!complete);
+    const gap = result.answer.answerSections?.find((section) => section.kind === "source_gap");
+    if (complete) expect(gap).toBeUndefined();
+    else {
+      expect(gap?.body).toBe("monitoring frequency: The active sources support only part of this question.");
+    }
+  }
+});
+
+it.each(["medication use", "family support"])(
+  "P12B R5 preserves a coordinated monitored noun object containing an action word: %s",
+  async (object) => {
+    const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+    const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+    const { hasClinicalActionSignal } = await import("../src/lib/rag/rag-clinical-language-signals");
+    expect(hasClinicalActionSignal(object)).toBe(true);
+    const query = "What monitoring frequency and risks apply to lithium?";
+    const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+    const monitoring = `Monitor lithium levels and ${object} every three months.`;
+    const result = await p12bR2DeliveredCase(plan, [monitoring, "Lithium carries a risk of tremor."]);
+    expect(result.answer.supportedClaims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: monitoring, supportStatus: "direct", supportingChunkIds: ["chunk-1"] }),
+      ]),
+    );
+    expect(result.coverage.coverage.every((entry) => entry.status === "direct")).toBe(true);
+    expect(result.gapAdded).toBe(false);
+  },
+);
+
+it.each([
+  ["support needs", true],
+  ["support requirements", true],
+  ["support the family", false],
+] as const)("P12B C1 distinguishes a coordinated support noun from a support action: %s", async (object, complete) => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const query = "What monitoring frequency and risks apply to lithium?";
+  const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+  expect(plan.subquestions.map((part) => part.requestedFacets)).toEqual([
+    ["monitoring", "risk"],
+    ["monitoring"],
+    ["risk"],
+  ]);
+  const monitoring = `Monitor lithium levels and ${object} every three months.`;
+  const risk = "Lithium carries a risk of tremor.";
+  const result = await p12bR2DeliveredCase(plan, [monitoring, risk]);
+  expect(result.answer.supportedClaims).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ text: monitoring, supportStatus: "direct", supportingChunkIds: ["chunk-1"] }),
+      expect.objectContaining({ text: risk, supportStatus: "direct", supportingChunkIds: ["chunk-1"] }),
+    ]),
+  );
+  expect(result.coverage.coverage.map((entry) => entry.status)).toEqual(
+    complete ? ["direct", "direct", "direct"] : ["absent", "absent", "direct"],
+  );
+  expect(result.gapAdded).toBe(!complete);
+  const gap = result.answer.answerSections?.find((section) => section.kind === "source_gap");
+  if (complete) expect(gap).toBeUndefined();
+  else expect(gap?.body).toBe("monitoring frequency: The active sources support only part of this question.");
+});
+
+it.each([false, true])("P12B R3 binds requested dosing maximum and route, delivered=%s", async (delivered) => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const query = "What are the maximum dose and route, monitoring frequency and risks of lithium?";
+  const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+  expect(plan.subquestions[0]?.requestedFacets).toContain("dosing");
+  const dose = delivered ? "The maximum oral lithium dose is 900 mg daily." : "Start lithium at 300 mg daily.";
+  const monitoring = "Monitor lithium levels every three months.";
+  const risk = "Lithium carries a risk of tremor.";
+  const result = await p12bR2DeliveredCase(plan, [dose, monitoring, risk], {
+    content: [dose, monitoring, risk, "The maximum oral lithium dose is 900 mg daily."].join(" "),
+  });
+  expect(result.coverage.coverage.at(-1)?.status).toBe("direct");
+  expect(result.coverage.coverage[0]?.status).toBe(delivered ? "direct" : "absent");
+  const gap = result.answer.answerSections?.find((section) => section.kind === "source_gap");
+  if (delivered) expect(gap).toBeUndefined();
+  else {
+    expect(gap?.body).toContain("dosing maximum");
+    expect(gap?.body).toContain("dosing route");
+    expect(gap?.body).not.toMatch(/monitoring|risk|not covered by the active sources/);
+  }
+});
+
+it("P12B R3 does not borrow daily dosing to answer monitoring frequency in a grouped tail", async () => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const query = "Describe lithium assessment, dose, monitoring frequency and risks.";
+  const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+  expect(plan.subquestions.at(-1)?.requestedFacets).toEqual(["monitoring", "risk"]);
+  const facts = [
+    "Assess lithium treatment response.",
+    "Start lithium at 300 mg daily.",
+    "Monitor lithium levels.",
+    "Lithium carries a risk of tremor.",
+  ];
+  const result = await p12bR2DeliveredCase(plan, facts, {
+    content: [...facts, "Monitor lithium levels every three months."].join(" "),
+  });
+  expect(
+    result.coverage.coverage.find(
+      (entry) =>
+        entry.subquestionId ===
+        plan.subquestions.find((part) => part.requestedFacets?.length === 1 && part.requestedFacets.includes("dosing"))
+          ?.id,
+    )?.status,
+  ).toBe("direct");
+  expect(result.coverage.coverage.at(-1)?.status).toBe("absent");
+  const gap = result.answer.answerSections?.find((section) => section.kind === "source_gap");
+  expect(gap?.body).toMatch(/^monitoring frequency:/);
+  expect(gap?.body).not.toMatch(/dosing|risk|not covered by the active sources/);
+});
+
+it.each([false, true])("P12B R3 emits no empty aggregate gap at full nonmergeable capacity=%s", async (full) => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const { answerWithinLimits, adaptiveAnswerLimits } = await import("../src/lib/rag/rag-answer-contract-limits");
+  const query = "Agitation monitoring and risk in detail.";
+  const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+  const facts = ["Monitor agitation symptoms every three months.", "Agitation carries a risk of injury."];
+  if (full)
+    facts.push(
+      "Record the person's preferred language before discussing agitation care.",
+      "Document the agreed care contact after discussing agitation care.",
+      "Record communication preferences before discussing agitation care.",
+      "Document the consent decision after discussing agitation care.",
+      "Record the person's preferred name before discussing agitation care.",
+      "Document the family contact after discussing agitation care.",
+    );
+  const result = await p12bR2DeliveredCase(
+    plan,
+    facts,
+    {},
+    {
+      alternateKinds: true,
+      customizeCoverage: (coverage) => {
+        coverage.coverage[0]!.status = "absent";
+        coverage.coverage[0]!.chunkIds = [];
+        coverage.coverage[0]!.reasonCodes = ["retrieval_miss"];
+        coverage.overall = "partial";
+        coverage.insufficiencyReason = "retrieval_miss";
+      },
+    },
+  );
+  expect(result.coverage.coverage[0]?.status).toBe("absent");
+  expect(result.coverage.overall).toBe("partial");
+  expect(answerWithinLimits(result.answer, adaptiveAnswerLimits, 8)).toBe(true);
+  expect(result.gapAdded).toBe(false);
+  expect(result.answer.answerSections).toHaveLength(full ? 8 : 2);
+  expect(
+    result.answer.answerSections?.map((section) => ({
+      heading: section.heading,
+      kind: section.kind,
+      supportLevel: section.supportLevel,
+      citation_chunk_ids: section.citation_chunk_ids,
+    })),
+  ).toEqual(
+    facts.map((_, index) => ({
+      heading: `Fact ${index + 1}`,
+      kind: index % 2 ? "monitoring_timing" : "required_actions",
+      supportLevel: "direct",
+      citation_chunk_ids: ["chunk-1"],
+    })),
+  );
+  for (let index = 1; index < (result.answer.answerSections?.length ?? 0); index++) {
+    expect(result.answer.answerSections![index]!.kind).not.toBe(result.answer.answerSections![index - 1]!.kind);
+  }
+});
+
+it.each([
+  ["How often should lithium monitoring occur and what are its risks?", ["monitoring"]],
+  ["What lithium dosing frequency and monitoring are required?", ["dosing"]],
+  ["What lithium monitoring and dosing frequency are required?", ["dosing"]],
+  ["What lithium dose with monitoring frequency and risks are required?", ["monitoring"]],
+  ["How often should lithium dosing and monitoring occur?", ["dosing", "monitoring"]],
+])("P12B R3 binds frequency to its actual clause: %s", async (query, frequencyOwners) => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+  const details = plan.subquestions[0]?.requestedFacetDetails;
+  expect(
+    ["dosing", "monitoring"].filter((facet) => details?.[facet as "dosing" | "monitoring"]?.includes("frequency")),
+  ).toEqual(frequencyOwners);
+  const facts = [
+    "Start lithium at 300 mg daily.",
+    "Monitor lithium levels annually.",
+    "Lithium carries a risk of tremor.",
+  ];
+  const positive = await p12bR2DeliveredCase(plan, facts);
+  expect(positive.answer.answerSections?.find((section) => section.kind === "source_gap")).toBeUndefined();
+  if (frequencyOwners.length === 1) {
+    const removed =
+      frequencyOwners[0] === "monitoring"
+        ? [facts[0]!, "Monitor lithium levels.", facts[2]!]
+        : ["Start lithium at 300 mg.", facts[1]!, facts[2]!];
+    const negative = await p12bR2DeliveredCase(plan, removed, { content: [...facts, ...removed].join(" ") });
+    expect(negative.answer.answerSections?.find((section) => section.kind === "source_gap")?.body).toMatch(
+      new RegExp(`^${frequencyOwners[0]} frequency:`),
+    );
+  }
+});
+
+it.each([
+  ["Start oral lithium at 300 mg daily.", "maximum"],
+  ["The maximum lithium dose is 900 mg daily.", "route"],
+])("P12B R3 identifies only the missing dose detail in %s", async (dose, missing) => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const query = "What are the maximum dose and route, monitoring and risks of lithium?";
+  const plan = buildRagQueryPlan(query, analyzeClinicalQuery(query));
+  const facts = [dose, "Monitor lithium levels annually.", "Lithium carries a risk of tremor."];
+  const result = await p12bR2DeliveredCase(plan, facts, {
+    content: [...facts, "The maximum oral lithium dose is 900 mg daily."].join(" "),
+  });
+  const gap = result.answer.answerSections?.find((section) => section.kind === "source_gap")?.body;
+  expect(gap).toMatch(new RegExp(`^dosing ${missing}:`));
+  expect(gap).not.toContain(missing === "maximum" ? "dosing route" : "dosing maximum");
+});
+
+it("P12B R3 honors original request details and explicit latest-context omission", async () => {
+  const { buildRagQueryPlan } = await import("../src/lib/rag/rag-query-plan");
+  const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
+  const { renderAnswerRequestContext, resolveAnswerRequestContext } = await import("../src/lib/answer-request-context");
+  const original = "What lithium monitoring frequency and risks apply?";
+  const context = renderAnswerRequestContext(
+    resolveAnswerRequestContext(original, "For this, omit frequency and describe monitoring and risks."),
+  );
+  const augmented = "Maximum oral dose and monitoring frequency mode: " + context;
+  const plan = buildRagQueryPlan(augmented, analyzeClinicalQuery(augmented), context);
+  expect(plan.originalQuery).toBe(augmented);
+  expect(plan.subquestions[0]?.requestedFacets).toEqual(["monitoring", "risk"]);
+  expect(plan.subquestions[0]?.requestedFacetDetails).toBeUndefined();
+});
