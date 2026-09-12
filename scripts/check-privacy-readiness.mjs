@@ -4,6 +4,8 @@ import { execFileSync } from "node:child_process";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { decideReviewedCommitHistoryFromFacts } from "./lib/reviewed-commit-history-decision.mjs";
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifestPath = resolve(root, "docs/governance/privacy-readiness.v1.json");
 const requiredIds = [
@@ -20,6 +22,7 @@ const requiredIds = [
   "PRIV-CLINICAL-PHI-MINIMISATION",
 ];
 const classes = new Set(["code", "provider", "legal", "clinical"]);
+const offlineGitEnv = { ...process.env, GIT_NO_LAZY_FETCH: "1", GIT_TERMINAL_PROMPT: "0" };
 const statuses = new Set(["pending", "partial", "verified", "accepted_decision"]);
 const transitions = {
   pending: new Set(["pending", "partial", "verified", "accepted_decision"]),
@@ -64,8 +67,27 @@ function repositoryPath(reference) {
 
 function commitExists(commit) {
   try {
-    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], {
+      cwd: root,
+      env: offlineGitEnv,
+      stdio: "ignore",
+    });
     return true;
+  } catch {
+    return false;
+  }
+}
+
+function isShallowClone() {
+  try {
+    return (
+      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
+        cwd: root,
+        env: offlineGitEnv,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() === "true"
+    );
   } catch {
     return false;
   }
@@ -73,7 +95,26 @@ function commitExists(commit) {
 
 function commitIsAncestor(commit) {
   try {
-    execFileSync("git", ["merge-base", "--is-ancestor", commit, "HEAD"], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["merge-base", "--is-ancestor", commit, "HEAD"], {
+      cwd: root,
+      env: offlineGitEnv,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasReadableTree(commit) {
+  try {
+    // The evidence paths are nested, so a root-tree listing is insufficient: a filtered clone
+    // can hold the root while a nested tree needed by pathExistsAtCommit is unavailable.
+    execFileSync("git", ["ls-tree", "-r", "--name-only", `${commit}^{tree}`], {
+      cwd: root,
+      env: offlineGitEnv,
+      stdio: "ignore",
+    });
     return true;
   } catch {
     return false;
@@ -87,6 +128,7 @@ function pathExistsAtCommit(commit, file) {
     if (!commitTreeCache.has(commit)) {
       const paths = execFileSync("git", ["ls-tree", "-r", "--name-only", commit], {
         cwd: root,
+        env: offlineGitEnv,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
       });
@@ -208,17 +250,67 @@ export function validatePrivacyReadiness(
   return errors;
 }
 
+/**
+ * Whether the reviewedCommit checks can be skipped for this run.
+ *
+ * Policy lives in `decideReviewedCommitHistoryFromFacts` (shared with the unit-test
+ * helper). This wrapper only adds release-mode fail-close: structural may skip when
+ * history is unanswerable; release never skips — `check:privacy-readiness:release`
+ * and `governance:release` bind the register to the repository, and dropping those
+ * checks on a truncated checkout would let a release print PRIVACY_READINESS_PASS
+ * having proved nothing about the reviewed commit.
+ */
+export function shallowSkipDecision({ release, shallow, commitPresent, ancestor, treeReadable }) {
+  const { checkGit } = decideReviewedCommitHistoryFromFacts({
+    shallow,
+    commitPresent,
+    ancestor,
+    treeReadable,
+  });
+  if (checkGit) return { skip: false, blocked: false };
+  if (release) return { skip: false, blocked: true };
+  return { skip: true, blocked: false };
+}
+
 function main() {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const release = process.argv.includes("--release");
-  const errors = validatePrivacyReadiness(manifest, { release });
+  // Same reasoning as check-clinical-hazard-controls.mjs: on a depth-one clone
+  // the reviewedCommit checks report a real commit as missing, which reads as a
+  // corrupt register rather than a truncated checkout. Say what was skipped.
+  // CI's static-pr job checks out with fetch-depth 0, where the checks do run.
+  const { skip, blocked } = shallowSkipDecision({
+    release,
+    shallow: isShallowClone(),
+    commitPresent: commitExists(manifest?.reviewedCommit ?? ""),
+    ancestor: commitIsAncestor(manifest?.reviewedCommit ?? ""),
+    treeReadable: hasReadableTree(manifest?.reviewedCommit ?? ""),
+  });
+  if (blocked) {
+    console.error("PRIVACY_READINESS_FAIL mode=release");
+    console.error(
+      `- reviewedCommit ${manifest?.reviewedCommit ?? "(unset)"} cannot be read from this checkout, and ` +
+        "release mode will not skip the ancestry and evidence-at-commit checks that bind this register to the " +
+        "repository. Re-run on a full-history, unfiltered checkout: git fetch --unshallow (or git fetch --deepen=2000).",
+    );
+    process.exit(1);
+  }
+  if (skip) {
+    console.warn(
+      "PRIVACY_READINESS_HISTORY_UNAVAILABLE: this checkout cannot read the reviewedCommit ancestry and full " +
+        "tree, so the reviewedCommit existence/ancestry and evidence-at-commit checks were skipped. Run on a " +
+        "full-history, unfiltered checkout (git fetch --unshallow) to prove them; every other check below still " +
+        "ran. Release mode does not skip them.",
+    );
+  }
+  const errors = validatePrivacyReadiness(manifest, { release, checkGit: !skip });
   if (errors.length) {
     console.error(`PRIVACY_READINESS_FAIL mode=${release ? "release" : "structural"}`);
     for (const error of errors) console.error(`- ${error}`);
     process.exit(1);
   }
   console.log(
-    `PRIVACY_READINESS_PASS mode=${release ? "release" : "structural"} requirements=${manifest.requirements.length}`,
+    `PRIVACY_READINESS_PASS mode=${release ? "release" : "structural"} requirements=${manifest.requirements.length} history=${skip ? "skipped" : "checked"}`,
   );
 }
 
