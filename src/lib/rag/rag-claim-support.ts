@@ -1,6 +1,5 @@
 import {
   adjacentLabelledNumericBandConflicts,
-  applyNumericVerification,
   containsLabelledNumericBand,
   containsNumericBandReference,
   detectLabelledNumericBandConflicts,
@@ -65,6 +64,8 @@ const topicStopwords = new Set([
   "include",
   "offers",
   "source",
+  "cited",
+  "covered",
 ]);
 
 const triggerTopicStopwords = new Set([
@@ -101,8 +102,6 @@ function cleanText(value: string) {
     .trim();
 }
 
-const maximumAssessedClaimCount = 24;
-
 function splitClaims(value: string) {
   // Preserve model-authored line boundaries until after splitting. Calling
   // cleanText first collapses newlines, which can merge independently cited
@@ -115,14 +114,14 @@ function splitClaims(value: string) {
       /\s*;\s*|(?<=[.!?])(?:[ \t]+|\n+)|\n+|,\s*(?:and|but|then)\s+(?=(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|sedate|start|stop|use|withhold)\b)|\s+(?:and|then)\s+(?=(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|sedate|start|stop|use|withhold)\b)/i,
     )
     .map(cleanText)
-    .filter((claim) => claim.length >= 8);
+    .filter(Boolean);
 }
 
 function splitComparisonClaims(value: string) {
   return splitClaims(value)
     .flatMap((claim) => claim.split(/\s*;\s*|\s+(?:whereas|while)\s+/i))
     .map((claim) => claim.trim())
-    .filter((claim) => claim.length >= 8);
+    .filter(Boolean);
 }
 
 /**
@@ -475,7 +474,14 @@ export function sourceEvidenceText(source: SearchResult) {
     .join(" ");
 }
 
-function evidenceTextSupportsClaim(claim: string, evidence: string, adjacentTopicText?: string) {
+function evidenceTextSupportsClaim(
+  claim: string,
+  evidence: string,
+  passage: string,
+  adjacentTopicText?: string,
+  allowValueOnly = false,
+) {
+  if (!compatibleFactualRelation(claim, evidence)) return false;
   const claimEntities = entities(claim);
   const evidenceEntities = entities(evidence);
   if (claimEntities.size > 0 && [...claimEntities].some((entity) => !evidenceEntities.has(entity))) return false;
@@ -486,9 +492,36 @@ function evidenceTextSupportsClaim(claim: string, evidence: string, adjacentTopi
   if (!compatibleHighRiskTrigger(claim, evidence)) return false;
 
   const evidenceAtoms = new Set(extractClinicalValueAtoms(evidence).map(clinicalValueAtomKey));
-  if (extractClinicalValueAtoms(claim).some((atom) => !evidenceAtoms.has(clinicalValueAtomKey(atom)))) return false;
+  const claimAtoms = extractClinicalValueAtoms(claim);
+  if (claimAtoms.some((atom) => !evidenceAtoms.has(clinicalValueAtomKey(atom)))) return false;
 
   const claimTopics = topicTokens(claim);
+  // Short directives can have no four-letter topic token ("No CPR."). They
+  // still need actual sentence support, not the empty-set overlap shortcut.
+  if (claimTopics.size === 0) {
+    if (claimAtoms.length > 0) {
+      const label = claimAtoms.reduce((text, atom) => text.replace(atom.rawText, " "), cleanText(claim));
+      // Only the attributed comparison-entry caller may rely on atoms alone.
+      // Ordinary short facts must also bind their short label (INR, pH, etc.)
+      // to this value, within the same source clause rather than a title.
+      if (!/[a-z]/i.test(label)) return allowValueOnly;
+      // Omitted copulas and a single leading article are harmless in terse
+      // results. Preserve every other clause token, including negation and
+      // qualifications; a substring cannot establish the asserted fact.
+      const tokens = (text: string) =>
+        (text.toLowerCase().match(/[a-z]+|\d+(?:\.\d+)?/g) ?? []).filter(
+          (token, index) => !/^(?:is|are)$/.test(token) && !(index === 0 && /^(?:a|an|the)$/.test(token)),
+        );
+      const expected = tokens(claim);
+      return splitClaims(passage).some((sentence) => {
+        const actual = tokens(sentence);
+        return actual.length === expected.length && expected.every((token, index) => actual[index] === token);
+      });
+    }
+    return splitClaims(passage).some(
+      (sentence) => cleanText(sentence).toLowerCase() === cleanText(claim).toLowerCase(),
+    );
+  }
   const evidenceTopics = topicTokens(evidence);
   // S1c R3: a claim synthesising two adjacent source bullets may count topic tokens
   // from an immediately adjacent atom-free segment. Only this overlap ratio widens —
@@ -496,7 +529,95 @@ function evidenceTextSupportsClaim(claim: string, evidence: string, adjacentTopi
   // value-atom containment above all still hold against the single segment.
   for (const token of topicTokens(adjacentTopicText ?? "")) evidenceTopics.add(token);
   const matchedTopics = [...claimTopics].filter((token) => evidenceTopics.has(token)).length;
-  return claimTopics.size === 0 || matchedTopics / claimTopics.size >= 0.5;
+  return matchedTopics / claimTopics.size >= 0.5;
+}
+
+// Relation words bind two arguments; their occurrence anywhere in a chunk does
+// not support their direction, polarity or scope. This is a conservative prose
+// check in the existing support path, not a source of clinical knowledge.
+function factualRelation(value: string) {
+  const text = cleanText(value).toLowerCase();
+  const relations = [
+    ...text.matchAll(
+      /\b(caus(?:e|es|ed)|lead(?:s)?\s+to|led\s+to|results?\s+in|results?\s+from|because(?:\s+of)?|due\s+to|caused\s+by|increas(?:e|es|ed)|reduc(?:e|es|ed)|decreas(?:e|es|ed)|improv(?:e|es|ed)|worsen(?:s|ed)?|higher\s+than|lower\s+than)\b/g,
+    ),
+  ];
+  const relation = relations[0];
+  if (!relation || relation.index === undefined) return null;
+  // Match passive before the shorter active "caused" alternative.
+  const marker =
+    relation[0] === "caused" && /^\s+by\b/.test(text.slice(relation.index + relation[0].length))
+      ? "caused by"
+      : relation[0];
+  // Predicate particles belong to the relationship, so "result in fatigue"
+  // cannot introduce an invented population named "fatigue".
+  const argumentsText = [text.slice(0, relation.index), text.slice(relation.index + marker.length)];
+  const population = argumentsText.flatMap((part) =>
+    [
+      ...part.matchAll(
+        /\b(?:in|among|for)\s+([^,.;]+?)(?=,|\s+(?:may|can|could|does|do|is|are|causes?|leads?|results?)\b|[.;]|$)/g,
+      ),
+    ].map((match) => match[1].trim()),
+  );
+  const conditions = [...text.matchAll(/\b(?:if|unless|when|only|except)\b[^,.;]*/g)].map((match) => match[0]);
+  const argument = (part: string) =>
+    topicTokens(
+      part
+        .replace(/\b(?:in|among|for)\s+[^,.;]+(?:,|[.;]|$)/g, " ")
+        .replace(
+          /\b(?:may|might|can|could|does|do|not|never|always|sometimes|usually|possibly|probably|certainly|all|every|everyone|some|only|be|been|being|is|are)\b/g,
+          " ",
+        ),
+    );
+  const left = argument(argumentsText[0]);
+  const right = argument(argumentsText[1]);
+  const reverse = /^(?:results? from|because|due to|caused by)/.test(marker);
+  return {
+    predicateCount: relations.length,
+    subject: reverse ? right : left,
+    object: reverse ? left : right,
+    kind: /^(?:reduc|decreas)/.test(marker)
+      ? "decrease"
+      : /^increas/.test(marker)
+        ? "increase"
+        : /^improv/.test(marker)
+          ? "improve"
+          : /^worsen/.test(marker)
+            ? "worsen"
+            : marker === "higher than"
+              ? "higher"
+              : marker === "lower than"
+                ? "lower"
+                : "cause",
+    negated: /\b(?:not|never|no)\b/.test(text),
+    possible: /\b(?:may|might|can|could|possibly|sometimes)\b/.test(text),
+    universal: /\b(?:always|all|every|everyone|certainly)\b/.test(text),
+    population,
+    conditions,
+  };
+}
+
+function compatibleFactualRelation(claim: string, evidence: string) {
+  if (splitClaims(evidence).some((sentence) => cleanText(sentence).toLowerCase() === cleanText(claim).toLowerCase()))
+    return true;
+  const expected = factualRelation(claim);
+  if (!expected) return true;
+  // The atomic matcher cannot bind several predicates with unordered residual
+  // words. Exact compound sentences passed above; other compounds are withheld
+  // until their individual bindings can be established.
+  if (expected.predicateCount !== 1) return false;
+  return splitClaims(evidence).some((sentence) => {
+    const actual = factualRelation(sentence);
+    if (!actual || actual.predicateCount !== 1 || actual.kind !== expected.kind || actual.negated !== expected.negated)
+      return false;
+    if ((actual.possible && !expected.possible) || (expected.universal && !actual.universal)) return false;
+    if (expected.conditions.join("|") !== actual.conditions.join("|")) return false;
+    if ([...new Set(expected.population)].sort().join("|") !== [...new Set(actual.population)].sort().join("|"))
+      return false;
+    const sameArgument = (wanted: Set<string>, present: Set<string>) =>
+      wanted.size > 0 && wanted.size === present.size && [...wanted].every((token) => present.has(token));
+    return sameArgument(expected.subject, actual.subject) && sameArgument(expected.object, actual.object);
+  });
 }
 
 function usesSourceBoundComparisonReflow(source: SearchResult, claim: string) {
@@ -537,12 +658,13 @@ function sourceEvidenceClaimSegmentGroups(source: SearchResult, claim: string) {
         .split(
           /\s*;\s*|(?<=[.!?])(?:[ \t]+|\n+)|\n+|,\s*(?:but|while|whereas)\s+|\s+(?:while|whereas)\s+|,?\s+and\s+(?!a\s+(?:second|third|fourth|\d+(?:st|nd|rd|th))\s+dose\s+\d+(?:\.\d+)?\s*(?:seconds?|minutes?|hours?|days?)\b)(?=(?:a|an|the|another|other|it|this|that|they|these|those|admission|escalation|referral|restraint|sedation|transfer)\b)/i,
         )
-        .map((segment, index) =>
-          [context, index > 0 && sharedConditional ? `${sharedConditional}, ${segment.trim()}` : segment.trim()]
-            .filter(Boolean)
-            .join(". "),
-        )
-        .filter((segment) => segment.length >= 8);
+        .map((segment, index) => {
+          const passage = index > 0 && sharedConditional ? `${sharedConditional}, ${segment.trim()}` : segment.trim();
+          // Keep passage provenance separate from title/heading context. The
+          // latter can lend topic context but cannot itself assert a short fact.
+          return { passage, evidence: [context, passage].filter(Boolean).join(". ") };
+        })
+        .filter((segment) => Boolean(segment.passage));
     });
   };
   const sourceContext = [source.title, source.section_heading].filter(Boolean).join(" ");
@@ -555,7 +677,9 @@ function sourceEvidenceClaimSegmentGroups(source: SearchResult, claim: string) {
   // other in the same representation", never a flat-list coincidence across e.g. the
   // content/synopsis boundary.
   return [
-    ...(atomicClozapineRedRange ? [[`${sourceContext}. ${atomicClozapineRedRange}`]] : []),
+    ...(atomicClozapineRedRange
+      ? [[{ passage: atomicClozapineRedRange, evidence: `${sourceContext}. ${atomicClozapineRedRange}` }]]
+      : []),
     split(source.content, sourceContext, reflowComparisonContent),
     split(source.retrieval_synopsis, sourceContext),
     ...(source.table_facts ?? []).map((fact) =>
@@ -570,20 +694,19 @@ function sourceEvidenceClaimSegmentGroups(source: SearchResult, claim: string) {
   ].filter((group) => group.length > 0);
 }
 
-function sourceSupportsClaim(claim: string, source: SearchResult) {
-  if (!isHighRiskClaim(claim)) return evidenceTextSupportsClaim(claim, sourceEvidenceText(source));
+function sourceSupportsClaim(claim: string, source: SearchResult, allowValueOnly = false) {
   return sourceEvidenceClaimSegmentGroups(source, claim).some((group) =>
-    group.some((evidence, index) => {
+    group.some(({ evidence, passage }, index) => {
       // S1c R3: lend only the immediately adjacent segments' topic tokens, and only
       // from segments carrying no clinical value atoms of their own — an atom-bearing
       // neighbour is a competing value context (e.g. the other population's dose), not
       // supplementary prose, and lending its topics would let a claim bind this
       // segment's value to the neighbour's condition.
-      const adjacentTopicText = [group[index - 1], group[index + 1]]
+      const adjacentTopicText = [group[index - 1]?.evidence, group[index + 1]?.evidence]
         .filter((neighbour): neighbour is string => Boolean(neighbour))
         .filter((neighbour) => extractClinicalValueAtoms(neighbour).length === 0)
         .join(" ");
-      return evidenceTextSupportsClaim(claim, evidence, adjacentTopicText || undefined);
+      return evidenceTextSupportsClaim(claim, evidence, passage, adjacentTopicText || undefined, allowValueOnly);
     }),
   );
 }
@@ -1013,7 +1136,7 @@ function comparisonRows(answer: RagAnswer, claim: string) {
   });
 }
 
-function claimInputs(answer: RagAnswer): { inputs: ClaimInput[]; unassessedClaims: string[] } {
+function claimInputs(answer: RagAnswer): { inputs: ClaimInput[] } {
   const eligibleCitationIds = (answer.citations ?? [])
     .filter((citation) => acceptedProvenance.has(citation.provenance ?? "model_selected"))
     .map((citation) => citation.chunk_id);
@@ -1055,30 +1178,22 @@ function claimInputs(answer: RagAnswer): { inputs: ClaimInput[]; unassessedClaim
       ? answer.preformatted
         ? (value: string) => {
             const claim = cleanText(value);
-            return claim.length >= 8 ? [claim] : [];
+            return claim ? [claim] : [];
           }
         : splitComparisonClaims
       : splitClaims;
   const topLevelClaims = split(answer.answer);
-  const topLevel = topLevelClaims
-    .slice(0, maximumAssessedClaimCount)
-    .map((text) => scopedInput(text, eligibleCitationIds, "model_selected"));
+  const topLevel = topLevelClaims.map((text) => scopedInput(text, eligibleCitationIds, "model_selected"));
   const sectionSplits = (answer.answerSections ?? []).map((section, sectionIndex) => ({
     claims: split(section.body),
     chunkIds: section.citation_chunk_ids,
     sectionIndex,
   }));
   const sections = sectionSplits.flatMap(({ claims: sectionClaims, chunkIds, sectionIndex }) =>
-    sectionClaims
-      .slice(0, maximumAssessedClaimCount)
-      .map((text) => scopedInput(text, chunkIds, "section_selected", sectionIndex)),
+    sectionClaims.map((text) => scopedInput(text, chunkIds, "section_selected", sectionIndex)),
   );
   return {
     inputs: [...topLevel, ...sections],
-    unassessedClaims: [
-      ...topLevelClaims.slice(maximumAssessedClaimCount),
-      ...sectionSplits.flatMap(({ claims: sectionClaims }) => sectionClaims.slice(maximumAssessedClaimCount)),
-    ],
   };
 }
 
@@ -1107,7 +1222,7 @@ function claimAssessment(
     }
     const supportingSource = entry.chunkIds
       .map((id) => sourceById.get(id))
-      .find((source) => source && sourceSupportsClaim(segment, source));
+      .find((source) => source && sourceSupportsClaim(segment, source, true));
     return { direct: Boolean(supportingSource), supportingChunkId: supportingSource?.id ?? null };
   });
   const comparisonSupportingChunkIds = comparisonEntryResults
@@ -1144,8 +1259,8 @@ function evidenceAssessment(source: SearchResult, claims: SupportedClaim[], inpu
   };
 }
 
-function assessClaimSupportDetails(answer: RagAnswer) {
-  const sourceById = new Map(answer.sources.map((source) => [source.id, source]));
+function assessClaimSupportDetails(answer: RagAnswer, verificationSources: SearchResult[] = answer.sources) {
+  const sourceById = new Map(verificationSources.map((source) => [source.id, source]));
   const documentLookupAnswer =
     answer.responseMode === "document_lookup" ||
     answer.queryClass === "document_lookup" ||
@@ -1153,14 +1268,14 @@ function assessClaimSupportDetails(answer: RagAnswer) {
       (answer.answerSections?.length ?? 0) > 0 &&
       (answer.answerSections ?? []).every((section) => section.kind === "documentation"));
   const sourceBackedReviewAnswer = (answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON);
-  const { inputs, unassessedClaims } = claimInputs(answer);
+  const { inputs } = claimInputs(answer);
   const claims = inputs.map((input, index) =>
     claimAssessment(input, index, sourceById, Boolean(documentLookupAnswer || sourceBackedReviewAnswer)),
   );
   const evidenceAssessments = Object.fromEntries(
-    answer.sources.map((source) => [source.id, evidenceAssessment(source, claims, inputs)]),
+    verificationSources.map((source) => [source.id, evidenceAssessment(source, claims, inputs)]),
   );
-  return { claims, evidenceAssessments, inputs, unassessedClaims };
+  return { claims, evidenceAssessments, inputs };
 }
 
 /**
@@ -1169,16 +1284,9 @@ function assessClaimSupportDetails(answer: RagAnswer) {
  * @param answer - RAG answer to assess
  * @returns Object with supportedClaims and evidenceAssessments
  */
-export function assessClaimSupport(answer: RagAnswer) {
-  const { claims, evidenceAssessments } = assessClaimSupportDetails(answer);
+export function assessClaimSupport(answer: RagAnswer, verificationSources?: SearchResult[]) {
+  const { claims, evidenceAssessments } = assessClaimSupportDetails(answer, verificationSources);
   return { claims, evidenceAssessments };
-}
-
-function enforceUnassessedNumericClaims(answer: RagAnswer, unassessedClaims: string[]): RagAnswer {
-  const unassessedNumericClaims = unassessedClaims.filter((claim) => extractClinicalValueAtoms(claim).length > 0);
-  return unassessedNumericClaims.length > 0
-    ? applyNumericVerification(answer, undefined, { unassessedClaimTexts: unassessedNumericClaims })
-    : answer;
 }
 
 /**
@@ -1187,30 +1295,112 @@ function enforceUnassessedNumericClaims(answer: RagAnswer, unassessedClaims: str
  * @param answer - The candidate RAG answer
  * @returns Verified and safely degraded or augmented RAG answer
  */
-export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
-  const { claims, evidenceAssessments, inputs, unassessedClaims } = assessClaimSupportDetails(answer);
+export function assessAndEnforceClaimSupport(answer: RagAnswer, verificationSources?: SearchResult[]): RagAnswer {
+  const { claims, evidenceAssessments, inputs } = assessClaimSupportDetails(answer, verificationSources);
   if (!answer.grounded || answer.confidence === "unsupported" || answer.responseMode === "evidence_gap") {
     return { ...answer, supportedClaims: claims, evidenceAssessments };
   }
-  const claimHasHighRiskGap = (claim: SupportedClaim) =>
-    claim.riskClass === "high_risk" && claim.supportStatus !== "direct";
-  const claimHasMaterialGovernanceGap = (claim: SupportedClaim) =>
+  const reviewOnly =
+    answer.responseMode === "document_lookup" ||
+    answer.queryClass === "document_lookup" ||
+    (answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON) ||
+    (answer.preformatted &&
+      (answer.answerSections?.length ?? 0) > 0 &&
+      answer.answerSections!.every((section) => section.kind === "documentation"));
+  const governanceGap = (claim: SupportedClaim) =>
     claim.riskClass === "high_risk" &&
-    claim.supportingChunkIds.some((chunkId) => {
-      const assessment = evidenceAssessments[chunkId];
-      return assessment?.currency === "outdated" || assessment?.extractionQuality === "poor";
-    });
-  const topLevelHighRiskGap = claims.some(
-    (claim, index) => inputs[index]?.sectionIndex === undefined && claimHasHighRiskGap(claim),
+    claim.supportingChunkIds.some(
+      (id) => evidenceAssessments[id]?.currency === "outdated" || evidenceAssessments[id]?.extractionQuality === "poor",
+    );
+  const unsafe = claims.map(
+    (claim) =>
+      governanceGap(claim) ||
+      (claim.supportStatus !== "direct" && (!reviewOnly || factualRelation(claim.text) !== null)),
   );
-  const topLevelMaterialGovernanceGap = claims.some(
-    (claim, index) => inputs[index]?.sectionIndex === undefined && claimHasMaterialGovernanceGap(claim),
-  );
-  if (topLevelHighRiskGap || topLevelMaterialGovernanceGap) {
+  if (!unsafe.some(Boolean)) {
+    return {
+      ...answer,
+      supportedClaims: claims,
+      evidenceAssessments,
+      confidence:
+        claims.some((claim) => claim.supportStatus !== "direct") && answer.confidence === "high"
+          ? "medium"
+          : answer.confidence,
+    };
+  }
+
+  // The model output is already bounded upstream. Assess all of it, and retain
+  // independently supported claims within their original citation scopes.
+  const retainedText = (sectionIndex?: number) => {
+    // Comparison inputs carry row-level attribution, so do not reconstruct a
+    // failed row from prose fragments that no longer own those entry bindings.
+    if (answer.responseMode === "comparison_matrix") return "";
+    const original = sectionIndex === undefined ? answer.answer : answer.answerSections![sectionIndex].body;
+    const rejected = new Set(
+      inputs.filter((input, index) => input.sectionIndex === sectionIndex && unsafe[index]).map((input) => input.text),
+    );
+    // A coordinated instruction is not independently salvageable: withholding
+    // "and escalate urgently" must not turn it into a stop-only recommendation.
+    return original
+      .split(/\r?\n+|(?<=[.!?])\s+/)
+      .flatMap((sentence) => {
+        const groups: string[] = [];
+        for (const clause of sentence.split(/\s*;\s*/)) {
+          // A bounded condition/consequent pair can own a separate instruction
+          // for another medication. Count actions and entities in the consequent
+          // only: a drug mentioned in a bare condition cannot supply its subject.
+          const consequent = clause.match(/^(?:only\s+)?(?:if|unless|when)\b[^,;]+,\s*([^,;]+)$/i)?.[1];
+          const consequentEntities = entities(consequent ?? "");
+          const previousEntities = entities(groups[groups.length - 1] ?? "");
+          const independentConditionalInstruction =
+            consequent !== undefined &&
+            normativeDirectiveActions(consequent).size > 0 &&
+            consequentEntities.size > 0 &&
+            [...consequentEntities].every((entity) => !previousEntities.has(entity));
+          const continuesInstruction =
+            /^(?:then|and|or|but)\b/i.test(clause) ||
+            (/^(?:only\s+)?(?:if|unless|when)\b/i.test(clause) && !independentConditionalInstruction) ||
+            (normativeDirectiveActions(clause).size > 0 && entities(clause).size === 0);
+          if (groups.length > 0 && continuesInstruction) groups[groups.length - 1] += `; ${clause}`;
+          else groups.push(clause);
+        }
+        return groups;
+      })
+      .filter((sentence) => !splitClaims(sentence).some((claim) => rejected.has(claim)))
+      .join(" ")
+      .trim();
+  };
+  const scopeChanged = (sectionIndex?: number) =>
+    inputs.some((input, index) => input.sectionIndex === sectionIndex && unsafe[index]);
+  let lead = scopeChanged() ? retainedText() : answer.answer;
+  let sections = (answer.answerSections ?? []).flatMap((section, index) => {
+    if (!scopeChanged(index)) return [section];
+    const body = retainedText(index);
+    return body ? [{ ...section, body }] : [];
+  });
+  let citations = answer.citations;
+  if (!lead && sections.length > 0) {
+    const promoted = sections[0];
+    lead = promoted.body;
+    citations = (verificationSources ?? answer.sources)
+      .filter((source) => promoted.citation_chunk_ids.includes(source.id))
+      .map((source) => ({
+        chunk_id: source.id,
+        document_id: source.document_id,
+        title: source.title,
+        file_name: source.file_name,
+        page_number: source.page_number,
+        chunk_index: source.chunk_index,
+        provenance: "section_selected" as const,
+      }));
+    sections = sections.slice(1);
+  }
+  if (!lead) {
+    const hasHighRiskGap = claims.some((claim, index) => unsafe[index] && claim.riskClass === "high_risk");
     return {
       ...answer,
       answer:
-        "The available cited evidence does not directly support every high-risk claim. Review the retrieved source passages before making a clinical decision.",
+        "The available cited evidence does not directly support the answer claims. Review the retrieved source passages before making a clinical decision.",
       grounded: false,
       confidence: "unsupported",
       citations: [],
@@ -1219,59 +1409,37 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
       bestSource: null,
       responseMode: "evidence_gap",
       routingMode: "unsupported",
-      routingReason: [
+      routingReason: appendRoutingReason(
         answer.routingReason,
-        topLevelHighRiskGap ? "claim_support_high_risk_gap" : "material_source_governance_gap",
-      ]
-        .filter(Boolean)
-        .join("; "),
+        claims.some(governanceGap)
+          ? "material_source_governance_gap"
+          : hasHighRiskGap
+            ? "claim_support_high_risk_gap"
+            : "claim_support_factual_gap",
+      ),
       supportedClaims: claims,
       evidenceAssessments,
     };
   }
-  const unsafeSectionIndexes = new Set(
-    claims.flatMap((claim, index) => {
-      const sectionIndex = inputs[index]?.sectionIndex;
-      return sectionIndex !== undefined && (claimHasHighRiskGap(claim) || claimHasMaterialGovernanceGap(claim))
-        ? [sectionIndex]
-        : [];
-    }),
-  );
-  if (unsafeSectionIndexes.size > 0) {
-    const retainedAnswer: RagAnswer = {
-      ...answer,
-      confidence: answer.confidence === "high" ? "medium" : answer.confidence,
-      answerSections: (answer.answerSections ?? []).filter((_, index) => !unsafeSectionIndexes.has(index)),
-      conflictsOrGaps: [
-        ...(answer.conflictsOrGaps ?? []),
-        {
-          type: "gap",
-          message:
-            "One or more answer sections were withheld because their cited evidence did not directly support every high-risk claim.",
-        },
-      ],
-      routingReason: appendRoutingReason(answer.routingReason, "claim_support_unsupported_sections_withheld"),
-    };
-    const retained = assessClaimSupportDetails(retainedAnswer);
-    const retainedRoutineGap = retained.claims.some((claim) => claim.supportStatus !== "direct");
-    return enforceUnassessedNumericClaims(
+  const retained: RagAnswer = {
+    ...answer,
+    answer: lead,
+    answerSections: sections,
+    citations,
+    bestSource: null,
+    confidence: answer.confidence === "high" ? "medium" : answer.confidence,
+    conflictsOrGaps: [
+      ...(answer.conflictsOrGaps ?? []),
       {
-        ...retainedAnswer,
-        confidence: retainedRoutineGap && retainedAnswer.confidence === "high" ? "medium" : retainedAnswer.confidence,
-        supportedClaims: retained.claims,
-        evidenceAssessments: retained.evidenceAssessments,
+        type: "gap",
+        message: "Answer claims were withheld because their cited evidence did not directly support them.",
       },
-      retained.unassessedClaims,
-    );
-  }
-  const routineGap = claims.some((claim) => claim.supportStatus !== "direct");
-  return enforceUnassessedNumericClaims(
-    {
-      ...answer,
-      confidence: routineGap && answer.confidence === "high" ? "medium" : answer.confidence,
-      supportedClaims: claims,
-      evidenceAssessments,
-    },
-    unassessedClaims,
-  );
+    ],
+    routingReason: appendRoutingReason(
+      answer.routingReason,
+      scopeChanged() ? "claim_support_unsupported_claims_withheld" : "claim_support_unsupported_sections_withheld",
+    ),
+  };
+  const reassessed = assessClaimSupportDetails(retained, verificationSources);
+  return { ...retained, supportedClaims: reassessed.claims, evidenceAssessments: reassessed.evidenceAssessments };
 }

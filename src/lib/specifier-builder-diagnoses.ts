@@ -81,12 +81,26 @@ const guidedCatalogDisorders = new Set([
  * options contradict each other, and blocking a valid combination (for example
  * "in sustained remission, on maintenance therapy, in a controlled environment")
  * is the worse failure for a documentation aid.
+ *
+ * The dataset carries no exclusivity field — a group is only a label and a list — so
+ * this mapping is authored here and every entry has to earn its place against the
+ * items it actually governs. Four labels were removed on review because the manual
+ * permits the combination the radio was blocking:
+ *   * "Classes" — the substance-class list. Concurrent alcohol, cannabis and tobacco
+ *     use disorders are ordinary, and each is coded in its own right.
+ *   * "Clusters" — personality-disorder clusters. Meeting criteria across clusters
+ *     (borderline with avoidant, say) is common and is coded as both.
+ *   * "Aetiology" — the neurocognitive list pairs a certainty term ("probable or
+ *     possible") with the aetiology itself, so "probable Alzheimer's disease" needs
+ *     two picks, and the delirium list has to allow more than one contributor.
+ *   * "Attraction" — "limited to incest" is a separate axis in the manual, applied
+ *     alongside the attraction type rather than instead of it.
+ *
+ * Even a correct entry is a default rather than a rule: the builder can relax any
+ * single-select group on request (see relaxBuilderGroups), so a mapping error costs a
+ * default, never an unreachable combination.
  */
 export const singleSelectGroupLabels: ReadonlySet<string> = new Set([
-  "Aetiology",
-  "Attraction",
-  "Classes",
-  "Clusters",
   "Course",
   "Course & Status",
   "Current Episode",
@@ -104,8 +118,33 @@ export const singleSelectGroupLabels: ReadonlySet<string> = new Set([
   "Types & Severity",
 ]);
 
-export function builderGroupSelection(groupLabel: string): BuilderGroupSelection {
+/**
+ * `disorder::group` pairs where the label-wide rule above is wrong for one disorder.
+ * Specific phobia is the case in the current dataset: the manual asks for every
+ * applicable phobia type to be coded, while every other "Type" group is one-of.
+ */
+export const multiSelectGroupExceptions: ReadonlySet<string> = new Set(["Specific Phobia::Type"]);
+
+export function builderGroupSelection(groupLabel: string, disorder?: string): BuilderGroupSelection {
+  if (disorder && multiSelectGroupExceptions.has(`${disorder}::${groupLabel}`)) return "multiple";
   return singleSelectGroupLabels.has(groupLabel) ? "single" : "multiple";
+}
+
+/**
+ * Reopen named single-select groups as checkbox lists. This is what keeps the mapping
+ * above a default: when a clinician says more than one option applies, the group stops
+ * enforcing one-of instead of leaving the combination unreachable.
+ */
+export function relaxBuilderGroups(
+  groups: BuilderCatalogGroup[],
+  relaxedGroupIds: ReadonlySet<string>,
+): BuilderCatalogGroup[] {
+  if (!relaxedGroupIds.size) return groups;
+  return groups.map((group) =>
+    group.selection === "single" && relaxedGroupIds.has(group.id)
+      ? { ...group, selection: "multiple" as const }
+      : group,
+  );
 }
 
 function diagnosisSlug(value: string) {
@@ -150,7 +189,7 @@ function buildCatalog() {
       group = {
         id: `${id}::${diagnosisSlug(item.group)}`,
         label: item.group,
-        selection: builderGroupSelection(item.group),
+        selection: builderGroupSelection(item.group, item.disorder),
         items: [],
       };
       entry.groups.push(group);

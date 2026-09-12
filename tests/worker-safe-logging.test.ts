@@ -5,9 +5,10 @@ const workerMain = readFileSync(new URL("../worker/main.ts", import.meta.url), "
 const workerIndex = readFileSync(new URL("../worker/index.ts", import.meta.url), "utf8");
 const answerStreamRoute = readFileSync(new URL("../src/app/api/answer/stream/route.ts", import.meta.url), "utf8");
 const httpLib = readFileSync(new URL("../src/lib/http.ts", import.meta.url), "utf8");
-const seedFallbackFiles = [
-  "../src/lib/medication-seed.ts",
-  "../src/lib/differential-seed.ts",
+const seedFallbackFiles = ["../src/lib/medication-seed.ts", "../src/lib/differential-seed.ts"].map((file) =>
+  readFileSync(new URL(file, import.meta.url), "utf8"),
+);
+const canonicalReadFiles = [
   "../src/app/api/medications/[slug]/route.ts",
   "../src/app/api/differentials/[slug]/route.ts",
   "../src/app/api/differentials/presentations/[slug]/route.ts",
@@ -50,6 +51,14 @@ describe("worker safe logging", () => {
     for (const file of registryReadFiles) {
       expect(file).not.toContain("ensureRegistrySeeded");
       expect(file).not.toContain("bestEffortSyncClinicalRegistryRows");
+    }
+  });
+
+  it("routes canonical detail read errors through the shared sanitized handler", () => {
+    for (const file of canonicalReadFiles) {
+      expect(file).toContain("return jsonError(error)");
+      expect(file).not.toMatch(/(?:console|logger)\.(?:error|warn)\(/);
+      expect(file).not.toMatch(/ensure(?:Medication|Differential)Seeded/);
     }
   });
 });

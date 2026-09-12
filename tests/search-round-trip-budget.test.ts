@@ -30,7 +30,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { countSupabaseRoundTrips } from "./helpers/supabase-round-trip-counter";
-import type { SearchResult } from "../src/lib/types";
+import type { RagQueryPlan, SearchResult } from "../src/lib/types";
 
 /** Minimal indexed chunk; only the fields retrieval reads are populated. */
 function source(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -146,6 +146,63 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.resetModules();
   vi.unstubAllEnvs();
+});
+
+describe("governed corpus round-trip budget", () => {
+  it("shares the three-RPC variant cap across primary and supplementary phases", async () => {
+    const calls: Array<Record<string, unknown>> = [];
+    const supabase = {
+      rpc: vi.fn((_name: string, args: Record<string, unknown>) => {
+        calls.push(args);
+        return Promise.resolve({ data: [], error: null });
+      }),
+    };
+    const { searchGovernedCorpora } = await import("../src/lib/rag/rag-candidate-sources");
+    const queryPlan: RagQueryPlan = {
+      version: "rag-query-plan-v1",
+      kind: "decomposed",
+      originalQuery: "original",
+      interpretation: "budget fixture",
+      subquestions: [
+        { id: "sq-1", question: "original", purpose: "primary", required: true },
+        { id: "sq-2", question: "monitoring", purpose: "monitoring", required: true },
+        { id: "sq-3", question: "risk", purpose: "risk", required: true },
+        { id: "sq-4", question: "action", purpose: "required_action", required: true },
+      ],
+      targetSiteDomains: [],
+      siteDomainDecision: "none",
+      reasonCodes: [],
+    };
+    await searchGovernedCorpora({
+      supabase: supabase as never,
+      queryVariants: ["original", "monitoring", "risk", "action"],
+      queryPlan,
+      matchCount: 12,
+      snapshot: {
+        version: "rag-context-snapshot-v1",
+        resolvedAt: "2026-08-30T00:00:00.000Z",
+        documentIndexGeneration: "generation-1",
+        sourcePolicyVersion: "source-policy-v1",
+        rolloutVersion: "rollout-v1",
+        siteContentRegistryVersion: null,
+        publicSiteContent: {
+          releaseId: null,
+          staticManifestDigest: null,
+          dynamicStateDigest: null,
+          releaseDigest: null,
+          changeEpoch: null,
+          state: "unavailable",
+        },
+      },
+      components: { siteContent: false, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: [],
+      internationalCoverageGap: true,
+    });
+
+    expect(calls).toHaveLength(3);
+    expect(calls.slice(0, 2).every((call) => (call.corpus_scopes as string[]).length === 2)).toBe(true);
+    expect(calls.at(-1)?.corpus_scopes).toEqual(["international_supplementary"]);
+  });
 });
 
 describe("Supabase round-trip budgets on the offline search retrieval core", () => {

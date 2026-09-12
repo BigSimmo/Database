@@ -468,3 +468,78 @@ The rolling issue is the provider-neutral queue. For every alert, the on-duty op
 - Retain and periodically exercise the GitHub Actions cache path for the three-consecutive-hour hybrid escalation. Cache loss intentionally downgrades the condition to warning or unknown rather than inferring history.
 - **Host-level metrics** (CPU, memory, restart count) and log drains once the
   container host exists (`docs/deployment-architecture.md` §2).
+
+## 6. Reviewed feedback-to-evaluation triage
+
+`scripts/report-answer-feedback.ts` reports content-free diagnostic counts and
+candidate interaction IDs. Run the default local mode with an explicitly supplied
+export:
+
+```text
+node scripts/run-tsx.mjs scripts/report-answer-feedback.ts --input <local-export.json>
+```
+
+The JSON input has `version: "answer-feedback-export-v1"`, a `feedback` array of
+`{ interactionId, category }`, and `answers` / `retrievals` arrays containing
+`interactionId`, `generation_outcome`, `required_part_count` and
+`represented_part_count`. IDs must be UUIDs. Diagnostic counts are integers from
+0 to 4, represented cannot exceed required, and generation outcomes are
+`generated`, `extractive`, `source_only` or `failed`. Missing fields, unknown
+values, conflicting diagnostics or duplicate joins are incomplete. Do not include
+raw question/answer text, owner identifiers, content or provider errors in exports.
+The report ignores extra metadata and emits only allowlisted values; it never
+echoes input errors. A completed scan may still report `incompleteRecords`.
+
+The eight feedback categories remain supported. `verified` is aggregate-only;
+other complete records nominate an evaluation candidate, with `numeric_error`
+and `outdated_guidance` routed to clinical review. Incomplete records require a
+reproduction. Every result requires de-identification review and forbids automatic
+promotion. A feedback token, `verified` rating or diagnostic reviewed-input flag
+does not establish clinical approval.
+
+A reviewer obtains a reproducible question from the reporter, removes patient and
+site-specific details, and confirms expected evidence and behaviour before using
+the existing administrator-authenticated `/api/eval-cases` capture path. Its
+`promoted_eval_case` database flag denotes that separate capture population; it
+does not promote a programme fixture or grant clinical approval. Pin the targeted
+weak family and reference expectation before M2 capture. A programme fixture is
+changed only through normal reviewed code. The triage tool does not call the
+capture endpoint or change cases, source authority, rankers, prompts or production
+behaviour.
+
+Live telemetry access requires separate explicit authorization. `--print-plan`
+with `--project-ref`, matching `--confirm-project-ref`, and UTC `--from` / `--to`
+timestamps prints the exact proposed read scope and SHA-256 digest, without
+loading environment configuration, constructing a client or creating a receipt.
+Timestamps use `YYYY-MM-DDTHH:mm:ss.sssZ`; the half-open feedback window must end
+in the past and span at most 7 days. Production identity comes from the canonical
+repository project configuration. No arbitrary target, table, projection or limit
+overrides are accepted.
+
+Only after approval, `--live` replaces `--print-plan` and additionally requires
+`--authorization-receipt <reviewed-receipt.json>`. The strict receipt contains
+exactly `version` (`provider-authorization-v1`), `operation`
+(`answer_feedback_eval_triage_read`), `projectRef`, `planDigest`, `authorizedAt`
+and `expiresAt`. Authorization must be current, target/digest matched and valid
+for at most 15 minutes. This local receipt is an operator confirmation mechanism,
+not clinician authentication. Generic provider permission or credentials alone
+cannot authorize this read. No live access was executed to verify this adapter.
+
+The fixed plan allows 200 feedback rows, pages of 50 with at most 5 requests,
+then batches of 50 interaction IDs across each telemetry table: at most 8 join
+requests / 13 requests total. Each join permits 100 rows and requests a 101st
+sentinel. Exact counts must reconcile with returned rows so a server row cap
+cannot conceal missing or ambiguous joins. Exhaustion, missing counts, response
+errors or detected paging changes fail the entire report, without partial
+candidate output. Requests disable retries and redirects and time out after the
+lesser of 15 seconds and remaining receipt validity. Local files are bounded to
+2 MiB. All caps, projections and policies are bound into the receipt digest.
+
+Live projections are limited to feedback interaction/category and the diagnostic
+scalars above, using `rag_queries.metadata.interaction_id` and
+`rag_retrieval_logs.metadata.answer.interaction_id` (the latter additionally
+requires `metadata.answer.log_source = 'answer'`). Telemetry joins use exact IDs
+regardless of telemetry creation time; feedback can arrive after an answer.
+Full metadata bags, raw query/answer columns and owner/provider fields are never
+selected. These bounded queries do not form a transactional snapshot; hosted
+schema, access, telemetry completeness and clinical adequacy remain unverified.

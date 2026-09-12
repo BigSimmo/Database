@@ -3,6 +3,7 @@ import {
   clipboardProvenanceLine,
   formatClinicalDate,
   hasRecordedGovernanceFields,
+  normalizeClinicalSourceMetadata,
   normalizeOptionalSourceMetadata,
   normalizeSourceMetadata,
   sourceMetadataDiagnostics,
@@ -13,6 +14,133 @@ import {
 import { classifySourceAuthority } from "../src/lib/source-authority-registry";
 
 describe("source metadata helpers", () => {
+  it("normalizes the canonical Australian policy metadata without inventing absent values", () => {
+    const contentHash = "a".repeat(64);
+    const metadata = normalizeClinicalSourceMetadata({
+      corpus_scope: "australian_public",
+      source_role: "clinical_guideline",
+      content_mode: "indexed_content",
+      source_catalogue_key: "wa-chief-psychiatrist",
+      source_policy_version: "australian-source-policy-v1",
+      canonical_url: "https://www.chiefpsychiatrist.wa.gov.au/guideline.pdf",
+      effective_date: "2026-08-20",
+      expiry_date: "2027-08-20T00:00:00.000Z",
+      supersedes_document_id: "document-old",
+      superseded_by_document_id: "document-next",
+      retrieved_at: "2026-08-20T08:30:00+08:00",
+      content_hash: contentHash,
+      change_state: "unchanged",
+      licence_policy: "public_index_permitted",
+    });
+
+    expect(metadata).toMatchObject({
+      corpus_scope: "australian_public",
+      source_role: "clinical_guideline",
+      content_mode: "indexed_content",
+      source_catalogue_key: "wa-chief-psychiatrist",
+      source_policy_version: "australian-source-policy-v1",
+      canonical_url: "https://www.chiefpsychiatrist.wa.gov.au/guideline.pdf",
+      effective_date: "2026-08-20",
+      expiry_date: "2027-08-20T00:00:00.000Z",
+      supersedes_document_id: "document-old",
+      superseded_by_document_id: "document-next",
+      retrieved_at: "2026-08-20T08:30:00+08:00",
+      content_hash: contentHash,
+      change_state: "unchanged",
+      licence_policy: "public_index_permitted",
+    });
+
+    expect(normalizeClinicalSourceMetadata(null)).toMatchObject({
+      corpus_scope: null,
+      source_role: null,
+      content_mode: null,
+      source_catalogue_key: null,
+      source_policy_version: null,
+      canonical_url: null,
+      effective_date: null,
+      expiry_date: null,
+      supersedes_document_id: null,
+      superseded_by_document_id: null,
+      retrieved_at: null,
+      content_hash: null,
+      change_state: "unknown",
+      licence_policy: null,
+    });
+  });
+
+  it("fails malformed policy metadata closed with bounded diagnostics", () => {
+    const warnSpy = vi.spyOn(sourceMetadataDiagnostics, "warn").mockImplementation(() => {});
+    try {
+      const urlSecret = "do-not-log-this-token";
+      const metadata = normalizeClinicalSourceMetadata({
+        corpus_scope: "public-ish",
+        source_role: "treatment-advice",
+        content_mode: "scraped_content",
+        canonical_url: `https://clinical-user:clinical-password@example.test/path?token=${urlSecret}`,
+        effective_date: "2026-02-30",
+        expiry_date: "2026-02-30T00:00:00Z",
+        retrieved_at: "2026-01-01T24:00:00Z",
+        content_hash: "sha256:not-a-digest",
+        change_state: "fresh",
+        licence_policy: "probably-public",
+      });
+
+      expect(metadata).toMatchObject({
+        corpus_scope: null,
+        source_role: null,
+        content_mode: null,
+        canonical_url: null,
+        effective_date: null,
+        expiry_date: null,
+        retrieved_at: null,
+        content_hash: null,
+        change_state: "unknown",
+        licence_policy: null,
+      });
+      expect(warnSpy.mock.calls.map(([field]) => field)).toEqual(
+        expect.arrayContaining([
+          "corpus_scope",
+          "source_role",
+          "content_mode",
+          "canonical_url",
+          "effective_date",
+          "expiry_date",
+          "retrieved_at",
+          "content_hash",
+          "change_state",
+          "licence_policy",
+        ]),
+      );
+      expect(warnSpy.mock.calls).toEqual(
+        expect.arrayContaining([
+          [
+            "canonical_url",
+            expect.objectContaining({
+              reason: "credentialed_url",
+              input_type: "string",
+              input_length: expect.any(Number),
+            }),
+          ],
+          [
+            "expiry_date",
+            expect.objectContaining({ reason: "invalid_iso_date", input_type: "string", input_length: 20 }),
+          ],
+          [
+            "retrieved_at",
+            expect.objectContaining({ reason: "invalid_iso_date", input_type: "string", input_length: 20 }),
+          ],
+        ]),
+      );
+      const serializedDiagnostics = JSON.stringify(warnSpy.mock.calls);
+      expect(serializedDiagnostics).not.toContain(urlSecret);
+      expect(serializedDiagnostics).not.toContain("clinical-user");
+      expect(serializedDiagnostics).not.toContain("clinical-password");
+      expect(warnSpy.mock.calls.every((call) => JSON.stringify(call).length <= 200)).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   it("normalizes missing legacy metadata to explicit unknown labels without suppressing content", () => {
     const metadata = normalizeSourceMetadata(null);
 
@@ -62,11 +190,23 @@ describe("source metadata helpers", () => {
       expect(metadata.clinical_validation_status).toBe("unverified");
       expect(metadata.extraction_quality).toBe("unknown");
 
-      // Each unrecognized non-empty value is traced once, with its field + value.
+      // Each unrecognized non-empty value is traced once without echoing its raw value.
       expect(warnSpy).toHaveBeenCalledTimes(3);
-      expect(warnSpy).toHaveBeenCalledWith("document_status", "revieww_due");
-      expect(warnSpy).toHaveBeenCalledWith("clinical_validation_status", "aproved");
-      expect(warnSpy).toHaveBeenCalledWith("extraction_quality", "gud");
+      expect(warnSpy).toHaveBeenCalledWith("document_status", {
+        reason: "unrecognized_enum",
+        input_type: "string",
+        input_length: 11,
+      });
+      expect(warnSpy).toHaveBeenCalledWith("clinical_validation_status", {
+        reason: "unrecognized_enum",
+        input_type: "string",
+        input_length: 7,
+      });
+      expect(warnSpy).toHaveBeenCalledWith("extraction_quality", {
+        reason: "unrecognized_enum",
+        input_type: "string",
+        input_length: 3,
+      });
 
       // Absent (null / undefined) and blank/whitespace values are the legitimate
       // default and never warn.
@@ -107,6 +247,8 @@ describe("source metadata helpers", () => {
       registry_record_id: "svc-123",
       registry_record_slug: "perth-adult-mental-health",
       source_title: "Perth Adult Mental Health",
+      corpus_scope: "clinical_kb_site",
+      source_role: "service_directory",
       document_status: "current",
       clinical_validation_status: "approved",
     });
@@ -115,6 +257,8 @@ describe("source metadata helpers", () => {
     expect(metadata.registry_record_subkind).toBeNull();
     expect(metadata.registry_record_id).toBe("svc-123");
     expect(metadata.registry_record_slug).toBe("perth-adult-mental-health");
+    expect(metadata.corpus_scope).toBe("clinical_kb_site");
+    expect(metadata.source_role).toBe("service_directory");
   });
 
   it("preserves stale status labels for registry summaries", () => {

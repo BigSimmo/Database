@@ -22,7 +22,6 @@ import {
 import {
   loadCapturedRagEvalCases,
   mergeRagEvalCases,
-  ragEvalCases,
   selectRagEvalCases,
   type RagEvalCase,
   type SupabaseEvalCaseClient,
@@ -365,7 +364,7 @@ export function parseEvalQualityArgs(argv: string[]): EvalQualityArgs {
 
 export function selectRagQualityCasesForQuestion(question?: string) {
   if (!question) return selectRagEvalCases({});
-  const exactCase = ragEvalCases.find((testCase) => testCase.id === question.trim());
+  const exactCase = selectRagEvalCases({}).find((testCase) => testCase.id === question.trim());
   return exactCase ? [exactCase] : selectRagEvalCases({ question });
 }
 

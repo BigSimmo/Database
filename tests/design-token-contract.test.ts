@@ -508,7 +508,7 @@ describe("category accents stay out of the semantic palette", () => {
   // the assertion above guards. It must stay derived from the registry rather
   // than reacquiring a hand-written per-category table.
   it("keeps the factsheet category theme derived and off semantic tokens", () => {
-    const source = readFileSync(new URL("../src/components/factsheets/factsheets-data.ts", import.meta.url), "utf8");
+    const source = readFileSync(new URL("../src/lib/factsheets-data.ts", import.meta.url), "utf8");
     const block = sourceSegment(source, "export function categoryTheme(", "\n}", {
       label: "factsheet categoryTheme",
     });
