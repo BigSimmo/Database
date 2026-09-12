@@ -42,7 +42,8 @@ export function useHomeModeSeed({
   setQuery: Dispatch<SetStateAction<string>>;
   setQueryMode: Dispatch<SetStateAction<ClinicalQueryMode>>;
   setScopeFilters: Dispatch<SetStateAction<SearchScopeFilters>>;
-  setModeSearchSubmitted: Dispatch<SetStateAction<boolean>>;
+  /** Also records the submitted query, so a later composer edit cannot pass for a submission. */
+  setModeSearchSubmitted: (submitted: boolean, submittedText?: string) => void;
   setLoading: Dispatch<SetStateAction<boolean>>;
   setError: Dispatch<SetStateAction<string | null>>;
   setAnswerProgress: Dispatch<SetStateAction<string | null>>;
