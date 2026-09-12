@@ -832,8 +832,8 @@ jobs:
     name: Ward Flow browser journeys
     needs: changes
     if: >
-      github.event_name == 'pull_request' &&
       needs.changes.outputs.ui_changed == 'true' &&
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
       github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -1482,14 +1482,14 @@ jobs:
           # The seven Ward Flow browser journeys. Required here as well as blocking in their own
           # job: without an entry in this aggregate a failing lane is reported and merged past,
           # which is the same hole `continue-on-error: true` left. Gated to match that job's own
-          # `if:` exactly — pull_request, ui_changed, not draft — so an out-of-scope run reports
+          # `if:` exactly — pull_request|merge_group, ui_changed, not draft — so an out-of-scope run reports
           # skipped-and-fine rather than a false "result was skipped" failure.
           # ⚠️ This mirrors the job's own `if:` exactly. The two conditions have to move together;
           # a future edit to one is an edit to both. Both carried a leading
           # `WARD_JOURNEYS_BLOCKING` term until 2026-09-06, when the lane was enabled and the term
           # was dropped from both in one commit — see that job's own comment for the green run it
           # was lifted against.
-          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ] && [ "$EVENT_NAME" = "pull_request" ]; then
+          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ] && { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; }; then
             require_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
           else
             require_skipped_or_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
