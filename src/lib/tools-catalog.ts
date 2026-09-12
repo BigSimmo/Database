@@ -391,6 +391,31 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
 ];
 
 /**
+ * Public knowledge records rendered by the Tools catalogue. Consumer shortcuts
+ * (Answer/Documents), account state, and synthetic operational workspaces stay
+ * in the launcher but are never site-content producers.
+ */
+export const publicKnowledgeToolCatalogIds = [
+  "differentials",
+  "clinical-dictionary",
+  "medication-prescribing",
+  "services",
+  "forms",
+  "safety-plan",
+  "calculators",
+] as const satisfies readonly ToolCatalogId[];
+
+const publicKnowledgeToolCatalogIdSet: ReadonlySet<string> = new Set(publicKnowledgeToolCatalogIds);
+
+export const publicKnowledgeToolCatalogRecords = toolCatalogRecords.filter((record) =>
+  publicKnowledgeToolCatalogIdSet.has(record.id),
+);
+
+export function publicKnowledgeToolCatalogRecordById(id: string): ToolCatalogRecord | null {
+  return publicKnowledgeToolCatalogRecords.find((record) => record.id === id) ?? null;
+}
+
+/**
  * Resolves a catalogue record by id, and throws for an id the catalogue does not
  * know. It used to fall back to the first record, so a typo rendered the PsychSift
  * Search card in place of the tool that was asked for instead of failing; the only

@@ -15,6 +15,11 @@ import {
 } from "@/lib/sources/acquisition-ledger";
 import { sourceAuthorityForPublisher } from "@/lib/source-authority-registry";
 import { canonicalizeSourceReferences } from "@/lib/sources/catalogue-core";
+import {
+  classifySourceAuthority,
+  sourceCatalogueDesignation,
+  sourceCatalogueGeographyScope,
+} from "@/lib/source-authority-registry";
 import type { ClinicalSourceReferenceInput } from "@/lib/sources/catalogue-types";
 
 const baseRecord: SourceAcquisitionRecord = {
@@ -56,6 +61,60 @@ function issuesFor(overrides: Partial<SourceAcquisitionRecord> = {}) {
 }
 
 describe("source acquisition ledger", () => {
+  it("retains catalogue geography without granting runtime authority by publisher code", () => {
+    expect(sourceCatalogueGeographyScope(baseRecord)).toBe("wa");
+    expect(sourceCatalogueDesignation(baseRecord)).toBe("trusted");
+    const runtime = classifySourceAuthority({
+      source_kind: "document",
+      publisher: baseRecord.publisher,
+      publisher_code: baseRecord.publisherCode,
+      jurisdiction: baseRecord.jurisdiction,
+      document_status: "current",
+      clinical_validation_status: "locally_reviewed",
+      extraction_quality: "good",
+    });
+    expect(runtime.authority).toBeNull();
+    expect(runtime.designation).toBe("unclassified");
+    expect(runtime.tier).toBe("supplementary");
+    expect(runtime.australianAugmentationEligible).toBe(false);
+  });
+
+  it.each([
+    { publisherCode: "UNKNOWN" },
+    { publisher: "Unrelated publisher" },
+    { publisher: "World Health Organization" },
+    { jurisdiction: "United Kingdom" },
+  ])("rejects conflicting catalogue geography %j", (override) => {
+    expect(sourceCatalogueGeographyScope({ ...baseRecord, ...override })).toBeNull();
+    expect(sourceCatalogueDesignation({ ...baseRecord, ...override })).toBe("unclassified");
+    const [conflicting] = canonicalizeSourceReferences(
+      acquisitionSourceReferences([record({ validationStatus: "locally_reviewed", ...override })]),
+    );
+    expect(conflicting.rating.dimensions.reliability).toBe(8);
+  });
+
+  it("requires jurisdiction for a catalogue designation resolved only by publisher alias", () => {
+    expect(sourceCatalogueDesignation({ ...baseRecord, publisherCode: null })).toBe("trusted");
+    expect(sourceCatalogueDesignation({ ...baseRecord, publisherCode: null, jurisdiction: null })).toBe("unclassified");
+  });
+
+  it.each([
+    { publisherCode: "CAHS", publisher: "WA Health", designation: "official", reliability: 20 },
+    { publisherCode: "NMHS", publisher: "WA Health", designation: "official", reliability: 20 },
+    { publisherCode: "SMHS", publisher: "WA Health", designation: "official", reliability: 20 },
+    { publisherCode: "OCPWA", publisher: "WA Health", designation: "trusted", reliability: 16 },
+    { publisherCode: "CAHS", publisher: "World Health Organization", designation: "unclassified", reliability: 8 },
+  ])("rates compatible publisher identity for $publisherCode / $publisher", (identity) => {
+    const source = record({
+      publisherCode: identity.publisherCode,
+      publisher: identity.publisher,
+      validationStatus: "locally_reviewed",
+    });
+    expect(sourceCatalogueDesignation(source)).toBe(identity.designation);
+    const [entry] = canonicalizeSourceReferences(acquisitionSourceReferences([source]));
+    expect(entry.rating.dimensions.reliability).toBe(identity.reliability);
+  });
+
   it("accepts the committed ledger without any outstanding issue", () => {
     expect(acquisitionLedgerIssues(sourceAcquisitionRecords)).toEqual([]);
     expect(sourceAcquisitionRecords.length).toBeGreaterThan(0);
@@ -80,7 +139,7 @@ describe("source acquisition ledger", () => {
     expect(issuesFor()).toEqual([]);
   });
 
-  it("lifts a capture out of D band once it is signed off, without any other change", () => {
+  it("lifts a signed-off capture out of D band using catalogue identity without granting runtime authority", () => {
     const [unreviewed] = canonicalizeSourceReferences(acquisitionSourceReferences([record()]));
     const [reviewed] = canonicalizeSourceReferences(
       acquisitionSourceReferences([record({ validationStatus: "locally_reviewed" })]),
@@ -88,6 +147,8 @@ describe("source acquisition ledger", () => {
 
     expect(unreviewed.rating.band).toBe("D");
     expect(reviewed.rating.band).toBe("A");
+    expect(reviewed.rating.dimensions.reliability).toBe(16);
+    expect(reviewed.rating.dimensions.australianApplicability).toBe(15);
     expect(reviewed.rating.score).toBeGreaterThan(unreviewed.rating.score);
     expect(reviewed.geography.scope).toBe("wa");
   });

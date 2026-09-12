@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { CalculatorsSearchPage } from "@/components/calculators";
+import {
+  CALCULATOR_RECORD_PARAM,
+  calculatorRecordById,
+  calculatorRecordHref,
+} from "@/components/calculators/calculator-routes";
 
 export const metadata: Metadata = {
   title: "Search clinical calculators | PsychSift",
@@ -39,6 +44,28 @@ export default async function CalculatorsSearchRoute({ searchParams }: { searchP
   const primaryQuery = readFirstSearchParam(resolvedSearchParams.q)?.trim();
   const legacyQuery = readFirstSearchParam(resolvedSearchParams.query)?.trim();
   const query = primaryQuery || legacyQuery || "";
+  const rawCalculatorId = readFirstSearchParam(resolvedSearchParams[CALCULATOR_RECORD_PARAM]);
+  const selectedCalculator = calculatorRecordById(rawCalculatorId);
+
+  if (rawCalculatorId !== undefined && !selectedCalculator) {
+    const fallbackSearchParams = toURLSearchParams(resolvedSearchParams);
+    fallbackSearchParams.delete(CALCULATOR_RECORD_PARAM);
+    fallbackSearchParams.delete("query");
+    if (query) fallbackSearchParams.set("q", query);
+    else fallbackSearchParams.delete("q");
+    const suffix = fallbackSearchParams.toString();
+    redirect(suffix ? `/calculators/search?${suffix}` : "/?mode=calculators");
+  }
+
+  if (selectedCalculator) {
+    const isCanonicalSelection =
+      typeof resolvedSearchParams[CALCULATOR_RECORD_PARAM] === "string" &&
+      Object.keys(resolvedSearchParams).length === 1;
+    if (!isCanonicalSelection) redirect(calculatorRecordHref(selectedCalculator.id));
+    return (
+      <CalculatorsSearchPage initialQuery={selectedCalculator.abbrev} initialCalculatorId={selectedCalculator.id} />
+    );
+  }
 
   if (resolvedSearchParams.query !== undefined) {
     const canonicalSearchParams = toURLSearchParams(resolvedSearchParams);

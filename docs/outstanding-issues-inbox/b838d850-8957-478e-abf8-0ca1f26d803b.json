@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b838d850-8957-478e-abf8-0ca1f26d803b",
+  "createdOn": "2026-09-08",
+  "action": "done",
+  "payload": {
+    "id": "#NHGFXR",
+    "outcome": "Differentiated loading synthetic marker testId ('caring-contacts-loading-synthetic-marker') in src/app/caring-contacts/loading.tsx and src/components/caring-contacts/workspace/synthetic-marker.tsx to prevent duplicate testids during Suspense streaming.",
+    "baseRowFingerprint": "47fcfaa37bda3802f9e96ddcb3fc4de0373467c719b5cb3a68e43f9280dfb271"
+  }
+}

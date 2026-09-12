@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-08"
+    "committed_at": "2026-09-12"
   },
   "routes": {
     "modes": [
@@ -795,6 +795,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/development/hazards",
+        "file": "src/app/mockups/development/hazards/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/caring-contacts/guidance",
         "file": "src/app/caring-contacts/guidance/page.tsx",
         "area": "product"
@@ -1477,6 +1482,10 @@
         "file": "src/app/api/registry/records/route.ts"
       },
       {
+        "path": "/api/caring-contacts/patients/search",
+        "file": "src/app/api/caring-contacts/patients/search/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/dispatches",
         "file": "src/app/api/caring-contacts/dispatches/route.ts"
       },
@@ -1519,6 +1528,10 @@
       {
         "path": "/api/differentials/presentations/[slug]",
         "file": "src/app/api/differentials/presentations/[slug]/route.ts"
+      },
+      {
+        "path": "/api/site-content/publications",
+        "file": "src/app/api/site-content/publications/route.ts"
       },
       {
         "path": "/api/caring-contacts/team",
@@ -2754,6 +2767,11 @@
         "path": "docs/frontend-architecture.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/site-content-sync-runbook.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/evidence/mobile-root-timing-control-2026-08-26.md",
@@ -4551,6 +4569,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/pr-batch-runner.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-19-report.md",
         "section": "caring-contacts",
         "catalogued": true
@@ -5137,6 +5160,11 @@
       },
       {
         "path": "docs/ward-flow-master-sequence-2026-08-29.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts-crisis-lines.md",
         "section": "root",
         "catalogued": false
       },
@@ -7227,6 +7255,14 @@
         "checks": "Local cherry-pick-aware comparison to current `origin/main`; worktree/activity scan."
       },
       {
+        "date": "2026-08-23",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "09d005419513857b858521aa93ee281699b1fb7d",
+        "scope": "P03 Repository content and public snapshot contracts",
+        "outcome": "ACCEPTED: no Critical, Important, or Minor findings after cumulative xhigh review and correction",
+        "checks": "focused 27/27; cumulative P03 206/206; fresh typecheck; manifest CLI 1079 records, 22 eligible, zero drift; static xhigh phase review"
+      },
+      {
         "date": "2026-07-27",
         "ref": "PR #1287 / `claude/site-audit-quick-wins-21v9gb`",
         "head": "09dbd2dcc5126e4ae7d6f9e99e7325853047f749",
@@ -8305,6 +8341,14 @@
         "scope": "branch-cleanup",
         "outcome": "closed PR #1439 duplicate superseded by merged PR #1434; safe local cleanup",
         "checks": "maintainer closure states stronger replacement; SKILL.md and openai.yaml blob equality confirmed; verifier/workflow/tests replaced; batch8 bundle verified"
+      },
+      {
+        "date": "2026-08-23",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "161adb1a788f42e4b67b5ef1f0180ecf2db994f9",
+        "scope": "P04 Controlled ingestion inventory and coverage baselines",
+        "outcome": "ACCEPTED: no Critical, Important, or Minor findings",
+        "checks": "static exact-package review; package SHA-256 a3d571c654e148bf3296860b1b71d1718cc35a9249c8df91ea570fce80441c09; reused 3 files/59 tests, typecheck receipt, deterministic offline CLI; hosted/provider gates unrun"
       },
       {
         "date": "2026-07-24",
@@ -10683,6 +10727,14 @@
         "checks": "vitest-51+58+4186,tsc,eslint"
       },
       {
+        "date": "2026-09-08",
+        "ref": "claude/review-four-mockups-0l9x8c (PR #2738)",
+        "head": "3717589deb70271aef584d855e056fd15aa3460d",
+        "scope": "Ward Flow Command mockup and design system, third edition, with the universal header and rail (docs only)",
+        "outcome": "Handoff. The Live edition Command re-cut in the Platinum identity with the owner's header and rail grafted over the real engine, plus the design system page and document and the verification kit. Reviewed by five and then two independent reviewers with fix passes applied. Kit harness ALL GREEN in both themes for both artifacts (106 PASS, 0 FAIL). CI on the previous head passed every job that ran to completion; the final head's CI was not observed at handoff.",
+        "checks": "kit harness check.mjs on both artifacts (ALL GREEN), prettier --check on every changed file, docs:check-links, check:mockups, check:diff-integrity, check:repo-awareness-snapshot; lint, typecheck, test and build left to CI as on the previous green head"
+      },
+      {
         "date": "2026-08-26",
         "ref": "PR #2384",
         "head": "37313af8b59c1a673fc1157c8a0ac738e92ffdb2",
@@ -11123,6 +11175,14 @@
         "checks": "git diff --check; static ledger guards; focused tests blocked without node_modules"
       },
       {
+        "date": "2026-08-29",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "3c2bd23a68e18200dbeace2e9839b585c1ae1802",
+        "scope": "P06 Task 4 governed site-content health exact range",
+        "outcome": "needs fixes: 3 Important, 1 Minor",
+        "checks": "full-range frozen-package xhigh R9 review; SQL/auth and producer-owner graph specialists; focused source and selector probes; no suites or providers"
+      },
+      {
         "date": "2026-09-07",
         "ref": "claude/audit-fix-p16",
         "head": "3c8c48223e38e4c58580df96fb0f3ec2f351303f",
@@ -11241,6 +11301,14 @@
         "scope": "PR #1607 unblock/fix",
         "outcome": "clean — behind 0, merge-tree clean, 0 unresolved threads, required CI in progress (no code fix)",
         "checks": "merge-tree clean; behind_by 0; Unit/Build/Static/ProdUI in progress; no failing required"
+      },
+      {
+        "date": "2026-08-28",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "3e3d3720c1372d00ece0a685f7fac5fcb75077cf",
+        "scope": "P06 Task 4 governed site-content health exact range",
+        "outcome": "needs fixes: 4 Important, 0 Minor",
+        "checks": "full-range frozen-package xhigh R8 review; SQL/auth and health/CI specialist seams; focused selector and collision probes; no suites or providers"
       },
       {
         "date": "2026-09-03",
@@ -13355,6 +13423,14 @@
         "checks": "Targeted vitest 38/38; npm run test 3012 passed / 1 known container-only pdf-budget artifact; verify:cheap green to the same artifact; build + client-bundle scan + check:rag:fixtures PASS; check:production-readiness expected missing-secret FAILs only (no secrets in container)"
       },
       {
+        "date": "2026-09-10",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "5840e0299a4dbb0b5a3a9ec0a8e9f3e2adff5ff6",
+        "scope": "PR2760 M2 merge integration and R1-R5 blocker repairs",
+        "outcome": "Source corrections accepted; publication blocked by final local Docker schema replay",
+        "checks": "Fresh R5 224 tests passed across four files; prior R4 60 tests passed; source typecheck exit 0; focused lint 68 repair files exit 0 with zero warnings; scoped RAG/UI and schema source reviews accepted. Initial local schema replay passed but final baseline JSON changed afterward; final replay and manifest regeneration BLOCKED by Docker stale socket and policy-rejected repair. CI-mode readiness passed with warnings; release privacy attestations remain pending. No final push, hosted CI acceptance, merge, production migration or live provider evaluation."
+      },
+      {
         "date": "2026-08-12",
         "ref": "claude/design-issues-triage-wnr7k9",
         "head": "586012639565e4d3306b44361ebc5a3bdb3024ad",
@@ -13835,6 +13911,14 @@
         "checks": "Protected CI at the initial reviewed head passed policy, static, safety/config, unit coverage, Semgrep, Gitleaks, GitGuardian and the required aggregate; UI, build, migration replay and release browser matrix were correctly skipped for the docs/workflow scope. Follow-up proof: scoped Prettier; hook syntax/runtime plus exact ID-deduplication, P2-count and A1-first assertions; docs links (1,136 references); canonical skill catalog (32 skills, 8 aliases); `git diff --check`. Exact-head hosted CI remains required after the follow-up push. No OpenAI, Supabase, Railway, deployment or production-data operation ran."
       },
       {
+        "date": "2026-08-29",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "5d1293999a647cf2cb6afd6b0bcbc58b2ae0c62b",
+        "scope": "P06 Task 4 governed site-content health exact range",
+        "outcome": "needs fixes: 0 Important, 1 Minor",
+        "checks": "full-range frozen-package xhigh R5 review; linked-ancestor audit; no suites or providers"
+      },
+      {
         "date": "2026-07-17",
         "ref": "final historical branch/worktree cleanup against `origin/main`",
         "head": "5d195d7ca8752b2ae4006725c6b145c5662bb687",
@@ -13969,6 +14053,14 @@
         "scope": "branch-cleanup",
         "outcome": "Deleted local redundant ref; exact head was already represented on `origin/main`.",
         "checks": "Local cherry-pick-aware comparison and prior exact-head ledger evidence."
+      },
+      {
+        "date": "2026-08-23",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "5e3363e4384d2d113b03cd54ce8b784460056292",
+        "scope": "P02 Australian source governance phase",
+        "outcome": "ACCEPTED: no Critical, Important, or Minor findings after cumulative correction",
+        "checks": "Static xhigh phase review of 10 commits/24 files; reused Task4 103 tests, cumulative 239 tests, typecheck 4683 inputs, migration/security/RAG/static gates; provider and PostgreSQL replay unrun"
       },
       {
         "date": "2026-08-12",
@@ -16409,6 +16501,14 @@
         "scope": "PR #1780 review-and-fix",
         "outcome": "fixed P2 ratchet bypasses (arbitrary-property classes, CSS-consumer exemption anti-rot, modern CSS zero units); Bugbot clean; merge-tree clean; required CI was green on prior tip",
         "checks": "vitest design-system-contract-utils 32/32; check:design-system-contract; mutation CSS-exemption fail→restore; verify:cheap PASS (549 files / 5933 tests); verify:pr-local stages PASS (test flake in design-system-adoption timed out once then 51/51 + full test 549/549 + check:rag:fixtures PASS); no provider gates"
+      },
+      {
+        "date": "2026-08-28",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "7bc63973cca19f1f6c4adcb10f94719b0bd1660c",
+        "scope": "P06 Task 4 governed site-content health exact range",
+        "outcome": "needs fixes: 1 Important, 0 Minor",
+        "checks": "full-range frozen-package xhigh R7 review; SQL/auth and health/CI specialist seams; focused differential presentation selector probe; no suites or providers"
       },
       {
         "date": "2026-08-17",
@@ -22467,6 +22567,14 @@
         "checks": "Hosted PR required/Production UI/Static/Unit/Build/Safety/PR policy SUCCESS; verify:cheap 4273 pass; Bugbot no open findings"
       },
       {
+        "date": "2026-08-30",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "c4216449fbdcf43831887e4620f690ab52a4395e",
+        "scope": "P06 governed site-content control plane and request-cache integration",
+        "outcome": "ACCEPTED: 0 Critical, 0 Important, 0 Minor findings",
+        "checks": "Exact package SHA-256 6862837582B3CC895789B3A75C100EAD43B7FC4325AC9B720B8F5680749AF9A6; final SQL, RAG and governance reviews ACCEPT; PostgreSQL matrix; focused 265/265 and correction 171/171; typecheck 7325; drift, grants, migration-role, maintainability and RAG fixtures; hosted/provider gates unrun"
+      },
+      {
         "date": "2026-07-31",
         "ref": "codex/chat-frontend-skill-selection-0978",
         "head": "c436387c49d37e65bca49429d2b74fffe61c0bfd",
@@ -24075,6 +24183,14 @@
         "checks": "manual adversarial review; targeted source contracts; git merge-tree; git diff --check; docs links; ledger inbox; ledger guards; focused Vitest unavailable (node_modules absent)"
       },
       {
+        "date": "2026-08-30",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "d5e3a49a5b66bab21341cef4566c275895028f08",
+        "scope": "P07 retrieval Tasks 1-2",
+        "outcome": "accepted",
+        "checks": "9 files/171 tests; typecheck; offline RAG 26 files/630 tests; independent retrieval 11 files/328 tests and governance review ACCEPT"
+      },
+      {
         "date": "2026-07-30",
         "ref": "codex/close-issue-127",
         "head": "d5fd28f75b404046f13507aa3705d55898d7669c",
@@ -24339,6 +24455,14 @@
         "checks": "git diff --check; ci-change-scope self-test; ledger/inbox/outstanding/discipline guards passed"
       },
       {
+        "date": "2026-08-27",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "d915b2d0bf4ea1a7bc7465a3506e92fadce220f2",
+        "scope": "P06 Task 4 governed site-content health exact range",
+        "outcome": "needs fixes: 5 Important, 1 Minor",
+        "checks": "frozen-package xhigh review; provider-free impossible-date proof; no suites or providers"
+      },
+      {
         "date": "2026-08-07",
         "ref": "claude/answer-shell-ds-adoption (PR #1658)",
         "head": "d9221389c5b11123e7d7bc882bda342a6fd9e11d",
@@ -24409,6 +24533,14 @@
         "scope": "answer-preview source governance, evidence rail",
         "outcome": "P1 governance display-cap defect fixed with a mutation-proven test; P2 invariant/doc drift recorded as a dated design-doc amendment",
         "checks": "clinical-governance-reviewer; verify:cheap; verify:pr-local; build; eval:rag:offline; eval:rag:adversarial:offline; focused chromium (answer-progress-ui-smoke 8, ui-phone-motion+ui-universal-search 25, ui-smoke 106)"
+      },
+      {
+        "date": "2026-09-01",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "da2a5441a9b8df84a1bfca7f1f6e96840f204343",
+        "scope": "P08A retrieval Tasks 3-5",
+        "outcome": "accepted",
+        "checks": "22 files/614 cumulative tests; offline RAG 26 files/640 tests; R4 68/68; R5 72/72; typecheck; migration role; maintainability; pinned PostgreSQL replay; drift 21/21; independent retrieval, schema and governance reviews ACCEPT"
       },
       {
         "date": "2026-08-21",
@@ -24841,6 +24973,14 @@
         "scope": "branch-cleanup",
         "outcome": "Redundant: the exact HEAD is an ancestor of `origin/main`; eligible for deletion when no worktree or open PR references it.",
         "checks": "`git merge-base --is-ancestor de533acdf4cba2bdc1ec9e13d207b86d09968fc8 origin/main`."
+      },
+      {
+        "date": "2026-08-29",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "de5511a279509018a1b52c963692dbcbba7c6fbd",
+        "scope": "P06 Task 4 governed site-content health exact range",
+        "outcome": "needs fixes: 1 Important, 1 Minor",
+        "checks": "full-range frozen-package xhigh R4 review; bootstrap classifier proof; symlink containment audit; no suites or providers"
       },
       {
         "date": "2026-08-07",
@@ -25435,6 +25575,14 @@
         "checks": "Prettier check; pushed tip."
       },
       {
+        "date": "2026-08-29",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "e7f209538cb14b8d3cb4962d521db7895e869a7a",
+        "scope": "P06 Task 4 full-range review R10",
+        "outcome": "accepted: 0 Critical, 0 Important, 0 Minor",
+        "checks": "Frozen package eb9e7f0d3f52957688b8d518f95d6d4107abf140c4e0a46da28fefdd1135aa79; SQL-auth-health CLEAN; owner-CI-CLI CLEAN; app-env-worker CLEAN; controller reconciliation CLEAN; no tests or providers"
+      },
+      {
         "date": "2026-07-30",
         "ref": "claude/latency-findings-impl-s8g01v",
         "head": "e7ff5e933ba1f34d5adbd46dd77c38aced11ed44",
@@ -25593,6 +25741,14 @@
         "scope": "full-frontend design review remediation: tokens, ward a11y, answer support label, gate gaps",
         "outcome": "applied — 20 review findings resolved or dispositioned; 3 architectural items deliberately deferred",
         "checks": "verify:pr-local exit 0 (19/19 gates; 7599 tests passed, 4 skipped, 0 errors; build 1871 pages); verify:ui delegated to CI Production UI (playwright revision drift #255)"
+      },
+      {
+        "date": "2026-08-27",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "ead1e6a20d6d1626ed2753e2cd2c88e1e8ffceb5",
+        "scope": "P06 Task 4 governed site-content health exact range",
+        "outcome": "needs fixes: 4 Important, 0 Minor",
+        "checks": "full-range frozen-package xhigh re-review; bootstrap classifier proof; CI alias proof; no suites or providers"
       },
       {
         "date": "2026-07-27",
@@ -26017,6 +26173,14 @@
         "scope": "Close stale ledger #066/#067 (+ drop resolved #030/#075 from queue)",
         "outcome": "READY. #066 proven on main via #1174; #067 already fixed in #1191 in-process preflight. Docs-only ledger sync; no code change.",
         "checks": "Local proof: `git show`/`log` for #1174/#1191; preflight test already in-process on main; ledger integrity asserts. No providers."
+      },
+      {
+        "date": "2026-08-24",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "f0448d93494263663636088f19c20bf1fb691777",
+        "scope": "P05 controlled acquisition and recovery-readiness phase",
+        "outcome": "ACCEPTED: no Critical, Important, or Minor findings",
+        "checks": "static exact-package review; package SHA-256 d84a8aa4fe83c59f5a12ab181c59a7629d18f84cd54e6da81744ce49c8d797ea; reused Task2 6 files/231 tests and Task3 2 files/29 tests, fresh typechecks, migration-role and inventory; hosted/provider gates unrun"
       },
       {
         "date": "2026-08-25",
@@ -26523,6 +26687,14 @@
         "checks": "`verify:phone-chrome` PASS: contracts 91/91, focused phone journeys 12/12, full Chromium 323/323; exact repaired differential journey 1/1; Prettier, ESLint, typecheck, full unit 396 files / 3,554 passed / 2 skipped, production build/client-secret scan, offline RAG fixtures 36 cases, and `git diff --check` PASS; no live provider-backed app checks."
       },
       {
+        "date": "2026-08-28",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "f53cf302bede30a29fae1383d8e3f162844d168c",
+        "scope": "P06 Task 4 governed site-content health exact range",
+        "outcome": "needs fixes: 2 Important, 1 Minor",
+        "checks": "full-range frozen-package xhigh R3 review; classifier proofs; owner-glob proof; no suites or providers"
+      },
+      {
         "date": "2026-07-24",
         "ref": "codex/hydration-fixes (PR #1131)",
         "head": "f5451102cc0f157d0f63a3679e532d02ae85918c",
@@ -26795,6 +26967,14 @@
         "checks": "outstanding-issues and ledger guards pass; documentation-only diff"
       },
       {
+        "date": "2026-09-09",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "f72bffb8a2d43136df3547a602051e502e62c0a1",
+        "scope": "PR2760 two governance attestations and migration publication implications",
+        "outcome": "Source-only target and engineering impact attestations supportable with explicit limitations; clinical regulatory approval unproven; ten migrations require production merge approval; no full product safety verdict",
+        "checks": "Read-only Git and governance-policy inspection; ledger lookup NOT REVIEWED; no tests or providers; report .superpowers/sdd/pr2760-governance-preflight-review.md"
+      },
+      {
         "date": "2026-07-30",
         "ref": "cursor/pr-1394-ledger-closeout-c2bf",
         "head": "f734dc4d4c8b19d5fec43bbd388c2a421e47668a",
@@ -27011,6 +27191,14 @@
         "checks": "vitest test-runner-safety+check-lighthouse-budget 84 passed; Unit coverage was FAIL on 3f2aae3a"
       },
       {
+        "date": "2026-09-11",
+        "ref": "codex/chat-secret-scan-fix-pr2760-merge-verification-20260909",
+        "head": "f8da9503bdd4b8bcaa87871f75d8f6bf6764edf0",
+        "scope": "PR2760 CI repair: catalogue identity, canonical source labels, neutral data owners and bootstrap metadata",
+        "outcome": "Scoped source reviews approved. Catalogue designation preserves WA publisher compatibility without changing runtime admission. Final CI verification pending.",
+        "checks": "Disposable local schema replay PASS 56s; exact schema hash parity PASS; edge Deno check PASS; changed-file format and diff check PASS. Intermediate 46-file run: 1235 pass,17 fail,15 skip; subsequent corrections source-reviewed, tests/compiler deferred to CI after local coordinator contention by user instruction."
+      },
+      {
         "date": "2026-07-31",
         "ref": "PR #1536",
         "head": "f92ad5ea35a9c68c2382fd94c56cfbb3deffb185",
@@ -27217,6 +27405,14 @@
         "scope": "PR #1442 documentation synchronization automation",
         "outcome": "approved after current-main conflict resolution, generated inventory refresh, and dirty-output preservation review",
         "checks": "docs inventory 194/209; focused 5/5; index, links 1417, scripts 405, issues, ledger, format, diff pass; pre-commit executed successfully"
+      },
+      {
+        "date": "2026-08-28",
+        "ref": "codex/rag-answer-quality-programme-local-20260823",
+        "head": "fbd4b3f051f9388f48daa71096cc153b310f294e",
+        "scope": "P06 Task 4 governed site-content health exact range",
+        "outcome": "needs fixes: 2 Important, 0 Minor",
+        "checks": "full-range frozen-package xhigh R6 review; SQL/auth and health/CI specialist seams; four focused selector probes; no suites or providers"
       },
       {
         "date": "2026-08-04",

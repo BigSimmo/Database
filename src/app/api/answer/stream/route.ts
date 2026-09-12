@@ -13,9 +13,9 @@ import {
 import { publicAccessContext } from "@/lib/public-api-access";
 import { setAgentConversationId } from "@/lib/observability/agent-monitoring";
 import {
-  answerDegradedModeSignal,
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
+  buildGovernedEmptyScopeAnswerClientResponse,
 } from "@/lib/answer-response";
 import { answerQuestionWithScope, summarizeDocument, type AnswerProgressEvent } from "@/lib/rag/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
@@ -24,9 +24,8 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope, type RetrievalAccessScope } from "@/lib/owner-scope";
-import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
+import { persistAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
@@ -38,6 +37,8 @@ import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/an
 import type { AnswerStreamEventMap, AnswerStreamEventName } from "@/lib/answer-stream-contract";
 import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
+import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
+import { toClientSearchScopeSummary } from "@/lib/answer-client-payload";
 import { apiErrorCodeSchema, apiStreamErrorPayloadSchema } from "@/lib/api-error-payload";
 
 export const runtime = "nodejs";
@@ -148,6 +149,7 @@ function streamAnswer(
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
   const interactionId = randomUUID();
+  const observationContext = { interactionId, rolloutMode: "legacy" } as const;
   // Group this request's LLM calls into one Sentry agent-monitoring
   // conversation keyed by the synthetic interaction UUID — never by query text.
   setAgentConversationId(interactionId);
@@ -204,15 +206,18 @@ function streamAnswer(
               });
           sendProgress({ stage: "retrieving" });
           if (scope?.documentIds?.length === 0) {
+            const governedEmptyResponse = buildGovernedEmptyScopeAnswerClientResponse(emptyScopeAnswer);
+            const emptyAnswer = observeRagAnswer(governedEmptyResponse.telemetryAnswer, observationContext);
+            await persistAnswerDiagnostics({
+              supabase: createAdminClient(),
+              query: body.query,
+              ownerId,
+              interactionId,
+              answer: emptyAnswer,
+            });
             sendFinal({
-              answer: emptyScopeAnswer,
-              grounded: false,
-              confidence: "unsupported",
-              citations: [],
-              sources: [],
-              degradedMode: answerDegradedModeSignal(),
-              scope: { ...scope, queryMode: body.queryMode },
-              sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+              ...governedEmptyResponse.payload,
+              scope: toClientSearchScopeSummary(scope, body.queryMode),
               ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
             });
             return;
@@ -231,7 +236,7 @@ function streamAnswer(
           }
           const answer =
             body.summaryMode && body.documentId
-              ? await summarizeDocument(body.documentId, ownerId, { signal })
+              ? await summarizeDocument(body.documentId, ownerId, { signal, observationContext })
               : await answerQuestionWithScope({
                   query: body.query,
                   documentId: singleDocumentScope ? body.documentId : undefined,
@@ -242,21 +247,23 @@ function streamAnswer(
                   accessScope,
                   allowGlobalSearch: !ownerId,
                   queryMode: body.queryMode,
+                  observationContext,
                   onProgress,
                   signal,
                 });
           const governedResponse = buildGovernedAnswerClientResponse(answer);
 
-          logAnswerDiagnostics({
+          await persistAnswerDiagnostics({
             supabase: createAdminClient(),
             query: body.query,
             ownerId,
+            interactionId,
             answer: governedResponse.telemetryAnswer,
           });
 
           sendFinal({
             ...governedResponse.payload,
-            scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
+            scope: scope ? toClientSearchScopeSummary(scope, body.queryMode) : undefined,
             ...streamAnswerFeedbackMetadata(interactionId, governedResponse.payload.answer),
           });
         } catch (error) {

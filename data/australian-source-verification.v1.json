@@ -1,0 +1,238 @@
+{
+  "version": "australian-source-verification-v1",
+  "policyVersion": "australian-source-policy-v1",
+  "verificationStatus": "plan_evidence_only_connected_verification_required",
+  "sources": [
+    {
+      "key": "wa-health",
+      "canonicalUrl": "https://www.health.wa.gov.au/About-us/Policy-frameworks",
+      "publisherCode": "WAHEALTH",
+      "publisher": "WA Health",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "wa-chief-psychiatrist",
+      "canonicalUrl": "https://www.chiefpsychiatrist.wa.gov.au/laws-and-rights/standards-and-guidelines/",
+      "publisherCode": "OCPWA",
+      "publisher": "Office of the Chief Psychiatrist WA",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "wa-legislation",
+      "canonicalUrl": "https://www.legislation.wa.gov.au/",
+      "publisherCode": "WALEG",
+      "publisher": "Western Australian Legislation",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "tga",
+      "canonicalUrl": "https://www.tga.gov.au/",
+      "publisherCode": "TGA",
+      "publisher": "Therapeutic Goods Administration",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "acsqhc",
+      "canonicalUrl": "https://www.safetyandquality.gov.au/",
+      "publisherCode": "ACSQHC",
+      "publisher": "Australian Commission on Safety and Quality in Health Care",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "australian-health-disability-ageing",
+      "canonicalUrl": "https://www.health.gov.au/",
+      "publisherCode": "AUSDOH",
+      "publisher": "Australian Government Department of Health and Aged Care",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "nhmrc",
+      "canonicalUrl": "https://www.nhmrc.gov.au/guidelines",
+      "publisherCode": "NHMRC",
+      "publisher": "National Health and Medical Research Council",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "ranzcp",
+      "canonicalUrl": "https://www.ranzcp.org/clinical-guidelines-publications",
+      "publisherCode": "RANZCP",
+      "publisher": "Royal Australian and New Zealand College of Psychiatrists",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "racgp",
+      "canonicalUrl": "https://www.racgp.org.au/clinical-resources/clinical-guidelines",
+      "publisherCode": "RACGP",
+      "publisher": "Royal Australian College of General Practitioners",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "pbs",
+      "canonicalUrl": "https://www.pbs.gov.au/",
+      "publisherCode": "PBS",
+      "publisher": "Pharmaceutical Benefits Scheme",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "australian-prescriber",
+      "canonicalUrl": "https://australianprescriber.tg.org.au/",
+      "publisherCode": "AUSPRES",
+      "publisher": "Australian Prescriber",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "etg-complete",
+      "canonicalUrl": "https://www.tg.org.au/",
+      "publisherCode": "ETG",
+      "publisher": "Therapeutic Guidelines Limited",
+      "licencePolicy": "metadata_link_only",
+      "contentMode": "link_only",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "australian-medicines-handbook",
+      "canonicalUrl": "https://shop.amh.net.au/",
+      "publisherCode": "AMH",
+      "publisher": "Australian Medicines Handbook",
+      "licencePolicy": "metadata_link_only",
+      "contentMode": "link_only",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "nps-medicinewise",
+      "canonicalUrl": "https://www.medicinewise.org.au/",
+      "publisherCode": "NPS",
+      "publisher": "NPS MedicineWise",
+      "licencePolicy": "index_forbidden",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "nsw-health",
+      "canonicalUrl": "https://www.health.nsw.gov.au/",
+      "publisherCode": "NSWHEALTH",
+      "publisher": "NSW Health",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "queensland-health",
+      "canonicalUrl": "https://www.health.qld.gov.au/",
+      "publisherCode": "QLDHEALTH",
+      "publisher": "Queensland Health",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "sa-health",
+      "canonicalUrl": "https://www.sahealth.sa.gov.au/",
+      "publisherCode": "SAHEALTH",
+      "publisher": "SA Health",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "victoria-health",
+      "canonicalUrl": "https://www.health.vic.gov.au/",
+      "publisherCode": "VICHEALTH",
+      "publisher": "Victorian Department of Health",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "tasmania-health",
+      "canonicalUrl": "https://www.health.tas.gov.au/",
+      "publisherCode": "TASHEALTH",
+      "publisher": "Tasmanian Department of Health",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "nt-health",
+      "canonicalUrl": "https://health.nt.gov.au/",
+      "publisherCode": "NTHEALTH",
+      "publisher": "NT Health",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    },
+    {
+      "key": "act-health",
+      "canonicalUrl": "https://www.health.act.gov.au/",
+      "publisherCode": "ACTHEALTH",
+      "publisher": "ACT Health",
+      "licencePolicy": "review_required",
+      "contentMode": "indexed_content",
+      "checkedAt": "2026-08-20",
+      "reviewerRole": "source_governance_planner",
+      "evidenceReference": "docs/superpowers/plans/2026-08-20-rag-australian-source-governance.md#task-1"
+    }
+  ]
+}

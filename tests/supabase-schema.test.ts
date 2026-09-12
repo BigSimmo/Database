@@ -1,7 +1,385 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { australianSourceCatalogue } from "@/lib/australian-source-catalogue";
+import { formRecords } from "@/lib/forms";
+import { serviceRecords } from "@/lib/services";
+
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8").replace(/\s+/g, " ");
+const governedRetrievalV3 = readFileSync(
+  new URL("../supabase/migrations/20260830122000_add_corpus_scoped_retrieval_v3.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const correctedGovernedRetrievalV3 = readFileSync(
+  new URL("../supabase/migrations/20260831120000_correct_governed_retrieval_v3.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const failClosedGovernedRetrievalV3 = readFileSync(
+  new URL(
+    "../supabase/migrations/20260901120100_fail_closed_unactivated_uploaded_local_retrieval.sql",
+    import.meta.url,
+  ),
+  "utf8",
+).replace(/\s+/g, " ");
+const failClosedInternationalGovernedRetrievalV3 = readFileSync(
+  new URL("../supabase/migrations/20260901130000_fail_closed_unactivated_international_retrieval.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const siteContentHealthMigration = readFileSync(
+  new URL("../supabase/migrations/20260824123000_add_site_content_health_probe.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const siteContentHealthSqlFixture = readFileSync(
+  new URL("./fixtures/site-content/site-content-health-state-machine.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const siteContentInvocationSqlFixture = readFileSync(
+  new URL("./fixtures/site-content/site-content-invocation-state-machine.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+
+describe("governed corpus retrieval v3 schema", () => {
+  it("mirrors the candidate-only functions and filters before the ranked limit", () => {
+    for (const sql of [schema, governedRetrievalV3]) {
+      const candidateFunction = sql.slice(
+        sql.indexOf("create function public.match_governed_candidate_chunks_v3("),
+        sql.indexOf("create function public.match_document_chunks_text_v3("),
+      );
+      expect(sql).toContain("create function public.match_document_chunks_text_v3(");
+      expect(sql).toContain("create function public.match_document_chunks_hybrid_v3(");
+      expect(sql).toContain("create function public.match_document_chunks_v3(");
+      expect(sql).toContain("from public.site_content_release_records record");
+      expect(candidateFunction).toContain("release.target_change_epoch = state.served_change_epoch");
+      expect(candidateFunction).toContain("state.active_release_digest = expected_site_release_digest");
+      expect(candidateFunction).toContain("state.change_epoch = expected_site_change_epoch");
+      expect(candidateFunction).toContain("pending_site_set as (");
+      expect(candidateFunction).toContain("event.target_change_epoch is distinct from record.head_change_epoch");
+      expect(candidateFunction).toContain("event.target_change_epoch > site_authority.change_epoch");
+      expect(candidateFunction).toContain("record.head_change_epoch > site_authority.served_change_epoch");
+      expect(candidateFunction).toContain("record.pending_event_sequence is null");
+      expect(candidateFunction).not.toContain("event.state in (");
+      expect(sql).toContain("pending_site_logical_ids as (");
+      expect(sql).toContain("and not exists ( select 1 from pending_site_logical_ids pending");
+      expect(candidateFunction).toContain(
+        "document_filters is null or record.logical_document_id = any(document_filters)",
+      );
+      expect(sql).toContain("document.owner_id is null");
+      const documentProjection = candidateFunction.slice(
+        candidateFunction.indexOf("document_candidates as ("),
+        candidateFunction.indexOf(") as source_metadata") + ") as source_metadata".length,
+      );
+      expect(documentProjection).toContain("pg_catalog.jsonb_strip_nulls(pg_catalog.jsonb_build_object(");
+      expect(documentProjection).not.toContain("document.metadata as source_metadata");
+      for (const privateKey of [
+        "uploaded_by",
+        "public_source_steward_id",
+        "publication_approval_id",
+        "administrator_id",
+      ]) {
+        expect(documentProjection).not.toContain(`'${privateKey}'`);
+      }
+      expect(sql).toContain("document.metadata->>'source_kind' = 'document'");
+      expect(candidateFunction).toContain("vector_ranked as (");
+      expect(candidateFunction).toContain("text_ranked as (");
+      expect(candidateFunction).toContain("select * from vector_ranked union all select * from text_ranked");
+      expect(candidateFunction).toContain("1.0 / (60 + rank_positions.vector_rank)");
+      expect(candidateFunction).toContain("1.0 / (60 + rank_positions.text_match_rank)");
+      expect(candidateFunction).not.toContain("pg_catalog.coalesce");
+      expect(candidateFunction).toContain("coalesce(record.record->>'title', '')");
+      expect(candidateFunction).toContain("coalesce(1.0 / (60 + rank_positions.vector_rank), 0)");
+      expect(candidateFunction).toContain("coalesce(1.0 / (60 + rank_positions.text_match_rank), 0)");
+      expect(candidateFunction.match(/OPERATOR\(extensions\.<=>\)/g)).toHaveLength(2);
+      expect(candidateFunction.replaceAll("OPERATOR(extensions.<=>)", "")).not.toContain("<=>");
+      const scoreProjection = candidateFunction.slice(candidateFunction.lastIndexOf("ranked as ("));
+      expect(scoreProjection).not.toContain("row_number()");
+      expect(candidateFunction).not.toContain("source_kind' = 'registry_record'");
+    }
+    expect(governedRetrievalV3).toContain(
+      "document.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')",
+    );
+  });
+
+  it("uses the current head only to exclude a pending logical ID above the served snapshot", () => {
+    const scenario = { servedChangeEpoch: 5, currentChangeEpoch: 6, pendingEventEpoch: 6 };
+    expect(scenario.pendingEventEpoch <= scenario.servedChangeEpoch).toBe(false);
+    expect(scenario.pendingEventEpoch <= scenario.currentChangeEpoch).toBe(true);
+    for (const sql of [schema, governedRetrievalV3]) {
+      expect(sql).toContain("release.target_change_epoch = state.served_change_epoch");
+      expect(sql).toContain("state.change_epoch = expected_site_change_epoch");
+      expect(sql).toContain("event.target_change_epoch > site_authority.change_epoch");
+      expect(sql).toContain("where record.pending_event_sequence is not null");
+    }
+  });
+
+  it("preserves the superseded generic uploaded-local receipt in forward-only migration history", () => {
+    const start = correctedGovernedRetrievalV3.indexOf(
+      "create or replace function public.match_governed_candidate_chunks_v3(",
+    );
+    const end = correctedGovernedRetrievalV3.indexOf(
+      "revoke all on function public.match_governed_candidate_chunks_v3(",
+      start,
+    );
+    const candidateFunction = correctedGovernedRetrievalV3.slice(start, end);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(candidateFunction).toContain("document.owner_id is null");
+    expect(candidateFunction).toContain("document.status = 'indexed'");
+    expect(candidateFunction).toContain(
+      "public.is_committed_document_generation(chunk.index_generation_id, document.index_generation_id)",
+    );
+    expect(candidateFunction).toContain("'uploaded_local', 'australian_public', 'international_supplementary'");
+    expect(candidateFunction).toContain("document.metadata->>'source_kind' = 'document'");
+    expect(candidateFunction).toContain("document.metadata->'public_corpus' = 'true'::jsonb");
+    expect(candidateFunction).toContain("document.metadata->>'content_mode' = 'indexed_content'");
+    expect(candidateFunction).toContain("document.metadata->>'document_status' = 'current'");
+    expect(candidateFunction).toContain("in ('changed', 'unchanged')");
+    expect(candidateFunction).toContain("document.metadata->>'licence_policy' = 'public_index_permitted'");
+    expect(candidateFunction).toContain("nullif(document.metadata->>'source_role', '') is not null");
+    expect(candidateFunction).toContain("nullif(document.metadata->>'source_catalogue_key', '') is not null");
+    expect(candidateFunction).toContain("nullif(document.metadata->>'source_policy_version', '') is not null");
+    expect(candidateFunction).toContain("from public.document_publication_approvals approval");
+    expect(candidateFunction).toContain("approval.id::text = document.metadata->>'publication_approval_id'");
+    expect(candidateFunction).toContain("approval.document_id = document.id");
+    expect(candidateFunction).toContain("approval.decision = 'approved'");
+    expect(candidateFunction).toContain("approval.manifest_digest = document.metadata->>'publication_manifest_digest'");
+    expect(candidateFunction).toContain(
+      "approval.reviewed_state_digest = document.metadata->>'publication_reviewed_state_digest'",
+    );
+  });
+
+  it("keeps uploaded-local request-compatible while failing effective retrieval closed until P16 activation", () => {
+    const start = failClosedGovernedRetrievalV3.indexOf(
+      "create or replace function public.match_governed_candidate_chunks_v3(",
+    );
+    const end = failClosedGovernedRetrievalV3.indexOf(
+      "revoke all on function public.match_governed_candidate_chunks_v3(",
+      start,
+    );
+    const candidateFunction = failClosedGovernedRetrievalV3.slice(start, end);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(candidateFunction).toContain(
+      "'uploaded_local', 'clinical_kb_site', 'australian_public', 'international_supplementary'",
+    );
+    expect(candidateFunction).toContain(
+      "document.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')",
+    );
+    expect(candidateFunction).not.toContain("from public.document_publication_approvals approval");
+    expect(candidateFunction).not.toContain("'uploaded_local', 'australian_public', 'international_supplementary'");
+  });
+
+  it("keeps international request-compatible while failing document retrieval closed until P16 activation", () => {
+    const start = failClosedInternationalGovernedRetrievalV3.indexOf(
+      "create or replace function public.match_governed_candidate_chunks_v3(",
+    );
+    const end = failClosedInternationalGovernedRetrievalV3.indexOf(
+      "revoke all on function public.match_governed_candidate_chunks_v3(",
+      start,
+    );
+    const candidateFunction = failClosedInternationalGovernedRetrievalV3.slice(start, end);
+    const schemaStart = schema.lastIndexOf("create or replace function public.match_governed_candidate_chunks_v3(");
+    const schemaEnd = schema.indexOf("revoke all on function public.match_governed_candidate_chunks_v3(", schemaStart);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(candidateFunction).toContain(
+      "'uploaded_local', 'clinical_kb_site', 'australian_public', 'international_supplementary'",
+    );
+    expect(candidateFunction).toContain("document.metadata->>'corpus_scope' = 'australian_public'");
+    expect(candidateFunction).not.toContain(
+      "document.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')",
+    );
+    expect(candidateFunction).not.toContain("from public.document_publication_approvals approval");
+    expect(schema.slice(schemaStart, schemaEnd)).toBe(candidateFunction);
+  });
+
+  it("emits canonical registry metadata and mirrors the effective function in the final schema", () => {
+    const migrationStart = failClosedInternationalGovernedRetrievalV3.indexOf(
+      "create or replace function public.match_governed_candidate_chunks_v3(",
+    );
+    const migrationEnd = failClosedInternationalGovernedRetrievalV3.indexOf(
+      "revoke all on function public.match_governed_candidate_chunks_v3(",
+      migrationStart,
+    );
+    const schemaStart = schema.lastIndexOf("create or replace function public.match_governed_candidate_chunks_v3(");
+    const schemaEnd = schema.indexOf("revoke all on function public.match_governed_candidate_chunks_v3(", schemaStart);
+
+    const migrationFunction = failClosedInternationalGovernedRetrievalV3.slice(migrationStart, migrationEnd);
+    const schemaFunction = schema.slice(schemaStart, schemaEnd);
+    expect(migrationFunction).toContain("'source_kind', 'registry_record'");
+    expect(migrationFunction).not.toContain("'source_kind', 'site_content_release_record'");
+    expect(schemaFunction).toBe(migrationFunction);
+  });
+});
+
+describe("site-content Task 4 health schema", () => {
+  it("adds immutable administrator attestation and private forced-RLS invocation evidence", () => {
+    for (const sql of [schema, siteContentHealthMigration]) {
+      expect(sql).toContain("administrator_authorized_at timestamptz not null");
+      expect(sql).toContain("administrator_authorization_version text not null");
+      expect(sql).toContain("create table public.site_content_sync_worker_invocations");
+      expect(sql).toContain("alter table public.site_content_sync_worker_invocations force row level security");
+      expect(sql).toContain("create or replace function public.record_site_content_sync_worker_invocation(");
+      expect(sql).toContain("create or replace function public.read_site_content_health()");
+    }
+  });
+
+  it("preserves Task 3 migration bytes and removes spoofable publication overloads only in Task 4", () => {
+    expect(siteContentHealthMigration).toContain("site_content_task4_requires_empty_publications");
+    expect(siteContentHealthMigration).toContain("auth.uid()");
+    expect(siteContentHealthMigration).toContain("from auth.users");
+    expect(siteContentHealthMigration).toContain("for share");
+    expect(siteContentHealthMigration).toContain("pg_advisory_xact_lock");
+    expect(siteContentHealthMigration).toContain("statement_timestamp()");
+    expect(siteContentHealthMigration).not.toMatch(/delete from public\.site_content_sync_worker_invocations/i);
+    expect(siteContentHealthMigration.indexOf("site_content_task4_requires_empty_publications")).toBeLessThan(
+      siteContentHealthMigration.indexOf("add column administrator_authorized_at"),
+    );
+    for (const name of ["publish_site_content_record", "retire_site_content_record"]) {
+      expect(siteContentHealthMigration).toContain(
+        `drop function if exists public.${name}(text, uuid, text, bigint, text, text, text, uuid)`,
+      );
+      expect(siteContentHealthMigration).toContain("auth.jwt()->>'role' is distinct from 'authenticated'");
+      expect(siteContentHealthMigration).toContain(
+        "raw_app_meta_data->>'site_role' is not distinct from 'administrator'",
+      );
+    }
+  });
+
+  it("samples immutable administrator authorization only after the locked role validation", () => {
+    for (const sql of [schema, siteContentHealthMigration]) {
+      for (const name of ["publish_site_content_record", "retire_site_content_record"]) {
+        const start = sql.lastIndexOf(`create or replace function public.${name}(`);
+        const end = sql.indexOf(" $$;", start);
+        const body = sql.slice(start, end);
+        const failedAuthorization = body.indexOf("if not found then");
+        const completedAuthorizationCheck = body.indexOf("end if;", failedAuthorization);
+        const authorizationTime = body.indexOf("v_authorized_at := pg_catalog.clock_timestamp()");
+
+        expect(start).toBeGreaterThanOrEqual(0);
+        expect(end).toBeGreaterThan(start);
+        expect(body).toContain("v_authorized_at timestamptz;");
+        expect(body).not.toContain("v_authorized_at timestamptz :=");
+        expect(failedAuthorization).toBeGreaterThan(body.indexOf("for share"));
+        expect(completedAuthorizationCheck).toBeGreaterThan(failedAuthorization);
+        expect(authorizationTime).toBeGreaterThan(completedAuthorizationCheck);
+      }
+    }
+  });
+
+  it("derives de-duplicated queue counts from current chain terminals", () => {
+    for (const sql of [schema, siteContentHealthMigration]) {
+      expect(sql).toContain("terminal_current_events as (");
+      const queueStart = sql.indexOf("queue as (");
+      const queueEnd = sql.indexOf("invocation_latest as (", queueStart);
+      const queue = sql.slice(queueStart, queueEnd);
+      expect(queue).toContain("from terminal_current_events cross join db_clock");
+      expect(queue).not.toContain("from public.site_content_sync_events where state = 'quarantined'");
+    }
+  });
+
+  it("binds initialized release integrity to the exact served epoch and guard-valid receipt shape", () => {
+    for (const sql of [schema, siteContentHealthMigration]) {
+      const integrityStart = sql.indexOf("integrity as (");
+      const releaseDigestStart = sql.indexOf("release_digest_valid", integrityStart);
+      const populationIntegrity = sql.slice(integrityStart, releaseDigestStart);
+      const rollbackStart = sql.indexOf("rollback as (");
+      const rollbackEnd = sql.indexOf("activation_evidence as (", rollbackStart);
+      const rollback = sql.slice(rollbackStart, rollbackEnd);
+
+      expect(populationIntegrity).toContain("r.target_change_epoch = s.served_change_epoch");
+      expect(rollback).toContain("receipt.receipt#>>'{resource,previousSiteReleaseId}' = p.id::text");
+      expect(rollback).toContain("receipt.receipt#>>'{resource,previousSiteReleaseDigest}' = p.release_digest");
+      expect(rollback).not.toContain("previousResource");
+    }
+  });
+
+  it("indexes both append-only invocation health access paths", () => {
+    for (const sql of [schema, siteContentHealthMigration]) {
+      expect(sql).toContain(
+        "create index site_content_sync_worker_invocations_started_at_idx on public.site_content_sync_worker_invocations (started_at desc, invocation_id desc)",
+      );
+      expect(sql).toContain(
+        "create index site_content_sync_worker_invocations_successful_terminal_at_idx on public.site_content_sync_worker_invocations (terminal_at desc) where terminal_phase = 'succeeded' and outcome_code in ('idle', 'ready')",
+      );
+    }
+  });
+
+  it("fences invocation replay and derives one bounded, read-only health snapshot", () => {
+    expect(siteContentHealthMigration).toContain("pg_catalog.pg_advisory_xact_lock(93206432)");
+    expect(siteContentHealthMigration).toContain("admission_expires_at <= v_now");
+    expect(siteContentHealthMigration).toContain("outcome_code = 'invocation_expired'");
+    expect(siteContentHealthMigration).toContain("v_now timestamptz;");
+    const invocationLock = siteContentHealthMigration.indexOf("pg_catalog.pg_advisory_xact_lock(93206432)");
+    const serializedClock = siteContentHealthMigration.indexOf("v_now := pg_catalog.clock_timestamp()", invocationLock);
+    const firstInvocationRead = siteContentHealthMigration.indexOf(
+      "select * into v_row from public.site_content_sync_worker_invocations",
+      invocationLock,
+    );
+    expect(serializedClock).toBeGreaterThan(invocationLock);
+    expect(serializedClock).toBeLessThan(firstInvocationRead);
+    expect(siteContentHealthMigration).toContain(
+      "v_row.terminal_phase = p_phase and v_row.outcome_code = p_outcome_code",
+    );
+    expect(siteContentHealthMigration).toContain("language sql stable security definer set search_path = ''");
+    expect(siteContentHealthMigration).toContain("db_clock as (select statement_timestamp() as now)");
+    expect(siteContentHealthMigration).toContain("max(db_clock.now) - min(e.created_at)");
+    expect(siteContentHealthMigration).toContain(
+      "origin.target_publication_id is distinct from h.current_publication_id",
+    );
+    expect(siteContentHealthMigration).toContain("e.event_sequence > c.event_sequence");
+    expect(siteContentHealthMigration).toContain("not exists (select 1 from live_events e where not exists");
+    expect(siteContentHealthMigration).toContain("receipt.receipt#>>'{resource,kind}' = 'site_release'");
+    expect(siteContentHealthMigration).toContain(
+      "p.target_change_epoch = 0 and p.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid",
+    );
+    expect(siteContentHealthMigration).toContain("p.expected_record_count = 843 and p.expected_tombstone_count = 0");
+    expect(siteContentHealthMigration).not.toContain("(select state from bootstrap) = 'valid_retained'");
+    const healthStart = siteContentHealthMigration.indexOf(
+      "create or replace function public.read_site_content_health()",
+    );
+    const healthEnd = siteContentHealthMigration.indexOf(
+      "alter table public.site_content_sync_worker_invocations enable",
+      healthStart,
+    );
+    const health = siteContentHealthMigration.slice(healthStart, healthEnd);
+    expect(health).not.toMatch(/for update|pg_advisory|delete from|insert into|update public/i);
+    const publicObject = health.slice(health.lastIndexOf("select jsonb_build_object("));
+    expect(publicObject).not.toMatch(/workerId|invocationId|publishedBy|logicalId|renderPayload|providerError/);
+  });
+
+  it("ships executable health-integrity and serialized invocation state fixtures", () => {
+    for (const state of ["candidate", "superseded", "abandoned", "rolled_back"]) {
+      expect(siteContentHealthSqlFixture).toContain(`'${state}'`);
+    }
+    expect(siteContentHealthSqlFixture).toContain("activePublicSiteRelease");
+    expect(siteContentHealthSqlFixture).toContain("rollbackAvailable");
+    expect(siteContentHealthSqlFixture).toContain(
+      "bootstrap retained integrity ignored an extra outstanding head/live event",
+    );
+    expect(siteContentHealthSqlFixture).toContain("missing public head did not make populationComplete false");
+    expect(siteContentHealthSqlFixture).toContain("current quarantined terminal did not stop pending integrity");
+    expect(siteContentHealthSqlFixture).toContain(
+      "served corrected successor retained an orphaned historical quarantine failure",
+    );
+    expect(siteContentHealthSqlFixture).toContain(
+      "served epoch advanced beyond the active release target without failing population integrity",
+    );
+    expect(siteContentHealthSqlFixture).toContain("guard_site_content_receipt_shape");
+    expect(siteContentHealthSqlFixture).toContain("previousSiteReleaseId");
+    expect(siteContentHealthSqlFixture).not.toContain("previousResource");
+    expect(siteContentInvocationSqlFixture).toContain("set local role service_role");
+    expect(siteContentInvocationSqlFixture).toContain("p_phase => null");
+    expect(siteContentInvocationSqlFixture).toContain("p_phase => 'succeeded', p_outcome_code => null");
+    expect(siteContentInvocationSqlFixture).toContain("p_phase => 'failed', p_outcome_code => null");
+    expect(siteContentInvocationSqlFixture).toContain("retry-after-lock-expiry");
+    expect(siteContentInvocationSqlFixture).toContain("terminal-after-lock-expiry");
+    expect(siteContentInvocationSqlFixture).toContain("where locktype = 'advisory' and not granted");
+    expect(siteContentInvocationSqlFixture).toContain("site_content_sync_worker_invocations_started_at_idx");
+    expect(siteContentInvocationSqlFixture).toContain(
+      "site_content_sync_worker_invocations_successful_terminal_at_idx",
+    );
+  });
+});
 const documentIndexUnitsMigration = readFileSync(
   new URL("../supabase/migrations/20260612006000_document_index_units.sql", import.meta.url),
   "utf8",
@@ -130,6 +508,10 @@ const publicationApprovalMigration = readFileSync(
 ).replace(/\s+/g, " ");
 const publicationReviewedStateMigration = readFileSync(
   new URL("../supabase/migrations/20260722190000_bind_publication_approval_to_reviewed_state.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const australianSourceActivationMigration = readFileSync(
+  new URL("../supabase/migrations/20260822123000_govern_australian_source_activation.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const deleteDocumentIfIdleMigration = readFileSync(
@@ -1229,6 +1611,254 @@ describe("Supabase schema Data API grants", () => {
   });
 });
 
+describe("site-content publication and release control plane", () => {
+  const migrationRaw = readFileSync(
+    new URL("../supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql", import.meta.url),
+    "utf8",
+  );
+  const migration = migrationRaw.replace(/\s+/g, " ");
+
+  it("keeps legacy owner rows as drafts and creates an ownerless public head", () => {
+    expect(migration).toContain("create table public.site_content_publications");
+    expect(migration).toContain("create table public.site_content_public_records");
+    expect(migration).not.toContain("alter table public.clinical_registry_records alter column owner_id drop not null");
+    expect(migration).not.toContain("alter table public.medication_records alter column owner_id drop not null");
+    expect(migration).not.toContain("alter table public.differential_records alter column owner_id drop not null");
+    expect(migration).not.toMatch(
+      /create trigger .* on public\.(clinical_registry_records|medication_records|differential_records)/i,
+    );
+    expect(migration).toContain("unique (kind, slug)");
+  });
+
+  it("normalizes every legacy kind into the P03 canonical record shape without audit identifiers", () => {
+    expect(migration).toContain("create or replace function public.site_content_canonical_text(p_value text)");
+    expect(migration).toContain("create or replace function public.site_content_source_projection(");
+    expect(migration).toContain("v_render := public.site_content_public_json_projection");
+    expect(migration).toContain("'contentHash', public.site_content_json_sha256");
+    expect(migration).toContain("'publicationVersion', public.site_content_json_sha256(v_record)");
+    expect(migration).toContain("'sourceLineage', '[]'::jsonb");
+    expect(migration).toContain(
+      "revoke all on function public.site_content_canonical_text(text) from public, anon, authenticated, service_role",
+    );
+    expect(migration).toContain("pg_catalog.normalize(lower(coalesce(p_value, '')), 'NFKD')");
+    expect(migration).toContain("U&'[\\0300-\\036F]'");
+    expect(migration).toContain("return p_value #>> '{}'");
+    expect(migration).toContain("site_content_utf16_cutoff_unrepresentable");
+    expect(migration).toContain("v_render#>>'{catalogPayload,availability}'");
+    expect(migration).toContain("create or replace function public.site_content_typed_json(p_value jsonb)");
+    expect(migration).toContain(
+      "create or replace function public.site_content_projection_digest(p_record jsonb, p_render_payload jsonb)",
+    );
+    expect(migration).toContain("p_expected_projection_digest text");
+    expect(migration).toContain("projection_digest_mismatch");
+    expect(migration).not.toContain("v_owner := jsonb_strip_nulls(jsonb_build_object(");
+    expect(migration).toContain(
+      "revoke all on function public.site_content_projection_digest(jsonb, jsonb) from public, anon, authenticated, service_role",
+    );
+    expect(migration).toContain(
+      "grant execute on function public.publish_site_content_record(text, uuid, text, bigint, text, text, text, uuid) to service_role",
+    );
+    expect(migration).toContain(
+      "grant execute on function public.retire_site_content_record(text, uuid, text, bigint, text, text, text, uuid) to service_role",
+    );
+  });
+
+  it("pins the exact current P03 registry baseline for SQL null and forced-field merging", () => {
+    const match = migrationRaw.match(
+      /\$site_content_registry_baselines\$([\s\S]*?)\$site_content_registry_baselines\$/,
+    );
+    expect(match).not.toBeNull();
+    if (!match) return;
+    const sqlBaselines = JSON.parse(match[1]!) as Record<string, unknown>;
+    const expected = Object.fromEntries([
+      ...serviceRecords.map((record) => [`service:${record.slug}`, record] as const),
+      ...formRecords.map((record) => [`form:${record.slug}`, record] as const),
+    ]);
+    expect(sqlBaselines).toEqual(expected);
+    expect(migration).toContain("create or replace function public.site_content_registry_source_render(");
+    expect(migration).toContain("p_kind <> 'form' and p_row->'summary_cards' is distinct from 'null'::jsonb");
+    expect(migration).toContain("v_baseline#>'{catalogPayload,actSections}'");
+    expect(migration).toContain("create or replace function public.site_content_compact_text(p_parts text[]");
+  });
+
+  it("atomically advances the epoch, pending head, and ordered outbox", () => {
+    const start = migration.indexOf("create or replace function public.publish_site_content_record(");
+    const body = migration.slice(start, migration.indexOf("$$;", start));
+    expect(body).toContain("pg_catalog.pg_advisory_xact_lock(93206431)");
+    expect(body).toContain("from public.site_content_sync_state where singleton for update");
+    expect(body).toContain("insert into public.site_content_publications");
+    expect(body).toContain("insert into public.site_content_public_records");
+    expect(body).toContain("insert into public.site_content_sync_events");
+    expect(body).toContain("set pending_event_sequence = v_event_sequence");
+    expect(body).toContain("set change_epoch = v_state.change_epoch + 1");
+  });
+
+  it("fences every post-claim mutation and bounds retry quarantine", () => {
+    expect(migration).toContain("lease_generation = e.lease_generation + 1");
+    expect(migration).toContain("for update skip locked limit p_limit");
+    for (const marker of [
+      "heartbeat_site_content_sync_event",
+      "stage_site_content_sync_event",
+      "fail_site_content_sync_event",
+    ]) {
+      const start = migration.indexOf(`create or replace function public.${marker}(`);
+      const body = migration.slice(start, migration.indexOf("$$;", start));
+      expect(body).toMatch(/(?:e|v_event)\.worker_id/);
+      expect(body).toMatch(/(?:e|v_event)\.lease_token/);
+      expect(body).toMatch(/(?:e|v_event)\.lease_generation/);
+      expect(body).toContain("pg_catalog.clock_timestamp()");
+    }
+    expect(migration).toContain("state = case when e.attempt_count >= 5 then 'quarantined' else 'retry_pending' end");
+  });
+
+  it("reclaims expired processing work with a fresh fence and supersedes obsolete epochs", () => {
+    const claimStart = migration.indexOf("create or replace function public.claim_site_content_sync_events(");
+    const claim = migration.slice(claimStart, migration.indexOf("$$;", claimStart));
+    expect(claim).toContain("e.state = 'processing' and e.lease_expires_at <= pg_catalog.clock_timestamp()");
+    expect(claim).toContain("lease_token = gen_random_uuid()");
+    expect(claim).toContain("lease_generation = e.lease_generation + 1");
+    expect(migration).toContain("'superseded'");
+    expect(migration).toContain("state in ('pending', 'retry_pending', 'processing', 'ready')");
+    expect(migration).toContain("e.event_sequence <> v_event_sequence and e.target_change_epoch < change_epoch");
+  });
+
+  it("keeps terminal current-head work fail-closed until a represented activation", () => {
+    const readStart = migration.indexOf("create or replace function public.read_site_content_public_records(");
+    const read = migration.slice(readStart, migration.indexOf("$$;", readStart));
+    expect(read).toContain("h.pending_event_sequence is not null");
+    expect(read).not.toContain("e.state in ('pending', 'retry_pending', 'processing', 'ready')");
+    expect(read).toContain("h.head_change_epoch > s.served_change_epoch");
+  });
+
+  it("binds retirement events to tombstones through plan, stage, and activation", () => {
+    const recordPlanStart = migration.indexOf("create or replace function public.record_site_content_sync_event_plan(");
+    const recordPlan = migration.slice(recordPlanStart, migration.indexOf("$$;", recordPlanStart));
+    expect(recordPlan).toContain("p_plan->'tombstones'");
+    expect(recordPlan).toContain("item->>'targetPublicationId' = v_event.target_publication_id::text");
+    const activateStart = migration.indexOf("create or replace function public.activate_site_content_release(");
+    const activate = migration.slice(activateStart, migration.indexOf("$$;", activateStart));
+    expect(activate).toContain("rr.tombstone is distinct from h.retired");
+  });
+
+  it("content-addresses exact reconciliation and binds first adoption through activation", () => {
+    const recordStart = migration.indexOf("create or replace function public.record_site_content_reconciliation_plan(");
+    const record = migration.slice(recordStart, migration.indexOf("$$;", recordStart));
+    expect(record).toContain("site-content-reconciliation-plan-v1");
+    expect(record).toContain("site_content_json_sha256");
+    expect(record).toContain("trustedSnapshots");
+    expect(record).toContain("expectedGroupCount");
+    expect(record).toContain("site_content_source_projection");
+    expect(record).toContain("identical_duplicate");
+    expect(record).toContain("v_item->>'contentHash' is distinct from source.record->>'contentHash'");
+    expect(record).toContain("sourceRowId");
+    expect(record).toContain("sourceVersion");
+    expect(record).toContain("contentHash");
+    expect(record).toContain("publicationVersion");
+    expect(record).toContain("trustedSnapshotDigest");
+    expect(record).toContain("batchCount");
+    expect(record).toContain("disposition");
+    const publishStart = migration.indexOf("create or replace function public.publish_site_content_record(");
+    const publish = migration.slice(publishStart, migration.indexOf("$$;", publishStart));
+    expect(publish).toContain("item->>'sourceRowId' = p_source_row_id::text");
+    expect(publish).toContain("item->>'sourceVersion' = v_source.source_version");
+    expect(publish).toContain("item->>'contentHash' = v_source.record->>'contentHash'");
+    const activateStart = migration.indexOf("create or replace function public.activate_site_content_release(");
+    const activate = migration.slice(activateStart, migration.indexOf("$$;", activateStart));
+    expect(activate).toContain("site_content_reconciliation_plans");
+    expect(activate).toContain("reconciliation_plan_digest");
+  });
+
+  it("verifies immutable plan semantics, complete staging, vectors, digests, checks and receipt identities", () => {
+    const recordPlanStart = migration.indexOf("create or replace function public.record_site_content_sync_event_plan(");
+    const recordPlan = migration.slice(recordPlanStart, migration.indexOf("$$;", recordPlanStart));
+    expect(recordPlan).toContain("site_content_json_sha256");
+    expect(recordPlan).toContain("p_plan - 'planDigest'");
+    const stageStart = migration.indexOf("create or replace function public.stage_site_content_sync_event(");
+    const stage = migration.slice(stageStart, migration.indexOf("$$;", stageStart));
+    for (const field of [
+      "normalizedText",
+      "targetPublicationId",
+      "publicationFingerprint",
+      "contentHash",
+      "governanceFingerprint",
+      "lineageFingerprint",
+      "publicMetadataFingerprint",
+      "embeddingModel",
+      "embeddingDimensions",
+      "embeddingFingerprint",
+      "reuseEmbedding",
+      "renderPayload",
+    ]) {
+      expect(stage, field).toContain(field);
+    }
+    expect(stage).toContain("count(distinct staged->>'logicalId')");
+    expect(stage).toContain("extensions.vector_dims");
+    expect(stage).toContain("site_content_stage_population_mismatch");
+    expect(stage).toContain("site_content_stage_authoritative_check_failed");
+    const activateStart = migration.indexOf("create or replace function public.activate_site_content_release(");
+    const activate = migration.slice(activateStart, migration.indexOf("$$;", activateStart));
+    expect(activate).toContain("site_content_release_digest");
+    expect(activate).toContain("site_content_dynamic_state_digest");
+    expect(activate).toContain("site_content_provider_free_checks_pass");
+    expect(migration).toContain("activation-receipt-identity-v1");
+    expect(migration).toContain("rollback-receipt-identity-v1");
+  });
+
+  it("reads retained public bytes from the active release and rollback only switches immutable pointers", () => {
+    const readStart = migration.indexOf("create or replace function public.read_site_content_public_records(");
+    const read = migration.slice(readStart, migration.indexOf("$$;", readStart));
+    expect(read).toContain("rr.render_payload");
+    expect(read).not.toContain("p.render_payload");
+    expect(read).not.toContain("rr.target_publication_id = h.current_publication_id");
+    const rollbackStart = migration.indexOf("create or replace function public.rollback_site_content_release(");
+    const rollback = migration.slice(rollbackStart, migration.indexOf("$$;", rollbackStart));
+    expect(rollback).toContain("active_release_id = p_target_release_id");
+    expect(rollback).not.toContain("update public.site_content_public_records");
+    expect(migration).toContain("site-content-bootstrap-public-release-v1");
+    expect(migration).toContain("create or replace function public.site_content_bootstrap_digest(");
+    expect(read).toContain("rr.target_publication_id is null");
+    expect(read).not.toContain("case when s.initialized then r.record else null end");
+    expect(rollback).toContain("site_content_bootstrap_digest(v_target.id)");
+    expect(rollback).toContain("bootstrap-no-embedding-1536-v1");
+  });
+
+  it("uses a recursive public allowlist and P03-equivalent canonical projections", () => {
+    expect(migration).toContain("create or replace function public.site_content_public_json_projection(");
+    expect(migration).toContain("p_path || entry.key");
+    expect(migration).toContain("when p_path = array['source'] then");
+    expect(migration).toContain("clinicalRegistryRecordToCorpusEntry");
+    expect(migration).toContain("medicationRecordToCorpusEntry");
+    expect(migration).toContain("differentialRecordToCorpusEntry");
+    expect(migration).not.toContain("render_payload := v_row - array[");
+    const sourceProjectionStart = migration.indexOf(
+      "create or replace function public.site_content_source_projection(",
+    );
+    const sourceProjection = migration.slice(sourceProjectionStart, migration.indexOf("$$;", sourceProjectionStart));
+    expect(sourceProjection).not.toContain("p_record jsonb");
+    expect(sourceProjection).not.toContain("p_render_payload jsonb");
+    expect(sourceProjection).toContain("site_content_public_json_projection");
+  });
+
+  it("activates and rolls back retained immutable release records with exact receipts", () => {
+    expect(migration).toContain("create table public.site_content_release_receipts");
+    expect(migration).toContain("before update or delete on public.site_content_release_receipts");
+    expect(migration).toContain("p_activation_receipt#>>'{resource,previousSiteReleaseId}'");
+    expect(migration).toContain("p_rollback_receipt->>'activationReceiptId'");
+    expect(migration).toContain("v_active.previous_release_id is distinct from p_target_release_id");
+    const rollbackStart = migration.indexOf("create or replace function public.rollback_site_content_release(");
+    const rollback = migration.slice(rollbackStart, migration.indexOf("$$;", rollbackStart));
+    expect(rollback).not.toContain("v_activation.recovery_readiness_digest is distinct from p_recovery_digest");
+    expect(migration).not.toMatch(/delete from public\.site_content_release/);
+  });
+
+  it("enforces the physical 1536-dimensional embedding contract at every SQL boundary", () => {
+    expect(migration).toContain("embedding_dimensions integer not null check (embedding_dimensions = 1536)");
+    const stageStart = migration.indexOf("create or replace function public.stage_site_content_sync_event(");
+    const stage = migration.slice(stageStart, migration.indexOf("$$;", stageStart));
+    expect(stage).toContain("(p_stage#>>'{embedding,dimensions}')::integer <> 1536");
+  });
+});
+
 describe("RC9 — lexical text path must not fabricate a cosine similarity", () => {
   // Regression guard for RC9. The text-only fallback (match_document_chunks_text) has no vector
   // cosine; an earlier version fabricated a synthetic `similarity` (0.56 + text_rank*0.39) that was
@@ -1428,6 +2058,213 @@ describe("Supabase Preview replay guards", () => {
         guardBody.indexOf("v_current_state_digest := public.document_publication_state_digest("),
       );
     }
+  });
+
+  it("binds Australian public activation to v2 policy, committed generation, and reviewed state", () => {
+    const sql = australianSourceActivationMigration;
+    for (const column of [
+      "source_catalogue_key text",
+      "source_policy_version text",
+      "reviewed_index_generation_id uuid",
+    ]) {
+      expect(sql).toContain(column);
+    }
+    expect(sql).toContain("create or replace function public.activate_approved_public_documents(");
+    expect(sql).toContain("p_manifest jsonb");
+    expect(sql).toContain("p_expected_state_digest text");
+    expect(sql).toContain("p_expected_generation_ids uuid[]");
+    expect(sql).toContain("for update;");
+    expect(sql).toContain("public.document_publication_state_digest(");
+    expect(sql).toContain("v_document.index_generation_id is distinct from v_expected_index_generation_id");
+    expect(sql).toContain("v_document.metadata->>'source_catalogue_key' is distinct from v_source_catalogue_key");
+    expect(sql).toContain("v_document.metadata->>'source_policy_version' is distinct from v_source_policy_version");
+    expect(sql).toContain("v_document.metadata->>'content_mode' is distinct from 'indexed_content'");
+    expect(sql).toContain("v_document.metadata->>'licence_policy' is distinct from 'public_index_permitted'");
+    expect(sql).toContain("v_document.metadata->>'document_status' is distinct from 'current'");
+    expect(sql).toContain("v_document.metadata->>'change_state' in ('withdrawn', 'superseded')");
+    expect(sql).toContain("approval.reviewed_index_generation_id = v_expected_index_generation_id");
+    expect(sql).toContain("approval.source_catalogue_key = v_source_catalogue_key");
+    expect(sql).toContain("approval.source_policy_version = v_source_policy_version");
+    expect(sql).toContain("'source_policy_version', v_source_policy_version");
+    expect(sql).toContain("'index_generation_id', v_expected_index_generation_id");
+
+    const functionStart = sql.indexOf("create or replace function public.activate_approved_public_documents(");
+    const functionBody = sql.slice(functionStart, sql.indexOf("$$;", functionStart));
+    expect(functionBody).toContain("order by value->>'documentId'");
+    expect(functionBody).toContain("array_agg(generation_id order by generation_id)");
+    expect(functionBody).toContain("does not exactly match manifest");
+    expect(functionBody).toContain("(document->>'expectedStateDigest') !~ '^[0-9a-f]{64}$'");
+    for (const table of [
+      "document_pages",
+      "document_images",
+      "document_labels",
+      "document_summaries",
+      "document_sections",
+      "document_memory_cards",
+      "document_chunks",
+      "document_table_facts",
+      "document_embedding_fields",
+      "document_index_quality",
+      "document_index_units",
+    ]) {
+      expect(functionBody).toContain(`perform 1 from public.${table} where document_id = v_document_id for update;`);
+    }
+    expect(functionBody).toContain("coalesce(v_document.metadata->>'change_state', '') not in");
+    expect(functionBody.indexOf("for update;")).toBeLessThan(
+      functionBody.indexOf("v_current_document_state_digest := public.document_publication_state_digest("),
+    );
+    expect(functionBody.indexOf("v_current_document_state_digest :=")).toBeLessThan(
+      functionBody.indexOf("v_publish_result := public.publish_approved_documents("),
+    );
+  });
+
+  it.each([
+    ["absent", {}],
+    ["JSON null", { decision: null }],
+    ["non-string", { decision: 42 }],
+  ])("rejects a %s manifest decision before approval reuse", (_label, malformedEntry) => {
+    const functionStart = australianSourceActivationMigration.indexOf(
+      "create or replace function public.activate_approved_public_documents(",
+    );
+    const functionBody = australianSourceActivationMigration.slice(
+      functionStart,
+      australianSourceActivationMigration.indexOf("$$;", functionStart),
+    );
+    const decision = "decision" in malformedEntry ? malformedEntry.decision : undefined;
+    expect(typeof decision).not.toBe("string");
+    expect(functionBody).toContain("jsonb_typeof(document->'decision') is distinct from 'string'");
+    expect(functionBody).toContain("document->>'decision' is null");
+    expect(functionBody).toContain("jsonb_typeof(v_entry->'decision') is distinct from 'string'");
+    expect(functionBody).toContain("v_decision is null");
+    expect(functionBody.indexOf("jsonb_typeof(document->'decision')")).toBeLessThan(
+      functionBody.indexOf("for v_entry in"),
+    );
+  });
+
+  it("prevents one-statement publication from changing any reviewed document state", () => {
+    const sql = australianSourceActivationMigration;
+    const guardStart = sql.indexOf("create or replace function public.guard_australian_source_activation(");
+    const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
+    expect(guardBody).toContain(
+      "to_jsonb(new) - array['owner_id', 'metadata', 'updated_at', 'search_tsv', 'title_search_tsv']",
+    );
+    expect(guardBody).toContain(
+      "to_jsonb(old) - array['owner_id', 'metadata', 'updated_at', 'search_tsv', 'title_search_tsv']",
+    );
+    expect(guardBody).toContain("new.index_generation_id is distinct from old.index_generation_id");
+    expect(guardBody).toContain("new.metadata - array[");
+    for (const receiptKey of [
+      "public_corpus",
+      "publication_approval_id",
+      "publication_manifest_digest",
+      "publication_reviewed_state_digest",
+      "published_at",
+    ]) {
+      expect(guardBody).toContain(`'${receiptKey}'`);
+    }
+    expect(guardBody).toContain("old.metadata - array[");
+    expect(guardBody.indexOf("new.metadata - array[")).toBeLessThan(guardBody.indexOf("old.metadata - array["));
+    expect(guardBody.indexOf("to_jsonb(new) - array[")).toBeLessThan(guardBody.indexOf("select * into v_approval"));
+    expect(sql).toContain("after update on public.documents");
+  });
+
+  it("treats an already-public Australian relabel as activation but permits same-scope receipt updates", () => {
+    const sql = australianSourceActivationMigration;
+    const guardStart = sql.indexOf("create or replace function public.guard_australian_source_activation(");
+    const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
+    expect(guardBody).toContain("v_public_relabel_activation := old.owner_id is null");
+    expect(guardBody).toContain("and new.owner_id is null");
+    expect(guardBody).toContain("old.metadata->>'corpus_scope' is distinct from 'australian_public'");
+    expect(guardBody).toContain("and new.metadata->>'corpus_scope' = 'australian_public'");
+    expect(guardBody).toContain("if v_owned_public_activation or v_public_relabel_activation then");
+    expect(guardBody).toContain("v_approval.expected_prior_owner_id is distinct from old.owner_id");
+    expect(guardBody).not.toContain(
+      "v_public_relabel_activation := old.owner_id is null and old.metadata->>'corpus_scope' = 'australian_public'",
+    );
+  });
+
+  it("requires digest-bound Australian document identity metadata at approval and activation boundaries", () => {
+    const sql = australianSourceActivationMigration;
+    for (const exactGate of [
+      "v_document.metadata->>'source_kind' is distinct from 'document'",
+      "nullif(trim(v_document.metadata->>'publisher'), '') is null",
+      "nullif(trim(v_document.metadata->>'publisher_code'), '') is null",
+      "nullif(trim(v_document.metadata->>'jurisdiction'), '') is null",
+      "nullif(trim(v_document.metadata->>'source_role'), '') is null",
+    ]) {
+      expect(sql).toContain(exactGate);
+    }
+    expect(sql).toContain("Australian public approval requires exact document identity metadata");
+    expect(sql).toContain("Australian activation document % fails source identity, policy, or lifecycle gates");
+  });
+
+  it("uses only the canonical active change states for Australian activation", () => {
+    const sql = australianSourceActivationMigration;
+    expect(sql).toContain("not in ('changed', 'unchanged')");
+    expect(sql).not.toContain("('new', 'changed', 'unchanged')");
+  });
+
+  it("allows only the exact bound v2 receipt enrichment on same-scope Australian public rows", () => {
+    const sql = australianSourceActivationMigration;
+    const guardStart = sql.indexOf("create or replace function public.guard_australian_source_activation(");
+    const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
+    expect(guardBody).toContain("v_same_scope_public_update := old.owner_id is null");
+    expect(guardBody).toContain("old.metadata->>'corpus_scope' = 'australian_public'");
+    expect(guardBody).toContain("and new.metadata->>'corpus_scope' = 'australian_public'");
+    expect(guardBody).toContain(
+      "v_v2_receipt_keys text[] := array['publication_manifest_version', 'publication_source_policy_version', 'publication_reviewed_index_generation_id']",
+    );
+    expect(guardBody).toContain("new.metadata - v_v2_receipt_keys");
+    expect(guardBody).toContain("old.metadata - v_v2_receipt_keys");
+    expect(guardBody).toContain("new.metadata->'publication_manifest_version' is distinct from '2'::jsonb");
+    expect(guardBody).toContain(
+      "new.metadata->>'publication_source_policy_version' is distinct from new.metadata->>'source_policy_version'",
+    );
+    expect(guardBody).toContain(
+      "new.metadata->>'publication_reviewed_index_generation_id' is distinct from new.index_generation_id::text",
+    );
+    const v2KeysStart = guardBody.indexOf("v_v2_receipt_keys text[] := array[");
+    const v2KeysEnd = guardBody.indexOf("];", v2KeysStart);
+    const v2Keys = guardBody.slice(v2KeysStart, v2KeysEnd);
+    for (const genericReceiptKey of [
+      "public_corpus",
+      "publication_approval_id",
+      "publication_manifest_digest",
+      "publication_reviewed_state_digest",
+      "published_at",
+    ]) {
+      expect(v2Keys).not.toContain(`'${genericReceiptKey}'`);
+    }
+  });
+
+  it("rejects same-scope Australian governed-state mutations without recursive writes", () => {
+    const sql = australianSourceActivationMigration;
+    const guardStart = sql.indexOf("create or replace function public.guard_australian_source_activation(");
+    const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
+    expect(guardBody).toContain("if v_same_scope_public_update then");
+    expect(guardBody).toContain("Australian public governed state changed; unpublish and reapprove");
+    expect(guardBody).not.toContain("update public.documents");
+    expect(guardBody.indexOf("new.metadata - v_v2_receipt_keys")).toBeLessThan(
+      guardBody.indexOf("Australian public governed state changed; unpublish and reapprove"),
+    );
+  });
+
+  it("keeps Australian activation append-only and service-role-only while rejecting v1/link-only transitions", () => {
+    const sql = australianSourceActivationMigration;
+    expect(sql).toContain("old.metadata->>'corpus_scope' = 'australian_public'");
+    expect(sql).toContain("or new.metadata->>'corpus_scope' = 'australian_public'");
+    expect(sql).toContain("publication_manifest_version");
+    expect(sql).toContain("Australian public transition requires manifest v2 evidence");
+    expect(sql).toContain("Australian public transition rejects link-only content");
+    expect(sql).toContain(
+      "revoke all on function public.activate_approved_public_documents(jsonb, text, uuid[]) from public, anon, authenticated;",
+    );
+    expect(sql).toContain(
+      "grant execute on function public.activate_approved_public_documents(jsonb, text, uuid[]) to service_role;",
+    );
+    expect(sql).toContain("before update or delete on public.document_publication_approvals");
+    expect(sql).not.toContain("grant select on table public.document_publication_approvals to anon");
+    expect(sql).not.toContain("grant select on table public.document_publication_approvals to authenticated");
   });
 
   it("serializes permanent deletion against ingestion job creation", () => {
@@ -1931,6 +2768,592 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       );
       expect(sql).toContain("grant execute on function public.invoke_ingestion_worker(integer) to service_role");
     }
+  });
+
+  describe("public source control plane", () => {
+    function controlPlaneSql() {
+      return readFileSync(
+        new URL("../supabase/migrations/20260824121000_create_public_source_control_plane.sql", import.meta.url),
+        "utf8",
+      ).replace(/\s+/g, " ");
+    }
+
+    it("creates append-only service-role-only activation and exact-version tables", () => {
+      const sql = controlPlaneSql();
+      for (const table of [
+        "public_source_policy_entries",
+        "public_source_activation_events",
+        "public_source_versions",
+      ]) {
+        expect(sql).toContain(`create table public.${table}`);
+        expect(sql).toContain(`alter table public.${table} enable row level security`);
+        expect(sql).toContain(`revoke all on table public.${table} from public, anon, authenticated, service_role`);
+        expect(sql).toContain(`grant select on table public.${table} to service_role`);
+        expect(sql).not.toMatch(new RegExp(`grant (insert|update|delete|all).*public\\.${table}.*service_role`, "i"));
+        expect(sql).not.toContain(`grant select on table public.${table} to anon`);
+        expect(sql).not.toContain(`grant select on table public.${table} to authenticated`);
+      }
+      expect(sql).toContain("before update or delete on public.public_source_activation_events");
+      expect(sql).toContain("public source activation events are append-only");
+      expect(sql).toContain("public source version immutable fields changed");
+    });
+
+    it("separates streamed raw-response provenance from stored document integrity", () => {
+      const sql = controlPlaneSql();
+      const types = readFileSync("src/lib/supabase/database.types.ts", "utf8");
+      expect(sql).toContain("raw_response_hash text not null check (raw_response_hash ~ '^[0-9a-f]{64}$')");
+      expect(sql).toContain("raw_response_byte_count bigint not null check (raw_response_byte_count >= 0)");
+      expect(sql).toContain("v_version.raw_response_hash is distinct from p_manifest->>'rawResponseHash'");
+      expect(sql).toContain(
+        "v_version.raw_response_byte_count is distinct from (p_manifest->>'rawResponseByteCount')::bigint",
+      );
+      expect(sql).toContain("metadata'->>'raw_response_hash' is distinct from v_version.raw_response_hash");
+      expect(sql).toContain(
+        "metadata'->>'raw_response_byte_count' is distinct from v_version.raw_response_byte_count::text",
+      );
+      expect(sql).toContain("'raw_response_hash', 'raw_response_byte_count'");
+      expect(types).toContain("raw_response_hash: string;");
+      expect(types).toContain("raw_response_byte_count: number;");
+    });
+
+    it("binds activation and reservation to the immutable exact eligible-source policy", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("create table public.public_source_policy_entries");
+      expect(sql).toContain("public source policy entries are immutable");
+      expect(sql).toContain("'wa-health', 'https://www.health.wa.gov.au/About-us/Policy-frameworks'");
+      expect(sql).not.toContain("('etg-complete', 'https://www.tg.org.au/'");
+      expect(sql).not.toContain("('nps-medicinewise', 'https://www.medicinewise.org.au/'");
+      expect(sql).toContain("exact_document_licence = 'public_index_permitted'");
+      for (const source of australianSourceCatalogue) {
+        const eligible =
+          source.lifecycle === "active" &&
+          source.contentMode === "indexed_content" &&
+          source.licencePolicy !== "index_forbidden";
+        const rowPrefix = `('${source.key}', '${source.canonicalUrl}'`;
+        if (eligible) expect(sql).toContain(rowPrefix);
+        else expect(sql).not.toContain(rowPrefix);
+      }
+      const activation = sql.slice(
+        sql.indexOf("create or replace function public.record_public_source_activation("),
+        sql.indexOf("$$;", sql.indexOf("create or replace function public.record_public_source_activation(")),
+      );
+      expect(activation).toContain("from public.public_source_policy_entries");
+      expect(activation).toContain("source is not eligible for activation");
+    });
+
+    it("serializes first activation and fetch-manifest races with fixed-path definers", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_source_catalogue_key, 0))");
+      expect(sql).toContain("93b99a99f19ac2ae7f316e4b7b4aba24bc756e62c9c9cd51f113df996d517a3f");
+      expect(sql).toContain("activation_sequence bigint generated always as identity");
+      expect(sql).toContain("order by activation_sequence desc");
+      expect(sql).not.toContain("order by created_at desc, id desc");
+      expect(sql).toContain("for update");
+      expect(sql).toContain("security definer set search_path = ''");
+      expect(sql).toContain("source definition is not active for controlled acquisition");
+      expect(sql).toContain("source policy digest does not match the active definition");
+      expect(sql).toContain("public source reservation manifest conflicts with existing identity");
+    });
+
+    it("uses a monotonic event sequence when activate and retire share one transaction timestamp", () => {
+      const sql = controlPlaneSql();
+      const sameTransactionEvents = [
+        { activation_sequence: 41, decision: "activate", created_at: "2026-08-24T00:00:00.000Z" },
+        { activation_sequence: 42, decision: "retire", created_at: "2026-08-24T00:00:00.000Z" },
+      ];
+      expect(
+        [...sameTransactionEvents].sort((a, b) => b.activation_sequence - a.activation_sequence)[0]?.decision,
+      ).toBe("retire");
+      expect(sql.match(/order by activation_sequence desc/g)?.length).toBeGreaterThanOrEqual(7);
+      expect(sql).not.toMatch(/order by created_at desc, id desc/i);
+    });
+
+    it("preflights exact current authority before provider access while reserve and finalize recheck it", () => {
+      const sql = controlPlaneSql();
+      const preflightStart = sql.indexOf("create or replace function public.preflight_public_source_acquisition(");
+      const preflight = sql.slice(preflightStart, sql.indexOf("$$;", preflightStart));
+      expect(preflightStart).toBeGreaterThan(-1);
+      expect(preflight).toContain("activationSequence");
+      expect(preflight).toContain("v_event.activation_sequence");
+      expect(preflight).toContain("from public.public_source_policy_entries");
+      expect(preflight).toContain("exact version URL is outside the eligible canonical host");
+      expect(preflight).toContain("source definition is not active for controlled acquisition");
+      expect(preflight).toContain("order by activation_sequence desc");
+      expect(preflight).toContain("from auth.users");
+      expect(preflight).toContain("stewardId");
+      expect(preflight).toContain("storageBucket");
+      for (const name of [
+        "reserve_public_source_version",
+        "authorize_public_source_upload",
+        "finalize_public_source_version",
+      ]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(start, name).toBeGreaterThan(-1);
+        expect(body).toContain("order by activation_sequence desc");
+        expect(body).toContain("v_event.activation_sequence");
+        expect(body).toContain("from auth.users");
+        expect(body).toContain("stewardId");
+        expect(body).toContain("storageBucket");
+      }
+    });
+
+    it("retains steward authority and exact storage identity for every governed lifecycle", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("steward_id uuid not null references auth.users(id) on delete restrict");
+      expect(sql).toContain("storage_bucket text not null");
+      expect(sql).toContain("upload_lease_token uuid not null");
+      expect(sql).toContain("upload_lease_expires_at timestamptz not null");
+      expect(sql).toContain("upload_state text not null");
+      expect(sql).toContain("storage_bucket ~ '^[a-z0-9][a-z0-9._-]{0,62}$'");
+      for (const name of [
+        "finalize_public_source_version",
+        "abandon_public_source_reservation",
+        "withdraw_public_source_version",
+      ]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(body, name).toContain("v_version.steward_id");
+        expect(body, name).toContain("auth.users");
+      }
+    });
+
+    it("reserves current authority before writes and finalizes document, optional job, and version atomically", () => {
+      const sql = controlPlaneSql();
+      const reserve = sql.slice(
+        sql.indexOf("create or replace function public.reserve_public_source_version("),
+        sql.indexOf("$$;", sql.indexOf("create or replace function public.reserve_public_source_version(")),
+      );
+      const finalize = sql.slice(
+        sql.indexOf("create or replace function public.finalize_public_source_version("),
+        sql.indexOf("$$;", sql.indexOf("create or replace function public.finalize_public_source_version(")),
+      );
+      for (const body of [reserve, finalize]) {
+        expect(body).toContain("from public.public_source_policy_entries");
+        expect(body).toContain("source policy digest does not match the active definition");
+        expect(body).toContain("exact version URL is outside the eligible canonical host");
+      }
+      expect(reserve).toContain("reservation_key");
+      expect(reserve).toContain("supersedes_version_id");
+      expect(finalize).toContain("insert into public.documents");
+      expect(finalize).toContain("insert into public.ingestion_jobs");
+      expect(finalize).toContain("p_manifest->>'disposition' = 'shadow'");
+      expect(finalize).toContain("p_manifest->>'disposition' = 'quarantined'");
+      expect(finalize).toContain("review_queued_at = case when p_manifest->>'disposition' = 'quarantined'");
+      expect(finalize).toContain("v_document.content_hash is distinct from v_version.content_hash");
+      expect(finalize).toContain(
+        "v_document.metadata->>'exact_version_url' is distinct from v_version.exact_version_url",
+      );
+      expect(finalize).not.toContain("create_uploaded_document_with_ingestion_job(");
+      expect(finalize).not.toContain("publish_approved_documents(");
+      expect(finalize).not.toContain("activate_approved_public_documents(");
+    });
+
+    it("permits only the legal lifecycle and never discovered or shadow directly to active", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("('discovered', 'shadow')");
+      expect(sql).toContain("('discovered', 'quarantined')");
+      expect(sql).toContain("('discovered', 'tombstoned')");
+      expect(sql).toContain("('shadow', 'approved')");
+      expect(sql).toContain("('approved', 'active')");
+      expect(sql).toContain("old.lifecycle = 'tombstoned'");
+      expect(sql).not.toContain("('discovered', 'active')");
+      expect(sql).not.toContain("('shadow', 'active')");
+      const start = sql.indexOf("create or replace function public.transition_public_source_version(");
+      const body = sql.slice(start, sql.indexOf("$$;", start));
+      expect(body).toContain("order by activation_sequence desc");
+      expect(body).toContain("v_event.id is distinct from p_activation_event_id");
+    });
+
+    it("consumes matching P02 approval and public receipt facts without creating approvals", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("from public.document_publication_approvals approval");
+      expect(sql).toContain("approval.source_catalogue_key = v_version.source_catalogue_key");
+      expect(sql).toContain("approval.source_policy_version = v_version.source_policy_version");
+      expect(sql).toContain("approval.reviewed_index_generation_id = v_document.index_generation_id");
+      expect(sql).toContain("v_document.metadata->>'publication_approval_id'");
+      expect(sql).toContain("v_document.owner_id is not null");
+      expect(sql).not.toContain("insert into public.document_publication_approvals");
+      expect(sql).not.toContain("publish_approved_documents(");
+      const transitionStart = sql.indexOf("create or replace function public.transition_public_source_version(");
+      const transition = sql.slice(transitionStart, sql.indexOf("$$;", transitionStart));
+      expect(transition).not.toContain("activate_approved_public_documents(");
+    });
+
+    it("rechecks governance when workers claim and commit governed artifacts", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("create or replace function public.claim_ingestion_jobs(");
+      expect(sql).toContain("create or replace function public.commit_document_index_generation(");
+      for (const gate of [
+        "source_catalogue_key",
+        "source_policy_version",
+        "source_policy_digest",
+        "corpus_scope",
+        "public_source_activation_event_id",
+        "public_source_version_id",
+        "public_source_steward_id",
+        "content_mode",
+        "licence_policy",
+      ]) {
+        expect(sql).toContain(gate);
+      }
+      expect(sql).toContain("governed public source is no longer active");
+      expect(sql).toContain("governed public source document lost steward ownership");
+      expect(sql).toContain("create trigger documents_guard_public_source_identity");
+      expect(sql).toContain("new.content_hash is distinct from old.content_hash");
+      expect(sql).toContain(
+        "v_merged_metadata := coalesce(v_document.metadata, '{}'::jsonb) || coalesce(p_metadata, '{}'::jsonb)",
+      );
+      expect(sql).toContain("governed public source artifact commit removed or changed policy identity");
+      expect(sql).toContain("not (v_merged_metadata ? v_key)");
+      expect(sql).toContain("jsonb_typeof(v_merged_metadata->v_key) = 'null'");
+    });
+
+    it("preserves generic P02 documents while old or new Task2 markers stay fail-closed", () => {
+      const sql = controlPlaneSql();
+      const triggerStart = sql.indexOf("create or replace function public.guard_public_source_document_identity(");
+      const trigger = sql.slice(triggerStart, sql.indexOf("$$;", triggerStart));
+      expect(trigger).toContain("new.metadata->>'public_source_version_id' is not null");
+      expect(trigger).toContain("old.metadata->>'public_source_version_id' is not null");
+      expect(trigger).not.toContain("new.metadata->>'corpus_scope' = 'australian_public' or");
+      expect(trigger).toContain("not (new.metadata ? v_key)");
+      expect(trigger).toContain("jsonb_typeof(new.metadata->v_key) = 'null'");
+      const assertionStart = sql.indexOf("create or replace function public.assert_public_source_document_governance(");
+      const assertion = sql.slice(assertionStart, sql.indexOf("$$;", assertionStart));
+      expect(assertion).toContain("if v_version_id is null then return; end if");
+      const claimStart = sql.indexOf("create or replace function public.claim_ingestion_jobs(");
+      const claim = sql.slice(claimStart, sql.indexOf("$$;", claimStart));
+      expect(claim).toContain("d.metadata->>'public_source_version_id' is null or (");
+      expect(claim).not.toContain("d.metadata->>'corpus_scope' is distinct from 'australian_public'");
+      const genericP02 = { corpus_scope: "australian_public", source_catalogue_key: "wa-health" };
+      expect(genericP02).not.toHaveProperty("public_source_version_id");
+    });
+
+    it("uses one global advisory-event-document-version lock order with post-lock revalidation", () => {
+      const sql = controlPlaneSql();
+      for (const name of [
+        "finalize_public_source_version",
+        "assert_public_source_document_governance",
+        "transition_public_source_version",
+        "activate_public_source_version",
+        "abandon_public_source_reservation",
+        "withdraw_public_source_version",
+      ]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        const advisory = body.indexOf("lock-order: advisory");
+        const event = body.indexOf("lock-order: latest-event");
+        const document = body.indexOf("lock-order: document");
+        const version = body.indexOf("lock-order: version");
+        expect(advisory, name).toBeGreaterThan(-1);
+        expect(event, name).toBeGreaterThan(advisory);
+        expect(document, name).toBeGreaterThan(event);
+        expect(version, name).toBeGreaterThan(document);
+        expect(body).toContain("governance changed while locks were acquired");
+      }
+    });
+
+    it("performs controlled single-active replacement with linked immutable history", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("create unique index public_source_versions_one_active_per_catalogue_idx");
+      expect(sql).toContain("where lifecycle = 'active'");
+      expect(sql).toContain("supersedes_version_id");
+      const transition = sql.slice(
+        sql.indexOf("create or replace function public.transition_public_source_version("),
+        sql.indexOf("$$;", sql.indexOf("create or replace function public.transition_public_source_version(")),
+      );
+      const activation = sql.slice(
+        sql.indexOf("create or replace function public.activate_public_source_version("),
+        sql.indexOf("$$;", sql.indexOf("create or replace function public.activate_public_source_version(")),
+      );
+      expect(transition).toContain("controlled public source activation RPC");
+      expect(activation).toContain("activate_approved_public_documents(");
+      expect(activation).toContain("app.public_source_controlled_activation");
+      expect(activation).toContain("replacement requires the currently active predecessor");
+      expect(activation).toContain("v_prior_approval");
+      expect(activation).toContain("lifecycle = 'tombstoned'");
+      expect(activation).toContain("v_prior_document.id, v_prior_version.steward_id, 'superseded'");
+      expect(activation).toContain("public.restore_public_source_document_to_steward(");
+      expect(activation.indexOf("set lifecycle = 'tombstoned'")).toBeLessThan(
+        activation.indexOf("set lifecycle = 'active'"),
+      );
+      expect(sql).toContain("generic P02 publication is forbidden for governed public sources");
+    });
+
+    it("abandons only unfinalized unowned reservations and permits later authority to retry", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("'abandoned'");
+      expect(sql).toContain("create unique index public_source_versions_reservation_key_live_idx");
+      expect(sql).toContain("create unique index public_source_versions_catalogue_hash_live_idx");
+      expect(sql).toContain("where lifecycle <> 'abandoned'");
+      const start = sql.indexOf("create or replace function public.abandon_public_source_reservation(");
+      const body = sql.slice(start, sql.indexOf("$$;", start));
+      expect(start).toBeGreaterThan(-1);
+      expect(body).toContain("v_version.staging_document_id is not null");
+      expect(body).toContain("from public.documents where id = v_version.reserved_document_id");
+      expect(body).toContain("from public.ingestion_jobs where document_id = v_version.reserved_document_id");
+      expect(body).toContain("set lifecycle = 'abandoned'");
+      expect(body).toContain("'storage_owned', false");
+      expect(body).toContain("public_source_upload_attempts");
+      expect(body).toContain("v_attempt.state in ('authorized', 'bound')");
+      expect(body).toContain("perform public.schedule_public_source_upload_attempt_cleanup(v_attempt.id)");
+      expect(body).not.toContain("delete from public.public_source_versions");
+      expect(body).not.toContain("delete from public.documents");
+    });
+
+    it("uses immutable cleanup columns, uniqueness, and lease grace instead of mutable metadata identity", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("add column public_source_reservation_id uuid");
+      expect(sql).toContain("add column public_source_upload_attempt_id uuid");
+      expect(sql).toContain("add column public_source_storage_bucket text");
+      expect(sql).toContain("add column public_source_storage_path text");
+      expect(sql).toContain("add column public_source_cleanup_not_before timestamptz");
+      expect(sql).toContain("unique (public_source_upload_attempt_id)");
+      expect(sql).toContain("public_source_cleanup_bucket_path_idx");
+      expect(sql).toContain("signed_authority_expires_at + interval '60 seconds' + interval '5 minutes'");
+      expect(sql).toContain("create trigger storage_cleanup_jobs_guard_public_source_identity");
+      expect(sql).toContain("public source cleanup identity is immutable");
+      const types = readFileSync("src/lib/supabase/database.types.ts", "utf8");
+      for (const field of [
+        "public_source_reservation_id",
+        "public_source_storage_bucket",
+        "public_source_storage_path",
+        "public_source_cleanup_not_before",
+        "storage_bucket",
+        "upload_lease_token",
+        "upload_lease_expires_at",
+        "upload_state",
+      ]) {
+        expect(types).toContain(`${field}:`);
+      }
+    });
+
+    it("rejects forged cleanup authority unless the exact reservation is terminal and cleanup-pending", () => {
+      const sql = controlPlaneSql();
+      const triggerStart = sql.indexOf("create or replace function public.guard_public_source_cleanup_job_identity(");
+      const trigger = sql.slice(triggerStart, sql.indexOf("$$;", triggerStart));
+      for (const contract of [
+        "v_attempt.state is distinct from 'cleanup_pending'",
+        "v_attempt.version_id is distinct from v_version.id",
+        "new.public_source_upload_attempt_id is distinct from v_attempt.id",
+        "new.public_source_cleanup_not_before is distinct from v_attempt.cleanup_not_before",
+        "new.image_paths is distinct from '{}'::text[]",
+        "public source cleanup mutation guard is missing",
+      ]) {
+        expect(trigger).toContain(contract);
+      }
+      const eligible = (fixture: {
+        attemptState: string;
+        imagePaths: string[];
+        deadline: number;
+        expectedDeadline: number;
+      }) =>
+        fixture.attemptState === "cleanup_pending" &&
+        fixture.imagePaths.length === 0 &&
+        fixture.deadline === fixture.expectedDeadline;
+      const valid = {
+        attemptState: "cleanup_pending",
+        imagePaths: [],
+        deadline: 20,
+        expectedDeadline: 20,
+      };
+      expect(eligible(valid)).toBe(true);
+      for (const forged of [
+        { ...valid, attemptState: "authorized" },
+        { ...valid, attemptState: "bound" },
+        { ...valid, attemptState: "finalized" },
+        { ...valid, attemptState: "cleaned" },
+        { ...valid, imagePaths: ["unrelated/image.png"] },
+        { ...valid, deadline: 19 },
+        { ...valid, deadline: 21 },
+      ]) {
+        expect(eligible(forged)).toBe(false);
+      }
+    });
+
+    it("claims and completes Task2 cleanup only through DB-clock CAS RPCs", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("create table public.public_source_cleanup_mutation_guards");
+      expect(sql).toContain("public_source_claim_token uuid");
+      expect(sql).toContain("public_source_claim_expires_at timestamptz");
+      expect(sql).toContain("status in ('pending', 'processing', 'completed', 'failed')");
+      expect(sql).toContain(
+        "revoke all on table public.public_source_cleanup_mutation_guards from public, anon, authenticated, service_role",
+      );
+      for (const name of [
+        "claim_public_source_cleanup_job",
+        "complete_public_source_cleanup_job",
+        "release_public_source_cleanup_job",
+      ]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(start, name).toBeGreaterThan(-1);
+        expect(body, name).toContain("pg_catalog.clock_timestamp()");
+        expect(body, name).toContain("for update");
+        expect(body, name).toContain("public_source_claim_token");
+        expect(body, name).toContain("public_source_cleanup_mutation_guards");
+        expect(body, name).toContain("public_source_upload_attempts");
+        expect(body, name).toContain("v_attempt.state is distinct from 'cleanup_pending'");
+      }
+      const claimStart = sql.indexOf("create or replace function public.claim_public_source_cleanup_job(");
+      const claim = sql.slice(claimStart, sql.indexOf("$$;", claimStart));
+      expect(claim).toContain("public_source_cleanup_not_before <= pg_catalog.clock_timestamp()");
+      expect(claim).toContain("gen_random_uuid()");
+      expect(claim).toContain("'imagePaths', jsonb_build_array()");
+      const completeStart = sql.indexOf("create or replace function public.complete_public_source_cleanup_job(");
+      const complete = sql.slice(completeStart, sql.indexOf("$$;", completeStart));
+      expect(complete).toContain("status is distinct from 'processing'");
+      expect(complete).toContain("public_source_claim_token is distinct from p_claim_token");
+      expect(complete).toContain("set status = 'completed'");
+      const releaseStart = sql.indexOf("create or replace function public.release_public_source_cleanup_job(");
+      const release = sql.slice(releaseStart, sql.indexOf("$$;", releaseStart));
+      expect(release).toContain("set status = 'failed'");
+    });
+
+    it("makes upload authorization exclusive and rotates an unpredictable attempt token under locks", () => {
+      const sql = controlPlaneSql();
+      const start = sql.indexOf("create or replace function public.authorize_public_source_upload(");
+      const body = sql.slice(start, sql.indexOf("$$;", start));
+      expect(body).toContain("v_prior_attempt.claim_expires_at > pg_catalog.clock_timestamp()");
+      expect(body).toContain("v_attempt_id uuid := gen_random_uuid()");
+      expect(body).toContain("v_attempt_token uuid := gen_random_uuid()");
+      expect(body).toContain("upload_lease_token = v_attempt_token");
+      expect(body).toContain("v_attempt_expires_at timestamptz := pg_catalog.clock_timestamp() + interval '2 minutes'");
+      expect(body).toContain("insert into public.public_source_upload_attempts");
+      const finalizeStart = sql.indexOf("create or replace function public.finalize_public_source_version(");
+      const finalize = sql.slice(finalizeStart, sql.indexOf("$$;", finalizeStart));
+      expect(finalize).toContain("v_version.upload_lease_token is distinct from v_upload_lease_token");
+      const abandonStart = sql.indexOf("create or replace function public.abandon_public_source_reservation(");
+      const abandon = sql.slice(abandonStart, sql.indexOf("$$;", abandonStart));
+      expect(abandon).toContain("v_version.upload_lease_token is distinct from v_upload_lease_token");
+    });
+
+    it("keeps immutable per-attempt history and binds provider-signed expiry before storage", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("create table public.public_source_upload_attempts");
+      expect(sql).toContain("signed_authority_digest text");
+      expect(sql).toContain("signed_authority_expires_at timestamptz");
+      expect(sql).toContain("cleanup_not_before timestamptz not null");
+      expect(sql).toContain("unique (storage_bucket, storage_path)");
+      expect(sql).toContain("current_upload_attempt_id uuid");
+      expect(sql).toContain("finalized_upload_attempt_id uuid");
+      expect(sql).toContain("create or replace function public.bind_public_source_upload_authority(");
+      const authorizeStart = sql.indexOf("create or replace function public.authorize_public_source_upload(");
+      const authorize = sql.slice(authorizeStart, sql.indexOf("$$;", authorizeStart));
+      expect(authorize).toContain("insert into public.public_source_upload_attempts");
+      expect(authorize).toContain("gen_random_uuid()");
+      expect(authorize).toContain("public-source-staging/");
+      expect(authorize).toContain("state = 'cleanup_pending'");
+      const bindStart = sql.indexOf("create or replace function public.bind_public_source_upload_authority(");
+      const bind = sql.slice(bindStart, sql.indexOf("$$;", bindStart));
+      expect(bind).toContain("signed_authority_digest");
+      expect(bind).toContain("signed_authority_expires_at");
+      expect(bind).toContain("interval '60 seconds'");
+      expect(bind).toContain("interval '5 minutes'");
+      expect(bind).toContain("for update");
+      for (const name of ["finalize_public_source_version", "abandon_public_source_reservation"]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(body, name).toContain("uploadAttemptId");
+        expect(body, name).toContain("signedAuthorityDigest");
+        expect(body, name).toContain("signedAuthorityExpiresAt");
+        expect(body, name).toContain("public_source_upload_attempts");
+      }
+      for (const name of [
+        "authorize_public_source_upload",
+        "reap_expired_public_source_upload_attempts",
+        "bind_public_source_upload_authority",
+        "finalize_public_source_version",
+        "abandon_public_source_reservation",
+        "claim_public_source_cleanup_job",
+        "complete_public_source_cleanup_job",
+        "release_public_source_cleanup_job",
+      ]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(body.indexOf("lock-order: upload-attempt"), name).toBeGreaterThan(body.indexOf("lock-order: version"));
+      }
+    });
+
+    it("binds cleanup authority to each retired upload attempt instead of the mutable version pointer", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("add column public_source_upload_attempt_id uuid");
+      expect(sql).toContain("unique (public_source_upload_attempt_id)");
+      expect(sql).not.toContain("unique (public_source_reservation_id)");
+      const triggerStart = sql.indexOf("create or replace function public.guard_public_source_cleanup_job_identity(");
+      const trigger = sql.slice(triggerStart, sql.indexOf("$$;", triggerStart));
+      expect(trigger).toContain("public.public_source_upload_attempts");
+      expect(trigger).toContain("v_attempt.state is distinct from 'cleanup_pending'");
+      expect(trigger).toContain("new.public_source_upload_attempt_id is distinct from v_attempt.id");
+      expect(trigger).toContain("new.public_source_cleanup_not_before is distinct from v_attempt.cleanup_not_before");
+      for (const name of [
+        "claim_public_source_cleanup_job",
+        "complete_public_source_cleanup_job",
+        "release_public_source_cleanup_job",
+      ]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(body, name).toContain("public_source_upload_attempts");
+        expect(body, name).toContain("v_attempt.state is distinct from 'cleanup_pending'");
+        expect(body, name).toContain("v_job.public_source_upload_attempt_id");
+      }
+      const types = readFileSync("src/lib/supabase/database.types.ts", "utf8");
+      expect(types).toContain("public_source_upload_attempts:");
+      expect(types).toContain("public_source_upload_attempt_id:");
+      expect(types).toContain("bind_public_source_upload_authority:");
+      expect(types).toContain("reap_expired_public_source_upload_attempts:");
+      const reaperStart = sql.indexOf("create or replace function public.reap_expired_public_source_upload_attempts(");
+      const reaper = sql.slice(reaperStart, sql.indexOf("$$;", reaperStart));
+      expect(reaper).toContain("attempt.state in ('authorized', 'bound')");
+      expect(reaper).toContain("attempt.claim_expires_at <= pg_catalog.clock_timestamp()");
+      expect(reaper).toContain("set state = 'cleanup_pending'");
+      expect(reaper).toContain("perform public.schedule_public_source_upload_attempt_cleanup(v_attempt.id)");
+    });
+
+    it("withdraws atomically from retrieval and anonymous cache while preserving history", () => {
+      const sql = controlPlaneSql();
+      const start = sql.indexOf("create or replace function public.withdraw_public_source_version(");
+      const body = sql.slice(start, sql.indexOf("$$;", start));
+      expect(body).toContain("for update");
+      expect(body).toContain("lifecycle = 'tombstoned'");
+      expect(body).toContain("public.restore_public_source_document_to_steward(");
+      expect(body).not.toContain("delete from public.document_publication_approvals");
+      const helperStart = sql.indexOf("create or replace function public.restore_public_source_document_to_steward(");
+      const helper = sql.slice(helperStart, sql.indexOf("$$;", helperStart));
+      expect(helper).toContain("owner_id = p_steward_id");
+      expect(helper).toContain("'public_corpus', false");
+      expect(helper).toContain("delete from public.rag_response_cache");
+      expect(helper).toContain("cache_kind in ('search', 'answer')");
+    });
+
+    it("keeps public-source functions off public, anon, and authenticated roles", () => {
+      const sql = controlPlaneSql();
+      for (const signature of [
+        "record_public_source_activation(jsonb)",
+        "preflight_public_source_acquisition(jsonb)",
+        "reserve_public_source_version(jsonb)",
+        "authorize_public_source_upload(jsonb)",
+        "bind_public_source_upload_authority(jsonb)",
+        "reap_expired_public_source_upload_attempts(integer)",
+        "claim_public_source_cleanup_job(integer)",
+        "complete_public_source_cleanup_job(uuid, uuid, integer)",
+        "release_public_source_cleanup_job(uuid, uuid, text)",
+        "finalize_public_source_version(jsonb, integer)",
+        "abandon_public_source_reservation(jsonb)",
+        "activate_public_source_version(uuid, uuid, jsonb, text, uuid[])",
+        "transition_public_source_version(uuid, text, uuid)",
+        "withdraw_public_source_version(uuid, uuid, text)",
+      ]) {
+        expect(sql).toContain(`revoke all on function public.${signature} from public, anon, authenticated`);
+        expect(sql).toContain(`grant execute on function public.${signature} to service_role`);
+      }
+      expect(sql).toContain(
+        "revoke all on function public.restore_public_source_document_to_steward(uuid, uuid, text) from public, anon, authenticated, service_role",
+      );
+      expect(sql).not.toContain(
+        "grant execute on function public.restore_public_source_document_to_steward(uuid, uuid, text) to service_role",
+      );
+    });
   });
 });
 

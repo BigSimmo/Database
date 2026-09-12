@@ -6,7 +6,7 @@ import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/
 import { readAnswerStream } from "@/components/clinical-dashboard/search-utils";
 import { documentSummaryQuestion } from "@/lib/answer-contract";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
-import type { RagAnswer } from "@/lib/types";
+import type { AnswerPayload } from "@/components/clinical-dashboard/search-utils";
 
 type AuthRequestHandle = {
   epoch: number;
@@ -39,7 +39,7 @@ export function useDocumentSummarize({
   markSessionExpired: () => void;
   generatedSummaryRef: RefObject<HTMLElement | null>;
 }) {
-  const [summary, setSummary] = useState<RagAnswer | null>(null);
+  const [summary, setSummary] = useState<AnswerPayload | null>(null);
   const [summaryQuery, setSummaryQuery] = useState(documentSummaryQuestion);
   const [summaryProgressEvents, setSummaryProgressEvents] = useState<TimedAnswerProgressUpdate[]>([]);
   const [summaryProgressStartedAt, setSummaryProgressStartedAt] = useState<number | null>(null);

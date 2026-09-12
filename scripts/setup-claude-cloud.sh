@@ -120,12 +120,58 @@ mark_tier_done() {
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# Serialises everything that drives apt, which the per-tier lock deliberately does not.
+#
+# The browsers tier shells out to `playwright install --with-deps` and the python tier calls
+# apt_install for tesseract, so the two reach the same dpkg lock from different tiers. Session mode
+# runs them in one detached child while telling the model to confirm with
+# `bash scripts/setup-claude-cloud.sh browsers python`, and that confirmation command is exactly what
+# collides. Observed 2026-09-06: the confirmation run's Playwright step died with "Installation
+# process exited with code: 100" while the background child was unpacking tesseract, and the log
+# carried apt's own explanation — "E: dpkg was interrupted, you must manually run 'dpkg --configure
+# -a'". The browsers tier was then reported as failed even though nothing about it was broken.
+#
+# Waiting rather than failing is the point: apt is genuinely busy for a bounded time, so a caller that
+# waits gets the install it asked for. Ten minutes is well past the slowest observed apt step and short
+# enough that a truly wedged lock still surfaces instead of hanging the container.
+#
+# The timeout FAILS THE TIER; it never runs the command unlocked. Falling through to an unlocked run
+# would recreate the exact concurrent dpkg access this function exists to prevent, and it would do so
+# in the one situation where the other holder is provably still working — turning a bounded wait back
+# into the interrupted-dpkg state, with the tier reported as attempted. A tier that fails saying "apt
+# was busy, re-run this" is recoverable in one command; a corrupted package state is not. The two-hour
+# stale sweep above is the separate, safe case: a lock that old belongs to a run that is gone, so it is
+# reclaimed and then acquired properly rather than bypassed.
+with_apt_lock() {
+  local lock="$marker_dir/apt.lock" waited=0
+  local timeout="${CLAUDE_CLOUD_APT_LOCK_TIMEOUT:-600}"
+  while ! mkdir "$lock" 2>/dev/null; do
+    if [ -n "$(find "$lock" -maxdepth 0 -mmin +120 2>/dev/null)" ]; then
+      warn "clearing a stale apt lock"
+      rm -rf "$lock"
+      continue
+    fi
+    if [ "$waited" -ge "$timeout" ]; then
+      warn "apt is still held by another run after ${timeout}s; not running it unlocked"
+      warn "re-run this tier once the other run finishes"
+      return 1
+    fi
+    [ "$waited" -eq 0 ] && log "waiting for another run's apt step to finish"
+    sleep 5
+    waited=$((waited + 5))
+  done
+  "$@"
+  local status=$?
+  rm -rf "$lock" 2>/dev/null
+  return "$status"
+}
+
 apt_install() {
   have apt-get || { warn "apt-get is unavailable; cannot install: $*"; return 1; }
   if [ "$(id -u)" = "0" ]; then
-    apt-get update -qq && apt-get install -y --no-install-recommends "$@"
+    with_apt_lock sh -c 'apt-get update -qq && apt-get install -y --no-install-recommends "$@"' _ "$@"
   elif have sudo; then
-    sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends "$@"
+    with_apt_lock sh -c 'sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends "$@"' _ "$@"
   else
     warn "neither root nor sudo; cannot install: $*"
     return 1
@@ -240,8 +286,9 @@ tier_deno() {
 
 tier_browsers() {
   [ -x ./node_modules/.bin/playwright ] || { warn "playwright is not installed; run npm ci first"; return 1; }
+  # `--with-deps` runs apt, so it takes the shared apt lock like apt_install does; see with_apt_lock.
   # shellcheck disable=SC2086
-  ./node_modules/.bin/playwright install --with-deps ${CLAUDE_CLOUD_BROWSERS:-chromium firefox webkit}
+  with_apt_lock ./node_modules/.bin/playwright install --with-deps ${CLAUDE_CLOUD_BROWSERS:-chromium firefox webkit}
 }
 
 tier_python() {
