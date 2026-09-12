@@ -84,18 +84,18 @@ describe("dev-only pending inbox loading (#707F09)", () => {
       return false;
     });
 
-    vi.spyOn(fs, "readdirSync").mockImplementation((p) => {
+    vi.spyOn(fs, "readdirSync").mockImplementation(((p: fs.PathLike) => {
       if (typeof p === "string" && p.includes("outstanding-issues-inbox")) {
         return [
-          { name: "02-update.json", isFile: () => true } as fs.Dirent,
-          { name: "README.md", isFile: () => true } as fs.Dirent,
-          { name: "01-new.json", isFile: () => true } as fs.Dirent,
-          { name: "applied", isFile: () => false } as fs.Dirent,
-          { name: "03-cancel.json", isFile: () => true } as fs.Dirent,
+          { name: "02-update.json", isFile: () => true },
+          { name: "README.md", isFile: () => true },
+          { name: "01-new.json", isFile: () => true },
+          { name: "applied", isFile: () => false },
+          { name: "03-cancel.json", isFile: () => true },
         ];
       }
       return [];
-    });
+    }) as unknown as typeof fs.readdirSync);
 
     vi.spyOn(fs, "readFileSync").mockImplementation((p) => {
       const filename = path.basename(String(p));
@@ -133,7 +133,7 @@ describe("dev-only pending inbox loading (#707F09)", () => {
     vi.stubEnv("NODE_ENV", "production");
 
     vi.spyOn(fs, "existsSync").mockReturnValue(true);
-    vi.spyOn(fs, "readdirSync").mockReturnValue([{ name: "01-test.json", isFile: () => true } as fs.Dirent]);
+    vi.spyOn(fs, "readdirSync").mockReturnValue([{ name: "01-test.json", isFile: () => true }] as unknown as ReturnType<typeof fs.readdirSync>);
     vi.spyOn(fs, "readFileSync").mockReturnValue(
       JSON.stringify({ id: "req-1", action: "new", payload: { summary: "Test" } }),
     );
@@ -159,9 +159,9 @@ describe("dev-only pending inbox loading (#707F09)", () => {
     vi.stubEnv("NODE_ENV", "development");
 
     vi.spyOn(fs, "existsSync").mockReturnValue(true);
-    vi.spyOn(fs, "readdirSync").mockImplementation(() => {
+    vi.spyOn(fs, "readdirSync").mockImplementation((() => {
       throw new Error("EACCES: permission denied");
-    });
+    }) as unknown as typeof fs.readdirSync);
 
     const snapshot = loadLedgerSnapshot();
 
