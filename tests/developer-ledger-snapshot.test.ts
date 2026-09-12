@@ -4,7 +4,7 @@ import { loadLedgerSnapshot, openItemsByPriority, resolveFreshness } from "@/lib
 describe("ledger snapshot", () => {
   it("loads the generated snapshot and validates its version", () => {
     const snapshot = loadLedgerSnapshot();
-    expect(snapshot.version).toBe("outstanding-issues-snapshot-v1");
+    expect(snapshot.version).toBe("outstanding-issues-snapshot-v2");
     expect(snapshot.counts.open).toBeGreaterThan(0);
   });
 
@@ -17,7 +17,7 @@ describe("ledger snapshot", () => {
   it("reports a gap between ledger content and build", () => {
     const snapshot = {
       ...loadLedgerSnapshot(),
-      ledger_revision: { sha: "a".repeat(40), committed_at: "2026-08-20T00:00:00Z" },
+      ledger_revision: { committed_at: "2026-08-20" },
     };
     const freshness = resolveFreshness(snapshot, new Date("2026-08-21T00:00:00Z"));
     expect(freshness.ageHours).toBe(24);
