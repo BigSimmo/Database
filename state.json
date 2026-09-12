@@ -129,10 +129,10 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 21,
+  "revision": 22,
   "repairs": 1,
   "pass": 0,
-  "active": 2726,
+  "active": null,
   "pending": null,
   "reason": null,
   "entries": [
@@ -185,15 +185,17 @@
     {
       "number": 2726,
       "head": "61f05c35041d67ca503a4df039e0b5abb1514bc3",
-      "state": "merge_requested",
-      "reason": "ci-in-flight",
+      "state": "merged",
+      "reason": null,
       "attempts": 1,
       "fingerprints": [
         "998111a22d6d84b7c1c662aadd55f04c03a246cbcad27f928c4477f3535c8ea0"
       ],
       "updatedAt": "2026-09-12T03:43:30.285Z",
       "progressAt": "2026-09-12T04:05:56.971Z",
-      "retried": false
+      "retried": false,
+      "mergeCommit": "737ab08140abe2cd93f8aa76cce8304d99a19e61",
+      "mergedAt": "2026-09-12T04:21:48Z"
     },
     {
       "number": 2728,
@@ -483,6 +485,13 @@
       "at": "2026-09-12T04:22:03.925Z",
       "kind": "merge-request-observed",
       "number": 2726
+    },
+    {
+      "revision": 22,
+      "at": "2026-09-12T04:22:03.925Z",
+      "kind": "merged",
+      "number": 2726,
+      "commit": "737ab08140abe2cd93f8aa76cce8304d99a19e61"
     }
   ]
 }
