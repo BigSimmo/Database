@@ -2723,6 +2723,7 @@ async function answerQuestionWithScopeUncoalesced(
         responseMode: reviewPlan.displayMode,
         smartApiPlan: reviewPlan,
         answerSections: [],
+        sourceBackedReviewFallback: true,
       });
       finalizedAnswer.rejectedCandidateText ??= priorRejectedCandidateText;
     }
@@ -3743,6 +3744,7 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
               responseMode: reviewPlan.displayMode,
               smartApiPlan: reviewPlan,
               answerSections: [],
+              sourceBackedReviewFallback: true,
               relevance: generationFallbackArtifacts.relevance,
               scoreExplanations: generationFallbackArtifacts.scoreExplanations,
             } satisfies RagAnswer;
@@ -3782,6 +3784,7 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
             responseMode: reviewPlan.displayMode,
             smartApiPlan: reviewPlan,
             answerSections: [],
+            sourceBackedReviewFallback: true,
             queryAnalysis,
             relevance: generationFallbackArtifacts.relevance,
             scoreExplanations: generationFallbackArtifacts.scoreExplanations,

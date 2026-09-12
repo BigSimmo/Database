@@ -79,7 +79,6 @@ import {
 } from "@/lib/rag/rag-answer-text";
 import { cloneAnswer } from "@/lib/rag/rag-cache";
 import { ragProviderMode } from "@/lib/rag/rag-provider";
-import { SOURCE_BACKED_REVIEW_FALLBACK_REASON } from "@/lib/rag/rag-routing";
 import { retainRelatedDocumentsForResults } from "@/lib/retrieval-selection";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import {
@@ -4476,17 +4475,17 @@ function finalizeRagAnswerQualityCore(
   // Ledger #ZK460W. The source-backed review fallback is not a model answer being judged: it is a
   // deterministic pointer built in this module ("a full written answer could not be completed,
   // here are the passages that were retrieved"), delivered ungrounded and unsupported with
-  // review-only citations, and with the rejected candidate's sections already stripped at the
-  // routing site. Every gate below is written for model prose and returns the wrong verdict on it:
+  // review-only citations. Emission sites set `sourceBackedReviewFallback` so this short-circuit
+  // does not depend on routingReason string matching or empty-sections side-conditions.
+  // Every gate below is written for model prose and returns the wrong verdict on it:
   // the ungrounded/unsupported gate and the query-overlap gate both replace it with
   // "No current source ... was found", printed above the sources that were in fact found. That
   // contradiction is what previously forced the route to relabel itself grounded to stay clear of
   // these gates, which is the defect this row exists for. Nothing model-authored passes here.
   if (
-    (answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON) &&
+    answer.sourceBackedReviewFallback &&
     !answer.grounded &&
-    answer.confidence === "unsupported" &&
-    (answer.answerSections?.length ?? 0) === 0
+    answer.confidence === "unsupported"
   ) {
     // The display mode is forced conservative here rather than left to the route's smart plan: a
     // plan built for the rejected candidate can still ask for a threshold-table or comparison
