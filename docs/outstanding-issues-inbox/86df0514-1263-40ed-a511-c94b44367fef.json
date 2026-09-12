@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "86df0514-1263-40ed-a511-c94b44367fef",
+  "createdOn": "2026-09-09",
+  "action": "update",
+  "payload": {
+    "id": "#BAY1TY",
+    "detail": "MEASURED 2026-09-04: ward-model.ts declares 'sex: Sex' and no gender field anywhere. ward-eligibility.ts consumes it directly — unit.sexMix[movement.sex] and sexDesignationAccepts(unit.sexDesignation, movement.sex) — so a patient's bed eligibility is computed from that one value. There is currently no way to record that a patient's gender identity differs from their recorded sex, and therefore no way for the board to represent, let alone match on, that distinction. Harmless today (synthetic prototype, no real patients) and expensive later: the data model is the costly thing to change, the matching rule is cheap. Ward Builder Two relayed the owner's view that this goes to a clinician who works in this area rather than being settled internally, and that is right. TREAT AS A GATE BEFORE ANY REAL-PATIENT USE, not as an emergency. ADDED 2026-09-09 by review of the Command mockup (artifact d821a155) and the third-edition standard (artifact e7f7b6f2). The prototype carries the same single field and hardens it: a movement holds sex Male or Female, a ward holds sexDesignation plus sexMix as a two-key object of Female and Male, and the sex_mix gate reads both. MORE THAN THAT, THE PAGE'S OWN RECONCILE CHECK ENFORCES THE BINARY: it fails the ward unless sexMix.Female plus sexMix.Male equals occupied exactly, so a third value cannot be added to the fixture without breaking the screen's consistency line. The design system says nothing about sex or gender anywhere in its ten rules, its wording section or its definition of done, so nothing stops the next of the eighteen mockups copying the binary field forward. TWO SMALL THINGS WORTH DOING BEFORE THE CLINICIAN REVIEW LANDS, neither of which pre-empts it: record in section 8 of the standard that the modelling question is open and owned outside the build, and stop new mockups inheriting the field by copy.",
+    "baseRowFingerprint": "d90500f16865b5545e5724ce44877e5531512f2a280aa0dec0b0587c0eb53fb2"
+  }
+}
