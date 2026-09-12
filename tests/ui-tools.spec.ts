@@ -2965,8 +2965,13 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await expect(page.getByTestId("differential-compare-picker")).toBeVisible();
     await expect(page.getByTestId("differential-compare-open")).toBeVisible();
 
-    await page.getByTestId("differential-compare-open").click();
-    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
+    const desktopOpen = page.getByTestId("differential-compare-open");
+    await expect(desktopOpen).toHaveAttribute("href", /\/differentials\/presentations\/acute-confusion-encephalopathy/);
+    await desktopOpen.scrollIntoViewIfNeeded();
+    await Promise.all([
+      page.waitForURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 }),
+      desktopOpen.click(),
+    ]);
     await expect(page).toHaveURL(/ids=wernicke-encephalopathy/);
 
     await expect(
@@ -2999,8 +3004,13 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials/compare?ids=wernicke-encephalopathy");
     await expect(page.getByTestId("differential-compare-queue")).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId("differential-compare-open").click();
-    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
+    const mobileOpen = page.getByTestId("differential-compare-open");
+    await expect(mobileOpen).toHaveAttribute("href", /\/differentials\/presentations\/acute-confusion-encephalopathy/);
+    await mobileOpen.scrollIntoViewIfNeeded();
+    await Promise.all([
+      page.waitForURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 }),
+      mobileOpen.click(),
+    ]);
 
     // Scope to the live shell scrollport: Next may briefly retain a hidden
     // streaming `S:` clone of the page root under CI load, which would make a
