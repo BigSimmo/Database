@@ -194,8 +194,8 @@ between. Four changes, no term reviewed on 2026-08-22 was reopened:
    counterparty to a HIGH, gemfibrozil-specific alert. Accepted as a narrowing, and it is the same
    too-broad shape as the three corrections made on 2026-08-22.
 
-The scope statement below is unchanged and still applies, read as the 37 terms as they stand at the
-mappings hash above rather than as they stood on 2026-08-22.
+The scope statement below is updated to cover the 37 terms at the mappings hash above, including
+the four reviewed changes since 2026-08-22.
 
 ### What was corrected, and why
 
@@ -219,8 +219,10 @@ mappings hash above rather than as they stood on 2026-08-22.
    on an inducer, so warning that it will fail argues against the option that still works. It is now
    excluded; ethinylestradiol and levonorgestrel are retained.
 
-Measured effect: 23 medications changed, removals only, nothing added anywhere, all 328 catalogue
-medications intact, and resolved/unresolved row counts unchanged at 392 / 133.
+Measured effect of the 2026-08-22 corrections: 23 medications changed, removals only, with the
+328-medication catalogue and resolved/unresolved row counts (392 / 133) intact at that time. The
+2026-09-06 re-signing records the later expansion to 330 catalogue medications and the two reviewed
+mapping additions described above.
 
 ### Classification questions answered
 
@@ -232,11 +234,11 @@ medications intact, and resolved/unresolved row counts unchanged at 392 / 133.
 
 ### Recorded limits this sign-off does NOT resolve
 
-`acei` resolves to perindopril alone, `arbs` to candesartan alone, and `statins` to atorvastatin and
-rosuvastatin. Ramipril, lisinopril, irbesartan and simvastatin are absent from the catalogue
-entirely, so a patient taking one of them produces **silence, not safety**. That is a catalogue
-coverage gap rather than a mapping fault, and it is not fixable in this file. The same caveat applies
-to the 26 medications listed under "What this tool can never warn about" above.
+`acei` resolves to perindopril and ramipril, `arbs` to candesartan, and `statins` to atorvastatin,
+rosuvastatin and simvastatin. Lisinopril and irbesartan are absent from the catalogue entirely, so a
+patient taking either produces **silence, not safety**. That is a catalogue coverage gap rather than
+a mapping fault, and it is not fixable in this file. The same caveat applies to the 26 medications
+listed under "What this tool can never warn about" above.
 
 **That count rose from 20 to 26 because of this review, and the six are named here rather than left
 in a total.** Betamethasone, clobetasol, hydrocortisone 1%, triamcinolone, cetirizine and loratadine
@@ -258,12 +260,13 @@ re-derivation from the primary sources, and it should not be described as one.
 
 ### Scope of this sign-off
 
-It covers the 37 catalogue-term mappings as they stood on 2026-08-22. It is **not** a review of the
-interaction wording, which is verbatim from the source catalogue, nor of the `external`, `nonDrug` or
-`mechanism` terms, which resolve to no catalogue drug and therefore raise no alert. Any later change
-to the lexicon falls outside it and must be re-checked.
+It covers the 37 catalogue-term mappings re-signed on 2026-09-06, including the four reviewed
+changes since the original 2026-08-22 review. It is **not** a review of the interaction wording,
+which is verbatim from the source catalogue, nor of the `external`, `nonDrug` or `mechanism` terms,
+which resolve to no catalogue drug and therefore raise no alert. Any later change to the lexicon
+falls outside it and must be re-checked.
 
-The mappings above were reviewed on the date recorded in this block. The wording shown to the
-clinician is always verbatim from the catalogue; what this sign-off covers is _which drugs a phrase
-was taken to mean_, as of that date and no later. Treat any term changed since as unvalidated until
-this block is updated.
+The mappings above were reviewed and re-signed on the date recorded in this block. The wording shown
+to the clinician is always verbatim from the catalogue; what this sign-off covers is _which drugs a
+phrase was taken to mean_, as of that date and no later. Treat any term changed since as unvalidated
+until this block is updated.

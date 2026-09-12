@@ -3,13 +3,13 @@ import http from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   DEV_SERVER_BUILD_REFUSED_EXIT_CODE,
-  discardDevServerTypes,
   evaluateNextBuildRamGuard,
   findRunningProjectServer,
+  runNextBuildGuard,
 } from "../scripts/guard-next-build.mjs";
 import {
   appName,
@@ -49,47 +49,25 @@ describe("DEV_SERVER_BUILD_REFUSED_EXIT_CODE", () => {
   });
 });
 
-describe("discardDevServerTypes", () => {
-  const roots: string[] = [];
-
-  afterEach(() => {
-    while (roots.length) rmSync(roots.pop()!, { recursive: true, force: true, maxRetries: 5 });
-  });
-
-  function scratchRoot() {
+describe("runNextBuildGuard", () => {
+  it("leaves dev output intact when no startup/build coordination lease exists", async () => {
+    // `npm run dev` accepts arbitrary PORT/--port values and can begin after a
+    // probe succeeds. A build guard has no atomic proof that deleting this
+    // checkout's dev output is safe, so its normal path must not do it.
     const root = mkdtempSync(path.join(tmpdir(), "guard-next-build-"));
-    roots.push(root);
-    return root;
-  }
-
-  it("removes a dev server's leftover output so a truncated validator cannot fail the build", () => {
-    // A dev server stopped mid-write leaves `.next/dev/types/validator.ts` half
-    // finished, and `next build` type-checks it: the build then fails on a
-    // generated file nobody wrote. Observed on 2026-09-06, cost a full
-    // verify:pr-local run.
-    const root = scratchRoot();
     mkdirSync(path.join(root, ".next", "dev", "types"), { recursive: true });
-    writeFileSync(path.join(root, ".next", "dev", "types", "validator.ts"), "export const truncated = {");
+    writeFileSync(path.join(root, ".next", "dev", "types", "validator.ts"), "export const stale = {");
 
-    discardDevServerTypes(root);
+    await expect(
+      runNextBuildGuard({
+        rootDir: root,
+        evaluateRamGuard: () => "ok",
+        findServer: async () => null,
+      }),
+    ).resolves.toEqual({ status: "ok" });
+    expect(existsSync(path.join(root, ".next", "dev", "types", "validator.ts"))).toBe(true);
 
-    expect(existsSync(path.join(root, ".next", "dev"))).toBe(false);
-  });
-
-  it("leaves production build output alone", () => {
-    const root = scratchRoot();
-    mkdirSync(path.join(root, ".next", "server"), { recursive: true });
-    writeFileSync(path.join(root, ".next", "BUILD_ID"), "abc123");
-
-    discardDevServerTypes(root);
-
-    expect(existsSync(path.join(root, ".next", "server"))).toBe(true);
-    expect(existsSync(path.join(root, ".next", "BUILD_ID"))).toBe(true);
-  });
-
-  it("is a no-op when there is nothing to discard", () => {
-    const root = scratchRoot();
-    expect(() => discardDevServerTypes(root)).not.toThrow();
+    rmSync(root, { recursive: true, force: true, maxRetries: 5 });
   });
 });
 

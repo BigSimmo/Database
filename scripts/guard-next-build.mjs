@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { rmSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import os from "node:os";
@@ -113,32 +112,35 @@ export async function findRunningProjectServer(rootDir = projectRoot) {
   return null;
 }
 
-/**
- * Remove `.next/dev`, the dev server's own output, before a production build.
- *
- * A dev server stopped mid-write leaves a truncated `.next/dev/types/validator.ts`
- * behind, and `next build` type-checks it: the build then fails with a syntax
- * error in a generated file nobody wrote, on a tree where nothing is wrong. That
- * cost a full `verify:pr-local` run on 2026-09-06. `guard-push.mjs` already works
- * around the same artefact for Prettier; this closes it for the build.
- *
- * Only reached once the checks above have established no dev server is running,
- * so nothing is reading or rewriting the directory as it is removed. Production
- * output lives in `.next/server`, `.next/static` and `.next/types`, none of which
- * are touched — the cost of being wrong is one slower dev start, not a rebuild.
- */
-export function discardDevServerTypes(rootDir = projectRoot) {
-  rmSync(path.join(rootDir, ".next", "dev"), { recursive: true, force: true });
+async function main() {
+  const result = await runNextBuildGuard();
+  if (result.status === "low-ram") process.exit(1);
+  if (result.status === "dev-server-running") process.exit(DEV_SERVER_BUILD_REFUSED_EXIT_CODE);
 }
 
-async function main() {
-  const ramDecision = evaluateNextBuildRamGuard();
+/**
+ * Check whether a production build may begin without mutating dev output.
+ *
+ * A server probe is necessarily advisory: `npm run dev` accepts ports outside
+ * the managed range and a server can start after the probe. Keep this guard to
+ * refusing known concurrent servers; deleting `.next/dev` requires startup and
+ * build coordination that this process does not own.
+ */
+export async function runNextBuildGuard({
+  rootDir = projectRoot,
+  env = process.env,
+  evaluateRamGuard = evaluateNextBuildRamGuard,
+  findServer = findRunningProjectServer,
+  error = console.error,
+  warn = console.warn,
+} = {}) {
+  const ramDecision = evaluateRamGuard();
   if (ramDecision === "fail") {
-    console.error(formatLowRamBuildMessage());
-    process.exit(1);
+    error(formatLowRamBuildMessage());
+    return { status: "low-ram" };
   }
   if (ramDecision === "warn") {
-    console.warn(
+    warn(
       [
         formatLowRamBuildMessage(),
         "Continuing because CI, GITHUB_ACTIONS, or ALLOW_LOW_RAM_BUILD=1 is set (hosted runners often report ~7–8 GiB).",
@@ -146,24 +148,24 @@ async function main() {
     );
   }
 
-  if (process.env.ALLOW_BUILD_WITH_DEV_SERVER === "1") {
-    console.warn("ALLOW_BUILD_WITH_DEV_SERVER=1 is set; continuing even if the local dev server is running.");
-    return;
+  if (env.ALLOW_BUILD_WITH_DEV_SERVER === "1") {
+    warn("ALLOW_BUILD_WITH_DEV_SERVER=1 is set; continuing even if the local dev server is running.");
+    return { status: "ok" };
   }
 
-  const runningPort = await findRunningProjectServer();
+  const runningPort = await findServer(rootDir);
   if (runningPort) {
-    console.error(
+    error(
       [
         `Refusing to run next build while ${appName} dev server is running at http://localhost:${runningPort}.`,
         "Stop the dev server first, or set ALLOW_BUILD_WITH_DEV_SERVER=1 if this cache churn is intentional.",
         `BUILD_REFUSED_DEV_SERVER exit=${DEV_SERVER_BUILD_REFUSED_EXIT_CODE}`,
       ].join("\n"),
     );
-    process.exit(DEV_SERVER_BUILD_REFUSED_EXIT_CODE);
+    return { status: "dev-server-running", port: runningPort };
   }
 
-  discardDevServerTypes();
+  return { status: "ok" };
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(modulePath);
