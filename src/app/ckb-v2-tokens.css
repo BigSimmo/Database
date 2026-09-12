@@ -235,7 +235,7 @@
   --clinical-chat-table-header: #fbfcfd;
   --clinical-chat-document: #f8fafc;
 
-  --border: #e6ebf2;
+  --border: #e3e8ef;
   --border-strong: #d3dbe5;
   /* Solid, not 55% alpha: alpha computed LIGHTER than --border, so panels had
      weaker edges than the cards nested inside them (#43). */
@@ -254,7 +254,7 @@
      names resolve to the same value during the deprecation window. */
   --text-soft: #8894a6;
   --decoration-soft: #8894a6;
-  --disabled: #9aa5b5;
+  --disabled: #8794a8;
 
   --command: #111827;
   --command-hover: #0b1220;

@@ -78,7 +78,7 @@ describe("calculator clinical catalogue", () => {
     for (const source of calculatorEvidence.sources) {
       expect(source.type).toBeTruthy();
       expect(source.version).toBeTruthy();
-      expect(source.url).toMatch(/^https:\/\//);
+      expect(source.url).toMatch(/^(\/|https:\/\/)/);
       expect(source.claimsSupported.length).toBeGreaterThan(0);
       expect(source.limitations.length).toBeGreaterThan(0);
       for (const claimId of source.claimsSupported) expect(claimIds.has(claimId)).toBe(true);

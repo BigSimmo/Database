@@ -21911,6 +21911,14 @@
         "checks": "`git merge-base --is-ancestor bafceee0588483bed209b321d9fdf68f48b7ea2f origin/main`."
       },
       {
+        "date": "2026-09-12",
+        "ref": "codex/lighthouse-baseline-reliability",
+        "head": "bb24e48be4936ab31f58b1c30910c2bb9ef38fd6",
+        "scope": "prlanded",
+        "outcome": "MERGED via GitHub merge commit; tree matches tip 9c4e5fca; on main",
+        "checks": "PR required green before merge; content empty-diff vs tip"
+      },
+      {
         "date": "2026-08-18",
         "ref": "dependabot/github_actions/github-actions-6d70da7aad (PR #2011)",
         "head": "bb5e4d1158639d678c75c8fd85f5e3fd608e2936",
@@ -26029,6 +26037,14 @@
         "scope": "Streamlined-sidebar handoff in the merged universal ledger",
         "outcome": "APPROVE. PRs #1112, #1116, and #1117 landed the universal-ledger baseline, two preserved UI tasks, and credential/hook hardening; this follow-up preserves that current-main schema and adds only the still-missing sidebar delivery as collision-free `#066`. The queue remains gap-free and every recommended ID has one open row. Sidebar implementation stays recoverable from remote branch `origin/codex/sidebar-test-fix-20260723` at full commit `cd54e68fbf7b07b5dffe3220e36af2caa528da54` until its local/browser/build/hosted merge proof is complete.",
         "checks": "Focused sidebar/favourites tests previously passed 18/18 on the recorded implementation commit; this ledger follow-up passed Prettier, remote-ref recovery, 36-row contiguous-order/46-open-ID/next-ID invariants, and `git diff --check`. The broader reconciled precursor passed `verify:cheap` (365 files, 3,242 passed/1 skipped); fresh exact-head hosted CI is required on PR #1114. No OpenAI, Supabase, Railway, deployment, live-app, credential, or production-data action ran."
+      },
+      {
+        "date": "2026-09-12",
+        "ref": "claude/developer-hub-hazard-register",
+        "head": "eef21127dd089e28d733cb3923039c20f172dd3f",
+        "scope": "prlanded",
+        "outcome": "MERGED via GitHub merge commit; tree matches tip 89c9b0bc; on main",
+        "checks": "PR required green before merge; content empty-diff vs tip"
       },
       {
         "date": "2026-08-12",

@@ -67,9 +67,15 @@ const light = declarations(lightBlock);
 const dark = declarations(darkBlock);
 const v2Light = declarations(allThemeBlocks(v2Stylesheet, ".ckb-v2.ckb-v2"));
 const v2Dark = declarations(allThemeBlocks(v2Stylesheet, ".dark .ckb-v2.ckb-v2"));
+const effectiveLight = new Map([...light, ...v2Light]);
+const effectiveDark = new Map([...dark, ...v2Dark]);
 const themes = [
   { name: "light", tokens: light },
   { name: "dark", tokens: dark },
+] as const;
+const effectiveThemes = [
+  { name: "light", tokens: effectiveLight },
+  { name: "dark", tokens: effectiveDark },
 ] as const;
 
 /** Resolves `var(--x)` chains within one theme so aliases can be compared. */
@@ -140,6 +146,38 @@ describe("surface scale", () => {
     expect(hairline, "--border must remain perceptible").toBeGreaterThanOrEqual(1.2);
     expect(strong, "--border-strong must read as a deliberate weight").toBeGreaterThanOrEqual(1.45);
     expect(strong / hairline, "--border-strong is not distinguishable from --border").toBeGreaterThanOrEqual(1.2);
+  });
+
+  it.each(effectiveThemes)(
+    "keeps both border weights visible and separable in effective cascade ($name)",
+    ({ tokens }) => {
+      const hairline = contrastRatio(colourOf(tokens, "--border"), colourOf(tokens, "--surface"));
+      const strong = contrastRatio(colourOf(tokens, "--border-strong"), colourOf(tokens, "--surface"));
+
+      expect(hairline, "--border must remain perceptible").toBeGreaterThanOrEqual(1.2);
+      expect(strong, "--border-strong must read as a deliberate weight").toBeGreaterThanOrEqual(1.35);
+      expect(strong / hairline, "--border-strong is not distinguishable from --border").toBeGreaterThanOrEqual(1.12);
+    },
+  );
+});
+
+describe("effective v2 surface elevation model", () => {
+  // In v2, light mode intentionally unifies --surface and --surface-raised to #ffffff,
+  // providing elevation via shadow tiers (--e1..--e4) rather than background step (#QAKV4N).
+  it("unifies resting and raised surfaces in effective light mode", () => {
+    expect(colourOf(effectiveLight, "--surface")).toBe("#ffffff");
+    expect(colourOf(effectiveLight, "--surface-raised")).toBe("#ffffff");
+  });
+
+  // In dark mode, base surface sits at resting tone #12161a, with subtle and raised
+  // elevated together at #1c2126 above the resting ground.
+  it("elevates subtle and raised above resting surface in effective dark mode", () => {
+    const surface = colourOf(effectiveDark, "--surface");
+    const raised = colourOf(effectiveDark, "--surface-raised");
+    const subtle = colourOf(effectiveDark, "--surface-subtle");
+
+    expect(relativeLuminance(raised)).toBeGreaterThan(relativeLuminance(surface));
+    expect(subtle).toBe(raised);
   });
 });
 
@@ -333,6 +371,10 @@ describe("disabled and pre-paint values", () => {
   it.each(themes)("keeps disabled text readable in $name", ({ tokens }) => {
     // WCAG exempts disabled controls, but a clinician still has to read WHICH
     // action is unavailable.
+    expect(contrastRatio(colourOf(tokens, "--disabled"), colourOf(tokens, "--surface"))).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(effectiveThemes)("keeps disabled text readable in effective cascade ($name)", ({ tokens }) => {
     expect(contrastRatio(colourOf(tokens, "--disabled"), colourOf(tokens, "--surface"))).toBeGreaterThanOrEqual(3);
   });
 
