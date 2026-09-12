@@ -30,7 +30,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const evidencePath = resolve(root, "data/calculators/evidence.json");
 const vectorPath = resolve(root, "data/calculators/golden-vectors.json");
-const fixturesPath = resolve(root, "src/components/calculators/calculator-fixtures.ts");
+const fixturesPath = resolve(root, "src/lib/calculators/calculator-fixtures.ts");
 
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 

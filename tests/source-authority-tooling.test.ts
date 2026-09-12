@@ -4,12 +4,15 @@ import { describe, expect, it, vi } from "vitest";
 import {
   analyzeSourceLocality,
   assertLocalityMetadataPatch,
+  auditProposedSourcePolicyMetadata,
   auditSourceAuthorityDocuments,
   inferSourceAuthorityFromIdentity,
   isRegistryRecordSource,
+  localityMetadataKeys,
   type SourceAuthorityDocument,
 } from "@/lib/source-authority-metadata";
-import { classifySourceAuthority } from "@/lib/source-authority-registry";
+import { australianSourceByKey, australianSourcePolicyVersion } from "@/lib/australian-source-catalogue";
+import { authorityIdentityForCatalogueEntry, classifySourceAuthority } from "@/lib/source-authority-registry";
 import { parseBackfillSourceMetadataArgs, runLocalityOnlyBackfill } from "../scripts/backfill-source-metadata";
 
 function document(
@@ -25,6 +28,194 @@ function document(
 }
 
 describe("source authority metadata tooling", () => {
+  const activeAustralianMetadata = (overrides: Record<string, unknown> = {}) => ({
+    source_kind: "document",
+    corpus_scope: "australian_public",
+    source_role: "clinical_guideline",
+    content_mode: "indexed_content",
+    source_policy_version: australianSourcePolicyVersion,
+    licence_policy: "public_index_permitted",
+    document_status: "current",
+    clinical_validation_status: "approved",
+    extraction_quality: "good",
+    ...overrides,
+  });
+
+  it("binds catalogue-only identities only through an exact catalogue tuple", () => {
+    for (const [key, publisherCode, jurisdiction, tier] of [
+      ["wa-chief-psychiatrist", "OCPWA", "Australia/WA", "wa_validated"],
+      ["wa-legislation", "WALEG", "Australia/WA", "wa_validated"],
+      ["australian-prescriber", "AUSPRES", "Australia", "australian_national"],
+    ] as const) {
+      const entry = australianSourceByKey(key);
+      expect(entry).not.toBeNull();
+      expect(authorityIdentityForCatalogueEntry(entry!)?.codes).toContain(publisherCode);
+      expect(
+        classifySourceAuthority(
+          activeAustralianMetadata({
+            source_catalogue_key: key,
+            publisher_code: publisherCode,
+            publisher: entry!.publisher,
+            jurisdiction,
+            source_role: entry!.roles[0],
+          }),
+        ),
+      ).toMatchObject({
+        tier,
+        designation: "trusted",
+        authorityKey: key,
+        matchedBy: "source_catalogue_key",
+        cataloguePolicyResolved: true,
+        australianAugmentationEligible: true,
+      });
+
+      expect(classifySourceAuthority(activeAustralianMetadata({ publisher_code: publisherCode }))).toMatchObject({
+        tier: "supplementary",
+        designation: "unclassified",
+        cataloguePolicyResolved: false,
+        australianAugmentationEligible: false,
+      });
+    }
+  });
+
+  it("requires the exact catalogue key, compatible publisher code, jurisdiction, and active policy semantics", () => {
+    const valid = activeAustralianMetadata({
+      source_catalogue_key: "wa-health",
+      publisher_code: "WAHEALTH",
+      publisher: "WA Health",
+      jurisdiction: "Australia/WA",
+      source_role: "service_policy",
+    });
+
+    expect(classifySourceAuthority({ ...valid, publisher_code: "TGA" })).toMatchObject({
+      cataloguePolicyResolved: false,
+      australianAugmentationEligible: false,
+      tier: "supplementary",
+    });
+    expect(classifySourceAuthority({ ...valid, jurisdiction: "Australia/NSW" })).toMatchObject({
+      cataloguePolicyResolved: false,
+      australianAugmentationEligible: false,
+      tier: "supplementary",
+    });
+    expect(classifySourceAuthority({ ...valid, content_mode: "link_only" })).toMatchObject({
+      cataloguePolicyResolved: true,
+      australianAugmentationEligible: false,
+      eligibilityReasons: expect.arrayContaining(["catalogue_content_mode_mismatch"]),
+    });
+    expect(classifySourceAuthority({ ...valid, licence_policy: "review_required" })).toMatchObject({
+      cataloguePolicyResolved: true,
+      australianAugmentationEligible: false,
+      eligibilityReasons: expect.arrayContaining(["catalogue_licence_ineligible"]),
+    });
+  });
+
+  it("keeps historical NPS recognisable but never active Australian augmentation", () => {
+    expect(
+      classifySourceAuthority(
+        activeAustralianMetadata({
+          source_catalogue_key: "nps-medicinewise",
+          publisher_code: "NPS",
+          publisher: "NPS MedicineWise",
+          jurisdiction: "Australia",
+          source_role: "professional_review",
+        }),
+      ),
+    ).toMatchObject({
+      designation: "trusted",
+      authorityKey: "nps-medicinewise",
+      cataloguePolicyResolved: true,
+      australianAugmentationEligible: false,
+      tier: "supplementary",
+      eligibilityReasons: expect.arrayContaining(["catalogue_inactive"]),
+    });
+  });
+
+  it("does not let title, prose, or first-party registry projections self-assert Australian policy", () => {
+    expect(
+      classifySourceAuthority(
+        activeAustralianMetadata({
+          source_title: "WA Health policy",
+          body: "Official WA Health guidance from the Australian Prescriber.",
+          publisher_code: null,
+          jurisdiction: "Australia/WA",
+        }),
+      ),
+    ).toMatchObject({
+      cataloguePolicyResolved: false,
+      australianAugmentationEligible: false,
+      tier: "supplementary",
+      eligibilityReasons: expect.not.arrayContaining(["catalogue_inactive"]),
+    });
+
+    expect(
+      classifySourceAuthority(
+        activeAustralianMetadata({
+          source_kind: "registry_record",
+          corpus_scope: "clinical_kb_site",
+          source_catalogue_key: "wa-health",
+          publisher_code: "WAHEALTH",
+          publisher: "WA Health",
+          jurisdiction: "Australia/WA",
+          source_role: "service_policy",
+        }),
+      ),
+    ).toMatchObject({
+      designation: "unclassified",
+      cataloguePolicyResolved: false,
+      australianAugmentationEligible: false,
+      tier: "supplementary",
+      reasonCodes: expect.arrayContaining(["registry_summary_identity"]),
+    });
+
+    for (const sourceKind of [undefined, "future_import"]) {
+      expect(
+        classifySourceAuthority(
+          activeAustralianMetadata({
+            source_kind: sourceKind,
+            source_catalogue_key: "wa-health",
+            publisher_code: "WAHEALTH",
+            publisher: "WA Health",
+            jurisdiction: "Australia/WA",
+            source_role: "service_policy",
+          }),
+        ),
+      ).toMatchObject({
+        cataloguePolicyResolved: false,
+        australianAugmentationEligible: false,
+      });
+    }
+  });
+
+  it("reports proposed policy metadata separately without widening locality mutations", () => {
+    const candidate = document({
+      file_name: "policy.pdf",
+      metadata: {
+        source_kind: "document",
+        source_catalogue_key: "wa-health",
+        publisher_code: "WAHEALTH",
+        publisher: "WA Health",
+        jurisdiction: "Australia/WA",
+      },
+    });
+    const before = structuredClone(candidate);
+    const report = auditProposedSourcePolicyMetadata([candidate]);
+
+    expect(report).toMatchObject({
+      candidate_count: 1,
+      proposals: [
+        expect.objectContaining({
+          source_catalogue_key: "wa-health",
+          corpus_scope: "australian_public",
+          source_policy_version: australianSourcePolicyVersion,
+          content_mode: "indexed_content",
+          lifecycle: "active",
+        }),
+      ],
+    });
+    expect(candidate).toEqual(before);
+    expect(localityMetadataKeys).toEqual(["publisher_code", "publisher", "jurisdiction"]);
+  });
+
   it("infers WA and national authorities from exact registry code tokens", () => {
     expect(inferSourceAuthorityFromIdentity(document({ file_name: "WACHS-lithium-guideline.pdf" }))).toMatchObject({
       code: "WACHS",
@@ -40,7 +231,7 @@ describe("source authority metadata tooling", () => {
     });
   });
 
-  it("recognizes the Office of the Chief Psychiatrist as a WA authority", () => {
+  it("requires governed catalogue metadata before trusting the OCP WA alias", () => {
     expect(
       classifySourceAuthority({
         publisher_code: "OCP WA",
@@ -51,9 +242,11 @@ describe("source authority metadata tooling", () => {
         extraction_quality: "good",
       }),
     ).toMatchObject({
-      authorityKey: "office-of-the-chief-psychiatrist-wa",
-      authority: { scope: "wa" },
-      designation: "trusted",
+      authorityKey: null,
+      authority: null,
+      designation: "unclassified",
+      cataloguePolicyResolved: false,
+      australianAugmentationEligible: false,
       conflict: false,
     });
   });
@@ -127,6 +320,8 @@ describe("source authority metadata tooling", () => {
       source_path: "WA Health/EMHS/Registry/emhs-crisis-service.json",
       metadata: {
         source_kind: "registry_record",
+        corpus_scope: "clinical_kb_site",
+        source_role: "service_directory",
         publisher: "PsychSift registry",
         jurisdiction: "WA/local clinical workspace",
       },
@@ -149,6 +344,11 @@ describe("source authority metadata tooling", () => {
       missing_australian_locality_count: 0,
       proposed_locality_correction_count: 0,
       passed: true,
+    });
+    expect(classifySourceAuthority(registryRecord.metadata)).toMatchObject({
+      designation: "unclassified",
+      australianAugmentationEligible: false,
+      reasonCodes: expect.arrayContaining(["registry_summary_identity"]),
     });
   });
 
@@ -364,6 +564,29 @@ describe("source authority metadata tooling", () => {
       designation: "unclassified",
       reasonCodes: expect.arrayContaining(["registry_summary_identity"]),
     });
+  });
+
+  it("keeps catalogue-only publisher identities out of runtime authority priority", () => {
+    for (const publisherCode of ["OCPWA", "WALEG", "AUSPRES"]) {
+      expect(
+        classifySourceAuthority({
+          source_kind: "document",
+          publisher_code: publisherCode,
+          document_status: "current",
+          clinical_validation_status: "approved",
+          extraction_quality: "good",
+        }),
+      ).toMatchObject({
+        tier: "supplementary",
+        designation: "unclassified",
+        authorityKey: null,
+        authority: null,
+        matchedBy: "none",
+        codeKnown: false,
+        eligibilityReasons: expect.arrayContaining(["unrecognized_authority"]),
+        reasonCodes: expect.arrayContaining(["unrecognized_authority"]),
+      });
+    }
   });
 
   it("fails closed when a locality metadata patch RPC is rejected", async () => {

@@ -9,10 +9,21 @@ import {
   NaturalLanguageAnswer,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
-import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
 import { answerSurface, cn, textMuted } from "@/components/ui-primitives";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
-import type { RagAnswer, SearchResult } from "@/lib/types";
+import { AnswerInlineSections } from "@/components/clinical-dashboard/answer-inline-sections";
+import {
+  buildAnswerSourceRows,
+  citedSourceIdsForAnswerProjection,
+} from "@/components/clinical-dashboard/answer-source-rows";
+import {
+  answerUsesAdaptiveMainSurface,
+  projectAnswerForMainSurface,
+} from "@/components/clinical-dashboard/answer-section-projector";
+import { answerUsesDegradedMode, answerUsesSourceOnlyProvenance } from "@/components/ui/answer-state";
+import type { AnswerPayload } from "@/components/clinical-dashboard/search-utils";
+import { demoAnswerDisclosure } from "@/lib/answer-client-payload";
+import type { ClientSearchResult } from "@/lib/answer-client-payload";
 
 /**
  * A completed Q&A exchange kept on screen after a newer answer arrives, so
@@ -21,8 +32,9 @@ import type { RagAnswer, SearchResult } from "@/lib/types";
 export type AnswerTurn = {
   id: string;
   query: string;
-  answer: RagAnswer;
-  sources: SearchResult[];
+  resolvedQuery?: string;
+  answer: AnswerPayload;
+  sources: ClientSearchResult[];
 };
 
 export const maxVisiblePriorTurns = 10;
@@ -54,13 +66,44 @@ export function PriorAnswerTurnSurface({
     [turn.answer, turn.sources],
   );
   const turnPreformatted = isPreformattedGroundedAnswer(turn.answer);
-  const safeText = useMemo(
-    () => sanitizeAnswerDisplayText(turn.answer.answer, { preformatted: turnPreformatted }),
-    [turn.answer.answer, turnPreformatted],
+  const projectedAnswer = useMemo(
+    () =>
+      projectAnswerForMainSurface({
+        answer: turn.answer,
+        sources: turn.answer.sources.length > 0 ? turn.answer.sources : turn.sources,
+        preformatted: turnPreformatted,
+      }),
+    [turn.answer, turn.sources, turnPreformatted],
   );
-  const previewText = safeText || turn.answer.answer;
+  const renderAdaptiveAnswer = answerUsesAdaptiveMainSurface(turn.answer);
+  const citedSourceIds = useMemo(
+    () => (renderAdaptiveAnswer ? citedSourceIdsForAnswerProjection(projectedAnswer) : undefined),
+    [projectedAnswer, renderAdaptiveAnswer],
+  );
+  const railSources = useMemo(
+    () => buildAnswerSourceRows(renderModel.bestSource, turn.sources, renderModel.primarySources, citedSourceIds),
+    [citedSourceIds, renderModel.bestSource, renderModel.primarySources, turn.sources],
+  );
+  const legacySourceCount =
+    renderModel.primarySources.length ||
+    turn.sources.length ||
+    turn.answer.sources?.length ||
+    turn.answer.citations.length;
+  const leadSourceLinks = renderAdaptiveAnswer ? [] : renderModel.primarySources;
+  const leadBestSource = renderAdaptiveAnswer ? null : renderModel.bestSource;
+  const leadSourceCount = renderAdaptiveAnswer ? projectedAnswer.leadCitationSources.length : legacySourceCount;
+  const previewText = projectedAnswer.leadText || turn.answer.answer;
+  const degradedAnswer = answerUsesDegradedMode({
+    answerQualityTier: turn.answer.answerQualityTier,
+    fallbackReasonCode: turn.answer.fallbackReasonCode,
+    degradedMode: turn.answer.degradedMode,
+  });
+  const sourceOnlyAnswer = answerUsesSourceOnlyProvenance({
+    answerQualityTier: turn.answer.answerQualityTier,
+    routingMode: turn.answer.routingMode,
+  });
   const needsSourceReview =
-    turn.answer.answerQualityTier === "source_only" ||
+    degradedAnswer ||
     turn.answer.grounded === false ||
     renderModel.trust === "low" ||
     renderModel.trust === "unsupported";
@@ -77,6 +120,11 @@ export function PriorAnswerTurnSurface({
     >
       <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
         <UserQuestionBubble query={turn.query} />
+        {turn.answer.demoMode === true || turn.answer.fallbackMode === "non_production_demo" ? (
+          <p role="note" className="text-sm text-[color:var(--warning)]">
+            {demoAnswerDisclosure}
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={onToggleCollapsed}
@@ -91,12 +139,15 @@ export function PriorAnswerTurnSurface({
         ) : (
           <>
             <NaturalLanguageAnswer
-              text={turn.answer.answer}
+              text={projectedAnswer.leadText}
               query={turn.query}
               preformatted={turnPreformatted}
-              bestSource={renderModel.bestSource}
-              sources={renderModel.reviewSources}
-              sourceLinks={renderModel.primarySources}
+              sourceCount={leadSourceCount}
+              sourceOnly={sourceOnlyAnswer}
+              bestSource={leadBestSource}
+              sources={projectedAnswer.leadCitationSources}
+              sourceLinks={leadSourceLinks}
+              railRows={railSources}
               copied={copied}
               onCopy={() =>
                 onCopy(
@@ -109,6 +160,7 @@ export function PriorAnswerTurnSurface({
                 )
               }
             />
+            {renderAdaptiveAnswer ? <AnswerInlineSections sections={projectedAnswer.sections} /> : null}
             {needsSourceReview ? (
               <div
                 role="note"
@@ -117,8 +169,10 @@ export function PriorAnswerTurnSurface({
               >
                 <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden />
                 <span>
-                  <strong className="text-[color:var(--text-heading)]">Review source match.</strong> Verify cited
-                  passages before relying on this previous answer.
+                  <strong className="text-[color:var(--text-heading)]">Review source match.</strong>{" "}
+                  {degradedAnswer && turn.answer.degradedMode?.reason
+                    ? turn.answer.degradedMode.reason
+                    : "Verify cited passages before relying on this previous answer."}
                 </span>
               </div>
             ) : null}

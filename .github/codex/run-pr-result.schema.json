@@ -2,8 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
-  "required": ["summary", "checks", "thread_dispositions", "rerun_failed_run_ids"],
+  "required": ["summary", "checks", "progress_outcome", "thread_dispositions", "rerun_failed_run_ids"],
   "properties": {
+    "progress_outcome": {
+      "type": "string",
+      "enum": ["progress", "blocked", "no_change"]
+    },
     "summary": {
       "type": "string",
       "minLength": 1,

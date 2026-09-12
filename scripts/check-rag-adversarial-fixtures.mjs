@@ -41,13 +41,19 @@ const readJson = (relative) => JSON.parse(readFileSync(path.join(repoRoot, relat
 /** The live prompt version, so the baseline cannot silently describe an older prompt. */
 function readPromptVersion() {
   const source = readFileSync(path.join(repoRoot, versioningPath), "utf8");
-  return source.match(/ragAnswerPromptVersion\s*=\s*"([^"]+)"/)?.[1] ?? "";
+  return source.match(/ragAdaptiveAnswerPromptVersion\s*=\s*"([^"]+)"/)?.[1] ?? "";
 }
 
 const dataset = readJson(datasetPath);
 const baseline = readJson(baselinePath);
 
+const evaluationVersion = readFileSync(path.join(repoRoot, versioningPath), "utf8").match(
+  /ragAnswerQualityEvaluationVersion\s*=\s*"([^"]+)"/,
+)?.[1];
 const failures = [
+  ...(baseline.reportKey?.eval_config_version === evaluationVersion
+    ? []
+    : ["Candidate evaluation fingerprint does not match the implemented metric contract"]),
   ...validateAdversarialDataset(dataset).map((failure) => `${datasetPath} — ${failure}`),
   ...validateBaselineRecord(baseline, {
     promptVersion: readPromptVersion(),

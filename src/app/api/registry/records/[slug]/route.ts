@@ -11,14 +11,12 @@ import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { getFormRecord } from "@/lib/forms";
+import { deriveGovernanceColumns, normalizeRegistrySlug } from "@/lib/registry-records";
 import {
-  deriveGovernanceColumns,
-  normalizeRegistrySlug,
-  rowGovernance,
-  type RegistryRecordRow,
-} from "@/lib/registry-records";
-import { mergeRegistryRecordWithDefault } from "@/lib/registry-seed";
-import { getServiceRecord } from "@/lib/services";
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
+import { getServiceRecord, type ServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery } from "@/lib/validation/query";
@@ -88,63 +86,24 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       return rateLimitJsonResponse("Registry requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    if (!access.ownerId) {
-      const payload = publicRegistryDetailPayload(kind, normalizedSlug);
-      if (!payload) return notFoundResponse(normalizedSlug);
-      return registryResponse(
-        {
-          ...payload,
-          publicAccess: true,
-        },
-        { request, fixture: true },
-      );
-    }
-
-    const fetchRecord = async () => {
-      const { data, error } = await supabase
-        .from("clinical_registry_records")
-        .select("*")
-        .eq("owner_id", access.ownerId)
-        .eq("kind", kind)
-        .eq("slug", normalizedSlug)
-        .maybeSingle();
-      if (error) throw new Error(error.message);
-      return (data as RegistryRecordRow | null) ?? null;
-    };
-
-    const row = await fetchRecord();
-    if (!row) {
-      const payload = publicRegistryDetailPayload(kind, normalizedSlug);
-      if (!payload) return notFoundResponse(normalizedSlug);
-      return registryResponse({ ...payload, sharedCatalog: true });
-    }
-
-    const { data: links, error: linksError } = await supabase
-      .from("clinical_registry_record_sources")
-      .select("document_id, note")
-      .eq("owner_id", access.ownerId)
-      .eq("record_id", row.id);
-    if (linksError) throw new Error(linksError.message);
-
-    let linkedDocuments: Array<{ id: string; title: string; file_name: string; status: string }> = [];
-    const documentIds = (links ?? []).map((link) => link.document_id);
-    if (documentIds.length > 0) {
-      const { data: documents, error: documentsError } = await supabase
-        .from("documents")
-        .select("id, title, file_name, status")
-        .eq("owner_id", access.ownerId)
-        .in("id", documentIds);
-      if (documentsError) throw new Error(documentsError.message);
-      linkedDocuments = (documents ?? []) as typeof linkedDocuments;
-    }
-
-    const record = mergeRegistryRecordWithDefault(kind, row);
-
-    return registryResponse({
-      record,
-      governance: rowGovernance(row),
-      linkedDocuments,
+    const seed = publicRegistryDetailPayload(kind, normalizedSlug);
+    const canonical = await readCanonicalSiteContentRecords({
+      supabase,
+      kind,
+      slug: normalizedSlug,
+      seeds: seed ? [seed] : [],
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as ServiceRecord,
+        governance: canonicalSiteContentGovernance(canonicalRecord),
+        linkedDocuments: [],
+      }),
     });
+    const payload = canonical.records[0];
+    if (!payload) return notFoundResponse(normalizedSlug);
+    return registryResponse(
+      { ...payload, publicAccess: true, sharedCatalog: true },
+      { request, fixture: canonical.source === "seed_uninitialized" },
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
