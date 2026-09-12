@@ -1,17 +1,17 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "5fafd89facabfcb30752ba7b0163b14ada2acbd2",
-    "committed_at": "2026-09-07T04:19:50Z"
+    "sha": "ff94ed49230a5f1db01d3a17fa4d0d3f16c9277a",
+    "committed_at": "2026-09-10T17:13:28+08:00"
   },
   "counts": {
-    "open": 102,
+    "open": 91,
     "p1": 7,
-    "p2": 70,
-    "p3": 25,
+    "p2": 63,
+    "p3": 21,
     "queued": 7,
     "pending": 0,
-    "resolved": 525
+    "resolved": 538
   },
   "queue": [
     {
@@ -355,15 +355,6 @@
       "added": "2026-08-18"
     },
     {
-      "id": "#W1B9RP",
-      "priority": "P2",
-      "type": "task",
-      "summary": "Forms mode: 33 password-protected forms retain generic Clock, Authority, and Criteria prose",
-      "detail": "The 33 forms other than Form 12A with generic maker and threshold prose remain blocked because their approved-form instruction text is unavailable in password-protected PDFs. Obtain readable approved-form instruction text or an equivalent authoritative extract before writing form-level prose. Do not infer these clinical assertions from Act sections alone. Form 12A is excluded because its PDF is readable and its clock is already form-specific.",
-      "source": "data/forms-catalog.json; data/forms-pdf-manifest.json; public/forms-pdf; direct measurement 2026-08-24",
-      "added": "2026-08-24"
-    },
-    {
       "id": "#9GPWT3",
       "priority": "P2",
       "type": "issue",
@@ -481,15 +472,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#0JGJTK",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The calculators mockup still serves prescribing, ECT and admission directives that PR #2491 removed from production on clinical-safety grounds",
-      "detail": "RECONSTRUCTED AND CONFIRMED 2026-09-06. src/components/calculator-mockups/calculator-pathways.ts still carries directive clinical instructions of the three kinds PR #2491 removed from the production calculators on clinical-safety grounds. Present today: line 65 'Screen for bipolarity before prescribing' with detail 'Run the MDQ below'; line 70 'Assess psychotic features and ECT indications'; line 240 'Consider admission or intensive community follow-up'; line 244 'Admission usually indicated - ensure immediate safety'. Production and mockup calculators are separate trees (src/components/calculators and src/components/calculator-mockups), which is how the removal reached one and not the other. WHY IT MATTERS: the mockup routes are developer-gated rather than unreachable, and the text is indistinguishable in tone from the production copy that was judged unsafe. A reader who lands on the mockup gets guidance the repository has already decided not to give. NEXT ACTION: apply the same removal to calculator-pathways.ts that #2491 applied to production, or, if these pathways are wanted as design fixtures, replace the directive wording with plainly non-clinical placeholder text. A gate that keeps the two trees aligned on this specific class of copy would stop it recurring.",
-      "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#CC8D30",
       "priority": "P2",
       "type": "task",
@@ -514,15 +496,6 @@
       "summary": "Archived #Z61JRT carries an incorrect and dangerous public-bucket RLS claim",
       "detail": "CORRECTION to the archived #Z61JRT close outcome. Archived rows are immutable history and are not edited, so the erroneous sentence stays in the archive and this row is the correction of record. Anyone reading that archived outcome must read this row with it. THE ERROR: the #Z61JRT outcome states \"Flipping the bucket would also not have produced a working read path: the storage RLS policy 'image storage owner read' keys on the first path segment equalling auth.uid(), which a published ownerless document never satisfies, so signed URLs minted with the service-role key are the only mechanism that serves public-corpus figures.\" That is wrong, and wrong in the unsafe direction. WHY IT IS WRONG: the owner-folder RLS policy on storage.objects governs authenticated reads of a PRIVATE bucket. It has no bearing on a public one. The installed client documents this explicitly for getPublicUrl at node_modules/@supabase/storage-js/src/packages/StorageFileApi.ts, which lists the required permissions as \"buckets table permissions: none\" and \"objects table permissions: none\". A public bucket therefore serves its objects to anyone with the URL, with no RLS evaluated at all and no token required. THE CORRECT STATEMENT: if clinical-images were ever flipped to public, every object in it would become anonymously readable by URL, without authentication. The owner-read policy would not stop it. That is precisely the hazard the original #Z61JRT row warned about, so the archived text inverts the risk it was recording and would invite a reader to believe flipping the bucket is inert. CURRENT LIVE STATE: the bucket was not flipped. A user-authorised read-only query on 2026-09-02 returned storage.buckets.public = false for both clinical-images and clinical-documents. The delivered fix in the batch image route is also unaffected: it signs uniformly via createSignedUrls and never calls getPublicUrl, and grep for getPublicUrl across src, worker, scripts and supabase returns zero matches. So there is no live exposure and no code change is owed by this correction. What was wrong was the stated reason a bucket flip would be harmless, not the conclusion that the bucket must stay private. WHAT THE MIGRATION ACTUALLY GUARANTEES, AND WHAT IT DOES NOT: 20260717139000_create_storage_buckets.sql carries \"on conflict (id) do update set public = false\", so it pins the bucket private whenever that migration itself executes — that is, on a fresh replay such as a local db reset or the CI migration-replay job. It does NOT re-run against the live project. Migrations apply once and are then recorded in the remote history table; check-migration-history-alignment.ts classifies only local versions ABSENT from remote history as pending apply, so an already-recorded version is never pending again and its ON CONFLICT clause never fires again. An earlier draft of this row claimed a manual dashboard flip would be \"reverted by the next migration run\". That was false, and false in the same containment-overstating direction as the error this row exists to correct. SO THE REAL CONTROL IS DETECTION, NOT PREVENTION: if an operator flipped clinical-images to public in the dashboard, it would STAY public until a person explicitly restored it. schema_drift_snapshot captures storage_buckets, so npm run check:drift would surface the changed public value as drift, and the post-merge live-drift workflow is where that surfaces. But check:drift only reports; it repairs nothing. Remediation is manual — flip it back in the dashboard or apply a new migration that re-asserts public = false, since only a NEW version would be pending and therefore actually execute. PROVENANCE: the primary error was raised by the Codex reviewer as a P2 finding on PR #2559 against docs/outstanding-issues.md, verified against the installed storage-js source rather than accepted on assertion. The original claim came from a schema review earlier in the same session and was carried into the close outcome without being checked. The secondary error — the false automatic-reversion claim in this very correction — was then raised by the same reviewer on PR #2563 and verified against check-migration-history-alignment.ts before this text was rewritten. Both corrections were made before this request was reconciled, so the ledger never carried the second error. NEXT: no code fix. Treat this row as the authoritative reading of that archived outcome. If a future task ever proposes making clinical-images public, this row is the reason not to. Do not rely on the migration to undo such a change on the live project; rely on check:drift to notice it and on a person to put it back.",
       "source": "Codex review finding (P2) on PR #2559, docs/outstanding-issues.md:625, 2026-09-02; verified against node_modules/@supabase/storage-js StorageFileApi.ts getPublicUrl remarks",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#97W4FD",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "A change that WEAKENS a clinical safety guard living under tests/ escapes the governance preflight gate, and PR #2521 demonstrated it rather than hypothesised it",
-      "detail": "Raised by the clinical-governance-reviewer on PR #2521, 2026-09-02, and then demonstrated by that same PR one commit later. scripts/pr-policy.mjs decides whether a PR must carry a completed '## Clinical Governance Preflight' by matching changed paths against clinicalRiskPatterns, which covers src/lib/*clinical*, src/app/api/, supabase/, src/data/ and similar. It has no pattern for tests/**. But several of this repository's clinical safety guards ARE tests: tests/caring-contacts-interface-vocabulary.test.ts is the only software check on prohibited wording across five source trees; tests/helpers/caring-contacts-prohibited-language.ts is the single shared definition of that vocabulary; tests/caring-contacts-overlay-definitions.test.ts holds the 24 frozen overlay rows against docs/caring-contacts/interaction-matrix.md; and the Ruling [143] parity block is what stops the message-side 'lead' rule drifting looser than the screen's. THE GATE IS DIRECTION-BLIND: it reads paths, not intent, so it cannot tell strengthening a guard from removing one. THIS IS DEMONSTRATED, NOT HYPOTHESISED. An earlier version of this row listed 'relaxing the lead lookbehind' among the changes that would slip through. The next commit on that same branch, 33e1ffd, did exactly that: it loosened the interface prohibited-language rule so plural job titles are permitted on screen, which is a deliberate owner-approved change to clinical-copy wording, and classifyPullRequestFiles returned clinicalRisk:false for it, so no preflight was required and no reviewer was prompted to look for clinical consequences. The preflight was completed voluntarily and the change was reviewed by a subagent, both by choice; nothing in the required checks asked for either. A second near miss on the same PR: its first draft exempted src/lib/caring-contacts/message-rules.ts as a whole file, which would have put the five sentences a discharged patient reads by SMS permanently outside the scan. A subagent review caught it. Nothing in the required checks would have. CANDIDATE FIXES, increasing cost: name the specific guard test files in clinicalRiskPatterns, cheap and precise but needs maintaining as guards are added; or match tests/** paths that import CARING_CONTACTS_PROHIBITED_LANGUAGE or the message rules, self-maintaining but needs an import scan in pr-policy; or a narrower gate firing only when such a file's diff is net-deleting. Prefer whichever keeps a false positive cheap: the cost of a wrong classification is one preflight section a human fills in, and the cost of the current gap is an unreviewed weakening of a patient-facing safety guard.",
-      "source": "clinical-governance-reviewer on PR #2521, 2026-09-02; demonstrated by commit 33e1ffd on the same PR",
       "added": "2026-09-02"
     },
     {
@@ -562,15 +535,6 @@
       "added": "2026-09-04"
     },
     {
-      "id": "#8KFQ3X",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "50 of the 51 committed WA MHA form PDFs cannot be opened without a password, so no text-extraction or OCR path can reach their content — measured, not inferred",
-      "detail": "Measured 2026-09-02 with PyMuPDF 1.28.0 (MuPDF 1.29.0), the same library worker/python/extract_pdf_assets.py uses, against the committed bytes in public/forms-pdf/. RESULT: fitz.open() reports needs_pass=1 and is_encrypted=True for 50 of 51 files; page_count is 0, doc.authenticate('') returns 0 (the empty user password is REJECTED), and loading page 0 raises ValueError('document closed or encrypted'). MuPDF additionally logs 'corrupt object stream' because the streams stay encrypted. form-12a.pdf is the sole exception: it opens, has no /Encrypt, and yields 3274 characters of first-page text. The encryption dictionary on a representative locked file (form-10a.pdf) reads /Filter/Standard /V 4 /R 4 /Length 128 /P -1084 with a non-empty /U string. WHY THIS IS RECORDED: a concurrent review comment on PR #2544 asserted the opposite — that 'PyMuPDF does not enforce /P permission bits' and '-1084 restricts permissions without requiring a user password to open', so 'these files open normally and yield their text layer'. That is false for these specific files, and the measurement above is the disproof. The distinction matters because /P alone would indeed not block opening; these files also carry a non-empty user password, which does. CONSEQUENCE: any ingestion of these assets fails at the open call, before should_ocr_page() is ever consulted, so the OCR fallback cannot rescue them; whether the JavaScript fallback in src/lib/extractors/document.ts behaves differently was NOT measured. It also confirms the passwordProtected badge is correct for those 50 and was wrong only for form-12a.pdf, which is exactly what PR #2531 fixed. NEXT STEP: decide whether these forms are ever intended to be indexed. If yes, they need an unlocked source from the WA Chief Psychiatrist rather than a code change, because no extractor setting can defeat a user password. If no, record that decision so a future ingestion attempt is not planned against them.",
-      "source": "Direct measurement of public/forms-pdf/*.pdf with PyMuPDF, 2026-09-02; disputes a review comment on PR #2544",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#Q33JV6",
       "priority": "P2",
       "type": "issue",
@@ -598,15 +562,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#7ZA9S9",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Formulation strength badges take the last number in a listed range, so a multi-strength product badges one arbitrary strength",
-      "detail": "PREMISE VERIFIED ON MAIN, not assumed. PR #2580 merged as 60eca45 on 2026-09-03, and origin/main now carries H1's fix: src/lib/medication-badges.ts:120 reads matchAll(/(\\d+(?:\\.\\d+)?)\\s*mg\\b/gi), so the decimal case (varenicline \"Tablets (0.5 mg, 1 mg)\" formerly badging as \"5 mg\", a tenfold misread) and the concentration case are closed. This row is the remainder H1 deliberately did not touch, which #2580's own reviewer flagged as pre-existing rather than introduced. H1 is an audit finding in docs/audit/full-repository-audit-2026-09-02.md, not a row in this ledger, so nothing here closes it; it is recorded as landed only so this row's premise is checkable. THE DEFECT: morphine's \"Tablets IR (10, 20 mg)\" badges as \"20 mg tablet\". The number is a real strength of a real product, so this is not H1's tenfold misread, but the choice of which strength to show is arbitrary and a clinician glancing at the badge is given no signal that 10 mg also exists. SCOPE NOT YET MEASURED: only the morphine case is confirmed. First step is to count how many of the 328 catalogue records state a comma-separated or hyphenated strength list in their formulation text. FIX candidates, in preference order: (a) render the full range when a formulation states more than one strength, so the badge reads the same as the source, (b) suppress the badge for multi-strength products, matching the conservative choice H1 already made for concentration-only and combination products. Do NOT simply switch the regex from the last match to the first without deciding the question, since that is equally arbitrary in the other direction. GUARD: the corpus-wide invariant that a badged number must be a whole strength token and not a concentration is now on main in tests/medication-badges.test.ts, arriving with #2580. It constrains any change here but does NOT by itself pin which of several listed strengths is chosen, so this work needs its own focused assertion on the multi-strength shape.",
-      "source": "Reviewer note on PR #2580 (audit fixes P1, finding H1), recorded 2026-09-03; the same PR body carries it as a suggested follow-up finding. Codex's P2 review of PR #2585 correctly caught that this row originally asserted H1's fix as present while it was still unmerged, and that it cited a guard main did not yet have. Both were re-verified against origin/main after #2580 merged as 60eca45, and the row now states the evidence rather than the assumption.",
-      "added": "2026-09-03"
-    },
-    {
       "id": "#NHGFXR",
       "priority": "P2",
       "type": "issue",
@@ -622,15 +577,6 @@
       "summary": "Caring Contacts activation wizard intermittently renders two page roots after a reload, tripping strict mode",
       "detail": "Reproduce and fix the duplicate page root, or add a narrower guard; do not quarantine on one reproduction (flake policy needs three on the same SHA). Why: tests/ui-caring-contacts-activation.spec.ts:186 ('keeps a typed draft across a page reload') failed once in a full verify:ui run with 'strict mode violation: getByTestId(caring-contacts-plan-wizard) resolved to 2 elements', the second carrying different consent copy - the persistent hidden streamed S: clone signature that docs/search-chrome-behaviour.md invariant 17 describes for duplicate page-root data-testids. Context: seen 2026-09-02 in the chromium-caring-contacts-seeded project during verify:ui on an unrelated Sources branch (649 passed, this 1 failed); the same spec then passed 4/4 on an isolated re-run, and the branch under test touches nothing reachable from /caring-contacts, which lives outside the (search-app) shell. So it is intermittent and pre-existing, not diff-induced. Confidence: high that it is unrelated to that branch, low on root cause - one reproduction, trace captured at test-results/ui-caring-contacts-activat-cc88a--draft-across-a-page-reload-chromium-caring-contacts-seeded/trace.zip but not analysed. Owner: Caring Contacts. Depends on: nothing.",
       "source": "session 2026-09-02, observed during verify:ui on claude/sources-mode-dropdown-home-mzw4f5",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#H3PXP0",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "A stored source_status of \"outdated\" on a medication, service or differential record can never be cleared — nothing writes that column back",
-      "detail": "PR #2536 deliberately preserves a stored \"outdated\" through read-time re-derivation, because supersession is a recorded clinical judgement that age can neither establish nor refute. That is correct, but it makes the value permanent: verified 2026-09-02 that no code path writes source_status back on medication_records, clinical_registry_records or differential_records — the only writers are the insert-time recordToRow/presentationToRow/diagnosisToRow paths, which derive from source text and can never emit \"outdated\", and grep for '\"outdated\"' across src, scripts, worker and supabase finds no update or upsert against any of those three tables. So a record that is legitimately re-sourced stays red forever. Stuck-red is the safe direction, but it is stuck, and it means the badge stops tracking reality. A precedent already exists for documents and is the shape to copy: supabase/migrations/20260711164441_domain_1_source_review_lifecycle.sql defines record_source_review(), which writes an immutable source_review_events row and then sets documents.metadata.document_status to \"outdated\" for rejected/decommissioned/superseded and back to \"current\"/\"review_due\" otherwise (lines 41-122). NEXT STEP: an equivalent recorded-supersession flow for the three record tables that can both set and clear the column, evidence-bearing in the same way, so clearing is a recorded decision rather than an age calculation.",
-      "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
       "added": "2026-09-02"
     },
     {
@@ -652,30 +598,12 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#ZV7H8Q",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Services and differentials governance still returns the frozen source_status column verbatim, and derives it with a substring test that matches its own negation",
-      "detail": "Two defects, one fix. (a) FROZEN COLUMN: src/lib/registry-records.ts:112 rowGovernance() returns registrySourceStatus(row.source_status) (line 119) and src/lib/differential-records.ts:105 rowGovernance() returns differentialSourceStatus(row.source_status) (line 112). That column is written once at insert time by recordToRow/presentationToRow/diagnosisToRow and never ages, so a row written while its sources were fresh keeps claiming \"current\" indefinitely — the exact defect PR #2536 fixed for medications by re-deriving on the read path (see the rowGovernance doc comment on the #2536 head, which spells out why the stored column must stop being the answer). Both feed clinician-facing governance: /api/registry/records, /api/differentials, and the services and differentials detail pages. (b) SUBSTRING: src/lib/registry-records.ts:42 uses status.includes(\"checked\") and src/lib/differential-records.ts:37 uses reviewStatus.includes(\"checked\") || includes(\"current\") — both substrings also match \"not checked\" and \"unchecked\", which would grade an explicitly unchecked source as \"current\". Latent today, not live: verified 2026-09-02 that data/services-snapshot.json (219 records) carries only \"Added/checked via internet review\" or \"Extracted from uploaded deep research only\", and neither snapshot contains any negative form. src/lib/medication-records.ts:30 already carries the veto regex /\\b(?:not\\s+checked|unchecked|unverified)\\b/i. NEXT STEP: mirror #2536's read-time derivation and that negative-form veto into both modules; keep #2536's rule that a stored \"outdated\" survives re-derivation.",
-      "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#Q6WD1M",
       "priority": "P1",
       "type": "issue",
       "summary": "Ward Flow places patients with no eligibility check in the reducer at all",
       "detail": "RECONSTRUCTED 2026-09-06. This row was recorded on 2026-09-02 with an EMPTY detail field, so as written nobody could act on it. What follows was rebuilt from the code and its history. ORIGINAL FINDING: the coordinator's placement path in src/components/ward-management/ward-flow-reducer.ts applied no eligibility judgement gate at all, while ACCEPT_REFERRAL at the other end rejected on the first failing gate of any kind. One end refused everything, the other refused nothing. THAT ASYMMETRY IS CLOSED. PR #2571 (commit b401b65cc, 2026-09-03, the day after this row was raised) introduced SUITABILITY_GATES and eligibilityRefusal(), now called on three paths: REFER_TO_UNITS (~line 1075), ACCEPT_REFERRAL (~1158) and the coordinator pull (~1365). A failing gate inside SUITABILITY_GATES refuses unless a reason from OVERRIDE_REASONS is recorded; the physical gates (allocatable_bed, capacity_freshness, specialling) refuse outright and are deliberately not overridable. WHY THIS ROW MUST STAY OPEN ANYWAY. The reducer's own comment above the pull-path call (~1355-1363) warns that a red there proves nothing on its own: the specialling refusal immediately above fires for a patient who fails both checks, and reading that as 'the engine now enforces eligibility' NEARLY CLOSED THIS FINDING FALSELY once already. It asks for proof on a pair whose ONLY failing gate is a judgement gate. That proof does not exist today. The only reducer-level suitability assertion is tests/ward-referral-reducer.test.ts:451, which exercises ACCEPT_REFERRAL rather than the pull path, on fixture RF-001 where BOTH age and security fail. tests/ward-eligibility.test.ts does cover cohort, but tests the pure eligibility() function, not the state transition. NEXT ACTION: add one reducer-level test on the coordinator pull path using a movement/unit pair whose only failing gate is cohort, asserting the transition is refused and the rejection contains 'failed gate cohort:'. Then close. Do not close on the wiring alone. GRADING NOTE FOR THE OWNER: the live hazard this P1 named is fixed; what remains is a missing proof. That arguably makes it P2 rather than P1, but a clinical-safety regrade is the owner's call, so the grade is left as recorded and flagged here.",
       "source": "session 2026-09-02",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#YJGWDZ",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Forms PDF manifest records only passwordProtected, folding two separate facts together — the committed PDFs permit printing and form-filling but block modification, text extraction and assembly",
-      "detail": "Replaces cancelled request e3133c1b, which asserted a false OCR-routing mechanism (see that cancellation's reason). The permission-bits finding itself stands and is restated here without the incorrect claim. data/forms-pdf-manifest.json records one boolean per asset, passwordProtected, generated by scripts/build-forms-pdf-manifest.mjs (PR #2531, now on main). Verified 2026-09-02 against the committed bytes: 50 of the 51 files in public/forms-pdf/ carry /P -1084 in their encryption dictionary; form-12a.pdf is the one exception, with no /P entry found by a strings scan and worth confirming separately. -1084 is 0xFFFFFBC4, which per the PDF permissions bit table permits print (bit 3) and fill-in form fields (bit 9) while blocking modify contents (bit 4), copy/extract text (bit 5), modify annotations (bit 6) and assemble document (bit 11). That is a materially different clinician-facing fact from 'requires a password to open': these forms can be printed and filled but not edited or copied from, and the single badge does not say so. NO INGESTION CLAIM IS MADE HERE. The OCR path is governed by should_ocr_page() in worker/python/extract_pdf_assets.py, which reads only extracted text length and image coverage and never consults permission bits; the extractor has no password handling, so what actually happens to these files on ingestion is untested and would need measuring, not inferring. NEXT STEP: derive an editingRestricted fact (or the decoded permission bits) alongside passwordProtected in scripts/build-forms-pdf-manifest.mjs, regenerate with that script rather than by hand, surface it as its own line in src/components/forms/form-detail-page.tsx instead of folding two facts into one badge, and extend tests/forms.test.ts to pin both fields.",
-      "source": "PR #2531 bytes read + Codex review finding on PR #2544, 2026-09-02",
       "added": "2026-09-02"
     },
     {
@@ -724,30 +652,12 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#Y2E4DX",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "isProfileEmpty treats a recorded hepatic \"none\" as no information, so an affirmative \"no hepatic impairment\" profile still renders the empty state instead of a verdict",
-      "detail": "src/lib/medication-patient-alerts.ts:164-180 isProfileEmpty() short-circuits on hepatic with 'if (profile.hepatic && profile.hepatic !== \"none\") return false;' (line 176), so a profile whose only entry is hepatic: \"none\" — an affirmative clinical answer, not a blank — is still reported empty. Verified 2026-09-02 on origin/main and unchanged by PR #2538. The engine disagrees with it: evaluateRow() at line 269-276 treats \"none\" as an answer, not a gap, using 'if (!hepatic) missingGates.push(\"hepatic status\")' and then testing membership only when hepatic !== \"none\" — so an entered \"none\" clears the hepatic gate. The consequence is that both consumers of isEmpty (MedicationConsiderations and the interactions block in src/components/clinical-dashboard/medication-considerations.tsx) render \"Enter patient details above\" and produce no verdict at all for that profile. Both surfaces therefore degrade conservatively — nothing is claimed that should not be — so this is a cosmetic inconsistency with the engine rather than a safety defect. NEXT STEP: its own change with its own tests, not a rider on other work: making a one-field profile produce evaluated output is a behaviour change, and the DOM tests in tests/medication-interaction-surfaces.dom.test.tsx and tests/patient-profile-panel.dom.test.tsx pin the current empty-state text.",
-      "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#5RWYHR",
       "priority": "P2",
       "type": "task",
       "summary": "Two committed ED browser journeys have never once passed and are unverified on master",
       "detail": "tests/ui-ward-roles.spec.ts carries two Emergency Department journeys added at 9af65681f and repaired at ed701752d, both now folded to master. Their first and only run failed for their own reasons: one used a test id missing its inbox- segment, the other clicked an aria-disabled control which Playwright refuses to click, so it timed out at 45s rather than failing. Both fixes are committed and NEITHER HAS BEEN RUN SINCE. Needs one Playwright window to confirm green or red.",
       "source": "Ward Builder Three closing report, measured at adcd8bcb5",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#WM4DNW",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "differential-records.ts asserts validation_status \"locally_reviewed\" from a literal, over a snapshot whose own governance says \"Pending review\"",
-      "detail": "src/lib/differential-records.ts:31 deriveGovernanceFromSnapshot() returns validation_status: \"locally_reviewed\" unconditionally (line 44), while data/differentials-snapshot.json governance.reviewStatus is \"Pending review\" (verified 2026-09-02) — the same call derives source_status: \"review_due\" from that string, so one field says pending and the other claims review happened. Both presentationToRow (line 55) and diagnosisToRow (line 78) write it into differential_records, and src/components/differentials/differential-detail-page.tsx:673-692 renders it to the clinician. src/lib/medication-records.ts:65-86 fixed exactly this and its comment states the reason: deriveTrust in src/lib/answer-render-policy.ts:146 accepts \"locally_reviewed\" as satisfying the authority gate for high-risk clinical claims (line 177), so the vocabulary must never be asserted from a literal. Verified caveat: deriveTrust reads documents.metadata.clinical_validation_status (src/lib/source-authority-registry.ts:410-424), not differential_records.validation_status, so the two share the vocabulary rather than one code path — the direct harm is an unearned governance badge on the differentials surface, and the shared vocabulary is why the medication sibling was fixed. NEXT STEP: derive it from recorded verification evidence as src/lib/registry-records.ts:47-48 does from verification.locallyVerified, or default to \"unverified\"; add a test pinning that a \"Pending review\" snapshot never produces \"locally_reviewed\".",
-      "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
       "added": "2026-09-02"
     },
     {
@@ -814,15 +724,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#E8ARD5",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "Source-side exclusions in the medication lexicon carry no authored reason, so the review sheet infers one from the source wording",
-      "detail": "PR #2582 renders each sourceDenySlugs entry on docs/medication-interaction-lexicon-review.md with the term, the record it is suppressed on, the rows affected, and the wording it appears in. The wording column is what makes the claim checkable, and for all three live exclusions (opioids/loperamide, statins and fibrates on simvastatin and atorvastatin) it happens to carry the justification legibly, because each row uses the class word for its own drug. That is a property of the current data, not a guarantee. The authored rationale actually lives in TypeScript comments in src/lib/medication-interaction-lexicon.ts, which the sheet cannot render and which nothing keeps in step with the exclusion it explains. FIX: add a structured reason field to the lexicon term alongside sourceDenySlugs, require it for every entry, and render it as its own column. Deliberately deferred on #2582 to avoid widening a review-thread fix into the shared lexicon file. Not urgent while three exclusions exist and each is self-evident from its row; revisit before the count grows or when the next exclusion is added, whichever comes first. NOTE for whoever picks this up: the sign-off mappings hash covers sourceDenySlugs but not any reason text, and it should stay that way, since a reworded rationale must not invalidate a clinician's sign-off any more than reflowing a table does.",
-      "source": "Codex P2 review thread on PR #2582 (discussion_r3927603216) asked for rows and reason; rows shipped, reason deferred with this rationale stated on the thread. Recorded 2026-09-03.",
-      "added": "2026-09-03"
-    },
-    {
       "id": "#VX609A",
       "priority": "P2",
       "type": "issue",
@@ -839,24 +740,6 @@
       "detail": "Found while fixing #000GN4 (2026-09-02, probed against the real analyzeClinicalQuery on main at 45a3dcacb54a). src/lib/rag/rag-query-guard.ts:3-4 short-circuits any soft-tail-eligible query matching bare tokens including phone, car, tv, television, restaurant, holiday, hotel, flight, kitchen and laptop. Measured, with shouldShortCircuitUnsupportedSearch on the real analyzer: 'phone contact after discharge' short-circuits to zero retrieval while 'telephone follow up after discharge' reaches retrieval, and the word 'phone' is the only difference. Post-discharge phone contact is a topic this repo actively builds for - see the Caring Contacts work. Also confirmed refused by the pattern alone, with confidence and expandedTerms both above the soft-tail thresholds so the pattern is the sole cause: 'restaurant avoidance in social anxiety', 'car accident trauma assessment', 'tv watching and negative symptoms', 'holiday leave from the ward'. Separately, the token 'flight' matches 'flight of ideas', a core sign of mania, though that query would short-circuit through the soft tail anyway. This is milder than #000GN4 because these tokens sit behind unsupportedSoftTailEligible rather than firing unconditionally, but the mechanism is identical: a bare token standing in for a topic judgement. FIX: the same shape as #000GN4 - replace bare tokens with phrases that cannot occur in a clinical question, or route the decision through classifyCorpusGrounding where the query is soft-tail eligible anyway. Protected RAG surface: needs the RAG impact declaration, the clinical governance preflight, and an eval:quality --rag-only run, since the consumer controls in rag-eval-cases.ts (coffee machine, air fryer, overnight oats) are what this pattern pins. Note unavailableDocumentNoisePattern was checked in the same pass and is clean - every entry there is a multi-word phrase.",
       "source": "src/lib/rag/rag-query-guard.ts:3-4; probed with shouldShortCircuitUnsupportedSearch against analyzeClinicalQuery on main 45a3dcacb54a; RAG retrieval review of PR branch claude/rag-query-guard, 2026-09-02",
       "added": "2026-09-02"
-    },
-    {
-      "id": "#GNNMAF",
-      "priority": "P3",
-      "type": "rec",
-      "summary": "Knowingly-retained gap: patient-alert rows with action \"info\" contribute to neither unassessed tier, so three medications keep a green all-clear over an unread gate",
-      "detail": "In src/lib/medication-patient-alerts.ts as landed in PR #2538 (head ef7c55ab), evaluatePatientAlerts() short-circuits with 'if (patient.action === \"info\") continue;' before the tier split, so info rows never reach unassessed (contraindication tier) or unassessedAdvisory (dosing/monitoring tier). MedicationConsiderations reads hasUnassessedGates from those two arrays only, so the success-tone all-clear stays reachable for a medication whose only unread gate sits on an info row. Measured against data/medications-snapshot.json on 2026-09-02: 330 records, 63 info rows, of which 8 carry a gate readable from an empty profile, across paracetamol, atorvastatin, nystatin, doxycycline, levetiracetam, lorazepam, oxazepam and temazepam; for three of those — nystatin, levetiracetam, lorazepam — both other tiers are empty, so the green all-clear is what a clinician actually sees. The exclusion is defensible on the current data: lorazepam's hepatic row reads \"Existing row describes this as a safer option in hepatic impairment; highlight as information only, not as a contraindication\", levetiracetam's reads \"absence of hepatic enzyme induction or inhibition\", and nystatin's is \"source-reviewed safe-use context\" — none is a gate whose absence changes management. NEXT STEP: no change now; revisit if any info row ever carries a gate whose absence would change management, and re-run the count above against the snapshot when the medication catalogue is next re-exported.",
-      "source": "session 2026-09-02 — follow-up from PRs #2538/#2536/#2531",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#H0HKFD",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Patient-plan mockup prints invented mobile numbers above the range this repo reserves for fiction",
-      "detail": "src/components/care-plan/mockups/patient-plan-fixtures.ts prints contacts at 0491 570 210-270. The block this repository treats as reserved for fiction ends at 156, so some of these may be real numbers. The range assertion at tests/care-plan-domain.test.ts:444 runs over a bundle built from fixtures.ts only, so it never sees them - the same defect class sdd-ledger.md:623-627 records fixing in fixtures.ts. Nothing was changed. Also unresolved: where the ACMA fiction block actually ends was never verified (cloud-session.md:258-259). Found during audit remediation P21 (PR #2626, 2026-09-04).",
-      "source": "session 2026-09-04",
-      "added": "2026-09-04"
     },
     {
       "id": "#RP00FZ",
@@ -1009,6 +892,24 @@
       "summary": "release-browser-matrix fails on every main run with 15 Firefox/WebKit failures, and it is not in PR required so it never blocks a merge",
       "detail": "Evidence, main run 34065301954 on edbd29f (#2690): every other job passed - Static PR checks, Unit coverage, Safety and config, Build, Visual baselines, Caring Contacts, Production UI (1)(2)(3), Lighthouse budget, and PR required itself. The sole failure was release-browser-matrix: '15 failed, 80 skipped, 1397 passed (48.3m)'. The identical single-job failure occurred on the preceding main commit cae0655 (#2689), so it is persistent and independent of the change under test. ALL 15 failures are Firefox (5) or WebKit (10); Chromium had zero. They are viewport and scroll-geometry assertions, e.g. tests/ui-tools.spec.ts:3172 'long mobile service details paint to the viewport edge with no bottom search dock' expected footerBottom <= 820 but received 838.546875 on webkit. Others: ui-formulation-result-cards.spec.ts:35 (both engines), ui-smoke.spec.ts:1202/2939/1648/5171/5961, ui-stress.spec.ts:436, ui-tools.spec.ts:2927, ui-phone-scroll-page-owned.spec.ts:98 (x2), ui-phone-scroll.spec.ts:236, ui-route-coverage.spec.ts:554, ui-specifiers.spec.ts:181 (axe violation). WHY IT IS INVISIBLE: release-browser-matrix is not part of the PR required aggregate - PR required concluded success on edbd29f while the run overall went red - so this paints every main run red without blocking any merge, and trains readers to ignore main's status. Distinct from #055, which is a process task to run the release gate before a handoff; this row is that the matrix is currently and persistently red. NEXT ACTION: triage the 15 as one focused piece of work (they cluster into phone-chrome scroll geometry, document viewer composer, service detail footer clearance, and one specifiers axe violation). VISIBILITY REMEDY, corrected 2026-09-07 after review: do NOT simply add release-browser-matrix to the pr-required needs list. ci.yml gates the job on workflow_dispatch, schedule, refs/heads/release/*, or refs/heads/main only, so it never runs on a pull_request event at all, and the comment above it records that it must deliberately not wait on pr-required (#023 - a blocking weekly dependency audit once skipped the matrix entirely). A needs edit alone would aggregate a skipped job and change nothing. Fix the post-merge signal instead so a red matrix on main is visible and owned rather than ambient. Making it genuinely merge-blocking is a separate and much larger change - a pull_request trigger plus an aggregate redesign that runs a roughly 50 minute matrix before every merge - and must be costed and decided on its own rather than assumed here. SUPERSEDED IN PART 2026-09-07: the matrix no longer reports these 15 failures at all. It now exceeds its 70 minute timeout on every main run and is recorded as cancelled, so main's Firefox and WebKit coverage is currently zero rather than red. The 48.3m/15-failure evidence above is the last state in which the job still finished. Fix the timeout cause first (see the sibling row on release-browser-matrix timing out), because the 15 failures cannot be re-measured until the job completes again.",
       "source": "session 2026-09-06 diagnosis of main CI; runs 34065301954 and 34064564709",
+      "added": "2026-09-07"
+    },
+    {
+      "id": "#FYSQGK",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Fifteen specifier one-of group labels are authored, not clinician-reviewed",
+      "detail": "singleSelectGroupLabels in src/lib/specifier-builder-diagnoses.ts decides which specifier groups the builder offers as radios. The dataset carries no exclusivity field, so the mapping is authored in this repo against the item lists. PR #2726 corrected four labels that were blocking valid combinations (Classes, Clusters, Aetiology, Attraction) and added a per-disorder exception for Specific Phobia under Type, but the remaining fifteen labels (Course, Course and Status, Current Episode, Insight, Pattern, Presentation, Prognosis, Remission, Severity, Severity (Major NCD), Severity/Course, Subtype, Subtypes, Type, Types and Severity) have only had that same authored read, not a qualified one. Consequence is now bounded rather than silent: every single-select group carries a control that reopens it as a checkbox list, so a wrong entry costs a default the clinician can override, not an unrecordable combination. Wanted: a psychiatrist confirms each of the fifteen against DSM-5-TR, and any that fail move out of the set or gain a disorder-level exception. Pinned by tests/specifier-builder-diagnoses.test.ts.",
+      "source": "PR #2726 (BigSimmo/Database), specifier builder one-of mapping correction",
+      "added": "2026-09-07"
+    },
+    {
+      "id": "#Z3GZ5P",
+      "priority": "P2",
+      "type": "task",
+      "summary": "DSM-5-TR specifier catalogue has no clinician sign-off: 585 items, 71 source-verified, 0 reviewed",
+      "detail": "The Specifiers mode (search, detail routes, Map, and now the Build catalogue path) serves 585 specifier items across 131 disorders from data/specifiers-search-index.json. 71 carry a verified source; every one of the 585 is still clinician-review-pending, and the dataset lastUpdated is 2026-05-09. Generated definitions are correctly withheld and PR #2726 now renders ReviewStatusBadge on each option at the point of selection, so the state is honest on screen, but the underlying review has never been done. This is a qualified-clinician task, not a code task: a psychiatrist has to read each entry against current DSM-5-TR / ICD-11 materials and record the outcome in the review fields (sourceVerificationStatus, clinicianReviewStatus) that data/specifiers-content.json already carries. Scope it in tranches by category rather than as one pass. Until it is done, the builder must keep its aide-memoire framing and must not be described as decision support.",
+      "source": "PR #2726 (BigSimmo/Database), specifier builder review-status work",
       "added": "2026-09-07"
     }
   ],
