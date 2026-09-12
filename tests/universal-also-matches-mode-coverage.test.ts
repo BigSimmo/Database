@@ -99,7 +99,8 @@ describe("cross-mode also-matches coverage", () => {
     // Prescribing is that mode — `/?mode=prescribing` renders
     // MedicationPrescribingWorkspace inside the dashboard — and it shipped two
     // panels until ui-stress caught the count at 2.
-    const dashboard = read("src/components/ClinicalDashboard.tsx");
+    // Visibility gate lives in dashboard-mode-surface (extracted from ClinicalDashboard).
+    const dashboard = read("src/components/clinical-dashboard/dashboard-mode-surface.ts");
     const gate = dashboard.slice(
       dashboard.indexOf("const showUniversalAlsoMatches ="),
       dashboard.indexOf("const showDesktopHomeComposer ="),

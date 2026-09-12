@@ -16,6 +16,13 @@ import { describe, expect, it } from "vitest";
  */
 const DASHBOARD = readFileSync(join(__dirname, "..", "src/components/ClinicalDashboard.tsx"), "utf8");
 
+// Lookup-query derivation lives in the mode-surface helper extracted from ClinicalDashboard
+// (maintainability budget split). Submission wiring below still lives on the dashboard.
+const MODE_SURFACE = readFileSync(
+  join(__dirname, "..", "src/components/clinical-dashboard/dashboard-mode-surface.ts"),
+  "utf8",
+);
+
 const SUBMITTED_SEARCH = readFileSync(
   join(__dirname, "..", "src/components/clinical-dashboard/use-submitted-mode-search.ts"),
   "utf8",
@@ -29,14 +36,14 @@ function sourceOf(pattern: RegExp, source = DASHBOARD): string {
 
 describe("cross-mode also-matches follows the submitted query, not the draft", () => {
   it("derives the lookup query from submittedModeQuery rather than the live composer query", () => {
-    const derivation = sourceOf(/const universalAlsoMatchesQuery =[\s\S]*?;\n/);
+    const derivation = sourceOf(/const universalAlsoMatchesQuery =[\s\S]*?;\n/, MODE_SURFACE);
     expect(derivation).toContain("submittedModeQuery ?? query");
     // The regression this guards: the whole non-answer arm used to be the bare draft.
     expect(derivation).not.toMatch(/:\s*query;\s*$/);
   });
 
   it("keeps answer mode on the generated answer's query", () => {
-    const derivation = sourceOf(/const universalAlsoMatchesQuery =[\s\S]*?;\n/);
+    const derivation = sourceOf(/const universalAlsoMatchesQuery =[\s\S]*?;\n/, MODE_SURFACE);
     expect(derivation).toContain('activeModeResultKind === "answer" ? (latestAnswerQuery ?? query)');
   });
 
