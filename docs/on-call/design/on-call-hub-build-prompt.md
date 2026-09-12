@@ -42,15 +42,38 @@ Replace On Call's current secondary navigation with the shared priority-navigati
   requires.
 - When the active route is inside the overflow, the rule sits under **More**. That is the
   component's existing `data-active-from` behaviour; do not reimplement it.
-- Slot counts ride the ink (`Contacts 42`). Never abbreviate a label — a slot shows its real
-  word or folds into More.
+- Never abbreviate a label — a slot shows its real word or folds into More.
+- **No counts on the rail.** An earlier draft of this prompt asked for `Contacts 42`, which
+  contradicts the component's own contract: `ModeNavItem.count` is documented as "state, not
+  size — a fill like 3/4, never a catalogue total". Using it as this mockup draws it would mean
+  forking the component the line above says to use as it ships. The counts live where they read
+  as size instead: the More sheet and the home's section tiles.
 
-### 2.2 Header — the universal header, unaltered
+> **This reverses a decision the code records, and that is deliberate.** `mode-secondary-navigation.ts`
+> carried an empty registry for On Call with a note saying the bar "could never render" here,
+> because every route in this mode is an information page and `PageSecondaryNavigation` returns
+> null for those. The note is accurate about the SHELL and wrong about the conclusion: a page that
+> owns its header navigation mounts the rail itself, which is what `differential-presentation-workflow-page.tsx`
+> already does. The 2026-09-04 design spec §8.3 always intended this mode to join the adopted-nav
+> set. Say so in the PR body rather than leaving a reviewer to find the contradiction.
 
-- Keep `MasterSearchHeader` exactly as it is: hamburger, centred mode pill, right-hand control.
-- **The mode pill is not customised for this mode.** It switches app modes, as everywhere else.
+### 2.2 Header — the universal header's shape, unaltered
+
+Keep `MasterSearchHeader`'s three regions exactly as they are: hamburger, centred mode pill,
+right-hand control. Two things change behind that shape, and both must be built so the other
+sixteen modes render identically.
+
 - **The right-hand control becomes the page menu** for this mode — the same bordered round
-  button that carries "new chat" in Therapy. It opens the shared actions sheet.
+  button that carries "new chat" everywhere else. That region hard-codes one control for all
+  seventeen modes, so it needs a real extension point: a DOM slot a page portals into, with CSS
+  standing the new-chat button down while the slot is occupied. Not a `searchMode === "on-call"`
+  branch in the header — that is how one row becomes sixteen variants.
+- **The mode pill opens this mode's own pages first** (owner decision, 2026-09-12), drawn
+  exactly like the mode switcher everywhere else — same rows, same tiles, same check disc — with
+  a back control to the full mode list and an "All modes" row at the foot. Gate it on the mode
+  declaring no results surface rather than on a mode id. Keep the section level outside the
+  roving-tabindex machinery: it is ordinary links in ordinary tab order, and threading a second
+  row kind through focus code shared by every mode buys nothing.
 
 ### 2.3 No search composer in this mode
 
@@ -60,6 +83,12 @@ mode's search registration, keeping the one-composer-owner contract in
 Delete `/on-call/search` and its registry entry, or reduce it to a redirect — your call, but
 leave no orphan route and no dead registry row.
 
+What actually removes the composer is taking `/on-call` out of `consolidatedModeHomePaths`:
+that map pointed the bare path at the shared home, and the shared home is the one place in this
+mode a composer appeared. `/tools`, `/favourites` and `/medications` are already absent from it
+for the same class of reason. Add `standaloneModeHomeHref` too, or the mode pill will keep
+retargeting a composer with nowhere to submit.
+
 ### 2.4 No bottom toolbar
 
 Remove it. The reclaimed space (~68px) goes to content. Update the phone-scroll route lists
@@ -67,8 +96,12 @@ and the reserve helper together, per the search-chrome guards.
 
 ### 2.5 Home becomes a modular dashboard at `/on-call`
 
-Seven modules, in this order. Each has a monospaced uppercase label and an optional trailing
+Eight modules, in this order. Each has a monospaced uppercase label and an optional trailing
 action.
+
+Two of them — **Shift** and **Quick** — cannot be built before the database change, so they land
+with it: Shift needs the site's name, hours and wards, and Quick's second action is a Forms
+link. Everything else ships in the first change.
 
 1. **Shift** — site name, hours, wards covered, and a progress bar with "started HH:MM" and
    "Xh Ym to handover". The only module tinted in the mode accent. Carries the site switcher.
@@ -82,23 +115,39 @@ action.
    **Store this in browser storage only**, via `createBrowserStore`
    (`src/lib/client-store-factory.ts`), following `saved-registry-storage.ts`. Never send it to
    the server. Clear it on sign-out, exactly as the contacts cache does.
-6. **Coming up** — the next teaching session and the next handover.
-7. **All sections** — an 8-tile grid: the seven sections plus Who's who, each with a count and
+6. **Coming up** — the next teaching session and the next handover. Ordering needs a date:
+   `education.details.nextOccurrence` is free text ("Thursday 1pm") and cannot be ranked, so add
+   an optional ISO `nextOccurrenceDate` beside it. `details` is JSONB, so this costs no
+   migration. An undated session stays on the Teaching page rather than appearing here.
+7. **Quick** — Pocket card and Claim overtime. **Not "Wrong number"**: §2.8 forbids building the
+   wrong-number report, because it needs a signed-in tier that does not exist, and the mockup
+   draws it anyway.
+8. **All sections** — an 8-tile grid: the seven sections plus Who's who, each with a count and
    a four-word description.
+
+Each module is derived from a **tag the owner controls**, not a new column: `call-first`,
+`switchboard` and `ward` on contacts, `pinned` on a playbook scenario. One convention rather
+than four ad-hoc ones, no migration, and the owner can change what the home shows from inside
+the app. Every empty state names the tag that fills it.
 
 **Do not put a freshness warning on Home.** Overdue entries surface on Contacts, where the fix
 is one tap.
 
 ### 2.6 New sections
 
-- **Forms** — a new `on_call_entries` section. `details`:
+- **Forms** — a new `on_call_entries` section. **This needs a migration**, so it ships with the
+  database change rather than before it: `section` is a CHECK constraint over six literals and a
+  seventh value cannot be added without SQL. `details`:
   `{ category, whoSigns?, turnaround?, medium: "online" | "paper", url?, physicalLocation? }`.
   Rows render three metadata chips (who signs / how long / online or paper) on the 40px compact
   rung. Rows that leave the app show an external-link glyph, not a chevron. The hub links to the
   official current version and never stores a copy.
-- **Who's who** — reuse the `contacts` section with a new `details.kind: "role-explainer"`, or
-  add a section if that reads cleaner. Holds what each role does and when to call them, the
-  on-call ladder, and WA Health acronyms.
+- **Who's who** — reuse the `contacts` section with a new `details.kind: "role-explainer"`.
+  Holds what each role does and when to call them, the on-call ladder, and WA Health acronyms.
+  Give it a route and put it in the **More sheet**, not only the home's tile grid: the mockup
+  shows it as a tile alone, which leaves it unreachable from every section page. Make `kind` a
+  literal rather than a free string, so an unrecognised value fails validation instead of
+  quietly becoming an ordinary contact and joining the dialling list.
 - Rename the existing `education` section's UI label to **Teaching**. Keep the stored enum value
   `education` — do not migrate the enum for a label change.
 
@@ -164,14 +213,18 @@ On Call is world-readable. `is_personal` rows are the only private ones.
 
 ## 4. Ship it in three pull requests, in this order
 
-**PR 1 — navigation and chrome.** The rail, the header's page menu, removing the search
-composer and the bottom toolbar, and the route/registry/manifest updates that follow. No schema
-change, so this can merge any time.
+**Change 1 — navigation, chrome and the dashboard.** The rail, the header's page menu, the mode
+pill opening this mode's pages, removing the search composer and the bottom toolbar, the home
+dashboard, Who's who, Recent, the Teaching label, and the route/registry/manifest updates that
+follow. No schema change, so this can merge any time.
 
-**PR 2 — Home dashboard, Forms, Who's who, Teaching label.** Visible new surfaces. The Recent
-module's browser storage lands here. Still no schema change.
+**Change 2 — the database.** One migration: the `forms` section value, `site` on
+`on_call_entries`, and the `on_call_sites` table. With it: the Forms section, site scoping, the
+privacy defaults, the credential validator, and the two home modules that need site data (Shift
+and Quick).
 
-**PR 3 — site scoping and the privacy defaults.** This is the only PR with a migration.
+> Owner decision, 2026-09-12: two changes rather than three. Forms moved out of the first change
+> because a new section value needs SQL — the original three-PR split assumed it did not.
 
 > **Merging a migration reaches the live clinical database within seconds, with no deploy step.**
 > Do not enable auto-merge on PR 3. Do not write any PR text promising a deferred deploy —
@@ -205,14 +258,15 @@ to retrieval, ranking, the RPCs, or the eval fixtures.`
 
 ---
 
-## 6. Ask before you build, if unsure
+## 6. Decisions taken, 2026-09-12
 
-Two decisions are the owner's and are not yet made:
+The two questions this prompt left open were put to the owner and delegated back:
 
-1. Whether the **Recent** module is acceptable at all — it means the app remembers which numbers
-   were dialled, on that device only.
-2. Whether **Forms** deserves its own section or should sit inside Logistics as two categories.
+1. **Recent** is built. Browser storage only, capped and deduped, cleared on sign-out through
+   the one existing sign-out path — and it stores an entry id, a title and a time, never a
+   number. The digits are read from the live entry when a row renders, so a personal number
+   cannot outlive the session on a shared ward phone.
+2. **Forms gets its own section**, not two Logistics categories. The mockup gives it a whole
+   artboard with its own filter chips and metadata chips, which does not fit inside Logistics.
 
-If either blocks you, build everything else and raise the question rather than guessing.
-
-Start with PR 1. Report what you changed, what you ran, and what you deferred.
+Start with change 1. Report what you changed, what you ran, and what you deferred.

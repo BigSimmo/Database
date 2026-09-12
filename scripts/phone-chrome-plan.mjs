@@ -63,6 +63,11 @@ const patterns = {
   ],
   calculators: [/^src\/components\/calculators\//],
   differentials: [/^src\/components\/differentials\//],
+  // On Call owns phone chrome of its own: every page in the mode mounts the
+  // shared rail itself, and its dashboard is a phone-first surface. Without an
+  // owner here, any edit under `src/components/on-call/` falls into `unknownUi`
+  // and escalates a section-copy tweak to the whole Chromium suite.
+  onCall: [/^src\/components\/on-call\//, /^src\/lib\/on-call\//],
   sharedFoundation: [
     /^src\/app\/globals\.css$/,
     /^src\/styles\//,
@@ -120,6 +125,7 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
     flags.documents ||
     flags.calculators ||
     flags.differentials ||
+    flags.onCall ||
     flags.sharedFoundation ||
     flags.phoneContract;
   const unknownUi = uiSourceChanged && !phoneRelevant;
@@ -131,6 +137,10 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
       flags.documents ||
       flags.calculators ||
       flags.differentials ||
+      // On Call's pages own their header chrome — each mounts the shared rail
+      // itself rather than receiving it from the shell — so the page-owned
+      // ownership journey is the one that can see them break.
+      flags.onCall ||
       flags.sharedFoundation ||
       flags.phoneContract);
   const runDashboardJourneys =
