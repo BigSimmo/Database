@@ -679,7 +679,7 @@ describe("RAG request site-content snapshot", () => {
     expect(legacy.ragRequestContext.snapshot.publicSiteContent.state).toBe("disabled");
     expect(legacy.ragRequestContext.snapshotCacheKey).toBe("");
     const answerKey = ragCacheModule.scopedAnswerCacheKey(legacy);
-    expect(answerKey).toMatch(/^rag-cache-v24\|[0-9a-f]{64}\|answer-owner:[0-9a-f]{64}\|answer-request:[0-9a-f]{64}$/);
+    expect(answerKey).toMatch(/^rag-cache-v25\|[0-9a-f]{64}\|answer-owner:[0-9a-f]{64}\|answer-request:[0-9a-f]{64}$/);
     for (const privateValue of ["owner-a", "clozapine monitoring", generation]) {
       expect(answerKey).not.toContain(privateValue);
     }
@@ -1177,7 +1177,7 @@ describe("site-aware RAG cache isolation", () => {
       scope_key: "public-only|document-original",
       normalized_query: expectedSharedQuery,
       indexing_version: "test-rag-version:document-original:2026-08-29T00:00:00.000Z:",
-      dependency_version: "rag-cache-v24",
+      dependency_version: "rag-cache-v25",
       payload: {
         results: [
           expect.objectContaining({
