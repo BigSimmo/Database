@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ShieldCheck, TriangleAlert, type LucideIcon } from "lucide-react";
 
-import { Chip, type ChipAppearance } from "@/components/ui/chip";
+import { Chip, type ChipAppearance, type ChipSize } from "@/components/ui/chip";
 import { missingValuePhrase } from "@/components/ui/missing-value";
 import { cn, EmptyState as SharedEmptyState, LoadingPanel } from "@/components/ui-primitives";
 
@@ -86,12 +86,12 @@ export function TagRow({
 
 // ---- review status badge ------------------------------------------------
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, size = "standard" }: { status: string; size?: ChipSize }) {
   const meta = reviewStatusMeta(status);
   const tone = meta.tone === "success" ? "success" : meta.tone === "warning" ? "warning" : "neutral";
   const Icon = meta.tone === "success" ? ShieldCheck : TriangleAlert;
   return (
-    <Chip size="standard" appearance={{ kind: "status", tone }} icon={Icon}>
+    <Chip size={size} appearance={{ kind: "status", tone }} icon={Icon}>
       {meta.label}
     </Chip>
   );

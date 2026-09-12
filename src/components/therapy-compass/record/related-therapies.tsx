@@ -8,6 +8,7 @@ import { InteractiveRow } from "@/components/ui/interactive-row";
 
 import { cardPreviewText } from "../data/select";
 import type { RelatedTherapy } from "../data/related";
+import { StatusBadge } from "../ui";
 
 /**
  * Nearest neighbours, each carrying the reason it is here.
@@ -44,6 +45,14 @@ export function RelatedTherapies({ related, onOpen }: { related: RelatedTherapy[
                   <span className="rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-px text-3xs font-semibold text-[color:var(--clinical-accent)]">
                     {reason}
                   </span>
+                  {/* The row prints a sentence of another record's clinical
+                      prose, so it owes that record's review state — the same
+                      obligation the card, detail, brief and sheet already meet.
+                      It matters more since the catalogue-wide notice went
+                      (PR #2686): the per-record badge is now the whole
+                      disclosure, and this listing was one of two surfaces
+                      quoting a record without it. */}
+                  <StatusBadge status={therapy.reviewStatus} size="compact" />
                 </span>
                 <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[color:var(--text-muted)]">
                   {cardPreviewText(therapy.bestUsedFor ?? therapy.clinicalSummary, {
