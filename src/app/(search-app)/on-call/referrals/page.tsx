@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function OnCallReferralsRoute() {
-  return <OnCallSectionPage section="referrals" />;
+  return <OnCallSectionPage view="referrals" />;
 }

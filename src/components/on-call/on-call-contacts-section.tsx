@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
 import { cn } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 export interface OnCallContactsSectionProps {
   entries: readonly OnCallEntry[];
@@ -173,7 +174,12 @@ export function OnCallContactsSection({
   onEditEntry,
   onVerified,
 }: OnCallContactsSectionProps) {
-  const contactEntries = entries.filter((entry) => entry.section === "contacts");
+  // Role explainers share this section's rows but are not numbers to ring, so
+  // they render on Who's who instead. Splitting here rather than at the page
+  // keeps the two lists derived from one function
+  // (`src/lib/on-call/who-is-who.ts`), so neither can drift into showing the
+  // other's entries.
+  const { contacts: contactEntries } = partitionContactsEntries(entries);
 
   const addButton = onAddEntry ? (
     <Button variant="secondary" size="sm" icon={Plus} onClick={onAddEntry} testId="on-call-contacts-add">

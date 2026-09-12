@@ -45,26 +45,27 @@ import OnCallLogisticsRoute from "@/app/(search-app)/on-call/logistics/page";
 import OnCallOrientationRoute from "@/app/(search-app)/on-call/orientation/page";
 import OnCallPlaybookRoute from "@/app/(search-app)/on-call/playbook/page";
 import OnCallReferralsRoute from "@/app/(search-app)/on-call/referrals/page";
+import OnCallWhoIsWhoRoute from "@/app/(search-app)/on-call/who-is-who/page";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
-import { sectionTargetIds } from "@/components/in-page-nav/page-section-index";
-import { onCallSectionNavSections } from "@/components/on-call/on-call-nav-header";
-import { ON_CALL_SECTIONS, type OnCallSection } from "@/lib/on-call/entry-model";
+import { ON_CALL_VIEW_TITLES, type OnCallPageView } from "@/components/on-call/on-call-section-identity";
+import { ON_CALL_SECTIONS } from "@/lib/on-call/entry-model";
 
 type RouteCase = {
-  section: OnCallSection;
+  view: OnCallPageView;
   title: string;
   Route: () => ReactElement;
 };
 
 const routes: RouteCase[] = [
-  { section: "contacts", title: "Contacts", Route: OnCallContactsRoute },
-  { section: "playbook", title: "Playbook", Route: OnCallPlaybookRoute },
-  { section: "referrals", title: "Referrals", Route: OnCallReferralsRoute },
-  { section: "orientation", title: "Orientation", Route: OnCallOrientationRoute },
+  { view: "contacts", title: "Contacts", Route: OnCallContactsRoute },
+  { view: "playbook", title: "Playbook", Route: OnCallPlaybookRoute },
+  { view: "referrals", title: "Referrals", Route: OnCallReferralsRoute },
+  { view: "orientation", title: "Orientation", Route: OnCallOrientationRoute },
   // Titled "Teaching" everywhere a reader sees it, even though the section id
   // (route segment, database check constraint) stays "education".
-  { section: "education", title: "Teaching", Route: OnCallEducationRoute },
-  { section: "logistics", title: "Logistics", Route: OnCallLogisticsRoute },
+  { view: "education", title: "Teaching", Route: OnCallEducationRoute },
+  { view: "logistics", title: "Logistics", Route: OnCallLogisticsRoute },
+  { view: "who-is-who", title: "Who's who", Route: OnCallWhoIsWhoRoute },
 ];
 
 // A contact verified today, so it sorts into an area group rather than the
@@ -104,10 +105,16 @@ afterEach(() => {
 });
 
 describe("on-call section routes", () => {
-  it("covers every declared on-call section, in order", () => {
-    // Fails loudly if a section is added to the data model without a route
-    // case here, rather than leaving the new section silently unguarded.
-    expect(routes.map((route) => route.section)).toEqual([...ON_CALL_SECTIONS]);
+  it("covers every declared on-call section, in order, plus Who's who", () => {
+    // Fails loudly if a section is added to the data model without a route case
+    // here, rather than leaving the new section silently unguarded. Who's who is
+    // not a stored section — it is `contacts` rows behind `details.kind` — so it
+    // is named separately rather than folded into the model's list.
+    expect(routes.map((route) => route.view)).toEqual([...ON_CALL_SECTIONS, "who-is-who"]);
+  });
+
+  it("titles every route from the shared identity map, so no page invents its own name", () => {
+    for (const route of routes) expect(route.title).toBe(ON_CALL_VIEW_TITLES[route.view]);
   });
 
   it.each(routes.map((route) => [route.title, route] as const))(
@@ -123,22 +130,19 @@ describe("on-call section routes", () => {
     "%s renders an anchor, with the shared in-page scroll margin, for every declared section",
     (_title, route) => {
       const { container } = render(<route.Route />);
-      const declared = onCallSectionNavSections(route.section);
-      expect(declared.length).toBeGreaterThan(0);
-
-      for (const section of declared) {
-        const anchor = sectionTargetIds(section)
-          .map((id) => container.querySelector(`#${CSS.escape(id)}`))
-          .find((element): element is Element => element !== null);
-        expect(anchor, `${route.title}: no element renders an anchor for "${section.id}"`).not.toBeNull();
-        expect(anchor?.className, `${route.title}: "${section.id}" has no in-page scroll margin`).toContain(
-          inPageAnchor,
-        );
+      // The two anchors every view declares: the overview framing, and the
+      // entries list. They were previously read off the deleted nav header's
+      // section list; asserting them directly is the same guarantee without a
+      // component in the middle that no longer exists.
+      for (const anchorId of [`on-call-${route.view}-overview`, `on-call-${route.view}-entries`]) {
+        const anchor = container.querySelector(`#${CSS.escape(anchorId)}`);
+        expect(anchor, `${route.title}: no element renders an anchor for "${anchorId}"`).not.toBeNull();
+        expect(anchor?.className, `${route.title}: "${anchorId}" has no in-page scroll margin`).toContain(inPageAnchor);
       }
     },
   );
 
-  it.each(routes.filter((route) => route.section !== "contacts").map((route) => [route.title, route] as const))(
+  it.each(routes.filter((route) => route.view !== "contacts").map((route) => [route.title, route] as const))(
     "%s shows its own empty state and a way to add to it",
     (_title, route) => {
       accountState.isAuthenticated = true;
@@ -148,9 +152,9 @@ describe("on-call section routes", () => {
       // because only Contacts was wired to the store — so the pages could not
       // show entries and offered no way to create one. Each now renders its
       // own section component and its own add control.
-      expect(screen.getByTestId(`on-call-${route.section}-empty`)).toBeTruthy();
-      expect(screen.getByTestId(`on-call-${route.section}-add`)).toBeTruthy();
-      expect(screen.queryByTestId(`on-call-${route.section}-signed-out`)).toBeNull();
+      expect(screen.getByTestId(`on-call-${route.view}-empty`)).toBeTruthy();
+      expect(screen.getByTestId(`on-call-${route.view}-add`)).toBeTruthy();
+      expect(screen.queryByTestId(`on-call-${route.view}-signed-out`)).toBeNull();
     },
   );
 
@@ -180,13 +184,13 @@ describe("on-call section routes", () => {
 
       // The generic section name is still shown, as it always was.
       expect(screen.getByRole("heading", { level: 1, name: route.title })).toBeInTheDocument();
-      expect(screen.queryByTestId(`on-call-${route.section}-signed-out`)).toBeNull();
+      expect(screen.queryByTestId(`on-call-${route.view}-signed-out`)).toBeNull();
       expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
 
       // The section's own component renders, so an empty hub reads as empty
       // rather than as locked.
-      expect(screen.getByTestId(`on-call-${route.section}-empty`)).toBeTruthy();
-      expect(screen.queryByTestId(`on-call-${route.section}-add`)).toBeNull();
+      expect(screen.getByTestId(`on-call-${route.view}-empty`)).toBeTruthy();
+      expect(screen.queryByTestId(`on-call-${route.view}-add`)).toBeNull();
     },
   );
 

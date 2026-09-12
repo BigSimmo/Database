@@ -97,6 +97,23 @@ const educationDetails = z
   .object({
     recurrence: trimmed.optional(),
     nextOccurrence: trimmed.optional(),
+    /**
+     * The same occurrence as `nextOccurrence`, as a date the app can order on.
+     *
+     * `nextOccurrence` is free text ("Thursday 1pm", "first Tuesday of term")
+     * and always will be, because that is how a teaching calendar is actually
+     * described. The home's "Coming up" module has to pick the NEXT session out
+     * of several, which free text cannot answer, so an owner who wants a session
+     * to appear there gives it a date as well. Optional on purpose: an undated
+     * session still lists on the Teaching page, it simply cannot be ranked.
+     *
+     * `YYYY-MM-DD`, matched rather than parsed — `new Date("Thursday")` is
+     * `Invalid Date` on some engines and a real date on others.
+     */
+    nextOccurrenceDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+      .optional(),
     presenter: trimmed.optional(),
     location: trimmed.optional(),
     recordingUrl: z.string().url().optional(),

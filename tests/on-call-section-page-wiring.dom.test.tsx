@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { OnCallSectionPage } from "@/components/on-call/on-call-section-page";
 import { ON_CALL_SECTIONS, type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
+import { modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/on-call/contacts",
@@ -80,7 +81,7 @@ describe("every section renders its own entries", () => {
   for (const section of ON_CALL_SECTIONS) {
     it(`shows a saved ${section} entry on the ${section} page`, () => {
       storeState.entries = [entryFor(section)];
-      render(<OnCallSectionPage section={section} />);
+      render(<OnCallSectionPage view={section} />);
       // `getAllByText`: Referrals renders its title in both the disclosure
       // summary and the expanded body, so one match is not guaranteed.
       expect(screen.getAllByText(`${section} entry title`).length).toBeGreaterThan(0);
@@ -90,31 +91,47 @@ describe("every section renders its own entries", () => {
     it(`does not assert an empty ${section} while the first fetch runs`, () => {
       storeState.entries = [];
       storeState.loading = true;
-      render(<OnCallSectionPage section={section} />);
+      render(<OnCallSectionPage view={section} />);
       expect(screen.getByTestId(`on-call-${section}-loading`)).toBeTruthy();
     });
   }
 });
 
 describe("the sections can reach each other", () => {
-  // Before this strip existed, five of the six pages were orphans: the mode
-  // registered destinations in the shared header bar, but every section route
-  // is an information page, so the bar was never drawn. A reader could open
-  // Contacts and have no way to reach Playbook.
-  it("links every section from every section, marking the current one", () => {
+  // Before the mode had a rail, five of the six pages were orphans: the mode
+  // registered destinations in the shared header bar, but every section route is
+  // an information page, so `PageSecondaryNavigation` returned null and the bar
+  // was never drawn. A reader could open Contacts and have no way to reach
+  // Playbook. The page now mounts `RegistryModeNav` itself, which is what makes
+  // the registry's destinations actually reachable.
+  it("mounts the shared rail, carrying every registered destination", () => {
     storeState.entries = [];
-    render(<OnCallSectionPage section="playbook" />);
+    render(<OnCallSectionPage view="contacts" />);
 
-    for (const section of ON_CALL_SECTIONS) {
-      const link = screen.getByTestId(`on-call-section-link-${section}`);
-      expect(link.getAttribute("href")).toBe(`/on-call/${section}`);
-      expect(link.getAttribute("aria-current")).toBe(section === "playbook" ? "page" : null);
+    const rail = screen.getAllByTestId("mode-nav")[0];
+    expect(rail).toBeTruthy();
+    const hrefs = [...rail!.querySelectorAll("a[href]")].map((link) => link.getAttribute("href"));
+    for (const entry of modeSecondaryNavigationEntries("on-call")) {
+      expect(hrefs, `the rail does not link ${entry.label}`).toContain(entry.href);
     }
   });
 
-  it("gives the strip its own landmark so it is not read as page content", () => {
+  it("marks the page you are on, and only that one", () => {
+    // The rail reads the pathname, not the view prop — in production the two are
+    // the same fact, and deriving from the URL is what keeps a deep link marked
+    // correctly. `usePathname` is mocked to /on-call/contacts at the top of this
+    // file, so that is the page under test here.
     storeState.entries = [];
-    render(<OnCallSectionPage section="contacts" />);
-    expect(screen.getByRole("navigation", { name: "On Call sections" })).toBeTruthy();
+    render(<OnCallSectionPage view="contacts" />);
+
+    const rail = screen.getAllByTestId("mode-nav")[0];
+    const current = [...rail!.querySelectorAll("a[aria-current='page']")].map((link) => link.getAttribute("href"));
+    expect(current).toEqual(["/on-call/contacts"]);
+  });
+
+  it("gives the rail its own landmark so it is not read as page content", () => {
+    storeState.entries = [];
+    render(<OnCallSectionPage view="contacts" />);
+    expect(screen.getAllByRole("navigation", { name: "On Call pages" }).length).toBeGreaterThan(0);
   });
 });

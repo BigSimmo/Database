@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function OnCallContactsRoute() {
-  return <OnCallSectionPage section="contacts" />;
+  return <OnCallSectionPage view="contacts" />;
 }

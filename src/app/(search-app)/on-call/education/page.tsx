@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function OnCallEducationRoute() {
-  return <OnCallSectionPage section="education" />;
+  return <OnCallSectionPage view="education" />;
 }

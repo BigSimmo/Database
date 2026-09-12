@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function OnCallLogisticsRoute() {
-  return <OnCallSectionPage section="logistics" />;
+  return <OnCallSectionPage view="logistics" />;
 }

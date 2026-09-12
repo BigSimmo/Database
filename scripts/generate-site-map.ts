@@ -193,6 +193,9 @@ const routeDescriptions: Record<string, string> = {
   "/therapy-compass/recommend": "Recommend a therapy from a clinical question and constraints.",
   "/therapy-compass/review": "Therapy records awaiting qualified-clinician source review.",
   "/therapy-compass/search": "Therapy library search surface.",
+  "/on-call":
+    "On Call shift dashboard: the calls that come first, tonight's wards, recent numbers and the section grid.",
+  "/on-call/who-is-who": "What each on-call role does, when to call them, and the acronyms this service uses.",
   "/tools": "Clinical tools and applications launcher directory.",
   // Ward Flow's routes moved under /mockups/ward-flow/** in the sandbox move (see
   // src/lib/developer-area/headers.ts). Mockup routes deliberately carry no curated

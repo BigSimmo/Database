@@ -7,6 +7,7 @@ import { clearAccountScopedBrowserStorage } from "@/lib/account-scoped-browser-s
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearOnCallEntryCache } from "@/lib/on-call/entry-cache-keys";
+import { clearOnCallRecent } from "@/lib/on-call/recent-storage-keys";
 import { clearPatientProfile } from "@/lib/patient-profile-storage";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
 import { clearSignedUrlCache } from "@/lib/signed-url-cache";
@@ -63,6 +64,11 @@ function clearAccountScopedBrowserState() {
   // computer switches accounts without ever signing out, so without this the
   // previous user's private entries render for the next one.
   clearOnCallEntryCache();
+  // The same shift, from the other direction: Recent is what the last person
+  // looked up and rang. It carries no digits of its own, but it names the
+  // entries — including personal ones — so it goes with the cache rather than
+  // outliving it on a shared ward phone.
+  clearOnCallRecent();
   // Component-owned stores this lib module may not import (tests/lib-layering):
   // the unscoped favourites pins / last-opened keys (audit L2) and the Caring
   // Contacts plan draft, a patient's name and mobile from stage 3 on (audit L6).

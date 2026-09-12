@@ -57,11 +57,19 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // back-link `<Link>` — so an exact match is correct here, not a prefix: a
   // `startsWith` would wrongly claim the slot for that child route too.
   if (pathname === "/mockups/development") return true;
-  // on-call/on-call-nav-header.tsx, mounted by each of the six section pages
-  // (contacts, playbook, referrals, orientation, education, logistics) — the
-  // same six routes `isInformationPage` claims for on-call, and `search` is
-  // excluded there by the shared `TOOL_SUFFIXES` set, so this line alone
-  // covers exactly those six and never `/on-call/search`.
+  // On Call's section pages, which mount `RegistryModeNav` themselves rather
+  // than letting the shell draw it — every route in this mode is an information
+  // page, so `PageSecondaryNavigation` returns null before the mode branch and
+  // the shell never could. `/on-call/card` claims the slot too, with the mode's
+  // one remaining `InPageNavHeader` (`OnCallCardNavHeader`); it is a print
+  // output rather than a peer section and needs a back control and an actions
+  // sheet, which a rail has no place for.
+  //
+  // `isSlugDetail` covers every single-segment child of `/on-call` and nothing
+  // deeper, which is exactly the set of pages this mode has. The mode home
+  // `/on-call` is NOT covered by it and claims the slot separately below — it is
+  // the bare path, not a slug detail.
   if (isSlugDetail(pathname, "/on-call")) return true;
+  if (pathname === "/on-call") return true;
   return false;
 }

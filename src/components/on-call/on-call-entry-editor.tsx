@@ -3,7 +3,7 @@
 import { CircleCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-nav-header";
+import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/choice";

@@ -60,12 +60,20 @@ export function isInformationPage(pathname: string): boolean {
   if (isSlugDetail(pathname, "/factsheets", ["search", "topics"])) return true;
   if (isSlugDetail(pathname, "/dictionary", ["search", "browse", "topics", "compare", "sources"])) return true;
   if (isSlugDetail(pathname, "/sources", ["topics", "publishers", "method"])) return true;
-  // The six on-call section routes (contacts, playbook, referrals, orientation,
-  // education, logistics) each portal their own `InPageNavHeader` — unlike
-  // Sources' browse tabs, which keep the shared mode-nav bar instead. `search`
-  // is excluded by the shared `TOOL_SUFFIXES` set above, so this line alone
-  // covers exactly the six section routes and nothing else on `/on-call/*`.
+  // Every On Call route, the mode home included. The mode declares no search
+  // surface: it has no composer on any page, filter chips inside a page do the
+  // narrowing, and this is what keeps the shell from mounting one. Its pages
+  // also own their header navigation — the section pages mount `RegistryModeNav`
+  // themselves and `/on-call/card` mounts `InPageNavHeader` — so being an
+  // information page is also what stops the shell drawing a second bar over the
+  // top. The two facts are one fact, which is why they share this line.
+  //
+  // `isSlugDetail` covers the single-segment children and excludes nothing that
+  // still exists: `search` was in the shared `TOOL_SUFFIXES` set and that route
+  // is gone. `/on-call` itself is the bare path, not a slug detail, so it needs
+  // its own test.
   if (isSlugDetail(pathname, "/on-call")) return true;
+  if (pathname === "/on-call") return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
