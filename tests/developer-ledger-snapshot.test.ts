@@ -133,7 +133,9 @@ describe("dev-only pending inbox loading (#707F09)", () => {
     vi.stubEnv("NODE_ENV", "production");
 
     vi.spyOn(fs, "existsSync").mockReturnValue(true);
-    vi.spyOn(fs, "readdirSync").mockReturnValue([{ name: "01-test.json", isFile: () => true }] as unknown as ReturnType<typeof fs.readdirSync>);
+    vi.spyOn(fs, "readdirSync").mockReturnValue([{ name: "01-test.json", isFile: () => true }] as unknown as ReturnType<
+      typeof fs.readdirSync
+    >);
     vi.spyOn(fs, "readFileSync").mockReturnValue(
       JSON.stringify({ id: "req-1", action: "new", payload: { summary: "Test" } }),
     );
