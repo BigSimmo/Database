@@ -46,6 +46,7 @@
 // `planDraftStorageAvailable()` and tells the clinician which of the two is true, because a notice
 // promising the page will remember is false when the browser refused.
 import { PLAN_DRAFT_STORAGE_KEY, subscribeAccountTransition } from "@/lib/account-scoped-browser-state";
+import { DraftConcurrencyError } from "@/lib/caring-contacts/draft-store";
 import { SENDING_PREFERENCES, type SendingPreference } from "@/lib/caring-contacts/model";
 
 import { EMPTY_PLAN_ACTIVATION, type PlanActivationDraft, type PlanSubmissionIdentity } from "./plan-activation";
@@ -181,6 +182,21 @@ export type PlanDraft = {
    * see {@link PlanDraftDecisions}.
    */
   decisions: PlanDraftDecisions;
+  /**
+   * The optimistic-concurrency counter (#M6P1QQ), incremented by `writePlanDraft` on every
+   * successful write. `0` on a draft that has never been written.
+   *
+   * `sessionStorage` belongs to one tab, so the ordinary meaning of "two sessions" `DraftStore` was
+   * built for cannot happen here — but a single tab is not single-writer. `update()` in
+   * `plan-wizard.tsx` closes over the draft its OWN render read, and React can flush more than one
+   * effect from the same commit before that render's `draft` closure is replaced by a newer one
+   * (the stage-4 submission-mint effect and an ordinary field edit both do this). Two writes built
+   * from the same stale closure silently overwrite each other today — the second simply replaces
+   * whatever the first just wrote, with nothing to notice. This field, and the check in
+   * `writePlanDraft`, exist to catch exactly that and re-base rather than lose it — see
+   * `writeDraftWithRetry` in `plan-wizard.tsx`.
+   */
+  version: number;
 };
 
 /**
@@ -201,6 +217,7 @@ export function emptyPlanDraft(referralId: string, pathwayVersionId: string | nu
     activation: { ...EMPTY_PLAN_ACTIVATION },
     submission: null,
     decisions: { ...NO_PLAN_DRAFT_DECISIONS },
+    version: 0,
   };
 }
 
@@ -362,6 +379,7 @@ function parseDraft(raw: string): PlanDraft | null {
     activation,
     submission,
     decisions,
+    version,
   } = parsed;
   if (typeof referralId !== "string" || referralId === "") return null;
   if (!isPlanWizardStage(stage)) return null;
@@ -378,6 +396,11 @@ function parseDraft(raw: string): PlanDraft | null {
   if (submissionIdentity === undefined) return null;
   const recordedDecisions = parseDecisions(decisions);
   if (recordedDecisions === null) return null;
+  // ABSENT MEANS "WRITTEN BEFORE THIS FIELD EXISTED", not "the clinician's answer was zero" —
+  // unlike stage 3 and stage 4's fields, a version counter has no clinical meaning, so a draft from
+  // before #M6P1QQ is not refused or made to lose the patient's details over it. Treated the same
+  // as a freshly-started draft would be: the very next `writePlanDraft` establishes version 1.
+  const parsedVersion = typeof version === "number" && Number.isFinite(version) && version >= 0 ? version : 0;
 
   return {
     referralId,
@@ -392,6 +415,7 @@ function parseDraft(raw: string): PlanDraft | null {
     activation: activationDraft,
     submission: submissionIdentity,
     decisions: recordedDecisions,
+    version: parsedVersion,
   };
 }
 
@@ -544,28 +568,63 @@ function storageHoldsAValue(): boolean {
   return storage !== null && rawDraft(storage) !== null;
 }
 
-/** Whether the draft was actually written down. The wizard's notice states which answer it got. */
-export function writePlanDraft(draft: PlanDraft): boolean {
+export type WritePlanDraftOptions = {
+  /**
+   * The version this write was computed FROM — pass the `version` of whatever draft `draft` is an
+   * edit of (typically `draft.version` itself, from before the caller applied its own change).
+   * Compared against what is ACTUALLY held right now, read fresh inside this call rather than
+   * trusted from the caller, immediately before writing. A mismatch throws
+   * `DraftConcurrencyError<PlanDraft>` instead of silently letting this write clobber one that
+   * landed first — see `PlanDraft.version`'s own note for the race this catches.
+   *
+   * Optional so every pre-#M6P1QQ call site keeps compiling unchanged; omitting it keeps today's
+   * blind-overwrite behaviour for that call site. `plan-wizard.tsx`'s `writeDraftWithRetry` is the
+   * one place this should be omitted from going forward -- every write the wizard itself makes goes
+   * through it.
+   */
+  expectedVersion?: number;
+};
+
+/**
+ * Whether the draft was actually written down. The wizard's notice states which answer it got.
+ *
+ * Always writes the draft ACTUALLY held now, version-bumped by one -- `draft.version` itself is
+ * never trusted as the number to write, only (optionally, via `options.expectedVersion`) as proof
+ * the caller last saw the version this write is about to replace.
+ *
+ * @throws DraftConcurrencyError<PlanDraft> when `options.expectedVersion` is given and does not
+ * match the version actually held for `draft.referralId` right now.
+ */
+export function writePlanDraft(draft: PlanDraft, options?: WritePlanDraftOptions): boolean {
+  const current = planDraftSnapshot();
+  const heldVersion = current !== null && current.referralId === draft.referralId ? current.version : 0;
+
+  if (options?.expectedVersion !== undefined && options.expectedVersion !== heldVersion) {
+    throw new DraftConcurrencyError<PlanDraft>(draft.referralId, options.expectedVersion, heldVersion, current);
+  }
+
+  const toWrite: PlanDraft = { ...draft, version: heldVersion + 1 };
+
   const storage = tabScopedStorage();
   if (storage === null) {
-    memoryDraft = draft;
+    memoryDraft = toWrite;
     notifyPlanDraftListeners();
     return false;
   }
-  const serialised = JSON.stringify(draft);
+  const serialised = JSON.stringify(toWrite);
   try {
     storage.setItem(PLAN_DRAFT_STORAGE_KEY, serialised);
   } catch {
     // Storage exists but would not take this write (a full quota, a policy). The draft still has to
     // work for the rest of this page, and the notice still has to say it is not being kept.
-    memoryDraft = draft;
+    memoryDraft = toWrite;
     notifyPlanDraftListeners();
     return false;
   }
   // The cache is primed from what was just written rather than left to be re-read and re-parsed:
   // the snapshot must be referentially stable, and a fresh parse would hand React a new object.
   cachedRaw = serialised;
-  cachedDraft = draft;
+  cachedDraft = toWrite;
   memoryDraft = null;
   notifyPlanDraftListeners();
   return true;

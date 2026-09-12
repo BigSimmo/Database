@@ -76,6 +76,7 @@ test.describe("@mockup Ward screen", () => {
     // The countdown floors wall-clock minutes. Pin the browser clock so crossing a minute
     // boundary between the hold action and the assertion cannot turn 1h 00m into 59m.
     await page.clock.install({ time: new Date("2026-08-26T10:00:00Z") });
+    await page.clock.pauseAt(new Date("2026-08-26T10:00:00Z"));
     const wardScreen = await gotoWard(page, "rph-adult-secure");
 
     const card = wardScreen.getByTestId("ward-accepted-WF-003");
