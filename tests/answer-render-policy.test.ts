@@ -657,7 +657,6 @@ describe("answer render policy", () => {
     expect(model.copyText).not.toContain("/documents/doc-core?page=8&chunk=core-chunk");
   });
 
-
   it("does not let bestSource re-promote a review-only citation for the same passage", () => {
     // Ledger #ZK460W / Copilot review on PR #2721. collectSourceCandidates gathers bestSource
     // before citations and dedupes first-wins; without the override a strong bestSource would
